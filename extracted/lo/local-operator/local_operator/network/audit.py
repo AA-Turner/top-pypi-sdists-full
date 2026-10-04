@@ -130,6 +130,13 @@ EVENT_KINDS: frozenset[str] = frozenset(
         "epoch_rotated",
         "epoch_conflict",
         "handshake_refused",
+        # A CONNECTION THAT DIED BETWEEN ITS HELLO AND ITS WELCOME (F4, drill
+        # 2026-10-04): not a refusal — nothing decided anything — and the row that
+        # answers "the relay saw it" when a join stops before any pairing record
+        # exists. Bounded to connections that got past their hello, so port scans
+        # leave nothing; ``cause`` carries the local socket class and
+        # ``detail.stage`` the statement boundary it died at.
+        "handshake_stopped",
         "authorisation_refused",
         "link_opened",
         "session_stream_opened",
@@ -161,9 +168,10 @@ EVENT_KINDS: frozenset[str] = frozenset(
         "disconnect_initiated",
         "audit_rotated",
         "audit_pruned",
-        # The credential broker (mesh-credentials.md; build plan §2.3). Five events,
-        # because a lent bearer is a DELEGATION and an incident review has to be able
-        # to reconstruct who could spend what, on whose account, from where.
+        # The credential broker (mesh-credentials.md; build plan §2.3). The events a
+        # lent bearer's life produces, because that life is a DELEGATION and an
+        # incident review has to be able to reconstruct who could spend what, on
+        # whose account, from where.
         #
         # `act` is the owning device (the broker), `sub` is the borrowing device that
         # received the delegation; both are device ids, which is the RFC 8693
@@ -183,7 +191,11 @@ EVENT_KINDS: frozenset[str] = frozenset(
         # A membership-class event: who may borrow what changed here. "How could that
         # device spend my OpenAI account" is answered by exactly this record.
         "credential.placement",
-        # THE REMOTE ONBOARDING APPROVAL (remote-onboarding §2.4). Six lifecycle
+        # The mint-revoke half of the credential broker (github adapter): one row per
+        # revoke batch the owner's lender performed — the scheduled window-end DELETE,
+        # the operator's immediate revoke, and the retry after a failed call.
+        "credential.revoke",
+        # THE REMOTE ONBOARDING APPROVAL (remote-onboarding §2.4). The lifecycle
         # events for ONE durable record: the operator's single gesture that lets an
         # agent install this product and the operator anchor on a remote device (or
         # bootstrap the operator's own anchor locally — the same events, `kind`
@@ -196,6 +208,16 @@ EVENT_KINDS: frozenset[str] = frozenset(
         "onboard_expired",
         "onboard_connected",
         "onboard_failed",
+        # A run that stopped reporting was superseded by a retry: the receipt that
+        # lands says ``step=superseded``, and this row is how the record's history
+        # shows the gap between an approval that ran and the run that replaced
+        # it (drill finding, 2026-10-04).
+        "onboard_superseded",
+        # The REQUESTER's own settle for an un-actioned request (drill finding,
+        # same day): no operator gesture rides it, and an incident reader must be
+        # able to tell it apart from a deny (the operator said no) and from an
+        # expiry (the window lapsed on its own).
+        "onboard_withdrawn",
     }
 )
 
@@ -247,6 +269,13 @@ CAUSES: frozenset[str] = frozenset(
         "peer_closed",
         "owner_gone",
         "peer_unreachable",
+        # The LOCAL class of a connection that died in a handshake or a pairing
+        # (F4, drill 2026-10-04): a sealed record that failed against this side's
+        # own keys, and everything else the OS said went wrong. Countable here so
+        # an incident reader can tell a crypto failure apart from a peer that
+        # merely departed, without parsing a sentence.
+        "link_crypto",
+        "io",
     }
 )
 
@@ -254,7 +283,15 @@ CAUSES: frozenset[str] = frozenset(
 #: the writer, which is what makes "never key material" checkable rather than
 #: aspirational.
 DETAIL_KEYS: dict[str, frozenset[str]] = {
-    "pairing_refused": frozenset({"cause", "subject"}),
+    # ``kind``/``stage`` ride the SOCKET-CLASS rows only (F4, drill 2026-10-04):
+    # ``kind`` is the codec's local class (auth/sequence/parse/limit) and
+    # ``stage`` the statement boundary the read was at. Both are LOCAL facts,
+    # never sent to any peer.
+    "pairing_refused": frozenset({"cause", "subject", "kind", "stage"}),
+    # The relay's own row for a connection that got past its hello and then died
+    # before the welcome: stage + mode + addr say WHERE, and ``kind`` distinguishes
+    # the codec's classes for the one case that has them.
+    "handshake_stopped": frozenset({"stage", "mode", "their_addr", "their_device", "kind"}),
     "pairing_awaiting_confirmation": frozenset(
         {
             "subject",
@@ -355,6 +392,14 @@ DETAIL_KEYS: dict[str, frozenset[str]] = {
     "credential.placement": frozenset(
         {"credential_key", "act", "sub", "owner_device", "holders", "skipped"}
     ),
+    # The mint-revoke contract's other half (github adapter, F4): one row per
+    # revoke batch — the scheduled window-end DELETE, the operator's immediate
+    # revoke, and the retry after a failed call. `cause` tells the three apart,
+    # `revoked`/`deferred` are counts (tokens, never material), and the act/sub
+    # delegation markers ride here exactly as they do on `credential.grant`.
+    "credential.revoke": frozenset(
+        {"credential_key", "act", "sub", "cause", "revoked", "deferred"}
+    ),
     # -- the remote onboarding approval -------------------------------------------
     #
     # `kind` is the record's own enum (device_onboard / local_authority);
@@ -369,6 +414,11 @@ DETAIL_KEYS: dict[str, frozenset[str]] = {
     "onboard_expired": frozenset({"kind"}),
     "onboard_connected": frozenset({"kind", "run_id"}),
     "onboard_failed": frozenset({"kind", "step", "run_id"}),
+    "onboard_superseded": frozenset({"kind", "run_id"}),
+    # The requester's own settle: `surface`/`session_id` name the filer that
+    # withdrew (the store only ever accepts the filer), so the row is
+    # self-explaining without reading the record.
+    "onboard_withdrawn": frozenset({"kind", "surface", "session_id"}),
 }
 
 #: Detail keys that are dropped on sight, whatever the whitelist says. The second

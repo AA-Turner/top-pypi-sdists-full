@@ -180,10 +180,33 @@ def test_together_serves_a_bare_array_with_type_and_pricing():
 
 
 async def test_together_fetch_accepts_the_array_payload():
-    http = _StubClient([[{"id": "a", "created": 1_787_957_543, "type": "chat"}]])
+    http = _StubClient([[{"id": "a", "created": 1_787_957_543, "type": "chat"}], [{"id": "a"}]])
     entries = await ml.fetch_together(http, "secret")
     assert entries[0]["id"] == "a"
     assert http.calls[0]["headers"] == {"Authorization": "Bearer secret"}
+
+
+async def test_together_marks_each_model_serverless_or_not():
+    """Together's full list carries models that only run on a dedicated endpoint
+    (2026-10-03: Llama 4 Scout, gpt-oss-20b, DeepSeek R1 answered "non-serverless
+    model" to every request while sitting in that list). ``?serverless=true`` is the
+    servable subset; each entry records which side it is on."""
+    full = [{"id": "openai/gpt-oss-120b", "type": "chat"}, {"id": "openai/gpt-oss-20b", "type": "chat"}]
+    serverless = [{"id": "openai/gpt-oss-120b", "type": "chat"}]
+    http = _StubClient([full, serverless])
+    entries = {e["id"]: e for e in await ml.fetch_together(http, "secret")}
+    assert entries["openai/gpt-oss-120b"]["serverless"] is True
+    assert entries["openai/gpt-oss-20b"]["serverless"] is False
+    assert http.calls[1]["params"] == {"serverless": "true"}
+
+
+async def test_together_serverless_unknown_when_that_listing_fails_or_is_empty():
+    """A failed or empty serverless listing must never brand every model unservable."""
+    full = [{"id": "openai/gpt-oss-120b", "type": "chat"}]
+    for second in ([], {"error": "boom"}):
+        http = _StubClient([full, second])
+        entries = await ml.fetch_together(http, "secret")
+        assert "serverless" not in entries[0]
 
 
 def test_normalizers_ignore_a_payload_with_no_models():

@@ -72,6 +72,14 @@ EVENT_QUEUED = "queued"
 EVENT_ANSWERED = "answered"
 EVENT_DECLINED = "declined"
 EVENT_DISMISSED = "dismissed"
+#: THE REVISION EVENT (design §10, #1936). It exists ONLY to SUPERSEDE an
+#: already-recorded, not-yet-delivered answer: :func:`fold` keeps status,
+#: ``answered_at`` and ``answered_by`` from the FIRST ``answered`` row and takes
+#: the effective ``answers`` from the LATEST ``revised`` one. A revision that
+#: arrives before any answer is recorded degrades to a plain ``answered`` and
+#: never writes this kind (see ``AskQueue.revise``), so every ``revised`` row has
+#: an ``answered`` row to supersede — the fold never honours a revision alone.
+EVENT_REVISED = "revised"
 
 #: Every status a folded ask can hold (design §2.2, §4).
 STATUS_OPEN = "open"
@@ -86,6 +94,24 @@ STATUS_EXPIRED = "expired"
 #: `expired` ask injects NOTHING and must never attempt a delivery (else
 #: ``reconcile`` loops forever on a row it can never write).
 INJECTING_STATUSES = frozenset({STATUS_ANSWERED, STATUS_DECLINED, STATUS_TIMED_OUT, STATUS_LATE})
+
+#: THE OUTSTANDING SET — the asks the user can still act on, and so the asks
+#: every surface must agree are still live. ``open`` (nothing has happened to
+#: it yet) and ``timed_out`` (its deadline fired, but a LATE answer is still
+#: accepted and attributed — design §2.2, the spec's item 3: "a late answer is
+#: still attributable and the agent still receives it"). It stops being
+#: outstanding the moment it is SETTLED: ``answered``/``declined`` (the user
+#: responded), ``dismissed`` (the user put a timed-out ask away) and ``expired``
+#: (an answer or deadline past the 7-day window that injects nothing).
+#:
+#: ONE AUTHORITY, deliberately. Before this constant the same two-status rule
+#: was spelled in four places — ``ask_wire``'s tally (open-only, which dropped a
+#: timed-out-but-answerable ask from the count while it stayed on the bar),
+#: ``AskQueue.projection``'s ordering, the TUI's ``_ANSWERABLE`` and the TUI
+#: app's ``_open_ask_rows`` — and the one that was wrong was the count the
+#: surfaces published. Anything that needs "is this ask still outstanding" reads
+#: THIS set (or :func:`is_outstanding`); nothing re-lists the statuses.
+OUTSTANDING_STATUSES = frozenset({STATUS_OPEN, STATUS_TIMED_OUT})
 
 #: Row-id prefixes. The transcript row id IS the delivery marker (per
 #: ``(ask_id, kind)``), so idempotence is structural rather than a boolean that
@@ -352,6 +378,21 @@ def _first(events: Sequence[Mapping[str, Any]], ask_id: str, kind: str) -> dict[
     return None
 
 
+def _last(events: Sequence[Mapping[str, Any]], ask_id: str, kind: str) -> dict[str, Any] | None:
+    """The LAST event of ``kind`` for ``ask_id`` (log order wins, as it does for
+    every other rule here — see the ordering invariant stated at ``fold``).
+
+    Successive revisions are all legal while the delivery window is open, so the
+    effective answer is the newest ``revised`` row rather than any of the ones it
+    supersedes; a later write cannot be beaten by an earlier reader.
+    """
+    found: dict[str, Any] | None = None
+    for event in events:
+        if event.get("kind") == kind and str(event.get("ask_id")) == ask_id:
+            found = dict(event)
+    return found
+
+
 def fold(
     events: Sequence[Mapping[str, Any]],
     now: int,
@@ -376,6 +417,7 @@ def fold(
         answered = _first(events, ask_id, EVENT_ANSWERED)
         declined = _first(events, ask_id, EVENT_DECLINED)
         dismissed = _first(events, ask_id, EVENT_DISMISSED)
+        revised = _last(events, ask_id, EVENT_REVISED)
         expires_at = int(queued.get("expires_at") or 0)
         created_at = int(queued.get("at") or 0)
         answered_at = int(answered.get("at") or 0) if answered else 0
@@ -424,19 +466,73 @@ def fold(
             if isinstance(by, Mapping):
                 record["answered_by"] = dict(by)
             record["answered_at"] = answered_at
+            if revised is not None:
+                # The status, the stamp and the attribution stay the FIRST
+                # answer's (design §10: a revision does not rewrite who answered
+                # or when); only the ANSWERS move, and only to the newest
+                # revision. ``revised_at`` is published beside them so the
+                # revision path can name the write it supersedes without a
+                # second read of the log.
+                record["revised_at"] = int(revised.get("at") or 0)
+                replacement = revised.get("answers")
+                if isinstance(replacement, Mapping):
+                    record["answers"] = {
+                        str(k): [str(v) for v in (vals or ())] for k, vals in replacement.items()
+                    }
         records.append(record)
     return records
 
 
+def is_outstanding(status: Any) -> bool:
+    """Whether a folded ask status still wants the user (see
+    :data:`OUTSTANDING_STATUSES`).
+
+    Takes the status VALUE rather than a record, because its callers read it off
+    a wire row, whose shape is a dict on one surface and a model on another; the
+    one thing they share is the status string. A missing/unknown status folds to
+    settled — an ask nobody can name is not one a surface may ask the user to
+    answer.
+    """
+    return str(status or "") in OUTSTANDING_STATUSES
+
+
+def outstanding_asks(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Records the user can still act on: ``open`` or ``timed_out``.
+
+    The row-list half of :func:`is_outstanding`; a surface that draws "asks
+    waiting on you" (the TUI's bar/answerable set, a sidebar mark) uses this
+    rather than re-listing the statuses.
+    """
+    return [dict(r) for r in records if is_outstanding(r.get("status"))]
+
+
 def open_asks(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Records still expecting an answer (``open`` only — a timed-out ask is
-    past its deadline and no longer counts against the open cap)."""
+    past its deadline and no longer counts against the open cap).
+
+    NARROWER THAN :func:`outstanding_asks` ON PURPOSE, and the difference is the
+    CAP's, not a surface's: ``OPEN_ASK_CAP`` bounds how many questions the agent
+    may have in flight, and a timed-out ask is one the agent has already walked
+    past — it must not keep a slot that a fresh question needs. A display that
+    counted this instead of the outstanding set would drop a timed-out ask the
+    user can still answer, which is the defect this module's constant exists to
+    prevent.
+    """
     return [dict(r) for r in records if r.get("status") == STATUS_OPEN]
 
 
 def pending_asks(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Records whose timeout notice is still OWED (``open`` or ``timed_out``)."""
-    return [dict(r) for r in records if r.get("status") in (STATUS_OPEN, STATUS_TIMED_OUT)]
+    """Records whose timeout notice is still OWED.
+
+    Delegates to :func:`outstanding_asks`, and the two coincide BY
+    CONSTRUCTION rather than by accident: an ask owes its timeout notice exactly
+    while it is outstanding — ``open`` (the notice is still ahead of it) or
+    ``timed_out`` (the notice is owed now); a ``late`` ask's notice is
+    suppressed (its response replaces it) and a settled one has none. If a
+    future status ever makes the two diverge, SPLIT them here and say why rather
+    than letting a second spelling of either rule appear.
+    """
+    return outstanding_asks(records)
 
 
 def ask_ids(events: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -712,6 +808,7 @@ __all__ = [
     "EVENT_QUEUED",
     "INJECTING_STATUSES",
     "LATE_WINDOW_S",
+    "OUTSTANDING_STATUSES",
     "STATUS_ANSWERED",
     "STATUS_DECLINED",
     "STATUS_DISMISSED",
@@ -728,9 +825,11 @@ __all__ = [
     "entry_path",
     "expected_row_ids",
     "fold",
+    "is_outstanding",
     "new_ask_id",
     "now_ms",
     "open_asks",
+    "outstanding_asks",
     "pending_asks",
     "pending_row",
     "read_entry",

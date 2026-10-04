@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gmpy2
-Version: 2.3.1
+Version: 2.3.2
 Summary: gmpy2 interface to GMP, MPFR, and MPC for Python
 Author: Alex Martelli, Case Van Horsen
 Maintainer-email: Matthias Köppe <mkoeppe@math.ucdavis.edu>, Sergey B Kirpichev <skirpichev@gmail.com>
@@ -37,11 +37,12 @@ Requires-Dist: sphinx>=4; extra == "docs"
 Requires-Dist: sphinx-rtd-theme>=1; extra == "docs"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
-Requires-Dist: hypothesis; extra == "tests"
+Requires-Dist: hypothesis; implementation_name != "pypy" and extra == "tests"
+Requires-Dist: hypothesis<=6.150.0; implementation_name == "pypy" and extra == "tests"
 Requires-Dist: cython; extra == "tests"
 Requires-Dist: mpmath; extra == "tests"
 Requires-Dist: setuptools; extra == "tests"
-Requires-Dist: numpy; (python_version >= "3.11" and python_version < "3.15") and extra == "tests"
+Requires-Dist: numpy; (python_version >= "3.11" and python_version < "3.15" and implementation_name != "pypy") and extra == "tests"
 Dynamic: license-file
 
 gmpy2 is an optimized, C-coded Python extension module that supports fast

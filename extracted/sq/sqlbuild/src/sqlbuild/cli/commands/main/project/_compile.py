@@ -7,6 +7,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
+from sqlbuild.cli.commands._helpers.compile.collection import paused_cyclic_collection
 from sqlbuild.cli.commands._helpers.compile.output import (
     format_compile_json,
     format_compile_text,
@@ -49,6 +50,7 @@ def run_compile(request: CompileCommandRequest) -> int:
     )
     try:
         with (
+            paused_cyclic_collection(),
             collect_compile_timings() as detailed_timings,
             PreparedCompileArtifacts(
                 enabled=not request.profile_flags.skip_write
@@ -81,6 +83,7 @@ def _run_compile_with_status(
     manifest: bool = request.manifest
     no_color: bool = request.no_color
     lineage_mode: CompileLineageMode = request.lineage_mode
+    prepared_artifacts.remove_abandoned_staging(target_dir=project_dir / "target")
     analysis: CompileAnalysis = analyze_compile_project(
         project_dir=project_dir,
         no_sql_validation=request.no_sql_validation,
@@ -124,6 +127,7 @@ def _run_compile_with_status(
         "contracts_ms": analysis.contract_ms,
         "built_in_rules_ms": analysis.built_in_rules_ms,
         "custom_rules_ms": analysis.custom_rules_ms,
+        "early_lint_wait_ms": analysis.early_lint_wait_ms,
         "rule_cache_hits": analysis.rule_cache_hits,
         "rule_cache_misses": analysis.rule_cache_misses,
         "write_ms": write_result.write_ms,

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from contextlib import contextmanager
 import types
 import tempfile
+import hashlib
 import shutil
 import numpy as np
 import math
@@ -137,6 +138,14 @@ class PycdfCreateCDFTest(unittest.TestCase):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("test_attribute", [[1, 2, 3], [datetime(2018, 1, 1), datetime(2018, 1, 2)], "hello\nworld"])
 
+    def test_can_create_a_CDF_attribute_with_no_entry(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("EMPTY", [])
+        cdf.add_attribute("EMPTY_TOO", [], [])
+        for reloaded in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+            for name in ("EMPTY", "EMPTY_TOO"):
+                self.assertEqual(len(reloaded.attributes[name]), 0)
+
     def test_can_create_CDF_attributes_with_given_type(self):
         cdf = pycdfpp.CDF()
         cdf.add_attribute("ints", [[1, 2, 3], [128, 256, 512]],
@@ -233,6 +242,17 @@ class PycdfCreateCDFTest(unittest.TestCase):
             cdf.add_variable("test", data_type=pycdfpp.DataType.CDF_TIME_TT2000)
             self.assertTrue(pycdfpp.save(cdf, f.name))
 
+    def test_the_saved_content_is_used_without_a_copy(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        content = pycdfpp.save(cdf)
+        view = memoryview(content)
+        self.assertTrue(view.readonly)
+        self.assertEqual(len(content), len(view))
+        self.assertEqual(view[:4].tobytes(), b"\xcd\xf3\x00\x01")
+        self.assertEqual(bytes(content), view.tobytes())
+        self.assertTrue(np.array_equal(pycdfpp.load(content)["x"].values, np.arange(10.)))
+
     def test_can_save_a_cdf_with_an_empty_compressed_var(self):
         # https://github.com/SciQLop/CDFpp/issues/25
         cdf = pycdfpp.CDF()
@@ -240,6 +260,462 @@ class PycdfCreateCDFTest(unittest.TestCase):
         reloaded_cdf = pycdfpp.load(pycdfpp.save(cdf))
         self.assertEqual(reloaded_cdf["test"].shape, (0,))
         self.assertEqual(reloaded_cdf["test"].compression, pycdfpp.CompressionType.gzip_compression)
+
+
+GZIP = pycdfpp.CompressionType.gzip_compression
+
+
+def compressible_values():
+    return np.random.default_rng(0).integers(0, 50, 200_000).astype(np.int32)
+
+
+def gzip_cdf(file_level=None, variable_level=None):
+    cdf = pycdfpp.CDF()
+    cdf.add_variable("x", compressible_values(), compression=GZIP)
+    if file_level is not None:
+        cdf.compression = GZIP
+        cdf.compression_level = file_level
+    if variable_level is not None:
+        cdf["x"].compression_level = variable_level
+    return cdf
+
+
+class PycdfGzipLevelTest(unittest.TestCase):
+    def test_the_default_level_is_6(self):
+        cdf = gzip_cdf()
+        self.assertEqual(cdf.compression_level, 6)
+        self.assertEqual(cdf["x"].compression_level, 6)
+        self.assertEqual(pycdfpp.load(pycdfpp.save(cdf))["x"].compression_level, 6)
+
+    def test_variable_levels_round_trip(self):
+        for level in range(1, 10):
+            with self.subTest(level=level):
+                reloaded = pycdfpp.load(pycdfpp.save(gzip_cdf(variable_level=level)))
+                self.assertEqual(reloaded["x"].compression_level, level)
+                self.assertTrue(np.array_equal(reloaded["x"].values, compressible_values()))
+
+    def test_file_levels_round_trip(self):
+        for level in range(1, 10):
+            with self.subTest(level=level):
+                reloaded = pycdfpp.load(pycdfpp.save(gzip_cdf(file_level=level)))
+                self.assertEqual(reloaded.compression_level, level)
+                self.assertTrue(np.array_equal(reloaded["x"].values, compressible_values()))
+
+    def test_add_variable_takes_a_level(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", compressible_values(), compression=GZIP, compression_level=2)
+        self.assertEqual(pycdfpp.load(pycdfpp.save(cdf))["x"].compression_level, 2)
+
+    def test_the_level_drives_the_compressor(self):
+        for scope in ("variable_level", "file_level"):
+            with self.subTest(scope=scope):
+                sizes = [len(bytes(pycdfpp.save(gzip_cdf(**{scope: level})))) for level in (1, 9)]
+                self.assertGreater(sizes[0], sizes[1])
+
+    def test_levels_written_by_the_nasa_library_survive_a_round_trip(self):
+        resources = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+        file_level = pycdfpp.load(os.path.join(resources, "a_compressed_cdf.cdf"))
+        variables_level = pycdfpp.load(os.path.join(resources, "a_cdf_with_compressed_vars.cdf"))
+        for cdf in (file_level, pycdfpp.load(pycdfpp.save(file_level))):
+            self.assertEqual(cdf.compression_level, 5)
+        for cdf in (variables_level, pycdfpp.load(pycdfpp.save(variables_level))):
+            self.assertEqual({cdf[name].compression_level for name in cdf
+                              if cdf[name].compression == GZIP}, {9})
+
+    def test_levels_outside_1_to_9_are_rejected(self):
+        cdf = gzip_cdf()
+        for level in (0, 10, -1):
+            with self.subTest(level=level):
+                with self.assertRaises(ValueError):
+                    cdf.compression_level = level
+                with self.assertRaises(ValueError):
+                    cdf["x"].compression_level = level
+
+
+RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "resources")
+
+
+class PycdfSparseRecordsTest(unittest.TestCase):
+    # Flags set by tests/resources/make_sparse_records.c
+    NASA_FLAGS = {"prev": "prev_sparse_records", "prev_with_fillval": "prev_sparse_records",
+                  "no_sparse_gap": "no_sparse_records"}
+
+    def test_the_default_is_no_sparse_records(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        self.assertEqual(cdf["x"].sparse_records, pycdfpp.SparseRecords.no_sparse_records)
+
+    def test_sparse_records_round_trip(self):
+        for flag in pycdfpp.SparseRecords:
+            with self.subTest(flag=flag):
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("x", np.arange(10.), sparse_records=flag)
+                cdf.add_variable("y", np.arange(10.))
+                cdf["y"].sparse_records = flag
+                reloaded = pycdfpp.load(pycdfpp.save(cdf))
+                for name in ("x", "y"):
+                    self.assertEqual(reloaded[name].sparse_records, flag)
+                    self.assertTrue(np.array_equal(reloaded[name].values, np.arange(10.)))
+
+    def test_flags_written_by_the_nasa_library_survive_a_round_trip(self):
+        original = pycdfpp.load(os.path.join(RESOURCES, "sparse_records.cdf"))
+        reloaded = pycdfpp.load(pycdfpp.save(original))
+        for cdf in (original, reloaded):
+            for name in cdf:
+                with self.subTest(name=name):
+                    expected = getattr(pycdfpp.SparseRecords, self.NASA_FLAGS.get(name, "pad_sparse_records"))
+                    self.assertEqual(cdf[name].sparse_records, expected)
+                    self.assertTrue(np.array_equal(reloaded[name].values, original[name].values))
+
+
+class PycdfPadValueTest(unittest.TestCase):
+    D = pycdfpp.DataType
+    # (values of an empty variable, data type, pad value)
+    CASES = [
+        (np.empty((0, 3), dtype=np.float32), D.CDF_REAL4, np.float32(-1e-30)),
+        (np.empty((0,), dtype=np.float64), D.CDF_DOUBLE, -1.5),
+        (np.empty((0,), dtype=np.int32), D.CDF_INT4, 7),
+        (np.empty((0,), dtype=np.uint8), D.CDF_UINT1, 12),
+        (np.empty((0,), dtype="datetime64[ns]"), D.CDF_TIME_TT2000, datetime(2020, 1, 1)),
+        (np.array(["abc"]), D.CDF_CHAR, "xyz"),
+    ]
+
+    def test_there_is_no_pad_value_by_default(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        for c in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+            self.assertIsNone(c["x"].pad_value)
+
+    def test_pad_values_round_trip_like_attributes(self):
+        for values, data_type, pad in self.CASES:
+            with self.subTest(data_type=data_type):
+                cdf = pycdfpp.CDF()
+                var = cdf.add_variable("x", values, data_type, pad_value=pad)
+                var.add_attribute("SAME_AS_PAD", pad, data_type)
+                for c in (cdf, pycdfpp.load(pycdfpp.save(cdf))):
+                    self.assertEqual(c["x"].pad_value, c["x"].attributes["SAME_AS_PAD"].value)
+
+    def test_the_pad_value_can_be_changed_and_removed(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10.))
+        cdf["x"].pad_value = 3.
+        self.assertEqual(pycdfpp.load(pycdfpp.save(cdf))["x"].pad_value, [3.])
+        cdf["x"].pad_value = None
+        self.assertIsNone(pycdfpp.load(pycdfpp.save(cdf))["x"].pad_value)
+
+    def test_a_pad_value_that_no_longer_fits_the_variable_is_refused_at_save(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(10, dtype=np.int16), pad_value=7)
+        cdf["x"].set_values(np.arange(10.), force=True)
+        with self.assertRaises(ValueError):
+            pycdfpp.save(cdf)
+
+    def test_pad_values_written_by_the_nasa_library_survive_a_round_trip(self):
+        # Set by tests/resources/make_sparse_records.c; NASA's library writes the default pad
+        # value of the type for the other variables.
+        explicit = {"pad_explicit": [1.5], "pad_with_fillval": [1.5], "prev": [7],
+                    "compressed_pad": [2.5]}
+        original = pycdfpp.load(os.path.join(RESOURCES, "sparse_records.cdf"))
+        reloaded = pycdfpp.load(pycdfpp.save(original))
+        for name in original:
+            with self.subTest(name=name):
+                self.assertIsNotNone(original[name].pad_value)
+                self.assertEqual(original[name].pad_value,
+                                 explicit.get(name, original[name].pad_value))
+                self.assertEqual(reloaded[name].pad_value, original[name].pad_value)
+
+
+def resaved(cdf):
+    return pycdfpp.load(bytes(pycdfpp.save(cdf)))
+
+
+def same_values(values, other):
+    # Fill values are often NaN, which never equals itself
+    if values.dtype.kind in "fc":
+        return np.array_equal(values, other, equal_nan=True)
+    return np.array_equal(values, other)
+
+
+def assert_same_attributes(test, attributes, other):
+    test.assertEqual(sorted(attributes), sorted(other))
+    for name in attributes:
+        test.assertEqual(str(attributes[name]), str(other[name]))
+
+
+def assert_same_content(test, cdf, other):
+    test.assertEqual(sorted(cdf), sorted(other))
+    for name in cdf:
+        with test.subTest(variable=name):
+            test.assertEqual(cdf[name].type, other[name].type)
+            test.assertEqual(cdf[name].shape, other[name].shape)
+            test.assertTrue(same_values(cdf[name].values, other[name].values))
+            assert_same_attributes(test, cdf[name].attributes, other[name].attributes)
+            for attr in cdf[name].attributes:
+                test.assertEqual(cdf[name].attributes[attr].type(), other[name].attributes[attr].type())
+            test.assertEqual(str(cdf[name].pad_value), str(other[name].pad_value))
+    assert_same_attributes(test, cdf.attributes, other.attributes)
+
+
+class PycdfMajorityTest(unittest.TestCase):
+    # The same variables and values, written by NASA's library in both majorities
+    ROW = os.path.join(RESOURCES, "a_cdf.cdf")
+    COLUMN = os.path.join(RESOURCES, "a_col_major_cdf.cdf")
+
+    def test_the_majority_can_be_set(self):
+        cdf = pycdfpp.CDF()
+        cdf.majority = pycdfpp.Majority.column
+        self.assertEqual(cdf.majority, pycdfpp.Majority.column)
+        self.assertEqual(resaved(cdf).majority, pycdfpp.Majority.column)
+
+    def test_column_major_files_round_trip(self):
+        column = pycdfpp.load(self.COLUMN)
+        reloaded = resaved(column)
+        self.assertEqual(reloaded.majority, pycdfpp.Majority.column)
+        assert_same_content(self, column, reloaded)
+
+    def test_a_row_major_file_saved_as_column_major_matches_nasa_s_column_major_file(self):
+        cdf = pycdfpp.load(self.ROW)
+        cdf.majority = pycdfpp.Majority.column
+        reloaded = resaved(cdf)
+        self.assertEqual(reloaded.majority, pycdfpp.Majority.column)
+        assert_same_content(self, pycdfpp.load(self.COLUMN), reloaded)
+
+    def test_record_varying_string_arrays_match_nasa_s_column_major_file(self):
+        nasa = pycdfpp.load(os.path.join(RESOURCES, "col_major_strings.cdf"))
+        cdf = pycdfpp.CDF()
+        cdf.majority = pycdfpp.Majority.column
+        cdf.add_variable("strings", nasa["strings"].values, nasa["strings"].type)
+        cdf.add_variable("numbers", nasa["numbers"].values)
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertIn(b"".join(np.asfortranarray(r).tobytes(order="F")
+                               for r in nasa["numbers"].values), saved)
+        self.assertIn(b"r0[00]r0[10]r0[01]r0[11]r0[02]r0[12]r1[00]", saved)
+        for name in ("strings", "numbers"):
+            self.assertEqual(pycdfpp.load(saved)[name].values.tolist(), nasa[name].values.tolist())
+
+    def test_records_are_stored_in_column_major_order(self):
+        values = np.arange(2 * 3 * 4 * 5, dtype=np.float64).reshape(2, 3, 4, 5)
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", values)
+        cdf.majority = pycdfpp.Majority.column
+        column_records = np.stack([np.asfortranarray(record).ravel(order="K") for record in values])
+        self.assertIn(column_records.tobytes(), bytes(pycdfpp.save(cdf)))
+        self.assertTrue(np.array_equal(resaved(cdf)["x"].values, values))
+
+    def test_variables_bigger_than_a_conversion_chunk(self):
+        # Several 1 MiB chunks uncompressed, several 256 KiB blocks compressed
+        values = np.random.default_rng(0).random((20_000, 3, 5))
+        for compression in (pycdfpp.CompressionType.no_compression, GZIP):
+            with self.subTest(compression=compression):
+                cdf = pycdfpp.CDF()
+                cdf.add_variable("x", values, compression=compression)
+                cdf.majority = pycdfpp.Majority.column
+                cdf.encoding = pycdfpp.Encoding.network
+                saved = bytes(pycdfpp.save(cdf))
+                if compression == pycdfpp.CompressionType.no_compression:
+                    self.assertIn(np.stack([r.ravel(order="F") for r in values]).astype(">f8").tobytes(),
+                                  saved)
+                self.assertTrue(np.array_equal(pycdfpp.load(saved)["x"].values, values))
+
+    def test_converting_leaves_the_cdf_and_borrowed_arrays_unchanged(self):
+        values = np.arange(24, dtype=np.int32).reshape(2, 3, 4)
+        borrowed = values.copy()
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", values)
+        cdf.add_variable("borrowed", borrowed, copy=False)
+        cdf.majority = pycdfpp.Majority.column
+        cdf.encoding = pycdfpp.Encoding.network
+        reloaded = resaved(cdf)
+        for c in (cdf, reloaded):
+            for name in ("x", "borrowed"):
+                self.assertTrue(np.array_equal(c[name].values, values))
+        self.assertTrue(np.array_equal(borrowed, values))
+
+    def test_column_major_and_network_together(self):
+        cdf = pycdfpp.load(self.ROW)
+        cdf.majority = pycdfpp.Majority.column
+        cdf.encoding = pycdfpp.Encoding.network
+        reloaded = resaved(cdf)
+        self.assertEqual((reloaded.majority, reloaded.encoding),
+                         (pycdfpp.Majority.column, pycdfpp.Encoding.network))
+        assert_same_content(self, pycdfpp.load(self.COLUMN), reloaded)
+
+
+class PycdfEncodingTest(unittest.TestCase):
+    HOST = pycdfpp.Encoding.IBMPC if sys.byteorder == "little" else pycdfpp.Encoding.network
+    # Written by NASA's library in network encoding
+    NETWORK_FILES = ["ac_h2_sis_20101105_v06.cdf", "ac_h0_mfi_00000000_v01.cdf",
+                     "thg_l2_mag_mek_00000000_v01.cdf"]
+
+    def test_a_new_cdf_uses_the_host_encoding(self):
+        self.assertEqual(pycdfpp.CDF().encoding, self.HOST)
+
+    def test_files_keep_their_encoding(self):
+        for name in self.NETWORK_FILES:
+            with self.subTest(file=name):
+                original = pycdfpp.load(os.path.join(RESOURCES, name))
+                self.assertEqual(original.encoding, pycdfpp.Encoding.network)
+                reloaded = resaved(original)
+                self.assertEqual(reloaded.encoding, pycdfpp.Encoding.network)
+                assert_same_content(self, original, reloaded)
+
+    def test_any_file_can_be_saved_in_another_byte_order(self):
+        for encoding in (pycdfpp.Encoding.network, pycdfpp.Encoding.IBMPC):
+            for name in ["a_cdf.cdf", "sparse_records.cdf", "a_compressed_cdf.cdf",
+                         "a_cdf_with_compressed_vars.cdf"] + self.NETWORK_FILES:
+                with self.subTest(file=name, encoding=encoding):
+                    original = pycdfpp.load(os.path.join(RESOURCES, name))
+                    original.encoding = encoding
+                    reloaded = resaved(original)
+                    self.assertEqual(reloaded.encoding, encoding)
+                    assert_same_content(self, original, reloaded)
+
+    def test_values_are_stored_in_the_file_byte_order(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("x", np.arange(100, dtype=np.float64))
+        cdf.encoding = pycdfpp.Encoding.network
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertIn(np.arange(100, dtype=">f8").tobytes(), saved)
+        self.assertTrue(np.array_equal(cdf["x"].values, np.arange(100, dtype=np.float64)))
+
+    def test_encodings_without_ieee_floats_are_refused(self):
+        cdf = pycdfpp.CDF()
+        for name in ("VAX", "ALPHAVMSd", "ALPHAVMSg", "IA64VMSd", "IA64VMSg"):
+            with self.subTest(encoding=name), self.assertRaises(ValueError):
+                cdf.encoding = getattr(pycdfpp.Encoding, name)
+
+
+def has_valid_md5(data: bytes):
+    return hashlib.md5(data[:-16]).digest() == data[-16:]
+
+
+class PycdfChecksumTest(unittest.TestCase):
+    MD5 = pycdfpp.Checksum.md5_checksum
+
+    def md5_cdf(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("values", np.arange(10, dtype=np.float64))
+        cdf.checksum = self.MD5
+        return cdf
+
+    def test_there_is_no_checksum_by_default(self):
+        cdf = pycdfpp.CDF()
+        self.assertEqual(cdf.checksum, pycdfpp.Checksum.no_checksum)
+        self.assertFalse(has_valid_md5(bytes(pycdfpp.save(cdf))))
+
+    def test_files_written_by_the_nasa_library_keep_their_checksum(self):
+        # Made by tests/resources/make_checksum_cdf.py
+        original = pycdfpp.load(os.path.join(RESOURCES, "checksum.cdf"))
+        self.assertEqual(original.checksum, self.MD5)
+        saved = bytes(pycdfpp.save(original))
+        self.assertTrue(has_valid_md5(saved))
+        reloaded = pycdfpp.load(saved)
+        self.assertEqual(reloaded.checksum, self.MD5)
+        assert_same_content(self, original, reloaded)
+
+    def test_the_file_ends_with_the_md5_of_the_rest(self):
+        with open(os.path.join(RESOURCES, "checksum.cdf"), "rb") as nasa_file:
+            self.assertTrue(has_valid_md5(nasa_file.read()))
+        for compression in (pycdfpp.CompressionType.no_compression, GZIP):
+            for encoding in (pycdfpp.Encoding.IBMPC, pycdfpp.Encoding.network):
+                with self.subTest(compression=compression, encoding=encoding):
+                    cdf = self.md5_cdf()
+                    cdf.compression = compression
+                    cdf.encoding = encoding
+                    saved = bytes(pycdfpp.save(cdf))
+                    self.assertTrue(has_valid_md5(saved))
+                    self.assertTrue(np.array_equal(pycdfpp.load(saved)["values"].values,
+                                                   np.arange(10, dtype=np.float64)))
+
+    def test_files_saved_to_disk_have_the_checksum_too(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "md5.cdf")
+            self.assertTrue(pycdfpp.save(self.md5_cdf(), path))
+            with open(path, "rb") as f:
+                saved = f.read()
+        self.assertTrue(has_valid_md5(saved))
+        self.assertEqual(saved, bytes(pycdfpp.save(self.md5_cdf())))
+
+    def test_big_variables_get_the_checksum_of_their_values(self):
+        # Megabytes of values are hashed while they are written: every layout writes them its own way.
+        values = np.arange(400_000 * 2 * 3, dtype=np.float32).reshape(400_000, 2, 3)
+        for majority in (pycdfpp.Majority.row, pycdfpp.Majority.column):
+            for encoding in (pycdfpp.Encoding.IBMPC, pycdfpp.Encoding.network):
+                with self.subTest(majority=majority, encoding=encoding):
+                    cdf = pycdfpp.CDF()
+                    cdf.majority = majority
+                    cdf.encoding = encoding
+                    cdf.checksum = self.MD5
+                    cdf.add_variable("values", values)
+                    saved = bytes(pycdfpp.save(cdf))
+                    self.assertTrue(has_valid_md5(saved))
+                    with tempfile.TemporaryDirectory() as folder:
+                        path = os.path.join(folder, "big_md5.cdf")
+                        self.assertTrue(pycdfpp.save(cdf, path))
+                        with open(path, "rb") as f:
+                            self.assertEqual(f.read(), saved)
+                    self.assertTrue(np.array_equal(pycdfpp.load(saved)["values"].values, values))
+
+    def test_the_checksum_can_be_removed(self):
+        cdf = pycdfpp.load(os.path.join(RESOURCES, "checksum.cdf"))
+        cdf.checksum = pycdfpp.Checksum.no_checksum
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertFalse(has_valid_md5(saved))
+        self.assertEqual(pycdfpp.load(saved).checksum, pycdfpp.Checksum.no_checksum)
+
+
+def declared_variable_attributes(data: bytes):
+    """Variable attribute names in their number order, as NASA's tools list them."""
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "file.cdf")
+        with open(path, "wb") as f:
+            f.write(data)
+        adrs = [fields for _, kind, fields in pycdfpp.debug.for_each_record(path)
+                if kind == "ADR" and fields["scope"].startswith("variable")]
+    return [adr["Name"] for adr in sorted(adrs, key=lambda adr: adr["num"])]
+
+
+class PycdfVariableAttributeOrderTest(unittest.TestCase):
+    # Their variable attributes came back in another order, and some declared ones were lost
+    FILES = ["a_cdf.cdf", "a_col_major_cdf.cdf", "a_compressed_cdf.cdf", "a_rle_compressed_cdf.cdf",
+             "a_cdf_with_compressed_vars.cdf", "ac_h0_mfi_00000000_v01.cdf", "ac_h2_sis_20101105_v06.cdf",
+             "ge_k0_cpi_19921231_v02.cdf", "ia_k0_epi_19970102_v01.cdf", "thg_l2_mag_mek_00000000_v01.cdf",
+             "solo_l2_rpw-lfr-surv-swf-e_00000000_v01.cdf", "uy_proton-distributions_swoops_00000000_v01.cdf",
+             "wi_l2-30min_sms-stics-afm-magnetosphere_00000000_v01.cdf"]
+
+    def test_files_keep_their_variable_attributes_and_their_order(self):
+        for name in self.FILES:
+            with self.subTest(file=name):
+                with open(os.path.join(RESOURCES, name), "rb") as f:
+                    original = f.read()
+                cdf = pycdfpp.load(original)
+                self.assertEqual(cdf.declared_variable_attributes, declared_variable_attributes(original))
+                self.assertEqual(declared_variable_attributes(bytes(pycdfpp.save(cdf))),
+                                 declared_variable_attributes(original))
+
+    def test_attributes_no_variable_uses_are_declared(self):
+        cdf = pycdfpp.load(os.path.join(RESOURCES, "ac_h0_mfi_00000000_v01.cdf"))
+        for name in ("LABL_PTR_2", "SCAL_PTR"):
+            self.assertIn(name, cdf.declared_variable_attributes)
+            self.assertFalse(any(name in cdf[variable].attributes for variable in cdf))
+
+    def test_new_attributes_come_after_the_declared_ones(self):
+        cdf = pycdfpp.CDF()
+        self.assertEqual(cdf.declared_variable_attributes, [])
+        cdf.declared_variable_attributes = ["UNUSED", "UNITS"]
+        cdf.add_variable("x", np.arange(3.), attributes={"FIELDNAM": "x", "UNITS": "nT"})
+        saved = bytes(pycdfpp.save(cdf))
+        self.assertEqual(declared_variable_attributes(saved), ["UNUSED", "UNITS", "FIELDNAM"])
+        reloaded = pycdfpp.load(saved)
+        self.assertEqual(reloaded.declared_variable_attributes, ["UNUSED", "UNITS", "FIELDNAM"])
+        self.assertEqual(list(reloaded["x"].attributes), ["UNITS", "FIELDNAM"])
+
+    def test_a_declared_name_can_t_be_a_global_attribute_too(self):
+        cdf = pycdfpp.CDF()
+        cdf.add_attribute("TITLE", ["a title"])
+        cdf.declared_variable_attributes = ["TITLE"]
+        with self.assertRaises(ValueError):
+            pycdfpp.save(cdf)
 
 
 EXPERIMENTAL_CODECS = [getattr(pycdfpp.CompressionType, name)
@@ -428,6 +904,45 @@ class PycdfSaveOverSourceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(OSError):
                 pycdfpp.save(pycdfpp.CDF(), os.path.join(tmp, "missing_dir", "out.cdf"))
+
+
+
+class PycdfDatetime64WritingTest(unittest.TestCase):
+    """datetime64 values written as each CDF time type read back as the same dates."""
+    TYPES = (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH,
+             pycdfpp.DataType.CDF_EPOCH16)
+
+    def written(self, values, data_type):
+        cdf = pycdfpp.CDF()
+        cdf.add_variable("t", values=values, data_type=data_type)
+        return pycdfpp.to_datetime64(pycdfpp.load(bytes(pycdfpp.save(cdf)))["t"])
+
+    def test_nat_reads_back_as_nat(self):
+        values = np.array(["2020-01-01", "NaT", "1965-06-01"], dtype="datetime64[ns]")
+        for data_type in self.TYPES:
+            with self.subTest(data_type=data_type):
+                self.assertTrue(np.isnat(self.written(values, data_type)[1]))
+
+    def test_dates_before_1970_read_back(self):
+        values = np.array(["1969-12-31T23:59:59.999999999", "1965-06-01T12:00:00.000000123"],
+                          dtype="datetime64[ns]")
+        self.assertTrue(np.array_equal(
+            self.written(values, pycdfpp.DataType.CDF_EPOCH16), values))
+        self.assertTrue(np.array_equal(
+            self.written(values, pycdfpp.DataType.CDF_TIME_TT2000), values))
+        # CDF_EPOCH keeps whole milliseconds: rounded down.
+        self.assertTrue(np.array_equal(self.written(values, pycdfpp.DataType.CDF_EPOCH),
+                                       values.astype("datetime64[ms]").astype("datetime64[ns]")))
+
+    def test_millions_of_values_read_back(self):
+        # Enough values for threads and SIMD, with leap seconds inside.
+        values = np.arange("2008-06-01", "2017-06-01", np.timedelta64(97, "s"),
+                           dtype="datetime64[ns]")
+        values = values + np.arange(len(values)).astype("timedelta64[ns]")
+        self.assertGreater(len(values), 2_500_000)
+        for data_type in (pycdfpp.DataType.CDF_TIME_TT2000, pycdfpp.DataType.CDF_EPOCH16):
+            with self.subTest(data_type=data_type):
+                self.assertTrue(np.array_equal(self.written(values, data_type), values))
 
 
 if __name__ == '__main__':

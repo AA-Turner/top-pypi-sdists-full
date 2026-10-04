@@ -15,6 +15,7 @@ BaseModelSlug: TypeAlias = Literal[
   "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
   "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
   "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+  "nvidia/NVIDIA-Nemotron-3.5-Super-120B-A12B-BF16",
   "openai/gpt-5.6-sol",
   "openai/gpt-5.6-luna",
   "anthropic/claude-opus-5.5",

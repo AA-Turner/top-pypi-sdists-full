@@ -24,11 +24,12 @@ sub-agent IS the server-side implementation).
 """
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from copy import deepcopy
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
-from matrx_ai.tools.models import CustomToolInputSchema
+from matrx_ai.tools.models import CustomToolInputSchema, ToolDefinition
 
 
 class RegisteredToolSpec(BaseModel):
@@ -91,6 +92,20 @@ class InlineToolSpec(BaseModel):
     )
     description: str = ""
     input_schema: CustomToolInputSchema = Field(default_factory=CustomToolInputSchema)
+    _registry_parameters: dict[str, Any] | None = PrivateAttr(default=None)
+
+    @classmethod
+    def from_registry_tool(
+        cls, tool: ToolDefinition, *, name: str | None = None
+    ) -> InlineToolSpec:
+        """Carry the registry's execution contract beside its lean provider schema."""
+        spec = cls(
+            name=name or tool.name,
+            description=tool.description or name or tool.name,
+            input_schema=tool.to_inline_input_schema(),
+        )
+        spec._registry_parameters = deepcopy(tool.parameters or {})
+        return spec
 
 
 class AgentToolSpec(BaseModel):

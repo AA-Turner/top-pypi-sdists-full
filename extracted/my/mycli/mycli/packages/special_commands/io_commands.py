@@ -1,0 +1,1171 @@
+from __future__ import annotations
+
+from contextlib import contextmanager
+import locale
+import logging
+import os
+import re
+import shlex
+import signal
+import subprocess
+from time import sleep
+from typing import IO, Any, Generator, Iterable, Iterator
+from uuid import uuid4
+
+import click
+from configobj import ConfigObj
+from jinja2 import TemplateError
+from prompt_toolkit.formatted_text import ANSI, FormattedText, to_plain_text
+from pymysql.cursors import Cursor
+import pyperclip
+import sqlparse
+
+from mycli.compat import WIN
+from mycli.packages.special_commands.delimiter_command import DelimiterCommand
+from mycli.packages.special_commands.dsn_aliases import INVALID_DSN_ALIAS_ERROR, DsnAliases, is_valid_dsn_alias
+from mycli.packages.special_commands.favorite_queries import (
+    FAVORITE_COMMAND_HELP,
+    FavoriteQueries,
+    FavoriteQueryReloadError,
+    analyze_favorite_query_template,
+    favorite_query_template_environment,
+    favorite_query_variable_pattern,
+)
+from mycli.packages.special_commands.main import COMMANDS as SPECIAL_COMMANDS
+from mycli.packages.special_commands.main import ArgType, SpecialCommandAlias, special_command
+from mycli.packages.special_commands.main import execute as special_execute
+from mycli.packages.special_commands.special_command_utils import compute_current_dsn, handle_cd_command
+from mycli.packages.sql_result.sql_result import SQLResult
+from mycli.packages.utils.interactive_utils import confirm_destructive_query
+
+sqlparse.engine.grouping.MAX_GROUPING_DEPTH = None  # type: ignore[assignment]
+sqlparse.engine.grouping.MAX_GROUPING_TOKENS = None  # type: ignore[assignment]
+
+TIMING_ENABLED = False
+use_expanded_output = False
+force_horizontal_output = False
+use_explorer_output = False
+PAGER_ENABLED = True
+SHOW_FAVORITE_QUERY = True
+tee_file = None
+once_file: IO[Any] | None = None
+written_to_once_file = False
+PIPE_ONCE: dict[str, Any] = {
+    'process': None,
+    'stdin': [],
+    'stdout_file': None,
+    'stdout_mode': None,
+}
+delimiter_command = DelimiterCommand()
+favorite_queries = FavoriteQueries(ConfigObj())
+dsn_aliases = DsnAliases(ConfigObj())
+DESTRUCTIVE_KEYWORDS: list[str] = []
+SHOW_WARNINGS_ENABLED: bool = False
+
+
+class FavoriteQueryArgumentError(ValueError):
+    pass
+
+
+def set_favorite_queries(config):
+    global favorite_queries
+    favorite_queries = FavoriteQueries(config)
+
+
+def set_timing_enabled(val: bool) -> None:
+    global TIMING_ENABLED
+    TIMING_ENABLED = val
+
+
+def set_pager_enabled(val: bool) -> None:
+    global PAGER_ENABLED
+    PAGER_ENABLED = val
+
+
+def is_pager_enabled() -> bool:
+    return PAGER_ENABLED
+
+
+def set_show_favorite_query(val: bool) -> None:
+    global SHOW_FAVORITE_QUERY
+    SHOW_FAVORITE_QUERY = val
+
+
+def is_show_favorite_query() -> bool:
+    return SHOW_FAVORITE_QUERY
+
+
+def set_destructive_keywords(val: list[str]) -> None:
+    global DESTRUCTIVE_KEYWORDS
+    DESTRUCTIVE_KEYWORDS = val
+
+
+def set_show_warnings_enabled(val: bool) -> None:
+    global SHOW_WARNINGS_ENABLED
+    SHOW_WARNINGS_ENABLED = val
+
+
+def is_show_warnings_enabled() -> bool:
+    return SHOW_WARNINGS_ENABLED
+
+
+@special_command(
+    'warnings',
+    '/warnings',
+    'Enable automatic warnings display.',
+    arg_type=ArgType.NO_ARGUMENT,
+    case_sensitive=True,
+    aliases=[SpecialCommandAlias('\\W', case_sensitive=True)],
+    completion_snippet='enable warnings display',
+)
+def enable_show_warnings() -> Generator[SQLResult, None, None]:
+    global SHOW_WARNINGS_ENABLED
+    SHOW_WARNINGS_ENABLED = True
+    msg = "Show warnings enabled."
+    yield SQLResult(status=msg)
+
+
+@special_command(
+    'nowarnings',
+    '/nowarnings',
+    'Disable automatic warnings display.',
+    arg_type=ArgType.NO_ARGUMENT,
+    case_sensitive=True,
+    aliases=[SpecialCommandAlias('\\w', case_sensitive=True)],
+    completion_snippet='disable warnings display',
+)
+def disable_show_warnings() -> Generator[SQLResult, None, None]:
+    global SHOW_WARNINGS_ENABLED
+    SHOW_WARNINGS_ENABLED = False
+    msg = 'Show warnings disabled.'
+    yield SQLResult(status=msg)
+
+
+@special_command(
+    "pager",
+    "/pager [command]",
+    "Set pager to [command]; print results via pager.",
+    arg_type=ArgType.PARSED_QUERY,
+    case_sensitive=True,
+    aliases=[SpecialCommandAlias("\\P", case_sensitive=True)],
+    completion_snippet='set pager',
+)
+def set_pager(arg: str, **_) -> list[SQLResult]:
+    if arg:
+        os.environ["PAGER"] = arg
+        msg = f"PAGER set to {arg}."
+        set_pager_enabled(True)
+    else:
+        if "PAGER" in os.environ:
+            msg = f"PAGER set to {os.environ['PAGER']}."
+        else:
+            # This uses click's default per echo_via_pager.
+            msg = "Pager enabled."
+        set_pager_enabled(True)
+
+    return [SQLResult(status=msg)]
+
+
+@special_command(
+    "nopager",
+    "/nopager",
+    "Disable pager; print to stdout.",
+    arg_type=ArgType.NO_ARGUMENT,
+    case_sensitive=True,
+    aliases=[SpecialCommandAlias("\\n", case_sensitive=True)],
+    completion_snippet='disable pager',
+)
+def disable_pager() -> list[SQLResult]:
+    set_pager_enabled(False)
+    return [SQLResult(status="Pager disabled.")]
+
+
+@special_command(
+    "\\timing",
+    "/timing",
+    "Toggle query timing.",
+    arg_type=ArgType.NO_ARGUMENT,
+    case_sensitive=True,
+    aliases=[SpecialCommandAlias("\\t", case_sensitive=True)],
+    completion_snippet='toggle query timing',
+)
+def toggle_timing() -> list[SQLResult]:
+    global TIMING_ENABLED
+    TIMING_ENABLED = not TIMING_ENABLED
+    message = "Timing is "
+    message += "on." if TIMING_ENABLED else "off."
+    return [SQLResult(status=message)]
+
+
+def is_timing_enabled() -> bool:
+    return TIMING_ENABLED
+
+
+def set_expanded_output(val: bool) -> None:
+    global use_expanded_output
+    use_expanded_output = val
+
+
+def is_expanded_output() -> bool:
+    return use_expanded_output
+
+
+def set_forced_horizontal_output(val: bool) -> None:
+    global force_horizontal_output
+    force_horizontal_output = val
+
+
+def forced_horizontal() -> bool:
+    return force_horizontal_output
+
+
+def set_explorer_output(val: bool) -> None:
+    global use_explorer_output
+    use_explorer_output = val
+
+
+def is_explorer_output() -> bool:
+    return use_explorer_output
+
+
+_logger = logging.getLogger(__name__)
+
+
+def editor_command(command: str) -> bool:
+    """
+    Is this an external editor command?
+    :param command: string
+    """
+    # special case: allow help on the \edit command
+    if re.match(r'^/?([Hh][Ee][Ll][Pp])\s+(\\e|\\edit|/e|/edit)\s*(;|\\G|\\g|\\x)?\s*$', command):
+        return False
+    # It is possible to have `\e filename` or `SELECT * FROM \e`. So we check
+    # for both conditions.
+    return (
+        command.strip().endswith(("\\e", "\\edit"))
+        or command.strip().startswith(("\\e ", "/e ", "\\edit ", "/edit "))
+        or command.strip() in (("\\e", "/e", "\\edit", "/edit"))
+    )
+
+
+def get_filename(sql: str) -> str | None:
+    if sql.strip().startswith(("\\e ", "/e ")) or sql.strip().startswith(("\\edit ", "/edit ")):
+        command, _, filename = sql.partition(" ")
+        return filename.strip() or None
+    else:
+        return None
+
+
+def get_editor_query(sql: str) -> str:
+    """Get the query part of an editor command."""
+    sql = sql.strip()
+
+    if sql in ('\\e', '/e', '\\edit', '/edit'):
+        return ''
+
+    # The reason we can't simply do .strip('\e') is that it strips characters,
+    # not a substring. So it'll strip "e" in the end of the sql also!
+    # Ex: "select * from style\e" -> "select * from styl".
+    pattern = re.compile(r"(\\e$|\\edit$)")
+    while pattern.search(sql):
+        sql = pattern.sub("", sql)
+
+    return sql
+
+
+def open_external_editor(filename: str | None = None, sql: str | None = None) -> tuple[str, str | None]:
+    """Open external editor, wait for the user to type in their query, return
+    the query.
+    """
+
+    filename = filename.strip().split(" ", 1)[0] if filename else None
+    sql = sql or ""
+    MARKER = "# Type your query above this line.\n"
+
+    if filename:
+        query = ''
+        message = None
+        click.edit(filename=filename)
+        try:
+            with open(filename, 'r') as f:
+                query = f.read()
+        except IOError:
+            message = f'Error reading file: {filename}'
+        return (query.rstrip('\n'), message)
+
+    # Populate the editor buffer with the partial sql (if available) and a
+    # placeholder comment.
+    query = click.edit(f"{sql}\n\n{MARKER}", extension=".sql") or ''
+
+    if query:
+        query = query.split(MARKER, 1)[0].rstrip("\n")
+    else:
+        # Don't return None for the caller to deal with.
+        # Empty string is ok.
+        query = sql
+
+    return (query, None)
+
+
+def clip_command(command: str) -> bool:
+    """Is this a clip command?
+
+    :param command: string
+
+    """
+    # It is possible to have `\clip` or `SELECT * FROM \clip`. So we check
+    # for both conditions.
+    return command.strip().endswith("\\clip") or command.strip().startswith(("\\clip", "/clip"))
+
+
+def get_clip_query(sql: str) -> str:
+    """Get the query part of a clip command."""
+    sql = sql.strip()
+
+    # The reason we can't simply do .strip('\clip') is that it strips characters,
+    # not a substring. So it'll strip "c" in the end of the sql also!
+    pattern = re.compile(r"(^\\clip|^/clip|\\clip$)")
+    while pattern.search(sql):
+        sql = pattern.sub("", sql)
+
+    return sql
+
+
+def copy_query_to_clipboard(sql: str | None = None) -> str | None:
+    """Send query to the clipboard."""
+
+    sql = sql or ""
+    message = None
+
+    try:
+        pyperclip.copy(f"{sql}")
+    except RuntimeError as e:
+        message = f"Error clipping query: {e}."
+
+    return message
+
+
+def set_redirect(
+    command_part: str | None,
+    file_operator_part: str | None,
+    file_part: str | None,
+    *,
+    start_new_session: bool = False,
+) -> list[SQLResult]:
+    if command_part:
+        if file_part:
+            PIPE_ONCE['stdout_file'] = file_part
+            PIPE_ONCE['stdout_mode'] = 'w' if file_operator_part == '>' else 'a'
+        return set_pipe_once(command_part, start_new_session=start_new_session)
+    if not file_part:
+        raise TypeError('You must provide a filename.')
+    return _set_once_file(file_part, 'w' if file_operator_part == '>' else 'a')
+
+
+@contextmanager
+def temporary_redirect(
+    command_part: str | None,
+    file_operator_part: str | None,
+    file_part: str | None,
+    post_redirect_command: str | None,
+) -> Iterator[None]:
+    """Own a transform's redirection without leaking resources into the next query."""
+    global once_file, written_to_once_file
+    previous_once, previous_written = once_file, written_to_once_file
+    previous_pipe = dict(PIPE_ONCE)
+    process_group = not WIN
+    _reset_one_time_redirects()
+    try:
+        set_redirect(command_part, file_operator_part, file_part, start_new_session=process_group)
+        yield
+        if once_file is not None:
+            filename = once_file.name
+            once_file.close()
+            once_file = None
+            _run_post_redirect_hook(post_redirect_command, filename)
+        flush_pipe_once_if_written(post_redirect_command, force=True, process_group=process_group)
+    finally:
+        try:
+            if once_file is not None:
+                once_file.close()
+            if process := PIPE_ONCE['process']:
+                _kill_pipe_process(process, process_group=process_group)
+                try:
+                    process.communicate(timeout=2)
+                except subprocess.TimeoutExpired:
+                    for stream in (process.stdin, process.stdout, process.stderr):
+                        if stream is not None:
+                            stream.close()
+                    process.wait(timeout=2)
+        except Exception:
+            logging.getLogger(__name__).debug('Redirect cleanup failed', exc_info=True)
+        finally:
+            once_file, written_to_once_file = previous_once, previous_written
+            PIPE_ONCE.clear()
+            PIPE_ONCE.update(previous_pipe)
+
+
+def _reset_one_time_redirects() -> None:
+    global once_file, written_to_once_file
+    once_file, written_to_once_file = None, False
+    PIPE_ONCE.update(process=None, stdin=[], stdout_file=None, stdout_mode=None)
+
+
+@special_command(
+    r'\favorite',
+    '/favorite <command>',
+    'Manage favorite queries (/favorite help).',
+    arg_type=ArgType.PARSED_QUERY,
+    case_sensitive=False,
+    completion_snippet='manage favorite queries',
+)
+def favorite(arg: str, cur: Cursor | None = None, **_) -> Iterable[SQLResult]:
+    args = arg.strip().split(maxsplit=1)
+    if len(args) == 1 and args[0].lower() == 'list':
+        return list_favorite_queries(include_usage=False)
+    if args and args[0].lower() == 'reload':
+        if len(args) != 1:
+            return [SQLResult(status='Syntax: /favorite reload.')]
+        try:
+            FavoriteQueries.instance.reload()
+        except FavoriteQueryReloadError as exc:
+            return [SQLResult(status=f'Error: Unable to reload favorite queries: {exc}.')]
+        return [SQLResult(status='Favorite queries reloaded.')]
+    if args and args[0].lower() == 'eval':
+        eval_arg = args[1] if len(args) == 2 else ''
+        if not eval_arg:
+            return [SQLResult(status='Syntax: /favorite eval <name> [args..] [--key=value].')]
+        query, error = expand_favorite_query(eval_arg)
+        if query is None:
+            return [SQLResult(status=error)]
+        query = _terminate_favorite_eval_query(query)
+        return [
+            SQLResult(
+                status='Error: /favorite eval is only available in the interactive REPL.',
+                command={'name': 'set_buffer', 'text': query},
+            )
+        ]
+    if args and args[0].lower() == 'run':
+        run_arg = args[1] if len(args) == 2 else ''
+        if not run_arg:
+            return [SQLResult(status='Syntax: /favorite run <name> [args..] [--key=value].')]
+        assert cur is not None
+        return execute_favorite_query(cur, run_arg)
+    if args and args[0].lower() == 'save':
+        save_arg = args[1] if len(args) == 2 else ''
+        usage = 'Syntax: /favorite save <name> <query>.'
+        return _save_favorite_query(save_arg, usage)
+    if args and args[0].lower() == 'edit':
+        edit_arg = args[1] if len(args) == 2 else ''
+        if not edit_arg:
+            return [SQLResult(status='Syntax: /favorite edit <name>.')]
+        return _edit_favorite_query(edit_arg)
+    if args and args[0].lower() == 'delete':
+        delete_arg = args[1] if len(args) == 2 else ''
+        usage = 'Syntax: /favorite delete <name>.'
+        return _delete_favorite_query(delete_arg, usage)
+    return [SQLResult(preamble=FAVORITE_COMMAND_HELP)]
+
+
+@special_command(
+    "\\f",
+    "/f [name [args] [--key=val]]",
+    "Run favorite query shortcut.",
+    arg_type=ArgType.PARSED_QUERY,
+    case_sensitive=True,
+    completion_snippet='list or run favorite queries',
+)
+def execute_favorite_query(cur: Cursor, arg: str, **_) -> Generator[SQLResult, None, None]:
+    if arg == "":
+        yield from list_favorite_queries()
+        return
+
+    query, error = expand_favorite_query(arg)
+    if query is None:
+        yield SQLResult(status=error)
+        return
+
+    for sql in sqlparse.split(query):
+        sql = sql.rstrip(";")
+        preamble = f"> {sql}" if is_show_favorite_query() else None
+        is_special = False
+        for special in SPECIAL_COMMANDS:
+            if sql.lower().startswith(special.lower()):
+                is_special = True
+                break
+        if is_special:
+            for result in special_execute(cur, sql):
+                result.preamble = preamble
+                # special_execute() already returns a SQLResult
+                yield result
+        else:
+            cur.execute(sql)
+            if cur.description:
+                header = [x[0] for x in cur.description]
+                yield SQLResult(preamble=preamble, header=header, rows=cur)
+            else:
+                yield SQLResult(preamble=preamble)
+
+
+def parse_favorite_query_args(arg_str: str) -> tuple[list[str], dict[str, str]]:
+    """Split favorite query arguments into positional and template values."""
+    tokens = shlex.split(arg_str)
+    positional: list[str] = []
+    template_values: dict[str, str] = {}
+    parse_options = True
+    index = 0
+
+    while index < len(tokens):
+        token = tokens[index]
+        if parse_options and token == '--':
+            parse_options = False
+        elif parse_options and token.startswith('--'):
+            option = token[2:]
+            if '=' in option:
+                name, value = option.split('=', 1)
+            else:
+                name = option
+                index += 1
+                if index >= len(tokens) or tokens[index].startswith('--'):
+                    raise ValueError(f'option --{name} requires a value')
+                value = tokens[index]
+
+            if not favorite_query_variable_pattern.fullmatch(name):
+                raise ValueError(f'invalid template variable name: {name or token}')
+            if name in template_values:
+                raise ValueError(f'duplicate template variable: {name}')
+            template_values[name] = value
+        else:
+            positional.append(token)
+        index += 1
+
+    return positional, template_values
+
+
+def render_favorite_query(query: str, template_values: dict[str, str]) -> str:
+    referenced_keys, dynamic_access = analyze_favorite_query_template(query)
+    unused_variables = sorted(set(template_values) - referenced_keys)
+    if unused_variables and not dynamic_access:
+        raise FavoriteQueryArgumentError(f'unused template variable: {", ".join(unused_variables)}')
+    return favorite_query_template_environment.from_string(query).render(kv=template_values)
+
+
+def expand_favorite_query(arg: str) -> tuple[str | None, str | None]:
+    """Expand favorite query arguments without executing the query."""
+    name, _separator, arg_str = arg.partition(" ")
+    try:
+        args, template_values = parse_favorite_query_args(arg_str)
+    except ValueError as exc:
+        return None, f'Invalid favorite query arguments: {exc}'
+
+    query = FavoriteQueries.instance.get(name)
+    if query is None:
+        return None, f"No favorite query: {name}"
+
+    query, positional_values, error = prepare_favorite_query_args(query, args)
+    if query is None:
+        return None, error
+
+    try:
+        query = render_favorite_query(query, template_values)
+    except TemplateError as exc:
+        return None, f'Favorite query template error: {exc}'
+    except FavoriteQueryArgumentError as exc:
+        return None, f'Invalid favorite query arguments: {exc}'
+    except Exception as exc:
+        return None, f'Favorite query template error: {exc}'
+
+    return restore_favorite_query_args(query, positional_values), None
+
+
+def _terminate_favorite_eval_query(query: str) -> str:
+    query = query.rstrip()
+    delimiter = get_current_delimiter()
+    if query.endswith((delimiter, r'\G', r'\g', r'\x')):
+        return query
+    return query + delimiter
+
+
+def list_favorite_queries(include_usage: bool = True) -> list[SQLResult]:
+    """List of all favorite queries."""
+
+    header = ["Name", "Query"]
+    rows = [(r, FavoriteQueries.instance.get(r)) for r in FavoriteQueries.instance.list()]
+
+    if not rows:
+        status = "\nNo favorite queries found."
+        if include_usage:
+            status += FavoriteQueries.instance.usage
+    else:
+        status = ""
+    return [SQLResult(header=header, rows=rows, status=status)]
+
+
+def restore_favorite_query_args(query: str, positional_values: dict[str, str]) -> str:
+    for marker, value in positional_values.items():
+        query = query.replace(marker, value)
+    return query
+
+
+def prepare_favorite_query_args(query: str, args: list[str]) -> tuple[str | None, dict[str, str], str | None]:
+    """Replace positional parameters with markers that survive template rendering."""
+    marker_prefix = f'__mycli_favorite_arg_{uuid4().hex}_'
+
+    positional_values: dict[str, str] = {}
+    for idx, val in enumerate(args):
+        subst_var = "$" + str(idx + 1)
+        if subst_var not in query:
+            display_query = restore_favorite_query_args(query, positional_values)
+            error = "query does not have substitution parameter " + subst_var + ":\n  " + display_query
+            return (None, {}, error)
+
+        marker = f'{marker_prefix}{idx + 1}__'
+        query = query.replace(subst_var, marker)
+        positional_values[marker] = val
+
+    match = re.search(r"\$\d+", query)
+    if match:
+        display_query = restore_favorite_query_args(query, positional_values)
+        error = "missing substitution for " + match.group(0) + " in query:\n  " + display_query
+        return (None, {}, error)
+
+    return (query, positional_values, None)
+
+
+def subst_favorite_query_args(query: str, args: list[str]) -> list[str | None]:
+    """Replace positional parameters ($1...$N) in query."""
+    prepared_query, positional_values, error = prepare_favorite_query_args(query, args)
+    if prepared_query is None:
+        return [None, error]
+
+    return [restore_favorite_query_args(prepared_query, positional_values), None]
+
+
+@special_command(
+    "\\fs",
+    "/fs <name> <query>",
+    "Save favorite query shortcut.",
+    completion_snippet='save favorite query',
+)
+def save_favorite_query(arg: str, **_) -> list[SQLResult]:
+    """Save a new favorite query."""
+
+    usage = "Syntax: /fs name query.\n\n" + FavoriteQueries.instance.usage
+    return _save_favorite_query(arg, usage)
+
+
+def _save_favorite_query(arg: str, usage: str) -> list[SQLResult]:
+    if not arg:
+        return [SQLResult(status=usage)]
+
+    name, _separator, query = arg.partition(" ")
+
+    # If either name or query is missing then print the usage and complain.
+    if (not name) or (not query):
+        return [SQLResult(status=f"{usage} Err: Both name and query are required.")]
+
+    FavoriteQueries.instance.save(name, query)
+    return [SQLResult(status="Saved.")]
+
+
+def _edit_favorite_query(name: str) -> list[SQLResult]:
+    query = FavoriteQueries.instance.get(name)
+    if query is None:
+        return [SQLResult(status=f'No favorite query: {name}')]
+
+    try:
+        edited_query = click.edit(query, extension='.sql')
+        if edited_query is None:
+            return [SQLResult(status=f'{name}: Not Changed.')]
+        FavoriteQueries.instance.save(name, edited_query)
+    except KeyboardInterrupt:
+        return [SQLResult(status=f'{name}: Edit Cancelled.')]
+    except (click.ClickException, OSError) as error:
+        return [SQLResult(status=f'Unable to edit favorite "{name}": {error}')]
+
+    return [SQLResult(status=f'{name}: Edited.')]
+
+
+def is_favorite_save_command(statement: str) -> bool:
+    """Return whether a statement saves a favorite query."""
+    parts = statement.lstrip().split(maxsplit=2)
+    if not parts:
+        return False
+    if parts[0].startswith((r'\fs', '/fs')):
+        return True
+    return len(parts) >= 2 and parts[0].lower() in (r'\favorite', '/favorite') and parts[1].lower() == 'save'
+
+
+@special_command(
+    "\\fd",
+    "/fd <name>",
+    "Delete favorite query shortcut.",
+    completion_snippet='delete favorite query',
+)
+def delete_favorite_query(arg: str, **_) -> list[SQLResult]:
+    """Delete an existing favorite query."""
+    usage = "Syntax: /fd name.\n\n" + FavoriteQueries.instance.usage
+    return _delete_favorite_query(arg, usage)
+
+
+def _delete_favorite_query(arg: str, usage: str) -> list[SQLResult]:
+    if not arg:
+        return [SQLResult(status=usage)]
+
+    status = FavoriteQueries.instance.delete(arg)
+
+    return [SQLResult(status=status)]
+
+
+@special_command(
+    r'\dsn',
+    '/dsn <command>',
+    'Manage saved DSNs (/dsn help).',
+    arg_type=ArgType.PARSED_QUERY,
+    case_sensitive=False,
+    completion_snippet='manage saved DSNs',
+)
+def dsn(
+    cur: Cursor,
+    arg: str | None = None,
+    arg_type: ArgType = ArgType.PARSED_QUERY,
+    command_verbosity: bool = False,
+) -> list[SQLResult]:
+    args = shlex.split(arg or '')
+    if args and args[0].lower() == 'show' and (len(args) == 1 or (len(args) == 2 and args[1] == '--more')):
+        dsn = compute_current_dsn(cur)
+        if len(args) == 2:
+            dsn = DsnAliases.instance.dsn_more(dsn)
+        header = ['Current Connection']
+        show_rows = [(dsn,)]
+        return [SQLResult(header=header, rows=show_rows)]
+    elif args and args[0].lower() == 'save':
+        include_more = len(args) == 3 and args[1] == '--more'
+        if not (len(args) == 2 and args[1] != '--more') and not include_more:
+            return [SQLResult(status='Error: a single alias-name argument is required to save.')]
+        alias = args[2] if include_more else args[1]
+        if not is_valid_dsn_alias(alias):
+            return [SQLResult(status=INVALID_DSN_ALIAS_ERROR)]
+        dsn = compute_current_dsn(cur)
+        if include_more:
+            dsn = DsnAliases.instance.dsn_more(dsn)
+        status = DsnAliases.instance.save(alias, dsn)
+        return [SQLResult(status=status)]
+    elif args and args[0].lower() == 'edit':
+        if len(args) != 2:
+            return [SQLResult(status='Error: a single alias-name argument is required to edit.')]
+        alias = args[1]
+        if not is_valid_dsn_alias(alias):
+            return [SQLResult(status=INVALID_DSN_ALIAS_ERROR)]
+        return _edit_dsn_alias(alias)
+    elif args and args[0].lower() == 'delete':
+        if len(args) != 2:
+            return [SQLResult(status='Error: a single alias-name argument is required to delete.')]
+        alias = args[1]
+        if not is_valid_dsn_alias(alias):
+            return [SQLResult(status=INVALID_DSN_ALIAS_ERROR)]
+        status = DsnAliases.instance.delete(alias)
+        return [SQLResult(status=status)]
+    elif len(args) == 1 and args[0].lower() == 'list':
+        header = ['Alias', 'DSN']
+        list_rows = [(alias, DsnAliases.instance.get(alias)) for alias in DsnAliases.instance.list()]
+        if not list_rows:
+            status = 'No DSN Aliases found.'
+        else:
+            status = None
+        return [SQLResult(status=status, header=header, rows=list_rows)]
+    else:
+        return [SQLResult(preamble=DsnAliases.instance.usage)]
+
+
+def _edit_dsn_alias(alias: str) -> list[SQLResult]:
+    dsn = DsnAliases.instance.get(alias)
+    if dsn is None:
+        return [SQLResult(status=f'No DSN alias: {alias}')]
+
+    try:
+        edited_dsn = click.edit(dsn)
+        if edited_dsn is None:
+            return [SQLResult(status=f'{alias}: Not Changed.')]
+        DsnAliases.instance.save(alias, edited_dsn.strip())
+    except KeyboardInterrupt:
+        return [SQLResult(status=f'{alias}: Edit Cancelled.')]
+    except (click.ClickException, OSError) as error:
+        return [SQLResult(status=f'Unable to edit DSN alias "{alias}": {error}')]
+
+    return [SQLResult(status=f'{alias}: Edited.')]
+
+
+@special_command(
+    "system",
+    "/system [-r] <command>",
+    "Execute shell command (-r for raw mode).",
+    completion_snippet='execute shell command',
+)
+def execute_system_command(arg: str, **_) -> list[SQLResult]:
+    """Execute a system shell command."""
+    usage = "Syntax: /system [-r] [command].\n-r denotes \"raw\" mode, in which output is passed through without formatting."
+
+    IMPLICIT_RAW_MODE_COMMANDS = {
+        'clear',
+        'vim',
+        'vi',
+        'bash',
+        'zsh',
+    }
+
+    if not arg.strip():
+        return [SQLResult(status=usage)]
+
+    try:
+        command = shlex.split(arg.strip(), posix=not WIN)
+    except ValueError as e:
+        return [SQLResult(status=f"Cannot parse system command: {e}")]
+
+    raw = False
+    if command[0] == '-r':
+        command.pop(0)
+        raw = True
+    elif command[0].lower() in IMPLICIT_RAW_MODE_COMMANDS:
+        raw = True
+
+    if not command:
+        return [SQLResult(status=usage)]
+
+    if command[0].lower() == 'cd':
+        ok, error_message = handle_cd_command(command)
+        if not ok:
+            return [SQLResult(status=error_message)]
+        return [SQLResult()]
+
+    try:
+        if raw:
+            completed_process = subprocess.run(command, check=False)
+            if completed_process.returncode:
+                return [SQLResult(status=f'Command exited with return code {completed_process.returncode}')]
+            if command[0].lower() == 'clear':
+                return []
+            return [SQLResult()]
+        else:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            try:
+                output, error = process.communicate(timeout=60)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                output, error = process.communicate()
+            response = output if not error else error
+            encoding = locale.getpreferredencoding(False)
+            response_str = response.decode(encoding)
+            if process.returncode:
+                status = f'Command exited with return code {process.returncode}'
+            else:
+                status = None
+            return [SQLResult(preamble=response_str, status=status)]
+    except OSError as e:
+        return [SQLResult(status=f"OSError: {e.strerror}")]
+
+
+def parseargfile(arg: str) -> tuple[str, str]:
+    if arg.startswith("-o "):
+        mode = "w"
+        filename = arg[3:]
+    else:
+        mode = "a"
+        filename = arg
+
+    if not filename:
+        raise TypeError("You must provide a filename.")
+
+    return (os.path.expanduser(filename), mode)
+
+
+@special_command(
+    "tee",
+    "/tee [-o] <file>",
+    "Append all results to file (-o to overwrite).",
+    completion_snippet='append all results to file',
+)
+def set_tee(arg: str, **_) -> list[SQLResult]:
+    global tee_file
+
+    try:
+        tee_file = open(*parseargfile(arg))
+    except (IOError, OSError) as e:
+        raise OSError(f"Cannot write to file '{e.filename}': {e.strerror}") from e
+
+    return [SQLResult(status="")]
+
+
+def close_tee() -> None:
+    global tee_file
+    if tee_file:
+        tee_file.close()
+        tee_file = None
+
+
+@special_command(
+    "notee",
+    "/notee",
+    "Stop writing all results to tee file.",
+    completion_snippet='stop writing to tee file',
+)
+def no_tee(arg: str, **_) -> list[SQLResult]:
+    close_tee()
+    return [SQLResult(status="")]
+
+
+def write_tee(output: str | ANSI | FormattedText, nl: bool = True) -> None:
+    global tee_file
+    if not tee_file:
+        return
+    click.echo(to_plain_text(output), file=tee_file, nl=False)
+    if nl:
+        click.echo('\n', file=tee_file, nl=False)
+    tee_file.flush()
+
+
+@special_command(
+    "\\once",
+    "/once [-o] <file>",
+    "Append next result to a file (-o to overwrite).",
+    aliases=[SpecialCommandAlias("\\o", case_sensitive=False)],
+    completion_snippet='append next result to file',
+)
+def set_once(arg: str, **_) -> list[SQLResult]:
+    return _set_once_file(*parseargfile(arg))
+
+
+def _set_once_file(filename: str, mode: str) -> list[SQLResult]:
+    global once_file, written_to_once_file
+
+    try:
+        once_file = open(os.path.expanduser(filename), mode)
+    except (IOError, OSError) as e:
+        raise OSError(f"Cannot write to file '{e.filename}': {e.strerror}") from e
+    written_to_once_file = False
+
+    return [SQLResult(status="")]
+
+
+def is_redirected() -> bool:
+    return bool(once_file or PIPE_ONCE['process'])
+
+
+def write_once(output: str) -> None:
+    global once_file, written_to_once_file
+    if output and once_file:
+        click.echo(output, file=once_file, nl=False)
+        click.echo("\n", file=once_file, nl=False)
+        once_file.flush()
+        written_to_once_file = True
+
+
+def unset_once_if_written(post_redirect_command: str) -> None:
+    """Unset the once file, if it has been written to."""
+    global once_file, written_to_once_file
+    if written_to_once_file and once_file:
+        once_filename = once_file.name
+        once_file.close()
+        once_file = None
+        _run_post_redirect_hook(post_redirect_command, once_filename)
+
+
+def run_post_redirect_hook(post_redirect_command: str, filename: str) -> None:
+    """Run the configured command after a successful output redirect."""
+    _run_post_redirect_hook(post_redirect_command, filename)
+
+
+def _run_post_redirect_hook(post_redirect_command: str | None, filename: str) -> None:
+    if not post_redirect_command:
+        return
+    post_cmd = post_redirect_command.format(shlex.quote(filename))
+    try:
+        subprocess.run(
+            post_cmd,
+            shell=True,
+            check=True,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        raise OSError(f"Redirect post hook failed: {e}") from e
+
+
+@special_command(
+    "\\pipe_once",
+    "/pipe_once <command>",
+    "Send next result to subprocess.",
+    aliases=[SpecialCommandAlias("\\|", case_sensitive=False)],
+    completion_snippet='next result to subprocess',
+)
+def set_pipe_once(arg: str, *, start_new_session: bool = False, **_) -> list[SQLResult]:
+    if not arg:
+        raise OSError("pipe_once requires a command")
+    if WIN:
+        # best effort, no chaining
+        pipe_once_cmd = shlex.split(arg)
+    else:
+        # to support chaining
+        pipe_once_cmd = ['sh', '-c', arg]
+    PIPE_ONCE['stdin'] = []
+    PIPE_ONCE['process'] = subprocess.Popen(
+        pipe_once_cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        encoding="UTF-8",
+        universal_newlines=True,
+        start_new_session=start_new_session,
+    )
+    return [SQLResult(status="")]
+
+
+def write_pipe_once(line: str) -> None:
+    if line and PIPE_ONCE['process']:
+        PIPE_ONCE['stdin'].append(line)
+
+
+def _kill_pipe_process(process: subprocess.Popen[str], *, process_group: bool) -> None:
+    if process_group:
+        # Children may still be running after the shell itself has exited.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    else:
+        process.kill()
+
+
+def flush_pipe_once_if_written(
+    post_redirect_command: str | None,
+    *,
+    force: bool = False,
+    process_group: bool = False,
+) -> None:
+    """Flush the pipe_once cmd, if lines have been written."""
+    if not PIPE_ONCE['process']:
+        return
+    if not PIPE_ONCE['stdin'] and not force:
+        return
+    timed_out = False
+    try:
+        content = '\n'.join(PIPE_ONCE['stdin']) + '\n' if PIPE_ONCE['stdin'] else ''
+        (stdout_data, stderr_data) = PIPE_ONCE['process'].communicate(input=content, timeout=60)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        _kill_pipe_process(PIPE_ONCE['process'], process_group=process_group)
+        (stdout_data, stderr_data) = PIPE_ONCE['process'].communicate(timeout=2 if process_group else None)
+    returncode = PIPE_ONCE['process'].returncode
+    if PIPE_ONCE['stdout_file']:
+        if not timed_out and not returncode and (stdout_data or force):
+            with open(PIPE_ONCE['stdout_file'], PIPE_ONCE['stdout_mode']) as f:
+                if stdout_data:
+                    print(stdout_data, file=f)
+            _run_post_redirect_hook(post_redirect_command, PIPE_ONCE['stdout_file'])
+    elif stdout_data:
+        click.secho(stdout_data.rstrip('\n'))
+    if stderr_data:
+        click.secho(stderr_data.rstrip('\n'), err=True, fg='red')
+    if timed_out or returncode:
+        PIPE_ONCE['process'] = None
+        PIPE_ONCE['stdin'] = []
+        PIPE_ONCE['stdout_file'] = None
+        PIPE_ONCE['stdout_mode'] = None
+        if timed_out:
+            raise OSError('process timed out after 60 seconds')
+        raise OSError(f'process exited with nonzero code {returncode}')
+    PIPE_ONCE['process'] = None
+    PIPE_ONCE['stdin'] = []
+    PIPE_ONCE['stdout_file'] = None
+    PIPE_ONCE['stdout_mode'] = None
+
+
+@special_command(
+    "watch",
+    "/watch [sec] [-c] <query>",
+    "Execute query every [sec] seconds (default 5).",
+    completion_snippet='run query every N seconds',
+)
+def watch_query(arg: str, **kwargs) -> Generator[SQLResult, None, None]:
+    usage = """Syntax: /watch [sec] [-c] query.
+    * sec: The interval at the query will be repeated, in seconds.
+           By default: 5.
+    * -c: Clears the screen between every iteration.
+"""
+    if not arg:
+        yield SQLResult(status=usage)
+        return
+    seconds = 5.0
+    clear_screen = False
+    statement = None
+    while statement is None:
+        arg = arg.strip()
+        if not arg:
+            # Oops, we parsed all the arguments without finding a statement
+            yield SQLResult(status=usage)
+            return
+        (left_arg, _, right_arg) = arg.partition(" ")
+        arg = right_arg
+        try:
+            seconds = float(left_arg)
+            continue
+        except ValueError:
+            pass
+        if left_arg == "-c":
+            clear_screen = True
+            continue
+        statement = f"{left_arg} {arg}"
+    destructive_prompt = confirm_destructive_query(DESTRUCTIVE_KEYWORDS, statement)
+    if destructive_prompt is False:
+        click.secho("Wise choice!")
+        return
+    elif destructive_prompt is True:
+        click.secho("Your call!")
+    cur = kwargs["cur"]
+    sql_list = [(sql.rstrip(";"), f"> {sql}") for sql in sqlparse.split(statement)]
+    old_pager_enabled = is_pager_enabled()
+    while True:
+        if clear_screen:
+            click.clear()
+        try:
+            # Somewhere in the code the pager its activated after every yield,
+            # so we disable it in every iteration
+            set_pager_enabled(False)
+            for sql, preamble in sql_list:
+                cur.execute(sql)
+                command: dict[str, str | float] = {
+                    "name": "watch",
+                    "seconds": seconds,
+                }
+                if cur.description:
+                    header = [x[0] for x in cur.description]
+                    yield SQLResult(preamble=preamble, header=header, rows=cur, command=command)
+                else:
+                    yield SQLResult(preamble=preamble, command=command)
+            sleep(seconds)
+        except KeyboardInterrupt:
+            # This prints the Ctrl-C character in its own line, which prevents
+            # to print a line with the cursor positioned behind the prompt
+            click.secho("", nl=True)
+            return
+        finally:
+            set_pager_enabled(old_pager_enabled)
+
+
+@special_command(
+    "delimiter",
+    "/delimiter <string>",
+    "Set end-of-statement delimiter.",
+    completion_snippet='set end-of-statement delimiter',
+)
+def set_delimiter(arg: str, **_) -> list[SQLResult]:
+    return delimiter_command.set(arg)
+
+
+def get_current_delimiter() -> str:
+    return delimiter_command.current
+
+
+def split_queries(input_str: str) -> Generator[str, None, None]:
+    yield from delimiter_command.queries_iter(input_str)

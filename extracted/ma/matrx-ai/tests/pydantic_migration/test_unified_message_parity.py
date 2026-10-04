@@ -27,6 +27,7 @@ _FIELDS = (
     "metadata",
     "user_content",
     "position",
+    "agent_id",
 )
 
 # The exact ISO-8601 form production stores — 32 chars, microseconds, +00:00.

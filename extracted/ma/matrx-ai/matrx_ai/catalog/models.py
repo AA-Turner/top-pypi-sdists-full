@@ -204,9 +204,33 @@ class ControlRule(BaseModel):
     # for "supported:false means drop" once C6 redefines supported:false.
     drop: bool | None = None
     why: str | None = None
+    # K6 amendment (C7b): the rule applies ONLY when the outbound context
+    # matches every pair (e.g. {"operation": "edit"} — the media seam passes
+    # operation/has_image_input). Anywhere else the key is a DECLARED drop
+    # (expected, silent; ``why`` says why). gpt-image-1.5 input_fidelity is
+    # accepted by images.edit and rejected by images.generate.
+    context: dict[str, Any] | None = None
+    # K6 amendment (FIXV1, CONTRACTS v5): LIST-valued settings (stop_sequences).
+    # ``max_items`` keeps the first N items (Groq/OpenAI ``stop``: at most 4);
+    # ``drop_items_matching`` is a regex — an item it FULLY matches is removed
+    # (Anthropic refuses a whitespace-only stop sequence: ``^\s*$``). Both are
+    # declared (Adjustment expected); a list emptied by them is omitted.
+    max_items: int | None = None
+    drop_items_matching: str | None = None
 
     @model_validator(mode="after")
     def _validate_field_combos(self) -> ControlRule:
+        if self.max_items is not None and self.max_items < 1:
+            raise ValueError(
+                "max_items must be >= 1 (a key that takes no items is a declared drop)"
+            )
+        if self.drop_items_matching is not None:
+            import re as _re
+
+            try:
+                _re.compile(self.drop_items_matching)
+            except _re.error as exc:
+                raise ValueError(f"drop_items_matching is not a valid regex: {exc}") from exc
         # A processor owns its key's translation — a rule that also carries a
         # VALUE-REWRITING scalar transform (value_map/const) is ambiguous data
         # and must fail loudly. clamp is NOT ambiguous: it is a numeric range
@@ -235,6 +259,8 @@ class ControlRule(BaseModel):
             raise ValueError(
                 "const is exclusive with value_map/clamp — const ignores the incoming value"
             )
+        if self.context is not None and not self.context:
+            raise ValueError("context, when present, names at least one condition")
         if self.drop and not (self.why or "").strip():
             raise ValueError('a declared drop {"drop": true} requires a "why"')
         if self.drop and self.supported:
@@ -322,6 +348,11 @@ class Adjustment(BaseModel):
     # site that predates K9 claims nothing it was not; every engine fallback
     # sets "computed" explicitly.
     provenance: AdjustmentProvenance = "declared"
+    # The contract law that DECIDES this outcome when no cell does (e.g. "K7":
+    # a source the caller also expressed through a directly-set sibling, or a
+    # converted source that loses to a higher-position one). A computed drop
+    # carrying a law is deliberate and silent by contract — never a surprise.
+    law: str | None = None
     # The cell that decided this key (K3/K5); None until cells exist. Stamped
     # by CompiledControlsMap.outbound from its ``cells`` map.
     cell_id: str | None = None

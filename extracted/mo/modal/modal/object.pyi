@@ -10,7 +10,7 @@ SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 class Object:
     _type_prefix: typing.ClassVar[typing.Optional[str]]
-    _prefix_to_type: typing.ClassVar[dict[str, type]]
+    _prefix_to_type: typing.ClassVar[dict[str, type[Object]]]
     _load: typing.Optional[
         collections.abc.Callable[
             [typing_extensions.Self, modal._resolver.Resolver, modal._load_context.LoadContext, typing.Optional[str]],
@@ -45,8 +45,6 @@ class Object:
     def _is_hydrated(self) -> bool: ...
     @_is_hydrated.setter
     def _is_hydrated(self, value: bool): ...
-    @classmethod
-    def __init_subclass__(cls, type_prefix: typing.Optional[str] = None): ...
     def _init(
         self,
         rep: str,

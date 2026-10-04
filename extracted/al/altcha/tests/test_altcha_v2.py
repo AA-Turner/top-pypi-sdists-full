@@ -1,4 +1,8 @@
+import base64
 import datetime
+import enum
+import hashlib
+import itertools
 import json
 import struct
 import unittest
@@ -36,19 +40,72 @@ class TestMakePassword(unittest.TestCase):
         pwd = _make_password(nonce, 42)
         self.assertEqual(pwd, b"\xaa\xbb\xcc\xdd" + struct.pack(">I", 42))
 
+    def test_string_mode(self):
+        nonce = bytes.fromhex("aabbccdd")
+        pwd = _make_password(nonce, 1234, "string")
+        self.assertEqual(pwd, b"\xaa\xbb\xcc\xdd1234")
+
 
 class TestCanonicalJSON(unittest.TestCase):
     def test_sorts_keys(self):
         result = _canonical_json({"z": 1, "a": 2, "m": 3})
         self.assertEqual(result, '{"a":2,"m":3,"z":1}')
 
-    def test_excludes_none(self):
+    def test_keeps_null(self):
         result = _canonical_json({"a": 1, "b": None, "c": 3})
-        self.assertEqual(result, '{"a":1,"c":3}')
+        self.assertEqual(result, '{"a":1,"b":null,"c":3}')
 
     def test_nested(self):
         result = _canonical_json({"z": {"b": 2, "a": 1}})
         self.assertEqual(result, '{"z":{"a":1,"b":2}}')
+
+    def test_number_subclasses_serialize_as_values(self):
+        # Before 3.11, str(IntEnum member) is "Cls.NAME"; the wire format uses the value.
+        class Level(enum.IntEnum):
+            HIGH = 3
+
+        class Ratio(float):
+            def __repr__(self) -> str:
+                return "Ratio()"
+
+        result = _canonical_json({"l": Level.HIGH, "r": Ratio(0.5)})
+        self.assertEqual(result, '{"l":3,"r":0.5}')
+
+    def test_matches_js(self):
+        # Expected strings produced by altcha-lib's canonicalJSON on the same JSON.
+        vectors = [
+            (
+                "[1e-7,1.0,-0.0,1e16,1e21,123456789012345678,1.5e-6,1e-6,1e400]",
+                (
+                    "[1e-7,1,0,10000000000000000,1e+21,123456789012345680,"
+                    "0.0000015,0.000001,null]"
+                ),
+            ),
+            (
+                '{"big":12345678901234567890,"ok":9007199254740993}',
+                '{"big":12345678901234567000,"ok":9007199254740992}',
+            ),
+            (
+                '{"10":1,"9":2,"a":3,"01":4,"4294967294":5,"4294967295":6,"-1":7}',
+                '{"9":2,"10":1,"4294967294":5,"-1":7,"01":4,"4294967295":6,"a":3}',
+            ),
+            ('{"\\uff61":1,"\\ud83d\\ude00":2}', '{"\U0001f600":2,"\uff61":1}'),
+            (
+                '{"s":"\\u0000\\u007f\\u2028\\b\\ud800 \\udc00x \\ud83d\\ude00"}',
+                '{"s":"\\u0000\x7f\u2028\\b\\ud800 \\udc00x \U0001f600"}',
+            ),
+            (
+                '{"arr":[{"b":1,"a":2,"1":0},[{"y":1,"x":2}]]}',
+                '{"arr":[{"1":0,"b":1,"a":2},[{"y":1,"x":2}]]}',
+            ),
+            (
+                '{"arr":[{"__proto__":{"b":1},"a":2}]}',
+                '{"arr":[{"__proto__":{"b":1},"a":2}]}',
+            ),
+        ]
+        for source, expected in vectors:
+            with self.subTest(source=source):
+                self.assertEqual(_canonical_json(json.loads(source)), expected)
 
 
 class TestDeriveKeySha(unittest.TestCase):
@@ -96,6 +153,19 @@ class TestDeriveKeySha(unittest.TestCase):
         result = derive_key_sha(params, b"\xbb", b"\xaa")
         self.assertEqual(len(result), 8)
 
+    def test_unrecognized_algorithm_uses_sha256(self):
+        # altcha-lib sha.ts deriveKey output for SHA-256, salt 00112233, password aabbccdd.
+        expected = "818a3c3da22f44d6d4b92bd6168e71a9228e2b3061b77a018a1bb786206986f2"
+        for algorithm in ("SHA-256", "SHA-1", "sha-512", "MD5"):
+            with self.subTest(algorithm=algorithm):
+                params = ChallengeParameters(
+                    algorithm=algorithm, nonce="", salt="", cost=2, key_length=32
+                )
+                result = derive_key_sha(
+                    params, bytes.fromhex("00112233"), bytes.fromhex("aabbccdd")
+                )
+                self.assertEqual(result.hex(), expected)
+
 
 class TestDeriveKeyPBKDF2(unittest.TestCase):
     def test_basic(self):
@@ -112,6 +182,20 @@ class TestDeriveKeyPBKDF2(unittest.TestCase):
         expected = hashlib.pbkdf2_hmac("sha256", b"\xaa", b"\xbb", 1000, 32)
         result = derive_key_pbkdf2(params, b"\xbb", b"\xaa")
         self.assertEqual(result, expected)
+
+    def test_unrecognized_algorithm_uses_sha256(self):
+        # altcha-lib pbkdf2.ts deriveKey output for PBKDF2/SHA-256, salt 00112233,
+        # password aabbccdd.
+        expected = "3198c239f81895ecedabba4db70278e53a7e622d7c45467719b8fbeb9b41e79c"
+        for algorithm in ("PBKDF2/SHA-256", "PBKDF2/SHA-1", "PBKDF2/sha-512", "PBKDF2"):
+            with self.subTest(algorithm=algorithm):
+                params = ChallengeParameters(
+                    algorithm=algorithm, nonce="", salt="", cost=2, key_length=32
+                )
+                result = derive_key_pbkdf2(
+                    params, bytes.fromhex("00112233"), bytes.fromhex("aabbccdd")
+                )
+                self.assertEqual(result.hex(), expected)
 
 
 class TestDeriveKeyScrypt(unittest.TestCase):
@@ -184,6 +268,24 @@ class TestCreateChallenge(unittest.TestCase):
         )
         self.assertIsNotNone(ch.parameters.key_signature)
 
+    def test_empty_secrets_are_unset(self):
+        for empty in ("", b""):
+            with self.subTest(empty=empty):
+                ch = create_challenge(
+                    "SHA-256", cost=1, counter=0, hmac_secret=empty, hmac_key_secret="k"
+                )
+                self.assertIsNone(ch.signature)
+                self.assertIsNone(ch.parameters.key_signature)
+                ch = create_challenge(
+                    "SHA-256",
+                    cost=1,
+                    counter=0,
+                    hmac_secret=HMAC_KEY,
+                    hmac_key_secret=empty,
+                )
+                self.assertIsNotNone(ch.signature)
+                self.assertIsNone(ch.parameters.key_signature)
+
 
 class TestSolveChallenge(unittest.TestCase):
     def test_solves_sha(self):
@@ -191,6 +293,12 @@ class TestSolveChallenge(unittest.TestCase):
         sol = solve_challenge(ch)
         assert sol is not None
         self.assertEqual(sol.counter, 7)
+
+    def test_solves_string_counter_mode(self):
+        ch = create_challenge("SHA-256", cost=1, counter=1234, counter_mode="string")
+        sol = solve_challenge(ch, counter_mode="string", timeout=5)
+        assert sol is not None
+        self.assertEqual(sol.counter, 1234)
 
     def test_solves_pbkdf2(self):
         ch = create_challenge("PBKDF2/SHA-256", cost=1, counter=3, hmac_secret=HMAC_KEY)
@@ -219,6 +327,27 @@ class TestSolveChallenge(unittest.TestCase):
         ch.parameters.key_prefix = "ff" * 16  # extremely unlikely
         sol = solve_challenge(ch, timeout=0.001)
         self.assertIsNone(sol)
+
+    def test_timeout_with_counter_partition(self):
+        ch = create_challenge("SHA-256", cost=1)
+        ch.parameters.key_prefix = "ff"
+        counters: list[int] = []
+
+        def derive_key(params, salt, password):
+            counters.append(struct.unpack(">I", password[-4:])[0])
+            if len(counters) > 100:
+                raise AssertionError("timeout never fired")
+            return b"\x00" * 32
+
+        # Each monotonic() call advances one second: the deadline passes after 5 tries.
+        with unittest.mock.patch(
+            "altcha.v2.time.monotonic", side_effect=itertools.count()
+        ):
+            sol = solve_challenge(
+                ch, derive_key, counter_start=1, counter_step=2, timeout=5
+            )
+        self.assertIsNone(sol)
+        self.assertEqual(counters, [1, 3, 5, 7, 9])
 
 
 class TestVerifySolution(unittest.TestCase):
@@ -265,6 +394,16 @@ class TestVerifySolution(unittest.TestCase):
         result = verify_solution(payload, HMAC_KEY)
         self.assertFalse(result.verified)
         self.assertTrue(result.invalid_signature)
+
+    def test_empty_secret_raises(self):
+        # A challenge forged with the empty key must not verify under an empty secret.
+        params = create_challenge("SHA-256", cost=1, counter=0).parameters
+        ch = _sign_challenge_v2(DEFAULT_HMAC_ALGORITHM, params, None, "", None)
+        sol = solve_challenge(ch)
+        assert sol is not None
+        for empty in ("", b""):
+            with self.subTest(empty=empty), self.assertRaises(ValueError):
+                verify_solution(Payload(ch, sol), empty)
 
     def test_tampered_counter_fails(self):
         ch = create_challenge("SHA-256", cost=1, counter=5, hmac_secret=HMAC_KEY)
@@ -313,6 +452,32 @@ class TestVerifySolution(unittest.TestCase):
         self.assertFalse(result.verified)
         self.assertTrue(result.invalid_solution)
 
+    def test_fast_path_malformed_derived_key(self):
+        KEY_SIG_SECRET = "key-sig-secret"
+        ch = create_challenge(
+            "SHA-256",
+            cost=1,
+            counter=3,
+            hmac_secret=HMAC_KEY,
+            hmac_key_secret=KEY_SIG_SECRET,
+        )
+        sol = solve_challenge(ch)
+        assert sol is not None
+        key = sol.derived_key
+        for derived_key in ("zz" * 32, key[:-1], 5, None, f"{key[:2]} {key[2:]}"):
+            with self.subTest(derived_key=derived_key):
+                bad_sol = Solution(counter=sol.counter, derived_key=derived_key)
+                result = verify_solution(
+                    Payload(ch, bad_sol), HMAC_KEY, hmac_key_secret=KEY_SIG_SECRET
+                )
+                self.assertFalse(result.verified)
+                self.assertTrue(result.invalid_solution)
+        upper_sol = Solution(counter=sol.counter, derived_key=key.upper())
+        result = verify_solution(
+            Payload(ch, upper_sol), HMAC_KEY, hmac_key_secret=KEY_SIG_SECRET
+        )
+        self.assertTrue(result.verified)
+
     def test_slow_path_enforces_key_prefix(self):
         # Regression test: the fallback (no key signature) verification path must
         # reject a solution whose derived key is genuinely correct for its counter
@@ -348,6 +513,178 @@ class TestVerifySolution(unittest.TestCase):
         result = verify_solution(payload, HMAC_KEY)
         self.assertFalse(result.verified)
         self.assertTrue(result.invalid_solution)
+
+    def test_slow_path_uppercase_key_prefix(self):
+        for prefix in ("F2", "F"):
+            with self.subTest(prefix=prefix):
+                params = create_challenge("SHA-256", cost=1).parameters
+                # Uppercase prefix signed as-is, as another issuer may produce.
+                params.key_prefix = prefix
+                ch = _sign_challenge_v2(
+                    DEFAULT_HMAC_ALGORITHM, params, None, HMAC_KEY, None
+                )
+                sol = solve_challenge(ch, timeout=5)
+                assert sol is not None
+                self.assertTrue(sol.derived_key.startswith(prefix.lower()))
+                result = verify_solution(Payload(ch, sol), HMAC_KEY)
+                self.assertTrue(result.verified)
+
+    def test_create_lowercases_key_prefix(self):
+        ch = create_challenge("SHA-256", cost=1, key_prefix="F2A")
+        self.assertEqual(ch.parameters.key_prefix, "f2a")
+
+    def test_slow_path_invalid_counter(self):
+        ch = create_challenge("SHA-256", cost=1, counter=3, hmac_secret=HMAC_KEY)
+        sol = solve_challenge(ch)
+        assert sol is not None
+        c = sol.counter
+        for counter in (-1, 2**32 + c, str(c), float(c), None, True):
+            with self.subTest(counter=counter):
+                bad_sol = Solution(counter=counter, derived_key=sol.derived_key)
+                result = verify_solution(Payload(ch, bad_sol).to_base64(), HMAC_KEY)
+                self.assertFalse(result.verified)
+                self.assertTrue(result.invalid_solution)
+
+    def test_proto_key_is_rejected(self):
+        for data in ({"__proto__": 1}, {"d": {"__proto__": None, "y": 1}}):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                create_challenge("SHA-256", cost=1, data=data, hmac_secret=HMAC_KEY)
+
+        # Injected by a client into a signed challenge; JS would ignore it when signing.
+        ch = create_challenge(
+            "SHA-256", cost=1, counter=3, data={"d": {"y": 1}}, hmac_secret=HMAC_KEY
+        )
+        sol = solve_challenge(ch)
+        assert sol is not None
+        tampered = Challenge.from_dict(ch.to_dict())
+        assert tampered.parameters.data is not None
+        tampered.parameters.data["d"]["__proto__"] = "x"
+        result = verify_solution(Payload(tampered, sol).to_base64(), HMAC_KEY)
+        self.assertFalse(result.verified)
+        self.assertTrue(result.invalid_signature)
+
+    def test_deeply_nested_data_is_invalid_signature(self):
+        ch = create_challenge("SHA-256", cost=1, counter=3, hmac_secret=HMAC_KEY)
+        sol = solve_challenge(ch)
+        assert sol is not None
+        data: dict = {}
+        node = data
+        for _ in range(5000):
+            node["x"] = {}
+            node = node["x"]
+        ch.parameters.data = data
+        result = verify_solution(Payload(ch, sol), HMAC_KEY)
+        self.assertFalse(result.verified)
+        self.assertTrue(result.invalid_signature)
+
+    def test_malformed_fields(self):
+        ch = create_challenge("SHA-256", cost=1, counter=3, hmac_secret=HMAC_KEY)
+        sol = solve_challenge(ch)
+        assert sol is not None
+
+        tampered = Challenge.from_dict(ch.to_dict())
+        tampered.parameters.expires_at = "9999999999"
+        result = verify_solution(Payload(tampered, sol), HMAC_KEY)
+        self.assertFalse(result.expired)
+        self.assertTrue(result.invalid_signature)
+
+        for signature in (123, "é", "\ud800"):
+            with self.subTest(signature=signature):
+                bad_ch = Challenge(parameters=ch.parameters, signature=signature)
+                result = verify_solution(Payload(bad_ch, sol), HMAC_KEY)
+                self.assertFalse(result.verified)
+                self.assertTrue(result.invalid_signature)
+
+        for derived_key in ("é", 5, "\ud800"):
+            with self.subTest(derived_key=derived_key):
+                bad_sol = Solution(counter=sol.counter, derived_key=derived_key)
+                result = verify_solution(Payload(ch, bad_sol), HMAC_KEY)
+                self.assertFalse(result.verified)
+                self.assertTrue(result.invalid_solution)
+
+    def test_js_string_counter_mode(self):
+        # altcha-lib createChallenge({counter: 1234, counterMode: 'string'}), secret "h".
+        ch = Challenge.from_dict(
+            {
+                "parameters": {
+                    "algorithm": "SHA-256",
+                    "cost": 1,
+                    "keyLength": 32,
+                    "keyPrefix": "f053b63e7d151cc92d2e3c79af5d37cf",
+                    "nonce": "9fd71ed5d4d76048d3cfb98b2a658d7b",
+                    "salt": "b1662109960ba9534ac4a5a62340f1a7",
+                },
+                "signature": "614fc0a8ae77a2d8773973d53f72cdd42e169b4e6b594e635223e2196782091b",
+            }
+        )
+        sol = solve_challenge(ch, counter_mode="string", timeout=5)
+        assert sol is not None
+        self.assertEqual(sol.counter, 1234)
+        result = verify_solution(Payload(ch, sol), "h", counter_mode="string")
+        self.assertTrue(result.verified)
+        result = verify_solution(Payload(ch, sol), "h")
+        self.assertTrue(result.invalid_solution)
+
+    def test_js_explicit_null_parameters(self):
+        # altcha-lib createChallenge({counter: 3, data: null, expiresAt: null,
+        # memoryCost: null, parallelism: null}), secret "h".
+        payload = Payload.from_dict(
+            {
+                "challenge": {
+                    "parameters": {
+                        "algorithm": "SHA-256",
+                        "cost": 1,
+                        "data": None,
+                        "expiresAt": None,
+                        "keyLength": 32,
+                        "keyPrefix": "b5c0c87c5ed580190215c2c3ccb90c72",
+                        "keySignature": "d45724a0a21ccec78998b72af23d1d67"
+                        "29a71599a451c790ce2eb37f40921db1",
+                        "memoryCost": None,
+                        "nonce": "5ac6208848fe2764be876813be4a78bd",
+                        "parallelism": None,
+                        "salt": "2c171440877c1de04d0c4c5fabec6f42",
+                    },
+                    "signature": "37c51b7a158c24512ccc91d8b1ac575d"
+                    "ebb12c32e463e670d5ebff1801496cf7",
+                },
+                "solution": {
+                    "counter": 3,
+                    "derivedKey": "b5c0c87c5ed580190215c2c3ccb90c72"
+                    "0e3c45ec32922541529b16b7d67dcad0",
+                },
+            }
+        )
+        self.assertTrue(verify_solution(payload.to_base64(), "h").verified)
+
+        # Adding a null key to a challenge signed without it is tampering.
+        ch = create_challenge("SHA-256", cost=1, counter=3, hmac_secret="h")
+        sol = solve_challenge(ch)
+        assert sol is not None
+        tampered = ch.to_dict()
+        tampered["parameters"]["data"] = None
+        result = verify_solution(Payload(Challenge.from_dict(tampered), sol), "h")
+        self.assertTrue(result.invalid_signature)
+
+    def test_js_signed_data(self):
+        # Payload from altcha-lib createChallenge/solveChallenge (secret "test-secret")
+        # with data {z: null, f: 1e-7, n: 1.5, i: 1.0, big: 2 ** 64, "10": "x",
+        # "9": "y", b: true, s: "é\u2028\ud800😀"}.
+        payload = (
+            "eyJjaGFsbGVuZ2UiOnsicGFyYW1ldGVycyI6eyJhbGdvcml0aG0iOiJTSEEtMjU2IiwiY29zdCI6"
+            "MSwiZGF0YSI6eyI5IjoieSIsIjEwIjoieCIsImIiOnRydWUsImJpZyI6MTg0NDY3NDQwNzM3MDk1"
+            "NTIwMDAsImYiOjFlLTcsImkiOjEsIm4iOjEuNSwicyI6IsOp4oCoXHVkODAw8J+YgCIsInoiOm51"
+            "bGx9LCJrZXlMZW5ndGgiOjMyLCJrZXlQcmVmaXgiOiIyM2RlY2I0YzY1NzFiMDE0NjhhNGExNTU0"
+            "MTJkNjliOCIsIm5vbmNlIjoiMGE4N2IyZGFmZGQ5NjA2YWUzMGQyMmJlOTUwMGU5MTMiLCJzYWx0"
+            "IjoiNDc3MWE1ODhmNDU4MGQ1ZjllYWVmY2FkYjU4MTE4ODUifSwic2lnbmF0dXJlIjoiNWYzZjNj"
+            "MDIzYzg2OTYxZDhiZWRlZjY0OWUxN2RiN2JhY2FmOTQ3ZDY5MjFiMTZkNWM1MGRkMGMxZDk4MjUw"
+            "MiJ9LCJzb2x1dGlvbiI6eyJjb3VudGVyIjo1LCJkZXJpdmVkS2V5IjoiMjNkZWNiNGM2NTcxYjAx"
+            "NDY4YTRhMTU1NDEyZDY5YjgwOWEyZGFkZGY2NDM0ODYwN2Y1NWJhYTFkOGMwNWIyNyIsInRpbWUi"
+            "OjB9fQ=="
+        )
+        result = verify_solution(payload, HMAC_KEY)
+        self.assertFalse(result.invalid_signature)
+        self.assertTrue(result.verified)
 
     def test_payload_object(self):
         ch = create_challenge("SHA-256", cost=1, counter=2, hmac_secret=HMAC_KEY)
@@ -467,6 +804,45 @@ class TestVerifyServerSignature(unittest.TestCase):
         result = verify_server_signature(payload, "wrong-secret")
         self.assertFalse(result.verified)
         self.assertTrue(result.invalid_signature)
+
+    def test_empty_secret_raises(self):
+        payload = self._make_payload()
+        payload.signature = _hmac_v2(
+            "SHA-256",
+            __import__("hashlib").sha256(payload.verification_data.encode()).digest(),
+            "",
+        ).hex()
+        for empty in ("", b""):
+            with self.subTest(empty=empty), self.assertRaises(ValueError):
+                verify_server_signature(payload, empty)
+
+    def test_malformed_fields(self):
+        valid = self._make_payload().to_dict()
+        cases = [
+            ("algorithm", 5),
+            ("algorithm", None),
+            ("algorithm", "nope"),
+            ("algorithm", "shake_128"),
+            ("algorithm", "MD5"),
+            ("verificationData", 5),
+            ("verificationData", None),
+        ]
+        for field, value in cases:
+            with self.subTest(field=field, value=value):
+                encoded = base64.b64encode(
+                    json.dumps({**valid, field: value}).encode()
+                ).decode()
+                result = verify_server_signature(encoded, HMAC_KEY)
+                self.assertFalse(result.verified)
+                self.assertTrue(result.invalid_signature)
+
+    def test_lone_surrogate_hashed_like_text_encoder(self):
+        # JS TextEncoder replaces lone surrogates with U+FFFD before hashing.
+        vdata = "verified=true&note=\ud800"
+        replaced = "verified=true&note=\ufffd".encode()
+        sig = _hmac_v2("SHA-256", hashlib.sha256(replaced).digest(), HMAC_KEY).hex()
+        payload = ServerSignaturePayload("SHA-256", sig, vdata, True)
+        self.assertTrue(verify_server_signature(payload, HMAC_KEY).verified)
 
     def test_expired(self):
         payload = self._make_payload(expire_offset=-600)

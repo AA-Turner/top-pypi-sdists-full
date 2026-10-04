@@ -6,8 +6,10 @@ as a percentage of the historical mean/median prediction per region.
 """
 
 import ast
+import contextlib
 import logging
 import os
+import re
 import sqlite3
 import warnings
 from pathlib import Path
@@ -3009,6 +3011,23 @@ def _generate_diagnostics(df_pred_store, dg, dir_outlook, current_year=None,
     if parser is not None:
         _generate_breakpoint_plots(df_pred_store, dir_outlook, parser)
 
+    # CID contribution figure wherever the DB holds cidc_* rows (written by
+    # _run_cid_contribution), so reuse_db reruns redraw it too.
+    if db_path is not None:
+        from .viz import cid_contribution as cidc
+        for country, crop in sorted({(c, cr) for c, cr, _m in df_pred_store}):
+            if country == "pooled":
+                continue
+            try:
+                df_cidc = _query_cidc_rows(db_path, f"{country}_{crop}")
+                if not df_cidc.empty:
+                    cidc.render(df_cidc, country, crop, dir_outlook)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    f"CID contribution plot failed (non-fatal) for {country} "
+                    f"{crop}: {type(exc).__name__}: {exc}"
+                )
+
 
 def _generate_breakpoint_plots(df_pred_store, dir_outlook, parser):
     """Per-region observed-yield series with BEAST changepoint + segment-
@@ -4286,7 +4305,30 @@ def _generate_outlook_map(
     )
 
 
-def _summarize_fallbacks(dir_analysis):
+def _run_analysis_dirs(dir_output_proj, started):
+    """Geocif ``dir_analysis`` folders an ML phase begun at ``started`` wrote to.
+
+    Each Geocif object (one per fold, built inside gc.execute_models, often in
+    a pool worker) writes its fallback CSVs, CID EDA and XAI figures under
+    ``<P>/ml/analysis/<MMMM_DD_YYYY>``, dated in New York time when it is
+    constructed (geocif.py _initialize_dates) — not under this run's
+    ``<MMMM_DD_YYYY_HHhmm>`` outlook folder. A run that crosses midnight
+    spans several date folders, so return one per day from ``started`` to
+    now, newest first. Empty when no ML ran (``started`` is None: reuse_db).
+    """
+    if started is None:
+        return []
+    days = ar.Arrow.range(
+        "day", started.floor("day"),
+        ar.utcnow().to("America/New_York").floor("day"),
+    )
+    return [
+        Path(dir_output_proj) / "ml" / "analysis" / day.format("MMMM_DD_YYYY")
+        for day in reversed(list(days))
+    ]
+
+
+def _summarize_fallbacks(dir_analysis, analysis_dirs=None):
     """Merge per-PID fallback CSVs (from Geocif._record_fallback) into a
     single summary + bar chart. Lands at:
 
@@ -4294,6 +4336,10 @@ def _summarize_fallbacks(dir_analysis):
       ``<dir_analysis>/fallbacks_summary_counts.csv`` — pivot by
           (model, country, crop, category)
       ``<dir_analysis>/fallbacks_summary.png`` — stacked bar chart
+
+    The events are read from ``<d>/fallbacks/fallback_<pid>.csv`` for each
+    ``d`` in ``analysis_dirs``: the Geocif ``dir_analysis`` folders the run
+    wrote to (see _run_analysis_dirs). Default: ``[dir_analysis]``.
 
     A "fallback" is any execution where the configured CID-selection
     schema couldn't deliver and the model trained on something other
@@ -4306,14 +4352,18 @@ def _summarize_fallbacks(dir_analysis):
     import glob
     from pathlib import Path as _Path
 
-    fall_dir = _Path(dir_analysis) / "fallbacks"
-    if not fall_dir.exists():
-        logger.info("No fallbacks/ dir — no diagnostic to summarize")
-        return
-
-    files = sorted(glob.glob(str(fall_dir / "fallback_*.csv")))
+    if analysis_dirs is None:
+        analysis_dirs = [dir_analysis]
+    fall_dirs = [_Path(d) / "fallbacks" for d in analysis_dirs]
+    files = sorted(
+        f for fall_dir in fall_dirs
+        for f in glob.glob(str(fall_dir / "fallback_*.csv"))
+    )
     if not files:
-        logger.info(f"No fallback CSVs under {fall_dir}")
+        logger.info(
+            f"No fallback CSVs under {[str(d) for d in fall_dirs]} — "
+            f"no diagnostic to summarize"
+        )
         return
 
     frames = []
@@ -4533,6 +4583,206 @@ def _render_cone_figures(parser, path_config_files, db_path, dir_outlook,
     return written
 
 
+# ---------------------------------------------------------------------------
+# CID contribution ([ML] cid_contribution) -- training side. The figure itself
+# is drawn by viz/cid_contribution.py from the cidc_* rows written here.
+# ---------------------------------------------------------------------------
+
+# Wrappers that choose their own CIDs; retraining them on a class subset would
+# not test the config's classes.
+_CIDC_SELF_SELECTING = re.compile(r"^(curated_|auto_|top\d+_)")
+
+
+@contextlib.contextmanager
+def _parser_overrides(parser, overrides):
+    """Apply ``{(section, option): value}`` for the block, then put every
+    option back exactly -- removed again if it was only inherited."""
+    saved = {}
+    for (section, option), value in overrides.items():
+        if section == "DEFAULT":
+            saved[(section, option)] = parser.defaults().get(option)
+        else:
+            # remove_option is the only public way to tell an option set in
+            # the section from one inherited from [DEFAULT].
+            raw = parser.get(section, option, raw=True, fallback=None)
+            saved[(section, option)] = raw if parser.remove_option(section, option) else None
+        parser.set(section, option, value)
+    try:
+        yield
+    finally:
+        for (section, option), raw in saved.items():
+            if raw is None:
+                parser.remove_option(section, option)
+            else:
+                parser.set(section, option, raw)
+
+
+def _cidc_list(parser, option):
+    """``[ML] option`` as a list (the main run already validated it)."""
+    raw = parser.get("ML", option, fallback="").strip()
+    value = ast.literal_eval(raw) if raw else []
+    return [value] if isinstance(value, str) else list(value)
+
+
+def _cidc_candidate_models(parser, country):
+    """ML models of ``country`` whose CIDs are the config's own use_cids."""
+    def _cids(section):
+        return (ast.literal_eval(parser.get(section, "use_cids")),
+                parser.get(section, "select_cid_by").strip())
+
+    return [
+        m for m in ast.literal_eval(parser.get(country, "models"))
+        if parser.has_section(m)
+        and parser.getboolean(m, "ML_model", fallback=False)
+        and not _CIDC_SELF_SELECTING.match(m)
+        and _cids(m) == _cids("DEFAULT")
+    ]
+
+
+def _cidc_best_model(db_path, table, candidates):
+    """Lowest final-stage rRMSEp on common years: the scorecard's rule."""
+    model_dfs = {}
+    for model in candidates:
+        df = _query_predictions(db_path, table, model, experiment_name="outlook")
+        if not df.empty:
+            model_dfs[model] = _latest_stage_rows(
+                df, by=["Region", "Season", "Harvest Year"])
+    if len(model_dfs) <= 1:
+        return next(iter(model_dfs), None)
+
+    common = _common_years(model_dfs, _CANON_OBS, _CANON_PRED)
+    if not common:
+        return None
+    scores = {
+        m: _compute_rrmsep(d[d["Harvest Year"].isin(common)], _CANON_OBS, _CANON_PRED)[0]
+        for m, d in model_dfs.items()
+    }
+    scores = {m: s for m, s in scores.items() if np.isfinite(s)}
+    if not scores:
+        return None
+    best = min(scores, key=scores.get)
+    logger.info(f"cid_contribution: {table} best model {best} (final-stage rRMSEp "
+                f"{ {m: round(s, 2) for m, s in scores.items()} })")
+    return best
+
+
+def _cidc_input_columns(dir_ml, country, crop, model):
+    """Header of the newest input frame the outlook run saved for ``model``
+    (Geocif._save_ml_dataframe): every candidate feature column."""
+    files = list((dir_ml / "analysis").glob(
+        f"*/outlook/runs/{country}/{crop}/{model}/**/{country}_{crop}_*.csv"))
+    if not files:
+        return []
+    newest = max(files, key=lambda p: p.stat().st_mtime)
+    return pd.read_csv(newest, nrows=0).columns.tolist()
+
+
+def _cidc_db_path(db_path):
+    """Sibling DB holding the cid_contribution runs. Kept out of the outlook
+    DB so no outlook reader can pick them up, and prefixed so the
+    ``outlook_*.db`` "newest DB" globs never select it."""
+    db_path = Path(db_path)
+    return db_path.with_name(f"cidc_{db_path.name}")
+
+
+def _query_cidc_rows(db_path, table, prefix="cidc_"):
+    """Rows of ``table`` in the cid_contribution DB whose Experiment Name starts
+    with ``prefix``, plus the trend rows of the outlook DB ``db_path``, with
+    Experiment Name and Model attached."""
+    cidc_db = _cidc_db_path(db_path)
+    if not cidc_db.exists():
+        return pd.DataFrame()
+    con = sqlite3.connect(cidc_db)
+    try:
+        arms = pd.read_sql(
+            f'SELECT DISTINCT "Experiment Name", "Model" FROM "{table}"', con)
+    except (pd.errors.DatabaseError, sqlite3.OperationalError):
+        return pd.DataFrame()
+    finally:
+        con.close()
+    arms = arms[arms["Experiment Name"].str.startswith(prefix)]
+    if arms.empty:
+        return pd.DataFrame()
+
+    frames = []
+    sources = [(cidc_db, e, m) for e, m in arms.itertuples(index=False, name=None)]
+    for db, experiment, model in sources + [(Path(db_path), "outlook", "trend")]:
+        df = _query_predictions(db, table, model, experiment_name=experiment)
+        if not df.empty:
+            frames.append(df.assign(**{"Experiment Name": experiment, "Model": model}))
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def _run_cid_contribution(parser, logger_obj):
+    """Retrain each country x crop's best ML model on CID-class subsets.
+
+    Called from run() after the main training, while the outlook DB and
+    seasons are still in force. First every class alone
+    (``cidc_single_<Class>``), which ranks them; then the classes added best
+    first (``cidc_cum_<kk>_<Class>``, k >= 2: step 1 is the top single run).
+    All single-pass (run_time_steps = latest), on the seasons with observed
+    yields: 2N - 1 extra LOOCV runs for N classes. The runs go to the sibling
+    ``cidc_<outlook db>`` (see _cidc_db_path), and every parser override is
+    undone afterwards.
+    """
+    from .ml.stages import resolve_excluded_cids
+    from .viz import cid_contribution as cidc
+
+    if parser.get("DEFAULT", "select_cid_by", fallback="Type").strip() != "Type":
+        logger.warning("cid_contribution skipped: it needs [DEFAULT] select_cid_by = Type")
+        return
+
+    project = parser.get("DEFAULT", "project_name")
+    dir_ml = Path(parser.get("PATHS", "dir_output")) / project / "ml"
+    db_path = dir_ml / "db" / parser.get("DEFAULT", "db")
+    cidc_db = _cidc_db_path(db_path)
+    drop_bases, _ = resolve_excluded_cids(
+        _cidc_list(parser, "exclude_cids"), _cidc_list(parser, "exclude_cid_categories"))
+
+    def _train(country, crop, model, seasons, experiment, classes):
+        logger.info(f"cid_contribution: {country} {crop} {model} {experiment} "
+                    f"(classes {classes})")
+        overrides = {
+            ("DEFAULT", "db"): cidc_db.name,
+            ("DEFAULT", "experiment_name"): experiment,
+            ("ML", "experiment_name"): experiment,
+            ("DEFAULT", "use_cids"): str(classes),
+            (model, "use_cids"): str(classes),
+            ("ML", "run_time_steps"): "latest",
+        }
+        with _parser_overrides(parser, overrides):
+            gc.execute_models(
+                [[project, country, crop, season, model] for season in seasons],
+                logger_obj, parser, desc=f"CID contribution — {crop} {experiment}",
+            )
+
+    for country in ast.literal_eval(parser.get("DEFAULT", "countries")):
+        for crop in ast.literal_eval(parser.get(country, "crops")):
+            table = f"{country}_{crop}"
+            model = _cidc_best_model(db_path, table, _cidc_candidate_models(parser, country))
+            if model is None:
+                logger.warning(f"cid_contribution: no eligible ML model for {table}; skipped")
+                continue
+
+            df_best = _query_predictions(db_path, table, model, experiment_name="outlook")
+            seasons = sorted(int(y) for y in _scored_years(df_best, _CANON_OBS, _CANON_PRED))
+            classes = cidc.classes_from_columns(
+                _cidc_input_columns(dir_ml, country, crop, model),
+                ast.literal_eval(parser.get(model, "use_cids")), drop_bases,
+            )
+            if len(classes) < 2:
+                logger.warning(f"cid_contribution: {table} has {len(classes)} CID "
+                               f"class(es) {classes}; need 2+, skipped")
+                continue
+
+            for c in classes:
+                _train(country, crop, model, seasons, f"{cidc.SINGLE}{c}", [c])
+            order = cidc.rank_classes(_query_cidc_rows(db_path, table, cidc.SINGLE))["Class"].tolist()
+            logger.info(f"cid_contribution: {table} classes best first: {order}")
+            for k in range(2, len(order) + 1):
+                _train(country, crop, model, seasons, f"{cidc.CUM}{k:02d}_{order[k - 1]}", order[:k])
+
+
 def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
         reuse_db=None, use_latest_stage=True, fdw_export=False, since_year=None,
         until_year=None, parser=None, logger_obj=None, outlook_db_name=None,
@@ -4639,6 +4889,12 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         "ML", "outlook_maps_current_year_only", fallback=False
     )
 
+    # [ML] cid_contribution (default False): after training, retrain each
+    # country x crop's best ML model on CID-class subsets (each class alone,
+    # then added best first) for the per-year R² contribution figure. Costs
+    # 2N - 1 single-pass LOOCV runs per country x crop for N classes.
+    cid_contribution = parser.getboolean("ML", "cid_contribution", fallback=False)
+
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
 
@@ -4676,6 +4932,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     except Exception as e:
         logger.warning(f"Observed-yields plotting failed (non-fatal): {e}")
 
+    # When the ML phase starts (New York time); stays None on reuse_db. The
+    # post-run steps derive the Geocif dir_analysis folders from it.
+    _ml_started = None
     if reuse_db is not None:
         # ---- Skip ML, reuse existing DB ----
         reuse_path = Path(reuse_db)
@@ -4686,6 +4945,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         logger.info(f"Reusing existing outlook DB: {reuse_path}")
     else:
         # ---- Step 1: Run ML pipeline for all years since since_year ----
+        _ml_started = ar.utcnow().to("America/New_York")
         outlook_seasons = list(range(since_year, current_year + 1))
         originals = {}
         for country in countries:
@@ -4763,6 +5023,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             ("XAI (do_xai)",
                 str(parser.getboolean("ML", "do_xai", fallback=False))),
             ("Maps (make_maps)", str(make_maps)),
+            ("CID contribution (cid_contribution)", str(cid_contribution)),
             ("Parent aggregations (plot_parent_aggregations)",
                 str(parser.getboolean("ML", "plot_parent_aggregations",
                                       fallback=True))),
@@ -4857,6 +5118,24 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             parser.set("ML", "lag_only_features", "False")
         else:
             gc.execute_models(inputs, logger_obj, parser, loop_fn=loop_fn)
+
+        # Before the restore below: the extra runs must land in this run's
+        # outlook DB.
+        if cid_contribution:
+            if pool_countries_flag or run_time_steps == "lag_only":
+                logger.warning(
+                    f"cid_contribution skipped: not supported with "
+                    f"pool_countries={pool_countries_flag}, "
+                    f"run_time_steps={run_time_steps}"
+                )
+            else:
+                try:
+                    _run_cid_contribution(parser, logger_obj)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        f"cid_contribution runs failed (non-fatal): "
+                        f"{type(exc).__name__}: {exc}", exc_info=True,
+                    )
 
         # Restore original config values
         for country, orig in originals.items():
@@ -5837,6 +6116,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                               current_year=current_year, dict_config=dict_config,
                               db_path=db_path, parser=parser)
 
+    # Geocif dir_analysis folders this run's ML phase wrote to (fallback CSVs,
+    # CID EDA, XAI figures) — not dir_outlook.parent, which is the outlook's
+    # own <MMMM_DD_YYYY_HHhmm> folder.
+    _analysis_dirs = _run_analysis_dirs(_dir_output_proj, _ml_started)
+
     # Optional PDF report
     generate_report_flag = parser.getboolean("ML", "generate_report", fallback=False)
     if generate_report_flag and all_outlook_frames:
@@ -5846,6 +6130,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             dir_outlook, parser, current_year,
             countries, sorted({row[2] for row in inputs}) if inputs else crops,
             all_models,
+            analysis_dirs=_analysis_dirs,
         )
 
     # Optional lightweight per-country PDF report (independent of the full
@@ -5870,7 +6155,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     # into fallbacks_summary.csv + a bar chart per (model, category).
     # Best-effort; never blocks the rest of the post-run steps.
     try:
-        _summarize_fallbacks(dir_outlook.parent)
+        _summarize_fallbacks(dir_outlook.parent, _analysis_dirs)
     except Exception as exc:  # noqa: BLE001
         logger.warning(f"Fallback summary failed (non-fatal): {exc}")
 

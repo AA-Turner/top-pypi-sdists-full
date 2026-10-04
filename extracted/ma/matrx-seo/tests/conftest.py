@@ -60,7 +60,7 @@ def _restore_database_registry(
 
 
 def _unregister_host_database(name: str) -> None:
-    """Drop a registration made before this fixture, so ``db`` re-registers from the clone."""
+    """Drop a registration made before this fixture, so ``db`` re-registers from the live database."""
     from matrx_orm.core.config import registry
 
     config = registry._configs.pop(name, None)
@@ -73,25 +73,19 @@ def _unregister_host_database(name: str) -> None:
 
 @pytest.fixture
 def isolated_host_database() -> Iterator[tuple[str, str] | None]:
-    """Run a live ORM test on the nightly dev CLONE, without leaking aidream's DB setup.
+    """Run a live ORM test on the live database, without leaking aidream's DB setup.
 
-    These tests write rows, so they run against the clone and never production (WORKBOARD
-    rows A9 / D5). The clone is resolved by ``aidream.testing.clone_database`` — the one
-    CLONE-REF resolver the migration runners use — and when it cannot be proven the test
-    SKIPS with the refusal as its reason; there is no fallback to ``SUPABASE_MATRIX_*``.
+    Tests run on live as the test accounts (Arman, 2026-10-03). The connection is
+    ``aidream.testing.live_database`` — the server's own five ``SUPABASE_MATRIX_*``.
     """
-    from aidream.testing.clone_database import CloneDatabaseUnavailable, clone_database_env
+    from aidream.testing.live_database import live_database_env
 
-    try:
-        clone_env = clone_database_env()
-    except CloneDatabaseUnavailable as exc:
-        pytest.skip(str(exc))
-
+    live_env = live_database_env()
     env_before = _database_env_snapshot()
     registry_before = _database_registry_snapshot()
 
     try:
-        os.environ.update(clone_env)
+        os.environ.update(live_env)
         _unregister_host_database("supabase_automation_matrix")
         db_was_loaded = "db" in sys.modules
         host_db = import_module("db")

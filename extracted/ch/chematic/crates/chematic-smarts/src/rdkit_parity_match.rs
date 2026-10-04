@@ -6,25 +6,26 @@
 //! "the default matcher is byte-identical before and after this change" is
 //! trivially provable (there is no change to prove anything about) rather
 //! than something that has to be argued from a shared-code refactor. The
-//! only place this module's evaluator actually diverges from
-//! `match_vf2.rs`'s is `AtomPrimitive::RingCount` (`[RN]`), which consults
-//! [`crate::rdkit_ring_model`] instead of a plain SSSR count — see that
-//! module's doc comment for the full root-cause/design rationale (RDKit's
-//! `symmetrizeSSSR`) and for why every *other* ring-shaped primitive
-//! (`[R]`/`[R0]`, `[rN]`, `[kN]`, `[xN]`, ring-bond `@`/`!@`) is left
-//! wired to the identical plain-SSSR formula `match_vf2.rs` already uses.
+//! evaluator diverges from `match_vf2.rs` for `AtomPrimitive::RingCount`
+//! (`[RN]`) and `AtomPrimitive::RingSize` (`[kN]`). See
+//! [`crate::rdkit_ring_model`] for the ring-count model. Ring-size membership
+//! uses a separately bounded symmetrized-SSSR selection. The narrow
+//! Fe--[C-] cleanup below also makes `[xN]` and ring-bond `@`/`!@` exclude
+//! a converted dative bond. Other ring primitives retain the plain-SSSR
+//! formula from `match_vf2.rs`.
 //!
 //! Everything else in this file — chirality/isotope handling, valence,
 //! hybridization, recursive-SMARTS anchoring, the visit-budget/
 //! `MatchOutcome` contract — is copied verbatim in behavior from
-//! `match_vf2.rs` so this mode's non-ring-count results are identical to
+//! `match_vf2.rs` so this mode's other results are identical to
 //! the default matcher's.
 
 use rustc_hash::{FxHashMap, FxHashSet};
 
-use chematic_core::{AtomIdx, BondOrder, Molecule, implicit_hcount};
-use chematic_perception::RingSet;
+use chematic_core::{AtomIdx, BondIdx, BondOrder, Element, Molecule, implicit_hcount};
+use chematic_perception::{RingSet, SymmetrizedSssrStatus};
 
+use crate::match_vf2::hetero_neighbor_count;
 use crate::match_vf2::{MatchConfig, MatchOutcome};
 use crate::query::{AtomPrimitive, AtomQuery, BondPrimitive, BondQuery, QueryMolecule};
 use crate::rdkit_ring_model::{
@@ -39,8 +40,8 @@ pub struct RdkitParityConfig {
     /// enforcement, `max_matches`, `uniquify`, VF2 `max_visit_budget`) —
     /// unaffected by, and orthogonal to, this mode's ring-count model.
     pub base: MatchConfig,
-    /// Resource bound on the RDKit-parity ring-count model's candidate
-    /// search. See [`RdkitRingModelBudget`].
+    /// Resource bound on the RDKit-parity ring-count and ring-size candidate
+    /// searches. See [`RdkitRingModelBudget`].
     pub ring_model_budget: RdkitRingModelBudget,
     /// When `true`, the target molecule is re-perceived with
     /// `chematic_perception::apply_aromaticity_rdkit_parity_experimental`
@@ -62,7 +63,7 @@ pub struct RdkitParityConfig {
 }
 
 /// Find all non-overlapping (injective) embeddings of `query` in `mol` using
-/// the opt-in RDKit-parity ring-count model for `[RN]`.
+/// the opt-in RDKit-parity ring models for `[RN]` and `[kN]`.
 ///
 /// Returns `(matches, budget_exhausted)` exactly like
 /// [`crate::find_matches_with_rings_and_config_checked`] — `budget_exhausted`
@@ -91,7 +92,39 @@ pub fn find_matches_rdkit_parity(
         mol
     };
 
+    // RDKit sanitization converts a hypervalent carbanion--metal single
+    // bond into a dative bond before ring perception. Keep this narrowly
+    // established Fe case inside the opt-in matcher: the caller's molecule,
+    // native SMARTS, and the general SMILES parser remain unchanged.
+    let organometallic_view = rdkit_parity_iron_carbanion_view(mol_ref);
+    let mol_ref = organometallic_view.as_ref().unwrap_or(mol_ref);
+
     let rings = chematic_perception::find_sssr(mol_ref);
+    let uses_ring_size = query_uses_ring_size(query);
+    let symmetrized_rings = if uses_ring_size {
+        let result = chematic_perception::find_symmetrized_sssr_with_diagnostics_bounded(
+            mol_ref,
+            Some(config.ring_model_budget.max_candidates),
+        );
+        if result.status() == SymmetrizedSssrStatus::CapExhausted {
+            return Err(RdkitParityError::RingModelBudgetExceeded {
+                candidates_examined: result.candidates_examined(),
+                cap: config.ring_model_budget.max_candidates,
+            });
+        }
+        Some(result.into_ring_set())
+    } else {
+        None
+    };
+    let size_model = if uses_ring_size {
+        Some(build_rdkit_parity_ring_model(
+            mol_ref,
+            &rings,
+            &config.ring_model_budget,
+        )?)
+    } else {
+        None
+    };
     let ring_model = if query_uses_ring_count(query) {
         let model = if config.use_shared_symmetrized_sssr {
             build_shared_symmetrized_ring_model(mol_ref, &rings, &config.ring_model_budget)?
@@ -116,6 +149,8 @@ pub fn find_matches_rdkit_parity(
     let ctx = EvalCtx {
         mol: mol_ref,
         rings: &rings,
+        symmetrized_rings: symmetrized_rings.as_ref(),
+        size_model: size_model.as_ref(),
         ring_model: ring_model.as_ref(),
         config: &config.base,
         visit_budget: std::cell::Cell::new(config.base.max_visit_budget.unwrap_or(u64::MAX)),
@@ -142,6 +177,51 @@ pub fn find_matches_rdkit_parity(
     }
 
     Ok((results, ctx.budget_exhausted.get()))
+}
+
+/// Reproduce the verified Fe--[C-] valence-four cleanup case without
+/// pretending to implement RDKit's full organometallic sanitizer. RDKit
+/// 2026.03.6 converts this single bond to dative before its ring search.
+/// We only change a uniquely identified Fe bond; multiple metal choices
+/// require canonical ranking and are deliberately left for separate work.
+fn rdkit_parity_iron_carbanion_view(mol: &Molecule) -> Option<Molecule> {
+    let mut convert: Vec<BondIdx> = Vec::new();
+    for (idx, atom) in mol.atoms() {
+        if atom.element != Element::C
+            || atom.charge != -1
+            || atom.aromatic
+            || atom.hydrogen_count != Some(0)
+        {
+            continue;
+        }
+        // Keep this narrow: four explicit single bonds, no H, and exactly
+        // one of those singles to Fe. Other valence/metal combinations need
+        // their own oracle adjudication before changing the private view.
+        let bonds: Vec<_> = mol.neighbors(idx).collect();
+        if bonds.len() != 4
+            || bonds
+                .iter()
+                .any(|(_, bond)| mol.bond(*bond).order != BondOrder::Single)
+        {
+            continue;
+        }
+        let metal_bonds: Vec<_> = bonds
+            .iter()
+            .filter(|(neighbor, _)| mol.atom(*neighbor).element == Element::FE)
+            .map(|(_, bond)| bond)
+            .collect();
+        if metal_bonds.len() == 1 {
+            convert.push(*metal_bonds[0]);
+        }
+    }
+    if convert.is_empty() {
+        return None;
+    }
+    let mut view = mol.clone();
+    for bond in convert {
+        view.set_bond_order(bond, BondOrder::Dative);
+    }
+    Some(view)
 }
 
 /// Existence-only search, mirroring [`crate::has_match_bounded`]'s 3-way
@@ -191,6 +271,25 @@ fn atom_query_uses_ring_count(q: &AtomQuery) -> bool {
     }
 }
 
+fn query_uses_ring_size(query: &QueryMolecule) -> bool {
+    query
+        .atoms
+        .iter()
+        .any(|atom| atom_query_uses_ring_size(&atom.query))
+}
+
+fn atom_query_uses_ring_size(q: &AtomQuery) -> bool {
+    match q {
+        AtomQuery::Primitive(AtomPrimitive::RingSize(_)) => true,
+        AtomQuery::Primitive(AtomPrimitive::Recursive(sub)) => query_uses_ring_size(sub),
+        AtomQuery::Primitive(_) => false,
+        AtomQuery::And(a, b) | AtomQuery::Or(a, b) => {
+            atom_query_uses_ring_size(a) || atom_query_uses_ring_size(b)
+        }
+        AtomQuery::Not(a) => atom_query_uses_ring_size(a),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Evaluation context -- same shape as match_vf2::EvalCtx, plus the ring model.
 // ---------------------------------------------------------------------------
@@ -198,6 +297,8 @@ fn atom_query_uses_ring_count(q: &AtomQuery) -> bool {
 struct EvalCtx<'a> {
     mol: &'a Molecule,
     rings: &'a RingSet,
+    symmetrized_rings: Option<&'a RingSet>,
+    size_model: Option<&'a RdkitParityRingModel>,
     ring_model: Option<&'a RdkitParityRingModel>,
     config: &'a MatchConfig,
     visit_budget: std::cell::Cell<u64>,
@@ -288,8 +389,12 @@ fn bonds_compatible(
             match ctx.mol.bond_between(t, t_nb) {
                 None => return false,
                 Some((_bidx, bond_entry)) => {
-                    let bq = &query.bonds[bond_idx].query;
-                    if !eval_bond_query(bq, bond_entry.order, t, t_nb, ctx) {
+                    let qbond = &query.bonds[bond_idx];
+                    // Whether the target bond runs in the query bond's own
+                    // atom1 -> atom2 direction (dative `->` / `<-`).
+                    let image_of_atom1 = if qbond.atom1 == q { t } else { t_nb };
+                    let forward = bond_entry.atom1 == image_of_atom1;
+                    if !eval_bond_query(&qbond.query, bond_entry.order, t, t_nb, forward, ctx) {
                         return false;
                     }
                 }
@@ -325,20 +430,27 @@ fn eval_atom_primitive(p: &AtomPrimitive, idx: AtomIdx, ctx: &EvalCtx<'_>) -> bo
         // [R]/[!R] -- provably invariant to which SSSR basis is used (see
         // `rdkit_ring_model`'s module doc comment) -- left on plain SSSR.
         AtomPrimitive::RingMembership(r) => ctx.rings.contains_atom(idx) == *r,
-        // [kN] -- already ~100% (99.98%) against RDKit on plain SSSR
-        // (SMARTS-R1); deliberately left unchanged here, see this module's
-        // doc comment.
-        AtomPrimitive::RingSize(n) => ctx
-            .rings
-            .rings()
-            .iter()
-            .any(|ring| ring.len() == *n as usize && ring.contains(&idx)),
+        // [kN] means membership in any selected ring of size N. RDKit's
+        // default ring information is symmetrized; plain SSSR can miss a
+        // symmetry-equivalent ring containing this atom. This opt-in lane
+        // uses the bounded symmetrized set and refuses when it cannot be
+        // computed completely.
+        AtomPrimitive::RingSize(n) => {
+            ctx.symmetrized_rings
+                .unwrap_or(ctx.rings)
+                .rings()
+                .iter()
+                .any(|ring| ring.len() == *n as usize && ring.contains(&idx))
+                || ctx
+                    .size_model
+                    .is_some_and(|model| model.has_extra_ring_of_size(idx, *n as usize))
+        }
         // [rN] -- same rationale as RingSize above.
         AtomPrimitive::MinRingSize(n) => ctx.min_ring_size(idx) == Some(*n),
         AtomPrimitive::Wildcard => true,
         AtomPrimitive::Recursive(sub_query) => has_match_anchored(sub_query, idx, ctx),
         AtomPrimitive::Valence(v) => eval_valence(idx, ctx, *v),
-        // [xN] -- provably invariant, same rationale as RingMembership above.
+        // [xN] -- use the same ring basis, but never count a dative edge.
         AtomPrimitive::RingBondCount(x) => eval_ring_bond_count(idx, ctx, *x),
         AtomPrimitive::TotalConnectivity(x) => {
             ctx.mol.neighbors(idx).count() as u8 + implicit_hcount(ctx.mol, idx) == *x
@@ -366,6 +478,19 @@ fn eval_atom_primitive(p: &AtomPrimitive, idx: AtomIdx, ctx: &EvalCtx<'_>) -> bo
             !ctx.config.use_isotopes || ctx.mol.atom(idx).isotope == Some(*mass)
         }
         AtomPrimitive::Chirality(kind) => eval_chirality(idx, ctx, *kind),
+        AtomPrimitive::HeteroNeighborCount(n) => {
+            hetero_neighbor_count(ctx.mol, idx, false) == usize::from(*n)
+        }
+        AtomPrimitive::AliphaticHeteroNeighborCount(n) => {
+            hetero_neighbor_count(ctx.mol, idx, true) == usize::from(*n)
+        }
+        AtomPrimitive::HeavyDegree(n) => {
+            ctx.mol
+                .neighbors(idx)
+                .filter(|(nb, _)| ctx.mol.atom(*nb).element.atomic_number() != 1)
+                .count()
+                == usize::from(*n)
+        }
     }
 }
 
@@ -391,11 +516,13 @@ fn eval_ring_bond_count(idx: AtomIdx, ctx: &EvalCtx<'_>, x: u8) -> bool {
     let count = ctx
         .mol
         .neighbors(idx)
-        .filter(|(nb, _)| {
-            ctx.rings
-                .rings()
-                .iter()
-                .any(|ring| ring.contains(&idx) && ring.contains(nb))
+        .filter(|(nb, bond)| {
+            ctx.mol.bond(*bond).order != BondOrder::Dative
+                && ctx
+                    .rings
+                    .rings()
+                    .iter()
+                    .any(|ring| ring.contains(&idx) && ring.contains(nb))
         })
         .count() as u8;
     count == x
@@ -513,17 +640,20 @@ fn eval_bond_query(
     order: BondOrder,
     a: AtomIdx,
     b: AtomIdx,
+    forward: bool,
     ctx: &EvalCtx<'_>,
 ) -> bool {
     match q {
-        BondQuery::Primitive(p) => eval_bond_primitive(p, order, a, b, ctx),
+        BondQuery::Primitive(p) => eval_bond_primitive(p, order, a, b, forward, ctx),
         BondQuery::And(x, y) => {
-            eval_bond_query(x, order, a, b, ctx) && eval_bond_query(y, order, a, b, ctx)
+            eval_bond_query(x, order, a, b, forward, ctx)
+                && eval_bond_query(y, order, a, b, forward, ctx)
         }
         BondQuery::Or(x, y) => {
-            eval_bond_query(x, order, a, b, ctx) || eval_bond_query(y, order, a, b, ctx)
+            eval_bond_query(x, order, a, b, forward, ctx)
+                || eval_bond_query(y, order, a, b, forward, ctx)
         }
-        BondQuery::Not(x) => !eval_bond_query(x, order, a, b, ctx),
+        BondQuery::Not(x) => !eval_bond_query(x, order, a, b, forward, ctx),
         // Unspecified SMARTS bond: single or aromatic (RDKit semantics).
         BondQuery::Any => matches!(
             order,
@@ -559,6 +689,7 @@ fn eval_bond_primitive(
     order: BondOrder,
     a: AtomIdx,
     b: AtomIdx,
+    forward: bool,
     ctx: &EvalCtx<'_>,
 ) -> bool {
     match p {
@@ -584,15 +715,22 @@ fn eval_bond_primitive(
                 | BondOrder::QueryDoubleOrAromatic
         ),
         BondPrimitive::Any => true,
-        // Ring-bond `@`/`!@` -- provably invariant, same rationale as
-        // RingMembership/RingBondCount above.
-        BondPrimitive::Ring => ctx
-            .rings
-            .rings()
-            .iter()
-            .any(|ring| ring.contains(&a) && ring.contains(&b)),
+        // Dative bonds are excluded from the ring model, even when both
+        // endpoints happen to lie in another ring of that model.
+        BondPrimitive::Ring => {
+            order != BondOrder::Dative
+                && ctx
+                    .rings
+                    .rings()
+                    .iter()
+                    .any(|ring| ring.contains(&a) && ring.contains(&b))
+        }
         BondPrimitive::Up => matches!(order, BondOrder::Up),
         BondPrimitive::Down => matches!(order, BondOrder::Down),
+        // Dative bond: the target's donor (its `atom1`) is the image of the
+        // query bond's atom1 for `->`, of its atom2 for `<-`.
+        BondPrimitive::DativeForward => order == BondOrder::Dative && forward,
+        BondPrimitive::DativeBackward => order == BondOrder::Dative && !forward,
     }
 }
 
@@ -601,6 +739,68 @@ mod tests {
     use super::*;
     use crate::parser::parse_smarts;
     use chematic_smiles::parse;
+
+    #[test]
+    fn organometallic_ring_closure_is_single_in_raw_graph() {
+        let mol = parse("CN(C)C[C-]12C3=C4C5=C1[Fe++]23456789[C-]%10C6=C7C8=C9%10").unwrap();
+        let (bond_idx, bond) = mol.bond_between(AtomIdx(4), AtomIdx(9)).unwrap();
+        assert_eq!(bond.order, BondOrder::Single);
+        assert_eq!(mol.atom(AtomIdx(4)).charge, -1);
+        assert_eq!(mol.atom(AtomIdx(9)).element.atomic_number(), 26);
+        assert_eq!(
+            mol.neighbors(AtomIdx(4))
+                .map(|(_, idx)| mol.bond(idx).order.order_int() as usize)
+                .sum::<usize>(),
+            4
+        );
+        assert_eq!(mol.bond(bond_idx).order, BondOrder::Single);
+
+        let view = rdkit_parity_iron_carbanion_view(&mol).unwrap();
+        assert_eq!(view.bond(bond_idx).order, BondOrder::Dative);
+        assert_eq!(mol.bond(bond_idx).order, BondOrder::Single);
+        let (ordinary_fe_bond, _) = mol.bond_between(AtomIdx(9), AtomIdx(10)).unwrap();
+        assert_eq!(view.bond(ordinary_fe_bond).order, BondOrder::Single);
+        let rings = chematic_perception::find_sssr(&view);
+        assert_eq!(
+            rings
+                .rings()
+                .iter()
+                .filter(|ring| ring.contains(&AtomIdx(4)))
+                .count(),
+            1
+        );
+
+        for (pattern, should_contain) in [
+            ("[R1]", true),
+            ("[R2]", false),
+            ("[x2]", true),
+            ("[x3]", false),
+        ] {
+            let query = parse_smarts(pattern).unwrap();
+            let (matches, exhausted) =
+                find_matches_rdkit_parity(&query, &mol, &RdkitParityConfig::default()).unwrap();
+            assert!(!exhausted);
+            assert_eq!(
+                matches
+                    .iter()
+                    .any(|mapping| mapping.values().any(|idx| *idx == AtomIdx(4))),
+                should_contain,
+                "{pattern}"
+            );
+        }
+
+        for (pattern, should_contain) in [("*@*", false), ("*!@*", true)] {
+            let query = parse_smarts(pattern).unwrap();
+            let (matches, exhausted) =
+                find_matches_rdkit_parity(&query, &mol, &RdkitParityConfig::default()).unwrap();
+            assert!(!exhausted);
+            assert_eq!(
+                atom_sets(&matches).contains(&vec![4, 9]),
+                should_contain,
+                "{pattern}"
+            );
+        }
+    }
 
     fn atom_sets(matches: &[FxHashMap<usize, AtomIdx>]) -> Vec<Vec<u32>> {
         let mut sets: Vec<Vec<u32>> = matches
@@ -660,6 +860,50 @@ mod tests {
         let mut default_atoms: Vec<u32> = default.iter().map(|m| m[&0].0).collect();
         default_atoms.sort_unstable();
         assert_eq!(default_atoms, vec![1], "default (plain-SSSR) [R3] atom set");
+    }
+
+    #[test]
+    fn k6_uses_symmetry_equivalent_ring_in_opt_in_mode() {
+        // In this bridged fragment, atom 46 belongs to the six-membered
+        // ring selected by RDKit 2026.03.6, but not to chematic's plain
+        // SSSR basis. The default matcher must retain its existing answer.
+        let mol = parse("C=CC[C@H](NC(=O)[C@@H]1C[C@@H](CCCc2cccc3ccccc23)c2c(Cl)nc(NCc3cccc(OC)c3)c(=O)n21)B1OC2CC3CC(C3(C)C)[C@@]2(C)O1").unwrap();
+        let query = parse_smarts("[k6]").unwrap();
+        let default = crate::find_matches(&query, &mol);
+        let (parity, exhausted) =
+            find_matches_rdkit_parity(&query, &mol, &RdkitParityConfig::default()).unwrap();
+        assert!(!exhausted);
+        assert!(!default.iter().any(|m| m[&0] == AtomIdx(46)));
+        assert!(parity.iter().any(|m| m[&0] == AtomIdx(46)));
+    }
+
+    #[test]
+    fn k6_corpus_3498_uses_mixed_size_replacement() {
+        // RDKit 2026.03.6 includes atom 22 in the replacement six-ring
+        // 1-2-20-21-22-23. Perception's symmetrized set keeps only the
+        // four-ring through atom 22, while the SMARTS-specific bounded
+        // selector independently recovers the six-ring.
+        let mol = parse("C=C1[C@H]2Oc3cc(C(C)(C)CCCCCC)cc(O)c3[C@H]2[C@H]2C[C@@H]1C2(C)C").unwrap();
+        let query = parse_smarts("[k6]").unwrap();
+        let (parity, _) =
+            find_matches_rdkit_parity(&query, &mol, &RdkitParityConfig::default()).unwrap();
+        let mut atoms: Vec<u32> = parity.iter().map(|m| m[&0].0).collect();
+        atoms.sort_unstable();
+        assert_eq!(atoms, vec![1, 2, 4, 5, 6, 16, 17, 19, 20, 21, 22, 23, 24]);
+    }
+
+    #[test]
+    fn k6_ring_model_budget_exceeded_is_typed() {
+        let mol = parse("C1C2CC3CC1CC(C2)C3").unwrap();
+        let query = parse_smarts("[k6]").unwrap();
+        let config = RdkitParityConfig {
+            ring_model_budget: RdkitRingModelBudget { max_candidates: 0 },
+            ..RdkitParityConfig::default()
+        };
+        assert!(matches!(
+            find_matches_rdkit_parity(&query, &mol, &config),
+            Err(RdkitParityError::RingModelBudgetExceeded { cap: 0, .. })
+        ));
     }
 
     #[test]

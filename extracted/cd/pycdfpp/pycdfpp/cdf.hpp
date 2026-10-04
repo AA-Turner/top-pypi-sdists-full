@@ -56,14 +56,26 @@ attributes: dict
     file attributes
 variables: dict
     file variables
-majority: cdf_majority
-    file majority
+majority: Majority
+    file majority: values are always given in row major order, saving converts them
+declared_variable_attributes: list of str
+    the variable attributes the file declares, in their order, also those no variable uses;
+    saving declares them first, then the other ones in the order the variables use them; it is
+    a copy: assign a new list to change it
+checksum: Checksum
+    whether the file ends with the MD5 digest of the rest of it (md5_checksum); loaded files
+    keep theirs, the digest is not checked when loading
+encoding: Encoding
+    byte order of the values in the file (IBMPC is little endian, network big endian); new
+    files use the host's, loaded files keep theirs, saving converts the values
 distribution_version: int
     file distribution version
 lazy_loaded: bool
     file lazy loading state
 compression: CompressionType
     file compression type
+compression_level: int
+    GZIP compression level, from 1 to 9 (default 6), ignored by other compression types
 
 Methods
 -------
@@ -93,13 +105,32 @@ void def_cdf_wrapper(T& mod)
             py::return_value_policy::move)
         .def_readonly(
             "attributes", &CDF::attributes, py::return_value_policy::reference_internal)
-        .def_property_readonly("majority", [](const CDF& cdf) { return cdf.majority; })
+        .def_property(
+            "majority", [](const CDF& cdf) { return cdf.majority; },
+            [](CDF& cdf, cdf_majority majority) { cdf.majority = majority; })
+        .def_readwrite("declared_variable_attributes", &CDF::declared_variable_attributes)
+        .def_property(
+            "checksum", [](const CDF& cdf) { return cdf.checksum; },
+            [](CDF& cdf, cdf_checksum checksum) { cdf.checksum = checksum; })
+        .def_property(
+            "encoding", [](const CDF& cdf) { return cdf.encoding; },
+            [](CDF& cdf, cdf_encoding encoding)
+            {
+                if (!has_ieee_floats(encoding))
+                    throw std::invalid_argument { fmt::format(
+                        "CDFpp can't write floats in {} encoding: its floats aren't IEEE 754",
+                        cdf_encoding_str(encoding)) };
+                cdf.encoding = encoding;
+            })
         .def_property_readonly(
             "distribution_version", [](const CDF& cdf) { return cdf.distribution_version; })
         .def_property_readonly("lazy_loaded", [](const CDF& cdf) { return cdf.lazy_loaded; })
         .def_property(
             "compression", [](const CDF& cdf) { return cdf.compression; },
             [](CDF& cdf, cdf_compression_type ct) { cdf.compression = ct; })
+        .def_property(
+            "compression_level", [](const CDF& cdf) { return cdf.compression_level; },
+            [](CDF& cdf, int32_t level) { cdf.compression_level = checked_gzip_level(level); })
         .def("__repr__", __repr__<CDF>)
         .def(
             "__getitem__",
@@ -113,14 +144,9 @@ void def_cdf_wrapper(T& mod)
             py::return_value_policy::reference_internal)
         .def("__contains__",
             [](const CDF& cd, std::string& key) { return cd.variables.count(key) > 0; })
-        .def(
-            "__iter__", [](const CDF& cd)
-            { return py::make_key_iterator(std::begin(cd.variables), std::end(cd.variables)); },
-            py::keep_alive<0, 1>())
-        .def(
-            "items", [](const CDF& cd)
-            { return py::make_iterator(std::begin(cd.variables), std::end(cd.variables)); },
-            py::keep_alive<0, 1>())
+        .def("__iter__", [](const CDF& cd) { return iter_keys(cd.variables); })
+        .def("items",
+            [](const py::object& self) { return iter_items(self.cast<const CDF&>().variables, self); })
         .def("keys",
             [](const CDF& cd)
             {
@@ -132,14 +158,16 @@ void def_cdf_wrapper(T& mod)
         .def("__len__", [](const CDF& cd) { return std::size(cd.variables); })
         .def(
             "_add_variable",
-            [](CDF& cdf, const std::string& name, bool is_nrv,
-                cdf_compression_type compression) -> Variable&
+            [](CDF& cdf, const std::string& name, bool is_nrv, cdf_compression_type compression,
+                int32_t compression_level) -> Variable&
             {
                 if (cdf.variables.count(name) == 0)
                 {
+                    const auto level = checked_gzip_level(compression_level);
                     cdf.variables.emplace(name, name, std::size(cdf.variables), data_t {},
                         typename Variable::shape_t {}, cdf_majority::row, is_nrv, compression);
                     auto& var = cdf[name];
+                    var.set_compression_level(level);
                     return var;
                 }
                 else
@@ -150,6 +178,7 @@ void def_cdf_wrapper(T& mod)
             },
             py::arg("name"), py::arg("is_nrv") = false,
             py::arg("compression") = cdf_compression_type::no_compression,
+            py::arg("compression_level") = default_gzip_level,
             py::return_value_policy::reference_internal)
         .def(
             "_add_variable",
@@ -311,7 +340,8 @@ void def_cdf_saving_functions(T& mod)
             {
                 py::gil_scoped_release release;
                 return py::buffer_info(b.data.data(), std::size(b.data), true);
-            });
+            })
+        .def("__len__", [](const cdf_bytes& b) { return std::size(b.data); });
 
     mod.def(
         "save",

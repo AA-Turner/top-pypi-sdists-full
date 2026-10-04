@@ -264,6 +264,35 @@ def test_take_refuses_a_buffer_that_is_not_contiguous_octets() -> None:
         assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
 
 
+def test_take_writes_through_a_buffer_of_any_octet_format() -> None:
+    """Octets stated as `b`, `c`, `<B` or `<c` are written, not refused.
+
+    `memoryview` assigns only between views of one format, so these used
+    to fail the copy with `ValueError: different structures` or, for a
+    ctypes array, `NotImplementedError: unsupported format`. Each
+    destination is a different format, and the secret lands in all of
+    them.
+    """
+    owner = bytearray(32)
+    destinations: list[Any] = [
+        array.array("b", bytes(32)),
+        memoryview(owner).cast("c"),
+        (ctypes.c_ubyte * 32)(),
+        (ctypes.c_char * 32)(),
+    ]
+    assert {memoryview(d).format.lstrip("<") for d in destinations} == {"b", "c", "B"}
+    for destination in destinations:
+        buffer = ffi.new("char[32]", SECRET)
+        assert _secret.take(buffer, into=destination) is None
+        assert bytes(memoryview(destination)) == SECRET
+        assert ffi.unpack(buffer, ffi.sizeof(buffer)) == bytes(ffi.sizeof(buffer))
+
+    # and through a public entry point, the case the issue reported
+    ctypes_buffer = (ctypes.c_ubyte * 32)()
+    assert keys.prvkey_negate(7, into=ctypes_buffer) is None  # type: ignore[call-overload]
+    assert bytes(ctypes_buffer) == keys.prvkey_negate(7)
+
+
 def test_take_refuses_a_view_of_wider_items() -> None:
     """Eight uint32 are 32 octets of nobody's byte order.
 
@@ -491,3 +520,33 @@ def test_a_key_held_in_a_buffer_never_becomes_a_bytes_of_the_secret() -> None:
 
     _secret.wipe(held)
     assert bytes(ffi.buffer(held)) == bytes(32)
+
+
+def test_nonce_bip340_negates_an_odd_y_key_into_a_buffer_it_wipes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No `bytes` of n - d is made, and the scratch buffer ends zeroed.
+
+    The key is held in a buffer of the caller's, so a `bytes` of the
+    negated key would be the only copy of it that nothing can overwrite.
+    The spy refuses a call to `keys.prvkey_negate` without `into`.
+    """
+    odd = next(k for k in range(1, 100) if xonly.from_prvkey(k)[1])
+    msg, aux = bytes(range(32)), bytes(32)
+    expected = ssa.nonce_bip340(msg, odd, aux)
+    negated = keys.prvkey_negate(odd)
+
+    scratch: list[memoryview] = []
+    real = keys.prvkey_negate
+
+    def spy(prvkey: Any, *, into: Any = None) -> None:
+        assert into is not None, "a bytes of the negated key was made"
+        real(prvkey, into=into)
+        assert bytes(into) == negated
+        scratch.append(memoryview(into))
+
+    monkeypatch.setattr(keys, "prvkey_negate", spy)
+    held = ffi.new("unsigned char[32]", odd.to_bytes(32, "big"))
+    assert ssa.nonce_bip340(msg, held, aux) == expected
+    assert len(scratch) == 1
+    assert bytes(scratch[0]) == bytes(32)

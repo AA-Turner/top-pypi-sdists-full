@@ -157,6 +157,47 @@ def _valid_promoted(key: str, value: Any) -> bool:
     return True
 
 
+# agent.definition_version id -> its agent.definition id. A version never
+# changes owner, so the map only grows; bounded so a long-lived worker can't
+# accumulate it without limit.
+_VERSION_AGENT_IDS: dict[str, str | None] = {}
+_VERSION_AGENT_IDS_MAX = 2048
+
+
+async def pinned_version_agent_id(ctx: Any) -> str | None:
+    """The agent.definition id behind a PINNED-version run (``ctx.agent_version_id``
+    set, ``ctx.agent_id`` empty) — so its assistant/tool rows carry agent_id like
+    every floating run's do (the write funnel stamps ``ctx.agent_id`` itself).
+    None when the run is floating, has no agent, or the version is unknown."""
+    if ctx is None or getattr(ctx, "agent_id", None):
+        return None
+    version_id = getattr(ctx, "agent_version_id", None)
+    if not version_id or not _is_valid_uuid(str(version_id)):
+        return None
+    key = str(version_id)
+    if key in _VERSION_AGENT_IDS:
+        return _VERSION_AGENT_IDS[key]
+    try:
+        from matrx_ai.db._registry import get_model
+
+        versions = await get_model("DefinitionVersion").filter(id__in=[key]).all()
+        agent_id = next(
+            (str(v.agent_id) for v in versions if getattr(v, "agent_id", None)),  # orm-getattr-ok: model row
+            None,
+        )
+    except Exception as exc:  # noqa: BLE001 — attribution is optional; the row must still land
+        vcprint(
+            f"[CX PERSISTENCE] could not resolve agent for version {key}: {exc} — "
+            "assistant rows persist without agent_id",
+            color="red",
+        )
+        return None
+    if len(_VERSION_AGENT_IDS) >= _VERSION_AGENT_IDS_MAX:
+        _VERSION_AGENT_IDS.clear()
+    _VERSION_AGENT_IDS[key] = agent_id
+    return agent_id
+
+
 def lift_promoted_message_columns(
     metadata: dict[str, Any] | None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
@@ -751,6 +792,9 @@ async def persist_completed_request(
             if _exec_state
             else set()
         )
+        # Pinned-version runs carry no ctx.agent_id for the write funnel to
+        # stamp — resolve the version's agent once for this persist.
+        _pinned_agent_id = await pinned_version_agent_id(_ctx)
 
         # ============================================================
         # 1. CONVERSATION — update existing (created by conversation gate)
@@ -1038,6 +1082,12 @@ async def persist_completed_request(
                     **_meta_kwargs,
                     **_promoted,
                 }
+                if (
+                    _pinned_agent_id
+                    and role_val in ("assistant", "tool")
+                    and not _msg_fields.get("agent_id")
+                ):
+                    _msg_fields["agent_id"] = _pinned_agent_id
                 if role_val == "user" and "user_content" in msg:
                     _msg_fields["user_content"] = validate_message_content(msg["user_content"])
                 from uuid import uuid4 as _uuid4

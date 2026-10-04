@@ -47,7 +47,7 @@ namespace cdf::io
 namespace saving
 {
 
-    inline record_wrapper<cdf_CPR_t<v3x_tag>> make_cpr(cdf_compression_type ct)
+    inline record_wrapper<cdf_CPR_t<v3x_tag>> make_cpr(cdf_compression_type ct, int32_t gzip_level)
     {
         record_wrapper<cdf_CPR_t<v3x_tag>> cpr { { {}, ct, 0, 0, {} } };
         switch (ct)
@@ -58,7 +58,7 @@ namespace saving
                 break;
             case cdf_compression_type::gzip_compression:
                 cpr.record.pCount = 1;
-                cpr.record.cParms.push_back(9);
+                cpr.record.cParms.push_back(checked_gzip_level(gzip_level));
                 break;
 #ifdef CDFPP_USE_ZSTD
             case cdf_compression_type::zstd_compression:
@@ -130,22 +130,35 @@ namespace saving
         }
     }
 
+    // Numbers the attribute after the ones already declared, unless it is one of them.
+    inline variable_attribute_ctx& declare_variable_attribute(
+        const std::string& name, saving_context& svg_ctx)
+    {
+        if (svg_ctx.body.variable_attributes.count(name) == 0)
+        {
+            int32_t index = std::size(svg_ctx.body.file_attributes)
+                + std::size(svg_ctx.body.variable_attributes);
+            svg_ctx.body.variable_attributes[name] = variable_attribute_ctx { index, {},
+                cdf_ADR_t<v3x_tag> { {}, 0, 0, cdf_attr_scope::variable, index, 0, -1, 0, 0, 0, 0,
+                    -1, { name } },
+                {} };
+            update_size(svg_ctx.body.variable_attributes[name].adr);
+        }
+        return svg_ctx.body.variable_attributes[name];
+    }
+
+    inline void declare_variable_attributes(const CDF& cdf, saving_context& svg_ctx)
+    {
+        for (const auto& name : cdf.declared_variable_attributes)
+            declare_variable_attribute(name, svg_ctx);
+    }
+
     inline void create_variable_attributes_records(
         const variable_ctx& variable, saving_context& svg_ctx)
     {
         for (const auto& [name, attribute] : variable.variable->attributes)
         {
-            if (svg_ctx.body.variable_attributes.count(name) == 0)
-            {
-                int32_t index = std::size(svg_ctx.body.file_attributes)
-                    + std::size(svg_ctx.body.variable_attributes);
-                svg_ctx.body.variable_attributes[name] = variable_attribute_ctx { index, {},
-                    cdf_ADR_t<v3x_tag> { {}, 0, 0, cdf_attr_scope::variable, index, 0, -1, 0, 0, 0,
-                        0, -1, { name } },
-                    {} };
-            }
-            auto& vac = svg_ctx.body.variable_attributes[name];
-            update_size(vac.adr);
+            auto& vac = declare_variable_attribute(name, svg_ctx);
             vac.attrs.push_back(&attribute);
             const auto& data = *attribute;
             auto& aedr = vac.aedrs.emplace_back(cdf_AzEDR_t<v3x_tag> { {}, 0, vac.adr.record.num,
@@ -202,9 +215,28 @@ namespace saving
         vdr.MaxRec = variable.len() - 1;
     }
 
+    // Needs the geometry: the pad value is one element, NumElems values of the variable's type.
+    inline void populate_pad_value(
+        const Variable& variable, cdf_zVDR_t<v3x_tag>& vdr, const file_layout& layout)
+    {
+        const auto& pad = variable.pad_value();
+        if (!pad)
+            return;
+        const auto element_size
+            = cdf_type_size(vdr.DataType) * static_cast<std::size_t>(vdr.NumElems);
+        if (pad->type() != vdr.DataType or pad->bytes() != element_size)
+            throw std::invalid_argument { fmt::format(
+                "The pad value of '{}' ({}, {} bytes) doesn't fit the variable ({}, {} bytes)",
+                variable.name(), cdf_type_str(pad->type()), pad->bytes(),
+                cdf_type_str(vdr.DataType), element_size) };
+        vdr.Flags |= 2;
+        vdr.PadValues.resize(element_size);
+        std::memcpy(vdr.PadValues.data(), layout.value(*pad).bytes_ptr(), element_size);
+    }
+
     inline typename variable_ctx::values_records_t make_values_record(const Variable& v,
         const std::size_t records_in_vvr, const std::size_t record_size,
-        const std::size_t first_record)
+        const std::size_t first_record, const file_layout& layout)
     {
         if (v.compression_type() == cdf_compression_type::no_compression)
         {
@@ -215,10 +247,15 @@ namespace saving
         else
         {
             auto cvvr = record_wrapper<cdf_CVVR_t<v3x_tag>> {};
-            auto compressed = compression::deflate(v.compression_type(),
-                std::string_view {
-                    v.bytes_ptr() + first_record * record_size, records_in_vvr * record_size },
-                cdf_type_size(v.type()), record_size);
+            const auto in_file_layout = layout.matches_memory(v)
+                ? data_t {}
+                : layout.records(v, first_record, records_in_vvr, record_size);
+            const auto records = layout.matches_memory(v)
+                ? std::string_view { v.bytes_ptr() + first_record * record_size,
+                      records_in_vvr * record_size }
+                : std::string_view { in_file_layout.bytes_ptr(), in_file_layout.bytes() };
+            auto compressed = compression::deflate(v.compression_type(), v.compression_level(),
+                records, cdf_type_size(v.type()), record_size);
             cvvr.record.data.resize(std::size(compressed));
             std::memcpy(cvvr.record.data.data(), compressed.data(), std::size(compressed));
             cvvr.record.cSize = std::size(cvvr.record.data);
@@ -274,7 +311,7 @@ namespace saving
     }
 
     inline void create_values_records(const Variable& variable, variable_ctx& var_ctx,
-        std::size_t record_size, std::size_t per_block)
+        std::size_t record_size, std::size_t per_block, const file_layout& layout)
     {
         const std::size_t records = variable.len();
         create_vxrs(var_ctx, records, per_block);
@@ -288,7 +325,7 @@ namespace saving
                 const auto first = block * per_block;
                 const auto count = std::min(records, first + per_block) - first;
                 var_ctx.values_records[block]
-                    = make_values_record(variable, count, record_size, first);
+                    = make_values_record(variable, count, record_size, first, layout);
             });
     }
 
@@ -308,7 +345,7 @@ namespace saving
                         .VXRhead = 0,
                         .VXRtail = 0,
                         .Flags = !variable.is_nrv(),
-                        .SRecords = 0,
+                        .SRecords = static_cast<int32_t>(variable.sparse_records()),
                         .rfuB = { 0 },
                         .rfuC = { -1 },
                         .rfuF = { -1 },
@@ -326,18 +363,20 @@ namespace saving
                     .cpr = std::nullopt });
 
             populate_variable_geometry(variable, var_ctx.vdr.record);
+            populate_pad_value(variable, var_ctx.vdr.record, svg_ctx.body.layout);
             // An empty variable may have no shape at all, hence no record size.
             const auto record_size = variable.len() ? record_size_of(variable) : 0;
             const auto per_block = variable.len() ? records_per_block(variable, record_size) : 0;
             if (variable.compression_type() != cdf_compression_type::no_compression)
             {
-                var_ctx.cpr = make_cpr(variable.compression_type());
+                var_ctx.cpr = make_cpr(variable.compression_type(), variable.compression_level());
                 var_ctx.vdr.record.Flags |= 1 << 2;
                 var_ctx.vdr.record.BlockingFactor = static_cast<int32_t>(per_block);
             }
             update_size(var_ctx.vdr);
             if (variable.len())
-                create_values_records(variable, var_ctx, record_size, per_block);
+                create_values_records(
+                    variable, var_ctx, record_size, per_block, svg_ctx.body.layout);
             create_variable_attributes_records(var_ctx, svg_ctx);
         }
     }

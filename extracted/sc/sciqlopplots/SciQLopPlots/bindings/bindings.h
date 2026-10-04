@@ -31,6 +31,7 @@
 #include <SciQLopPlots/Items/SciQLopTextItem.hpp>
 #include <SciQLopPlots/Items/SciQLopStraightLines.hpp>
 #include <SciQLopPlots/MultiPlots/MultiPlotsVSpan.hpp>
+#include <SciQLopPlots/MultiPlots/MultiPlotsVLine.hpp>
 #include <SciQLopPlots/MultiPlots/SciQLopMultiPlotObject.hpp>
 #include <SciQLopPlots/MultiPlots/SciQLopMultiPlotPanel.hpp>
 #include <SciQLopPlots/MultiPlots/SciQLopPlotContainer.hpp>
@@ -40,6 +41,7 @@
 #include <SciQLopPlots/Plotables/SciQLopColorMapBase.hpp>
 #include <SciQLopPlots/Plotables/SciQLopColorMap.hpp>
 #include <SciQLopPlots/Plotables/SciQLopHistogram2D.hpp>
+#include <SciQLopPlots/Plotables/SciQLopTimeline.hpp>
 #include <SciQLopPlots/Plotables/SciQLopTimeColoredCurve.hpp>
 #include <SciQLopPlots/Plotables/SciQLopCurve.hpp>
 #include <SciQLopPlots/Plotables/SciQLopNDProjectionCurves.hpp>

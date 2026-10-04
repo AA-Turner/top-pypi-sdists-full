@@ -272,8 +272,13 @@ class _Server:
         ...
 
 async def _post_session_control(url: str, headers: dict[str, str]) -> tuple[int, str, str]:
-    """POST to a sticky session control endpoint, retrying connection errors and 5xx. Returns (status, reason, body)."""
+    """POST to a sticky session control endpoint, raising on 5xx."""
     ...
+
+async def _post_session_start(
+    base_url: str, fn: modal._functions._Function, idle_timeout: int
+) -> tuple[int, str, str]: ...
+async def _post_session_terminate(base_url: str, headers: dict[str, str]) -> tuple[int, str, str]: ...
 
 class _ServerSessionsManager:
     """mdmd:namespace"""
@@ -288,6 +293,10 @@ class _ServerSessionsManager:
         Requests to the server URL that carry the returned token are routed to the same container until the
         session has had no connections for `idle_timeout` seconds or is terminated. A container won't be scaled down
         for as long as it holds a live session.
+
+        If no container has room for the session, the call waits for additional capacity. It will block for
+        up to 25 minutes before giving up. To control the wait per call, use the HTTP API and apply your own retry
+        policy.
 
         Args:
             idle_timeout: Seconds without an in-flight request before the session ends.
@@ -342,6 +351,10 @@ class ServerSessionsManager:
             session has had no connections for `idle_timeout` seconds or is terminated. A container won't be scaled down
             for as long as it holds a live session.
 
+            If no container has room for the session, the call waits for additional capacity. It will block for
+            up to 25 minutes before giving up. To control the wait per call, use the HTTP API and apply your own retry
+            policy.
+
             Args:
                 idle_timeout: Seconds without an in-flight request before the session ends.
 
@@ -366,6 +379,10 @@ class ServerSessionsManager:
             Requests to the server URL that carry the returned token are routed to the same container until the
             session has had no connections for `idle_timeout` seconds or is terminated. A container won't be scaled down
             for as long as it holds a live session.
+
+            If no container has room for the session, the call waits for additional capacity. It will block for
+            up to 25 minutes before giving up. To control the wait per call, use the HTTP API and apply your own retry
+            policy.
 
             Args:
                 idle_timeout: Seconds without an in-flight request before the session ends.

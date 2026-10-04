@@ -19,6 +19,7 @@ from matrx_ai.tools._sandbox_proxy import (
 )
 from matrx_ai.tools.arg_models.desktop_args import (
     DesktopAppsArgs,
+    DesktopAudioArgs,
     DesktopClipboardArgs,
     DesktopInputArgs,
     DesktopPowerArgs,
@@ -430,3 +431,25 @@ async def fs_watch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     else:
         plan = ("fs.watch.stop", {"watch_id": a.watch_id}, 30)
     return await _call_ops("fs_watch", ctx, started_at, plan, action=a.action)
+
+
+async def desktop_audio(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Microphones and speakers of the user's computer (ops ``audio.*``)."""
+    started_at = time.time()
+    a = DesktopAudioArgs(**args)
+    plan: tuple[str, dict[str, Any], float] | str
+    if a.action == "devices":
+        plan = ("audio.devices", {}, 60)
+    elif a.action == "record":
+        if a.seconds is None:
+            plan = "record needs seconds"
+        else:
+            params: dict[str, Any] = {"seconds": a.seconds}
+            if a.device_id:
+                params["device_id"] = a.device_id
+            if a.path:
+                params["path"] = _path(a.path)
+            plan = ("audio.record", params, a.seconds + 90)
+    else:
+        plan = ("audio.play", {"path": _path(a.path)}, 660) if a.path else "play needs the path"
+    return await _call_ops("desktop_audio", ctx, started_at, plan, action=a.action)

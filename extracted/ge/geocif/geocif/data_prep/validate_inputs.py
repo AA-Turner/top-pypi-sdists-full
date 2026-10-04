@@ -93,7 +93,7 @@ def validate(shp_path, yield_csv, lo=0.3, hi=7.0, flag_frac=0.02):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    base = r"D:\Users\ritvik\projects\GEO\config\brazil_mt\assets"
+    base = r"D:\Users\ritvik\projects\GEO\config\production\brazil_mt\assets"
     p.add_argument("--shp", default=base + r"\brazil_mt_municipalities.shp")
     p.add_argument("--yield-csv", default=base + r"\adm_crop_production_BR_MT_municipality_wide.csv")
     a = p.parse_args(argv)

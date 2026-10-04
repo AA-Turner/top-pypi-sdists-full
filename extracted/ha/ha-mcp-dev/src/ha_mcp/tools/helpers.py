@@ -5,6 +5,7 @@ Centralized utilities that can be shared across multiple tool implementations.
 """
 
 import functools
+import inspect
 import json
 import logging
 import re
@@ -248,6 +249,49 @@ def validate_identifier_not_empty(
             context=final_context,
         )
     )
+
+
+WHITESPACE_CLEARS_NOTE = (
+    "A whitespace-only value acts like '', for clients that cannot send an "
+    "empty string."
+)
+_QUOTE_ONLY = re.compile(r"[\s\"'‘’“”]+")
+
+
+def clear_hint(param_name: str) -> str:
+    return (
+        f"To clear {param_name}, pass an empty string '', or a single space ' ' "
+        "if your client cannot send an empty string"
+    )
+
+
+def clearable_value(
+    value: str | None,
+    param_name: str,
+    *,
+    hint: str | None = None,
+) -> str | None:
+    """Map an empty or whitespace-only value to None, the registry's clear value.
+
+    Other values are returned stripped. A model whose client cannot send ``''``
+    falls back to ``'""'`` (#2585); a value made only of quotes and whitespace
+    is never a real value, so reject it.
+    """
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    if _QUOTE_ONLY.fullmatch(value):
+        raise_tool_error(
+            create_error_response(
+                ErrorCode.VALIDATION_INVALID_PARAMETER,
+                f"{param_name} {value!r} contains only quote characters and whitespace",
+                suggestions=[hint or clear_hint(param_name)],
+                context={"parameter": param_name, "value": value},
+            )
+        )
+    return value
 
 
 async def get_connected_ws_client(
@@ -653,8 +697,43 @@ async def safe_progress(
         logger.warning(
             "ctx.report_progress signature error (%s): %s", type(e).__name__, e
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.debug("ctx.report_progress failed (%s): %s", type(e).__name__, e)
+
+
+def ws_failure_code(result: dict[str, Any]) -> ErrorCode:
+    """Core answers a schema-invalid write with ``invalid_format``: the caller's input."""
+    if result.get("error_code") == "invalid_format":
+        return ErrorCode.VALIDATION_INVALID_PARAMETER
+    return ErrorCode.SERVICE_CALL_FAILED
+
+
+def clear_or_keep(value: str | None, param_name: str) -> str | None:
+    """``clearable_value`` for params where None means "not passed": blank → ''."""
+    return None if value is None else clearable_value(value, param_name) or ""
+
+
+class _HiddenParam:
+    """Annotated marker for a parameter left out of the published input schema."""
+
+
+# Argument validation runs on the function signature, not the published schema,
+# so a hidden parameter is still accepted from callers that pass it.
+HIDDEN_PARAM = _HiddenParam()
+
+
+def hidden_param_names(fn: Any) -> frozenset[str]:
+    """Names of ``fn``'s parameters annotated with ``HIDDEN_PARAM``."""
+    try:
+        signature = inspect.signature(fn, eval_str=True)
+    except NameError:
+        # A string annotation naming a TYPE_CHECKING-only import can't resolve.
+        signature = inspect.signature(fn)
+    return frozenset(
+        name
+        for name, param in signature.parameters.items()
+        if HIDDEN_PARAM in getattr(param.annotation, "__metadata__", ())
+    )
 
 
 def register_tool_methods(mcp: Any, instance: Any) -> None:
@@ -662,13 +741,18 @@ def register_tool_methods(mcp: Any, instance: Any) -> None:
 
     Discovers methods bearing a ``__fastmcp__`` attribute (set by the outermost
     ``@tool`` decorator — must be listed above ``@log_tool_usage``) and registers
-    them via ``mcp.add_tool()``.
+    them via ``mcp.add_tool()``, dropping ``HIDDEN_PARAM`` parameters from the
+    published schema.
     """
     count = 0
     for attr in dir(instance):
         method = getattr(instance, attr)
         if callable(method) and hasattr(method, "__fastmcp__"):
-            mcp.add_tool(method)
+            registered = mcp.add_tool(method)
+            properties = getattr(registered, "parameters", {}).get("properties")
+            if isinstance(properties, dict):
+                for name in hidden_param_names(method):
+                    properties.pop(name, None)
             count += 1
     if count == 0:
         logger.warning(f"No @tool-decorated methods found on {type(instance).__name__}")

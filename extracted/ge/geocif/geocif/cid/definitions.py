@@ -137,13 +137,6 @@ dict_fpar5k = {
     "AUC_FPAR5K": ["FPAR5K", "Area under the curve of FPAR, 0.05 deg aggregate"],
 }
 
-# Thermal normalisation of MO6 FPAR 500 m: canopy per unit heat. Area under the FPAR curve in the stage window
-# divided by the window's growing degree days (base 10 C, Tmax capped at 30 C, Tmin floored at 10 C, i.e. the
-# 86/50 maize/soybean convention), so a warm year that runs the canopy curve faster is compared per thermal unit.
-dict_fpargdd = {
-    "AUC_FPARGDD": ["FPARGDD", "FPAR 500 m area under the curve per growing degree day (base 10 C, cap 30 C)"],
-}
-
 dict_esi4wk = {
     "MEAN_ESI4WK": ["ESI", "Mean ESI 4WK"],
     "MAX_ESI4WK": ["ESI", "Maximum ESI 4WK"],

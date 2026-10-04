@@ -61,6 +61,10 @@ MISSING_SCHEMA_OR_CONTENT_MESSAGE = (
     "It should have either `schema` or `content` keywords defined"
 )
 
+EMPTY_CONTENT_MESSAGE = (
+    "Can not generate data for {location} parameter `{name}`! Its `content` must contain exactly one entry"
+)
+
 INVALID_SCHEMA_MESSAGE = (
     "Can not generate data for {location} parameter `{name}`! Its schema should be an object or boolean, got {schema}"
 )
@@ -1728,8 +1732,12 @@ def extract_parameter_schema_v3(parameter: Mapping[str, Any]) -> JsonSchema:
                 location=parameter.get("in", ""), name=parameter.get("name", "<UNKNOWN>")
             ),
         ) from exc
-    options = iter(content.values())
-    media_type_object = next(options)
+    location = parameter.get("in", "")
+    name = parameter.get("name", "<UNKNOWN>")
+    if not content:
+        raise InvalidSchema(EMPTY_CONTENT_MESSAGE.format(location=location, name=name))
+    media_type, media_type_object = next(iter(content.items()))
+    ensure_object(media_type_object, f"Media type `{media_type}` for {location} parameter `{name}`")
     return media_type_object.get("schema", {})
 
 
@@ -2414,6 +2422,9 @@ class OpenApiParameterSet(ParameterSet):
                     generation_mode=generation_mode,
                 )
 
+            if captured_variants and usage_tracker is not None and not generation_mode.is_negative:
+                strategy = build_hybrid_strategy(strategy, captured_variants, usage_tracker)
+
             serialize = operation.get_parameter_serializer(self.location)
             if serialize is not None:
                 if is_negative:
@@ -2522,22 +2533,19 @@ class OpenApiParameterSet(ParameterSet):
                     assert_never(self.location)
 
         # Apply hybrid approach when captured variants are available
-        if captured_variants and usage_tracker is not None:
-            if generation_mode.is_negative:
-                # In negative mode with captured values, mostly use positive strategy
-                # to leverage valuable captured IDs for testing deeper application logic
-                strategy = self._build_negative_aware_strategy(
-                    operation,
-                    generation_config,
-                    exclude,
-                    captured_variants,
-                    usage_tracker,
-                    mix_examples=mix_examples,
-                    error_feedback=error_feedback,
-                    constants_value_source=constants_value_source,
-                )
-            else:
-                strategy = build_hybrid_strategy(strategy, captured_variants, usage_tracker)
+        if captured_variants and usage_tracker is not None and generation_mode.is_negative:
+            assert extra_data_source is not None
+            # In negative mode with captured values, mostly use positive strategy
+            # to leverage valuable captured IDs for testing deeper application logic
+            strategy = self._build_negative_aware_strategy(
+                operation,
+                generation_config,
+                exclude,
+                extra_data_source,
+                mix_examples=mix_examples,
+                error_feedback=error_feedback,
+                constants_value_source=constants_value_source,
+            )
 
         if use_cache:
             self._strategy_cache[cache_key] = strategy
@@ -2548,8 +2556,7 @@ class OpenApiParameterSet(ParameterSet):
         operation: APIOperation,
         generation_config: GenerationConfig,
         exclude: Iterable[str],
-        captured_variants: list[CapturedVariant],
-        usage_tracker: VariantUsageTracker,
+        extra_data_source: ExtraDataSource,
         *,
         mix_examples: bool = True,
         error_feedback: ErrorFeedbackStore | None = None,
@@ -2568,12 +2575,11 @@ class OpenApiParameterSet(ParameterSet):
             generation_config,
             GenerationMode.POSITIVE,
             exclude,
-            extra_data_source=None,
+            extra_data_source=extra_data_source,
             mix_examples=mix_examples,
             error_feedback=error_feedback,
             constants_value_source=constants_value_source,
         )
-        positive_strategy = build_hybrid_strategy(positive_strategy, captured_variants, usage_tracker)
         # Wrap in GeneratedValue for consistent return type with negative strategy
         # The hybrid strategy already wraps in `GeneratedValue` when it picks a captured pool
         # variant (so pool-draw provenance survives). Wrap only the un-wrapped values here.
@@ -2663,11 +2669,11 @@ def _merge_parameters_to_object_schema(
                 if "minLength" not in subschema:
                     subschema = {**subschema, "minLength": 1}
 
-        if location.is_in_header:
+        if location == ParameterLocation.HEADER:
             canonical = canonical_by_lower.setdefault(name.lower(), name)
             if canonical != name:
                 # Same header under different case — first definition wins.
-                if (location == ParameterLocation.PATH or is_required) and canonical not in required:
+                if is_required and canonical not in required:
                     required.append(canonical)
                 continue
             name = canonical

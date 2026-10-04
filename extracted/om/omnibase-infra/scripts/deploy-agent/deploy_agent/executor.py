@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
 import json
 import logging
@@ -17,7 +18,7 @@ import sys
 import tempfile
 import time
 import tomllib
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -161,6 +162,36 @@ REPOINT_TIMEOUT_SECONDS = 120
 ONEX_API_RECREATE_TIMEOUT_SECONDS = 300
 # OMN-20154: bound the wait for reconcile-host to finish rewriting build contexts.
 RECONCILE_HOST_LOCK_WAIT_SECONDS = 900
+
+
+def _reconcile_lock_roots() -> list[str]:
+    """Return distinct agent and build-context trees, preserving their paths."""
+    roots: list[str] = []
+    seen: set[str] = set()
+    for root in (os.environ.get("OMNI_HOME", "").strip(), str(Path(REPO_DIR).parent)):
+        if not root.strip():
+            continue
+        normalized = os.path.realpath(root)
+        if normalized not in seen:
+            seen.add(normalized)
+            roots.append(root)
+    return roots
+
+
+@contextlib.contextmanager
+def _hold_reconcile_host_locks(purpose: str) -> Iterator[None]:
+    """Hold every tree's reconcile lock in a fixed acquisition order."""
+    with contextlib.ExitStack() as stack:
+        for root in sorted(_reconcile_lock_roots()) or [""]:
+            stack.enter_context(
+                hold_reconcile_host_lock(
+                    root,
+                    purpose=purpose,
+                    wait_seconds=RECONCILE_HOST_LOCK_WAIT_SECONDS,
+                )
+            )
+        yield
+
 
 PHASE_TIMEOUTS = {
     Phase.PREFLIGHT: 30,
@@ -336,6 +367,61 @@ RUNTIME_MIGRATION_SERVICES: tuple[str, ...] = (
     "forward-migration",
     "migration-gate",
 )
+MIGRATION_TREE_PATHS: tuple[str, ...] = (
+    "docker/migrations",
+    "scripts/run-forward-migrations.sh",
+)
+
+
+def read_checkout_migration_fingerprint(repo_dir: str = REPO_DIR) -> str | None:
+    """Read the content identities of the checkout's migration tree and runner."""
+    try:
+        result = _run(
+            [
+                "git",
+                "-C",
+                repo_dir,
+                "rev-parse",
+                *[f"HEAD:{path}" for path in MIGRATION_TREE_PATHS],
+            ],
+            timeout=PHASE_TIMEOUTS[Phase.GIT],
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    objects = result.stdout.strip().splitlines()
+    if result.returncode != 0 or len(objects) != 2:
+        return None
+    return ":".join(objects)
+
+
+def read_applied_migration_fingerprint(
+    state_dir: Path, lane: EnumRuntimeLane
+) -> str | None:
+    """Read the last successful apply; missing or corrupt state is unknown."""
+    try:
+        document = json.loads(
+            (state_dir / f"forward-migration-applied.{lane.value}.json").read_text(
+                encoding="utf-8"
+            )
+        )
+    except (OSError, ValueError):
+        return None
+    if not isinstance(document, dict):
+        return None
+    fingerprint = document.get("fingerprint")
+    return fingerprint if isinstance(fingerprint, str) and fingerprint else None
+
+
+def write_applied_migration_fingerprint(
+    state_dir: Path, lane: EnumRuntimeLane, fingerprint: str
+) -> None:
+    """Atomically record the migration content whose checks passed."""
+    _atomic_write_private_json(
+        state_dir / f"forward-migration-applied.{lane.value}.json",
+        {"fingerprint": fingerprint, "applied_at": datetime.now(UTC).isoformat()},
+    )
+
+
 REQUIRED_PROJECTION_TABLES: tuple[str, ...] = (
     "delegation_events",
     "node_service_registry",
@@ -1878,7 +1964,8 @@ class PreflightScriptUnavailableError(RuntimeError):
 
 
 class DeployExecutor:
-    def __init__(self) -> None:
+    def __init__(self, *, migration_record_dir: Path | None = None) -> None:
+        self._migration_record_dir = migration_record_dir
         # OMN-18057: services a phase left in a non-running state, and whether
         # per-container recovery then got them up. Read by the agent when it
         # builds the terminal event so residue is a recorded fact rather than
@@ -3134,11 +3221,8 @@ class DeployExecutor:
             # the COPY src/ layer even when the file-system mtime is cached.
             # OMN-20154: hold from staging through the LAST build, which reuses
             # staged provenance a reconcile checkout would reset to a placeholder.
-            with hold_reconcile_host_lock(
-                os.environ.get("OMNI_HOME", "").strip(),
-                purpose=f"deploy-agent image build {git_sha[:12]}",
-                wait_seconds=RECONCILE_HOST_LOCK_WAIT_SECONDS,
-            ):
+            # OMN-20154/OMN-20255: build tree may differ from OMNI_HOME; lock both.
+            with _hold_reconcile_host_locks(f"deploy-agent image build {git_sha[:12]}"):
                 self._compose_build(
                     Scope.CORE,
                     git_sha,
@@ -3194,11 +3278,8 @@ class DeployExecutor:
 
         # OMN-20154: span staging through the LAST build so reconcile-host
         # cannot reset staged provenance before the dev-only build consumes it.
-        with hold_reconcile_host_lock(
-            os.environ.get("OMNI_HOME", "").strip(),
-            purpose=f"deploy-agent image build {git_sha[:12]}",
-            wait_seconds=RECONCILE_HOST_LOCK_WAIT_SECONDS,
-        ):
+        # OMN-20154/OMN-20255: build tree may differ from OMNI_HOME; lock both.
+        with _hold_reconcile_host_locks(f"deploy-agent image build {git_sha[:12]}"):
             self._compose_build(
                 scope,
                 git_sha,
@@ -3973,14 +4054,19 @@ class DeployExecutor:
                     "_compose_build: sibling source refs %s",
                     {repo: sha[:12] for repo, sha in self.sibling_source_refs.items()},
                 )
-        omnimarket_ref = (
+        # OMN-20263: RT-1 checks the pinned siblings out in worktrees of their
+        # own, so the canonical clone's HEAD is no longer the staged commit; the
+        # SHA RT-1 resolved is. The clone's HEAD stays the answer when RT-1 did
+        # not run in this deploy (a non-workspace build).
+        resolved_refs = self.sibling_source_refs or {}
+        omnimarket_ref = resolved_refs.get("omnimarket") or (
             self._resolve_plugin_ref(
                 f"{omni_home}/omnimarket", fallback=sibling_fallback
             )
             if omni_home
             else sibling_fallback
         )
-        compat_ref = (
+        compat_ref = resolved_refs.get("omnibase_compat") or (
             self._resolve_plugin_ref(
                 f"{omni_home}/omnibase_compat", fallback=sibling_fallback
             )
@@ -4715,12 +4801,25 @@ class DeployExecutor:
 
         on_phase_update(phase, PhaseStatus.SUCCESS)
 
+    def converge_forward_migration(self, *, lane: EnumRuntimeLane) -> str:
+        """Apply migration one-shots under the lane lock without restarting runtime."""
+        fingerprint = read_checkout_migration_fingerprint()
+        with lane_lock(
+            lane_config_for(lane).compose_project,
+            lane=lane.value,
+            ref=fingerprint or "migration-converge",
+            timeout=DEFAULT_LANE_LOCK_TIMEOUT_SECONDS,
+        ):
+            return self._ensure_runtime_migrations_ready(
+                lane=lane, timeout=PHASE_TIMEOUTS[Phase.RUNTIME]
+            )
+
     def _ensure_runtime_migrations_ready(
         self,
         *,
         lane: EnumRuntimeLane = EnumRuntimeLane.DEV,
         timeout: int = 300,
-    ) -> None:
+    ) -> str:
         """Run bounded migration services before a runtime-only restart.
 
         Runtime deploys intentionally use ``--no-deps`` so compose cannot walk
@@ -4728,6 +4827,7 @@ class DeployExecutor:
         one-shots are not core infra; they are the boot-order contract that
         applies pending projection DDL and exposes the migration health gate.
         """
+        fingerprint = read_checkout_migration_fingerprint()
         config = lane_config_for(lane)
         base_cmd = [
             "docker",
@@ -4817,6 +4917,12 @@ class DeployExecutor:
                     "Runtime migration preflight failed: missing "
                     f"omnidash_analytics.{table_name}"
                 )
+
+        if self._migration_record_dir is not None and fingerprint is not None:
+            write_applied_migration_fingerprint(
+                self._migration_record_dir, lane, fingerprint
+            )
+        return fingerprint or ""
 
     def verify(
         self,

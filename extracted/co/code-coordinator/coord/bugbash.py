@@ -54,11 +54,25 @@ lane for the round (:attr:`RoundReport.unavailable_lanes`) rather than
 running the exploration checklist against it or filing any finding from it
 — a locked desktop is an environment condition for the operator to fix,
 not evidence of an app bug. This engine-level behavior is unit-tested
-against a fake explorer in ``tests/test_bugbash.py``; the production
-explorer (:func:`coord.commands.bugbash._dispatch_and_await_lane`) does
-not itself set ``unavailable`` yet — see its own module docstring's
-"KNOWN GAP" note — so a live ``coord bugbash`` run does not currently
-benefit from this skip until that wiring lands.
+against a fake explorer in ``tests/test_bugbash.py``; as of #3566 the
+production explorer (:func:`coord.commands.bugbash._dispatch_and_await_lane`)
+also sets ``unavailable`` — it detects a lane worker's own "unavailable"
+report (:func:`parse_unavailable_report`) and the real ``mac-native`` driver
+now emits a genuine ``status="unavailable"`` verdict for a denied
+Accessibility-trust grant (see :mod:`coord.mac_native_driver`'s own module
+docstring), so this is reachable in production, not just in a test fixture.
+A real two-lane live dry run against the fleet is still outstanding — see
+``coord.commands.bugbash``'s own "KNOWN GAP" note.
+
+**#3566: lane routing cross-references live ``/health`` probes, not just the
+static ``coordinator.yml`` claim.** :func:`_pick_lane_machine` mirrors
+:mod:`coord.smoke`'s ``dispatch_smoke`` cross-check
+(:func:`coord.smoke._capability_probe_reasons`): a machine whose declared
+capability is contradicted by its own live probe (e.g. ``macos`` declared
+but Accessibility trust denied, or Screen Recording denied) is skipped
+rather than picked, so ``coord bugbash`` refuses to route to it the same way
+``dispatch_smoke`` already does — not just in `/health`'s own JSON, but in
+the machine selection that actually dispatches a worker.
 """
 
 from __future__ import annotations
@@ -339,6 +353,76 @@ def parse_findings_block(text: str, *, platform: str, repo: str) -> FindingsPars
     return FindingsParseResult(findings=findings)
 
 
+#: #3566 ask #4/#5: the briefing's hard-rule reporting contract for a lane
+#: worker that hits a missing permission (Accessibility/Screen Recording
+#: trust, a locked/absent GUI session, ...) instead of improvising a
+#: workaround. Mirrors :data:`FINDINGS_FENCE`'s "one constant, used by both
+#: the briefing and the parser" discipline so the two can never drift apart.
+UNAVAILABLE_FENCE = "bugbash-unavailable"
+
+_UNAVAILABLE_FENCE_RE = re.compile(
+    rf"```{re.escape(UNAVAILABLE_FENCE)}\s*\n(.*?)```", re.DOTALL,
+)
+
+#: Fallback signatures (#3566 ask #5, "a driver session/permission
+#: failure") — a worker that forgot to fence its unavailable report, or
+#: whose own driver call surfaced the condition directly in a tool result,
+#: still has one of these strings somewhere in its raw transcript. Matched
+#: against the FULL log text (not just the final assistant message), so a
+#: worker that reported the condition mid-session and then crashed is still
+#: caught. Kept narrow and literal: `"no unlocked GUI session is available"`/
+#: `"the screen is locked"`/`"is not on the console"`/
+#: `"AXIsProcessTrusted() is False"` are the exact strings
+#: `coord.mac_native_driver`'s own `session_available`/`ax_trust_available`
+#: precheck now actually emits in production (#3566) — reachable, not just
+#: hand-written in a test. `"AXIsProcessTrusted() returned False"` and
+#: `"CGPreflightScreenCaptureAccess"` are defensive-only: no in-tree driver
+#: emits that exact phrasing today, but `coord.prereqs`'s own `/health` probe
+#: text and a future Screen-Recording driver precheck are plausible sources,
+#: and keeping the signature narrow and literal costs nothing. None of these
+#: are a vague substring that could false-positive on an unrelated mention of
+#: "unavailable" in a finding's prose.
+_UNAVAILABLE_SIGNATURES: tuple[str, ...] = (
+    '"status": "unavailable"',
+    '"status":"unavailable"',
+    "no unlocked GUI session is available",
+    "the screen is locked",
+    "is not on the console",
+    "AXIsProcessTrusted() is False",
+    "AXIsProcessTrusted() returned False",
+    "CGPreflightScreenCaptureAccess",
+)
+
+
+def parse_unavailable_report(text: str) -> str:
+    """The lane-unavailable reason from *text* (a lane worker's full
+    transcript), or ``""`` if none is present (#3566).
+
+    First checks for the authoritative fenced
+    ```` ```bugbash-unavailable ```` block the briefing instructs a worker
+    to write when it hits a missing permission or absent session rather
+    than improvising a workaround (ask #4's hard rule). Falls back to
+    :data:`_UNAVAILABLE_SIGNATURES` — a driver-level session/permission
+    failure surfacing directly in a tool result even without the worker's
+    own cooperation.
+
+    Never raises. The caller
+    (:func:`coord.commands.bugbash._dispatch_and_await_lane`) treats a
+    non-empty return as :attr:`ExploreOutcome.unavailable`, never
+    ``ok=False``/a protocol error — #2096's "one question, one answer":
+    this is the ONE place that question is answered.
+    """
+    match = _UNAVAILABLE_FENCE_RE.search(text)
+    if match:
+        reason = match.group(1).strip()
+        if reason:
+            return reason
+    for signature in _UNAVAILABLE_SIGNATURES:
+        if signature in text:
+            return f"driver/session signal found in transcript: {signature!r}"
+    return ""
+
+
 # ── dedupe ───────────────────────────────────────────────────────────────
 
 
@@ -527,7 +611,9 @@ class BugbashLane:
     reference: bool = False
 
 
-def discover_lanes(config: Any, repo_name: str, *, reference_backend: str = "") -> list[BugbashLane]:
+def discover_lanes(
+    config: Any, repo_name: str, *, reference_backend: str = "", http_client: Any = None,
+) -> list[BugbashLane]:
     """Derive *repo_name*'s bugbash lanes from its acceptance drivers,
     routed to a capable machine the same way
     :mod:`coord.smoke`'s ``capability_rules`` routes smoke legs.
@@ -535,11 +621,15 @@ def discover_lanes(config: Any, repo_name: str, *, reference_backend: str = "") 
     Walks the repo's top-level driver plus every ``routes:`` entry (mirrors
     :meth:`coord.config.AcceptanceConfig.entrypoints`'s walk), keeps only
     :data:`LANE_DRIVER_KINDS` entries, and drops any that has no configured
-    machine listing both *repo_name* and the driver's ``capability`` — a
-    lane with no capable machine is omitted rather than returned with
-    ``machine=""``, so a caller never has to separately check "is this lane
-    actually runnable." *reference_backend*, when it names one of the
-    surviving lanes' ``platform``, marks that lane's ``reference=True``.
+    machine listing both *repo_name* and the driver's ``capability`` AND
+    whose live ``/health`` probe doesn't contradict that claim (#3566, see
+    :func:`_pick_lane_machine`) — a lane with no capable machine is omitted
+    rather than returned with ``machine=""``, so a caller never has to
+    separately check "is this lane actually runnable." *reference_backend*,
+    when it names one of the surviving lanes' ``platform``, marks that
+    lane's ``reference=True``. *http_client*, when given, is forwarded to
+    the ``/health`` cross-check (tests inject a fake; production leaves it
+    ``None`` and gets a real ``httpx`` call).
     """
     entry = config.acceptance.drivers.get(repo_name)
     if entry is None:
@@ -550,7 +640,7 @@ def discover_lanes(config: Any, repo_name: str, *, reference_backend: str = "") 
     for cfg in candidates:
         if cfg.kind not in LANE_DRIVER_KINDS:
             continue
-        machine = _pick_lane_machine(config, repo_name, cfg.capability)
+        machine = _pick_lane_machine(config, repo_name, cfg.capability, http_client=http_client)
         if machine is None:
             continue
         lanes.append(
@@ -565,10 +655,42 @@ def discover_lanes(config: Any, repo_name: str, *, reference_backend: str = "") 
     return lanes
 
 
-def _pick_lane_machine(config: Any, repo_name: str, capability: str) -> str | None:
+def _pick_lane_machine(
+    config: Any, repo_name: str, capability: str, *, http_client: Any = None,
+) -> str | None:
+    """The first configured machine that both claims *capability* in
+    ``coordinator.yml`` AND repo-membership for *repo_name* — cross-checked
+    against that machine's own live ``/health`` tool probes (#3566) before
+    it's picked, not just the static claim.
+
+    Before this fix, this function (and therefore every ``coord bugbash``
+    dispatch) only ever asked ``capability in m.capabilities`` — a
+    hand-written ``coordinator.yml`` claim nothing verified — while
+    :mod:`coord.smoke`'s own ``dispatch_smoke`` already cross-referenced
+    ``/health``'s ``tool_versions`` (:func:`coord.smoke
+    ._capability_probe_reasons`) before routing smoke work. A ``macos``
+    machine whose Accessibility/Screen-Recording trust (:mod:`coord.prereqs`'s
+    ``macos-accessibility-trust``/``macos-screen-recording`` probes) was
+    revoked therefore still looked dispatchable to bugbash even though
+    ``/health`` itself would have said otherwise — the exact gap the first
+    live ``mac-native`` attempt hit. Reusing
+    :func:`coord.smoke._capability_probe_reasons` here (rather than a second,
+    independently-drifting copy of the same dict) means ``coord bugbash``
+    now refuses to route to a machine with a known-unmet required-capability
+    prereq the same way ``dispatch_smoke`` already does, falling through to
+    the next capable-on-paper machine (or returning ``None`` if none remain)
+    instead of dispatching a worker that can never actually run the lane.
+    """
+    from coord.smoke import _capability_probe_reasons  # noqa: PLC0415 — avoid an import cycle
+
     for m in config.machines:
-        if repo_name in m.repos and (not capability or capability in m.capabilities):
-            return m.name
+        if repo_name not in m.repos:
+            continue
+        if capability and capability not in m.capabilities:
+            continue
+        if capability and _capability_probe_reasons(m, [capability], http_client=http_client):
+            continue  # declared but the machine's own /health probe denies it
+        return m.name
     return None
 
 
@@ -592,6 +714,16 @@ def build_exploration_briefing(
         "",
         f"Reference backend for comparison: {reference_backend or '(none configured)'}",
         "",
+        "HARD RULE — drive the app ONLY through this lane's own driver "
+        "(coord.mac_native_driver / coord.win_native_driver / "
+        "coord.gtk_native_driver, whichever this lane is). Never use "
+        "osascript, System Events, a Terminal/iTerm `do script`, a "
+        "home-made input-injection helper, or System Settings. If a "
+        "required permission (Accessibility, Screen Recording, a locked/"
+        "absent GUI session, ...) is missing, STOP IMMEDIATELY and report "
+        "the lane unavailable (see below) — do NOT improvise a workaround, "
+        "and do NOT send any key or click to recover (#3566).",
+        "",
         "1. Run this repo's Tier-2 smoke spec for this driver to completion.",
         "2. Then walk the exploration checklist below on the real app, using "
         "the native driver's own probes/captures as evidence:",
@@ -603,7 +735,13 @@ def build_exploration_briefing(
         "For anything that behaves differently from the reference backend, "
         "or crashes, hangs, or renders wrong, report it as a finding.",
         "",
-        "When done, end your final message with a fenced "
+        "If the HARD RULE above fires (a required permission/session is "
+        "missing), skip the findings fence entirely and end your final "
+        "message with a fenced "
+        f"```{UNAVAILABLE_FENCE}``` block containing one line: the reason "
+        "the lane is unavailable.",
+        "",
+        "Otherwise, when done, end your final message with a fenced "
         f"```{FINDINGS_FENCE}``` block containing a JSON array of finding "
         "objects, each with: title, expected, actual, repro, evidence, "
         "suspected_repo (the repo the FIX belongs in — the app, its UI "
@@ -657,9 +795,10 @@ class ExploreOutcome:
     :attr:`RoundReport.lane_failures` — and never file findings from it
     this round, even defensively, regardless of what ``findings`` carries.
     The production explorer,
-    :func:`coord.commands.bugbash._dispatch_and_await_lane`, does not yet
-    set this flag (tracked as a KNOWN GAP in that module's docstring) —
-    today this is exercised only at the engine/unit-test level.
+    :func:`coord.commands.bugbash._dispatch_and_await_lane`, sets this flag
+    too (#3566): it detects a worker's own "lane unavailable" report (or a
+    driver session/permission failure surfacing directly in the transcript)
+    via :func:`parse_unavailable_report`.
 
     ``protocol_error`` is a FOURTH, separate outcome (#3517): the lane
     worker DID run to completion (``ok=True``, unlike a dispatch/poll/log
@@ -1048,6 +1187,209 @@ class BugbashReport:
         return any(r.protocol_error_lanes for r in self.rounds)
 
 
+def _apply_outcome_to_round(report: RoundReport, lane: BugbashLane, outcome: ExploreOutcome) -> None:
+    """Classify one lane's :class:`ExploreOutcome` into *report*'s
+    findings/unavailable/lane-failure/protocol-error buckets — the SAME
+    bucketing both :func:`run_bugbash`'s inline round loop and
+    :func:`harvest_outcome` (#3569) use, so a lane explorer that finishes
+    AFTER its ``--lane-timeout`` already elapsed and is picked up through
+    ``coord bugbash harvest`` is judged by identically the same rules as
+    one observed inline within its deadline — never a second, independently
+    -drifting copy of this decision (#2096 "one question, one answer").
+
+    Does NOT touch :attr:`RoundReport.lane_cost` — that's cumulative-across-
+    rounds bookkeeping only :func:`run_bugbash`'s own loop needs (a harvest
+    has no prior rounds to accumulate against), so callers set it
+    themselves.
+    """
+    if outcome.unavailable:
+        # #3510: a locked/absent GUI session (or missing display) is a host
+        # condition, not a finding — recorded separately from both a clean
+        # pass and a dispatch/poll failure, and NEVER contributes findings
+        # this round, even defensively if the explorer happened to also
+        # hand some back.
+        report.unavailable_lanes[lane.platform] = (
+            outcome.notes or "lane unavailable — no usable GUI session/display"
+        )
+        return
+    report.findings.extend(outcome.findings)
+    if not outcome.ok:
+        # #2096: this lane's "findings" (almost certainly empty) are NOT a
+        # verified observation — record why, so a round whose every lane
+        # failed this way can never render identically to a round that
+        # actually looked and found nothing.
+        report.lane_failures[lane.platform] = outcome.notes or "explorer reported failure"
+    elif outcome.protocol_error:
+        # #3517: the lane DID complete, but its final message could not be
+        # trusted as a findings report at all — a malformed/missing block,
+        # never silently read as "zero findings observed" (that conflation
+        # is exactly what let a real finding disappear and pass the #3488
+        # release gate).
+        report.protocol_error_lanes[lane.platform] = outcome.protocol_error
+
+
+def _dedupe_and_file_round(
+    findings: Sequence[Finding],
+    *,
+    repo: str,
+    dry_run: bool,
+    require_confirm: bool,
+    confirm: Callable[[int, list[Finding]], bool] | None,
+    round_num: int,
+    runner: CoordRunner,
+    open_issues: list[dict],
+    closed_issues: list[dict],
+    lanes_by_platform: dict[str, BugbashLane],
+    run_filed_issues: list[dict],
+    run_filed_by_title: dict[str, int],
+) -> tuple[list[FilingResult], int, bool]:
+    """Dedupe *findings* against *open_issues*/*closed_issues* (the caller
+    has already merged in this run's own already-filed issues, #3546) and
+    file/queue every non-duplicate.
+
+    This is the SAME dedupe/confirm/file/queue path both :func:`run_bugbash`
+    's round loop and :func:`harvest_outcome` (#3569) drive — a finding
+    recovered through ``coord bugbash harvest`` after its lane's own
+    ``--lane-timeout`` elapsed goes through identically the same rules
+    (platform-gated title dedupe, the operator-confirm gate, the mandatory
+    acceptance line, ``suspected_repo`` routing) as one filed inline, never
+    a second, looser copy of this decision (#2096 "one question, one
+    answer").
+
+    Returns ``(filings, new_count, declined)``: *new_count* is every
+    finding whose verdict was NOT :data:`DedupeVerdict.DUPLICATE` (what
+    moves round-cap/zero-findings termination upstream); *declined* is
+    whether an operator declined to file this round's candidates via
+    *confirm* (always ``False`` when *require_confirm* is ``False`` — e.g.
+    a harvest's standalone recovery never re-gates behind a second
+    confirmation prompt).
+
+    Mutates *run_filed_issues*/*run_filed_by_title* in place exactly as the
+    original inline loop did, so a caller running multiple rounds
+    (:func:`run_bugbash`) keeps seeing this run's own earlier filings
+    across calls.
+    """
+    dedupes = _dedupe_round_findings(findings, open_issues, closed_issues)
+
+    candidates = [
+        f for f, d in zip(findings, dedupes) if d.verdict != DedupeVerdict.DUPLICATE
+    ]
+    declined = require_confirm and bool(candidates) and not (confirm and confirm(round_num, candidates))
+
+    filings: list[FilingResult] = []
+    new_count = 0
+    for finding, dedupe in zip(findings, dedupes):
+        lane = lanes_by_platform.get(finding.platform)
+        if dedupe.verdict != DedupeVerdict.DUPLICATE:
+            new_count += 1
+        if dedupe.verdict != DedupeVerdict.DUPLICATE and declined:
+            # Operator declined this round's filings — record the would-be
+            # preview (same shape a dry run produces) without ever invoking
+            # the runner.
+            title = compose_finding_issue_title(finding)
+            body = format_bug_report(
+                expected=finding.expected, actual=finding.actual,
+                repro=finding.repro,
+                evidence=_evidence_with_acceptance(finding, dedupe),
+            )
+            filings.append(
+                FilingResult(
+                    finding=finding, verdict=dedupe.verdict,
+                    filed=False, queued=False,
+                    preview_title=title, preview_body=body,
+                )
+            )
+            continue
+        if dedupe.verdict is DedupeVerdict.DUPLICATE and dedupe.matched_number is None:
+            # #3546: a within-round duplicate from `_dedupe_round_findings`
+            # — its sibling finding may have already been filed earlier in
+            # THIS loop (in which case its real issue number is now in
+            # `run_filed_by_title`). Resolve it so the report/CLI shows the
+            # real number instead of a permanent "duplicate of #None".
+            resolved = run_filed_by_title.get(dedupe.matched_title or "")
+            if resolved is not None:
+                dedupe = DedupeResult(
+                    verdict=dedupe.verdict, matched_number=resolved,
+                    matched_title=dedupe.matched_title, score=dedupe.score,
+                )
+        # An unresolvable lane (finding.platform not in lanes_by_platform)
+        # is only a problem when it would actually be queued — file_finding
+        # raises in that case, never silently drops the machine target
+        # (#2096: a gate must be able to fail).
+        result = file_finding(finding, dedupe, lane, runner, dry_run=dry_run)
+        filings.append(result)
+        if result.filed and result.issue_number is not None:
+            # Only track filings that landed in *repo*'s own namespace — a
+            # finding routed elsewhere via `finding_target_repo` (#3546
+            # requirement 2) dedupes against THAT repo's issues, not this
+            # one's.
+            if finding_target_repo(finding) == repo:
+                filed_title = compose_finding_issue_title(finding)
+                run_filed_issues.append({"number": result.issue_number, "title": filed_title})
+                run_filed_by_title[filed_title] = result.issue_number
+
+    return filings, new_count, declined
+
+
+def harvest_outcome(
+    outcome: ExploreOutcome,
+    lane: BugbashLane,
+    *,
+    repo: str,
+    runner: CoordRunner,
+    open_issues_fetcher: Callable[[str], list[dict]],
+    closed_issues_fetcher: Callable[[str], list[dict]],
+    dry_run: bool = False,
+) -> RoundReport:
+    """File (or preview) the findings in a single lane's late-arriving
+    :class:`ExploreOutcome` — the #3569 recovery path for an explorer that
+    finished AFTER its lane's ``--lane-timeout`` had already elapsed and
+    the controller had stopped waiting on it (``coord bugbash harvest``,
+    wired in :mod:`coord.commands.bugbash`).
+
+    Reuses the identical bucketing (:func:`_apply_outcome_to_round`) and
+    dedupe/file path (:func:`_dedupe_and_file_round`) :func:`run_bugbash`'s
+    own round loop uses — a harvested result is subject to the exact same
+    rules (unavailable/protocol-error/incomplete handling, platform-gated
+    dedupe, the mandatory acceptance line) as one observed inline, never a
+    parallel, looser path (#2096 "one question, one answer").
+
+    Always treated as a standalone round 1 with no prior in-run filings to
+    cross-reference — a harvest recovers ONE lane's result after the fact,
+    it is not itself a multi-round run — and never gated behind an operator
+    confirmation: :func:`run_bugbash`'s ``confirm_rounds`` gate exists to
+    let an operator preview the FIRST rounds of a live, automatically-
+    filing run before it starts; a harvest is already a single, deliberate,
+    after-the-fact operator action (``coord bugbash harvest``), so gating
+    it behind a second prompt would just be an extra step for no added
+    safety. ``dry_run=True`` still skips filing/queuing exactly like a live
+    run's ``--dry-run`` does — the runner is never invoked on that path.
+    """
+    report = RoundReport(round_num=1)
+    report.lane_cost[lane.platform] = outcome.cost
+    _apply_outcome_to_round(report, lane, outcome)
+
+    open_issues = list(open_issues_fetcher(repo))
+    closed_issues = closed_issues_fetcher(repo)
+    filings, new_count, _declined = _dedupe_and_file_round(
+        report.findings,
+        repo=repo,
+        dry_run=dry_run,
+        require_confirm=False,
+        confirm=None,
+        round_num=1,
+        runner=runner,
+        open_issues=open_issues,
+        closed_issues=closed_issues,
+        lanes_by_platform={lane.platform: lane},
+        run_filed_issues=[],
+        run_filed_by_title={},
+    )
+    report.filings = filings
+    report.new_count = new_count
+    return report
+
+
 def run_bugbash(
     config: BugbashConfig,
     *,
@@ -1145,30 +1487,12 @@ def run_bugbash(
             lane_cost[lane.platform] += outcome.cost
             report.lane_cost[lane.platform] = lane_cost[lane.platform]
             total_cost += outcome.cost
-            if outcome.unavailable:
-                # #3510: a locked/absent GUI session (or missing display)
-                # is a host condition, not a finding — recorded separately
-                # from both a clean pass and a dispatch/poll failure, and
-                # NEVER contributes findings this round, even defensively
-                # if the explorer happened to also hand some back.
-                report.unavailable_lanes[lane.platform] = (
-                    outcome.notes or "lane unavailable — no usable GUI session/display"
-                )
-                continue
-            report.findings.extend(outcome.findings)
-            if not outcome.ok:
-                # #2096: this lane's "findings" (almost certainly empty) are
-                # NOT a verified observation — record why, so a round whose
-                # every lane failed this way can never render identically to
-                # a round that actually looked and found nothing.
-                report.lane_failures[lane.platform] = outcome.notes or "explorer reported failure"
-            elif outcome.protocol_error:
-                # #3517: the lane DID complete, but its final message could
-                # not be trusted as a findings report at all — a malformed/
-                # missing block, never silently read as "zero findings
-                # observed" (that conflation is exactly what let a real
-                # finding disappear and pass the #3488 release gate).
-                report.protocol_error_lanes[lane.platform] = outcome.protocol_error
+            # #3569: the SAME bucketing `coord bugbash harvest`'s
+            # `harvest_outcome` uses for a late-arriving explorer — one
+            # question ("how does this ExploreOutcome classify"), one
+            # answer, whether it's observed inline here or recovered after
+            # the fact.
+            _apply_outcome_to_round(report, lane, outcome)
 
         # #3546: merge the fresh fetch with every issue THIS RUN has already
         # filed — a finding matching one of this run's own earlier filings
@@ -1177,72 +1501,24 @@ def run_bugbash(
         open_issues = list(open_issues_fetcher(config.repo)) + run_filed_issues
         closed_issues = closed_issues_fetcher(config.repo)
 
-        # Dedupe every finding exactly once (one question, one answer) —
-        # everything below (the confirm gate's candidate list, new_count,
-        # and the actual filing decision) reads off this SAME verdict per
-        # finding rather than re-asking dedupe with a chance to disagree
-        # with itself. `_dedupe_round_findings` also catches two lanes
-        # reporting the same bug in THIS round against each other, not just
-        # against issues that existed before the round started.
-        dedupes = _dedupe_round_findings(report.findings, open_issues, closed_issues)
-
         require_confirm = (not config.dry_run) and round_num <= config.confirm_rounds
-        candidates = [
-            f for f, d in zip(report.findings, dedupes) if d.verdict != DedupeVerdict.DUPLICATE
-        ]
-        declined = require_confirm and candidates and not (confirm and confirm(round_num, candidates))
-        report.declined = bool(declined)
-
-        for finding, dedupe in zip(report.findings, dedupes):
-            lane = lanes_by_platform.get(finding.platform)
-            if dedupe.verdict != DedupeVerdict.DUPLICATE:
-                report.new_count += 1
-            if dedupe.verdict != DedupeVerdict.DUPLICATE and declined:
-                # Operator declined this round's filings — record the
-                # would-be preview (same shape a dry run produces) without
-                # ever invoking the runner.
-                title = compose_finding_issue_title(finding)
-                body = format_bug_report(
-                    expected=finding.expected, actual=finding.actual,
-                    repro=finding.repro,
-                    evidence=_evidence_with_acceptance(finding, dedupe),
-                )
-                report.filings.append(
-                    FilingResult(
-                        finding=finding, verdict=dedupe.verdict,
-                        filed=False, queued=False,
-                        preview_title=title, preview_body=body,
-                    )
-                )
-                continue
-            if dedupe.verdict is DedupeVerdict.DUPLICATE and dedupe.matched_number is None:
-                # #3546: a within-round duplicate from `_dedupe_round_findings`
-                # — its sibling finding may have already been filed earlier
-                # in THIS loop (in which case its real issue number is now in
-                # `run_filed_by_title`). Resolve it so the report/CLI shows
-                # the real number instead of a permanent "duplicate of
-                # #None".
-                resolved = run_filed_by_title.get(dedupe.matched_title or "")
-                if resolved is not None:
-                    dedupe = DedupeResult(
-                        verdict=dedupe.verdict, matched_number=resolved,
-                        matched_title=dedupe.matched_title, score=dedupe.score,
-                    )
-            # An unresolvable lane (finding.platform not in this run's
-            # config.lanes) is only a problem when it would actually be
-            # queued — file_finding raises in that case, never silently
-            # drops the machine target (#2096: a gate must be able to fail).
-            result = file_finding(finding, dedupe, lane, runner, dry_run=config.dry_run)
-            report.filings.append(result)
-            if result.filed and result.issue_number is not None:
-                # Only track filings that landed in config.repo's own
-                # namespace — a finding routed elsewhere via
-                # `finding_target_repo` (#3546 requirement 2) dedupes
-                # against THAT repo's issues, not this one's.
-                if finding_target_repo(finding) == config.repo:
-                    filed_title = compose_finding_issue_title(finding)
-                    run_filed_issues.append({"number": result.issue_number, "title": filed_title})
-                    run_filed_by_title[filed_title] = result.issue_number
+        filings, new_count, declined = _dedupe_and_file_round(
+            report.findings,
+            repo=config.repo,
+            dry_run=config.dry_run,
+            require_confirm=require_confirm,
+            confirm=confirm,
+            round_num=round_num,
+            runner=runner,
+            open_issues=open_issues,
+            closed_issues=closed_issues,
+            lanes_by_platform=lanes_by_platform,
+            run_filed_issues=run_filed_issues,
+            run_filed_by_title=run_filed_by_title,
+        )
+        report.filings = filings
+        report.new_count = new_count
+        report.declined = declined
 
         rounds.append(report)
 

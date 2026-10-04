@@ -879,6 +879,16 @@ class _TestConnection(ServerTestCase):
             await self.connect(known_hosts=([], ['ckey.pub'], ['skey.pub']))
 
     @asynctest
+    async def test_revoked_known_hosts_key_in_cert(self):
+        """Test revoked server host key in a certificate"""
+
+        self._server.update(server_host_keys=['skey_cross'])
+
+        with self.assertRaises(asyncssh.HostKeyNotVerifiable):
+            await self.connect(known_hosts=([], ['skey.pub'],
+                                            ['skey_ecdsa.pub']))
+
+    @asynctest
     async def test_empty_known_hosts(self):
         """Test empty known hosts list"""
 
@@ -1657,7 +1667,7 @@ class _TestConnection(ServerTestCase):
         conn = await self.connect()
 
         conn.send_packet(MSG_CHANNEL_OPEN, String(b'\xff'),
-                         UInt32(0), UInt32(0), UInt32(0))
+                         UInt32(0), UInt32(1), UInt32(1))
 
         await conn.wait_closed()
 
@@ -1668,7 +1678,7 @@ class _TestConnection(ServerTestCase):
         conn = await self.connect()
 
         conn.send_packet(MSG_CHANNEL_OPEN, String('xxx'),
-                         UInt32(0), UInt32(0), UInt32(0))
+                         UInt32(0), UInt32(1), UInt32(1))
 
         await conn.wait_closed()
 
@@ -1679,7 +1689,7 @@ class _TestConnection(ServerTestCase):
         conn = await self.connect()
 
         conn.send_packet(MSG_CHANNEL_OPEN_CONFIRMATION, UInt32(0xff),
-                         UInt32(0), UInt32(0), UInt32(0))
+                         UInt32(0), UInt32(1), UInt32(1))
 
         await conn.wait_closed()
 

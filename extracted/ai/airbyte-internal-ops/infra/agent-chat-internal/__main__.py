@@ -10,7 +10,9 @@ Google Workspace SSO before requests reach Cloud Run.
 Primary host: `ops.internal.airbyte.ai/chat` via the ops-webapp URL map
 (`/chat/api/*` -> agui-server, `/chat/*` -> agui-playground). The standalone
 `chat.internal.airbyte.ai` LB/DNS below now 301-redirects every request there
-instead of serving the app itself.
+instead of serving the app itself. `preview.chat.internal.airbyte.ai` likewise
+301-redirects to `preview.ops.internal.airbyte.ai/chat/` (a host rule on the
+same LB, so it shares the IP and proxies but gets its own managed cert).
 
 Container images are built and pushed by the publish workflows in
 `airbytehq/airbyte-agui-server` and `airbytehq/airbyte-agui-sdk`. The tags in
@@ -45,6 +47,10 @@ DOMAIN = config.get("domain") or "chat.internal.airbyte.ai"
 # primary entrypoint on the ops-webapp host.
 REDIRECT_HOST = config.get("redirect-host") or "ops.internal.airbyte.ai"
 REDIRECT_PATH = config.get("redirect-path") or "/chat/"
+PREVIEW_DOMAIN = config.get("preview-domain") or "preview.chat.internal.airbyte.ai"
+PREVIEW_REDIRECT_HOST = (
+    config.get("preview-redirect-host") or "preview.ops.internal.airbyte.ai"
+)
 MIN_INSTANCES = int(config.get("min-instances") or "1")
 MAX_INSTANCES = int(config.get("max-instances") or "5")
 DNS_ZONE_PROJECT = config.get("dns-zone-project") or "airbyte-intranet"
@@ -305,7 +311,11 @@ def define_load_balancer(
     """Define the external HTTPS load balancer as a redirect to the primary host.
 
     Every request to `chat.internal.airbyte.ai` 301-redirects to
-    `ops.internal.airbyte.ai/chat/` (`REDIRECT_HOST` + `REDIRECT_PATH`).
+    `ops.internal.airbyte.ai/chat/` (`REDIRECT_HOST` + `REDIRECT_PATH`), and
+    `preview.chat.internal.airbyte.ai` redirects to
+    `preview.ops.internal.airbyte.ai/chat/` via a host rule on the same map
+    (`PREVIEW_DOMAIN` -> `PREVIEW_REDIRECT_HOST`). The preview host needs its
+    own managed cert attached to the HTTPS proxy.
     HTTP traffic redirects to HTTPS first. The backends stay provisioned for
     the ops-webapp stack's `/chat` path rules, which look them up by name with
     `gcp.compute.get_backend_service_output`.
@@ -323,6 +333,13 @@ def define_load_balancer(
         managed=gcp.compute.ManagedSslCertificateManagedArgs(domains=[DOMAIN]),
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
+    preview_certificate = gcp.compute.ManagedSslCertificate(
+        "agent-chat-internal-preview-ssl-cert",
+        name="agent-chat-internal-preview-ssl-cert",
+        project=PROJECT,
+        managed=gcp.compute.ManagedSslCertificateManagedArgs(domains=[PREVIEW_DOMAIN]),
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
     url_map = gcp.compute.URLMap(
         "agent-chat-internal-url-map",
         name="agent-chat-internal-url-map",
@@ -336,13 +353,31 @@ def define_load_balancer(
             strip_query=False,
             redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
         ),
+        host_rules=[
+            gcp.compute.URLMapHostRuleArgs(
+                hosts=[PREVIEW_DOMAIN],
+                path_matcher="preview-redirect",
+            )
+        ],
+        path_matchers=[
+            gcp.compute.URLMapPathMatcherArgs(
+                name="preview-redirect",
+                default_url_redirect=gcp.compute.URLMapPathMatcherDefaultUrlRedirectArgs(
+                    host_redirect=PREVIEW_REDIRECT_HOST,
+                    path_redirect=REDIRECT_PATH,
+                    https_redirect=False,
+                    strip_query=False,
+                    redirect_response_code="MOVED_PERMANENTLY_DEFAULT",
+                ),
+            )
+        ],
     )
     https_proxy = gcp.compute.TargetHttpsProxy(
         "agent-chat-internal-https-proxy",
         name="agent-chat-internal-https-proxy",
         project=PROJECT,
         url_map=url_map.self_link,
-        ssl_certificates=[certificate.self_link],
+        ssl_certificates=[certificate.self_link, preview_certificate.self_link],
     )
     gcp.compute.GlobalForwardingRule(
         "agent-chat-internal-https-forwarding-rule",
@@ -381,9 +416,11 @@ def define_load_balancer(
     return ip_address
 
 
-def define_dns(lb_ip: gcp.compute.GlobalAddress) -> gcp.dns.RecordSet:
-    """Define the DNS A record for the chat domain."""
-    return gcp.dns.RecordSet(
+def define_dns(
+    lb_ip: gcp.compute.GlobalAddress,
+) -> tuple[gcp.dns.RecordSet, gcp.dns.RecordSet]:
+    """Define the DNS A records for the chat and preview-chat domains."""
+    dns_record = gcp.dns.RecordSet(
         "agent-chat-internal-dns-record",
         name=f"{DOMAIN}.",
         type="A",
@@ -392,6 +429,16 @@ def define_dns(lb_ip: gcp.compute.GlobalAddress) -> gcp.dns.RecordSet:
         project=DNS_ZONE_PROJECT,
         rrdatas=[lb_ip.address],
     )
+    preview_dns_record = gcp.dns.RecordSet(
+        "agent-chat-internal-preview-dns-record",
+        name=f"{PREVIEW_DOMAIN}.",
+        type="A",
+        ttl=300,
+        managed_zone=DNS_ZONE_NAME,
+        project=DNS_ZONE_PROJECT,
+        rrdatas=[lb_ip.address],
+    )
+    return dns_record, preview_dns_record
 
 
 def _server_envs(
@@ -497,7 +544,7 @@ def main() -> None:
     )
     _define_neg_and_backend(PLAYGROUND_PREVIEW_SERVICE_NAME, playground_preview_service)
     lb_ip = define_load_balancer(api_services)
-    dns_record = define_dns(lb_ip)
+    dns_record, preview_dns_record = define_dns(lb_ip)
 
     outputs: OutputMap = {
         "server_service": server_service.name,
@@ -524,6 +571,8 @@ def main() -> None:
             else ""
         ),
         "dns_record": dns_record.name,
+        "preview_url": f"https://{PREVIEW_DOMAIN}",
+        "preview_dns_record": preview_dns_record.name,
     }
     for name, value in outputs.items():
         pulumi.export(name, value)

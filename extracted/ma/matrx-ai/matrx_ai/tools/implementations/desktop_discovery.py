@@ -19,8 +19,8 @@ The model calls this tool with a category and the handler:
      (DB is the single source of truth).
   3. Filters OS-gated tools against the desktop's reported platform
      (``local_mac_apps`` needs darwin, ``local_windows_ps`` needs win32).
-  4. Queues registry references via ``ctx.queue_tool_changes(...)`` and removes
-     itself. The canonical merge resolves schema identity and request routing
+  4. Queues registry references via ``ctx.queue_tool_changes(...)``; the loader
+     stays. The canonical merge resolves schema identity and request routing
      from registry bindings × the host-resolved active executor set.
 
 On AIDream the loaded mega-tools are CLIENT tools, so their calls take the
@@ -221,7 +221,6 @@ async def load_desktop_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResu
     loaded_categories: list[str] = list(state.get("loaded_categories") or [])
 
     if category in loaded_categories:
-        ctx.queue_tool_changes(add=[], remove=["load_desktop_tools"])
         vcprint(
             f"[load_desktop_tools] category={category!r} already in "
             "state['desktop-native'].loaded_categories — short-circuit.",
@@ -264,10 +263,8 @@ async def load_desktop_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResu
             continue
         discovered_specs.append(_discovered_spec(tool))
 
-    ctx.queue_tool_changes(
-        add=discovered_specs,
-        remove=["load_desktop_tools"],
-    )
+    # The loader STAYS (TOOL-SOURCES.md, bundles) — see browser_discovery.load_chrome_tools.
+    ctx.queue_tool_changes(add=discovered_specs)
 
     vcprint(
         f"[load_desktop_tools] category={category} "

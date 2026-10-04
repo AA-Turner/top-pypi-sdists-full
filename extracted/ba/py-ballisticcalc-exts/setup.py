@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """setup.py script for py_ballisticcalc library"""
 
+import copy
 import os
 import platform
 import sysconfig
@@ -145,6 +146,9 @@ SOURCE_PATHS = {
     "engine": BCLIBC_SRC_DIR / "engine.cpp",
     "euler": BCLIBC_SRC_DIR / "euler.cpp",
     "rk4": BCLIBC_SRC_DIR / "rk4.cpp",
+    "cash_karp": BCLIBC_SRC_DIR / "cash_karp.cpp",
+    "dormand_prince": BCLIBC_SRC_DIR / "dormand_prince.cpp",
+    "tsitouras": BCLIBC_SRC_DIR / "tsitouras.cpp",
     "velocity_verlet": BCLIBC_SRC_DIR / "velocity_verlet.cpp",
     # Local Python-binding source (not in submodule):
     "bind": SRC_DIR_PATH / "py_bind.cpp",
@@ -161,6 +165,10 @@ _BIND_DEPS = {*_BASE_TYPES_DEPS, "bind"}
 _ENGINE_DEPS = {*_BIND_DEPS, *_TRAJ_DATA_DEPS, "traj_filter", "engine"}
 _RK4_DEPS = {*_ENGINE_DEPS, "rk4"}
 _EULER_DEPS = {*_ENGINE_DEPS, "euler"}
+_CASH_KARP_DEPS = {*_ENGINE_DEPS, "cash_karp"}
+# The generic adaptive core is independent of both public method wrappers.
+_DORMAND_PRINCE_DEPS = {*_ENGINE_DEPS, "dormand_prince"}
+_TSITOURAS_DEPS = {*_ENGINE_DEPS, "tsitouras"}
 _VELOCITY_VERLET_DEPS = {*_ENGINE_DEPS, "velocity_verlet"}
 _TEST_DEPS = {*_ENGINE_DEPS, *_RK4_DEPS, *_EULER_DEPS, *_VELOCITY_VERLET_DEPS}
 
@@ -174,6 +182,9 @@ CPP_EXTENSION_DEPS = {
     "base_engine": _ENGINE_DEPS,
     "rk4_engine": _RK4_DEPS,
     "euler_engine": _EULER_DEPS,
+    "cashkarp_engine": _CASH_KARP_DEPS,
+    "dopri_engine": _DORMAND_PRINCE_DEPS,
+    "tsitouras_engine": _TSITOURAS_DEPS,
     "velocity_verlet_engine": _VELOCITY_VERLET_DEPS,
     # Test modules (expose internal C++ functions for tests only)
     "_test_helpers": _TEST_DEPS,
@@ -190,7 +201,7 @@ is_macos = platform.system() == "Darwin"
 if is_msvc:
     # MSVC-specific flags
     c_compile_args = ["/O2", "/W3"]
-    cpp_compile_args = ["/O2", "/W3"]  # "/std:c++11" flag is deprecated
+    cpp_compile_args = ["/O2", "/W3", "/std:c++17"]
     cpp_extra_link_args = []
     # Crucial for MSVC on ARM
     if platform.machine().startswith("ARM"):
@@ -198,7 +209,7 @@ if is_msvc:
         cpp_compile_args.append("/fp:precise")
 elif is_macos:
     c_compile_args = ["-g", "-O0", "-std=c99"]
-    cpp_compile_args = ["-O2", "-Wall"]  # assumes it uses -std=c++14 or newer
+    cpp_compile_args = ["-O2", "-Wall", "-std=c++17"]
     cpp_extra_link_args = ["-stdlib=libc++"]
     os.environ["CC"] = "clang"
     os.environ["CXX"] = "clang++"
@@ -210,18 +221,18 @@ elif IS_EMSCRIPTEN:
     # "-Wl,-strip-all" is dropped: em++'s linker wrapper does not reliably
     # support arbitrary native-ld passthrough flags for stripping.
     c_compile_args = ["-std=c99"]
-    cpp_compile_args = ["-x", "c++", "-std=c++11", "-Wall"]
+    cpp_compile_args = ["-x", "c++", "-std=c++17", "-Wall"]
     cpp_extra_link_args = []
 else:
     # GCC/Clang flags (also covers Android and iOS cross-builds, which use a
     # GNU-compatible clang toolchain via their respective NDK/Xcode setups)
     c_compile_args = ["-g", "-O0", "-std=c99"]
-    cpp_compile_args = ["-x", "c++", "-std=c++11", "-O2", "-Wall", "-g"]
+    cpp_compile_args = ["-x", "c++", "-std=c++17", "-O2", "-Wall", "-g"]
     if DISABLE_STRIP:
         cpp_extra_link_args = []
     else:
         # c_compile_args = ["-O3", "-std=c99", "-DNDEBUG"]
-        # cpp_compile_args = ["-x", "c++", "-std=c++11", "-O3", "-Wall", "-DNDEBUG"]
+        # cpp_compile_args = ["-x", "c++", "-std=c++17", "-O3", "-Wall", "-DNDEBUG"]
         cpp_extra_link_args = ["-Wl,-strip-all"]
 
 
@@ -286,15 +297,50 @@ extensions_list.extend(collect_extensions(C_EXTENSION_DEPS, EXTENSIONS_BASE_DIR)
 extensions_list.extend(collect_extensions(CPP_EXTENSION_DEPS, EXTENSIONS_BASE_DIR, is_cpp=True))
 
 # Standard cythonize with a clean in-project build dir; annotate only if coverage requested
+# nthreads parallelizes the .pyx -> .c/.cpp translation step across CPU cores.
 extensions = cythonize(
     extensions_list,
     compiler_directives=compiler_directives,
     annotate=True,  # ENABLE_CYTHON_COVERAGE, # whether to generate .html annotations
     build_dir="build",  # to keep built data
     force=ENABLE_CYTHON_COVERAGE or CYTHON_FORCE_REGEN,
+    nthreads=os.cpu_count() or 1,
 )
 
 cmdclass = {}
+
+from setuptools.command.build_ext import build_ext as _build_ext
+
+
+class _parallel_build_ext(_build_ext):
+    """Compile extension modules across multiple CPU cores (like `-j`).
+
+    Several extensions intentionally re-list the same bclibc .cpp sources
+    (each engine .so must be self-contained -- notably on Android/iOS, whose
+    dlopen can't resolve a companion shared library at load time). distutils
+    derives an object file's path purely from the source's relative path
+    under build_temp, so building extensions concurrently would make two
+    threads write the same .o file at once (observed as MSVC C1083
+    "Permission denied" on Windows and corrupt/truncated .o files on Linux).
+    Building each extension against its own build_temp subdirectory -- via a
+    private copy of this command instead of mutating shared state -- keeps
+    object files isolated while still reusing the one shared self.compiler
+    instance, which is what makes --parallel safe here.
+    """
+
+    def finalize_options(self):
+        super().finalize_options()
+        if self.parallel is None:
+            self.parallel = os.cpu_count() or 1
+
+    def build_extension(self, ext):
+        per_ext = copy.copy(self)
+        per_ext.build_temp = os.path.join(self.build_temp, ext.name)
+        _build_ext.build_extension(per_ext, ext)
+
+
+cmdclass["build_ext"] = _parallel_build_ext
+
 if USE_LIMITED_API:
     from setuptools.command.bdist_wheel import bdist_wheel
 

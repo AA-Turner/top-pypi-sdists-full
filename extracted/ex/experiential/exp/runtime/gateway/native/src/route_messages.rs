@@ -26,11 +26,12 @@ use crate::errors::{Failure, FailureClass, PublicError};
 use crate::events::{Event, Usage};
 use crate::guardrails::{released_events, StreamRedactor};
 use crate::metrics::{classify_escalation, METRICS};
+use crate::reasoning_display::ReasoningOutput;
 use crate::relay::{collect_committed, collection_public_error, track_event};
 use crate::respond::{
     bearer_key, client_ip, complete_visible_refusal, escalation_error, json_response,
     latin1_header_list, outward_event, read_body, send_bounded, settle_stream_end,
-    sse_body_response,
+    sse_body_response, with_app_identity,
 };
 use crate::respond::{log_stream_exit, stream_delivery::Delivery};
 use crate::route_chat::{seal_reasoning_candidate, seal_reasoning_events};
@@ -166,14 +167,16 @@ pub(crate) async fn messages(
     // decoder can retain allowlisted tokens (e.g. the 1M context window)
     // for Anthropic dispatch and disclose the rest.
     let anthropic_beta = latin1_header_list(&headers, "anthropic-beta");
-    let admit_argument = compact_json(&json!({
+    let mut admit_value = json!({
         "raw_key": raw_key,
         "body": body_text,
         "surface": "messages",
         "anthropic_beta": anthropic_beta,
         "client_ip": client_ip(&headers),
         "capture_session_id": crate::capture::session_id(&headers),
-    }));
+    });
+    with_app_identity(&mut admit_value, &headers);
+    let admit_argument = compact_json(&admit_value);
     let admission_text = match state.bridge.call("admit", admit_argument).await {
         Ok(text) => text,
         Err(error) => return messages_error_response(&error),
@@ -236,7 +239,7 @@ pub(crate) async fn messages(
         deadline,
     )
     .await;
-    observe_winner(state.capture.clone(), &admission, &guard, &mut won);
+    observe_winner(state.capture.clone(), &admission, &guard, &mut won, true);
 
     let capture = state.capture.clone();
     let capture_request_id = admission.request_id.clone();
@@ -296,10 +299,12 @@ async fn settled_messages_response(admission: &Admission, settled: SettledAttemp
             if admission.stream {
                 // The withheld refusal output and its failing terminal flush
                 // outward as the stream's only frames.
-                let body = match encode_messages_sse(admission, &events, None, false) {
-                    Ok(body) => body,
-                    Err(error) => return messages_error_response(&error),
-                };
+                let body =
+                    match encode_messages_sse(admission, &events, None, ReasoningOutput::default())
+                    {
+                        Ok(body) => body,
+                        Err(error) => return messages_error_response(&error),
+                    };
                 let headers = served_headers(admission, None, served);
                 return sse_body_response(&headers, body);
             }
@@ -309,7 +314,7 @@ async fn settled_messages_response(admission: &Admission, settled: SettledAttemp
     let headers = served_headers(admission, None, served);
     // A settled attempt carries no semantic output, so no reasoning was
     // issued and nothing needs sealing; exposure only governs display.
-    let exposed = admission.reasoning_exposed_at(settled.depth);
+    let exposed = admission.reasoning_output_at(settled.depth);
     if admission.stream {
         let body = match encode_messages_sse(admission, &events, None, exposed) {
             Ok(body) => body,
@@ -357,7 +362,7 @@ async fn respond_from_messages_events(
             }
         }
     };
-    let exposed = admission.reasoning_exposed_at(depth);
+    let exposed = admission.reasoning_output_at(depth);
     let aggregated =
         match completed_messages_body_for(&admission, &events, carrier.as_deref(), exposed) {
             Ok(aggregated) => aggregated,
@@ -489,7 +494,7 @@ fn encode_messages_sse(
     admission: &Admission,
     events: &[Event],
     reasoning_content_carrier: Option<&str>,
-    reasoning_output_exposed: bool,
+    reasoning_output: ReasoningOutput,
 ) -> Result<Vec<u8>, PublicError> {
     let mut encoder = MessagesSseEncoder::new_with_ignored(
         &admission.request_id,
@@ -497,7 +502,7 @@ fn encode_messages_sse(
         admission.ignored_parameters.clone(),
     );
     configure_messages_encoder_for(&mut encoder, admission);
-    encoder.set_reasoning_output_exposed(reasoning_output_exposed);
+    encoder.set_reasoning_output(reasoning_output);
     encoder.set_pre_dispatch_input_estimate(admission.input_token_estimate);
     if let Some(carrier) = reasoning_content_carrier {
         encoder.set_reasoning_content_carrier(carrier.to_string());
@@ -641,7 +646,7 @@ async fn stream_messages(
         let mut encoder =
             MessagesSseEncoder::new_with_ignored(&request_id, &alias, ignored_parameters);
         configure_messages_encoder_for(&mut encoder, &admission);
-        encoder.set_reasoning_output_exposed(admission.reasoning_exposed_at(committed.depth));
+        encoder.set_reasoning_output(admission.reasoning_output_at(committed.depth));
         let mut usage: Option<Usage> = committed.usage.take();
         let mut tool_names: Vec<String> = std::mem::take(&mut committed.tool_names);
         let mut visible_refusal = committed.visible_refusal;

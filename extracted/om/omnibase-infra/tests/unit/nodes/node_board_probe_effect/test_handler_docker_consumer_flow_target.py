@@ -208,6 +208,76 @@ def test_cursor_walk_uses_since_and_stops_on_repeated_cursor() -> None:
     assert urls[1].endswith("?since=same")
 
 
+@pytest.mark.parametrize(
+    ("case", "beyond_rows", "reread_cursor", "proven"),
+    [
+        ("empty_beyond", [], None, True),
+        ("silent_truncation", [{"projection_cursor": 10}], None, False),
+        ("late_rows", [{"projection_cursor": 10}], "9", True),
+        ("missing_cursor", [], None, False),
+    ],
+)
+def test_cursor_walk_measures_the_full_final_page_end(
+    case: str,
+    beyond_rows: list[dict[str, Any]],
+    reread_cursor: str | None,
+    proven: bool,
+) -> None:
+    from omnibase_infra.nodes.node_board_probe_effect.handlers._consumer_flow_collection import (
+        walk,
+    )
+    from omnibase_infra.nodes.node_board_probe_effect.handlers._consumer_flow_lane import (
+        ConsumerFlowLane,
+    )
+
+    first_rows = [{"projection_cursor": 1}, {"projection_cursor": 2}]
+    final_rows = (
+        [{"consumer_group": "a"}, {"consumer_group": "b"}]
+        if case == "missing_cursor"
+        else [{"projection_cursor": "9"}, {"projection_cursor": 3}]
+    )
+    responses = [
+        {"rows": first_rows, "row_count": 2, "row_limit": 2, "next_cursor": "2"},
+        {"rows": final_rows, "row_count": 2, "row_limit": 2, "next_cursor": None},
+        {"rows": beyond_rows},
+        {
+            "rows": final_rows,
+            "row_count": 2,
+            "row_limit": 2,
+            "next_cursor": reread_cursor,
+        },
+    ]
+    urls: list[str] = []
+
+    def http(url: str, **kwargs: Any) -> io.BytesIO:
+        urls.append(url)
+        return io.BytesIO(json.dumps(responses[len(urls) - 1]).encode())
+
+    observed = walk(
+        ConsumerFlowLane(
+            docker="unused", base_url="http://projection.test", urlopen=http
+        )
+    )
+    assert observed["terminated"]
+    assert len(observed["pages"]) == 2
+    assert observed["rows"] == first_rows + final_rows
+    assert "end_proof" not in observed["pages"][0]
+    assert observed["pages"][-1]["end_proof"] == {
+        "since": None if case == "missing_cursor" else "9",
+        "beyond_row_count": None if case == "missing_cursor" else len(beyond_rows),
+        "reread_next_cursor": reread_cursor,
+        "proven": proven,
+    }
+    assert urls[1].endswith("?since=2")
+    if case == "missing_cursor":
+        assert len(urls) == 2
+    else:
+        assert urls[2].endswith("?since=9")
+        assert len(urls) == (4 if beyond_rows else 3)
+        if beyond_rows:
+            assert urls[3] == urls[1]
+
+
 @pytest.mark.parametrize("always_changes", [False, True])
 def test_boot_change_retries_the_whole_observation(
     tmp_path: Path, always_changes: bool
@@ -281,3 +351,67 @@ def test_negative_timeout_restores_the_exact_original_bytes(tmp_path: Path) -> N
     with pytest.raises(ConsumerFlowInputError, match="TimeoutExpired"):
         run_negative(tmp_path, ["fake-pytest"], tmp_path, runner=run)
     assert target.read_bytes() == original
+
+
+@pytest.mark.parametrize("heals_at", [400.0, None])
+def test_unhealthy_lane_waits_for_convergence_and_retries_once(
+    tmp_path: Path, heals_at: float | None
+) -> None:
+    """OMN-20410: one unhealthy settle window is not a verdict.
+
+    The .201 dev runtime flaps unhealthy for a few minutes at a time (C28 run
+    37146175477 went INDETERMINATE on exactly that), so the observation waits a
+    second settle window before giving up. A lane that never converges still
+    reads unreadable, which grades INDETERMINATE and never PASS.
+    """
+    target = tmp_path / script.WIRING_MODULE
+    target.parent.mkdir(parents=True)
+    target.write_text(
+        "\n".join(
+            f'def {f}():\n    flow_counters.register("group")\n'
+            for f in script.BRANCHES.values()
+        )
+    )
+    fake = FakeIO()
+    clock = [0.0]
+
+    def sleep(seconds: float) -> None:
+        clock[0] += seconds
+
+    def run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        proc = fake.run(argv, **kwargs)
+        if argv[1] == "inspect" and (heals_at is None or clock[0] < heals_at):
+            body = json.loads(proc.stdout)
+            body[0]["State"]["Health"]["Status"] = "unhealthy"
+            proc.stdout = json.dumps(body)
+        return proc
+
+    adapter = HandlerDockerConsumerFlowTarget(
+        runner=run,
+        urlopen=fake.http,
+        sleep=sleep,
+        monotonic=lambda: clock[0],
+        repo_root=tmp_path,
+    )
+    request = ModelConsumerFlowRequest(
+        subject_lane="dev",
+        docker_bin="fake-docker",
+        samples=2,
+        sample_interval=0,
+        settle_seconds=300,
+        injection_wait=0,
+        pytest_cmd="fake-pytest",
+        scratch=tmp_path,
+    )
+    observed = asyncio.run(adapter.observe(request))
+    outcome = grade_consumer_flow(request, observed).outcome
+    if heals_at is not None:
+        assert observed.read_ok, observed.read_error
+        assert outcome == "PASS"
+        return
+    assert not observed.read_ok
+    assert "not running and healthy" in str(observed.read_error)
+    assert "after 2 settle window(s)" in str(observed.read_error)
+    assert clock[0] >= 2 * request.settle_seconds
+    assert outcome == "INDETERMINATE"
+    assert not any(argv[0] == "fake-pytest" for argv, _ in fake.calls)

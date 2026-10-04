@@ -36,11 +36,75 @@
     checkoutRequest: null,
     navigationToken: 0,
     conversationReady: true,
+    scopeIdentity: null,
+    resettingScope: false,
   };
 
   function el(id) { return document.getElementById(id); }
   function page() { return el('page-assistant'); }
-  function isMounted() { return !!(state.mounted && page()); }
+  function cloudTransportReady() {
+    return !!(window._cmAssistantRelay && window._cmAssistantRelay.version === 1
+      && typeof window._cmAssistantRelay.identity === 'function');
+  }
+
+  function scopeIdentity() {
+    if (!window.CLOUD_MODE) return 'local';
+    if (!cloudTransportReady()) return 'cloud-unavailable';
+    try { return window._cmAssistantRelay.identity(); }
+    catch (error) { return 'cloud-unavailable'; }
+  }
+
+  function resetScope(identity) {
+    if (state.resettingScope) return;
+    state.resettingScope = true;
+    state.scopeIdentity = identity;
+    state.navigationToken += 1;
+    stopVoice();
+    cancelChat('scope');
+    cancelConversationRequest('scope');
+    cancelAllRequests('scope');
+    state.statusRequest = state.historyRequest = state.checkoutRequest = null;
+    state.status = null;
+    state.statusLoadedAt = state.historyLoadedAt = 0;
+    state.conversationId = null;
+    state.conversations = [];
+    state.dataAvailable = false;
+    state.dataStatusMessage = 'Checking the connection to your computer.';
+    state.voiceBase = state.voiceFinal = state.voiceInterim = '';
+    ['cm-assistant-api-key', 'cm-assistant-input'].forEach(function (id) {
+      var input = el(id);
+      if (input) input.value = '';
+    });
+    clearThread();
+    renderHistory();
+    clearRecovery();
+    updateEngineOptions();
+    renderManagedStatus();
+    renderDataNotice({});
+    renderSetupState();
+    setConversationReady(false);
+    setStatusPill('Checking connection', 'warning');
+    setStatusMessage(state.dataStatusMessage, 'warning');
+    state.resettingScope = false;
+    if (state.mounted) Promise.resolve().then(function () {
+      if (state.mounted && state.scopeIdentity === identity) loadAssistantPage();
+    });
+  }
+
+  function isMounted() {
+    if (!(state.mounted && page())) return false;
+    var identity = scopeIdentity();
+    if (state.scopeIdentity !== null && state.scopeIdentity !== identity) {
+      resetScope(identity);
+      return false;
+    }
+    return true;
+  }
+
+  function requestIsCurrent(request) {
+    return isMounted() && request.scopeIdentity === scopeIdentity()
+      && request.navigationToken === state.navigationToken;
+  }
 
   function make(tag, className, text) {
     var node = document.createElement(tag);
@@ -97,14 +161,14 @@
   }
 
   function errorMessage(error, fallback) {
-    if (error && error._assistantTimedOut) return 'The assistant took too long to respond. The request may still finish on the server and appear in conversation history. Try again only if it does not appear.';
-    if (error && error.name === 'AbortError') return 'Request stopped waiting. The answer may still finish and appear in conversation history.';
+    if (error && error._assistantTimedOut) return 'The connection timed out. Check conversation history before retrying in case the answer was already saved.';
+    if (error && error.name === 'AbortError') return 'Stop requested. Any answer already saved remains in your history.';
     var data = error && error.data;
     var status = error && error.status;
     if (data && data.error === 'no_auth') return 'No assistant engine is connected. Sign in to the local harness or add an Anthropic API key.';
     if (data && data.error === 'missing_api_key') return 'Add an Anthropic API key for this page, then try again.';
     var backendError = data && typeof data.error === 'string' ? data.error.trim() : '';
-    if (backendError && backendError.length <= 600 && !/[<>\u0000-\u001f]/.test(backendError)) return backendError;
+    if (backendError && backendError.length <= 600 && /\s/.test(backendError) && !/[<>\u0000-\u001f]/.test(backendError)) return backendError;
     if (status === 503 || (data && data.status === 503)) return 'The assistant is temporarily unavailable while ClawMetry reconnects to its local data store. Try again in a moment.';
     if (status === 401 || status === 403) return 'This assistant engine is not connected. Choose a local harness or add your own API key.';
     return fallback || 'The assistant could not complete that request. Try again.';
@@ -118,7 +182,8 @@
   function requestJson(url, options, timeoutMs, kind) {
     options = options || {};
     var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    var request = { controller: controller, kind: kind || 'request', timedOut: false, cancelReason: null };
+    var request = { controller: controller, kind: kind || 'request', timedOut: false, cancelReason: null,
+      scopeIdentity: scopeIdentity(), navigationToken: state.navigationToken };
     state.requests.push(request);
     var requestOptions = {};
     Object.keys(options).forEach(function (key) { requestOptions[key] = options[key]; });
@@ -135,7 +200,7 @@
         timeoutError._assistantTimedOut = true;
         timeoutReject(timeoutError);
       }
-    }, timeoutMs || 15000);
+    }, window.CLOUD_MODE ? 30000 : (timeoutMs || 15000));
     var fetchPromise = fetch(url, requestOptions)
       .then(function (response) {
         return response.text().then(function (body) {
@@ -168,6 +233,112 @@
     return request;
   }
 
+  // Fetch supports POST + a request-scoped key; EventSource cannot send either.
+  function requestStream(url, options, onEvent) {
+    var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var request = { controller: controller, kind: 'chat', timedOut: false, cancelReason: null };
+    state.requests.push(request);
+    var reader = null;
+    var timeoutReject;
+    var timeoutPromise = new Promise(function (_, reject) { timeoutReject = reject; });
+    var timer = setTimeout(function () {
+      request.timedOut = true;
+      if (controller) controller.abort();
+      if (reader) reader.cancel().catch(function () {});
+      var timeoutError = new Error('Assistant request timed out');
+      timeoutError._assistantTimedOut = true;
+      timeoutReject(timeoutError);
+    }, 180000);
+    options.signal = controller ? controller.signal : undefined;
+    function failure(message) {
+      var error = new Error(message);
+      error.data = { error: message };
+      return error;
+    }
+    request.cancelReader = function () {
+      if (reader) reader.cancel().catch(function () {});
+    };
+    var fetchPromise = fetch(url, options).then(async function (response) {
+      if (request.cancelReason || request.timedOut) {
+        if (response.body && response.body.cancel) response.body.cancel().catch(function () {});
+        var aborted = new Error('Aborted'); aborted.name = 'AbortError'; throw aborted;
+      }
+      if (!response.ok || !/text\/event-stream/i.test(response.headers.get('Content-Type') || '')) {
+        var data = {};
+        try { data = await response.json(); } catch (ignored) {}
+        if (!response.ok) {
+          var error = failure('The assistant request failed. Try again.');
+          error.status = response.status;
+          error.data = data;
+          throw error;
+        }
+        // Older servers can still return their complete JSON response.
+        if (typeof data.answer === 'string') return data;
+        throw failure('Live replies are unavailable on this connection. Refresh and try again.');
+      }
+      if (!response.body || !response.body.getReader || typeof TextDecoder === 'undefined') {
+        throw failure('This browser cannot receive live replies. Update your browser and try again.');
+      }
+      reader = response.body.getReader();
+      var decoder = new TextDecoder('utf-8', { fatal: true });
+      var buffer = '';
+      var eventName = '';
+      var lines = [];
+      var totalBytes = 0;
+      var result = null;
+      function dispatch() {
+        if (!lines.length) { eventName = ''; return; }
+        var payload;
+        try { payload = JSON.parse(lines.join('\n')); }
+        catch (ignored) { throw failure('The live reply was interrupted. Refresh this conversation before trying again.'); }
+        lines = [];
+        var type = eventName || 'message';
+        eventName = '';
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+          throw failure('The assistant sent an invalid live reply. Try again.');
+        }
+        if (type === 'error') throw failure(payload.error || 'The answer could not be completed. Try again.');
+        if (type === 'done') {
+          if (typeof payload.answer !== 'string' || !payload.conversation_id) {
+            throw failure('The reply ended without a saved conversation. Try again.');
+          }
+          result = payload;
+        } else if (type === 'status' || type === 'delta') {
+          onEvent(type, payload);
+        }
+      }
+      while (!result) {
+        var chunk = await reader.read();
+        if (request.cancelReason || request.timedOut) {
+          var aborted = new Error('Aborted'); aborted.name = 'AbortError'; throw aborted;
+        }
+        if (chunk.done) break;
+        totalBytes += chunk.value.byteLength;
+        if (totalBytes > 2 * 1024 * 1024) throw failure('The live reply was too large. Ask a narrower question.');
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var newline;
+        while (!result && (newline = buffer.indexOf('\n')) !== -1) {
+          var line = buffer.slice(0, newline).replace(/\r$/, '');
+          buffer = buffer.slice(newline + 1);
+          if (!line) dispatch();
+          else if (line.indexOf('event:') === 0) eventName = line.slice(6).trim();
+          else if (line.indexOf('data:') === 0) lines.push(line.slice(5).replace(/^ /, ''));
+        }
+      }
+      if (!result) throw failure('The connection ended before the answer was saved. Refresh this conversation before trying again.');
+      return result;
+    }).finally(function () { request.cancelReader(); });
+    request.promise = Promise.race([fetchPromise, timeoutPromise]).catch(function (error) {
+      if (request.timedOut) error._assistantTimedOut = true;
+      throw error;
+    }).finally(function () {
+      clearTimeout(timer);
+      if (reader) reader.cancel().catch(function () {});
+      removeRequest(request);
+    });
+    return request;
+  }
+
   function cancelAllRequests(reason) {
     state.requests.slice().forEach(function (request) {
       request.cancelReason = reason || 'leave';
@@ -194,7 +365,9 @@
     var notice = el('cm-assistant-data-notice');
     if (!notice) return;
     var message = data && data.data_notice;
-    notice.textContent = message || 'Relevant query results are sent to your selected AI provider.';
+    notice.textContent = window.CLOUD_MODE && cloudTransportReady()
+      ? 'Relevant query results go to your selected AI provider. Conversations and panels are available here and on your agent’s computer.'
+      : (message || 'Relevant query results are sent to your selected AI provider.');
     notice.hidden = false;
   }
 
@@ -221,8 +394,11 @@
     var title = el('cm-assistant-setup-title');
     var description = el('cm-assistant-setup-description');
     if (!title || !description) return;
+    var setup = el('cm-assistant-setup');
+    if (setup) setup.classList.toggle('is-ready', !!(state.status && state.status.available && state.dataAvailable !== false));
     if (state.dataAvailable === false) {
-      title.textContent = state.status && state.status.egress_suppressed ? 'External inference is disabled' : 'Open your local dashboard';
+      title.textContent = state.status && state.status.egress_suppressed ? 'External inference is disabled'
+        : (window.CLOUD_MODE ? 'Connect to your computer' : 'Open your local dashboard');
       description.textContent = state.dataStatusMessage || 'This assistant needs the local data store on your agent’s computer.';
     } else if (state.status && state.status.available) {
       title.textContent = 'Good questions to start with';
@@ -340,7 +516,7 @@
     }, 20000, 'managed-checkout');
     state.checkoutRequest = request;
     request.promise.then(function (data) {
-      if (state.checkoutRequest !== request || !isMounted()) return;
+      if (state.checkoutRequest !== request || !requestIsCurrent(request)) return;
       state.checkoutRequest = null;
       var url = data && data.url;
       if (!isHttpsUrl(url)) {
@@ -350,7 +526,7 @@
       }
       window.location.assign(String(url));
     }).catch(function (error) {
-      if (state.checkoutRequest !== request) return;
+      if (state.checkoutRequest !== request || !requestIsCurrent(request)) return;
       state.checkoutRequest = null;
       if (topup) { topup.disabled = false; topup.textContent = 'Add $5 credit'; }
       if (!isMounted()) return;
@@ -360,15 +536,15 @@
 
   function loadStatus() {
     if (state.statusRequest) return;
-    if (window.CLOUD_MODE) {
+    if (window.CLOUD_MODE && !cloudTransportReady()) {
       state.status = { available: false, data_available: false };
       state.dataAvailable = false;
-      state.dataStatusMessage = 'Assistant runs on your agent’s computer, where your private data and harness are available. Open ClawMetry there to ask questions and save panels.';
+      state.dataStatusMessage = 'The cloud connection to your computer is unavailable. Refresh this page to reconnect Assistant.';
       state.statusLoadedAt = Date.now();
       setConversationReady(false);
-      setStatusPill('Available on your computer', 'warning');
+      setStatusPill('Connection unavailable', 'warning');
       setStatusMessage(state.dataStatusMessage, 'warning');
-      renderDataNotice({ data_notice: 'Your local conversations and saved panels are not synced to this hosted dashboard.' });
+      renderDataNotice({});
       renderSetupState();
       ['cm-assistant-input', 'cm-assistant-engine', 'cm-assistant-voice', 'cm-assistant-new-chat'].forEach(function (id) {
         var control = el(id);
@@ -376,24 +552,37 @@
       });
       var billing = el('cm-assistant-managed-note');
       if (billing) billing.hidden = true;
+      renderRecovery({});
       return;
     }
-    var navigationToken = state.navigationToken;
+    ['cm-assistant-input', 'cm-assistant-engine', 'cm-assistant-voice', 'cm-assistant-new-chat'].forEach(function (id) {
+      var control = el(id);
+      if (control) control.disabled = false;
+    });
+    var billing = el('cm-assistant-managed-note');
+    if (billing) billing.hidden = false;
+    if (window.CLOUD_MODE && !state.statusLoadedAt) {
+      state.dataAvailable = false;
+      setConversationReady(false);
+      setStatusPill('Connecting to your computer');
+    }
     var request = requestJson('/api/assistant/status', { credentials: 'same-origin' }, 12000, 'status');
-    request.navigationToken = navigationToken;
     state.statusRequest = request;
     request.promise.then(function (data) {
-      if (state.statusRequest === request) state.statusRequest = null;
-      if (!isMounted() || navigationToken !== state.navigationToken) return;
+      // Status belongs to the node, not the selected conversation. Starting a
+      // new chat while connecting must not discard its readiness response.
+      if (state.statusRequest !== request || !isMounted() || request.scopeIdentity !== scopeIdentity()) return;
+      state.statusRequest = null;
       state.status = data || {};
       state.dataAvailable = state.status.data_available !== false && !state.status.egress_suppressed;
       state.dataStatusMessage = state.status.message || '';
-      setConversationReady(state.conversationReady);
+      setConversationReady(!state.conversationRequest);
       state.statusLoadedAt = Date.now();
       var ready = !!state.status.available;
       var provider = state.status.provider ? providerLabel(state.status.provider) : '';
       if (state.dataAvailable === false) {
-        setStatusPill(state.status.egress_suppressed ? 'External inference disabled' : 'Local data unavailable', 'warning');
+        setStatusPill(state.status.egress_suppressed ? 'External inference disabled'
+          : (window.CLOUD_MODE ? 'Connection needs attention' : 'Local data unavailable'), 'warning');
         setStatusMessage(state.dataStatusMessage || 'Local ClawMetry data is unavailable. Reconnect the local store before asking the assistant.', 'warning');
       } else {
         setStatusPill(ready ? 'Ready' + (provider ? ' · ' + provider : '') : 'Connect an engine', ready ? '' : 'warning');
@@ -404,15 +593,60 @@
       renderSetupState();
       updateEngineOptions();
       renderManagedStatus();
+      if (state.dataAvailable === false) renderRecovery(state.status);
+      else clearRecovery();
     }).catch(function (error) {
-      if (state.statusRequest === request) state.statusRequest = null;
-      if (!isMounted() || navigationToken !== state.navigationToken || (error && error.name === 'AbortError' && request.cancelReason)) return;
+      if (state.statusRequest !== request || !isMounted() || request.scopeIdentity !== scopeIdentity()) return;
+      state.statusRequest = null;
+      if (error && error.name === 'AbortError' && request.cancelReason) return;
       state.statusLoadedAt = 0;
+      if (window.CLOUD_MODE) {
+        state.dataAvailable = false;
+        state.dataStatusMessage = errorMessage(error, 'Could not connect to your computer. Try again.');
+        setConversationReady(false);
+      }
       setStatusPill('Status unavailable', 'warning');
       renderDataNotice({});
       renderSetupState();
       setStatusMessage(errorMessage(error, 'Assistant status is temporarily unavailable. You can still try a request.'), 'error');
+      renderRecovery(error && error.data);
     });
+  }
+
+  function clearRecovery() {
+    var recovery = el('cm-assistant-recovery');
+    if (!recovery) return;
+    while (recovery.firstChild) recovery.firstChild.remove();
+    recovery.hidden = true;
+  }
+
+  function renderRecovery(data) {
+    var recovery = el('cm-assistant-recovery');
+    if (!recovery) return;
+    clearRecovery();
+    recovery.hidden = false;
+    var identity = scopeIdentity();
+    function retry() {
+      if (!isMounted() || identity !== scopeIdentity()) return;
+      state.statusLoadedAt = state.historyLoadedAt = 0;
+      loadStatus();
+      loadHistory(true);
+    }
+    if (window.CLOUD_MODE && data && (data.reason === 'missing_key' || data.reason === 'decrypt_failed')
+        && typeof window._cmRenderKeyPrompt === 'function') {
+      var unlock = make('div');
+      recovery.appendChild(unlock);
+      window._cmRenderKeyPrompt(unlock, { title: 'Unlock Assistant', onUnlock: function () {
+        if (!state.mounted) return;
+        var current = scopeIdentity();
+        if (current !== state.scopeIdentity) resetScope(current);
+        else retry();
+      } });
+    }
+    var button = make('button', 'cm-assistant-panel-button', 'Retry connection');
+    button.type = 'button';
+    button.addEventListener('click', retry);
+    recovery.appendChild(button);
   }
 
   function relativeDate(value) {
@@ -451,9 +685,9 @@
   }
 
   function loadHistory(force) {
-    if (window.CLOUD_MODE) {
+    if (window.CLOUD_MODE && !cloudTransportReady()) {
       var history = el('cm-assistant-history-list');
-      if (history) history.textContent = 'Conversations are saved on your agent’s computer.';
+      if (history) history.textContent = 'Reconnect to your computer to load saved conversations.';
       return;
     }
     if (state.historyRequest) return;
@@ -461,19 +695,18 @@
       renderHistory();
       return;
     }
-    var navigationToken = state.navigationToken;
     var request = requestJson('/api/assistant/conversations', { credentials: 'same-origin' }, 15000, 'history');
-    request.navigationToken = navigationToken;
     state.historyRequest = request;
     request.promise.then(function (data) {
-      if (state.historyRequest === request) state.historyRequest = null;
-      if (!isMounted() || navigationToken !== state.navigationToken) return;
+      if (state.historyRequest !== request || !isMounted() || request.scopeIdentity !== scopeIdentity()) return;
+      state.historyRequest = null;
       state.conversations = Array.isArray(data && data.conversations) ? data.conversations : [];
       state.historyLoadedAt = Date.now();
       renderHistory();
     }).catch(function (error) {
-      if (state.historyRequest === request) state.historyRequest = null;
-      if (!isMounted() || navigationToken !== state.navigationToken || (error && error.name === 'AbortError' && request.cancelReason)) return;
+      if (state.historyRequest !== request || !isMounted() || request.scopeIdentity !== scopeIdentity()) return;
+      state.historyRequest = null;
+      if (error && error.name === 'AbortError' && request.cancelReason) return;
       var list = el('cm-assistant-history-list');
       if (!list) return;
       while (list.firstChild) list.removeChild(list.firstChild);
@@ -502,21 +735,16 @@
     var thread = el('cm-assistant-thread');
     var main = page() && page().querySelector('.cm-assistant-main');
     if (main) main.classList.remove('has-messages');
+    var title = el('cm-assistant-title');
+    if (title) title.textContent = 'How can I help?';
     if (!thread) return;
     while (thread.firstChild) thread.removeChild(thread.firstChild);
   }
 
   function showWelcome() {
-    var thread = el('cm-assistant-thread');
-    if (!thread || thread.childElementCount) return;
-    var welcome = make('div', 'cm-assistant-welcome');
-    var orb = make('div', 'cm-assistant-welcome-orb');
-    orb.setAttribute('aria-hidden', 'true');
-    orb.appendChild(make('span'));
-    welcome.appendChild(orb);
-    welcome.appendChild(make('h2', '', 'Bring me a question.'));
-    welcome.appendChild(make('p', '', 'I’ll use the evidence ClawMetry has on this node, explain what is measured, and call out what is missing.'));
-    thread.appendChild(welcome);
+    // The heading and composer are the single opening state.
+    var main = page() && page().querySelector('.cm-assistant-main');
+    if (main) main.classList.remove('has-messages');
   }
 
   function setAnswerText(container, content) {
@@ -544,11 +772,14 @@
       Array.prototype.forEach.call(thread.querySelectorAll('.cm-assistant-welcome'), function (node) { node.remove(); });
     }
     if (main) main.classList.add('has-messages');
+    var title = el('cm-assistant-title');
+    if (title) title.textContent = 'ClawMetry assistant';
+    resizeInput();
     var article = make('article', 'cm-assistant-message ' + (role === 'user' ? 'is-user' : 'is-assistant'));
     var avatar = make('div', 'cm-assistant-avatar', role === 'user' ? 'You' : '✦');
     avatar.setAttribute('aria-hidden', 'true');
     var body = make('div', 'cm-assistant-message-body');
-    body.appendChild(make('div', 'cm-assistant-message-label', role === 'user' ? 'You' : 'ClawMetry'));
+    body.appendChild(make('div', 'cm-assistant-message-label' + (role === 'user' ? ' cm-assistant-sr-only' : ''), role === 'user' ? 'You' : 'ClawMetry'));
     var text = make('div', 'cm-assistant-message-content', content || '');
     if (role !== 'user') setAnswerText(text, content);
     body.appendChild(text);
@@ -646,7 +877,11 @@
     var horizontal = chartType === 'bar' && (labels.length > 10 || labels.some(function (label) { return label.length > 16; }));
     var showAllLabels = labels.length <= 20;
     if (horizontal) chartWrap.style.height = Math.max(220, labels.length * 26) + 'px';
-    var colors = ['#9b8cff', '#f28c83', '#71d5ca', '#f2b263', '#788cff', '#d995cb', '#82b5e8'];
+    var colors = ['#3b82f6', '#22c55e', '#f59e0b', '#f87171', '#06b6d4', '#a78bfa', '#ec4899'];
+    var palette = getComputedStyle(page());
+    var chartText = palette.getPropertyValue('--text-tertiary').trim();
+    var chartGrid = palette.getPropertyValue('--border-secondary').trim();
+    var chartAccent = palette.getPropertyValue('--bg-accent').trim();
     try {
       canvas._cmAssistantChart = new window.Chart(canvas, {
         type: chartType,
@@ -655,8 +890,8 @@
           datasets: [{
             label: yKey,
             data: values,
-            backgroundColor: isPie ? labels.map(function (_, index) { return colors[index % colors.length]; }) : 'rgba(155,140,255,.65)',
-            borderColor: isPie ? colors : '#b8adff',
+            backgroundColor: isPie ? labels.map(function (_, index) { return colors[index % colors.length]; }) : chartAccent,
+            borderColor: isPie ? colors : chartAccent,
             borderWidth: isPie ? 1 : 2,
             borderRadius: chartType === 'bar' ? 5 : 0,
             fill: chartType === 'line',
@@ -668,12 +903,12 @@
           maintainAspectRatio: false,
           indexAxis: horizontal ? 'y' : 'x',
           plugins: {
-            legend: { display: isPie, labels: { color: '#c9d0df', padding: 14, usePointStyle: true } },
-            tooltip: { bodyColor: '#f6f7fb', titleColor: '#f6f7fb', backgroundColor: '#182033', borderColor: 'rgba(255,255,255,.12)', borderWidth: 1 },
+            legend: { display: isPie, labels: { color: chartText, padding: 14, usePointStyle: true } },
+            tooltip: { bodyColor: '#f6f7fb', titleColor: '#f6f7fb', backgroundColor: '#19191d', borderColor: 'rgba(255,255,255,.12)', borderWidth: 1 },
           },
           scales: isPie ? {} : {
-            x: { ticks: { color: '#8f9ab0', autoSkip: horizontal ? false : !showAllLabels, maxTicksLimit: showAllLabels ? labels.length : 12, maxRotation: horizontal ? 0 : 45, minRotation: horizontal ? 0 : (labels.length > 10 ? 45 : 0) }, grid: { color: 'rgba(255,255,255,.055)' } },
-            y: { ticks: { color: '#8f9ab0', autoSkip: horizontal ? false : !showAllLabels, maxTicksLimit: showAllLabels ? labels.length : 12 }, grid: { color: 'rgba(255,255,255,.055)' } },
+            x: { ticks: { color: chartText, autoSkip: horizontal ? false : !showAllLabels, maxTicksLimit: showAllLabels ? labels.length : 12, maxRotation: horizontal ? 0 : 45, minRotation: horizontal ? 0 : (labels.length > 10 ? 45 : 0) }, grid: { color: chartGrid } },
+            y: { ticks: { color: chartText, autoSkip: horizontal ? false : !showAllLabels, maxTicksLimit: showAllLabels ? labels.length : 12 }, grid: { color: chartGrid } },
           },
         },
       });
@@ -722,6 +957,7 @@
       body: JSON.stringify(body),
     }, 20000, 'save-panel');
     request.promise.then(function () {
+      if (!requestIsCurrent(request)) return;
       confirm.disabled = false;
       row.hidden = true;
       trigger.hidden = false;
@@ -736,6 +972,7 @@
       });
       feedback.parentNode.appendChild(home);
     }).catch(function (error) {
+      if (!requestIsCurrent(request)) return;
       confirm.disabled = false;
       if (!isMounted()) return;
       feedback.textContent = errorMessage(error, 'The panel could not be saved. Try again.');
@@ -914,7 +1151,13 @@
     if (!request) return false;
     request.cancelReason = reason || 'user';
     if (request.controller) request.controller.abort();
-    if (request.pendingNode && request.pendingNode.article) request.pendingNode.article.remove();
+    if (request.cancelReader) request.cancelReader();
+    if (request.pendingNode && request.pendingNode.article) {
+      request.pendingNode.article.classList.remove('is-streaming');
+      if (request.answerText) {
+        request.pendingNode.progress.textContent = 'Stopped. This answer is incomplete.';
+      } else request.pendingNode.article.remove();
+    }
     state.pendingNode = null;
     state.chatRequest = null;
     setComposerBusy(false);
@@ -943,14 +1186,14 @@
     clearThread();
     addMessage('assistant', 'Loading this conversation...');
     setStatusMessage(hadWaiting
-      ? 'Stopped waiting. The answer may still finish and appear in conversation history. Loading saved conversation.'
+      ? 'Stop requested. Any answer already saved remains in your history. Loading saved conversation.'
       : 'Loading saved conversation...', 'success');
     var request = requestJson('/api/assistant/conversations/' + encodeURIComponent(id), { credentials: 'same-origin' }, 15000, 'conversation');
     request.navigationToken = navigationToken;
     state.conversationRequest = request;
     request.promise.then(function (data) {
       if (state.conversationRequest === request) state.conversationRequest = null;
-      if (!isMounted() || navigationToken !== state.navigationToken) return;
+      if (!requestIsCurrent(request)) return;
       setConversationReady(true);
       clearThread();
       state.conversationId = data && data.id ? data.id : id;
@@ -980,7 +1223,7 @@
     clearThread();
     showWelcome();
     setStatusMessage(hadWaiting
-      ? 'Stopped waiting. The answer may still finish and appear in conversation history. New conversation ready.'
+      ? 'Stop requested. Any answer already saved remains in your history. New conversation ready.'
       : 'New conversation ready.', 'success');
     var input = el('cm-assistant-input');
     if (input) { input.value = ''; resizeInput(); input.focus(); }
@@ -993,7 +1236,7 @@
     send.disabled = !!(!busy && (!state.conversationReady || state.dataAvailable === false));
     send.classList.toggle('is-cancel', !!busy);
     var label = send.querySelector('span');
-    if (label) label.textContent = busy ? 'Stop waiting' : 'Send';
+    if (label) label.textContent = busy ? 'Stop' : 'Send';
     var arrow = send.querySelector('.cm-assistant-send-arrow');
     if (arrow) arrow.textContent = busy ? '×' : '↗';
     if (input) input.setAttribute('aria-busy', busy ? 'true' : 'false');
@@ -1006,9 +1249,10 @@
   }
 
   function sendMessage() {
+    if (!isMounted()) return;
     if (state.chatRequest) {
       cancelChat('user');
-      setStatusMessage('Stopped waiting. The answer may still finish and appear in conversation history.', 'success');
+      setStatusMessage('Stop requested. Any answer already saved remains in your history.', 'success');
       return;
     }
     if (!state.conversationReady) {
@@ -1051,47 +1295,76 @@
     addMessage('user', message);
     input.value = '';
     resizeInput();
-    var pending = addMessage('assistant', 'I’m checking the available evidence...');
-    var payload = { message: message, provider: provider };
+    var pending = addMessage('assistant', '');
+    pending.progress = make('div', 'cm-assistant-stream-status', 'Checking your question...');
+    pending.progress.setAttribute('role', 'status');
+    pending.body.appendChild(pending.progress);
+    pending.article.classList.add('is-streaming');
+    var answerText = '';
+    var payload = { message: message, provider: provider, stream: true };
     if (state.conversationId) payload.conversation_id = state.conversationId;
     if (provider === 'anthropic' && apiKey) payload.api_key = apiKey;
     setComposerBusy(true);
-    setStatusMessage('Working from local observability data. This can take a little while.', 'success');
-    var request = requestJson('/api/assistant/chat', {
+    setStatusMessage('');
+    var request = requestStream('/api/assistant/chat', {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-    }, 165000, 'chat');
+    }, function (type, data) {
+      if (state.chatRequest !== request || !requestIsCurrent(request)) return;
+      if (type === 'status' && typeof data.message === 'string') {
+        pending.progress.textContent = data.message;
+      } else if (type === 'delta' && typeof data.text === 'string') {
+        answerText += data.text;
+        if (answerText.length > 24000) {
+          cancelChat('user');
+          setStatusMessage('The answer was too long. Ask a narrower question.', 'warning');
+          return;
+        }
+        request.answerText = answerText;
+        updateComposerClearance();
+        var bounds = pending.article.getBoundingClientRect();
+        var composerTop = el('cm-assistant-composer').getBoundingClientRect().top;
+        var follow = bounds.bottom > 0 && bounds.bottom < Math.min(window.innerHeight, composerTop) + 160;
+        setAnswerText(pending.content, answerText);
+        pending.progress.textContent = 'Writing answer...';
+        if (follow) pending.article.scrollIntoView({ block: 'end' });
+      }
+    });
+    request.scopeIdentity = scopeIdentity();
+    request.navigationToken = state.navigationToken;
     request.pendingNode = pending;
     state.chatRequest = request;
+    if (pending.article.scrollIntoView) pending.article.scrollIntoView({ block: 'end' });
     request.promise.then(function (data) {
-      if (state.chatRequest !== request || !isMounted()) return;
+      if (state.chatRequest !== request || !requestIsCurrent(request)) return;
       if (state.chatRequest === request) state.chatRequest = null;
       setComposerBusy(false);
-      if (pending && pending.article) pending.article.remove();
+      pending.article.classList.remove('is-streaming');
+      pending.progress.remove();
       state.pendingNode = null;
       if (data && data.conversation_id) state.conversationId = data.conversation_id;
       renderDataNotice(data);
-      var responseNode = addMessage('assistant', '');
-      appendResult(responseNode, data, question);
+      appendResult(pending, data, question);
       setStatusMessage('Answer ready. Review the sources before saving a panel.', 'success');
       loadHistory(true);
     }).catch(function (error) {
       var reason = request.cancelReason;
-      if (state.chatRequest !== request) return;
+      if (state.chatRequest !== request || !requestIsCurrent(request)) return;
       state.chatRequest = null;
       setComposerBusy(false);
-      if (pending && pending.article) pending.article.remove();
+      pending.article.classList.remove('is-streaming');
       state.pendingNode = null;
       if (!isMounted() || reason === 'leave' || reason === 'conversation' || reason === 'new-chat') return;
       if (reason === 'user' || (error && error.name === 'AbortError')) {
-        setStatusMessage('Stopped waiting. The answer may still finish and appear in conversation history.', 'success');
+        setStatusMessage('Stop requested. Any answer already saved remains in your history.', 'success');
         return;
       }
       var messageText = errorMessage(error);
       setStatusMessage(messageText, 'error');
-      addMessage('assistant', messageText);
+      pending.progress.textContent = answerText ? 'Incomplete answer. ' + messageText : messageText;
+      pending.progress.classList.add('is-error');
     });
   }
 
@@ -1100,6 +1373,15 @@
     if (!input) return;
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    updateComposerClearance();
+  }
+
+  function updateComposerClearance() {
+    var composer = el('cm-assistant-composer');
+    var thread = el('cm-assistant-thread');
+    if (composer && composer.getBoundingClientRect && thread && thread.style.setProperty) {
+      thread.style.setProperty('--cm-composer-clearance', (composer.getBoundingClientRect().height + 24) + 'px');
+    }
   }
 
   function setVoiceUi(active) {
@@ -1130,6 +1412,12 @@
     var input = el('cm-assistant-input');
     if (!input) return;
     var recognition = new Recognition();
+    var voiceScope = scopeIdentity();
+    var voiceNavigation = state.navigationToken;
+    function voiceIsCurrent() {
+      return isMounted() && state.voice === recognition && voiceScope === scopeIdentity()
+        && voiceNavigation === state.navigationToken;
+    }
     state.voice = recognition;
     state.voiceActive = true;
     state.voiceBase = String(input.value || '').trim();
@@ -1139,11 +1427,12 @@
     recognition.interimResults = true;
     recognition.lang = navigator.language || 'en-US';
     recognition.onstart = function () {
-      if (!isMounted()) return;
+      if (!voiceIsCurrent()) return;
       setVoiceUi(true);
       setStatusMessage('Listening. Review the transcript before sending.', 'success');
     };
     recognition.onresult = function (event) {
+      if (!voiceIsCurrent()) return;
       var interim = '';
       for (var i = event.resultIndex; i < event.results.length; i++) {
         var text = event.results[i][0].transcript || '';
@@ -1156,6 +1445,7 @@
       if (interim) setStatusMessage('Listening: ' + interim + ' · review before sending.', 'success');
     };
     recognition.onerror = function (event) {
+      if (!voiceIsCurrent()) return;
       state.voiceActive = false;
       setVoiceUi(false);
       if (!isMounted()) return;
@@ -1164,6 +1454,7 @@
         : 'Voice input could not start. You can still type your question.', 'warning');
     };
     recognition.onend = function () {
+      if (!voiceIsCurrent()) return;
       state.voiceActive = false;
       state.voiceInterim = '';
       setVoiceUi(false);
@@ -1221,6 +1512,12 @@
     initialize();
     if (!page()) return;
     state.mounted = true;
+    var identity = scopeIdentity();
+    if (state.scopeIdentity !== null && state.scopeIdentity !== identity) {
+      resetScope(identity);
+      return;
+    }
+    state.scopeIdentity = identity;
     if (!el('cm-assistant-thread').childElementCount) showWelcome();
     if (!state.statusLoadedAt || Date.now() - state.statusLoadedAt > 30000) loadStatus();
     if (!state.historyLoadedAt || Date.now() - state.historyLoadedAt > 30000) loadHistory(false);
@@ -1247,6 +1544,12 @@
 
   window.loadAssistantPage = loadAssistantPage;
   window.assistantLeave = assistantLeave;
+
+  if (typeof window.addEventListener === 'function') window.addEventListener('cm-assistant-scope-changed', function () {
+    if (!window.CLOUD_MODE || !state.initialized) return;
+    var identity = scopeIdentity();
+    if (state.scopeIdentity !== identity) resetScope(identity);
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize);
   else initialize();

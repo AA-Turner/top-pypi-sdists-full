@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qbittorrent-api
-Version: 2026.8.1
+Version: 2026.10.0
 Summary: Python client for qBittorrent v4.1+ Web API.
 Author: Russell Martin
 Maintainer: Russell Martin
@@ -43,7 +43,7 @@ Python client implementation for qBittorrent Web API
 
 </div>
 
-Currently supports qBittorrent [v5.2.3](https://github.com/qbittorrent/qBittorrent/releases/tag/release-5.2.3) (Web API v2.15.1) released on July 7, 2026.
+Currently supports qBittorrent [v5.2.4](https://github.com/qbittorrent/qBittorrent/releases/tag/release-5.2.4) (Web API v2.15.1) released on September 28, 2026.
 
 User Guide and API Reference available on [Read the Docs](https://qbittorrent-api.readthedocs.io/).
 
@@ -107,6 +107,9 @@ qbt_client.torrents.stop.all()
 
 Change Log
 ==========
+### v2026.10.0 (03 oct 2026)
+- Advertise support for qBittorrent v5.2.4 (#686)
+
 ### v2026.8.1 (16 aug 2026)
 - Add support for ``app/rotateAPIKey`` and ``app/deleteAPIKey`` (#658)
 - Add support for ``torrents/SSLParameters`` and ``torrents/setSSLParameters`` (#658)

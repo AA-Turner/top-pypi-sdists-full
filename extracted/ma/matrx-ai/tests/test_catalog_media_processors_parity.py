@@ -169,7 +169,7 @@ def test_media_dims_aspect_allowed_drop_without_fallback():
 # Transcribed from OpenAITranslator.to_openai_video_generate/_derive_video_size.
 _SORA_EXPECTED = [
     # (width, height, aspect, resolution) -> size
-    (None, None, None, None, "1280x720"),
+    (None, None, None, None, None),  # NOT SET sends no size (Sora's own default)
     (None, None, None, "1080p", "1920x1080"),
     (None, None, "9:16", None, "1024x1536"),  # table hit (code truth)
     (None, None, "9:19.5", "720p", "720x1280"),  # unparseable -> grid portrait
@@ -187,11 +187,15 @@ def test_media_dims_sora_size(width, height, aspect, resolution, expected):
         params,
         _ctx({"mode": "sora_size"}),
     )
-    assert params["size"] == expected
+    assert params.get("size") == expected
 
 
-def test_media_count_always_send_and_clamp():
-    for raw, expected in [(None, 1), (0, 1), (1, 1), (4, 4), (12, 10)]:
+def test_media_count_send_and_clamp():
+    # NOT SET sends nothing (the provider's own default applies); a set count is clamped.
+    params0: dict[str, Any] = {}
+    media_count({}, params0, _ctx({"target": "n", "max": 10}))
+    assert params0 == {}
+    for raw, expected in [(0, 1), (1, 1), (4, 4), (12, 10)]:
         params: dict[str, Any] = {}
         media_count(
             {"count": raw} if raw is not None else {},

@@ -30,9 +30,8 @@ use crate::commands::project::install_target::InstallTarget;
 use crate::commands::project::lock::LockMode;
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
-    LinkErrorReporting, ProjectEnvironment, ProjectEnvironmentPolicy, ProjectInterpreter,
-    PythonRequirementSource, ScriptEnvironment, ScriptInterpreter, UniversalState, WorkspacePython,
-    validate_python_requirement,
+    LinkErrorReporting, ProjectEnvironment, ProjectEnvironmentPolicy, ProjectEnvironmentTarget,
+    ProjectInterpreter, ProjectPythonRequest, ScriptEnvironment, ScriptInterpreter, UniversalState,
 };
 use crate::commands::reporters::PythonDownloadReporter;
 use crate::commands::{ExitStatus, UvError, project};
@@ -312,11 +311,7 @@ pub(crate) async fn check(
             .into_interpreter()
         } else {
             let workspace = project.as_ref().map(VirtualProject::workspace);
-            let WorkspacePython {
-                source,
-                python_request,
-                requirement,
-            } = WorkspacePython::from_request(
+            let project_python = ProjectPythonRequest::from_request(
                 python.as_deref().map(PythonRequest::parse),
                 workspace,
                 &groups,
@@ -326,31 +321,19 @@ pub(crate) async fn check(
             .await?;
 
             let reporter = PythonDownloadReporter::single(printer);
-            let interpreter = PythonInstallation::find_or_download(
-                python_request.as_ref(),
-                EnvironmentPreference::Any,
-                python_preference,
-                python_arch,
-                python_downloads,
-                &client_builder,
-                cache,
-                Some(&reporter),
-                install_mirrors.python_install_mirror.as_deref(),
-                install_mirrors.pypy_install_mirror.as_deref(),
-                install_mirrors.python_downloads_json_url.as_deref(),
-            )
-            .await?
-            .into_interpreter();
-
-            if let Some(requirement) = requirement.as_ref() {
-                validate_python_requirement(
-                    &interpreter,
-                    &requirement.requires_python,
-                    &source,
-                    PythonRequirementSource::Workspace(workspace, &groups),
-                )?;
-            }
-            interpreter
+            project_python
+                .find_or_download(
+                    EnvironmentPreference::Any,
+                    python_preference,
+                    python_arch,
+                    python_downloads,
+                    &client_builder,
+                    cache,
+                    &reporter,
+                    &install_mirrors,
+                )
+                .await?
+                .into_interpreter()
         };
 
         temp_dir = cache.venv_dir()?;
@@ -512,7 +495,7 @@ pub(crate) async fn check(
             venv
         } else {
             ProjectEnvironment::get_or_init(
-                project.workspace(),
+                ProjectEnvironmentTarget::from(project.workspace()),
                 None,
                 &groups,
                 python.as_deref().map(PythonRequest::parse),
@@ -536,7 +519,7 @@ pub(crate) async fn check(
         // `--no-sync` intentionally permits an incompatible project environment, but locking must
         // still use an interpreter that satisfies the project and any explicit Python request.
         let lock_interpreter = if no_sync && !isolated && frozen.is_none() {
-            let workspace_python = WorkspacePython::from_request(
+            let project_python = ProjectPythonRequest::from_request(
                 python.as_deref().map(PythonRequest::parse),
                 Some(project.workspace()),
                 &groups,
@@ -546,9 +529,8 @@ pub(crate) async fn check(
             .await?;
             Some(
                 ProjectInterpreter::discover(
-                    project.workspace(),
-                    &groups,
-                    workspace_python,
+                    ProjectEnvironmentTarget::from(project.workspace()),
+                    project_python,
                     &client_builder,
                     python_preference,
                     python_arch,

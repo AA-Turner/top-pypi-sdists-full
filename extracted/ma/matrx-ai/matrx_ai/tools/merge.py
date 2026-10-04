@@ -150,14 +150,138 @@ def _ensure_authored_tool_declaration(config: UnifiedConfig) -> None:
 
 
 def _restorable_registered_tools(config: UnifiedConfig) -> list[str]:
-    """Return authored + conversation-dynamic registered tools, stably deduped."""
+    """The conversation's registered toolset, stably deduped: what the agent authored,
+    what its skills bring this turn, and the conversation's sticky tools (minus any this
+    turn withholds). Every restore path rebuilds from exactly this, so a filter restore can
+    never erase a tool a source added earlier in the conversation, nor resurrect a withheld
+    one (TOOL-SOURCES.md, stickiness)."""
     _ensure_authored_tool_declaration(config)
+    withheld = set(getattr(config, "dynamic_tools_withheld", None) or [])
+    sticky = [
+        name
+        for name in canonical_tool_names(list(getattr(config, "dynamic_tools", None) or []))
+        if name not in withheld
+    ]
     return canonical_tool_names(
         [
             *(getattr(config, "authored_tools", None) or []),
-            *(getattr(config, "dynamic_tools", None) or []),
+            *(getattr(config, "skill_injected_tool_ids", None) or []),
+            *sticky,
         ]
     )
+
+
+# ── The conversation's sticky toolset ────────────────────────────────────────
+# A tool a transient source adds to a conversation stays for the rest of it; only an
+# explicit removal (``user.remove``, or the source removing it) forgets it. The SOURCE
+# CLASS still decides whether it is offered on a given turn. Rules:
+# common-docs/systems/agents/agent-tools/TOOL-SOURCES.md.
+STICKY_SOURCE_USER = "user"
+STICKY_SOURCE_BUNDLE = "bundle"
+STICKY_SOURCE_SURFACE = "surface"
+STICKY_SOURCE_REQUEST = "request"
+STICKY_SOURCE_CONTEXT = "context"
+STICKY_SOURCE_COMPUTE_TARGET = "compute_target:"
+#: A member of a bundle the AGENT owns (``agent_bundle:<lister>``): it rides only while the
+#: agent still carries that lister, so an agent edit that drops the bundle drops its members.
+STICKY_SOURCE_AGENT_BUNDLE = "agent_bundle:"
+#: Source classes the automatic-tools switch withholds while it is off.
+AUTOMATIC_STICKY_SOURCES = frozenset(
+    {STICKY_SOURCE_SURFACE, STICKY_SOURCE_REQUEST, STICKY_SOURCE_CONTEXT}
+)
+
+
+def compute_target_source(target_kind: str | None) -> str:
+    return f"{STICKY_SOURCE_COMPUTE_TARGET}{target_kind or 'sandbox'}"
+
+
+def sticky_tool_source(config: UnifiedConfig, name: str) -> str:
+    """Which source class added ``name`` (``bundle`` for an untagged legacy entry)."""
+    sources = getattr(config, "dynamic_tool_sources", None) or {}
+    return str(sources.get(name) or STICKY_SOURCE_BUNDLE)
+
+
+def record_conversation_tools(
+    config: UnifiedConfig, names: Iterable[str], source: str
+) -> list[str]:
+    """Make ``names`` part of the conversation's sticky toolset, tagged ``source``.
+
+    Idempotent and order-preserving (first add wins the position: the tool list is the
+    front of the prompt cache). An agent-authored tool is never recorded — it rebuilds from
+    the agent. A tool already recorded keeps its source unless the person picked it
+    (``user`` is the strongest claim). Returns the names newly recorded."""
+    _ensure_authored_tool_declaration(config)
+    authored = set(canonical_tool_names(list(getattr(config, "authored_tools", None) or [])))
+    dynamic = canonical_tool_names(list(getattr(config, "dynamic_tools", None) or []))
+    sources = dict(getattr(config, "dynamic_tool_sources", None) or {})
+    added: list[str] = []
+    for name in canonical_tool_names([n for n in names if isinstance(n, str) and n]):
+        if name in authored:
+            continue
+        if name not in dynamic:
+            dynamic.append(name)
+            sources[name] = source
+            added.append(name)
+        elif source == STICKY_SOURCE_USER or name not in sources:
+            sources[name] = source
+    config.dynamic_tools = dynamic
+    config.dynamic_tool_sources = sources
+    return added
+
+
+def forget_conversation_tools(config: UnifiedConfig, names: Iterable[str]) -> list[str]:
+    """Explicit removal: drop ``names`` from the sticky toolset. Returns what was dropped."""
+    drop = set(canonical_tool_names([n for n in names if isinstance(n, str) and n]))
+    if not drop:
+        return []
+    dynamic = canonical_tool_names(list(getattr(config, "dynamic_tools", None) or []))
+    sources = dict(getattr(config, "dynamic_tool_sources", None) or {})
+    dropped = [name for name in dynamic if name in drop]
+    config.dynamic_tools = [name for name in dynamic if name not in drop]
+    for name in dropped:
+        sources.pop(name, None)
+    config.dynamic_tool_sources = sources
+    return dropped
+
+
+def agent_owned_listers(config: UnifiedConfig) -> set[str]:
+    """The bundle/MCP listers the agent itself carries: its authored tools plus the lister of
+    each MCP server it authored (``bundle:list_<slug>``)."""
+    _ensure_authored_tool_declaration(config)
+    names = set(canonical_tool_names(list(getattr(config, "authored_tools", None) or [])))
+    for slug in getattr(config, "authored_mcp_servers", None) or []:
+        if isinstance(slug, str) and slug.strip():
+            names.add(f"bundle:list_{slug.strip()}")
+    return names
+
+
+def withheld_sticky_tools(
+    config: UnifiedConfig, *, automatic_off: bool, target_kind: str | None
+) -> list[str]:
+    """The sticky tools this turn does NOT offer (kept on record, never forgotten).
+
+    - ``compute_target:<kind>``: offered only while that kind of target is attached AND the
+      automatic switch is on (a compute target's tools are automatic: owner ruling 2026-10-03).
+    - ``surface`` / ``request`` / ``context``: withheld while the automatic switch is off.
+    - ``agent_bundle:<lister>``: offered only while the agent still carries that lister.
+    - ``user`` / ``bundle``: always offered (exclusions and viability still apply later).
+    """
+    attached = compute_target_source(target_kind) if target_kind else None
+    agent_listers: set[str] | None = None
+    withheld: list[str] = []
+    for name in canonical_tool_names(list(getattr(config, "dynamic_tools", None) or [])):
+        source = sticky_tool_source(config, name)
+        if source.startswith(STICKY_SOURCE_COMPUTE_TARGET):
+            if automatic_off or source != attached:
+                withheld.append(name)
+        elif source.startswith(STICKY_SOURCE_AGENT_BUNDLE):
+            if agent_listers is None:
+                agent_listers = agent_owned_listers(config)
+            if source[len(STICKY_SOURCE_AGENT_BUNDLE) :] not in agent_listers:
+                withheld.append(name)
+        elif automatic_off and source in AUTOMATIC_STICKY_SOURCES:
+            withheld.append(name)
+    return withheld
 
 
 def restore_request_filtered_tool_surface(
@@ -662,14 +786,9 @@ def merge_request_tools(
     NotImplementedError
         For ``AgentToolSpec`` until phase E lands the projection logic.
     """
-    # CANONICAL CAPABILITY GATE — function calling.
-    # When this request's model has no function calling (config.supports_tools is
-    # False — a TTS / image / video / audio / extraction model, resolved from the
-    # single source of truth in providers/capabilities.py), the single tool
-    # write-path simply adds nothing. This is the agreed-upon path DOING ITS JOB,
-    # so it is informational (cyan), never a warning — the loud "this should never
-    # have reached here" backstop lives at the provider boundary (unified_client)
-    # for anything that bypasses this gate.
+    # No model gate here (TOOL-SOURCES.md rule L1): the core toolset is the same for
+    # every model. A model that cannot take tools has them removed — and announced — at
+    # call time (``matrx_ai.providers.unified_client.adapt_tools_for_call``).
     _ensure_authored_tool_declaration(config)
     if active_executors is None:
         active_executors = active_tool_executors(ctx)
@@ -688,25 +807,12 @@ def merge_request_tools(
         or getattr(config, "tool_delegation_registry_fingerprint", None)
         != current_registry_fingerprint
     )
-    if config.supports_tools:
-        restore_request_filtered_tool_surface(
-            config,
-            restore_delegation=delegation_policy_changed,
-        )
-    else:
-        if specs:
-            vcprint(
-                f"[merge_request_tools] model has no function calling "
-                f"(supports_tools=False) — not adding {len(specs)} tool spec(s).",
-                color="cyan",
-            )
-        filter_tool_surface_for_unsupported_model(config)
-        return clear_tool_runtime_state(ctx)
+    restore_request_filtered_tool_surface(
+        config,
+        restore_delegation=delegation_policy_changed,
+    )
 
     # Host-level authority policy applies even on early-return paths below.
-    # (Deliberately AFTER the no-function-calling gate: that branch clears the
-    # entire tool surface and must leave a minimal ctx untouched — enforcing
-    # exclusions on a model that can't call tools is moot.)
     ctx = enforce_hard_tool_exclusions(config, ctx)
     if delegation_disabled and config.custom_tools:
         # Inline tools have no server implementation. A silenced/reference
@@ -1255,6 +1361,19 @@ def _ensure_registered_for_dispatch(spec: InlineToolSpec) -> None:
 
 def _tool_definition_from_inline_spec(spec: InlineToolSpec) -> ToolDefinition:
     """Build the exact request-local executor definition for an inline spec."""
+    if spec._registry_parameters is not None:
+        # Registry-backed inline tools advertise a lean provider schema but
+        # dispatch under the full registry contract. Keep its internal
+        # `$envelope`/`$variants` metadata for the executor's canonical unwrap
+        # and validation; ad-hoc client specs never carry this private binding.
+        return ToolDefinition(
+            name=spec.name,
+            description=spec.description,
+            parameters=dict(spec._registry_parameters),
+            tool_type=ToolType.LOCAL,
+            function_path="",
+            source_kind="agent_authored",
+        )
     coerced = _coerce_input_schema(spec.input_schema)
     properties = dict(coerced.properties or {})
     required_set = set(coerced.required or [])

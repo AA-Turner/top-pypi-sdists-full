@@ -214,3 +214,38 @@ class TestCalculateRolesForUser(NoSocketsTestCase):
         # then
         self.assertTrue(changed)
         self.assertEqual(roles_calculated, RolesSet([role_b, role_c1, role_c2]))
+
+    def test_should_preserve_reserved_roles_when_unchanged(self):
+        # given
+        role_a = create_role()
+        role_b = create_role()
+        role_c = create_role(name="charlie")
+        roles_current = RolesSet([role_a, role_b, role_c])
+        roles_matching = RolesSet([role_a, role_b])
+        my_client = Mock(spec=DiscordClient)
+        my_client.guild_member_roles.return_value = roles_current
+        my_client.match_or_create_roles_from_names_2.return_value = roles_matching
+        ReservedGroupName.objects.create(
+            name="charlie", reason="dummy", created_by="xyz"
+        )
+        # when
+        roles_calculated, changed = calculate_roles_for_user(self.user, my_client, 42)
+        # then
+        self.assertFalse(changed)
+        self.assertEqual(roles_calculated, RolesSet([role_a, role_b, role_c]))
+
+    def test_should_preserve_managed_roles_when_unchanged(self):
+        # given
+        role_a = create_role()
+        role_b = create_role()
+        role_m = create_role(managed=True)
+        roles_current = RolesSet([role_a, role_b, role_m])
+        roles_matching = RolesSet([role_a, role_b])
+        my_client = Mock(spec=DiscordClient)
+        my_client.guild_member_roles.return_value = roles_current
+        my_client.match_or_create_roles_from_names_2.return_value = roles_matching
+        # when
+        roles_calculated, changed = calculate_roles_for_user(self.user, my_client, 42)
+        # then
+        self.assertFalse(changed)
+        self.assertEqual(roles_calculated, RolesSet([role_a, role_b, role_m]))

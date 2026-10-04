@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1065
+Version: 0.4.1069
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -946,6 +946,8 @@ The experiments runner writes to a dedicated DB and analysis folder under `dir_o
 The yield outlook runner produces a diverging choropleth map showing current forecast yield as a percentage of the historical mean/median prediction per region, plus a combined CSV. Per (country, crop, model, stage) it also renders skill choropleths — `mape_map`, `rmse_map`, and `r2_map` (per-region MAPE, RMSE, and R²) — and metric-progression plots across forecast stages, each in both a full per-region version and a decluttered `*_national` version (single national line with a gray ±1 std-across-regions band).
 
 In addition, model performance is aggregated to every admin level **above** the run level (`[ML] plot_parent_aggregations`, default `True`): an admin_2 (county) run also gets admin_1 (state) and national outputs; an admin_1 run gets national outputs. Observed/predicted yields are area-weighted means per (parent, year) — groups with missing/zero `Area (ha)` fall back to unweighted means — with the county→state mapping reused from the production-statistics file (`ml.stats.admin1_lookup`). Per level this writes a pooled obs-vs-pred scatter (+ hexbin), a per-parent metrics CSV (r², rRMSE%, MAPE% + pooled row), a national obs-vs-pred time series, per-parent rRMSE%/r² choropleths (admin_1 only; boundary from `[ML] parent_boundary_admin_1`, falling back to `Level_1.shp` — skipped with a warning when missing or when <50% of parent names match), and a `lookup_plots_csvs.csv` mapping each plot to its companion CSV.
+
+**CID contribution** (`[ML] cid_contribution`, default `False`) shows how much each CID class adds. After training, yield_outlook takes each country × crop's best ML model (lowest final-stage rRMSEp on common years; baselines and the wrappers that choose their own CIDs — `curated_`, `top<N>_`, `auto_` — are excluded) and retrains it on subsets of the CID classes the config uses: every class in the model's saved input frame that `use_cids` allows and `exclude_cids` / `exclude_cid_categories` do not remove. It first trains each class alone, which ranks the classes by median per-year R², then adds the classes best first. `plots/{model}/{country}/{crop}/cid_contribution/r2_{country}_{crop}_{model}_cid_contribution.png` has one box of per-year R² per step (Trend, +best class, +second, …), final stage only, on the region-years every step scored; `csvs/` holds the per-year R² and the class ranking. The cost is 2N − 1 extra single-pass (`run_time_steps = latest`) LOOCV runs per country × crop for N classes. The runs are written to a sibling `cidc_<outlook db>`, so no outlook reader sees them, and `reuse_db` reruns redraw the figure from it. Needs `select_cid_by = Type`; skipped for pooled and `lag_only` runs. With `run_time_steps = all` the last box comes from a single-pass run, so it can differ slightly from the scorecard's final-stage R².
 
 ```
 {dir_output}/

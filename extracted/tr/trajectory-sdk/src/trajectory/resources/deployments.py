@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 import httpx
 
-from trajectory._base_client import SyncPage, make_request_options, path_template
+from trajectory._base_client import SyncPage, make_request_options, path_template, serialize_header
 from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
@@ -34,7 +34,9 @@ class Deployments(APIResource):
   def list(
     self,
     *,
-    status: Literal["PENDING", "DEPLOYING", "DEPLOYED", "FAILED"] | None | Omit = omit,
+    status: Literal["PENDING", "DEPLOYING", "DEPLOYED", "FAILED", "CANCELLING", "CANCELLED"]
+    | None
+    | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -82,6 +84,7 @@ class Deployments(APIResource):
     *,
     checkpoint_id: str,
     model_slug: str,
+    idempotency_key: str | None | Omit = omit,
     agent_id: str | None | Omit = omit,
     role: Literal["production", "test"] | Omit = omit,
     model_endpoint_config: ModelEndpointConfigParam | None | Omit = omit,
@@ -120,6 +123,9 @@ class Deployments(APIResource):
         DeploymentsCreateParams,
       ),
       options=make_request_options(
+        headers={
+          "Idempotency-Key": serialize_header(idempotency_key),
+        },
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,

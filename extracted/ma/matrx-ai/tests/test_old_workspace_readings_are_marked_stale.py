@@ -211,7 +211,11 @@ async def test_the_staff_thread_reaches_the_model_with_old_readings_marked(host_
     config = _config(_thread())
     prep = await prepare_for_send(config, stage=STAGE_RESOLVE, conversation_id=STAFF)
     assert "perishable_state" in prep.steps
-    assert prep.perishable_report == {"blocks_marked": 2, "tools": ["fs_list", "shell_execute"]}
+    assert prep.perishable_report == {
+        "blocks_marked": 2,
+        "tools": ["fs_list", "shell_execute"],
+        "dated_statements_marked": 0,
+    }
     assert _result(config.messages, "c-list").content.startswith(STALE_MARKER)
 
 

@@ -103,7 +103,8 @@ def _decrypt_envelope(private_key: X25519PrivateKey, envelope: dict) -> str:
     return text
 
 
-def _json_request(path: str, *, method: str = "GET", payload: dict | None = None, idempotency: bool = False) -> dict:
+def _json_request(path: str, *, method: str = "GET", payload: dict | None = None,
+                  idempotency: bool = False, control=None) -> dict:
     key = _api_key()
     if not key:
         raise ManagedAssistantNotConfigured("managed assistant is not configured")
@@ -120,10 +121,19 @@ def _json_request(path: str, *, method: str = "GET", payload: dict | None = None
 
     req = request.Request(_base_url() + path, data=body, headers=headers, method=method)
     try:
-        with request.urlopen(req, timeout=60) as response:
-            raw = response.read()
+        if control is None:
+            with request.urlopen(req, timeout=60) as response:
+                raw = response.read()
+        else:
+            from clawmetry.assistant_stream import http_response
+            with http_response(req.full_url, payload=body, headers=headers,
+                               method=method, control=control, timeout=60) as response:
+                raw = response.read(2 * 1024 * 1024 + 1)
+                if len(raw) > 2 * 1024 * 1024:
+                    raise ManagedAssistantUnavailable("managed assistant returned invalid data")
     except error.HTTPError as exc:
         status = int(getattr(exc, "code", 0) or 0)
+        exc.close()
         if status in (401, 403):
             raise ManagedAssistantAuthError("managed assistant authentication failed") from None
         if status == 402:
@@ -141,7 +151,7 @@ def _json_request(path: str, *, method: str = "GET", payload: dict | None = None
     return value
 
 
-def status() -> dict:
+def status(*, control=None) -> dict:
     """Return account balance plus separate deployed/readiness indicators."""
     if not configured():
         return {
@@ -151,12 +161,13 @@ def status() -> dict:
             "capability_advertised": False,
             "balance_cents": None,
         }
+    request_options = {"control": control} if control is not None else {}
     capability_advertised = False
     endpoint_ready = False
     provider_available = False
     health = {}
     try:
-        config = _json_request("/api/config")
+        config = _json_request("/api/config", **request_options)
         capability = config.get("managed_assistant")
         capability_advertised = (
             isinstance(capability, dict)
@@ -167,7 +178,7 @@ def status() -> dict:
     except (ManagedAssistantError, TypeError, ValueError):
         capability_advertised = False
     try:
-        health = _json_request("/api/assistant/status") if capability_advertised else {}
+        health = _json_request("/api/assistant/status", **request_options) if capability_advertised else {}
         endpoint_ready = health.get("endpoint_ready") is True
         provider_available = health.get("available") is True
     except ManagedAssistantError:
@@ -181,7 +192,7 @@ def status() -> dict:
         else:
             # Keep the existing billing surface as a diagnostic fallback. It
             # never makes the managed completion available by itself.
-            value = _json_request("/api/billing")
+            value = _json_request("/api/billing", **request_options)
     except ManagedAssistantError:
         return {
             "configured": True,
@@ -220,7 +231,7 @@ def status() -> dict:
     return result
 
 
-def complete(system: str, prompt: str) -> str:
+def complete(system: str, prompt: str, *, control=None) -> str:
     """Complete one prompt against the managed account and return only text."""
     if not _CRYPTO_AVAILABLE:
         raise ManagedAssistantUnavailable("managed assistant encryption is unavailable")
@@ -230,20 +241,24 @@ def complete(system: str, prompt: str) -> str:
     public_key = _b64(private_key.public_key().public_bytes(
         serialization.Encoding.Raw, serialization.PublicFormat.Raw,
     ))
+    options = {"control": control} if control is not None else {}
     value = _json_request(
         "/api/assistant/complete",
         method="POST",
         payload={"system": system, "prompt": prompt, "max_tokens": _max_tokens(),
                  "response_public_key": public_key},
         idempotency=True,
+        **options,
     )
+    if control is not None:
+        control.check()
     try:
         return _decrypt_envelope(private_key, value.get("envelope"))
     except Exception:
         raise ManagedAssistantUnavailable("managed assistant returned invalid completion") from None
 
 
-def checkout(amount_cents: int = 500) -> str:
+def checkout(amount_cents: int = 500, *, control=None) -> str:
     """Create an existing Builder checkout; callers invoke this only on click."""
     if isinstance(amount_cents, bool) or not isinstance(amount_cents, int) or amount_cents < 500:
         raise ManagedAssistantCreditsError("managed assistant top-up amount is invalid")
@@ -251,6 +266,7 @@ def checkout(amount_cents: int = 500) -> str:
         "/api/credits/checkout",
         method="POST",
         payload={"amount_cents": amount_cents, "currency": "usd"},
+        **({"control": control} if control is not None else {}),
     )
     url = value.get("url")
     if not isinstance(url, str) or not url.startswith(("https://", "http://")):

@@ -75,6 +75,11 @@ for label, fn in (("Agent.__init__", Agent.__init__), ("load", load),
     for param, default in HOOK_KEYS.items():
         check_param(label, fn, param, default)
 
+for label, fn in (("Agent.__init__", Agent.__init__), ("load", load)):
+    check_param(label, fn, "compile_warmup", True)
+    check_param(label, fn, "compile_cache", False)
+    check_param(label, fn, "compile_mode", "default")
+
 # Router keeps lang_guess and explicit per-model revisions too
 check_param("Router.__init__", Router.__init__, "lang_guess", None)
 check_param("Router.__init__", Router.__init__, "revisions", None)
@@ -100,11 +105,32 @@ except ValueError as exc:
 # load() forwards Agent's own construction options, so none of them is reachable only
 # through the class; tests/test_download.py asserts that against both signatures.
 check_param("load", load, "compile", False)
+check_param("load", load, "backend", None)
+check_param("load", load, "onnx_path", None)
+check_param("Agent.__init__", Agent.__init__, "backend", None)
+check_param("Agent.set_backend", Agent.set_backend, "name", "auto")
+check_param("Agent.set_backend", Agent.set_backend, "strict", False)
+check_true("Agent.backend is a property", isinstance(Agent.backend, property))
+check_true("Agent.backend_object is a property", isinstance(Agent.backend_object, property))
 
 # ONNXAgent downloads the same Hub artifacts as Agent, so it authenticates the same way
 check_param("ONNXAgent.__init__", ONNXAgent.__init__, "token", None)
 
 # --------------------------------------------------------------- predict surfaces
+from laya.mcp.remote import RemoteRouter  # noqa: E402
+
+check_true("RemoteRouter/is a Router", issubclass(RemoteRouter, Router))
+check_param("RemoteRouter.__init__", RemoteRouter.__init__, "base_url", inspect.Parameter.empty)
+check_param("RemoteRouter.__init__", RemoteRouter.__init__, "api_key", None)
+check_param("RemoteRouter.__init__", RemoteRouter.__init__, "timeout", None)
+for method in ("predict", "predict_batch"):
+    check("RemoteRouter/%s signature" % method,
+          [(p.name, p.kind, p.default) for p in sig(getattr(RemoteRouter, method)).values()],
+          [(p.name, p.kind, p.default) for p in sig(getattr(Router, method)).values()])
+for method in ("route", "route_batch"):
+    check_true("RemoteRouter/%s stays local" % method,
+               getattr(RemoteRouter, method) is getattr(Router, method))
+
 for label, fn in (("Agent.predict_batch", Agent.predict_batch),
                   ("Agent.system_one", Agent.system_one),
                   ("Agent.predict_long", Agent.predict_long),
@@ -903,6 +929,22 @@ check_param("evaluate_shortlist", evaluate_shortlist, "k", 20)
 check_param("evaluate_shortlist", evaluate_shortlist, "dataset_path", None)
 for param in ("checkpoint_id", "embedder_id"):
     check_param("evaluate_shortlist", evaluate_shortlist, param, inspect.Parameter.empty)
+
+
+# Pin the optional TileLang entry points without importing the fast extra in CI.
+import ast  # noqa: E402
+
+with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), "laya", "tl_kernels.py")) as f:
+    _tl_defs = {node.name: node for node in ast.parse(f.read()).body if isinstance(node, ast.FunctionDef)}
+for _name in ("gemm_kernel", "gemm_geglu_kernel", "add_ln_kernel", "rope_kernel", "attn_kernel"):
+    _args = _tl_defs[_name].args
+    check("%s/cpu keyword-only" % _name, [arg.arg for arg in _args.kwonlyargs], ["cpu"])
+    check("%s/cpu default" % _name, ast.literal_eval(_args.kw_defaults[0]), False)
+    check("%s/GPU dtype default" % _name, ast.literal_eval(_args.defaults[-1]), "bfloat16")
+_args = _tl_defs["compile_cpu"].args
+check("compile_cpu/arguments", [arg.arg for arg in _args.args], ["kernel"])
+check("compile_cpu/varargs", _args.vararg.arg, "args")
+check("compile_cpu/kwargs", _args.kwarg.arg, "kwargs")
 
 
 print("\n%d passed, %d failed" % (len(PASS), len(FAIL)))

@@ -563,11 +563,16 @@ async def run_agent(
             # is_version=True → a pinned version snapshot (agent_version_id);
             # is_version=False → a floating master row (agent_id).
             source_id = getattr(agent, "source_id", None)
+            # The OTHER half is cleared: a forked context inherits the parent's
+            # agent refs, and a child left holding its parent's agent_id would
+            # attribute its rows (chat.message.agent_id included) to the parent.
             if source_id:
                 if getattr(agent, "source_is_version", False):
                     overrides["agent_version_id"] = source_id
+                    overrides["agent_id"] = None
                 else:
                     overrides["agent_id"] = source_id
+                    overrides["agent_version_id"] = None
             if delegation_disabled:
                 overrides["client_tools"] = []
             elif extra_client_tools:

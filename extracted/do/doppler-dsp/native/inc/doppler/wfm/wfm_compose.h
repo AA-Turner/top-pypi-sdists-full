@@ -293,10 +293,11 @@ typedef struct {
        caller's own bits at a position of their choosing, a stage covering a
        span they name. `wfmgen --frame FILE`, a scene's
        `frame` key and Python's `frame=` (a FrameDesc or a Frame) all land
-       here. When it is set it IS the frame, and the common-frame
-       fields below (acq_code/sync/crc/payload) do not frame this source.
-       NULL means the common frame, `[preamble x reps | sync | payload |
-       crc]`, which `dp_wfm_frame_fixed()` builds from the fields below.
+       here. When it is set it IS the frame, and an unspread acq_code
+       beside it is refused. NULL means the common frame, `[preamble x
+       reps | data]`, which `dp_wfm_frame_fixed()` builds from acq_code and
+       the data source; a sync word or a CRC is a field or a stage of a
+       description, never a flat field.
 
        A C caller's description is borrowed, exactly as `wfm_seq_t` is
        borrowed elsewhere here, so it must outlive the source. The composer
@@ -330,8 +331,8 @@ typedef struct {
                             BurstDemod.set_preamble lock to. For type=dsss
                             it is unmodulated chips ahead of the spread
                             frame; for type=bits it is the head of the bit
-                            pattern. Setting it (or sync) is what makes a
-                            source FRAMED. */
+                            pattern. Setting it is what makes a source
+                            FRAMED. */
     size_t acq_reps;     /* Preamble repetitions: periods of acq_code before
                             the sync word. On the command line and in a
                             scene it is acq_code's *REPS. */
@@ -340,24 +341,11 @@ typedef struct {
                             bit (sync, payload, crc) is XOR-spread across
                             its full length, so len(data_code) is the
                             spreading factor. */
-    wfm_seq_t sync;      /* The frame-sync word (such as Barker-13) between
-                            the preamble and the payload -- what
-                            BurstDemod.set_frame correlates to resolve frame
-                            position and BPSK polarity, and what a BER
-                            alignment detects against. Optional; setting it
-                            (or acq_code) is what makes a source FRAMED. */
-    int crc;             /* The frame trailer: crc16 appends a CRC-16-CCITT
-                            over the payload bits (what BurstDemod validates
-                            as frame_valid, and what makes a truth-free
-                            frame error rate possible); none omits it.
-                            Applies only to a FRAMED source: it defaults to
-                            crc16, so it alone never frames an otherwise
-                            plain pattern. */
     /* type=dsss, CONTINUOUS mode: a data-symbol rate independent of the code
        epoch rate selects the continuous form (dp_wfm_synth_set_dsss_cont) over
        the burst form above -- one waveform type, one discriminator, rather
        than a tenth entry in five hand-maintained name tables. 0 = burst.
-       The frame fields (acq_code/sync/crc/bits) are meaningless when this is
+       The frame fields (acq_code/frame/data) are meaningless when this is
        set and are rejected by the caller rather than silently ignored. */
     double symbol_rate;  /* For type=dsss: > 0 selects CONTINUOUS
                             asynchronous mode. The spreading code repeats
@@ -411,6 +399,26 @@ typedef struct {
                           source, so bits=, and its aliases payload= and
                           pattern=, are refused naming data=; the CLI and a
                           scene refuse --bits and "payload" the same way. */
+    wfm_seq_t retired_sync; /* RETIRED (doppler#1617): nothing reads it but
+                          the refusal. The frame-sync word is a field of the
+                          frame DESCRIPTION, so sync= is refused naming
+                          frame=; the CLI's --sync builds that description
+                          for you, and a scene refuses the "sync" key. */
+    wfm_seq_t retired_crc; /* RETIRED (doppler#1617): nothing reads it but
+                          the refusal. A CRC is a stage of the frame
+                          DESCRIPTION, so crc= is refused naming frame=,
+                          whatever its value (crc="none" included); the
+                          CLI's --crc builds that description for you, and
+                          a scene refuses the "crc" key. */
+    wfm_data_stats_t data_sent; /* What this source's data sent in the
+                          composer's latest instance: its frames, the fill
+                          bits padding the last, its idle frames, the source
+                          bits read and, for data_from_file, the dp_hash64
+                          of the octets read. The truth --record and SigMF
+                          carry (payload-data-source.md section 4.8), kept
+                          by the composer, which clears it at create; zero
+                          until an instance has sent a frame. Not an input:
+                          no face sets it. */
 } wfm_source_t;
 
 /**
@@ -428,9 +436,14 @@ typedef struct {
                               by all its sources. At the default 1.0 every
                               frequency is normalised (cycles per sample);
                               state it whenever a scene is in real Hz. */
-    size_t num_samples;    /* Segment on-time in samples: the synth runs for
-                              exactly this many samples before the trailing
-                              gap. */
+    size_t num_samples;    /* Segment on-time in samples, before the
+                              trailing gap: 0 derives it from the sources,
+                              or 1024 when they set none. A finite data
+                              source sets its frames, a lone dsss burst one
+                              burst, and a stream runs to its end. A count beside a finite
+                              data source or a lone dsss burst is refused,
+                              since they set the length; give repeats for
+                              more. */
     size_t off_samples;    /* Trailing gap after the on-time, in samples. It
                               carries the noise floor or hard zeros, per
                               gap_noise. */
@@ -686,11 +699,7 @@ int dp_wfm_source_attach_dsss(dp_wfm_synth_state_t *syn, const wfm_source_t *src
 /**
  * @brief Non-zero when this source describes a FRAME.
  *
- * A carried description, a preamble or a sync word is what says "framed". **Deliberately not `crc`**:
- * it defaults to crc16 on every source (`[[module.wfm_compose.source.fields]]`
- * and wfmgen alike), so reading it as intent would silently append a trailer
- * to every unframed bit pattern anyone has ever generated. With neither a
- * preamble nor a sync word, `crc` stays inert exactly as it always was.
+ * A carried description, a preamble or a data source is what says "framed".
  *
  * @param src  The source; NULL reads as unframed.
  */
@@ -826,6 +835,16 @@ extern const char dp_wfm_why_dsss_cont_no_data_code[];
 extern const char dp_wfm_why_retired_bits[];
 
 /**
+ * @brief The reasons dp_wfm_source_error() gives for `retired_sync` and
+ *        `retired_crc` set.
+ *
+ * One sentence each, naming `frame=`; the CLI and a scene say the same in
+ * their own spelling. Exposed so a test can pin the wording once.
+ */
+extern const char dp_wfm_why_retired_sync[];
+extern const char dp_wfm_why_retired_crc[];
+
+/**
  * @brief Why dp_wfm_source_to_synth() refused this source, or NULL.
  *
  * The standalone `Synth`'s reason channel (just-makeit's `bridge_error_fn`,
@@ -935,6 +954,10 @@ void dp_wfm_synth_set_data_pacing(dp_wfm_synth_state_t *syn,
  *   synth's own floor (dp_wfm_source_dsss_cps()). The default `fs = 1.0`
  *   with a `symbol_rate` in Hz is the case that finds it (doppler#1706);
  *   the reason is dp_wfm_why_dsss_cont_rate.
+ * - A count (`num_samples`, non-zero or ranged) beside sources that set
+ *   the segment's length (dp_wfm_segment_sets_length()) is refused with
+ *   dp_wfm_why_count_derived: the length is theirs, so it would be dropped
+ *   (doppler#1729).
  * - A data STREAM (`--data-from-file -`) has no end to repeat, so
  *   `repeat`, `continuous` and a segment's `repeats > 1` are refused, and
  *   stdin feeds at most one source.
@@ -953,6 +976,58 @@ const char *dp_wfm_scene_error(const wfm_segment_t *segs, size_t n_segs,
  *        CLI can name the values beside it, by identity.
  */
 extern const char dp_wfm_why_dsss_cont_rate[];
+
+/**
+ * @brief A plain segment's on-time when its `num_samples` is 0 and no
+ *        source sets one: what `--count`, a scene and `Segment` default
+ *        to.
+ */
+#define WFM_NUM_SAMPLES_PLAIN ((size_t)1024)
+
+/**
+ * @brief Whether a segment's sources SET its on-time, so its
+ *        `num_samples` is derived and a count given beside them refused.
+ *
+ * Two kinds of source set a length (payload-data-source.md 4.6):
+ *
+ * - **A finite data source** -- `data`, a finite file, or a carried frame
+ *   of fixed bits -- is its frames (dp_wfm_source_data_frames()); the
+ *   longest of a segment's sets it.
+ * - **A lone dsss burst** -- one dsss source, no `symbol_rate`, no data
+ *   source -- is one burst (dp_wfm_source_dsss_nchips() times `sps`).
+ *
+ * A stream sets none: it runs to its end, and a count may bound it. A
+ * non-zero `num_samples` (or a ranged one) beside a segment this answers
+ * 1 for is refused by dp_wfm_scene_error() with
+ * dp_wfm_why_count_derived, on every face.
+ *
+ * @code
+ * static const uint8_t bits[16] = { 1 };
+ * wfm_source_t  src  = { .type       = WFM_SYNTH_BITS,
+ *                        .modulation = 1, // bpsk
+ *                        .sps        = 1,
+ *                        .pn_length  = 7 };
+ * src.data = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL, .bits = bits,
+ *                         .len = 16 };
+ * wfm_segment_t seg = { .sources = &src, .n_sources = 1, .fs = 1e6 };
+ * if (!dp_wfm_segment_sets_length (&seg)) // its frames are the run
+ *   return 1;
+ * seg.num_samples = 1000;                 // so a count is refused
+ * if (dp_wfm_scene_error (&seg, 1, 0, 0) != dp_wfm_why_count_derived)
+ *   return 1;
+ * @endcode
+ *
+ * @param seg  the segment, as the caller gave it.
+ * @return 1 when its sources set its on-time, else 0.
+ */
+int dp_wfm_segment_sets_length(const wfm_segment_t *seg);
+
+/**
+ * @brief The reason dp_wfm_scene_error() gives a count beside a segment
+ *        whose sources set its length (dp_wfm_segment_sets_length()) --
+ *        exported so the wfmgen CLI can name its flag beside it.
+ */
+extern const char dp_wfm_why_count_derived[];
 
 
 /**
@@ -1202,9 +1277,11 @@ void dp_wfm_compose_set_seed_advance(dp_wfm_compose_state_t *state, int mode);
 /**
  * @brief Pace a composer's data sources: WFM_DATA_PACED under `--realtime`.
  *
- * Applied to every synth the composer builds from here on, so a data stream
- * with nothing yet sends an idle frame of fill rather than waiting
- * (dp_wfm_data_frame, the one rule). The default, WFM_DATA_UNPACED, waits.
+ * Applied to the synths already built -- create builds the first
+ * segment's, before this can be called -- and to every synth built from here
+ * on, so a data stream with nothing yet sends an idle frame of fill rather
+ * than waiting (dp_wfm_data_frame, the one rule). The default,
+ * WFM_DATA_UNPACED, waits.
  */
 void dp_wfm_compose_set_data_pacing(dp_wfm_compose_state_t *state,
                                     wfm_data_pacing_t pacing);
@@ -1306,6 +1383,10 @@ void dp_wfm_compose_destroy(dp_wfm_compose_state_t *state);
 
 /**
  * @brief Borrow the composer's stored segment list (for --record / SigMF).
+ *
+ * Each source's `data_sent` holds what its data source has sent so far in
+ * the latest instance, brought up to date by this call, so a record or a
+ * SigMF sidecar written after a run carries the run's truth.
  * @param state      the composer.
  * @param n_out      receives the segment count.
  * @param repeat     receives the repeat flag (may be NULL).
@@ -1412,6 +1493,74 @@ wfm_frame_desc_t *dp_wfm_frame_from_json(const char *json, const char **why);
  * @endcode
  */
 void dp_wfm_frame_free(wfm_frame_desc_t *d);
+
+/**
+ * @brief Refuse text for the retired `sync=`: a sync word is a field of the
+ *        frame description.
+ *
+ * The coercion hook of the `sync` tombstone: ANY `str` reaching it is
+ * refused, and a non-empty array is refused by @ref dp_wfm_source_error, so
+ * `sync=` fails whatever it is given and the sentence names `frame=`.
+ *
+ * @param text    the str (unused: every str is refused).
+ * @param out     unused.
+ * @param max_out unused.
+ * @param why     receives the sentence.
+ * @return 0.
+ */
+size_t dp_wfm_source_sync_refuse_text(const char *text, uint8_t *out,
+                                      size_t max_out, const char **why);
+
+/**
+ * @brief Refuse text for the retired `crc=`: a CRC is a stage of the frame
+ *        description.
+ *
+ * As @ref dp_wfm_source_sync_refuse_text, for `crc=`. `crc="none"` is
+ * refused too: it would otherwise be a spelling that works forever with no
+ * way to retire it.
+ *
+ * @param text    the str (unused: every str is refused).
+ * @param out     unused.
+ * @param max_out unused.
+ * @param why     receives the sentence.
+ * @return 0.
+ */
+size_t dp_wfm_source_crc_refuse_text(const char *text, uint8_t *out,
+                                     size_t max_out, const char **why);
+
+/**
+ * @brief Why `--sync` / `--crc` / `--acq-code` cannot frame this source, or
+ *        NULL.
+ *
+ * The CLI's flags spell the common frame, which needs a waveform that carries
+ * a bit stream and, off dsss, a data source to fill it. Said once here and
+ * used by the same refusal inside @ref dp_wfm_source_frame_error, so the
+ * flags and a bare source give one answer. A dsss burst needs neither.
+ *
+ * @param src  the source.
+ * @return a static sentence naming the fix, or NULL.
+ */
+const char *dp_wfm_framing_flags_error(const wfm_source_t *src);
+
+/**
+ * @brief The common frame as a description: `[preamble x reps | sync |
+ *        data | crc]`, built by the ONE function that builds it.
+ *
+ * Used by the bridge (a scene's or Python's `acq_code` + data, with no sync
+ * word and no CRC) and by `wfmgen` for `--sync` and `--crc`, which are sugar
+ * for these fields. The preamble is a field for an unspread source and is
+ * NOT one for a spread burst: a DSSS preamble is sent unspread outside the
+ * description. The description borrows `src`'s and `sync`'s sequences.
+ *
+ * @param src   the source (its `acq_code`, `acq_reps`, `data`,
+ *              `data_from_file` and `data_len` are read).
+ * @param sync  the sync word, or NULL for none.
+ * @param crc   non-zero appends a CRC-16 over the payload.
+ * @param d     receives the description.
+ * @return 0, or -1 when it does not lay out.
+ */
+int dp_wfm_source_common_frame(const wfm_source_t *src, const wfm_seq_t *sync,
+                               int crc, wfm_frame_desc_t *d);
 
 /**
  * @brief Refuse text for a source's bit field: an object takes bits.
@@ -1568,6 +1717,52 @@ dp_wfm_compose_state_t *dp_wfm_compose_from_json_why(const char *json,
 dp_wfm_compose_state_t *dp_wfm_compose_from_json_at(const char *json,
                                                     const char *base,
                                                     const char **why);
+
+/**
+ * @brief dp_wfm_compose_from_json_at(), replaying a record by its data.
+ *
+ * A `--record` stores each data source's truth as `"data_sent"`: the
+ * frames, the fill bits padding the last, the idle frames, and for a file
+ * or stdin the bits read and their `dp_hash64` (payload-data-source.md
+ * §4.8). A replay identifies a file by that content, not by its name:
+ *
+ * - a `"data_from_file"` whose `"data_sent"` carries a hash is refused
+ *   unless the file's length in bits and hash are the record's. The reason
+ *   names the file and both hashes;
+ * - a `"data_from_file": "-"` is a run read from stdin, whose octets are
+ *   gone. It is refused unless @p data_file names the file that held
+ *   them, which is then checked the same way. `-` again is refused: a pipe
+ *   could only be checked after it had been sent;
+ * - a @p data_file that no `"-"` source takes is refused: a scene carries
+ *   its own data.
+ *
+ * Every check is made before anything is built. A scene with no hash (one
+ * written by hand) replays its files unchecked.
+ *
+ * @param json       the scene's text.
+ * @param base       the scene's directory, or NULL.
+ * @param data_file  the file a record's stdin is replayed from
+ *                   (`--data-from-file` given again), as typed: relative to
+ *                   the working directory, not to @p base. NULL for none.
+ * @param why        optional; receives the reason for a refusal. A
+ *                   mismatch's names the numbers, so it is formatted into
+ *                   a thread-local buffer, valid until this thread reads
+ *                   another scene; never freed by the caller.
+ * @return the composer, or NULL.
+ *
+ * @code
+ * const char *why = NULL;
+ * dp_wfm_compose_state_t *c = dp_wfm_compose_from_json_data (
+ *     "{\"segments\":[{\"type\":\"bits\",\"data_from_file\":\"-\"}]}",
+ *     NULL, NULL, &why);
+ * if (c || !why) // stdin with no file given again: refused, with a reason
+ *   return 1;
+ * @endcode
+ */
+dp_wfm_compose_state_t *dp_wfm_compose_from_json_data(const char *json,
+                                                      const char *base,
+                                                      const char *data_file,
+                                                      const char **why);
 
 dp_wfm_compose_state_t *dp_wfm_compose_from_file(const char *path);
 

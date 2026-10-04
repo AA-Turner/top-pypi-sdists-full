@@ -1,0 +1,202 @@
+# type: ignore
+
+"""Tests for the mycli.packages.prompt_toolkit.style module."""
+
+from types import SimpleNamespace
+
+from prompt_toolkit.styles import Style as PromptStyle
+from pygments.style import Style as PygmentsStyle
+from pygments.token import Token
+from pygments.util import ClassNotFound
+
+from mycli.packages.prompt_toolkit import style as style_module
+
+
+def test_parse_pygments_style_handles_style_classes_instances_and_dict_values() -> None:
+    class DemoStyle(PygmentsStyle):
+        default_style = ''
+        styles = {
+            Token.Name: 'bold',
+            Token.String: 'ansired',
+        }
+
+    token_type, style_value = style_module.parse_pygments_style(
+        'Token.String',
+        DemoStyle,
+        {'Token.String': 'Token.Name'},
+    )
+    assert token_type == Token.String
+    assert style_value == 'bold'
+
+    token_type, style_value = style_module.parse_pygments_style(
+        'Token.String',
+        DemoStyle(),
+        {'Token.String': 'Token.Name'},
+    )
+    assert token_type == Token.String
+    assert style_value == 'bold'
+
+    token_type, style_value = style_module.parse_pygments_style(
+        'Token.String',
+        'unused',
+        {'Token.String': 'ansiblue'},
+    )
+    assert token_type == Token.String
+    assert style_value == 'ansiblue'
+
+
+def test_is_valid_pygments_returns_true_and_false(monkeypatch) -> None:
+    assert style_module.is_valid_pygments('ansired') is True
+
+    class FailingPygmentsStyle:
+        def __init_subclass__(cls, **kwargs) -> None:
+            raise AssertionError('bad style')
+
+    monkeypatch.setattr(style_module, 'PygmentsStyle', FailingPygmentsStyle)
+
+    assert style_module.is_valid_pygments('invalid') is False
+
+
+def test_is_valid_prompt_toolkit_returns_true_and_false(monkeypatch) -> None:
+    assert style_module.is_valid_prompt_toolkit('bold') is True
+
+    class FailingPromptStyle:
+        def __init__(self, _rules) -> None:
+            raise ValueError('bad style')
+
+    monkeypatch.setattr(style_module, 'Style', FailingPromptStyle)
+
+    assert style_module.is_valid_prompt_toolkit('invalid') is False
+
+
+def test_style_factory_prompt_toolkit_builds_styles_and_falls_back(monkeypatch, caplog) -> None:
+    calls: list[str] = []
+    native_style = object()
+
+    def fake_get_style_by_name(name: str):
+        calls.append(name)
+        if name == 'missing':
+            raise ClassNotFound('missing')
+        if name == 'native':
+            return native_style
+        raise AssertionError(f'unexpected style {name}')
+
+    class FakeStyle:
+        def __init__(self, rules) -> None:
+            self.rules = list(rules)
+
+    monkeypatch.setattr(style_module.pygments.styles, 'get_style_by_name', fake_get_style_by_name)
+    monkeypatch.setattr(
+        style_module,
+        'parse_pygments_style',
+        lambda token, style, cli_style: {
+            'Token.Prompt': (Token.Prompt, 'token-valid'),
+            'Token.Toolbar': (Token.Toolbar, 'token-invalid'),
+            'Token.Name': (Token.Name, 'token-invalid'),
+        }[token],
+    )
+    monkeypatch.setattr(style_module, 'is_valid_prompt_toolkit', lambda value: value in {'token-valid', 'prompt-valid'})
+    monkeypatch.setattr(style_module, 'Style', FakeStyle)
+    monkeypatch.setattr(style_module, 'style_from_pygments_cls', lambda style: ('pygments-style', style))
+    monkeypatch.setattr(style_module, 'merge_styles', lambda styles: styles)
+
+    cli_style = {
+        'Token.Prompt': 'Token.Name',
+        'Token.Toolbar': 'Token.Name',
+        'Token.Name': 'ignored',
+        'prompt': 'prompt-valid',
+        'search': 'prompt-invalid',
+    }
+
+    with caplog.at_level('ERROR', logger='mycli.packages.prompt_toolkit.style'):
+        styles = style_module.style_factory_prompt_toolkit('missing', cli_style)
+
+    assert calls == ['missing', 'native']
+    assert styles[0] == ('pygments-style', native_style)
+    assert styles[1].rules == [('bottom-toolbar', 'noreverse')]
+    assert styles[2].rules == [
+        ('prompt', 'token-valid'),
+        ('prompt', 'prompt-valid'),
+    ]
+    assert ('bottom-toolbar', 'token-invalid') not in styles[2].rules
+    assert ('search', 'prompt-invalid') not in styles[2].rules
+    assert 'Unhandled style / class name: Token.Name' in caplog.text
+
+
+def test_style_factory_helpers_updates_known_tokens(monkeypatch, caplog) -> None:
+    base_styles = {Token.Output.Header: 'ansiyellow'}
+    style_class = SimpleNamespace(styles=base_styles)
+
+    monkeypatch.setattr(style_module.pygments.styles, 'get_style_by_name', lambda name: style_class)
+    monkeypatch.setattr(
+        style_module,
+        'parse_pygments_style',
+        lambda token, style, cli_style: {
+            'Token.Prompt': (Token.Prompt, 'ansiblue'),
+            'Token.Toolbar': (Token.Toolbar, 'skip-me'),
+        }[token],
+    )
+    monkeypatch.setattr(style_module, 'is_valid_pygments', lambda value: value != 'skip-me')
+
+    cli_style = {
+        'Token.Prompt': 'Token.Name',
+        'Token.Toolbar': 'Token.Name',
+        'completion-menu.completion.indexed': 'ansired',
+        'search': 'ansigreen',
+        'search.current': 'skip-me',
+        'sql.keyword': 'ansired',
+        'sql.string': 'skip-me',
+        'unknown': 'skip-me',
+    }
+
+    with caplog.at_level('ERROR', logger='mycli.packages.prompt_toolkit.style'):
+        output_style = style_module.style_factory_helpers('native', cli_style)
+
+    assert output_style.styles[Token.Prompt] == 'ansiblue'
+    assert output_style.styles[Token.Menu.Completions.Completion.Indexed] == 'ansired'
+    assert output_style.styles[Token.SearchMatch] == 'ansigreen'
+    assert Token.SearchMatch.Current not in output_style.styles
+    assert output_style.styles[Token.Keyword] == 'ansired'
+    assert output_style.styles[Token.Output.Header] == 'ansiyellow'
+    assert Token.Toolbar not in output_style.styles
+    assert output_style.styles[Token.String] != 'skip-me'
+    assert 'Unhandled style / class name: unknown' in caplog.text
+
+
+def test_style_factory_helpers_falls_back_and_copies_warning_styles(monkeypatch) -> None:
+    native_styles = {
+        Token.Text: 'ansiblack',
+        Token.Warnings.Header: 'ansimagenta',
+        Token.Warnings.Status: 'ansicyan',
+    }
+
+    def fake_get_style_by_name(name: str):
+        if name == 'missing':
+            raise ClassNotFound('missing')
+        if name == 'native':
+            return SimpleNamespace(styles=native_styles.copy())
+        raise AssertionError(f'unexpected style {name}')
+
+    monkeypatch.setattr(style_module.pygments.styles, 'get_style_by_name', fake_get_style_by_name)
+
+    output_style = style_module.style_factory_helpers('missing', {}, warnings=True)
+
+    assert output_style.styles[Token.Warnings.Header] == 'ansimagenta'
+    assert output_style.styles[Token.Warnings.Status] == 'ansicyan'
+    assert output_style.styles[Token.Output.Header] == 'ansimagenta'
+    assert output_style.styles[Token.Output.Status] == 'ansicyan'
+
+
+def test_style_factory_prompt_toolkit_returns_merged_style_object() -> None:
+    style = style_module.style_factory_prompt_toolkit(
+        'native',
+        {
+            'prompt': 'bold',
+            'completion-menu.completion.indexed': '#ff0000',
+        },
+    )
+
+    assert style.get_attrs_for_style_str('class:prompt') == PromptStyle([('prompt', 'bold')]).get_attrs_for_style_str('class:prompt')
+    assert style.get_attrs_for_style_str('class:completion-menu.completion.indexed') == PromptStyle([
+        ('completion-menu.completion.indexed', '#ff0000')
+    ]).get_attrs_for_style_str('class:completion-menu.completion.indexed')

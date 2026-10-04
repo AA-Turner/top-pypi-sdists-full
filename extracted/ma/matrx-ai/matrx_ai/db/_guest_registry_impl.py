@@ -35,6 +35,17 @@ mint an anonymous user, but all of them return the same identity; a losing
 minted user is logged loudly and recorded (``system_error`` kind
 ``guest_identity_race_loser``), never returned and never deleted.
 
+Minting is bounded per client IP (2026-10-03): before GoTrue is called for a
+NEW identity, ``_enforce_mint_ceiling`` checks an in-process per-IP log of
+identities minted inside the ``auth.guest_identity`` window (knobs read through
+the host's ``guest_mint_limit_reader``; the log is seeded from the table in the
+background, never read on the mint path) and raises ``GuestMintRateLimitedError``
+(429) at the ceiling. Only rows carrying the mint stamp (``metadata.minted_at``,
+written since 2026-10-01 together with the real-client-IP fix) are counted, so
+historic rows holding a Cloudflare edge address never bucket strangers
+together. Bots are counted like everyone else; they are labelled, not refused.
+Returning guests never reach the check.
+
 Error resilience: all other DB and auth errors are caught and re-raised as
 ``GuestIdentityUnavailableError``.  A locally-generated UUID is forbidden:
 it is not an ``auth.users`` identity and only moves the failure into the first
@@ -45,7 +56,9 @@ from __future__ import annotations
 
 import inspect
 import re
-from datetime import UTC, datetime
+import time
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from matrx_utils import vcprint
@@ -73,6 +86,25 @@ class GuestBlockedError(RuntimeError):
         until = f" until {blocked_until.isoformat()}" if blocked_until else ""
         super().__init__(f"Guest fingerprint {fingerprint[:12]}… is blocked{until}.")
         self.blocked_until = blocked_until
+
+
+class GuestMintRateLimitedError(RuntimeError):
+    """This client IP reached the ``auth.guest_identity`` new-identity ceiling (429).
+
+    A final refusal for this request, never a subclass of
+    ``GuestIdentityUnavailableError`` (which means "retry in a moment"). Only a
+    NEW identity is refused; a returning guest never reaches the check.
+    """
+
+    def __init__(self, ip_address: str | None, *, ceiling: int, window_minutes: int) -> None:
+        super().__init__(
+            f"Too many new guest identities from this network ({ceiling} per "
+            f"{window_minutes} min)."
+        )
+        self.ip_address = ip_address
+        self.ceiling = ceiling
+        self.window_minutes = window_minutes
+        self.retry_after_seconds = window_minutes * 60
 
 
 async def _create_anon_auth_user() -> str:
@@ -161,12 +193,25 @@ def classify_guest_user_agent(user_agent: str | None) -> tuple[str, str]:
     return "browser", "other"
 
 
-def _mint_stamp(user_agent: str | None, minted_route: str | None) -> dict[str, Any]:
+def _mint_stamp(
+    user_agent: str | None,
+    minted_route: str | None,
+    ip_address: str | None = None,
+    agent_traffic: str | None = None,
+) -> dict[str, Any]:
     traffic_kind, ua_family = classify_guest_user_agent(user_agent)
+    stamp: dict[str, Any] = {}
+    if agent_traffic:
+        # The marker (matrx_ai.agent_traffic) is a statement, not a guess: it
+        # outranks the user-agent heuristic, which is still recorded beside it.
+        traffic_kind = "agent"
+        stamp["agent_tool"] = agent_traffic
     return {
+        **stamp,
         "traffic_kind": traffic_kind,
         "ua_family": ua_family,
         "minted_route": minted_route,
+        "minted_ip": ip_address,
         "minted_at": datetime.now(UTC).isoformat(),
     }
 
@@ -203,8 +248,16 @@ async def resolve_guest_uuid(
     ip_address: str | None = None,
     user_agent: str | None = None,
     minted_route: str | None = None,
+    agent_traffic: str | None = None,
+    on_agent_minted: Callable[[str, str], Awaitable[None]] | None = None,
 ) -> str:
     """Return the stable auth.users UUID for this fingerprint.
+
+    ``agent_traffic`` is the agent-traffic marker's value (``matrx_ai.agent_traffic``) when the
+    request carried it: the mint stamp then says ``traffic_kind = "agent"``, and
+    ``on_agent_minted(user_id, tool)`` runs for an identity THIS call minted and won (the host
+    tags it with a test-fixture expiry). The hook never fails the request: an error is logged
+    loudly and the identity is still returned.
 
     Resolving is NOT executing: no counter or execution timestamp moves here
     (they move only in the execution gate / ``record_guest_execution``). A
@@ -215,14 +268,16 @@ async def resolve_guest_uuid(
       1. Look up guest_executions by fingerprint.
       2. If found and actively blocked     → raise ``GuestBlockedError`` (no writes).
       3. If found with auth_user_id set  → return auth_user_id (fast path).
-      4. If found but auth_user_id is null → mint, then CLAIM the row atomically.
-      5. If not found                      → mint, create the row; a lost insert
+      4. If found but auth_user_id is null → ceiling check, mint, CLAIM atomically.
+      5. If not found                      → ceiling check, mint, create the row; a lost insert
                                              race CLAIMS the racer's row or adopts
                                              its identity.
 
     Exactly one identity per fingerprint is ever returned: a request whose
     minted user loses the claim returns the winner's.
 
+    Raises ``GuestMintRateLimitedError`` when a NEW identity would pass the
+    per-client-IP ceiling — nothing is minted; final for this request.
     Raises ``GuestBlockedError`` when the row is blocked and ``blocked_until`` is
     unset or in the future — a final refusal, never wrapped as unavailable.
     Raises ``GuestIdentityUnavailableError`` when the registry or anonymous
@@ -267,15 +322,19 @@ async def resolve_guest_uuid(
 
             # Row exists but auth_user_id was never populated (an acquisition
             # first-touch row, or a legacy row) — mint, then CLAIM atomically.
+            await _enforce_mint_ceiling(ip_address)
             minted = await _create_anon_auth_user()
             winner = await _claim_identity(
                 row_id,
                 minted,
-                metadata=_merged_metadata(row, _mint_stamp(user_agent, minted_route)),
+                metadata=_merged_metadata(row, _mint_stamp(user_agent, minted_route, ip_address, agent_traffic)),
             )
             if winner != minted:
                 await _record_race_loser(fingerprint, loser=minted, winner=winner, branch="backfill")
+                # The orphan is still an account our agent minted: tag it so the sweep removes it.
+                await _after_agent_mint(minted, agent_traffic, on_agent_minted)
                 return winner
+            await _after_agent_mint(minted, agent_traffic, on_agent_minted)
             vcprint(
                 f"[GuestRegistry] Backfilled auth_user_id for existing guest: "
                 f"{minted[:8]}… fingerprint={fingerprint[:12]}…",
@@ -284,6 +343,7 @@ async def resolve_guest_uuid(
             return minted
 
         # First visit — create both the anon auth user and the guest_executions row.
+        await _enforce_mint_ceiling(ip_address)
         auth_user_id = await _create_anon_auth_user()
         try:
             await _gm.create_guest_executions(
@@ -291,7 +351,7 @@ async def resolve_guest_uuid(
                 auth_user_id=auth_user_id,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                metadata=_mint_stamp(user_agent, minted_route),
+                metadata=_mint_stamp(user_agent, minted_route, ip_address, agent_traffic),
             )
         except Exception:
             # A concurrent request committed the unique fingerprint row while
@@ -306,13 +366,16 @@ async def resolve_guest_uuid(
             winner = await _claim_identity(
                 str(racer.id),
                 auth_user_id,
-                metadata=_merged_metadata(racer, _mint_stamp(user_agent, minted_route)),
+                metadata=_merged_metadata(racer, _mint_stamp(user_agent, minted_route, ip_address, agent_traffic)),
             )
             if winner != auth_user_id:
                 await _record_race_loser(
                     fingerprint, loser=auth_user_id, winner=winner, branch="first_visit"
                 )
+            # Winner or orphan, this call minted it: tag it so the sweep can remove it.
+            await _after_agent_mint(auth_user_id, agent_traffic, on_agent_minted)
             return winner
+        await _after_agent_mint(auth_user_id, agent_traffic, on_agent_minted)
         vcprint(
             f"[GuestRegistry] Created new guest: "
             f"{auth_user_id[:8]}… fingerprint={fingerprint[:12]}…",
@@ -320,7 +383,7 @@ async def resolve_guest_uuid(
         )
         return auth_user_id
 
-    except GuestBlockedError:
+    except (GuestBlockedError, GuestMintRateLimitedError):
         # A refusal, not an outage — never re-wrap it as "unavailable".
         raise
     except Exception as exc:
@@ -331,6 +394,25 @@ async def resolve_guest_uuid(
         raise GuestIdentityUnavailableError(
             "Guest identity could not be resolved to an auth.users row."
         ) from exc
+
+
+async def _after_agent_mint(
+    user_id: str,
+    agent_traffic: str | None,
+    hook: Callable[[str, str], Awaitable[None]] | None,
+) -> None:
+    """Hand an identity our agent just minted to the host's tagger. Never raises."""
+    if not agent_traffic or hook is None:
+        return
+    try:
+        await hook(user_id, agent_traffic)
+    except Exception as exc:  # labelling never fails the guest's request
+        vcprint(
+            f"[GuestRegistry] agent-minted guest {user_id} was NOT tagged for expiry "
+            f"(tool={agent_traffic}): {exc!r}",
+            color="red",
+            log_level="ERROR",
+        )
 
 
 async def _claim_identity(row_id: str, minted: str, **fields: object) -> str:
@@ -399,6 +481,127 @@ async def _record_race_loser(fingerprint: str, *, loser: str, winner: str, branc
             f"[GuestRegistry] race-loser capture FAILED for orphan {loser}: {capture_exc!r}",
             color="red",
         )
+
+
+#: Per client IP: wall-clock timestamps of the guest identities this process
+#: knows were minted from it (seeded from the table in the background, plus
+#: every mint this process admitted since). Read on the mint path; never a
+#: database read there (USAGE-GATE.md rule 1, 2026-10-03).
+_mint_log: dict[str, list[float]] = {}
+#: When each IP's seed STARTED (epoch seconds); an IP is re-seeded once its
+#: seed is older than the window, which is how another process's mints arrive.
+_seeded_at: dict[str, float] = {}
+_seed_tasks: dict[str, Any] = {}
+
+
+def reset_mint_ceiling_state() -> None:
+    """Tests: forget every IP this process has counted."""
+    _mint_log.clear()
+    _seeded_at.clear()
+    _seed_tasks.clear()
+
+
+async def _seed_mint_log(ip_address: str, window_minutes: int, started: float) -> None:
+    """Background: the identities minted from ``ip_address`` inside the window.
+
+    Counts rows holding an ``auth_user_id`` AND the mint stamp
+    (``metadata ? 'minted_at'``), so pre-stamp rows (which hold Cloudflare edge
+    addresses) never count. The read is bounded ABOVE by ``started``: rows minted
+    before it come from the table, mints this process admits from ``started`` on
+    come from the local log — so one mint is never counted twice.
+    """
+    until = datetime.fromtimestamp(started, UTC)
+    since = until - timedelta(minutes=window_minutes)
+    try:
+        rows = await _gm.filter_all_guest_executions(
+            ip_address=ip_address,
+            auth_user_id__isnull=False,
+            metadata__json_has_key="minted_at",
+            created_at__gte=since,
+            created_at__lt=until,
+        )
+    except Exception as exc:  # noqa: BLE001 — unseeded = local count only, announced
+        _seeded_at.pop(ip_address, None)
+        vcprint(
+            f"[GuestRegistry] mint-ceiling seed for ip={ip_address} failed "
+            f"({type(exc).__name__}: {exc}); counting this process's mints only until it reads.",
+            color="red",
+            log_level="ERROR",
+        )
+        return
+    seeded = [
+        _as_aware_utc(r.created_at).timestamp()
+        for r in rows
+        if getattr(r, "created_at", None) is not None
+    ]
+    later_local = [t for t in _mint_log.get(ip_address, []) if t >= started]
+    _mint_log[ip_address] = sorted(seeded + later_local)
+
+
+def _schedule_seed(ip_address: str, window_minutes: int, now: float) -> None:
+    from matrx_utils import detached_task
+
+    task = _seed_tasks.get(ip_address)
+    if task is not None and not task.done():
+        return
+    seeded = _seeded_at.get(ip_address)
+    if seeded is not None and (now - seeded) < window_minutes * 60:
+        return
+    _seeded_at[ip_address] = now
+    task = detached_task(
+        _seed_mint_log(ip_address, window_minutes, now), name=f"guest-mint-seed-{ip_address}"
+    )
+    _seed_tasks[ip_address] = task
+    task.add_done_callback(lambda _t, ip=ip_address: _seed_tasks.pop(ip, None))
+
+
+async def _enforce_mint_ceiling(ip_address: str | None) -> None:
+    """Refuse a NEW guest identity once this client IP has minted its share.
+
+    The host's reader answers the ``auth.guest_identity`` knobs for this address,
+    or ``None`` when the address is not a countable client (loopback, unknown, a
+    proxy edge) — then the mint proceeds and the skip is announced at WARNING.
+    The count is an IN-PROCESS log per IP: seeded from the table in the
+    BACKGROUND the first time an IP mints (and again once the seed is older than
+    the window, which brings in other processes' mints), plus every mint this
+    process admits. No database read decides a mint; the first mint from an
+    unseen IP is decided on what this process already knows. Bots count like
+    everyone else.
+    """
+    from matrx_ai._ext import get_guest_mint_limit_reader
+
+    reader = get_guest_mint_limit_reader()
+    if reader is None:
+        raise RuntimeError(
+            "no guest_mint_limit_reader is bound — refusing to mint an unlimited guest "
+            "identity. Remedy: the host must configure_ext(guest_mint_limit_reader=...)."
+        )
+    limits = await reader(ip_address)
+    if limits is None or not ip_address:
+        vcprint(
+            f"[GuestRegistry] Guest mint ceiling NOT applied: ip={ip_address!r} is not a "
+            f"countable client address (loopback, unknown or a proxy edge)",
+            color="yellow",
+            log_level="WARNING",
+        )
+        return
+    ceiling, window_minutes = int(limits[0]), int(limits[1])
+    now = time.time()
+    _schedule_seed(ip_address, window_minutes, now)
+    horizon = now - window_minutes * 60
+    log = [t for t in _mint_log.get(ip_address, []) if t >= horizon]
+    _mint_log[ip_address] = log
+    if len(log) >= ceiling:
+        vcprint(
+            f"[GuestRegistry] Guest mint ceiling reached: ip={ip_address} minted={len(log)} "
+            f"ceiling={ceiling}/{window_minutes}min — new identity refused before GoTrue",
+            color="yellow",
+            log_level="WARNING",
+        )
+        raise GuestMintRateLimitedError(
+            ip_address, ceiling=ceiling, window_minutes=window_minutes
+        )
+    log.append(now)
 
 
 def _as_aware_utc(value: datetime) -> datetime:

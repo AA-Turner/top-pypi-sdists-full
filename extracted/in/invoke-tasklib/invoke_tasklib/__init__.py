@@ -11,17 +11,24 @@ and an ``invoke.yaml`` at the project root::
         name: my_package
 
 To compose a custom subset of tasks instead of using the default
-``ns``, import individual task modules::
+``ns``, import individual task modules:
 
-    from invoke import Collection
-    from invoke_tasklib import lint, test
+```pycon
+>>> from invoke.collection import Collection
+>>> from invoke_tasklib import lint, test
+>>> ns = Collection(lint, test)
+>>> sorted(ns.task_names)
+['lint.check-python', 'lint.fix-python', 'test.all', 'test.benchmark',
+ 'test.coverage-report', 'test.doctest', 'test.doctest-markdown',
+ 'test.doctest-src', 'test.functional', 'test.integration', 'test.unit']
 
-    ns = Collection(lint, test)
+```
 """
 
 from __future__ import annotations
 
 from invoke.collection import Collection
+from invoke.tasks import Task
 
 from invoke_tasklib import (
     clean,
@@ -60,4 +67,5 @@ ns.add_collection(Collection.from_module(env), name="env")
 ns.add_collection(Collection.from_module(release), name="release")
 ns.add_collection(Collection.from_module(doc), name="doc")
 ns.add_collection(Collection.from_module(security), name="security")
-ns.add_task(clean.all, name="clean")
+ns.add_task(clean.all, name="clean")  # ty: ignore[invalid-argument-type]
+ns.add_task(Task(clean.pycache, name="clean-pycache"))

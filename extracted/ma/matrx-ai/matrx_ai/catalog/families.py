@@ -303,7 +303,15 @@ def convert_through_families(
     proposals: dict[str, list[tuple[float, str, Any, str, bool]]] = {}
     requested = canonical.get("_convert") or {}
 
-    def drop(key: str, value: Any, *, expected: bool, why: str, declared: bool = False) -> None:
+    def drop(
+        key: str,
+        value: Any,
+        *,
+        expected: bool,
+        why: str,
+        declared: bool = False,
+        law: str | None = None,
+    ) -> None:
         # A per-value DECLARED drop (C3c) leaves the dict exactly as the
         # unexpected drop it replaces did — only the verdict changes.
         if key in out and (declared or not expected or not controls._declares(key)):
@@ -316,6 +324,7 @@ def convert_through_families(
                 sent_value=None,
                 expected=expected,
                 provenance="declared" if declared else "computed",
+                law=law,
                 reason=f"'{key}'={value!r} is not carried by this api/offering; {why}",
             )
         )
@@ -351,6 +360,7 @@ def convert_through_families(
                 value,
                 expected=True,
                 why=f"the caller set its sibling(s) {spoken} directly, which win",
+                law="K7",
             )
             continue
         free = sorted(carried, key=lambda s: _rank(families, value, s))
@@ -379,6 +389,8 @@ def convert_through_families(
                     value,
                     expected=True,
                     why=f"it means off and no {family!r} sibling here can say off — nothing to turn off",
+                    # An off with nothing to turn off loses nothing the caller asked for.
+                    law="K7",
                 )
             continue
         for target in free:
@@ -430,6 +442,7 @@ def convert_through_families(
                 canonical[loser],
                 expected=True,
                 why=f"'{source}' converts into '{target}' from a higher position and wins (K7)",
+                law="K7",
             )
     return out, adjustments
 

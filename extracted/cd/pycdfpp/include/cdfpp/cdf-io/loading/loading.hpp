@@ -77,8 +77,21 @@ namespace
         cdf.variables = std::move(repr.variables);
         cdf.lazy_loaded = repr.lazy;
         cdf.compression = repr.compression_type;
+        cdf.compression_level = repr.compression_level;
+        cdf.encoding = repr.encoding;
+        cdf.checksum = repr.checksum;
+        cdf.declared_variable_attributes = std::move(repr.declared_variable_attributes);
         // cdf.leap_second_last_updated = repr.leap_second_last_updated;
         return cdf;
+    }
+
+    // Other checksum methods than MD5 are reserved, none is defined (CDR Flags bit 4).
+    template <typename CDR_t>
+    [[nodiscard]] cdf_checksum checksum_of(const CDR_t& cdr) noexcept
+    {
+        constexpr int32_t checksum_md5 = 4 | 8;
+        return (cdr.Flags & checksum_md5) == checksum_md5 ? cdf_checksum::md5_checksum
+                                                          : cdf_checksum::no_checksum;
     }
 
     template <bool iso_8859_1_to_utf8, typename parsing_context_t>
@@ -90,6 +103,9 @@ namespace
         repr.majority = parsing_context.majority;
         repr.distribution_version = parsing_context.distribution_version();
         repr.compression_type = parsing_context.compression_type;
+        repr.compression_level = parsing_context.compression_level;
+        repr.encoding = parsing_context.encoding();
+        repr.checksum = checksum_of(parsing_context.cdr);
         repr.lazy = lazy_load;
         if (!attribute::load_all<typename parsing_context_t::version_tag, iso_8859_1_to_utf8>(
                 parsing_context, repr))
@@ -116,6 +132,7 @@ namespace
                     CPR.cType, CCR.data, data.data() + 8UL, std::size(data) - 8UL);
                 auto parsing_ctx = make_parsing_context(cdf_version_tag_t {},
                     buffers::make_shared_array_adapter(std::move(data)), CPR.cType);
+                parsing_ctx.compression_level = gzip_level(CPR);
                 return impl_parse_cdf<common::with_iso_8859_1_to_utf8<iso_8859_1_to_utf8>>(
                     parsing_ctx, lazy_load);
             }

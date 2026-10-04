@@ -6,6 +6,18 @@ from typing import Literal, Required, TypedDict
 
 
 class RunOptionsParam(TypedDict, total=False):
+  algorithm: Literal["gspo", "grpo", "reinforce_plus_plus"] | None
+  """
+  Training algorithm; omit to preserve the model default.
+  """
+  train_on_truncation: bool | None
+  """
+  Include truncated trajectories in training.
+  """
+  train_on_ungraded: bool | None
+  """
+  Include otherwise eligible trajectories without a recorded reward.
+  """
   evaluation_max_samples: int | None
   evaluation_samples_per_task: int | None
   evaluation_max_active_rollouts: int | None
@@ -44,7 +56,8 @@ class RunOptionsParam(TypedDict, total=False):
   """
   samples_per_instance: int | None
   """
-  Rollout samples generated for each training instance.
+  Rollout samples generated for each training instance; GSPO and GRPO require at least 2, while
+  Reinforce++ requires 1.
   """
   n_parallel_agents: int | None
   """
@@ -86,7 +99,21 @@ class RunOptionsParam(TypedDict, total=False):
 
 
 class CreateRunParams(TypedDict, total=False):
-  bench_id: Required[str]
+  """
+  Launch a benchmark ID, or resolve the latest version by agent and benchmark names.
+  """
+
+  bench_id: str | None
+  agent_name: str | None
+  benchmark_name: str | None
+  """
+  Resolve the latest version and run its benchmark ID.
+  """
+  bypass_ownership: bool
+  """
+  Allow a supplied agent to differ from the benchmark owner within the same organization; run
+  attribution uses the benchmark owner.
+  """
   agent_id: str | None
   base_model_slug: Required[
     Literal[
@@ -100,6 +127,7 @@ class CreateRunParams(TypedDict, total=False):
       "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
       "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
       "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+      "nvidia/NVIDIA-Nemotron-3.5-Super-120B-A12B-BF16",
       "openai/gpt-5.6-sol",
       "openai/gpt-5.6-luna",
       "anthropic/claude-opus-5.5",

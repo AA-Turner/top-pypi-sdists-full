@@ -6,7 +6,19 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from matrx_ai import _ext
 from matrx_ai.db import _guest_registry_impl as guest_registry
+
+
+@pytest.fixture(autouse=True)
+def _uncounted_mint_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests send no client IP; the host reader answers None (not countable).
+    The ceiling itself is proven in test_guest_registry_mint_ceiling.py."""
+
+    async def reader(ip_address: str | None) -> None:
+        return None
+
+    monkeypatch.setitem(_ext._registry, "guest_mint_limit_reader", reader)
 
 
 class _GuestManager:

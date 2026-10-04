@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mirakuru
-Version: 3.0.3
+Version: 3.0.4
 Summary: Process executor (not only) for tests.
 Keywords: executor,orchestration,process,tests
 Author: Grzegorz Śliwiński
@@ -24,7 +24,7 @@ Requires-Dist: psutil>=4.0.0 ; sys_platform != 'cygwin'
 Requires-Python: >=3.10
 Project-URL: Source, https://github.com/dbfixtures/mirakuru
 Project-URL: Bug Tracker, https://github.com/dbfixtures/mirakuru/issues
-Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.0.3/CHANGES.rst
+Project-URL: Changelog, https://github.com/dbfixtures/mirakuru/blob/v3.0.4/CHANGES.rst
 Description-Content-Type: text/x-rst
 
 .. image:: https://raw.githubusercontent.com/dbfixtures/mirakuru/master/logo.png

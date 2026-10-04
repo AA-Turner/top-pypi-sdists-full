@@ -110,7 +110,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 36
+POINTER_VERSION = 37
 
 POINTER_BODY = """## Probe Research
 
@@ -162,7 +162,7 @@ Do not call Probe for:
 ### FYI:
 
 - Everything is a tree of projects. A project has a `kind`
-  (training|inference|research|general|experiment) and can hold subprojects
+  (training|evaluation|research|general|experiment) and can hold subprojects
   and runs.
 - A phase of a bigger effort is a SUBPROJECT of it (`project create
   --parent`), never a new top-level sibling.

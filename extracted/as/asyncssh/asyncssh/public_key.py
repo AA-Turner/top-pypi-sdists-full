@@ -29,9 +29,8 @@ import time
 
 from hashlib import md5, sha1, sha256, sha384, sha512
 from pathlib import Path, PurePath
-from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set
-from typing import Tuple, Type, Union, cast
-from typing_extensions import Protocol
+from typing import Callable, Dict, List, Mapping, Optional, Protocol
+from typing import Sequence, Set, Tuple, Type, Union, cast
 
 from .crypto import ed25519_available, ed448_available
 from .encryption import Encryption
@@ -848,10 +847,10 @@ class SSHKey:
            :param user_key:
                The user's public key.
            :param subject:
-               The subject name in the certificate, expresed as a
+               The subject name in the certificate, expressed as a
                comma-separated list of X.509 `name=value` pairs.
            :param issuer: (optional)
-               The issuer name in the certificate, expresed as a
+               The issuer name in the certificate, expressed as a
                comma-separated list of X.509 `name=value` pairs. If
                not specified, the subject name will be used, creating
                a self-signed certificate.
@@ -919,10 +918,10 @@ class SSHKey:
            :param host_key:
                The host's public key.
            :param subject:
-               The subject name in the certificate, expresed as a
+               The subject name in the certificate, expressed as a
                comma-separated list of X.509 `name=value` pairs.
            :param issuer: (optional)
-               The issuer name in the certificate, expresed as a
+               The issuer name in the certificate, expressed as a
                comma-separated list of X.509 `name=value` pairs. If
                not specified, the subject name will be used, creating
                a self-signed certificate.
@@ -990,10 +989,10 @@ class SSHKey:
            :param ca_key:
                The new CA's public key.
            :param subject:
-               The subject name in the certificate, expresed as a
+               The subject name in the certificate, expressed as a
                comma-separated list of X.509 `name=value` pairs.
            :param issuer: (optional)
-               The issuer name in the certificate, expresed as a
+               The issuer name in the certificate, expressed as a
                comma-separated list of X.509 `name=value` pairs. If
                not specified, the subject name will be used, creating
                a self-signed certificate.

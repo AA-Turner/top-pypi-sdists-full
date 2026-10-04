@@ -6,9 +6,9 @@ name: deps-latest
 # the lint gate and the packaging checks.
 #
 # Nothing else covers this, and the gap is wider here than in a pure python
-# package. Every uv command in every other workflow passes --locked, so
+# package. Every other job that installs from uv.lock passes --locked, so
 # what CI runs is the resolution somebody locked rather than the one PyPI
-# holds today; the dependency groups declare no version at all, so the
+# holds today; the dependency groups pin no version, so the
 # whole drift of pytest, mypy, twine and cibuildwheel lives in uv.lock. And
 # the one runtime dependency is cffi, which this package does not merely
 # import but *compiles against*: a cffi release that changes the extension
@@ -163,7 +163,7 @@ jobs:
           submodules: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
 
@@ -236,7 +236,7 @@ jobs:
           submodules: true
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
 

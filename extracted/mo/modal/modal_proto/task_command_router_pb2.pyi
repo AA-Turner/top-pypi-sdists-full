@@ -228,6 +228,7 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     NETWORK_ACCESS_FIELD_NUMBER: builtins.int
     PTY_INFO_FIELD_NUMBER: builtins.int
     MEMORY_RESERVE_CONSUME_MIB_FIELD_NUMBER: builtins.int
+    SECRET_SOURCES_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     container_name: builtins.str
     """Logical container name."""
@@ -257,6 +258,9 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
     reserve (experimental option vm_sidecar_memory_reserve_mib); unset
     consumes whatever is left of it. Ignored without a reserve.
     """
+    @property
+    def secret_sources(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[modal_proto.api_pb2.SecretSource]:
+        """Applied in order. Cannot be combined with secret_ids or env."""
     def __init__(
         self,
         *,
@@ -271,9 +275,10 @@ class TaskContainerCreateRequest(google.protobuf.message.Message):
         network_access: modal_proto.api_pb2.NetworkAccess | None = ...,
         pty_info: modal_proto.api_pb2.PTYInfo | None = ...,
         memory_reserve_consume_mib: builtins.int | None = ...,
+        secret_sources: collections.abc.Iterable[modal_proto.api_pb2.SecretSource] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_memory_reserve_consume_mib", b"_memory_reserve_consume_mib", "_network_access", b"_network_access", "_pty_info", b"_pty_info", "memory_reserve_consume_mib", b"memory_reserve_consume_mib", "network_access", b"network_access", "pty_info", b"pty_info"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_memory_reserve_consume_mib", b"_memory_reserve_consume_mib", "_network_access", b"_network_access", "_pty_info", b"_pty_info", "args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "memory_reserve_consume_mib", b"memory_reserve_consume_mib", "network_access", b"network_access", "pty_info", b"pty_info", "secret_ids", b"secret_ids", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_memory_reserve_consume_mib", b"_memory_reserve_consume_mib", "_network_access", b"_network_access", "_pty_info", b"_pty_info", "args", b"args", "container_name", b"container_name", "env", b"env", "image_id", b"image_id", "memory_reserve_consume_mib", b"memory_reserve_consume_mib", "network_access", b"network_access", "pty_info", b"pty_info", "secret_ids", b"secret_ids", "secret_sources", b"secret_sources", "task_id", b"task_id", "volume_mounts", b"volume_mounts", "workdir", b"workdir"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_memory_reserve_consume_mib", b"_memory_reserve_consume_mib"]) -> typing_extensions.Literal["memory_reserve_consume_mib"] | None: ...
     @typing.overload
@@ -533,6 +538,7 @@ class TaskExecStartRequest(google.protobuf.message.Message):
     RUNTIME_DEBUG_FIELD_NUMBER: builtins.int
     CONTAINER_ID_FIELD_NUMBER: builtins.int
     ENV_FIELD_NUMBER: builtins.int
+    SECRET_SOURCES_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     """The ID of the task to execute the command in."""
     exec_id: builtins.str
@@ -568,6 +574,9 @@ class TaskExecStartRequest(google.protobuf.message.Message):
     @property
     def env(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
         """Environment variables to set directly for the exec'd command."""
+    @property
+    def secret_sources(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[modal_proto.api_pb2.SecretSource]:
+        """Applied in order. Cannot be combined with secret_ids or env."""
     def __init__(
         self,
         *,
@@ -583,9 +592,10 @@ class TaskExecStartRequest(google.protobuf.message.Message):
         runtime_debug: builtins.bool = ...,
         container_id: builtins.str = ...,
         env: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+        secret_sources: collections.abc.Iterable[modal_proto.api_pb2.SecretSource] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "pty_info", b"pty_info", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "command_args", b"command_args", "container_id", b"container_id", "env", b"env", "exec_id", b"exec_id", "pty_info", b"pty_info", "runtime_debug", b"runtime_debug", "secret_ids", b"secret_ids", "stderr_config", b"stderr_config", "stdout_config", b"stdout_config", "task_id", b"task_id", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_pty_info", b"_pty_info", "_timeout_secs", b"_timeout_secs", "_workdir", b"_workdir", "command_args", b"command_args", "container_id", b"container_id", "env", b"env", "exec_id", b"exec_id", "pty_info", b"pty_info", "runtime_debug", b"runtime_debug", "secret_ids", b"secret_ids", "secret_sources", b"secret_sources", "stderr_config", b"stderr_config", "stdout_config", b"stdout_config", "task_id", b"task_id", "timeout_secs", b"timeout_secs", "workdir", b"workdir"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_pty_info", b"_pty_info"]) -> typing_extensions.Literal["pty_info"] | None: ...
     @typing.overload

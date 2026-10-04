@@ -41,15 +41,15 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "build ==1.5.0",
-    "coverage[toml]==7.15.2",
-    "mypy==2.3.0",
-    "pre-commit==4.6.1",
+    "build==1.6.1",
+    "coverage[toml]==7.16.2",
+    "mypy==2.3.1",
+    "pre-commit==4.6.2",
     "pytest==9.1.1",
-    "tox==4.58.0",
+    "tox==4.64.4",
     "tox-uv==1.36.0",
     "twine==7.0.0",
-    "types-requests==2.33.0.20260712",
+    "types-requests==2.33.0.20260906",
 ]
 
 docs = [
@@ -91,6 +91,8 @@ filterwarnings = [
 markers = [
     "skipif_before_api_version(api_version): skips test for current api version",
     "skipif_after_api_version(api_version): skips test for current api version",
+    "offline: test inspects the library only and never talks to qBittorrent",
+    "no_sandbox: test deliberately leaves qBittorrent in an altered state",
 ]
 norecursedirs = "dist build .tox scripts"
 testpaths = ["tests"]

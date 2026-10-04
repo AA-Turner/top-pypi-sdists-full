@@ -17,7 +17,7 @@
 from collections.abc import Callable
 import dataclasses
 import functools
-from typing import Any, ClassVar, override
+from typing import Any, ClassVar, Final, override
 
 import immutabledict
 import jax
@@ -32,10 +32,13 @@ from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm100 as
 from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm80 as sm80
 from tokamax._src.ops.gated_linear_unit import pallas_mosaic_gpu_kernel_sm90 as sm90
 
-
 Residuals = base.Residuals
 Config = common.Config
 type Key = immutabledict.immutabledict[str, Any]
+
+_SUPPORTED_DTYPES: Final[frozenset[jnp.dtype]] = frozenset(
+    {jnp.dtype(jnp.bfloat16), jnp.dtype(jnp.float16)}
+)
 
 
 def _get_kernel_module():
@@ -45,7 +48,7 @@ def _get_kernel_module():
     return sm100
   if gpu_utils.is_sm90():
     return sm90
-  if gpu_utils.is_sm80():
+  if gpu_utils.is_sm80() and jax.__version_info__ >= (0, 11, 0):
     return sm80
   raise NotImplementedError("Only supported for sm80, sm90, and sm100 GPUs.")
 
@@ -59,7 +62,7 @@ class PallasMosaicGpuGatedLinearUnit(base.GatedLinearUnit[Config, Key]):
   @override
   def supported_on(self, device: jax.Device) -> bool:
     return (
-        gpu_utils.is_sm80(device)
+        (gpu_utils.is_sm80(device) and jax.__version_info__ >= (0, 11, 0))
         or gpu_utils.is_sm90(device)
         or gpu_utils.is_sm100(device)
     )
@@ -94,6 +97,11 @@ class PallasMosaicGpuGatedLinearUnit(base.GatedLinearUnit[Config, Key]):
 
     if not precision_lib.is_default(x.dtype, weights.dtype, precision):
       raise NotImplementedError(f"{precision=} is not supported.")
+
+    if jnp.dtype(x.dtype) not in _SUPPORTED_DTYPES:
+      raise NotImplementedError(
+          f"Mosaic GPU GLU only supports {_SUPPORTED_DTYPES}, got {x.dtype}."
+      )
 
     glu_fn = _get_kernel_module().gated_linear_unit
     fn = functools.partial(glu_fn, activation=activation, config=config)

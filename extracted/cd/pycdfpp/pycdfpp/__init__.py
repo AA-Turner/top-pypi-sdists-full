@@ -25,8 +25,8 @@ import warnings
 
 import numpy as np
 
-from ._pycdfpp import DataType, CompressionType, Majority, Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, \
-    epoch16
+from ._pycdfpp import DataType, CompressionType, Majority, SparseRecords, Encoding, Checksum, \
+    Variable, VariableAttribute, Attribute, CDF, tt2000_t, epoch, epoch16
 from . import _pycdfpp
 
 # ByteString is deprecated in Python 3.9+ and removed in Python 3.14
@@ -41,7 +41,8 @@ if sys.platform == 'win32' and sys.version_info[0] == 3 and sys.version_info[1] 
 __all__ = ['load', 'save', 'CDF', 'Variable', 'Attribute', 'VariableAttribute', 'filter_cdf',
            'to_datetime64', 'to_datetime', 'to_time_string', 'to_tt2000', 'to_epoch', 'to_epoch16',
            'tt2000_t', 'epoch', 'epoch16', 'default_fill_value', 'default_pad_value', 'to_dict_skeleton',
-           'DataType', 'CompressionType', 'Majority', 'ExperimentalCompressionWarning']
+           'DataType', 'CompressionType', 'Majority', 'SparseRecords', 'Encoding', 'Checksum',
+           'ExperimentalCompressionWarning']
 
 
 def __dir__():
@@ -172,15 +173,17 @@ def _values_view_and_type(values: np.ndarray or list, data_type: DataType or Non
     return values, data_type or _NUMPY_TO_CDF_TYPE_.get(values.dtype.num, DataType.CDF_NONE)
 
 
-def _strict_kwargs(arg_names):
+def _strict_kwargs(arg_names, keyword_only=()):
     """Decorator that maps positional args to named kwargs and rejects unknown kwargs.
 
     Parameters
     ----------
     arg_names : list of str
         Allowed keyword argument names, in positional order (excluding 'self').
+    keyword_only : list of str
+        Allowed keyword argument names that can't be passed positionally.
     """
-    allowed = set(arg_names)
+    allowed = set(arg_names) | set(keyword_only)
     def decorator(fn):
         @wraps(fn)
         def wrapper(self, *args, **kwargs):
@@ -301,21 +304,25 @@ def _patch_add_variable():
                               is_nrv: bool = False,
                               compression: CompressionType = CompressionType.no_compression,
                               attributes: Mapping[str, List[Any]] or None = None,
-                              copy: bool = True) -> Variable:
+                              copy: bool = True, *, compression_level: int = 6,
+                              sparse_records: SparseRecords = SparseRecords.no_sparse_records,
+                              pad_value=None) -> Variable:
         ...
 
     @overload
     def _add_variable_wrapper(self: CDF, variable: Variable) -> Variable:
         ...
 
-    @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'])
+    @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'],
+                    keyword_only=['compression_level', 'sparse_records', 'pad_value'])
     def _add_variable_wrapper(self, name=None, values=None, data_type=None,
                               is_nrv=False, compression=CompressionType.no_compression,
-                              attributes=None, copy=True) -> Variable:
+                              attributes=None, copy=True, *, compression_level=6,
+                              sparse_records=SparseRecords.no_sparse_records, pad_value=None) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records, pad_value=None)
         2. With a Variable object: add_variable(variable)
 
         Parameters
@@ -336,6 +343,14 @@ def _patch_add_variable():
         copy : bool, optional
             If False, the variable borrows the numpy array instead of copying it, see
             Variable.set_values. Saves the copy of big arrays. (Default is True)
+        compression_level : int, optional, keyword-only
+            The GZIP compression level, from 1 to 9, ignored by other compression types. (Default is 6)
+        sparse_records : SparseRecords, optional, keyword-only
+            How readers fill the records the file doesn't store, see Variable.sparse_records.
+            (Default is SparseRecords.no_sparse_records)
+        pad_value : optional, keyword-only
+            The value readers give the records the file doesn't store, see Variable.pad_value.
+            (Default is None: the file declares no pad value)
         variable : Variable
             An existing Variable object to add to the CDF (for the second calling method).
 
@@ -374,17 +389,24 @@ def _patch_add_variable():
         """
         if isinstance(name, Variable):
             return self._add_variable(variable=name)
-        var = self._add_variable(name, is_nrv=is_nrv, compression=compression)
-        if values is not None:
-            var.set_values(values, data_type, copy=copy)
-        elif data_type is not None:
-            var.set_values([], data_type)
-        if attributes is not None and var is not None:
-            for attr_name, attr_values in attributes.items():
-                var.add_attribute(attr_name, attr_values)
+        var = self._add_variable(name, is_nrv=is_nrv, compression=compression,
+                                 compression_level=compression_level)
+        var.sparse_records = sparse_records
+        _set_first_values(var, values, data_type, copy)
+        if pad_value is not None:
+            var.pad_value = pad_value
+        for attr_name, attr_values in (attributes or {}).items():
+            var.add_attribute(attr_name, attr_values)
         return var
 
     CDF.add_variable = _add_variable_wrapper
+
+
+def _set_first_values(var: Variable, values, data_type, copy):
+    if values is not None:
+        var.set_values(values, data_type, copy=copy)
+    elif data_type is not None:
+        var.set_values([], data_type)
 
 
 def _single_string(values: np.ndarray):
@@ -555,9 +577,10 @@ def _patch_add_cdf_attribute():
         if isinstance(name, Attribute):
             return self._add_attribute(attribute=name)
         entries_types = entries_types or [None] * len(entries_values)
-        v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
-                                       for values, data_type in zip(entries_values, entries_types)])]
-        return self._add_attribute(name=name, entries_values=v, entries_types=t)
+        entries = [_attribute_values_view_and_type(values, data_type)
+                   for values, data_type in zip(entries_values, entries_types)]
+        return self._add_attribute(name=name, entries_values=[v for v, _ in entries],
+                                   entries_types=[t for _, t in entries])
 
     CDF.add_attribute = _add_attribute_wrapper
 
@@ -655,6 +678,25 @@ _patch_set_values()
 _patch_add_variable()
 _patch_attribute_set_values()
 _patch_var_attribute_set_value()
+
+
+def _patch_pad_value():
+    def _get_pad_value(self: Variable):
+        return self._pad_value
+
+    def _set_pad_value(self: Variable, value):
+        if value is None:
+            self._clear_pad_value()
+        else:
+            self._set_pad_value(*_attribute_values_view_and_type(value, self.type))
+
+    Variable.pad_value = property(_get_pad_value, _set_pad_value, doc="""The value readers give
+        the records the file doesn't store (see sparse_records), or None when the file declares
+        none. It reads and is set like the value of an attribute of the variable's type, FILLVAL
+        for instance. Set it to None to remove it.""")
+
+
+_patch_pad_value()
 
 
 def filter_cdf(cdf: CDF,
@@ -870,8 +912,10 @@ def save(cdf: CDF, fname: Union[str, os.PathLike, None] = None):
     Returns
     -------
     bool or buffer
-        True when saving to a file; otherwise an object implementing the buffer protocol
-        (e.g. ``bytes(pycdfpp.save(cdf))``).
+        True when saving to a file; otherwise the file content, as a read-only object
+        implementing the buffer protocol: write it to a file object, wrap it in a memoryview or
+        load it again without any copy. ``bytes(pycdfpp.save(cdf))`` copies it, for APIs that
+        need a bytes object.
 
     Raises
     ------

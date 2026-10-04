@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bitcoinlib
-Version: 0.7.9
+Version: 0.7.10
 Summary: Bitcoin cryptocurrency Library
 Home-page: http://github.com/1200wd/bitcoinlib
 Author: 1200wd
@@ -31,12 +31,11 @@ Classifier: Topic :: Office/Business :: Financial :: Accounting
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: requests>=2.25.0
-Requires-Dist: fastecdsa>=2.3.2; platform_system != "Windows"
+Requires-Dist: fastecdsa<4.0.0,>=2.3.2; platform_system != "Windows"
 Requires-Dist: ecdsa>=0.18; platform_system == "Windows"
 Requires-Dist: pycryptodome>=3.20.0
 Requires-Dist: SQLAlchemy>=2.0.20
 Provides-Extra: dev
-Requires-Dist: scrypt>=0.9.0; platform_system != "Windows" and extra == "dev"
 Requires-Dist: sphinx>=7.1.0; python_version < "3.9" and extra == "dev"
 Requires-Dist: sphinx>=7.2.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: psycopg>=3.1.16; extra == "dev"

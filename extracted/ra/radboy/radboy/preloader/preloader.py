@@ -733,6 +733,11 @@ preloader={
 						'exec':inductance_pint
 					},
 	f'{uuid1()}':{
+						'cmds':['rcpl','reciprocalOf'],
+						'desc':f'return the reciprolal of a value',
+						'exec':lambda: rcpl(value=Control(ptext="What is the value to return the reciprocal of",helpText="a float or integer",data="float"))
+					},
+	f'{uuid1()}':{
 						'cmds':['required resonant LC inductance',],
 						'desc':f'find the resonant inductance for LC using L = 1 / (4π²f²C)',
 						'exec':resonant_inductance

@@ -91,5 +91,11 @@ def test_the_declared_field_count_the_plan_rests_on():
     visualization — all twinned in UnifiedConfigModel.
 
     99 since 2026-10-02: system_prompt_spans (where content blocks and <<MATRX>>
-    expansions sit inside the frozen prompt), twinned."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 99
+    expansions sit inside the frozen prompt), twinned.
+
+    101 since 2026-10-03: agent_auto_tools_disabled + agent_excluded_tools (the agent's
+    tool policy carried by the conversation so every later turn honors it), twinned.
+
+    103 since 2026-10-03: dynamic_tool_sources + dynamic_tools_withheld (the conversation's
+    sticky toolset, TOOL-SOURCES.md), twinned."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 103

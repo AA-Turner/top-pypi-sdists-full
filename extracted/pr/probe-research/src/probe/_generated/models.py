@@ -724,7 +724,8 @@ class MaxTokens(RootModel[int]):
 
 class CompanionErrorCode(StrEnum):
     """
-    `detail.code` on every refusal these routes make. Part of the wire contract.
+    `detail.code` (`error.code` on `/chat/completions`) on every refusal
+    these routes make. Part of the wire contract.
     """
 
     companion_disabled = 'companion_disabled'
@@ -733,6 +734,10 @@ class CompanionErrorCode(StrEnum):
     budget_exhausted = 'budget_exhausted'
     rate_limited = 'rate_limited'
     gateway_upstream = 'gateway_upstream'
+    invalid_request = 'invalid_request'
+    model_not_allowed = 'model_not_allowed'
+    stream_unsupported = 'stream_unsupported'
+    gateway_timeout = 'gateway_timeout'
 
 
 class CompanionErrorDetail(BaseModel):
@@ -763,6 +768,19 @@ class CompanionMessage(BaseModel):
 class CompanionUsage(BaseModel):
     input_tokens: int = Field(..., title='Input Tokens')
     output_tokens: int = Field(..., title='Output Tokens')
+
+
+class Completeness(BaseModel):
+    not_reconfirmed_citers: int | None = Field(0, title='Not Reconfirmed Citers')
+    primaries_pending: int | None = Field(0, title='Primaries Pending')
+    primaries_returned: int | None = Field(0, title='Primaries Returned')
+    primaries_total: int | None = Field(0, title='Primaries Total')
+    primaries_without_id: int | None = Field(0, title='Primaries Without Id')
+    suggested_candidates: int | None = Field(0, title='Suggested Candidates')
+    suggested_returned: int | None = Field(0, title='Suggested Returned')
+    truncated: bool | None = Field(False, title='Truncated')
+    unchecked_citers: int | None = Field(0, title='Unchecked Citers')
+    unresolved_references: int | None = Field(0, title='Unresolved References')
 
 
 class Op(StrEnum):
@@ -967,6 +985,11 @@ class DeviceTokenExchange(BaseModel):
     device_code: str = Field(..., max_length=256, min_length=32, title='Device Code')
 
 
+class Direction(StrEnum):
+    reference = 'reference'
+    citer = 'citer'
+
+
 class DisconnectReason(StrEnum):
     """
     Why a capture device's credential was revoked (`client.device_disconnected`).
@@ -1037,6 +1060,18 @@ class EventOut(BaseModel):
     payload: dict[str, Any] | None = Field(None, title='Payload')
     subject_id: UUID | None = Field(None, title='Subject Id')
     subject_type: str | None = Field(None, title='Subject Type')
+
+
+class Evidence(BaseModel):
+    confirmed_at: AwareDatetime = Field(..., title='Confirmed At')
+    direction: Direction
+    fetched_at: AwareDatetime = Field(..., title='Fetched At')
+    list_owner_key: str = Field(..., title='List Owner Key')
+    list_source: str = Field(..., title='List Source')
+    list_url: str = Field(..., title='List Url')
+    ordinal: int = Field(..., title='Ordinal')
+    raw_reference: str | None = Field(None, title='Raw Reference')
+    resolution: str = Field(..., title='Resolution')
 
 
 class ExecutionRecordCreate(BaseModel):
@@ -1342,6 +1377,13 @@ class GrantLevel(StrEnum):
 
     view = 'view'
     edit = 'edit'
+
+
+class GraphState(StrEnum):
+    ok = 'ok'
+    partial = 'partial'
+    pending = 'pending'
+    disabled = 'disabled'
 
 
 class GroupedPoint(BaseModel):
@@ -1998,6 +2040,11 @@ class ExpectedRevision(RootModel[int]):
 class MirrorSource(StrEnum):
     wandb = 'wandb'
     benchling = 'benchling'
+
+
+class NodeKind(StrEnum):
+    primary = 'primary'
+    suggested = 'suggested'
 
 
 class NoteKind(StrEnum):
@@ -2676,7 +2723,7 @@ class ProjectKind(StrEnum):
     """
 
     training = 'training'
-    inference = 'inference'
+    evaluation = 'evaluation'
     research = 'research'
     general = 'general'
     experiment = 'experiment'
@@ -3233,6 +3280,15 @@ class ReferenceDirection(StrEnum):
 
     outgoing = 'outgoing'
     incoming = 'incoming'
+
+
+class Relation(StrEnum):
+    """
+    Closed: these two and nothing else.
+    """
+
+    cites = 'cites'
+    discovered_via = 'discovered_via'
 
 
 class ReleaseRow(BaseModel):
@@ -4336,6 +4392,24 @@ class SyncState(StrEnum):
     error = 'error'
 
 
+class SyncSummary(BaseModel):
+    citers: str | None = Field('pending', title='Citers')
+    citers_capped: int | None = Field(None, title='Citers Capped')
+    citers_fetched_at: AwareDatetime | None = Field(None, title='Citers Fetched At')
+    citers_nominated: int | None = Field(None, title='Citers Nominated')
+    citers_not_reconfirmed: int | None = Field(None, title='Citers Not Reconfirmed')
+    citers_proven: int | None = Field(None, title='Citers Proven')
+    citers_unchecked: int | None = Field(None, title='Citers Unchecked')
+    identity: str | None = Field(None, title='Identity')
+    references: str | None = Field('pending', title='References')
+    references_fetched_at: AwareDatetime | None = Field(
+        None, title='References Fetched At'
+    )
+    references_linked: int | None = Field(None, title='References Linked')
+    references_total: int | None = Field(None, title='References Total')
+    stale: bool | None = Field(False, title='Stale')
+
+
 class TeamCreate(BaseModel):
     """
     POST /auth/teams. `slug` format/uniqueness is validated
@@ -4701,6 +4775,13 @@ class UnitStatus(StrEnum):
     completed = 'completed'
     failed = 'failed'
     dead = 'dead'
+
+
+class UnresolvedReference(BaseModel):
+    list_owner_key: str = Field(..., title='List Owner Key')
+    ordinal: int = Field(..., title='Ordinal')
+    raw_reference: str | None = Field(None, title='Raw Reference')
+    reason: str | None = Field(None, title='Reason')
 
 
 class UploadGcRequest(BaseModel):
@@ -5390,6 +5471,26 @@ class ChartSettingsRowsOut(BaseModel):
     rows: list[ChartSettingsOut] = Field(..., title='Rows')
 
 
+class CitationLinkOut(BaseModel):
+    authors: list[str] | None = Field(None, title='Authors')
+    cited_by_count: int | None = Field(None, title='Cited By Count')
+    confirmed_at: AwareDatetime = Field(..., title='Confirmed At')
+    detail: dict[str, Any] | None = Field(None, title='Detail')
+    direction: Direction
+    entry_key: str | None = Field(None, title='Entry Key')
+    fetched_at: AwareDatetime = Field(..., title='Fetched At')
+    list_owner_key: str = Field(..., title='List Owner Key')
+    list_source: str = Field(..., title='List Source')
+    list_url: str = Field(..., title='List Url')
+    ordinal: int = Field(..., title='Ordinal')
+    raw_reference: str | None = Field(None, title='Raw Reference')
+    resolution: str = Field(..., title='Resolution')
+    title: str | None = Field(None, title='Title')
+    venue: str | None = Field(None, title='Venue')
+    work_key: str | None = Field(None, title='Work Key')
+    year: int | None = Field(None, title='Year')
+
+
 class ClientStatusOut(BaseModel):
     """
     Server-side update-banner decision for the authenticated user.
@@ -5476,6 +5577,16 @@ class CommitsPage(BaseModel):
     reason: CodeUnavailableReason | None = None
     source: CodeSourceOut | None = None
     state: TimelineState
+
+
+class CompanionAvailabilityOut(BaseModel):
+    """
+    Whether this team may use the Probe daemon, and if not, why.
+    """
+
+    available: bool = Field(..., title='Available')
+    code: CompanionErrorCode | None = None
+    message: str | None = Field(None, title='Message')
 
 
 class CompanionCompleteIn(BaseModel):
@@ -5877,6 +5988,34 @@ class GitHubRepositoriesOut(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
+class GraphEdge(BaseModel):
+    edge_id: UUID | None = Field(None, title='Edge Id')
+    evidence: list[Evidence] | None = Field(None, title='Evidence')
+    provenance: str | None = Field(None, title='Provenance')
+    reason: str | None = Field(None, title='Reason')
+    relation: Relation
+    source: str = Field(..., title='Source')
+    target: str = Field(..., title='Target')
+
+
+class GraphNode(BaseModel):
+    authors: list[str] | None = Field(None, title='Authors')
+    cited_by_count: int | None = Field(None, title='Cited By Count')
+    id: str = Field(..., title='Id')
+    keys: list[str] | None = Field(None, title='Keys')
+    kind: NodeKind
+    linked_primaries: int | None = Field(None, title='Linked Primaries')
+    paper_id: UUID | None = Field(None, title='Paper Id')
+    sync: SyncSummary | None = None
+    title: str | None = Field(None, title='Title')
+    unresolved_references: list[UnresolvedReference] | None = Field(
+        None, title='Unresolved References'
+    )
+    url: str | None = Field(None, title='Url')
+    venue: str | None = Field(None, title='Venue')
+    year: int | None = Field(None, title='Year')
+
+
 class HTTPValidationError(BaseModel):
     detail: list[ValidationError] | None = Field(None, title='Detail')
 
@@ -6179,6 +6318,16 @@ class OnboardingProgressRequest(BaseModel):
     )
     flow: OnboardingFlow
     step: OnboardingStep
+
+
+class PaperCitationsOut(BaseModel):
+    keys: list[str] | None = Field(None, title='Keys')
+    links: list[CitationLinkOut] | None = Field(None, title='Links')
+    paper_id: UUID = Field(..., title='Paper Id')
+    reference_lists: list[dict[str, Any]] | None = Field(None, title='Reference Lists')
+    state: GraphState
+    sync: SyncSummary | None = None
+    truncated: bool | None = Field(False, title='Truncated')
 
 
 class PaperLineageIn(BaseModel):
@@ -7046,6 +7195,14 @@ class BrowseResponse(BaseModel):
     subprojects: list[ProjectNode] | None = Field(None, title='Subprojects')
     team_note: TeamNoteExcerpt | None = None
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class CitationGraphOut(BaseModel):
+    completeness: Completeness | None = None
+    edges: list[GraphEdge] | None = Field(None, title='Edges')
+    nodes: list[GraphNode] | None = Field(None, title='Nodes')
+    project_id: UUID = Field(..., title='Project Id')
+    state: GraphState
 
 
 class ClientInstallationOut(BaseModel):

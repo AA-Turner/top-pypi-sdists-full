@@ -171,6 +171,7 @@ nav:
           - Full-Chain Lock-Up: gallery/receiver-lock.md
           - DsssReceiver (Composed Object): gallery/dsss-receiver.md
           - DsssBurstReceiver (Composed Burst Chain): gallery/dsss-burst-receiver.md
+          - "A Message Over DSSS, Received and Deframed": gallery/data-source-link.md
           - "AsyncDsssReceiver: the SPEC Waveform": gallery/async-dsss-receiver-spec.md
           - "AsyncDsssPool: the population's lifecycle": gallery/async-dsss-pool.md
           - "CarrierAcquisition: RRC Pulse Shaping": gallery/carrier-acq-rrc.md
@@ -189,6 +190,7 @@ nav:
           - M-PSK Receiver: gallery/mpsk-receiver.md
           - "M-PSK Receiver: Performance": gallery/mpsk-receiver-performance.md
           - "M-PSK Receiver: Doppler Profile": gallery/mpsk-doppler-profile.md
+          - "A Framed Link, Checked by Its Description": gallery/framed-link.md
       - Measurement:
           - Measurement Suite: gallery/measure.md
           - "Measurement Suite: IMD & NPR": gallery/measure-imd-npr.md
@@ -265,6 +267,7 @@ nav:
       - Quantization: design/QUANTIZATION.md
       - CIC Decimator: design/cic.md
       - Measurement Suite: design/measurement-suite.md
+      - Spectrum Analyzer: design/specan.md
       - State Serialization: design/state-serialization.md
       - Telemetry: design/telemetry.md
       - Streaming: design/streaming.md

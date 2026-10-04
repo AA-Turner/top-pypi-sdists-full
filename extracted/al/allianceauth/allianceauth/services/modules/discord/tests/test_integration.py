@@ -605,6 +605,72 @@ class TestUserFeatures(WebTest):
 
     @patch(MODULE_PATH + '.views.messages', spec=True)
     @patch(MODULE_PATH + '.managers.OAuth2Session', spec=True)
+    def test_should_activate_existing_user_with_unchanged_roles_and_keep_managed_and_reserved_roles(
+        self, requests_mocker, mock_OAuth2Session, mock_messages
+    ):
+        # setup
+        requests_mocker.get(
+            guild_infos_request.url, json=create_discord_guild_object()
+        )
+        requests_mocker.get(
+            user_get_current_request.url, json=create_discord_user_object()
+        )
+        requests_mocker.get(
+            guild_roles_request.url, json=[
+                ROLE_ALPHA, ROLE_CHARLIE, ROLE_MEMBER, ROLE_MIKE
+            ]
+        )
+        requests_mocker.get(
+            guild_member_request.url,
+            json=create_discord_guild_member_object(roles=[3, 13, 99])
+        )
+        requests_mocker.patch(modify_guild_member_request.url, status_code=204)
+        ReservedGroupName.objects.create(
+            name="charlie", reason="dummy", created_by="xyz"
+        )
+
+        authentication_code = 'auth_code'
+        oauth_url = 'https://www.example.com/oauth'
+        state = ''
+        mock_OAuth2Session.return_value.authorization_url.return_value = \
+            oauth_url, state
+
+        # login
+        self.app.set_user(self.member)
+
+        # user opens services page
+        services_page = self.app.get(reverse('services:services'))
+        self.assertEqual(services_page.status_code, 200)
+
+        # user clicks Discord service activation link on page
+        response = services_page.click(href=reverse('discord:activate'))
+
+        # check we got a redirect to Discord OAuth
+        self.assertRedirects(
+            response, expected_url=oauth_url, fetch_redirect_response=False
+        )
+
+        # simulate Discord callback
+        response = self.app.get(
+            reverse('discord:callback'), params={'code': authentication_code}
+        )
+
+        # user got a success message
+        self.assertTrue(mock_messages.success.called)
+        self.assertFalse(mock_messages.error.called)
+
+        my_request = None
+        for r in requests_mocker.request_history:
+            obj = DiscordRequest(r.method, r.url, r.text)
+            if obj == modify_guild_member_request:
+                my_request = obj
+                break
+        else:
+            self.fail("Request not found")
+        self.assertSetEqual(set(my_request.json()["roles"]), {3, 13, 99})
+
+    @patch(MODULE_PATH + '.views.messages', spec=True)
+    @patch(MODULE_PATH + '.managers.OAuth2Session', spec=True)
     def test_user_activation_failed(
         self, requests_mocker, mock_OAuth2Session, mock_messages
     ):

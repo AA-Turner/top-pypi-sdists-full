@@ -22,6 +22,13 @@ _STRUCTURED_BLOCKED_REASON_PRELUDE = (
 
 
 def build_extension_source_body(*, harness: str, display_name: str) -> str:
+    # The shared approval source is frozen for previous-extension matching.
+    # Only current extensions opt out of reusing a retiring daemon socket.
+    approval_helpers = APPROVAL_RESUME_HELPERS_SOURCE.replace(
+        "headers: { 'X-Guard-Token': connection.authToken },",
+        "headers: { 'X-Guard-Token': connection.authToken, 'Connection': 'close' },",
+        1,
+    )
     return (
         "type GuardDaemonConnection = { port: number; authToken: string };\n" + "type GuardDaemonAttempt = {\n"  # pyright: ignore[reportImplicitStringConcatenation]
         "  response: GuardResponse | null;\n"
@@ -140,6 +147,8 @@ def build_extension_source_body(*, harness: str, display_name: str) -> str:
         "      headers: {\n"
         "        'Content-Type': 'application/json',\n"
         "        'X-Guard-Token': connection.authToken,\n"
+        "        // The local daemon closes each response; never reuse a retiring socket.\n"
+        "        'Connection': 'close',\n"
         "      },\n"
         "      body: daemonPayload,\n"
         "      signal: controller?.signal,\n"
@@ -214,12 +223,38 @@ def build_extension_source_body(*, harness: str, display_name: str) -> str:
         "  const args = [...GUARD_ARGS];\n"
         '  const workspace = typeof cwd === "string" && cwd ? cwd : process.cwd();\n'
         '  if (workspace) args.push("--workspace", workspace);\n'
-        "  let payloadToSend = payload;\n"
+        "  const activeEnvironment = Object.create(null);\n"
+        "  for (const [name, value] of Object.entries(process.env)) {\n"
+        "    if (typeof value === 'string' && value.length > 0) activeEnvironment[name] = value;\n"
+        "  }\n"
+        "  const environmentNames = Object.keys(activeEnvironment).sort();\n"
+        "  const canonicalEnvironment = JSON.stringify(\n"
+        "    Object.fromEntries(environmentNames.map((name) => [name, activeEnvironment[name]])),\n"
+        "  )?.replace(/[^\\x00-\\x7F]/g, (character) =>\n"
+        "    `\\\\u${character.charCodeAt(0).toString(16).padStart(4, '0')}`,\n"
+        "  ) ?? '';\n"
+        "  let payloadToSend = {\n"
+        "    ...payload,\n"
+        "    guard_execution_environment: {\n"
+        "      path: typeof process.env.PATH === 'string' ? process.env.PATH : '',\n"
+        "      environment_names: environmentNames,\n"
+        "      environment_digest: createHash('sha256').update(canonicalEnvironment, 'utf8').digest('hex'),\n"
+        "      xdg_config_home: typeof process.env.XDG_CONFIG_HOME === 'string' &&\n"
+        "        process.env.XDG_CONFIG_HOME.length > 0\n"
+        "        ? process.env.XDG_CONFIG_HOME\n"
+        "        : null,\n"
+        "      git_config_no_system: typeof process.env.GIT_CONFIG_NOSYSTEM === 'string' &&\n"
+        "        ['1', 'true', 'yes', 'on'].includes(process.env.GIT_CONFIG_NOSYSTEM.toLowerCase()),\n"
+        "      home: typeof process.env.HOME === 'string' ? process.env.HOME : null,\n"
+        "      git_pager_disabled: process.env.GIT_PAGER === '' || process.env.GIT_PAGER === 'cat',\n"
+        "      pager_disabled: process.env.PAGER === '' || process.env.PAGER === 'cat',\n"
+        "    },\n"
+        "  };\n"
         "  let serializedPayload = '';\n"
         "  let cleanupPayloadReference = () => {};\n"
         "  if (\n"
         "    options?.enforceSizeCap === true &&\n"
-        "    !payloadWithinSerializedBudget(payload, deadlineAt)\n"
+        "    !payloadWithinSerializedBudget(payloadToSend, deadlineAt)\n"
         "  ) {\n"
         "    return {\n"
         '      decision: "deny",\n'
@@ -247,7 +282,7 @@ def build_extension_source_body(*, harness: str, display_name: str) -> str:
         "  if (isError) result.isError = true;\n"
         "  return result;\n"
         "}\n"
-        "\n" + APPROVAL_RESUME_HELPERS_SOURCE + "export default function (pi: ExtensionAPI) {\n"  # pyright: ignore[reportImplicitStringConcatenation]
+        "\n" + approval_helpers + "export default function (pi: ExtensionAPI) {\n"  # pyright: ignore[reportImplicitStringConcatenation]
         "  const blockedToolResults = new Map<string, string>();\n"
         "  type InputApprovalResumeBinding = {\n"
         "    generation: number;\n"

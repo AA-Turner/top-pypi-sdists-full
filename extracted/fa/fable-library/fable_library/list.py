@@ -499,12 +499,12 @@ def unfold[STATE, T](generator: Callable[[STATE], tuple[T, STATE] | None], state
             if match_value is not None:
                 acc_mut = match_value[1]
 
-                def _arrow31(match_value: tuple[T, STATE], node: Any = node) -> FSharpList[T]:
+                def _arrow42(match_value: tuple[T, STATE], node: Any = node) -> FSharpList[T]:
                     t: FSharpList[Any] = FSharpList(match_value[0], None)
                     node.tail_ = t
                     return t
 
-                node_mut = _arrow31(match_value)
+                node_mut = _arrow42(match_value)
                 continue
 
             else:
@@ -520,33 +520,33 @@ def unfold[STATE, T](generator: Callable[[STATE], tuple[T, STATE] | None], state
 
 
 def iterate[_A](action: Callable[[_A], None], xs: FSharpList[_A]) -> None:
-    def _arrow32(unit_var: None, x: _A, action: Any = action) -> None:
+    def _arrow43(unit_var: None, x: _A, action: Any = action) -> None:
         action(x)
 
-    fold(_arrow32, None, xs)
+    fold(_arrow43, None, xs)
 
 
 def iterate2[_A, _B](action: Callable[[_A, _B], None], xs: FSharpList[_A], ys: FSharpList[_B]) -> None:
-    def _arrow33(unit_var: None, x: _A, y: _B, action: Any = action) -> None:
+    def _arrow44(unit_var: None, x: _A, y: _B, action: Any = action) -> None:
         action(x, y)
 
-    fold2(_arrow33, None, xs, ys)
+    fold2(_arrow44, None, xs, ys)
 
 
 def iterate_indexed[_A](action: Callable[[int, _A], None], xs: FSharpList[_A]) -> None:
-    def _arrow34(i: int, x: _A, action: Any = action) -> int:
+    def _arrow45(i: int, x: _A, action: Any = action) -> int:
         action(i, x)
         return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold(_arrow34, 0, xs))
+    ignore(fold(_arrow45, 0, xs))
 
 
 def iterate_indexed2[_A, _B](action: Callable[[int, _A, _B], None], xs: FSharpList[_A], ys: FSharpList[_B]) -> None:
-    def _arrow35(i: int, x: _A, y: _B, action: Any = action) -> int:
+    def _arrow46(i: int, x: _A, y: _B, action: Any = action) -> int:
         action(i, x, y)
         return (i + 1) if (i <= 2147483646) else int32(i + 1)
 
-    ignore(fold2(_arrow35, 0, xs, ys))
+    ignore(fold2(_arrow46, 0, xs, ys))
 
 
 def to_seq[T](xs: FSharpList[T]) -> IEnumerable_1[T]:
@@ -872,10 +872,10 @@ def pick[_A, _B](f: Callable[[_A], Option[_B]], xs: FSharpList[_A]) -> _B:
 
 
 def try_find[_A](f: Callable[[_A], bool], xs: FSharpList[_A]) -> Option[_A]:
-    def _arrow57(x: _A = UNIT, f: Any = f) -> Option[_A]:
+    def _arrow59(x: _A = UNIT, f: Any = f) -> Option[_A]:
         return some(x) if f(x) else None
 
-    return try_pick(_arrow57, xs)
+    return try_pick(_arrow59, xs)
 
 
 def find[_A](f: Callable[[_A], bool], xs: FSharpList[_A]) -> _A:
@@ -998,21 +998,21 @@ def partition[T](f: Callable[[T], bool], xs: FSharpList[T]) -> tuple[FSharpList[
         racc: FSharpList[Any] = tupled_arg[1]
         if f(x):
 
-            def _arrow58(x: Any = x) -> FSharpList[T]:
+            def _arrow66(x: Any = x) -> FSharpList[T]:
                 t: FSharpList[Any] = FSharpList(x, None)
                 lacc.tail_ = t
                 return t
 
-            return (_arrow58(), racc)
+            return (_arrow66(), racc)
 
         else:
 
-            def _arrow59(x: Any = x) -> FSharpList[T]:
+            def _arrow67(x: Any = x) -> FSharpList[T]:
                 t_2: FSharpList[Any] = FSharpList(x, None)
                 racc.tail_ = t_2
                 return t_2
 
-            return (lacc, _arrow59())
+            return (lacc, _arrow67())
 
     pattern_input_1: tuple[FSharpList[Any], FSharpList[Any]] = fold(folder, (root1, root2), xs)
     t_4: FSharpList[Any] = FSharpList_get_Empty()
@@ -1042,10 +1042,10 @@ def choose[T, U](f: Callable[[T], Option[U]], xs: FSharpList[T]) -> FSharpList[U
 
 
 def contains[T](value: T, xs: FSharpList[T], eq: IEqualityComparer_1[Any]) -> bool:
-    def _arrow60(v: T = UNIT, value: Any = value, eq: Any = eq) -> bool:
+    def _arrow68(v: T = UNIT, value: Any = value, eq: Any = eq) -> bool:
         return eq.Equals(value, v)
 
-    return try_find_index(_arrow60, xs) is not None
+    return try_find_index(_arrow68, xs) is not None
 
 
 def initialize[T](n: int, f: Callable[[int], T]) -> FSharpList[T]:
@@ -1053,13 +1053,13 @@ def initialize[T](n: int, f: Callable[[int], T]) -> FSharpList[T]:
     node: FSharpList[Any] = root
     for i in range(0, (n - 1) if (n >= -2147483647) else int32(n - 1), 1):
 
-        def _arrow61(f: Any = f) -> FSharpList[T]:
+        def _arrow69(f: Any = f) -> FSharpList[T]:
             xs: FSharpList[Any] = node
             t: FSharpList[Any] = FSharpList(f(i), None)
             xs.tail_ = t
             return t
 
-        node = _arrow61()
+        node = _arrow69()
     xs_2: FSharpList[Any] = node
     t_2: FSharpList[Any] = FSharpList_get_Empty()
     xs_2.tail_ = t_2
@@ -1067,10 +1067,10 @@ def initialize[T](n: int, f: Callable[[int], T]) -> FSharpList[T]:
 
 
 def replicate[_A](n: int, x: _A) -> FSharpList[_A]:
-    def _arrow62(_arg: int, x: Any = x) -> _A:
+    def _arrow70(_arg: int, x: Any = x) -> _A:
         return x
 
-    return initialize(n, _arrow62)
+    return initialize(n, _arrow70)
 
 
 def reduce[T](f: Callable[[T, T], T], xs: FSharpList[T]) -> T:
@@ -1090,17 +1090,17 @@ def reduce_back[T](f: Callable[[T, T], T], xs: FSharpList[T]) -> T:
 
 
 def for_all[_A](f: Callable[[_A], bool], xs: FSharpList[_A]) -> bool:
-    def _arrow65(acc: bool, x: _A, f: Any = f) -> bool:
+    def _arrow71(acc: bool, x: _A, f: Any = f) -> bool:
         return f(x) if acc else False
 
-    return fold(_arrow65, True, xs)
+    return fold(_arrow71, True, xs)
 
 
 def for_all2[_A, _B](f: Callable[[_A, _B], bool], xs: FSharpList[_A], ys: FSharpList[_B]) -> bool:
-    def _arrow66(acc: bool, x: _A, y: _B, f: Any = f) -> bool:
+    def _arrow72(acc: bool, x: _A, y: _B, f: Any = f) -> bool:
         return f(x, y) if acc else False
 
-    return fold2(_arrow66, True, xs, ys)
+    return fold2(_arrow72, True, xs, ys)
 
 
 def exists[_A](f: Callable[[_A], bool], xs: FSharpList[_A]) -> bool:

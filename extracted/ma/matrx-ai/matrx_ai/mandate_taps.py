@@ -1,6 +1,6 @@
 """Mandate-candidate taps — the host seam that lets a HOST observe real mandate runs.
 
-A mandate *candidate* (common-docs/projects/mandate-candidates/PLAN.md) re-runs a
+A mandate *candidate* (common-docs/systems/intelligence/mandates/projects/mandate-candidates/REGISTER.md) re-runs a
 real mandate run through a different Holder in the background. To do that the
 host must see each real run: its input BEFORE the door mutates it, the ids it
 ran under, the exact model-facing result of every tool call (so the candidate

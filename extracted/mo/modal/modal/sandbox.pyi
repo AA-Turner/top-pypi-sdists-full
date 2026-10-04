@@ -466,6 +466,7 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
+    async def _v2_metadata(self, client: typing.Optional[modal.client._Client] = None) -> list[tuple[str, str]]: ...
     def _get_metadata(self) -> modal_proto.api_pb2.SandboxHandleMetadata: ...
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]) -> None: ...
     def _hydrate_metadata_v2(self) -> None:
@@ -1297,6 +1298,8 @@ class _SidecarManager:
         ] = None,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        include_oidc_identity_token: bool = False,
+        proxy: typing.Optional[modal.proxy._Proxy] = None,
         pty: bool = False,
         experimental_memory_reserve_consume_mib: typing.Optional[int] = None,
     ) -> _SidecarContainer:
@@ -1326,6 +1329,11 @@ class _SidecarManager:
                 main container.
             outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                 443) to these SNI domains. Supports wildcards like ``*.example.com``.
+            include_oidc_identity_token: If True, the sidecar receives a MODAL_IDENTITY_TOKEN env var for
+                OIDC-based auth (e.g. to AWS, GCP). The token identifies the sidecar container itself,
+                not the main container. Not supported for GPU Sandboxes.
+            proxy: Reference to a Modal Proxy to use in front of this sidecar. Not supported for GPU
+                Sandboxes.
             pty: Whether to enable PTY for the sidecar container.
             experimental_memory_reserve_consume_mib: Memory, in MiB, this sidecar consumes from the Sandbox's
                 sidecar memory reserve (the experimental `vm_sidecar_memory_reserve_mib` option).
@@ -1777,6 +1785,8 @@ class SidecarManager:
             ] = None,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            include_oidc_identity_token: bool = False,
+            proxy: typing.Optional[modal.proxy.Proxy] = None,
             pty: bool = False,
             experimental_memory_reserve_consume_mib: typing.Optional[int] = None,
         ) -> SidecarContainer:
@@ -1806,6 +1816,11 @@ class SidecarManager:
                     main container.
                 outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                     443) to these SNI domains. Supports wildcards like ``*.example.com``.
+                include_oidc_identity_token: If True, the sidecar receives a MODAL_IDENTITY_TOKEN env var for
+                    OIDC-based auth (e.g. to AWS, GCP). The token identifies the sidecar container itself,
+                    not the main container. Not supported for GPU Sandboxes.
+                proxy: Reference to a Modal Proxy to use in front of this sidecar. Not supported for GPU
+                    Sandboxes.
                 pty: Whether to enable PTY for the sidecar container.
                 experimental_memory_reserve_consume_mib: Memory, in MiB, this sidecar consumes from the Sandbox's
                     sidecar memory reserve (the experimental `vm_sidecar_memory_reserve_mib` option).
@@ -1834,6 +1849,8 @@ class SidecarManager:
             ] = None,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            include_oidc_identity_token: bool = False,
+            proxy: typing.Optional[modal.proxy.Proxy] = None,
             pty: bool = False,
             experimental_memory_reserve_consume_mib: typing.Optional[int] = None,
         ) -> SidecarContainer:
@@ -1863,6 +1880,11 @@ class SidecarManager:
                     main container.
                 outbound_domain_allowlist: If set, restrict the sidecar's outbound TLS connections (port
                     443) to these SNI domains. Supports wildcards like ``*.example.com``.
+                include_oidc_identity_token: If True, the sidecar receives a MODAL_IDENTITY_TOKEN env var for
+                    OIDC-based auth (e.g. to AWS, GCP). The token identifies the sidecar container itself,
+                    not the main container. Not supported for GPU Sandboxes.
+                proxy: Reference to a Modal Proxy to use in front of this sidecar. Not supported for GPU
+                    Sandboxes.
                 pty: Whether to enable PTY for the sidecar container.
                 experimental_memory_reserve_consume_mib: Memory, in MiB, this sidecar consumes from the Sandbox's
                     sidecar memory reserve (the experimental `vm_sidecar_memory_reserve_mib` option).
@@ -2470,6 +2492,12 @@ class Sandbox(modal.object.Object):
             ...
 
     _experimental_create: typing.ClassVar[___experimental_create_spec]
+
+    class ___v2_metadata_spec(typing_extensions.Protocol):
+        def __call__(self, /, client: typing.Optional[modal.client.Client] = None) -> list[tuple[str, str]]: ...
+        async def aio(self, /, client: typing.Optional[modal.client.Client] = None) -> list[tuple[str, str]]: ...
+
+    _v2_metadata: ___v2_metadata_spec
 
     def _get_metadata(self) -> modal_proto.api_pb2.SandboxHandleMetadata: ...
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]) -> None: ...

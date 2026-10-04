@@ -10220,3 +10220,14 @@ def toRounded(actual,bldlse):
         if bldlse:
             logInput(msg,user=False,filter_colors=True,maxed_hfl=False,ofile=Prompt.bld_file)
     return msg
+
+
+def reciprocalOf(value):
+    try:
+        v=1/value
+        return v
+    except Exception as e:
+        print(e)
+        return value
+
+rcpl=reciprocalOf

@@ -1365,6 +1365,55 @@ def test_project_move_detaches_with_top_level(wired, capsys):
     assert child.get("parent_project_id") is None
 
 
+# --- Track E: the `inference` kind is now `evaluation` (2026-10-04) ----------
+@pytest.mark.parametrize("typed", ["evaluation", "inference"])
+def test_project_create_sends_evaluation_for_either_spelling(wired, capsys, typed):
+    """`evaluation` is the kind. `inference` is still ACCEPTED -- installed
+    skills and agents' habits type it, and the server bridges it forever -- but
+    the CLI translates it, so the wire only ever carries the canonical word."""
+    assert cli.main(["project", "create", "--kind", typed, f"sweep-{typed}"]) == 0
+    sent = json.loads(wired.requests[-1].content)
+    assert sent["kind"] == "evaluation"
+
+
+@pytest.mark.parametrize("typed", ["evaluation", "inference"])
+def test_project_move_kind_sends_evaluation_for_either_spelling(wired, capsys, typed):
+    cli.main(["project", "create", "--kind", "general", "relabel"])
+    capsys.readouterr()
+    assert cli.main(["project", "move", "relabel", "--top-level", "--kind", typed]) == 0
+    request = wired.requests[-1]
+    assert request.method == "PATCH"
+    assert json.loads(request.content)["kind"] == "evaluation"
+
+
+def test_the_old_kind_spelling_is_accepted_but_never_offered(capsys):
+    """The alias is hidden: the choice list (what help, completion and the
+    assistant's synopsis read) and a usage error name the canonical five only.
+    A slug that happens to be the old word is NOT translated -- only the
+    `--kind` value is."""
+    import typer
+
+    root = typer.main.get_command(cli.app)
+    ctx = root.context_class(root, info_name="probe")
+    project = root.get_command(ctx, "project")
+    canonical = ["training", "evaluation", "research", "general", "experiment"]
+    for name in ("create", "move"):
+        command = project.get_command(ctx, name)
+        kind = next(p for p in command.params if p.name == "kind")
+        assert [str(c) for c in kind.type.choices] == canonical, name
+
+    leaf = project.get_command(ctx, "create").make_context(
+        "probe project create", ["inference", "--kind", "inference"]
+    )
+    assert leaf.params["slug"] == "inference"
+    assert leaf.params["kind"] == "evaluation"
+
+    assert cli.main(["project", "create", "x", "--kind", "bogus"]) != 0
+    err = capsys.readouterr().err
+    assert "'evaluation'" in err
+    assert "'inference'" not in err
+
+
 def test_workspace_create_makes_a_team_workspace_and_leaves_the_default_alone(
     wired, capsys
 ):

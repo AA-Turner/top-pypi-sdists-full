@@ -4,7 +4,6 @@ import struct
 from typing import Any
 
 import pytest
-from datetime import datetime
 
 from snap7.s7protocol import (
     S7Protocol,
@@ -123,6 +122,12 @@ class TestParseResponse:
         with pytest.raises(S7ProtocolError, match="Data section extends beyond PDU"):
             self.proto.parse_response(pdu)
 
+    def test_trailing_bytes_rejected(self) -> None:
+        data_section = struct.pack(">BBH", 0xFF, 0x04, 8) + b"\xaa"
+        pdu = self._build_ack_data_pdu(S7Function.READ_AREA, 1, data_section) + b"\xbb"
+        with pytest.raises(S7ProtocolError, match="trailing bytes"):
+            self.proto.parse_response(pdu)
+
     def test_unknown_function_code(self) -> None:
         pdu = self._build_ack_data_pdu(0xAA, 0)
         resp = self.proto.parse_response(pdu)
@@ -198,8 +203,8 @@ class TestUserDataParsing:
 
     def test_userdata_with_error(self) -> None:
         pdu = self._build_userdata_response(error_code=0x8104)
-        resp = self.proto.parse_response(pdu)
-        assert resp["parameters"]["error_code"] == 0x8104
+        with pytest.raises(S7ProtocolError, match="0x8104"):
+            self.proto.parse_response(pdu)
 
     def test_userdata_more_data_available(self) -> None:
         pdu = self._build_userdata_response(last_data_unit=0x01, sequence_number=0x05)
@@ -207,41 +212,107 @@ class TestUserDataParsing:
         assert resp["parameters"]["last_data_unit"] == 0x01
         assert resp["parameters"]["sequence_number"] == 0x05
 
+    @pytest.mark.parametrize("group,subfunction", [(3, 1), (4, 2)])
+    def test_userdata_rejects_response_for_different_operation(self, group: int, subfunction: int) -> None:
+        response = self.proto.parse_response(self._build_userdata_response(group=group, subfunction=subfunction))
+        with pytest.raises(S7ProtocolError, match="Unexpected USERDATA response"):
+            self.proto.check_userdata_response(response, S7UserDataGroup.SZL, S7UserDataSubfunction.READ_SZL)
+
+
+class TestUploadRequests:
+    def setup_method(self) -> None:
+        self.proto = S7Protocol()
+
+    def test_start_upload_request_matches_wire_layout(self) -> None:
+        assert self.proto.build_start_upload_request(0x41, 1).hex() == (
+            "320100000001001200001d00000000000000095f3041303030303141"
+        )
+
+    def test_upload_request_matches_wire_layout(self) -> None:
+        assert self.proto.build_upload_request(7).hex() == "320100000001000800001e00000000000007"
+
+    def test_end_upload_request_matches_wire_layout(self) -> None:
+        assert self.proto.build_end_upload_request(7).hex() == "320100000001000800001f00000000000007"
+
+
+class TestManagementAndDownloadVectors:
+    def setup_method(self) -> None:
+        self.proto = S7Protocol()
+
+    def test_list_data_blocks_request(self) -> None:
+        assert self.proto.build_list_blocks_of_type_request(0x41).hex() == "320700000001000800060001120411430200ff0900023041"
+
+    def test_get_db_info_request(self) -> None:
+        assert (
+            self.proto.build_get_block_info_request(0x41, 1).hex()
+            == "3207000000010008000c0001120411430300ff0900083041413030303031"
+        )
+
+    def test_set_clock_request(self) -> None:
+        from datetime import datetime, timezone
+
+        when = datetime(2026, 9, 23, 12, 34, 56, 789000, tzinfo=timezone.utc)
+        assert (
+            self.proto.build_set_clock_request(when).hex() == "3207000000010008000e0001120411470200ff09000a00192609231234567893"
+        )
+
+    def test_request_db_download(self) -> None:
+        assert self.proto.build_download_request(0x41, 1, bytes(64)).hex() == (
+            "320100000001002000001a00010000000000095f30413030303031500d31303030303634303030303238"
+        )
+
+    def test_download_response_vectors_and_pdu_boundary(self) -> None:
+        assert (
+            self.proto.build_download_fragment_response(1, False, b"\xde\xad").hex() == "3203000000010002000600001b01000200fbdead"
+        )
+        assert (
+            self.proto.build_download_fragment_response(1, True, b"\xbe\xef").hex() == "3203000000010002000600001b00000200fbbeef"
+        )
+        assert self.proto.build_download_ended_response(1).hex() == "3203000000010001000000001c"
+        assert len(self.proto.build_download_fragment_response(1, True, bytes(462))) == 480
+
+    @pytest.mark.parametrize("mutation", ["function", "address", "length", "trailing"])
+    def test_download_service_request_rejects_mutation(self, mutation: str) -> None:
+        address = b"_0A00001P"
+        packet = bytearray(struct.pack(">BBHHHH", 0x32, S7PDUType.REQUEST, 0, 7, 18, 0) + b"\x1b" + bytes(7) + b"\x09" + address)
+        if mutation == "function":
+            packet[10] = 0x1C
+        elif mutation == "address":
+            packet[-2] = ord("2")
+        elif mutation == "length":
+            packet[7] = 17
+        else:
+            packet += b"\x00"
+        with pytest.raises(S7ProtocolError):
+            self.proto.parse_download_service_request(bytes(packet), 0x1B, 1)
+
 
 class TestParseStartUploadResponse:
     def setup_method(self) -> None:
         self.proto = S7Protocol()
 
     def test_valid_response(self) -> None:
-        # Layout: func(1) + status(1) + reserved(1) + reserved(1) + upload_id(4) = 8 bytes
-        # Parser reads upload_id from raw_params[4:8]
-        raw_params = struct.pack(">BBBBI", S7Function.START_UPLOAD, 0x00, 0x00, 0x00, 0x12345678)
-        # Add block length: len_field(1) + length_str
-        # Condition: len(raw_params) > 9 + len_field, so we need total > 9 + len(length_str)
-        length_str = b"000100"
-        raw_params += struct.pack(">B", len(length_str)) + length_str + b"\x00"  # extra byte to satisfy >
+        raw_params = bytes((S7Function.START_UPLOAD,)) + bytes(6) + b"\x78" + bytes(3) + b"00100"
         response = {"raw_parameters": raw_params}
         result = self.proto.parse_start_upload_response(response)
-        assert result["upload_id"] == 0x12345678
+        assert result["upload_id"] == 0x78
         assert result["block_length"] == 100
 
     def test_short_response(self) -> None:
         response = {"raw_parameters": b"\x00\x00\x00"}
-        result = self.proto.parse_start_upload_response(response)
-        assert result["upload_id"] == 0
-        assert result["block_length"] == 0
+        with pytest.raises(S7ProtocolError, match="start-upload"):
+            self.proto.parse_start_upload_response(response)
 
     def test_no_raw_parameters(self) -> None:
         response: dict[str, Any] = {}
-        result = self.proto.parse_start_upload_response(response)
-        assert result["upload_id"] == 0
+        with pytest.raises(S7ProtocolError, match="start-upload"):
+            self.proto.parse_start_upload_response(response)
 
     def test_invalid_length_string(self) -> None:
-        raw_params = struct.pack(">BBBI", 0x1D, 0, 0, 1)
-        raw_params += struct.pack(">B", 3) + b"abc"
+        raw_params = bytes((S7Function.START_UPLOAD,)) + bytes(6) + b"\x01" + bytes(3) + b"00abc"
         response = {"raw_parameters": raw_params}
-        result = self.proto.parse_start_upload_response(response)
-        assert result["block_length"] == 0  # ValueError caught
+        with pytest.raises(S7ProtocolError, match="block length"):
+            self.proto.parse_start_upload_response(response)
 
 
 class TestParseUploadResponse:
@@ -249,24 +320,40 @@ class TestParseUploadResponse:
         self.proto = S7Protocol()
 
     def test_valid_response(self) -> None:
-        response = {"data": {"data": b"\x01\x02\x03\x04\x05"}}
-        result = self.proto.parse_upload_response(response)
+        response = {
+            "raw_parameters": bytes((S7Function.UPLOAD, 0)),
+            "raw_data": b"\x00\x05\x00\xfb\x01\x02\x03\x04\x05",
+        }
+        result, is_last = self.proto.parse_upload_fragment(response)
         assert result == b"\x01\x02\x03\x04\x05"
+        assert is_last
 
     def test_short_data(self) -> None:
-        response = {"data": {"data": b"\x01\x02"}}
-        result = self.proto.parse_upload_response(response)
-        assert result == b""
+        response = {"raw_parameters": bytes((S7Function.UPLOAD, 0)), "raw_data": b"\x00\x02"}
+        with pytest.raises(S7ProtocolError, match="truncated"):
+            self.proto.parse_upload_response(response)
 
     def test_empty_response(self) -> None:
-        response = {"data": {"data": b""}}
-        result = self.proto.parse_upload_response(response)
-        assert result == b""
+        response = {"raw_parameters": bytes((S7Function.UPLOAD, 0)), "raw_data": b""}
+        with pytest.raises(S7ProtocolError, match="truncated"):
+            self.proto.parse_upload_response(response)
 
     def test_no_data_key(self) -> None:
         response: dict[str, Any] = {}
-        result = self.proto.parse_upload_response(response)
-        assert result == b""
+        with pytest.raises(S7ProtocolError, match="parameters"):
+            self.proto.parse_upload_response(response)
+
+    @pytest.mark.parametrize(
+        "parameters,data",
+        [
+            (bytes((S7Function.END_UPLOAD, 0)), b"\x00\x02\x00\xfb\xde\xad"),
+            (bytes((S7Function.UPLOAD, 0)), b"\x00\x03\x00\xfb\xde\xad"),
+            (bytes((S7Function.UPLOAD, 0)), b"\x00\x02\x00\xfa\xde\xad"),
+        ],
+    )
+    def test_malformed_response(self, parameters: bytes, data: bytes) -> None:
+        with pytest.raises(S7ProtocolError):
+            self.proto.parse_upload_response({"raw_parameters": parameters, "raw_data": data})
 
 
 class TestParseListBlocksResponse:
@@ -296,11 +383,15 @@ class TestParseListBlocksResponse:
         result = self.proto.parse_list_blocks_response(response)
         assert all(v == 0 for v in result.values())
 
-    def test_unknown_block_type_ignored(self) -> None:
+    def test_unknown_block_type_rejected(self) -> None:
         data = struct.pack(">BBH", 0x30, 0xFF, 99)  # unknown type
         response = {"data": {"data": data}}
-        result = self.proto.parse_list_blocks_response(response)
-        assert all(v == 0 for v in result.values())
+        with pytest.raises(S7ProtocolError, match="entry"):
+            self.proto.parse_list_blocks_response(response)
+
+    def test_truncated_entry_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError, match="multiple of four"):
+            self.proto.parse_list_blocks_response({"data": {"data": b"\x30\x41\x00"}})
 
 
 class TestParseListBlocksOfTypeResponse:
@@ -324,6 +415,10 @@ class TestParseListBlocksOfTypeResponse:
         result = self.proto.parse_list_blocks_of_type_response(response)
         assert result == []
 
+    def test_truncated_entry_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError, match="multiple of four"):
+            self.proto.parse_list_blocks_of_type_response({"data": {"data": b"\x00\x01\x00"}})
+
 
 class TestParseGetBlockInfoResponse:
     def setup_method(self) -> None:
@@ -331,12 +426,11 @@ class TestParseGetBlockInfoResponse:
 
     def test_short_data(self) -> None:
         response = {"data": {"data": b"\x00" * 10}}
-        result = self.proto.parse_get_block_info_response(response)
-        assert result["block_type"] == 0
-        assert result["mc7_size"] == 0
+        with pytest.raises(S7ProtocolError, match="78 bytes"):
+            self.proto.parse_get_block_info_response(response)
 
     def test_valid_data(self) -> None:
-        raw_data = bytearray(80)
+        raw_data = bytearray(78)
         raw_data[1] = 0x41  # block_type = DB
         raw_data[9] = 0x01  # flags
         raw_data[10] = 0x05  # lang
@@ -359,8 +453,8 @@ class TestParseGetBlockInfoResponse:
 
     def test_no_data(self) -> None:
         response: dict[str, Any] = {}
-        result = self.proto.parse_get_block_info_response(response)
-        assert result["block_type"] == 0
+        with pytest.raises(S7ProtocolError, match="78 bytes"):
+            self.proto.parse_get_block_info_response(response)
 
 
 class TestParseReadSZLResponse:
@@ -415,19 +509,17 @@ class TestParseGetClockResponse:
         result = self.proto.parse_get_clock_response(response)
         assert result.year == 1990
 
-    def test_short_data_returns_now(self) -> None:
+    def test_short_data_rejected(self) -> None:
         response = {"data": {"data": b"\x00\x01"}}
-        result = self.proto.parse_get_clock_response(response)
-        # Should return roughly "now"
-        assert isinstance(result, datetime)
+        with pytest.raises(S7ProtocolError, match="eight bytes"):
+            self.proto.parse_get_clock_response(response)
 
-    def test_invalid_bcd_date_returns_now(self) -> None:
+    def test_invalid_bcd_date_rejected(self) -> None:
         # Month=99 is invalid
         raw_data = struct.pack(">BBBBBBBB", 0x00, 0x24, 0x99, 0x15, 0x10, 0x30, 0x45, 0x06)
         response = {"data": {"data": raw_data}}
-        result = self.proto.parse_get_clock_response(response)
-        # Should fallback to now
-        assert isinstance(result, datetime)
+        with pytest.raises(S7ProtocolError, match="invalid BCD"):
+            self.proto.parse_get_clock_response(response)
 
 
 class TestParseParameterEdgeCases:
@@ -641,35 +733,24 @@ class TestSessionPassword:
         self.proto = S7Protocol()
 
     def test_encode_password_known_vector(self) -> None:
-        """Verify encoding against known Sharp7/rs-snap7 test vector.
-
-        'hello' (0x68 0x65 0x6C 0x6C 0x6F) XOR 0x55 each ->
-        (0x3D 0x30 0x39 0x39 0x3A), then rotate left 3 bits each ->
-        (0xE9 0x81 0xC9 0xC9 0xD1).  Remaining bytes are 0x00 XOR 0x55 = 0x55,
-        rotated left 3 = 0xAA.
-        """
-        encoded = S7Protocol.encode_password("hello")
+        """The encoded SECRET vector matches native Snap7 and the Lean corpus."""
+        encoded = S7Protocol.encode_password("SECRET")
         assert len(encoded) == 8
-        assert encoded == bytes([0xE9, 0x81, 0xC9, 0xC9, 0xD1, 0xAA, 0xAA, 0xAA])
+        assert encoded == bytes([6, 16, 16, 23, 0, 22, 117, 99])
 
     def test_encode_password_empty(self) -> None:
-        """Empty password encodes as 8 bytes of 0x00 XOR 0x55 rotated."""
-        encoded = S7Protocol.encode_password("")
-        # 0x00 XOR 0x55 = 0x55; 0x55 rotated left 3 = 0xAA
-        assert encoded == bytes([0xAA] * 8)
+        with pytest.raises(ValueError):
+            S7Protocol.encode_password("")
 
     def test_encode_password_max_length(self) -> None:
         """8-character password uses all 8 bytes."""
         encoded = S7Protocol.encode_password("ABCDEFGH")
         assert len(encoded) == 8
-        # Verify first byte: 'A' (0x41) XOR 0x55 = 0x14, rotated left 3 = 0xA0
-        assert encoded[0] == 0xA0
+        assert encoded[0] == (ord("A") ^ 0x55)
 
-    def test_encode_password_truncates_long(self) -> None:
-        """Passwords longer than 8 characters are truncated."""
-        enc_long = S7Protocol.encode_password("ABCDEFGHIJK")
-        enc_8 = S7Protocol.encode_password("ABCDEFGH")
-        assert enc_long == enc_8
+    def test_encode_password_rejects_long(self) -> None:
+        with pytest.raises(ValueError):
+            S7Protocol.encode_password("ABCDEFGHIJK")
 
     def test_set_session_password_request_structure(self) -> None:
         """Verify the set session password PDU structure."""
@@ -689,8 +770,7 @@ class TestSessionPassword:
         assert request[16] == 0x01
 
         # Data section starts after 10 + 8 = 18
-        # data[0] = 0x0A (return value for request)
-        assert request[18] == 0x0A
+        assert request[18:20] == b"\xff\x09"
         # data[2:4] = length = 8
         data_len = struct.unpack(">H", request[20:22])[0]
         assert data_len == 8

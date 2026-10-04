@@ -144,15 +144,13 @@ def _is_chrome_extension_tool(tool: Any) -> bool:
     if not bindings:
         return False
     for b in bindings:
-        if b == _CHROME_EXTENSION_EXECUTOR or b.startswith(
-            f"{_CHROME_EXTENSION_EXECUTOR}."
-        ):
+        if b == _CHROME_EXTENSION_EXECUTOR or b.startswith(f"{_CHROME_EXTENSION_EXECUTOR}."):
             return True
     return False
 
 
-def _inline_kwargs_from_registry(local_name: str) -> dict[str, Any] | None:
-    """Build ``InlineToolSpec`` kwargs for ``local_name`` from the registry row.
+def _inline_spec_from_registry(local_name: str) -> ToolSpec | None:
+    """Build the registry-owned spec kind without overriding executor ownership.
 
     Returns ``None`` when the tool is absent from the registry — this is a
     hard error: it means either initialize_tool_system() was not called, or
@@ -168,26 +166,15 @@ def _inline_kwargs_from_registry(local_name: str) -> dict[str, Any] | None:
     if tool is None:
         return None
 
-    properties: dict[str, Any] = {}
-    required: list[str] = []
-    for prop_name, prop_schema in (tool.parameters or {}).items():
-        if isinstance(prop_schema, dict):
-            cleaned = {k: v for k, v in prop_schema.items() if k != "required"}
-            properties[prop_name] = cleaned
-            if prop_schema.get("required"):
-                required.append(prop_name)
-        else:
-            properties[prop_name] = {"type": prop_schema}
-
-    return {
-        "name": local_name,
-        "description": tool.description or f"Browser tool: {local_name}",
-        "input_schema": {
-            "type": "object",
-            "properties": properties,
-            "required": required,
-        },
-    }
+    # Spec kind describes capability, not request liveness: merge_request_tools
+    # still resolves delegation against the actual connected executors. Ask the
+    # canonical resolver with this tool's bindings to preserve native ownership.
+    if (
+        registry.resolve_executor_binding(tool.name, registry.bindings_for_tool(tool.name))
+        == "server"
+    ):
+        return RegisteredToolSpec(name=local_name, tool_id=tool.tool_id)
+    return InlineToolSpec.from_registry_tool(tool, name=local_name)
 
 
 def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
@@ -201,10 +188,9 @@ def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
     AGENT sees per-page; the capability bundle defines the universe.
 
     ``load_chrome_tools`` is always prepended as a ``RegisteredToolSpec``
-    (it has a real server-side Python handler). Every other always-on tool
-    is client-side (Chrome extension); it gets an ``InlineToolSpec`` so
-    its schema rides on the wire and the executor takes the client-delegation
-    path unconditionally.
+    (it has a real server-side Python handler). The registry's canonical resolver
+    chooses each other spec kind: native server tools remain registered and
+    browser-owned tools carry inline schemas. Discovery never overrides ownership.
     """
     global _specs_cache
     if _specs_cache is not None:
@@ -240,8 +226,8 @@ def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
     missing: list[str] = []
 
     for local_name in auto_load_names:
-        kwargs = _inline_kwargs_from_registry(local_name)
-        if kwargs is None:
+        spec = _inline_spec_from_registry(local_name)
+        if spec is None:
             missing.append(local_name)
             vcprint(
                 {
@@ -256,7 +242,7 @@ def _build_auto_load_specs() -> tuple[ToolSpec, ...]:
                 color="red",
             )
             continue
-        specs.append(InlineToolSpec(**kwargs))
+        specs.append(spec)
 
     if missing:
         vcprint(
@@ -327,9 +313,7 @@ def get_category_names() -> list[str]:
 
     registry = ToolRegistry.get_instance()
     cats = {
-        t.category
-        for t in registry.list_tools()
-        if t.category and _is_chrome_extension_tool(t)
+        t.category for t in registry.list_tools() if t.category and _is_chrome_extension_tool(t)
     }
     if not cats:
         vcprint(

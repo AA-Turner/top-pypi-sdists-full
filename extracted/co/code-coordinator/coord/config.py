@@ -755,6 +755,31 @@ class ModelsConfig:
     ``claude -p --model`` on the worker.  Aliases not present in the map
     pass through unchanged, so ``claude -p`` falls back to its CLI default
     (which today is whatever the installed claude-cli treats as latest).
+
+    `pinned` (#1650) maps an assignment ``type`` (``"review"``, ``"merge"``,
+    ...) to a model route that must never be silently degraded by the
+    escalation ladder, by ``labels``-derived routing, or by a usage-gate
+    reroute — the final review gates every merge and is never skippable,
+    so the model that performs it must never be the thing a cost-driven
+    ladder economises on. A pinned type's route wins outright: every
+    resolver in this module, and :func:`coord.dispatch.
+    resolve_dispatch_model_alias`, checks ``pinned`` FIRST and returns
+    immediately when it matches, so the ladder/labels/usage-gate are never
+    even consulted for that dispatch — see :meth:`model_for_type`.
+
+    A route is either a bare model alias (resolved against the implicit
+    ``claude`` provider's known aliases — ``default``/``escalation``/
+    ``labels.values()``/``versions`` keys, plus the baseline
+    ``haiku``/``sonnet``/``opus`` trio) or a ``provider/model`` pair (e.g.
+    ``claude/opus``) naming a provider registered in ``providers.
+    definitions``. Both forms are validated at config-parse time
+    (``_parse_models``) — an unknown provider or an unrecognised model
+    alias is a ``ConfigError`` at load, not a silent fall-through to the
+    ladder discovered at 2am.
+
+    Ships with a **default pin on `"review"`** (``opus``) rather than an
+    empty mapping — an operator who never reads #1650 still gets the safe
+    behaviour. An explicit ``pinned: {}`` in ``coordinator.yml`` opts out.
     """
 
     default: str = "sonnet"
@@ -763,6 +788,24 @@ class ModelsConfig:
     )
     labels: dict[str, str] = field(default_factory=dict)
     versions: dict[str, str] = field(default_factory=dict)
+    pinned: dict[str, str] = field(default_factory=lambda: {"review": "opus"})
+
+    def model_for_type(self, assignment_type: str | None) -> str | None:
+        """Return the pinned route for *assignment_type*, if configured.
+
+        #1650: this is the ONE question every resolver asks before
+        consulting the escalation ladder, ``labels``, or a usage-gate
+        reroute — callers short-circuit on a non-``None`` result and never
+        fall through to those mechanisms, so a pin can't be shadowed by
+        whatever any of them (including a not-yet-built usage-aware
+        reroute) would otherwise have computed. Returns ``None`` (never
+        ``default``) when *assignment_type* isn't pinned, or is ``None``
+        itself — mirroring the None-passthrough style of :meth:`resolve`/
+        :meth:`model_for_labels`.
+        """
+        if assignment_type is None:
+            return None
+        return self.pinned.get(assignment_type)
 
     def next_model(self, current: str) -> str:
         """Return the next model in the escalation ladder.
@@ -893,6 +936,7 @@ def describe_model_choice(
     explicit_reason: str | None = None,
     matched_label: str | None = None,
     shadowed_labels: list[str] | None = None,
+    pinned_type: str | None = None,
 ) -> str:
     """Format a one-line explanation of why *resolved_model* was chosen.
 
@@ -900,6 +944,13 @@ def describe_model_choice(
     mis-route to ``models.default`` (e.g. a tier label that hadn't been
     picked up yet) read identically to an intentional default — the exact
     ambiguity that made the stale-label-cache bug expensive to notice.
+
+    *pinned_type*, when set (#1650), wins outright and reports
+    ``"(pinned for type=<pinned_type>)"`` — a :attr:`ModelsConfig.pinned`
+    match is a stronger, operator-declared signal than any label match or
+    explicit reason, so callers pass it only when
+    :meth:`ModelsConfig.model_for_type` actually matched for this
+    dispatch.
 
     *explicit_reason*, when set, wins outright (e.g. ``"explicit --model"``
     or ``"resolved at plan time"``) — the caller already knows the model
@@ -913,6 +964,8 @@ def describe_model_choice(
     self-explaining at dispatch time instead of reading like the older,
     order-dependent bug.
     """
+    if pinned_type:
+        return f"{resolved_model} (pinned for type={pinned_type})"
     if explicit_reason:
         return f"{resolved_model} ({explicit_reason})"
     if matched_label:
@@ -968,10 +1021,25 @@ class UsageGateConfig:
       (``.result`` is NOT a stable contract, see ``coord.usage_limits``'s
       docstring) has enough field mileage to trust for blocking real work.
     - ``"block"`` — refuse to dispatch above threshold.
+    - ``"reroute"`` (#1649) — above threshold, don't refuse OR silently
+      proceed: pick the first rung of ``models.escalation`` whose provider
+      is NOT the one the usage window is constraining, and dispatch there
+      instead. Exists because once the escalation ladder can name a
+      non-``claude`` provider (``provider/model`` rungs, same ``"/"``
+      convention as ``models.pinned`` — see :func:`parse_model_route`), the
+      operator's actual want when approaching a wall is "keep working on a
+      cheaper/different backend", not "stop". Two cases fall back to
+      ``reroute_fallback`` (never a silent dispatch anyway):
+      :attr:`coord.config.ModelsConfig.pinned` stages (``"review"`` by
+      default) are exempt from reroute by design — the sibling pin issue
+      (#1650) says a pinned stage's model must never be degraded by ANY
+      mechanism, including this one; and a ladder with no rung on a
+      different provider (true for every deployment until #55's routes
+      land, since every bare rung is implicitly ``claude``).
 
     A probe that fails or returns "unknown" (no OAuth subscription session,
-    unparseable output, timeout, ...) NEVER blocks or warns regardless of
-    ``mode`` — see ``coord.usage_limits.evaluate_usage_gate``.
+    unparseable output, timeout, ...) NEVER blocks, warns, or reroutes
+    regardless of ``mode`` — see ``coord.usage_limits.evaluate_usage_gate``.
 
     CAVEAT: Anthropic announced ``claude -p``/Agent SDK usage moving off the
     subscription windows onto a separate monthly credit pool; that rollout
@@ -981,9 +1049,16 @@ class UsageGateConfig:
     would need to switch to tracking credit balance instead.
     """
 
-    mode: str = "warn"  # "disabled" | "warn" | "block"
+    mode: str = "warn"  # "disabled" | "warn" | "block" | "reroute"
     session_threshold_pct: float = 85.0
     week_threshold_pct: float = 90.0
+    # ``mode="reroute"``'s own fallback when it can't reroute (pinned stage,
+    # or no escalation rung escapes the constrained provider) — "warn" or
+    # "block", same vocabulary as ``mode`` itself minus "disabled"/"reroute"
+    # (a fallback that itself reroutes, or does nothing, would defeat the
+    # "never silently dispatch anyway" guarantee above). Defaults to "warn"
+    # — the same safe default ``mode`` itself ships with.
+    reroute_fallback: str = "warn"  # "warn" | "block"
 
 
 @dataclass
@@ -1933,21 +2008,44 @@ def _default_pricing() -> dict[str, ModelRates]:
 
 @dataclass
 class PricingConfig:
-    """``pricing:`` block (#1118) — per-canonical-model per-1M-token USD rates.
+    """``pricing:`` block (#1118) — per-1M-token USD rates, keyed by model.
 
-    ``models`` maps a canonical model key (``"sonnet"``, ``"opus"``,
-    ``"haiku"``, or any operator-added key) to its :class:`ModelRates`. An
-    absent ``pricing:`` block in coordinator.yml still yields the built-in
-    defaults via :func:`_default_pricing`. A model key with no entry here
-    (e.g. ``"(unknown)"``, or a genuinely unrecognized model string) has no
-    rate — :mod:`coord.usage_rollup` treats that as "no estimate possible"
-    and flags the group rather than silently reporting $0.
+    ``models`` maps a pricing key to its :class:`ModelRates`. The key shape
+    is whatever :func:`coord.usage_rollup.normalize_model` resolves a leg's
+    raw ``model`` field to, and there are exactly two cases (#1651):
+
+    - One of the four built-in Anthropic tiers — ``"sonnet"``, ``"opus"``,
+      ``"haiku"``, ``"fable"`` — which ``normalize_model`` also maps every
+      versioned id of (e.g. ``"claude-sonnet-4-6"``) onto.
+    - Any other model's **own route key, spelled exactly as the route that
+      dispatches it identifies it** — e.g. the escalation ladder's (#55)
+      OpenCode Zen ``provider/model`` strings, ``"opencode/glm-5.2"`` or
+      ``"deepseek/deepseek-chat"`` (see ``ProviderDef.model`` /
+      ``coord.config.model_plausible_for_provider_type``). There is
+      deliberately only ONE spelling of a given non-Anthropic model across
+      this config — the same string ``coordinator.yml``'s ``providers:`` /
+      ``models.labels``/``escalation`` already uses to route to it — rather
+      than a second "pricing alias" that could drift out of sync with the
+      routing key.
+
+    An absent ``pricing:`` block in coordinator.yml still yields the
+    built-in Anthropic defaults via :func:`_default_pricing`; a
+    non-Anthropic key is simply absent until an operator adds it. A model
+    key with no entry here (e.g. ``"(unknown)"``, a genuinely unrecognized
+    model string, or a real but un-configured route key) has no rate —
+    :mod:`coord.usage_rollup` treats that as "no estimate possible" and
+    flags the leg/group as unknown rather than silently reporting $0.
     """
 
     models: dict[str, ModelRates] = field(default_factory=_default_pricing)
 
     def rates_for(self, canonical_model: str) -> ModelRates | None:
-        """Look up rates for a canonical model key, or ``None`` if unpriced."""
+        """Look up rates for a pricing key, or ``None`` if unpriced.
+
+        *canonical_model* is whatever :func:`coord.usage_rollup.
+        normalize_model` returned — a built-in Anthropic tier name, or a
+        passed-through non-Anthropic route key (see the class docstring).
+        """
         return self.models.get(canonical_model)
 
 
@@ -2214,6 +2312,29 @@ def native_execution_capability(capability: str) -> str:
     question, one answer").
     """
     return f"{capability}-native"
+
+
+def parse_model_route(route: str, *, default_provider: str = "claude") -> tuple[str, str]:
+    """Split a ``models.*`` route string into ``(provider_name, model_alias)``.
+
+    A route is either a bare model alias — implicitly on *default_provider*
+    (the ``claude``/``claude-pty`` namespace every pre-#1650 route lived
+    in) — or a ``provider/model`` pair (e.g. ``"opencode/glm-5.2"``).
+    Single source of truth for that ``"/"`` convention (#2096, "one
+    question, one answer"): :func:`_validate_pinned_route`
+    (``models.pinned``) and :func:`coord.usage_limits.select_reroute_route`
+    (``models.escalation``, #1649) both ask "what provider does this route
+    name" and must agree on the answer rather than re-deriving it with a
+    second ``partition("/")`` that could silently drift from this one.
+
+    Never raises: an empty *route* (not expected to reach here — both
+    callers validate non-empty strings upstream) parses as
+    ``(default_provider, "")``, same shape as any other no-``"/"`` input.
+    """
+    provider_name, sep, model = route.partition("/")
+    if not sep:
+        return default_provider, route
+    return provider_name, model
 
 
 def model_plausible_for_provider_type(model: str, provider_type: str) -> bool:
@@ -2975,7 +3096,7 @@ def parse_mapping(raw: Any, *, path: Path | None = None) -> Config:
     concurrency = _parse_concurrency(raw.get("concurrency"))
     smoke_tests = _parse_smoke_tests(raw.get("smoke_tests"))
     acceptance = _parse_acceptance(raw.get("acceptance"))
-    models = _parse_models(raw.get("models"))
+    models = _parse_models(raw.get("models"), set(providers.definitions))
     pipeline = _parse_pipeline(raw.get("pipeline"))
     dispatch = _parse_dispatch(raw.get("dispatch"))
     usage_gate = _parse_usage_gate(raw.get("usage_gate"))
@@ -4091,7 +4212,7 @@ def _acceptance_entrypoint(entry: dict, label: str) -> str:
     return value
 
 
-def _parse_models(raw: Any) -> ModelsConfig:
+def _parse_models(raw: Any, known_providers: set[str] | None = None) -> ModelsConfig:
     if raw is None:
         return ModelsConfig()
     if not isinstance(raw, dict):
@@ -4109,6 +4230,33 @@ def _parse_models(raw: Any) -> ModelsConfig:
         if not isinstance(value, list) or not all(isinstance(v, str) and v for v in value):
             raise ConfigError("models.escalation must be a list of non-empty strings")
         cfg.escalation = list(value)
+        # #1649 review (non-blocking finding 1): a "provider/model" rung's
+        # provider half is now load-bearing for usage-gate reroute
+        # (`select_reroute_route`) — previously irrelevant for disabled/
+        # warn/block modes, where `models.escalation` is only ever consulted
+        # for Claude-model-alias escalation. Validate it the same way
+        # `_validate_pinned_route` already validates `models.pinned`'s
+        # provider half, so a typo'd provider name fails loudly at config
+        # load instead of silently falling through to "no rung escapes the
+        # constrained provider" at actual reroute/dispatch time. The model
+        # half is deliberately NOT checked here, same exemption
+        # `_validate_pinned_route` applies to a non-claude provider's model:
+        # it's a backend-specific free string, not validated anywhere else
+        # in this module.
+        for rung in cfg.escalation:
+            if "/" not in rung:
+                continue
+            rung_provider, rung_model = parse_model_route(rung)
+            if rung_provider not in (known_providers or {"claude"}):
+                raise ConfigError(
+                    f"models.escalation references unknown provider "
+                    f"{rung_provider!r} (got rung {rung!r})"
+                )
+            if not rung_model:
+                raise ConfigError(
+                    f"models.escalation rung {rung!r} is missing a model "
+                    "after the provider"
+                )
 
     if "labels" in raw:
         value = raw["labels"]
@@ -4131,7 +4279,90 @@ def _parse_models(raw: Any) -> ModelsConfig:
             )
         cfg.versions = dict(value)
 
+    # #1650: `pinned` is validated LAST — it references `cfg.default`/
+    # `cfg.escalation`/`cfg.labels`/`cfg.versions` (all parsed above) to
+    # build the known-alias vocabulary a bare (no-provider-prefix) route is
+    # checked against.
+    if "pinned" in raw:
+        value = raw["pinned"]
+        if not isinstance(value, dict) or not all(
+            isinstance(k, str) and k and isinstance(v, str) and v
+            for k, v in value.items()
+        ):
+            raise ConfigError(
+                "models.pinned must be a mapping of assignment type → model route"
+            )
+        cfg.pinned = dict(value)
+        for assignment_type, route in cfg.pinned.items():
+            _validate_pinned_route(
+                assignment_type, route, cfg, known_providers or {"claude"},
+            )
+    # Explicit `pinned: {}` is a deliberate opt-out — otherwise the dataclass
+    # default (`{"review": "opus"}`) already stands and needs no validation
+    # here (it's valid by construction: "opus" is in the baseline alias set
+    # checked below regardless of a custom `escalation`/`labels`/`versions`).
+
     return cfg
+
+
+#: #1650: the baseline Anthropic model aliases recognised regardless of what
+#: `models.escalation`/`models.labels`/`models.versions` a deployment
+#: configures — keeps the shipped default pin (`review: opus`) valid even
+#: for a coordinator.yml that never mentions "opus" anywhere else.
+_BASELINE_MODEL_ALIASES: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
+
+
+def _validate_pinned_route(
+    assignment_type: str, route: str, cfg: ModelsConfig, known_providers: set[str],
+) -> None:
+    """Validate one ``models.pinned[assignment_type]`` route at parse time.
+
+    #1650: a typo here must fail loudly at config load, not silently fall
+    through to the ladder/labels at dispatch time. A route is either a bare
+    model alias (checked against the known alias vocabulary for the
+    implicit ``claude`` provider — see :data:`_BASELINE_MODEL_ALIASES`) or a
+    ``provider/model`` pair, e.g. ``claude/opus`` — the provider half is
+    checked against *known_providers* (``providers.definitions``, which
+    always includes the implicit ``"claude"`` entry); the model half is only
+    checked when that provider is ``claude``/``claude-pty``-shaped (named
+    ``"claude"`` here, since ``_parse_providers`` hasn't run far enough by
+    this point to carry provider *types* — every registered claude-backed
+    provider is reachable by its own name, so this only validates the
+    common, un-aliased case). A non-claude provider's model half is a
+    backend-specific free string — not validated here, same as
+    ``ProviderDef.model`` isn't validated anywhere else in this module.
+    """
+    if "/" in route:
+        provider_name, model = parse_model_route(route)
+        if provider_name not in known_providers:
+            raise ConfigError(
+                f"models.pinned[{assignment_type!r}] references unknown "
+                f"provider {provider_name!r} (got route {route!r})"
+            )
+        if not model:
+            raise ConfigError(
+                f"models.pinned[{assignment_type!r}] is missing a model "
+                f"after the provider (got route {route!r})"
+            )
+        if provider_name != "claude":
+            return
+        model_alias = model
+    else:
+        model_alias = route
+
+    known_aliases = (
+        _BASELINE_MODEL_ALIASES
+        | {cfg.default}
+        | set(cfg.escalation)
+        | set(cfg.labels.values())
+        | set(cfg.versions.keys())
+    )
+    if model_alias not in known_aliases:
+        raise ConfigError(
+            f"models.pinned[{assignment_type!r}] references unknown model "
+            f"{model_alias!r} (got route {route!r}); known aliases: "
+            f"{sorted(known_aliases)!r}"
+        )
 
 
 def _parse_pipeline(raw: Any) -> PipelineConfig:
@@ -4432,8 +4663,10 @@ def _parse_usage_gate(raw: Any) -> UsageGateConfig:
 
     if "mode" in raw:
         value = raw["mode"]
-        if value not in ("disabled", "warn", "block"):
-            raise ConfigError("usage_gate.mode must be one of: disabled, warn, block")
+        if value not in ("disabled", "warn", "block", "reroute"):
+            raise ConfigError(
+                "usage_gate.mode must be one of: disabled, warn, block, reroute"
+            )
         cfg.mode = value
 
     for key in ("session_threshold_pct", "week_threshold_pct"):
@@ -4442,6 +4675,12 @@ def _parse_usage_gate(raw: Any) -> UsageGateConfig:
             if isinstance(value, bool) or not isinstance(value, (int, float)) or not (0 <= value <= 100):
                 raise ConfigError(f"usage_gate.{key} must be a number between 0 and 100")
             setattr(cfg, key, float(value))
+
+    if "reroute_fallback" in raw:
+        value = raw["reroute_fallback"]
+        if value not in ("warn", "block"):
+            raise ConfigError("usage_gate.reroute_fallback must be one of: warn, block")
+        cfg.reroute_fallback = value
 
     return cfg
 

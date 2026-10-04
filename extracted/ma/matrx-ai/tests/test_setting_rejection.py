@@ -132,6 +132,39 @@ def _gemini_opaque_wrapped() -> Exception:
     return ClientError(400, {"message": inner, "status": "Bad Request"})
 
 
+def _xai_grpc(code_name: str, details: str) -> Exception:
+    # xai_sdk speaks gRPC: a refused request is a grpc.aio.AioRpcError, never an
+    # HTTP SDK error. Real text, captured live 2026-10-03 (grok-4.5, effort "none").
+    import grpc
+
+    return grpc.aio.AioRpcError(
+        code=getattr(grpc.StatusCode, code_name),
+        initial_metadata=grpc.aio.Metadata(),
+        trailing_metadata=grpc.aio.Metadata(),
+        details=details,
+        debug_error_string=f"{code_name}:{details}",
+    )
+
+
+def _gemini_thinking_level_minimal() -> Exception:
+    # Real text, captured live 2026-10-03 (gemini-flash-latest, thinking_level minimal).
+    from google.genai.errors import ClientError
+
+    return ClientError(
+        400,
+        {
+            "error": {
+                "code": 400,
+                "message": (
+                    "Thinking level MINIMAL is not supported for this model. Please retry with "
+                    "other thinking level."
+                ),
+                "status": "INVALID_ARGUMENT",
+            }
+        },
+    )
+
+
 # (case id, provider, exception factory, expected param, shape, limit)
 SETTING_CASES = [
     ("groq.max_completion_tokens", "groq", _groq_max_completion_tokens, "max_completion_tokens", "above_max", 16384),
@@ -141,6 +174,93 @@ SETTING_CASES = [
     ("openai.prompt_cache_key", "openai", _openai_prompt_cache_key, "prompt_cache_key", "string_too_long", 64),
     ("google.opaque_invalid_argument", "google", _gemini_opaque, None, "opaque", None),
     ("google.opaque_invalid_argument_wrapped", "google", _gemini_opaque_wrapped, None, "opaque", None),
+    (
+        "google.thinking_level_unsupported",
+        "google",
+        _gemini_thinking_level_minimal,
+        "thinking_config.thinking_level",
+        "invalid_value",
+        None,
+    ),
+    (
+        "xai.reasoning_effort_value",
+        "xai",
+        lambda: _xai_grpc(
+            "INVALID_ARGUMENT", "This model does not support `reasoning_effort` value `none`."
+        ),
+        "reasoning_effort",
+        "invalid_value",
+        None,
+    ),
+]
+
+
+def _groq_stop() -> Exception:
+    import groq
+
+    body = {"error": {"message": RECOGNIZER_EXAMPLES["groq.max_items"], "type": "invalid_request_error"}}
+    return _stainless(groq, "BadRequestError", 400, body, f"Error code: 400 - {body}")
+
+
+def _openai_compat(message: str, **extra: Any) -> Exception:
+    import openai
+
+    body = {"error": {"message": message, "type": "invalid_request_error", **extra}}
+    return _stainless(openai, "BadRequestError", 400, body, f"Error code: 400 - {body}")
+
+
+RECOGNIZER_EXAMPLES = {r.id: r.example for r in RECOGNIZERS}
+
+# FIXV1 (live 2026-10-04): list-valued stop sequences, every provider's real message.
+SETTING_CASES += [
+    ("groq.stop_max_items", "groq", _groq_stop, "stop", "too_many_items", 4),
+    (
+        "moonshot.stop_array_too_long",
+        "moonshot",
+        lambda: _openai_compat(RECOGNIZER_EXAMPLES["openai_compat.array_too_long"]),
+        "stop",
+        "too_many_items",
+        5,
+    ),
+    (
+        "openai.stop_array_above_max_length",
+        "openai",
+        lambda: _openai_compat(
+            "Invalid 'stop': array too long. Expected an array with maximum length 4, but got an "
+            "array with length 10 instead.",
+            param="stop",
+            code="array_above_max_length",
+        ),
+        "stop",
+        "too_many_items",
+        4,
+    ),
+    (
+        "together.max_stop_sequences",
+        "together",
+        lambda: _openai_compat(RECOGNIZER_EXAMPLES["together.max_stop_sequences"]),
+        "stop",
+        "too_many_items",
+        4,
+    ),
+    (
+        "cerebras.stop_list_at_most",
+        "cerebras",
+        lambda: _openai_compat(
+            RECOGNIZER_EXAMPLES["cerebras.list_at_most"], param="validation_error", code="wrong_api_format"
+        ),
+        "stop",
+        "too_many_items",
+        4,
+    ),
+    (
+        "anthropic.stop_sequence_whitespace",
+        "anthropic",
+        lambda: _anthropic("stop_sequences: each stop sequence must contain non-whitespace"),
+        "stop_sequences",
+        "invalid_item",
+        None,
+    ),
 ]
 
 # (case id, provider, exception factory) — bad requests that are NOT settings.
@@ -191,6 +311,18 @@ def test_real_settings_rejections_classify(case: tuple) -> None:
 @pytest.mark.parametrize("case", NON_SETTING_CASES, ids=[c[0] for c in NON_SETTING_CASES])
 def test_other_bad_requests_are_not_settings(case: tuple) -> None:
     _assert_non_settings_cases([case])
+
+
+def test_xai_grpc_failures_keep_their_typed_class() -> None:
+    """A gRPC status is a typed answer — never laundered into ``unknown_error``."""
+    unavailable = classify_provider_error("xai", _xai_grpc("UNAVAILABLE", "upstream connect error"))
+    assert unavailable.error_type != "unknown_error"
+    assert unavailable.is_retryable is True
+    auth = classify_provider_error("xai", _xai_grpc("UNAUTHENTICATED", "Incorrect API key provided"))
+    assert auth.error_type != "unknown_error"
+    assert auth.is_retryable is False
+    plain = classify_provider_error("xai", _xai_grpc("INVALID_ARGUMENT", "messages must not be empty"))
+    assert plain.error_type == "invalid_request"
 
 
 def test_credit_exhaustion_stays_billing() -> None:
@@ -265,7 +397,12 @@ def test_groq_record_carries_the_full_k10_payload() -> None:
 def test_every_case_builds_a_record(case: tuple) -> None:
     case_id, provider, factory, param, _shape, limit = case
     info = classify_provider_error(provider, factory())
-    record = build_record(info, model="m", wire_payload={param: "sent"} if param else None)
+    wire: Any = None
+    if param:  # the wire as a provider SDK receives it: a dotted param is nested
+        wire = "sent"
+        for part in reversed(param.split(".")):
+            wire = {part: wire}
+    record = build_record(info, model="m", wire_payload=wire)
     assert record["provider_param"] == param
     assert record["provider_limit"] == limit
     assert record["lifecycle"] == "new"
@@ -292,8 +429,10 @@ def test_opaque_rejection_names_suspects_against_last_passing_call() -> None:
     setting_rejection.reset_passing_memory()
     info = classify_provider_error("google", _gemini_opaque())
     no_memory = build_record(info, model="gemini-3.8-flash", wire_payload={"temperature": 0.2})
-    assert no_memory["suspect_params"] == []
-    assert no_memory["suspect_params_source"] == "no_passing_call_in_process"
+    # NET: no passing call to compare against → EVERY setting on the wire is a
+    # suspect (never an empty list the fixer cannot act on).
+    assert no_memory["suspect_params"] == ["temperature"]
+    assert no_memory["suspect_params_source"] == "setting_keys_on_wire"
 
     setting_rejection.remember_passing_wire(
         "google", "gemini-3.8-flash", {"contents": ["x"], "config": {"temperature": 0.2, "top_k": 40}}

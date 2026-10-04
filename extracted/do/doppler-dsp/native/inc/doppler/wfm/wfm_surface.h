@@ -89,8 +89,6 @@ enum
   WFM_SURFACE_source_symbols,
   WFM_SURFACE_source_acq_code,
   WFM_SURFACE_source_data_code,
-  WFM_SURFACE_source_sync,
-  WFM_SURFACE_source_crc,
   WFM_SURFACE_source_symbol_rate,
   WFM_SURFACE_source_dsss_code_only,
   WFM_SURFACE_source_frame,
@@ -349,23 +347,6 @@ static const wfm_surface_row_t WFM_SURFACE[WFM_SURFACE_N] = {
     .off = offsetof (wfm_source_t, data_code),
     .json = "data_code",
   },
-  [WFM_SURFACE_source_sync] = {
-    .name = "sync",
-    .cli = "--sync",
-    .owner = WFM_SURF_SOURCE,
-    .kind = WFM_SV_FIELD,
-    .off = offsetof (wfm_source_t, sync),
-    .json = "sync",
-  },
-  [WFM_SURFACE_source_crc] = {
-    .name = "crc",
-    .cli = "--crc",
-    .owner = WFM_SURF_SOURCE,
-    .kind = WFM_SV_CHOICE,
-    .off = offsetof (wfm_source_t, crc),
-    .choices = CRC_NAMES,
-    .n_choices = (int)(sizeof CRC_NAMES / sizeof *CRC_NAMES),
-  },
   [WFM_SURFACE_source_symbol_rate] = {
     .name = "symbol_rate",
     .cli = "--symbol-rate",
@@ -551,8 +532,9 @@ wfm_surface_row_is_set (const wfm_surface_row_t *r,
 #define WFM_SURFACE_HELP_SIGNAL \
   "  --fs HZ         Sample rate in Hz, one per segment and shared by all its\n" \
   "                  sources. (default 1.0)\n" \
-  "  --count N[:N]   Segment on-time in samples: the synth runs for exactly this\n" \
-  "                  many samples before the trailing gap. (default 1024)\n" \
+  "  --count N[:N]   Segment on-time in samples, before the trailing gap: 0\n" \
+  "                  derives it from the sources, or 1024 when they set none.\n" \
+  "                  (default 0)\n" \
   "  --off N[:N]     Trailing gap after the on-time, in samples. (default 0)\n" \
   "  --repeats N     Play the segment this many times back-to-back (each instance\n" \
   "                  = delay + on-time + trailing gap) before advancing.\n" \
@@ -644,15 +626,7 @@ wfm_surface_row_is_set (const wfm_surface_row_t *r,
   "                  BurstDemod.set_preamble lock to.\n" \
   "  --data-code FIELD\n" \
   "                  For type=dsss: the payload spreading code, a second code\n" \
-  "                  distinct from acq_code.\n" \
-  "  --sync FIELD    The frame-sync word (such as Barker-13) between the preamble\n" \
-  "                  and the payload -- what BurstDemod.set_frame correlates to\n" \
-  "                  resolve frame position and BPSK polarity, and what a BER\n" \
-  "                  alignment detects against.\n" \
-  "  --crc C         The frame trailer: crc16 appends a CRC-16-CCITT over the\n" \
-  "                  payload bits (what BurstDemod validates as frame_valid, and\n" \
-  "                  what makes a truth-free frame error rate possible); none\n" \
-  "                  omits it. One of: none | crc16. (default crc16)\n"
+  "                  distinct from acq_code.\n"
 
 #define WFM_SURFACE_HELP_DSSS_CONT \
   "  --symbol-rate HZ\n" \
@@ -697,11 +671,11 @@ static const char *const WFM_JSON_KEYS_INLINE_SEGMENT[] = {
   "background",
   "carrier_hz",
   "code_only",
-  "crc",
   "data",
   "data_code",
   "data_from_file",
   "data_len",
+  "data_sent",
   "delay_samples",
   "doppler",
   "doppler_lifetime",
@@ -730,7 +704,6 @@ static const char *const WFM_JSON_KEYS_INLINE_SEGMENT[] = {
   "sps",
   "symbol_rate",
   "symbols",
-  "sync",
   "type",
   NULL
 };
@@ -751,11 +724,11 @@ static const char *const WFM_JSON_KEYS_SOURCE[] = {
   "background",
   "carrier_hz",
   "code_only",
-  "crc",
   "data",
   "data_code",
   "data_from_file",
   "data_len",
+  "data_sent",
   "doppler",
   "doppler_lifetime",
   "doppler_rate",
@@ -778,7 +751,6 @@ static const char *const WFM_JSON_KEYS_SOURCE[] = {
   "sps",
   "symbol_rate",
   "symbols",
-  "sync",
   "type",
   NULL
 };

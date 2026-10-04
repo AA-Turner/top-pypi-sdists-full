@@ -1,6 +1,6 @@
 """Mandate-candidate containment — a candidate run can read, never write.
 
-PLAN.md (common-docs/projects/mandate-candidates) P3/P11/P12 and §2.7. Under the
+PLAN.md (common-docs/systems/intelligence/mandates/projects/mandate-candidates) P3/P11/P12 and §2.7. Under the
 ``mandate_candidate`` marker every tool call is decided BEFORE it can do
 anything: ``real`` (read_only / paid_read), ``borrowed`` (the live run made the
 same call; its model-facing result is handed back), or ``stopped`` (everything

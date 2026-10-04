@@ -335,7 +335,16 @@ def approve(
     # CAVEAT: this is predictive only while headless usage still draws the
     # subscription windows `/usage` reports (paused rollout as of
     # 2026-06-15) rather than a separate monthly credit pool.
-    if cfg.usage_gate.mode != "disabled":
+    # #1649: `mode="reroute"` needs the per-proposal `assignment_type`
+    # (`models.pinned` exemption) and `effective_provider_name` (which
+    # provider THIS proposal would use) neither of which is known yet at
+    # batch granularity — both are resolved a few dozen lines below, inside
+    # the per-proposal loop, which is where reroute's gate call actually
+    # lives (see the "usage-gate reroute" comment there). This batch-level
+    # check stays exactly as it was for every other mode (#2096: one
+    # question, one answer — "disabled"/"warn"/"block" must answer it
+    # identically here and inside the loop).
+    if cfg.usage_gate.mode not in ("disabled", "reroute"):
         from coord.usage_limits import evaluate_usage_gate, get_plan_limits
 
         gate_result = evaluate_usage_gate(get_plan_limits(), cfg.usage_gate)
@@ -639,6 +648,74 @@ def approve(
             cfg.providers,
             issue_labels=work_issue_labels,
         )
+
+        # ── usage-gate reroute (#1649) ──────────────────────────────────
+        # Per-proposal, not batch-level like the "disabled"/"warn"/"block"
+        # pre-check above — needs `p.type` (the `models.pinned` exemption)
+        # and the `effective_provider_name` just resolved above (which
+        # provider THIS proposal was about to use, i.e. the one the probed
+        # window would constrain). Must run BEFORE `resolve_dispatch_model_
+        # alias` below so a chosen reroute route can win as this proposal's
+        # *explicit_model* — the pin-exemption inside `evaluate_usage_gate`
+        # already guarantees a pinned type never reaches the "reroute"
+        # branch, so there's no precedence conflict with that call's own
+        # pin check.
+        reroute_explicit_model: str | None = None
+        # #1649 review: the reroute reason, carried all the way to
+        # `record_dispatched` below so it is recoverable from the
+        # assignment row after this terminal output has scrolled away —
+        # not just echoed live. `gate_result.message` already names the
+        # trigger, the reset time, and (for "reroute") what it rerouted
+        # from and to — the same text the "warning:" echo above prints,
+        # reused verbatim rather than re-derived so the persisted reason
+        # can never drift from what the operator actually saw.
+        model_reason: str | None = None
+        if cfg.usage_gate.mode == "reroute":
+            from coord.usage_limits import evaluate_usage_gate, get_plan_limits  # noqa: PLC0415
+
+            gate_result = evaluate_usage_gate(
+                get_plan_limits(),
+                cfg.usage_gate,
+                models_cfg=cfg.models,
+                effective_provider_name=effective_provider_name,
+                assignment_type=p.type,
+            )
+            if gate_result.action == "block":
+                click.echo(
+                    f"[{p.id}] error: {gate_result.message} — refusing to "
+                    f"dispatch {p.repo_name} #{p.issue_number} (usage_gate."
+                    "reroute_fallback: block). Wait for the window to "
+                    "reset, or set usage_gate.reroute_fallback: warn in "
+                    "coordinator.yml.",
+                    err=True,
+                )
+                continue
+            if gate_result.action in ("warn", "reroute"):
+                # #1649: loud, once per dispatch — names the trigger, the
+                # reset time, and (for "reroute") what it rerouted from and
+                # to. Printed regardless of whether the model-resolution
+                # echo below also manages to attribute it (next block),
+                # so a silent downgrade can never happen even if that
+                # attribution misses a corner case.
+                click.echo(f"[{p.id}] warning: {gate_result.message}", err=True)
+            if gate_result.action == "reroute":
+                if gate_result.route is None:
+                    # Defensive: action=="reroute" always sets `route` (see
+                    # `evaluate_usage_gate`'s own invariant) — a plain
+                    # `raise` rather than `assert` so this stays load-bearing
+                    # under `python -O`, which strips bare asserts.
+                    raise RuntimeError(
+                        "usage-gate reroute: action=='reroute' but route is "
+                        "None — evaluate_usage_gate invariant violated"
+                    )
+                from coord.config import parse_model_route  # noqa: PLC0415
+
+                new_provider, new_model = parse_model_route(gate_result.route)
+                p.provider = new_provider
+                effective_provider_name = new_provider
+                reroute_explicit_model = new_model or None
+                model_reason = gate_result.message
+
         # #1706 review fix: don't force `models.default` (a Claude model
         # alias) onto a non-claude/claude-pty provider that pins its own
         # `model` in `providers.definitions.<name>.model` — see
@@ -650,19 +727,35 @@ def approve(
         from coord.dispatch import resolve_dispatch_model_alias  # noqa: PLC0415
 
         p.model = resolve_dispatch_model_alias(
-            explicit_model=None,
+            # #1649: a chosen reroute route wins as THIS proposal's
+            # explicit override — safe because `evaluate_usage_gate`'s own
+            # pin check already guarantees `reroute_explicit_model` is only
+            # ever set when `p.type` is NOT pinned (a pinned type can't
+            # reach the "reroute" action), so there's no precedence clash
+            # with `models.pinned` here.
+            explicit_model=reroute_explicit_model,
             label_model=label_model,
             config=cfg,
             effective_provider_name=effective_provider_name,
+            assignment_type=p.type,
         )
         if p.model:
+            # #1650: a pinned type's route is the SAME one just resolved
+            # above (no `explicit_model` reaches this call site) — naming
+            # it here is a reporting concern, not a second routing decision.
+            _pinned_type = p.type if cfg.models.model_for_type(p.type) else None
             click.echo(
                 "     model: "
                 + describe_model_choice(
                     resolved_model=p.model,
-                    explicit_reason="resolved at plan time" if used_plan_time_snapshot else None,
+                    explicit_reason=(
+                        "usage-gate reroute (#1649)" if reroute_explicit_model
+                        else "resolved at plan time" if used_plan_time_snapshot
+                        else None
+                    ),
                     matched_label=matched_label,
                     shadowed_labels=shadowed_labels,
+                    pinned_type=_pinned_type,
                 )
             )
         else:
@@ -821,6 +914,11 @@ def approve(
                 proposal=p,
                 repo_github=repo.github,
                 provider_name=response.get("_provider_name"),
+                # #1649 review: the usage-gate reroute reason (``None`` for
+                # every dispatch that wasn't rerouted) — see
+                # `Assignment.model_reason`'s docstring for why this needs
+                # to survive past the live `coord approve` terminal output.
+                model_reason=model_reason,
             )
 
         try:
@@ -1727,6 +1825,76 @@ def _build_interactive_launch_setup(
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class _InjectTarget:
+    """Resolved (machine, repo_name, issue_number) for an `inject` call —
+    repo_name/issue_number are display-only (the final "delivered to ..."
+    line), never used to route the POST itself (that's machine + the
+    assignment id alone)."""
+
+    machine: "Machine"
+    repo_name: str
+    issue_number: int
+
+
+def _resolve_inject_target(assignment_id: str, board, cfg) -> tuple[_InjectTarget | None, str]:
+    """Resolve *assignment_id* to a machine, preferring the board but
+    falling back to scanning every configured machine's own `/status`
+    (#3566 ask #6). Returns ``(target, "")`` on success, or ``(None,
+    reason)`` naming exactly why resolution failed.
+
+    `coord inject` used to refuse outright on any assignment not on the
+    board (``assignment '<id>' not found in board``) — but a dispatched
+    `bugbash-explore` worker (``issue_number=0``, no GitHub issue, by
+    construction never written to the board) has no board row to find.
+    That left an operator who needed to redirect a runaway lane worker
+    (the exact #3566 incident: injecting guidance into a worker that was
+    about to send unsafe input) with no `coord inject` path at all, only a
+    raw ``POST /inject/{id}`` straight to the agent.
+
+    The board lookup stays first and is unchanged for every ordinary
+    (board-tracked) assignment — this is additive, never a behaviour
+    change for the common case. The fallback is a live, per-machine
+    ``GET /status`` scan (#2096: an agent's own current state, not a
+    locally-cached guess) — the SAME ``{"active": [...], "completed":
+    [...]}`` shape the chat-continue session-id fallback above this
+    function already reads, so "which machine is this assignment on" has
+    one answer, reached one way, for everyone who needs it (#2096's "one
+    question, one answer")."""
+    assignment = board.find_by_id(assignment_id)
+    if assignment is not None:
+        machine = next(
+            (m for m in cfg.machines if m.name == assignment.machine_name), None
+        )
+        if machine is None:
+            return None, f"machine {assignment.machine_name!r} not in config"
+        return _InjectTarget(
+            machine=machine, repo_name=assignment.repo_name,
+            issue_number=assignment.issue_number,
+        ), ""
+
+    from coord.network import fetch_status  # noqa: PLC0415
+
+    for machine in cfg.machines:
+        status_result = fetch_status(machine)
+        if not status_result.ok or not status_result.data:
+            continue
+        for bucket in ("active", "completed"):
+            for entry in status_result.data.get(bucket, []):
+                if entry.get("id") != assignment_id:
+                    continue
+                spec = entry.get("spec") or {}
+                return _InjectTarget(
+                    machine=machine,
+                    repo_name=spec.get("repo_name", "") or "",
+                    issue_number=int(spec.get("issue_number", 0) or 0),
+                ), ""
+    return None, (
+        f"assignment {assignment_id!r} not found in board or on any "
+        "configured machine's /status"
+    )
+
+
 @click.command(help="Send a user message to a running worker mid-session.")
 @click.argument("assignment_id")
 @click.argument("text", nargs=-1, required=True)
@@ -1737,6 +1905,10 @@ def inject(assignment_id: str, text: tuple[str, ...], config_path: Path) -> None
     The worker picks the message up at its next turn boundary — between
     tool calls, not mid-tool.  Useful for adding guidance to a worker
     that's going off the rails without having to stop + re-dispatch.
+
+    Resolves the target machine via :func:`_resolve_inject_target` — the
+    board when the assignment is board-tracked, or a live per-machine
+    `/status` scan when it isn't (e.g. a `bugbash-explore` worker, #3566).
     """
     from coord.board_service import read_board
     from coord.network import inject_message
@@ -1744,16 +1916,9 @@ def inject(assignment_id: str, text: tuple[str, ...], config_path: Path) -> None
     cfg = _load_config(config_path)
     board = read_board()
 
-    assignment = board.find_by_id(assignment_id)
-    if assignment is None:
-        click.echo(f"error: assignment {assignment_id!r} not found in board", err=True)
-        sys.exit(1)
-
-    machine = next(
-        (m for m in cfg.machines if m.name == assignment.machine_name), None
-    )
-    if machine is None:
-        click.echo(f"error: machine {assignment.machine_name!r} not in config", err=True)
+    target, reason = _resolve_inject_target(assignment_id, board, cfg)
+    if target is None:
+        click.echo(f"error: {reason}", err=True)
         sys.exit(1)
 
     message = " ".join(text).strip()
@@ -1762,16 +1927,17 @@ def inject(assignment_id: str, text: tuple[str, ...], config_path: Path) -> None
         sys.exit(2)
 
     try:
-        status, body = inject_message(machine, assignment_id, message)
+        status, body = inject_message(target.machine, assignment_id, message)
     except (httpx.HTTPError, httpx.TimeoutException) as e:
-        click.echo(f"error: could not reach agent on {machine.name}: {e}", err=True)
+        click.echo(f"error: could not reach agent on {target.machine.name}: {e}", err=True)
         sys.exit(1)
 
     if status == 202:
-        click.echo(
-            f"Message delivered to {assignment.repo_name} #{assignment.issue_number} "
-            f"on {machine.name}"
+        destination = (
+            f"{target.repo_name} #{target.issue_number}"
+            if target.repo_name else "(no board/repo info — board-less assignment)"
         )
+        click.echo(f"Message delivered to {destination} on {target.machine.name}")
     else:
         click.echo(
             f"error: agent rejected message (HTTP {status}): {body.get('error', body)}",

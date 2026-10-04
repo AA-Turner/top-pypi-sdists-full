@@ -246,7 +246,7 @@ def _describe_selection(options: Mapping[str, Any]) -> str:
     )
 
 
-def _parser(registry: ReplayRegistry) -> argparse.ArgumentParser:
+def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Replay production traces",
         epilog=(
@@ -255,7 +255,9 @@ def _parser(registry: ReplayRegistry) -> argparse.ArgumentParser:
             "BITFAB_REPLAY_CHILD_MEMORY_MB, BITFAB_REPLAY_MEMORY_FLOOR_MB."
         ),
     )
-    parser.add_argument("pipeline", choices=registry.names)
+    parser.add_argument(
+        "pipeline", choices=registry.names if registry is not None else None
+    )
     parser.add_argument(
         "--limit",
         type=_positive_integer,
@@ -980,6 +982,17 @@ def _pinned_dataset_members(
             "selected dataset in full."
         )
     return _bound_trace_ids(client, members, limit, only_with_assertions)
+
+
+def check_replay_arguments(argv: list[str]) -> None:
+    args = _parser(None).parse_args(argv)
+    _refuse_selection_flags_with_resume(args)
+
+
+def registration_for_args(
+    registry: ReplayRegistry, argv: list[str]
+) -> ReplayRegistration:
+    return registry.get(_parser(registry).parse_args(argv).pipeline)
 
 
 def run_replay_cli(

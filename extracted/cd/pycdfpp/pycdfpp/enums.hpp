@@ -57,6 +57,45 @@ void def_enums_wrappers(T& mod)
         .export_values()
         .finalize();
 
+    {
+        // Not exported to the module: the names are too generic.
+        using enum cdf_encoding;
+        py::native_enum<cdf_encoding>(mod, "Encoding", "enum.Enum")
+            .value("network", network)
+            .value("SUN", SUN)
+            .value("VAX", VAX)
+            .value("decstation", decstation)
+            .value("SGi", SGi)
+            .value("IBMPC", IBMPC)
+            .value("IBMRS", IBMRS)
+            .value("PPC", PPC)
+            .value("HP", HP)
+            .value("NeXT", NeXT)
+            .value("ALPHAOSF1", ALPHAOSF1)
+            .value("ALPHAVMSd", ALPHAVMSd)
+            .value("ALPHAVMSg", ALPHAVMSg)
+            .value("ALPHAVMSi", ALPHAVMSi)
+            .value("ARM_LITTLE", ARM_LITTLE)
+            .value("ARM_BIG", ARM_BIG)
+            .value("IA64VMSi", IA64VMSi)
+            .value("IA64VMSd", IA64VMSd)
+            .value("IA64VMSg", IA64VMSg)
+            .finalize();
+    }
+
+    py::native_enum<cdf_checksum>(mod, "Checksum", "enum.Enum")
+        .value("no_checksum", cdf_checksum::no_checksum)
+        .value("md5_checksum", cdf_checksum::md5_checksum)
+        .export_values()
+        .finalize();
+
+    py::native_enum<cdf_sparse_records>(mod, "SparseRecords", "enum.Enum")
+        .value("no_sparse_records", cdf_sparse_records::no_sparse_records)
+        .value("pad_sparse_records", cdf_sparse_records::pad_sparse_records)
+        .value("prev_sparse_records", cdf_sparse_records::prev_sparse_records)
+        .export_values()
+        .finalize();
+
     py::native_enum<CDF_Types>(mod, "DataType", "enum.Enum")
         .value("CDF_BYTE", CDF_Types::CDF_BYTE)
         .value("CDF_CHAR", CDF_Types::CDF_CHAR)

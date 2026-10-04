@@ -64,7 +64,8 @@ def upload_to_hf(parser):
         return
 
     # ── Upload agmet PNGs ───────────────────────────────────────────────
-    agmet_dir = dir_output / "agmet"
+    # geoagmet writes them under <project>/crop_condition/<date>/plots/...
+    agmet_dir = dir_output / "crop_condition"
     if agmet_dir.exists() and any(agmet_dir.rglob("*.png")):
         logger.info(f"Uploading agmet PNGs from {agmet_dir}")
         try:

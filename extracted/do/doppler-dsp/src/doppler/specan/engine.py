@@ -7,7 +7,7 @@ chain:
 
     IQ in (cf32, Fs_in)
       → Specan: DDC mix center→DC + decimate to Fs_out = span·1.28
-                → Kaiser window → zero-pad FFT → averaged power
+                → Kaiser window → FFT → averaged power
                 → crop to the central ±span/2 display band → dB
       → (here) dBm offset + peak detection → SpectrumFrame
 
@@ -52,6 +52,7 @@ class SpectrumFrame:
     db: list[float]  # dBm values, length fft_size, DC-centred
     fft_size: int  # number of display bins (the cropped passband)
     data_size: int  # N: Kaiser window / RBW frame size
+    nfft: int  # zero-padded transform length; display bin = fs_out / nfft
     fs_out: float  # Hz — output (display) sample rate
     center_freq: float  # Hz — display center frequency
     rbw: float  # Hz — actual RBW = enbw_bins * fs_out / N
@@ -98,8 +99,10 @@ class SpecanEngine:
 
         # Resolve the natural parameters (auto span/rbw) the same way the
         # config has always defined them, then hand concrete values to C.
-        span = cfg.effective_span(fs_in)
-        rbw = cfg.effective_rbw(span)
+        # 0 is auto for both; the analyzer resolves them (and clamps a span
+        # the input cannot supply), so the engine reads them back below.
+        span = cfg.span
+        rbw = cfg.rbw
 
         if self._specan is not None:
             self._specan.destroy()
@@ -113,7 +116,6 @@ class SpecanEngine:
             src_center=center_freq,
             center=cfg.center,
             offset_db=_DBM_OFFSET - cfg.level,
-            window="kaiser",
             navg=1,
         )
 
@@ -121,7 +123,9 @@ class SpecanEngine:
         self._nfft = self._specan.nfft
         self._disp_n = self._specan.display_size
         self._data_size = self._specan.n
-        self._span = span
+        # The analyzer clamps a span the input cannot supply (fs / 1.28), so
+        # the span shown is the one it realised, not the one requested.
+        self._span = self._specan.span
         # Read enough input per call to fill a display frame (n decimated
         # samples ≈ n / rate input samples), with a sane floor.
         self._block_size = max(
@@ -175,6 +179,7 @@ class SpecanEngine:
             db=db.tolist(),
             fft_size=len(db),
             data_size=self._data_size,
+            nfft=self._nfft,
             fs_out=self._fs_out,
             center_freq=self._cfg.center,
             rbw=rbw,

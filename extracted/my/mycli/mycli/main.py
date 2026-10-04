@@ -12,7 +12,7 @@ __lazy_modules__ = [
     'mycli.cli_runner',
     'mycli.client',
     'mycli.constants',
-    'mycli.packages.cli_utils',
+    'mycli.packages.utils.cli_utils',
 ]
 
 from dataclasses import dataclass
@@ -32,7 +32,7 @@ from mycli.constants import (
     DEFAULT_PROMPT,
     EMPTY_PASSWORD_FLAG_SENTINEL,
 )
-from mycli.packages.cli_utils import filtered_sys_argv
+from mycli.packages.utils.cli_utils import filtered_sys_argv
 
 
 class IntOrStringClickParamType(click.ParamType):
@@ -471,12 +471,12 @@ def preprocess_cli_args(
 def click_entrypoint(
     cli_args: CliArgs,
 ) -> None:
-    """A MySQL terminal client with auto-completion and syntax highlighting.
+    """Rich MySQL terminal client with auto-completion, syntax highlighting, and dataframes.
 
     \b
     Examples:
       - mycli my_database
-      - mycli -u my_user -h my_host.com my_database
+      - mycli --user my_user --host my_host.com my_database
       - mycli mysql://my_user@my_host.com:3306/my_database
 
     """

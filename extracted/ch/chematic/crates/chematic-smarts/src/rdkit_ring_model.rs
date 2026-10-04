@@ -38,13 +38,10 @@
 //! change any of those three predicates' verdicts, only `[RN]` (N ≥ 1, exact
 //! ring *count*) can move, because an atom can gain membership in an
 //! additional same-size ring beyond its raw-SSSR count. `[rN]`/`[kN]`
-//! (min-ring-size / any-ring-of-size-N) *could* in principle move too (an
-//! extra ring's atom set differs from the basis ring it substitutes for),
-//! but both already measure at ~100%/99.98% against RDKit using chematic's
-//! plain SSSR alone (`docs/rdkit_compat.md`'s SMARTS-R1 section) — the
-//! opt-in matcher (`crate::rdkit_parity_match`) deliberately leaves them
-//! wired to the plain SSSR, unchanged, and only routes `AtomPrimitive::RingCount`
-//! through this module's model.
+//! (min-ring-size / any-ring-of-size-N) can also differ when an extra ring's
+//! atom set differs from the basis ring it substitutes for. The opt-in
+//! matcher uses a separate bounded symmetrized set for `[kN]`, while `[rN]`
+//! remains on plain SSSR. Neither changes the native matcher.
 //!
 //! **Termination.** Simple-cycle enumeration is depth-bounded by the basis's
 //! largest ring size (not by atom count or ring count), so cost scales with
@@ -55,6 +52,7 @@
 //! [`build_rdkit_parity_ring_model`].
 
 use rustc_hash::{FxHashMap, FxHashSet};
+use std::collections::VecDeque;
 
 use chematic_core::{AtomIdx, BondIdx, Molecule};
 use chematic_perception::{
@@ -69,15 +67,14 @@ use chematic_perception::{
 /// variant's doc comment for what it guards.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RdkitParityError {
-    /// The RDKit-parity ring-count model's bounded simple-cycle search hit
-    /// its candidate-count cap before finishing. Rather than silently
-    /// returning a ring-count model built from a truncated candidate search
-    /// (which could under-report `[RN]` matches while *appearing* to be a
-    /// full RDKit-parity result), the whole call fails closed.
+    /// A bounded RDKit-parity ring-count or ring-size candidate search hit
+    /// its cap before finishing. Rather than silently returning a truncated
+    /// model (which could under-report `[RN]` or `[kN]` matches), the whole
+    /// call fails closed.
     ///
-    /// This is a resource/complexity bound on this module's own
-    /// candidate-generation approximation of RDKit's `symmetrizeSSSR` — it
-    /// is not the shared VF2 [`crate::MatchOutcome::BudgetExhausted`]
+    /// This is a resource/complexity bound on candidate generation for
+    /// RDKit-style ring selection — not the shared VF2
+    /// [`crate::MatchOutcome::BudgetExhausted`]
     /// (VF2 state-space search budget), which is a separate, orthogonal
     /// budget covering the actual subgraph-isomorphism search.
     RingModelBudgetExceeded {
@@ -169,6 +166,11 @@ impl Default for RdkitRingModelBudget {
 #[derive(Debug, Clone)]
 pub struct RdkitParityRingModel {
     ring_count_by_atom: FxHashMap<AtomIdx, u8>,
+    /// Candidate rings accepted beyond the basis by the SMARTS-specific
+    /// bounded selector. Used by the opt-in `[kN]` lane as a supplement to
+    /// perception's symmetrized ring set, which may miss a different but
+    /// equally valid replacement in a mixed-size bridged system.
+    extra_rings: Vec<Vec<AtomIdx>>,
     /// Extra rings accepted beyond the raw SSSR basis (for diagnostics/tests).
     extra_ring_count: usize,
 }
@@ -187,6 +189,12 @@ impl RdkitParityRingModel {
     pub fn extra_ring_count(&self) -> usize {
         self.extra_ring_count
     }
+
+    pub(crate) fn has_extra_ring_of_size(&self, atom: AtomIdx, size: usize) -> bool {
+        self.extra_rings
+            .iter()
+            .any(|ring| ring.len() == size && ring.contains(&atom))
+    }
 }
 
 /// Build an [`RdkitParityRingModel`] for `mol`, given its already-computed
@@ -202,6 +210,7 @@ pub fn build_rdkit_parity_ring_model(
     if base_rings.is_empty() {
         return Ok(RdkitParityRingModel {
             ring_count_by_atom: FxHashMap::default(),
+            extra_rings: Vec::new(),
             extra_ring_count: 0,
         });
     }
@@ -372,8 +381,10 @@ pub fn build_rdkit_parity_ring_model(
         // the replacement search (for example the corpus_3326 tropane
         // family). Before declaring that the symmetrized model has no extra
         // ring at all, complete the same bounded *shortest-ring* search from
-        // the affected ring systems: base rings of equal size that share a
-        // path (three or more atoms). A single shared bond is the usual
+        // the affected ring systems: base rings that share a path (three or
+        // more atoms). The alternative ring may replace a basis ring of a
+        // different size, as long as the resulting candidate itself matches
+        // one basis ring's size (corpus_3498). A single shared bond is the usual
         // fused-ring case and does not need this fallback. This excludes
         // acyclic substituent atoms, disjoint ring systems, and ordinary
         // fused systems, so large drug-like molecules do not acquire an
@@ -390,7 +401,6 @@ pub fn build_rdkit_parity_ring_model(
                 .filter(|(left_idx, left)| {
                     base_rings.iter().enumerate().any(|(right_idx, right)| {
                         left_idx != &right_idx
-                            && left.len() == right.len()
                             && left.iter().filter(|atom| right.contains(atom)).count() >= 3
                     })
                 })
@@ -414,6 +424,37 @@ pub fn build_rdkit_parity_ring_model(
                         });
                     }
                     accept_candidate(candidate);
+                }
+            }
+        }
+
+        // A fully fused cage can have no degree-two roots in its cyclic
+        // core even when peripheral substituents supplied D2 roots to the
+        // graph-wide Figueras pass. Its missing symmetrized face may be the
+        // *second*-shortest ring at every core atom (the fullerene family is
+        // one example), so an unblocked shortest-ring search cannot find it.
+        // On the 3-core of the basis-ring bond graph only, temporarily block
+        // each incident ring edge and reuse the bounded one-tree search. This
+        // is a structural graph rule, not a molecule-name exception; the
+        // same-size/unique-bond substitution check still decides acceptance.
+        if !found_extra.get() {
+            let core = ring_bond_three_core(mol, &base_bond_sets);
+            for root in core {
+                for (_, bond) in mol.neighbors(root) {
+                    if !bond_ring_count.contains_key(&bond) {
+                        continue;
+                    }
+                    let blocked = FxHashSet::from_iter([bond]);
+                    for candidate in find_smallest_rings_bfs_with_rdkit_tree(mol, root, &blocked) {
+                        candidates_examined += 1;
+                        if candidates_examined > budget.max_candidates {
+                            return Err(RdkitParityError::RingModelBudgetExceeded {
+                                candidates_examined,
+                                cap: budget.max_candidates,
+                            });
+                        }
+                        accept_candidate(candidate);
+                    }
                 }
             }
         }
@@ -445,10 +486,54 @@ pub fn build_rdkit_parity_ring_model(
         }
     }
 
+    let extra_ring_count = extra_rings.len();
     Ok(RdkitParityRingModel {
         ring_count_by_atom,
-        extra_ring_count: extra_rings.len(),
+        extra_rings,
+        extra_ring_count,
     })
+}
+
+/// Vertices that survive iterative degree-<3 pruning of the cyclic bond
+/// graph. Peripheral fused/pendant rings peel away; dense cage interiors do
+/// not. This is independent of atom numbering and excludes acyclic branches.
+fn ring_bond_three_core(mol: &Molecule, base_bond_sets: &[FxHashSet<BondIdx>]) -> Vec<AtomIdx> {
+    let n = mol.atom_count();
+    let ring_bonds: FxHashSet<BondIdx> = base_bond_sets
+        .iter()
+        .flat_map(|set| set.iter().copied())
+        .collect();
+    let mut neighbors = vec![Vec::new(); n];
+    for bond_idx in ring_bonds {
+        let bond = mol.bond(bond_idx);
+        let a = bond.atom1.0 as usize;
+        let b = bond.atom2.0 as usize;
+        neighbors[a].push(b);
+        neighbors[b].push(a);
+    }
+    let mut degree: Vec<usize> = neighbors.iter().map(Vec::len).collect();
+    let mut active: Vec<bool> = degree.iter().map(|&d| d > 0).collect();
+    let mut pending: VecDeque<usize> = (0..n)
+        .filter(|&idx| active[idx] && degree[idx] < 3)
+        .collect();
+    while let Some(idx) = pending.pop_front() {
+        if !active[idx] {
+            continue;
+        }
+        active[idx] = false;
+        for &other in &neighbors[idx] {
+            if active[other] {
+                degree[other] -= 1;
+                if degree[other] == 2 {
+                    pending.push_back(other);
+                }
+            }
+        }
+    }
+    (0..n)
+        .filter(|&idx| active[idx])
+        .map(|idx| AtomIdx(idx as u32))
+        .collect()
 }
 
 /// Build an experimental ring-count model from perception's shared bounded
@@ -477,6 +562,7 @@ pub fn build_shared_symmetrized_ring_model(
     }
     let shared_model = RdkitParityRingModel {
         ring_count_by_atom,
+        extra_rings: Vec::new(),
         extra_ring_count: result.rings().ring_count().saturating_sub(base_count),
     };
     // Some bridged cages are handled better by the original SMARTS-specific
@@ -644,6 +730,26 @@ mod tests {
         );
     }
 
+    #[test]
+    fn mixed_size_bridged_ring_recovers_same_size_alternative() {
+        // RDKit 2026.03.6 reports five symmetrized rings on corpus_3498:
+        // a four-membered ring and two distinct six-membered paths share
+        // three atoms. The raw SSSR has four rings, only one of the two
+        // six-membered paths, and no same-size overlapping basis pair.
+        let (mol, model) =
+            model_for("C=C1[C@H]2Oc3cc(C(C)(C)CCCCCC)cc(O)c3[C@H]2[C@H]2C[C@@H]1C2(C)C");
+        assert_eq!(model.extra_ring_count(), 1);
+        let counts: Vec<_> = (0..mol.atom_count())
+            .map(|i| model.ring_count(AtomIdx(i as u32)))
+            .collect();
+        assert_eq!(
+            counts,
+            vec![
+                0, 2, 3, 1, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 2, 3, 3, 2, 3, 2, 0, 0
+            ]
+        );
+    }
+
     // -- Adversarial highly-symmetric target: dodecahedrane --
     //
     // Ground truth (rdkit==2026.03.3, live oracle, PubChem CID 123218 SMILES
@@ -717,5 +823,49 @@ mod tests {
             result,
             Err(RdkitParityError::RingModelBudgetExceeded { .. })
         ));
+    }
+
+    #[test]
+    fn substituted_fullerene_cage_finds_missing_six_face() {
+        // Pinned RDKit 2026.03.6 has 33 selected rings here. CheMatic's
+        // minimal basis has 32, leaving atoms 20/21/22/45/46/47 falsely at
+        // [R2]. All six belong to the extra six-membered face and are [R3].
+        let mol = parse("COCCOCCOCCN1CC23C4=C5C6=C7c8c9c%10c%11c%12c%13c%14c(c2c2c%15c%16c%17c%18c%19c(c5c5c%20c%21c%22c%23c(c8C%22C65)c%10c5c%11c6c%13c8c(c%15%14)c%16c%10c%18c%11c(c%20%19)c%21c%13c%23c5c5c%13c%11c%10c8c65)C%17C42)C%12C9C73C1COCCOCCOC").unwrap();
+        let base = find_sssr(&mol);
+        let model =
+            build_rdkit_parity_ring_model(&mol, &base, &RdkitRingModelBudget::default()).unwrap();
+        assert_eq!(base.ring_count(), 32);
+        assert_eq!(model.extra_ring_count(), 1);
+        for raw in [20, 21, 22, 45, 46, 47] {
+            assert_eq!(model.ring_count(AtomIdx(raw)), 3, "atom {raw}");
+        }
+    }
+
+    #[test]
+    fn substituted_fullerene_variants_preserve_ring_counts() {
+        // The same pinned RDKit 2026.03.6 face family, with different
+        // substituent attachment and atom numbering (corpus 3976/4004).
+        let cases: [(&str, &[(u32, u8)]); 2] = [
+            (
+                "COCCOCCOCC1N(C)CC23C4=C5C6=C7c8c9c%10c%11c%12c%13c%14c(c2c2c%15c%16c%17c%18c%19c(c5c5c%20c%21c%22c%23c(c8C%22C65)c%10c5c%11c6c%13c8c(c%15%14)c%16c%10c%18c%11c(c%20%19)c%21c%13c%23c5c5c%13c%11c%10c8c65)C%17C42)C%12C9C713",
+                &[(27, 3), (28, 3), (29, 3), (30, 3), (68, 3), (69, 3)],
+            ),
+            (
+                "COCCOCCOCCN1CC23C4=C5C6=C7c8c9c%10c%11c%12c%13c%14c(c2c2c%15c%16c%17c%18c%19c(c5c5c%20c%21c%22c%23c(c8C%22C65)c%10c5c%11c6c%13c8c(c%15%14)c%16c%10c%18c%11c(c%20%19)c%21c%13c%23c5c5c%13c%11c%10c8c65)C%17C42)C%12C9C73C1",
+                &[(12, 4), (24, 3), (25, 3), (69, 3), (70, 3), (71, 4)],
+            ),
+        ];
+        for (smiles, expected) in cases {
+            let mol = parse(smiles).unwrap();
+            let base = find_sssr(&mol);
+            let model =
+                build_rdkit_parity_ring_model(&mol, &base, &RdkitRingModelBudget::default())
+                    .unwrap();
+            assert_eq!(base.ring_count(), 32);
+            assert_eq!(model.extra_ring_count(), 1);
+            for &(raw, count) in expected {
+                assert_eq!(model.ring_count(AtomIdx(raw)), count, "atom {raw}");
+            }
+        }
     }
 }

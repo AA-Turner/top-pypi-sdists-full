@@ -302,6 +302,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         forced: bool | None = None,
         file_priorities: Iterable[int] | None = None,
         downloader: str | None = None,
+        share_limits_mode: Literal["Default", "MatchAny", "MatchAll"] | None = None,
         **kwargs: APIKwargsT,
     ) -> str | TorrentsAddedMetadata:
         """
@@ -377,6 +378,8 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             uploading torrent files (added in Web API v2.11.9)
         :param downloader: name of the search plugin to download the torrent with; only
             applies when adding by URL (added in Web API v2.13.1)
+        :param share_limits_mode: mode once share limit is reached.
+            Options: Default, MatchAny, MatchAll (added in Web API v2.16.0)
         """  # noqa: E501
 
         # convert pre-v2.7 params to post-v2.7 params...or post-v2.7 to pre-v2.7
@@ -438,6 +441,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             "forced": (None, forced),
             "filePriorities": (None, self._list2string(file_priorities, ",")),
             "downloader": (None, downloader),
+            "shareLimitsMode": (None, share_limits_mode),
         }
 
         resp = self._post(
@@ -1121,6 +1125,36 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             version_introduced="2.8.14",
             **kwargs,
         )
+
+    def torrents_download_file(
+        self,
+        torrent_hash: str | None = None,
+        file: str | int | None = None,
+        **kwargs: APIKwargsT,
+    ) -> str:
+        """
+        The file system path for a fully downloaded file within a torrent.
+
+        This method was introduced with qBittorrent v5.3.0 (Web API v2.16.0).
+
+        :raises NotFound404Error: torrent not found
+        :raises Conflict409Error: torrent metadata unavailable, file not found,
+            or file not fully downloaded
+
+        :param torrent_hash: hash for torrent
+        :param file: index of the file within the torrent or its path
+        """
+        data = {"hash": torrent_hash, "file": file}
+        return self._post_cast(
+            _name=APINames.Torrents,
+            _method="downloadFile",
+            data=data,
+            response_class=str,
+            version_introduced="2.16.0",
+            **kwargs,
+        )
+
+    torrents_downloadFile = torrents_download_file
 
     ##########################################################################
     # TORRENT METADATA ENDPOINTS
@@ -1927,6 +1961,14 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         save_path: str | None = None,
         download_path: str | None = None,
         enable_download_path: bool | None = None,
+        ratio_limit: str | float | None = None,
+        seeding_time_limit: str | int | None = None,
+        inactive_seeding_time_limit: str | int | None = None,
+        share_limit_action: Literal[
+            "Default", "Stop", "Remove", "RemoveWithContent", "EnableSuperSeeding"
+        ]
+        | None = None,
+        share_limits_mode: Literal["Default", "MatchAny", "MatchAll"] | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
         """
@@ -1938,6 +1980,20 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             2.1.0)
         :param download_path: download location for torrents with this category
         :param enable_download_path: True or False to enable or disable download path
+        :param ratio_limit: max ratio to seed torrents in this category
+            (-2 means use the global value and -1 is no limit)
+            (added in Web API v2.16.2)
+        :param seeding_time_limit: minutes
+            (-2 means use the global value and -1 is no limit)
+            (added in Web API v2.16.2)
+        :param inactive_seeding_time_limit: minutes
+            (-2 means use the global value and -1 is no limit)
+            (added in Web API v2.16.2)
+        :param share_limit_action: action once share limit is reached.
+            Options: Default, Stop, Remove, RemoveWithContent, EnableSuperSeeding
+            (added in Web API v2.16.2)
+        :param share_limits_mode: mode once share limit is reached.
+            Options: Default, MatchAny, MatchAll (added in Web API v2.16.2)
         """
         # default to actually using the specified download path
         if enable_download_path is None and download_path is not None:
@@ -1948,6 +2004,11 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             "savePath": save_path,
             "downloadPath": download_path,
             "downloadPathEnabled": enable_download_path,
+            "ratioLimit": ratio_limit,
+            "seedingTimeLimit": seeding_time_limit,
+            "inactiveSeedingTimeLimit": inactive_seeding_time_limit,
+            "shareLimitAction": share_limit_action,
+            "shareLimitsMode": share_limits_mode,
         }
         self._post(
             _name=APINames.Torrents,
@@ -1964,6 +2025,14 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         save_path: str | None = None,
         download_path: str | None = None,
         enable_download_path: bool | None = None,
+        ratio_limit: str | float | None = None,
+        seeding_time_limit: str | int | None = None,
+        inactive_seeding_time_limit: str | int | None = None,
+        share_limit_action: Literal[
+            "Default", "Stop", "Remove", "RemoveWithContent", "EnableSuperSeeding"
+        ]
+        | None = None,
+        share_limits_mode: Literal["Default", "MatchAny", "MatchAll"] | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
         """
@@ -1973,9 +2042,24 @@ class TorrentsAPIMixIn(AppAPIMixIn):
 
         :raises Conflict409Error: if category name is not valid or unable to create
         :param name: category to edit
-        :param save_path: new location to save files for this category
+        :param save_path: new location to save files for this category; optional as
+            of Web API v2.16.2, where omitting it leaves the save path unchanged
         :param download_path: download location for torrents with this category
         :param enable_download_path: True or False to enable or disable download path
+        :param ratio_limit: max ratio to seed torrents in this category
+            (-2 means use the global value and -1 is no limit)
+            (added in Web API v2.16.2)
+        :param seeding_time_limit: minutes
+            (-2 means use the global value and -1 is no limit)
+            (added in Web API v2.16.2)
+        :param inactive_seeding_time_limit: minutes
+            (-2 means use the global value and -1 is no limit)
+            (added in Web API v2.16.2)
+        :param share_limit_action: action once share limit is reached.
+            Options: Default, Stop, Remove, RemoveWithContent, EnableSuperSeeding
+            (added in Web API v2.16.2)
+        :param share_limits_mode: mode once share limit is reached.
+            Options: Default, MatchAny, MatchAll (added in Web API v2.16.2)
         """
 
         # default to actually using the specified download path
@@ -1987,6 +2071,11 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             "savePath": save_path,
             "downloadPath": download_path,
             "downloadPathEnabled": enable_download_path,
+            "ratioLimit": ratio_limit,
+            "seedingTimeLimit": seeding_time_limit,
+            "inactiveSeedingTimeLimit": inactive_seeding_time_limit,
+            "shareLimitAction": share_limit_action,
+            "shareLimitsMode": share_limits_mode,
         }
         self._post(
             _name=APINames.Torrents,
@@ -2829,6 +2918,20 @@ class TorrentDictionary(ClientCache[TorrentsAPIMixIn], ListEntry):
         """Implements :meth:`~TorrentsAPIMixIn.torrents_export`."""
         return self._client.torrents_export(torrent_hash=self._torrent_hash, **kwargs)
 
+    def download_file(
+        self,
+        file: str | int | None = None,
+        **kwargs: APIKwargsT,
+    ) -> str:
+        """Implements :meth:`~TorrentsAPIMixIn.torrents_download_file`."""
+        return self._client.torrents_download_file(
+            torrent_hash=self._torrent_hash,
+            file=file,
+            **kwargs,
+        )
+
+    downloadFile = download_file
+
 
 class Torrents(ClientCache[TorrentsAPIMixIn]):
     """
@@ -3447,6 +3550,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
         forced: bool | None = None,
         file_priorities: Iterable[int] | None = None,
         downloader: str | None = None,
+        share_limits_mode: Literal["Default", "MatchAny", "MatchAll"] | None = None,
         **kwargs: APIKwargsT,
     ) -> str | TorrentsAddedMetadata:
         """Implements :meth:`~TorrentsAPIMixIn.torrents_add`."""
@@ -3482,6 +3586,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             forced=forced,
             file_priorities=file_priorities,
             downloader=downloader,
+            share_limits_mode=share_limits_mode,
             **kwargs,
         )
 
@@ -3796,6 +3901,21 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
         """Implements :meth:`~TorrentsAPIMixIn.torrents_export`."""
         return self._client.torrents_export(torrent_hash=torrent_hash, **kwargs)
 
+    def download_file(
+        self,
+        torrent_hash: str | None = None,
+        file: str | int | None = None,
+        **kwargs: APIKwargsT,
+    ) -> str:
+        """Implements :meth:`~TorrentsAPIMixIn.torrents_download_file`."""
+        return self._client.torrents_download_file(
+            torrent_hash=torrent_hash,
+            file=file,
+            **kwargs,
+        )
+
+    downloadFile = download_file
+
 
 class TorrentCategories(ClientCache[TorrentsAPIMixIn]):
     """
@@ -3836,6 +3956,14 @@ class TorrentCategories(ClientCache[TorrentsAPIMixIn]):
         save_path: str | None = None,
         download_path: str | None = None,
         enable_download_path: bool | None = None,
+        ratio_limit: str | float | None = None,
+        seeding_time_limit: str | int | None = None,
+        inactive_seeding_time_limit: str | int | None = None,
+        share_limit_action: Literal[
+            "Default", "Stop", "Remove", "RemoveWithContent", "EnableSuperSeeding"
+        ]
+        | None = None,
+        share_limits_mode: Literal["Default", "MatchAny", "MatchAll"] | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
         """Implements :meth:`~TorrentsAPIMixIn.torrents_create_category`."""
@@ -3844,6 +3972,11 @@ class TorrentCategories(ClientCache[TorrentsAPIMixIn]):
             save_path=save_path,
             download_path=download_path,
             enable_download_path=enable_download_path,
+            ratio_limit=ratio_limit,
+            seeding_time_limit=seeding_time_limit,
+            inactive_seeding_time_limit=inactive_seeding_time_limit,
+            share_limit_action=share_limit_action,
+            share_limits_mode=share_limits_mode,
             **kwargs,
         )
 
@@ -3855,6 +3988,14 @@ class TorrentCategories(ClientCache[TorrentsAPIMixIn]):
         save_path: str | None = None,
         download_path: str | None = None,
         enable_download_path: bool | None = None,
+        ratio_limit: str | float | None = None,
+        seeding_time_limit: str | int | None = None,
+        inactive_seeding_time_limit: str | int | None = None,
+        share_limit_action: Literal[
+            "Default", "Stop", "Remove", "RemoveWithContent", "EnableSuperSeeding"
+        ]
+        | None = None,
+        share_limits_mode: Literal["Default", "MatchAny", "MatchAll"] | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
         """Implements :meth:`~TorrentsAPIMixIn.torrents_edit_category`."""
@@ -3863,6 +4004,11 @@ class TorrentCategories(ClientCache[TorrentsAPIMixIn]):
             save_path=save_path,
             download_path=download_path,
             enable_download_path=enable_download_path,
+            ratio_limit=ratio_limit,
+            seeding_time_limit=seeding_time_limit,
+            inactive_seeding_time_limit=inactive_seeding_time_limit,
+            share_limit_action=share_limit_action,
+            share_limits_mode=share_limits_mode,
             **kwargs,
         )
 

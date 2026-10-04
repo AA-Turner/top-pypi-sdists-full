@@ -85,6 +85,7 @@ class Trajectories(APIResource):
     *,
     dataset_name: str | None | Omit = omit,
     training_run_id: str | None | Omit = omit,
+    eval_run_id: str | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -99,6 +100,9 @@ class Trajectories(APIResource):
 
     Args:
       training_run_id: List this run's training rollouts, including unfinished and failed trajectories,
+        newest first.
+
+      eval_run_id: List this evaluation's trajectories, including unfinished and failed attempts,
         newest first.
 
       extra_headers: Send extra headers
@@ -117,6 +121,7 @@ class Trajectories(APIResource):
           {
             "dataset_name": dataset_name,
             "training_run_id": training_run_id,
+            "eval_run_id": eval_run_id,
             "cursor": cursor,
             "limit": limit,
             "sort": sort,

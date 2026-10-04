@@ -22,11 +22,13 @@ use crate::encode::{
 use crate::errors::{Failure, FailureClass, PublicError};
 use crate::events::{Event, Usage};
 use crate::metrics::{classify_escalation, METRICS};
+use crate::reasoning_display::ReasoningOutput;
 use crate::relay::{collect_committed, collection_public_error};
 use crate::replay::{CachedResponse, Claim, OwnerLease, ReplayKey};
 use crate::respond::{
     bearer_key, cached_response, client_ip, complete_visible_refusal, error_response,
     escalation_error, json_response, latin1_header, read_body, sse_body_response,
+    with_app_identity,
 };
 use crate::server::AppState;
 use crate::settlement::{settle_guarded_failure, AttemptGuard};
@@ -115,14 +117,16 @@ pub(crate) async fn chat(
         }
     }
 
-    let admit_argument = compact_json(&json!({
+    let mut admit_value = json!({
         "raw_key": raw_key,
         "body": body_text,
         "idempotency_key": idempotency_key,
         "client_request_id": client_request_id,
         "client_ip": client_ip(&headers),
         "capture_session_id": crate::capture::session_id(&headers),
-    }));
+    });
+    with_app_identity(&mut admit_value, &headers);
+    let admit_argument = compact_json(&admit_value);
     let admission_text = match state.bridge.call("admit", admit_argument).await {
         Ok(text) => text,
         Err(error) => {
@@ -231,7 +235,7 @@ pub(crate) async fn chat(
         deadline,
     )
     .await;
-    observe_winner(state.capture.clone(), &admission, &guard, &mut won);
+    observe_winner(state.capture.clone(), &admission, &guard, &mut won, false);
 
     let created_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -395,7 +399,7 @@ fn encode_chat_sse(
     created_at: i64,
     events: &[Event],
     reasoning_content_carrier: Option<&str>,
-    reasoning_output_exposed: bool,
+    reasoning_output: impl Into<ReasoningOutput>,
 ) -> Result<Vec<u8>, PublicError> {
     let mut encoder = ChatSseEncoder::new_with_ignored(
         &admission.request_id,
@@ -405,7 +409,7 @@ fn encode_chat_sse(
         admission.ignored_parameters.clone(),
     );
     configure_chat_encoder(&mut encoder, admission);
-    encoder.set_reasoning_output_exposed(reasoning_output_exposed);
+    encoder.set_reasoning_output(reasoning_output.into());
     if let Some(carrier) = reasoning_content_carrier {
         encoder.set_reasoning_content_carrier(carrier.to_string());
     }
@@ -532,7 +536,7 @@ async fn respond_from_chat_events(
         &events,
         &admission.ignored_parameters,
         carrier.as_deref(),
-        admission.reasoning_exposed_at(depth),
+        admission.reasoning_output_at(depth),
     ) {
         Ok(aggregated) => aggregated,
         Err(error) => {
@@ -617,7 +621,7 @@ async fn respond_from_chat_events(
             created_at,
             &events,
             carrier.as_deref(),
-            admission.reasoning_exposed_at(depth),
+            admission.reasoning_output_at(depth),
         ) {
             Ok(body) => body,
             Err(error) => return error_response(&error),

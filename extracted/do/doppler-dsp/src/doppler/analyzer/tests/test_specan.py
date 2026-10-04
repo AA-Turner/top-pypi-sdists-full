@@ -44,10 +44,14 @@ def test_required_params_are_mandatory():
 def test_natural_params_derive_a_sane_grid():
     sa = Specan(fs=FS, span=SPAN, rbw=RBW, center=0.0)
     assert sa.fs_out == pytest.approx(SPAN * 1.28)
-    assert sa.nfft == 2 * sa.n  # pad = 2, n is a power of two
+    # docs/design/specan.md: nfft is a power of two >= 512 and is the window
+    # (the full rule set is pinned in native/tests/test_specan_core.c).
+    assert sa.nfft & (sa.nfft - 1) == 0
+    assert sa.nfft >= 512
+    assert sa.n == sa.nfft
     assert sa.display_size % 2 == 1  # odd → exact DC-centred bin
-    assert sa.rbw == pytest.approx(RBW, rel=0.05)  # RBW realised within 5 %
-    assert sa.beta > 0.0  # Kaiser actually shaped to hit RBW
+    assert sa.rbw == pytest.approx(RBW, rel=0.0025)  # the REALISED RBW
+    assert sa.beta > 11.5  # ENBW floor of 2 bins: ~-90 dB sidelobes
     sa.destroy()
 
 

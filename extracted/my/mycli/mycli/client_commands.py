@@ -11,19 +11,19 @@ import click
 
 from mycli.config import write_default_config
 from mycli.main_modes.repl import set_all_external_titles
-from mycli.packages import special
-from mycli.packages.batch_utils import statements_from_filehandle
-from mycli.packages.filepaths import dir_path_exists
-from mycli.packages.interactive_utils import confirm_destructive_query
-from mycli.packages.ptoolkit.history import FileHistoryWithTimestamp
-from mycli.packages.special.main import ArgType, SpecialCommandAlias
-from mycli.packages.special.source import (
+from mycli.packages import special_commands
+from mycli.packages.execution.sql_execute import SQLExecute
+from mycli.packages.prompt_toolkit.history import FileHistoryWithTimestamp
+from mycli.packages.special_commands.main import ArgType, SpecialCommandAlias
+from mycli.packages.special_commands.source import (
     SOURCE_HELP_ROWS,
     parse_source_arguments,
     source_special_command_is_safe,
 )
-from mycli.packages.sqlresult import SQLResult
-from mycli.sqlexecute import SQLExecute
+from mycli.packages.sql_result.sql_result import SQLResult
+from mycli.packages.utils.batch_utils import statements_from_filehandle
+from mycli.packages.utils.interactive_utils import confirm_destructive_query
+from mycli.packages.utils.path_utils import dir_path_exists
 
 CONFIG_COMMAND_USAGE = '''Syntax:
   /config get <key>
@@ -96,7 +96,7 @@ class ClientCommandsMixin:
     if TYPE_CHECKING:
         main_formatter: Any
         redirect_formatter: Any
-        sqlexecute: Any
+        sql_execute: Any
         destructive_warning: bool
         destructive_keywords: Any
         config: Any
@@ -109,7 +109,7 @@ class ClientCommandsMixin:
         def echo(self, *args: Any, **kwargs: Any) -> None: ...
 
     def register_special_commands(self) -> None:
-        special.register_special_command(
+        special_commands.register_special_command(
             self.change_db,
             "use",
             "/use <database>",
@@ -117,7 +117,7 @@ class ClientCommandsMixin:
             aliases=[SpecialCommandAlias("\\u", case_sensitive=False)],
             completion_snippet='change databases',
         )
-        special.register_special_command(
+        special_commands.register_special_command(
             self.manual_reconnect,
             "connect",
             "/connect [database]",
@@ -126,7 +126,7 @@ class ClientCommandsMixin:
             aliases=[SpecialCommandAlias("\\r", case_sensitive=True)],
             completion_snippet='reconnect to server',
         )
-        special.register_special_command(
+        special_commands.register_special_command(
             self.rehash,
             "rehash",
             "/rehash",
@@ -135,7 +135,7 @@ class ClientCommandsMixin:
             aliases=[SpecialCommandAlias("\\#", case_sensitive=False)],
             completion_snippet='refresh completions',
         )
-        special.register_special_command(
+        special_commands.register_special_command(
             self.change_table_format,
             "tableformat",
             "/tableformat <format>",
@@ -144,7 +144,7 @@ class ClientCommandsMixin:
             aliases=[SpecialCommandAlias("\\T", case_sensitive=True)],
             completion_snippet='set interactive output format',
         )
-        special.register_special_command(
+        special_commands.register_special_command(
             self.change_redirect_format,
             "redirectformat",
             "/redirectformat <format>",
@@ -153,7 +153,7 @@ class ClientCommandsMixin:
             aliases=[SpecialCommandAlias("\\Tr", case_sensitive=True)],
             completion_snippet='set redirected output format',
         )
-        special.register_special_command(
+        special_commands.register_special_command(
             self.execute_from_file,
             "source",
             "/source [options] <file>",
@@ -161,7 +161,7 @@ class ClientCommandsMixin:
             aliases=[SpecialCommandAlias("\\.", case_sensitive=False)],
             completion_snippet='execute queries from file',
         )
-        special.register_special_command(
+        special_commands.register_special_command(
             self.change_prompt_format,
             "prompt",
             "/prompt [string]",
@@ -170,7 +170,7 @@ class ClientCommandsMixin:
             aliases=[SpecialCommandAlias("\\R", case_sensitive=True)],
             completion_snippet='set prompt format',
         )
-        special.register_special_command(
+        special_commands.register_special_command(
             self.config_command,
             r'\config',
             '/config <command> [key]',
@@ -274,13 +274,13 @@ class ClientCommandsMixin:
             click.secho("No database selected", err=True, fg="red")
             return
 
-        assert isinstance(self.sqlexecute, SQLExecute)
+        assert isinstance(self.sql_execute, SQLExecute)
 
-        if self.sqlexecute.dbname == arg:
-            msg = f'You are already connected to database "{self.sqlexecute.dbname}" as user "{self.sqlexecute.user}"'
+        if self.sql_execute.dbname == arg:
+            msg = f'You are already connected to database "{self.sql_execute.dbname}" as user "{self.sql_execute.user}"'
         else:
-            self.sqlexecute.change_db(arg)
-            msg = f'You are now connected to database "{self.sqlexecute.dbname}" as user "{self.sqlexecute.user}"'
+            self.sql_execute.change_db(arg)
+            msg = f'You are now connected to database "{self.sql_execute.dbname}" as user "{self.sql_execute.user}"'
 
         # todo: this jump back to repl.py is a sign that separation is incomplete.
         # also: it should not be needed.  Don't titles update on every new prompt?
@@ -310,7 +310,7 @@ class ClientCommandsMixin:
             yield SQLResult(status=str(error))
             return
 
-        assert isinstance(self.sqlexecute, SQLExecute)
+        assert isinstance(self.sql_execute, SQLExecute)
         executed_statement = False
         with file_h:
             statements = statements_from_filehandle(file_h)
@@ -324,7 +324,7 @@ class ClientCommandsMixin:
                     return
 
                 special_query = query.rstrip(';')
-                if special.is_special_command(special_query):
+                if special_commands.is_special_command(special_query):
                     if not source_arguments.allow_special:
                         yield SQLResult(
                             status='Special commands are not supported without /source --special.',
@@ -332,7 +332,7 @@ class ClientCommandsMixin:
                         )
                         return
                     if not source_special_command_is_safe(special_query):
-                        command, _verbosity, _arg = special.parse_special_command(special_query)
+                        command, _verbosity, _arg = special_commands.parse_special_command(special_query)
                         yield SQLResult(
                             status=f'Special command is never permitted in source files: {command}.',
                             is_error=True,
@@ -345,7 +345,7 @@ class ClientCommandsMixin:
                             yield SQLResult(command={'name': 'source_show', 'text': special_query})
                         else:
                             click.secho(f'> {special_query}')
-                    yield from self.sqlexecute.run(special_query)
+                    yield from self.sql_execute.run(special_query)
                     executed_statement = True
                     continue
 
@@ -358,7 +358,7 @@ class ClientCommandsMixin:
                         yield SQLResult(command={'name': 'source_show', 'text': query})
                     else:
                         click.secho(f'> {query}')
-                yield from self.sqlexecute.run(query)
+                yield from self.sql_execute.run(query)
                 executed_statement = True
 
     def change_prompt_format(self, arg: str, **_) -> list[SQLResult]:

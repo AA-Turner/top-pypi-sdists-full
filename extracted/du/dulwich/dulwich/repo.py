@@ -45,6 +45,7 @@ __all__ = [
     "BaseRepo",
     "DefaultIdentityNotFound",
     "InvalidUserIdentity",
+    "InvalidWorktreeConfiguration",
     "MemoryRepo",
     "ParentsProvider",
     "Repo",
@@ -59,6 +60,7 @@ __all__ = [
     "serialize_graftpoints",
 ]
 
+import errno
 import logging
 import os
 import stat
@@ -97,7 +99,7 @@ if TYPE_CHECKING:
     from .walk import Walker
     from .worktree import WorkTree
 
-from . import reflog
+from . import _deprecated_aliases, reflog
 from .errors import (
     NoIndexPresent,
     NotBlobError,
@@ -113,6 +115,7 @@ from .file import (
     GitFile,
     SharedPerm,
     adjust_shared_perm,
+    open_nofollow_read,
 )
 from .hooks import (
     CommitMsgShellHook,
@@ -146,8 +149,6 @@ from .objects import (
 from .pack import generate_unpacked_objects
 from .refs import (
     HEADREF,
-    LOCAL_TAG_PREFIX,  # noqa: F401
-    SYMREF,  # noqa: F401
     DictRefsContainer,
     DiskRefsContainer,
     Ref,
@@ -156,16 +157,26 @@ from .refs import (
     _set_default_branch,
     _set_head,
     _set_origin_head,
-    check_ref_format,  # noqa: F401
     extract_branch_name,
     is_per_worktree_ref,
     local_branch_name,
-    read_packed_refs,  # noqa: F401
-    read_packed_refs_with_peeled,  # noqa: F401
-    write_packed_refs,  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
+
+
+__getattr__ = _deprecated_aliases(
+    __name__,
+    {
+        "LOCAL_TAG_PREFIX": "dulwich.refs.LOCAL_TAG_PREFIX",
+        "SYMREF": "dulwich.refs.SYMREF",
+        "check_ref_format": "dulwich.refs.check_ref_format",
+        "read_packed_refs": "dulwich.refs.read_packed_refs",
+        "read_packed_refs_with_peeled": "dulwich.refs.read_packed_refs_with_peeled",
+        "write_packed_refs": "dulwich.refs.write_packed_refs",
+    },
+)
+
 
 CONTROLDIR = ".git"
 OBJECTDIR = "objects"
@@ -1240,6 +1251,7 @@ class BaseRepo:
         since: int | None = None,
         until: int | None = None,
         queue_cls: type | None = None,
+        simplify_history: bool = False,
     ) -> "Walker":
         """Obtain a walker for this repository.
 
@@ -1263,6 +1275,11 @@ class BaseRepo:
           until: Timestamp to list commits before.
           queue_cls: A class to use for a queue of commits, supporting the
             iterator protocol. The constructor takes a single argument, the Walker.
+          simplify_history: If True and paths is set, perform git-style
+            history simplification: at a merge commit that is TREESAME to
+            at least one parent for the requested paths, follow only that
+            parent (matches ``git log <path>``). The default of False
+            matches ``git log --full-history <path>``.
 
         Returns: A `Walker` object
         """
@@ -1286,6 +1303,7 @@ class BaseRepo:
             until=until,
             get_parents=lambda commit: self.get_parents(commit.id, commit),
             queue_cls=queue_cls if queue_cls is not None else _CommitTimeQueue,
+            simplify_history=simplify_history,
         )
 
     def __getitem__(self, name: ObjectID | Ref | bytes) -> "ShaFile":
@@ -2067,6 +2085,7 @@ class Repo(BaseRepo):
             version=index_version,
             shared_perm=shared_perm,
             path_normalizer=make_path_normalizer(config),
+            object_format=self.object_format,
         )
 
     def has_index(self) -> bool:
@@ -2591,39 +2610,50 @@ class Repo(BaseRepo):
     def _read_gitattributes(self) -> dict[bytes, dict[bytes, bytes]]:
         """Read .gitattributes file from working tree.
 
+        A ``.gitattributes`` that is a symlink is skipped with a warning
+        rather than followed, as git does.
+
         Returns:
             Dictionary mapping file patterns to attributes
         """
-        gitattributes = {}
+        gitattributes: dict[bytes, dict[bytes, bytes]] = {}
         gitattributes_path = os.path.join(self.path, ".gitattributes")
 
-        if os.path.exists(gitattributes_path):
-            with open(gitattributes_path, "rb") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith(b"#"):
-                        continue
+        try:
+            f = open_nofollow_read(gitattributes_path)
+        except FileNotFoundError:
+            return gitattributes
+        except OSError as e:
+            if e.errno not in (errno.ELOOP, errno.EMLINK):
+                raise
+            logger.warning("Ignoring %s: it is a symbolic link", gitattributes_path)
+            return gitattributes
+        with f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith(b"#"):
+                    continue
 
-                    parts = line.split()
-                    if len(parts) < 2:
-                        continue
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
 
-                    pattern = parts[0]
-                    attrs = {}
+                pattern = parts[0]
+                attrs = {}
 
-                    for attr in parts[1:]:
-                        if attr.startswith(b"-"):
-                            # Unset attribute
-                            attrs[attr[1:]] = b"false"
-                        elif b"=" in attr:
-                            # Set to value
-                            key, value = attr.split(b"=", 1)
-                            attrs[key] = value
-                        else:
-                            # Set attribute
-                            attrs[attr] = b"true"
+                for attr in parts[1:]:
+                    if attr.startswith(b"-"):
+                        # Unset attribute
+                        attrs[attr[1:]] = b"false"
+                    elif b"=" in attr:
+                        # Set to value
+                        key, value = attr.split(b"=", 1)
+                        attrs[key] = value
+                    else:
+                        # Set attribute
+                        attrs[attr] = b"true"
 
-                    gitattributes[pattern] = attrs
+                gitattributes[pattern] = attrs
 
         return gitattributes
 
@@ -2721,10 +2751,19 @@ class Repo(BaseRepo):
                     )
                 )
 
-        # Read .gitattributes from working directory (if it exists)
+        # Read .gitattributes from working directory (if it exists). Like git,
+        # don't follow a symlink there.
         working_attrs_path = os.path.join(self.path, ".gitattributes")
-        if os.path.exists(working_attrs_path):
-            with open(working_attrs_path, "rb") as f:
+        try:
+            working_attrs_file = open_nofollow_read(working_attrs_path)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            if e.errno not in (errno.ELOOP, errno.EMLINK):
+                raise
+            logger.warning("Ignoring %s: it is a symbolic link", working_attrs_path)
+        else:
+            with working_attrs_file as f:
                 patterns.extend(
                     compile_gitattributes_patterns(
                         parse_git_attributes(f), working_attrs_path

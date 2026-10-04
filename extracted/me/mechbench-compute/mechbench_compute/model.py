@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import mlx.core as mx
 import numpy as np
@@ -22,7 +23,7 @@ def _peek_config(model_id: str) -> dict:
         if isinstance(path, tuple):
             path = path[0]
         return dict(load_config(path))
-    except Exception:
+    except Exception:  # noqa: BLE001
         return {}
 
 
@@ -39,6 +40,7 @@ class Model:
         self.requested_ref: str | None = None
         self.node_adapter: dict | None = None
         self.fused_reference: Any = None
+        self.fingerprint: Any = None
 
     @classmethod
     def load(cls, model_id: str, *,
@@ -100,9 +102,9 @@ class Model:
     def prompt_cache(self):
         return self.architecture.prompt_cache(self._model)
 
-    def trunk_hidden(self, input_ids: mx.array) -> mx.array:
+    def trunk_hidden(self, input_ids: mx.array, *, cache=None) -> mx.array:
         add_to_span(forwards=1, tokens_in=int(input_ids.size))
-        h = self.lm.model(input_ids)
+        h = self.lm.model(input_ids, cache=cache)
         return h[0] if isinstance(h, tuple) else h
 
     def head_logits(self, hidden: mx.array) -> mx.array:

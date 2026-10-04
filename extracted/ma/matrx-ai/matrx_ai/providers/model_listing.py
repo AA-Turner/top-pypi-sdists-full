@@ -294,13 +294,31 @@ async def fetch_cerebras(http: _GetClient, api_key: str) -> list[ProviderEntry]:
 
 
 async def fetch_together(http: _GetClient, api_key: str) -> list[ProviderEntry]:
-    payload = await _get_json_any(
-        http,
-        "https://api.together.xyz/v1/models",
-        label="Together",
-        headers={"Authorization": f"Bearer {api_key}"},
-    )
-    return normalize_together_page(payload)
+    """Every Together model, each marked ``serverless`` True/False.
+
+    Together's full list also carries models that run ONLY on a dedicated
+    endpoint; a serverless request to one answers "non-serverless model" (2026-10-03:
+    Llama 4 Scout, gpt-oss-20b, DeepSeek R1 and two Kimis sat in the full list
+    while failing every call). ``?serverless=true`` is the servable subset. When
+    that second listing fails or comes back empty the flag is left OFF (unknown) —
+    a broken listing must never brand every model unservable.
+    """
+    headers = {"Authorization": f"Bearer {api_key}"}
+    url = "https://api.together.xyz/v1/models"
+    entries = normalize_together_page(await _get_json_any(http, url, label="Together", headers=headers))
+    try:
+        response: _JsonResponse = await http.get(url, headers=headers, params={"serverless": "true"})
+        servable = (
+            {e.get("id") for e in normalize_together_page(response.json())} - {None}
+            if response.status_code == 200
+            else set()
+        )
+    except Exception:  # the full list above is still good; serverless stays unknown
+        servable = set()
+    if servable:
+        for entry in entries:
+            entry["serverless"] = entry.get("id") in servable
+    return entries
 
 
 async def fetch_moonshot(http: _GetClient, api_key: str) -> list[ProviderEntry]:

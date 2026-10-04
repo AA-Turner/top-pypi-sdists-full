@@ -1,0 +1,4 @@
+# Keep Clippy's default argument threshold. Python-facing wrappers and selected
+# low-level `*_core` functions opt out locally when their signatures intentionally
+# mirror the kernel inputs. Other handwritten functions remain subject to the
+# default lint.

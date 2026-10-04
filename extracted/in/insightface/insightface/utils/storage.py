@@ -61,4 +61,4 @@ def download_onnx(sub_dir, model_file, force=False, root='~/.insightface', downl
                  overwrite=True)
         with zipfile.ZipFile(zip_file_path) as zf:
             zf.extractall(model_root)
-        return new_model_file
+    return new_model_file

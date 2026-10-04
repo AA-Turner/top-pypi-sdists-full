@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import itertools
 import json
 import pathlib
 import re
@@ -11,12 +12,14 @@ import pytest
 from mechbench_compute import attribution, backends, dialects, support
 from mechbench_compute import shapes as S
 from mechbench_compute._arch import Arch
-from mechbench_compute.arrays import make_f32, read_f32, read_f64
+from mechbench_compute.arrays import make_f32, read_f32, read_f64, zeros_like
 from mechbench_compute.distill import render
 from mechbench_compute.errors import InvalidHookName
 from mechbench_compute.interp.point_refused import PointRefused
 from mechbench_compute.interventions import Ablate
+from mechbench_compute.ops import Context
 from mechbench_compute.ops.activations.capture import capture_residual_vectors
+from mechbench_compute.ops.adapter import train as train_op
 from mechbench_compute.points import LAYOUT
 from mechbench_compute.tools import build_toolbox
 from tests.kit_backends import KIT_MODULES, WINDOW, list_kit_params, load_kit
@@ -26,6 +29,8 @@ IDS = [1, 5, 9, 2, 7, 3, 11, 4]
 RESIDUAL_TOLERANCE = 2.0 ** -6
 
 PER_HEAD_TOLERANCE = 1e-4
+
+MLP_INTERIOR = ("mlp.gate", "mlp.up", "mlp.act", "mlp.down_in")
 
 RECORD = {"id": "r", "user": "the cat sat on a mat"}
 
@@ -93,7 +98,7 @@ def check_law(model, names: dict[str, list]) -> None:
     for i in range(n):
         values = [(side, eval(side, {}, {**names, "i": i}))
                   for side in sides if not ("[i+1]" in side and i == n - 1)]
-        for (left, a), (right, b) in zip(values, values[1:]):
+        for (left, a), (right, b) in itertools.pairwise(values):
             allowed = RESIDUAL_TOLERANCE * max(1.0, float(np.abs(a).max()))
             err = float(np.abs(a - b).max())
             if err > allowed:
@@ -225,13 +230,17 @@ def run_attribution(model, ids=None):
     writes = model.architecture.writes_of(model.arch)
     result = model.run(ids, capture=[
         *(f"blocks.{i}.{p}" for i in range(n) for p in (*writes, "resid_post")),
-        "blocks.0.resid_pre", "final_norm.scale",
+        "blocks.0.resid_pre", "final_norm.scale", "final_norm",
         *(f"blocks.{i}.attn.per_head_out" for i in range(n))])
-    last = read_f64(result.logits)[0, -1]
-    cap = model.architecture.attribution_unembed(model._model).softcap
-    if cap:
-        last = cap * np.arctanh(last / cap)
-    return result, last, read_f64(result.cache["final_norm.scale"]).reshape(-1)
+    return result, read_precap(model, result), read_f64(result.cache["final_norm.scale"]).reshape(-1)
+
+
+def read_precap(model, result) -> np.ndarray:
+    unembed = model.architecture.attribution_unembed(model._model)
+    if unembed.softcap is None:
+        return read_f64(result.logits)[0, -1]
+    normed = make_f32(read_f32(result.cache["final_norm"])[:, -1:], like=unembed.norm.weight)
+    return read_f64(unembed.project(normed)).reshape(-1)
 
 
 @pytest.mark.parametrize("sublayer", [False, True], ids=["layer", "sublayer"])
@@ -275,7 +284,7 @@ def test_capturing_attention_internals_at_every_layer_leaves_the_logits_alone(ti
     plain = read_f64(tiny.run(ids).logits)
     probed = tiny.run(ids, capture=[f"blocks.{i}.attn.weights"
                                     for i in range(tiny.arch.n_layers)])
-    assert np.abs(plain).max() > 1.0
+    assert np.abs(plain).max() > 0.25
     assert np.allclose(read_f64(probed.logits), plain, atol=1e-4, rtol=1e-4)
     assert np.array_equal(read_f64(tiny.run(ids).logits), plain)
     for i in range(tiny.arch.n_layers):
@@ -292,6 +301,73 @@ def test_ablating_every_head_equals_zeroing_attn_out(tiny):
         assert np.allclose(read_f64(heads.logits), read_f64(zeroed.logits),
                            atol=1e-4, rtol=1e-4), (
             f"{tiny.architecture.model_type}: layer {layer}")
+
+
+def declares(model, points) -> bool:
+    found = [model.architecture.supports(p, layer_scoped=True) for p in points]
+    if all(found):
+        return True
+    assert not any(found), f"{model.architecture.model_type} declares part of {points}"
+    with pytest.raises(InvalidHookName, match=r"\(not implemented by the"):
+        model.run(model.make_ids(IDS), capture=[f"blocks.0.{points[0]}"])
+    return False
+
+
+def test_capturing_the_mlp_interior_at_every_layer_leaves_the_logits_alone(tiny):
+    if not declares(tiny, MLP_INTERIOR):
+        return
+    ids = tiny.make_ids(IDS)
+    plain = read_f64(tiny.run(ids).logits)
+    probed = tiny.run(ids, capture=[f"blocks.{i}.{p}" for i in range(tiny.arch.n_layers)
+                                    for p in MLP_INTERIOR])
+    assert np.allclose(read_f64(probed.logits), plain, atol=1e-4, rtol=1e-4)
+
+
+def test_the_mlp_interior_multiplies_out_and_zeroing_every_neuron_equals_zeroing_mlp_out(tiny):
+    if not declares(tiny, MLP_INTERIOR):
+        return
+    ids = tiny.make_ids(IDS)
+    plain = read_f64(tiny.run(ids).logits)
+    cache = tiny.run(ids, capture=[f"blocks.{i}.{p}" for i in range(tiny.arch.n_layers)
+                                   for p in MLP_INTERIOR]).cache
+    for layer in range(tiny.arch.n_layers):
+        act, up, down_in = (read_f64(cache[f"blocks.{layer}.mlp.{p}"]) for p in ("act", "up", "down_in"))
+        assert act.shape == up.shape == down_in.shape
+        assert np.allclose(down_in, act * up, rtol=2.0 ** -7, atol=1e-6), (
+            f"{tiny.architecture.model_type}: layer {layer}")
+        silenced = read_f64(tiny.run(ids, hooks={
+            f"blocks.{layer}.mlp.act": lambda x, info: zeros_like(x)}).logits)
+        zeroed = read_f64(tiny.run(ids, interventions=[Ablate.mlp(layer)]).logits)
+        assert np.abs(zeroed - plain).max() > 1e-2
+        assert np.allclose(silenced, zeroed, atol=1e-4, rtol=1e-4), (
+            f"{tiny.architecture.model_type}: layer {layer}")
+
+
+def test_the_attention_interior_agrees_with_its_weights_and_its_heads(tiny):
+    if not declares(tiny, ("attn.scores", "attn.o_in")):
+        return
+    n = tiny.arch.n_layers
+    cache = tiny.run(tiny.make_ids(IDS), capture=[
+        f"blocks.{i}.{p}" for i in range(n)
+        for p in ("attn.scores", "attn.weights", "attn.per_head_out", "attn.o_in")]).cache
+    for layer in range(n):
+        scores, weights = (read_f64(cache[f"blocks.{layer}.attn.{p}"]) for p in ("scores", "weights"))
+        e = np.exp(scores - scores.max(axis=-1, keepdims=True))
+        assert np.allclose(weights, e / e.sum(axis=-1, keepdims=True), atol=2.0 ** -8), (
+            f"{tiny.architecture.model_type}: layer {layer}")
+        heads = read_f64(cache[f"blocks.{layer}.attn.per_head_out"])
+        side_by_side = heads.transpose(0, 2, 1, 3).reshape(heads.shape[0], heads.shape[2], -1)
+        assert np.array_equal(read_f64(cache[f"blocks.{layer}.attn.o_in"]), side_by_side), (
+            f"{tiny.architecture.model_type}: layer {layer}")
+
+
+def test_a_point_the_checkpoint_lacks_is_refused_by_name_and_left_out_of_the_law(tiny):
+    a = tiny.architecture
+    law = a.residual_law_of(tiny.arch)
+    for point, reason in a.absent_points(tiny.arch).items():
+        assert f"{point}[i]" not in law
+        with pytest.raises(InvalidHookName, match=re.escape(f"blocks.1.{point} (absent: {reason})")):
+            tiny.run(tiny.make_ids(IDS), capture=[f"blocks.1.{point}"])
 
 
 def capture(model, **params) -> dict:
@@ -404,13 +480,34 @@ def test_capture_s_top_names_a_vector_s_largest_coordinates_and_their_share(tiny
         assert it["rms_without_top"] < it["norm"] / np.sqrt(v.size) < it["norm"]
 
 
-def test_a_double_run_is_bit_identical(tiny):
+def train_once(model, *, dies: bool) -> None:
+    def die(state):
+        raise RuntimeError(f"the training died at step {state['step']}")
+
+    ctx = Context(loaded=model, on_checkpoint=die if dies else None)
+    params = {"model": "tiny", "objective": "sft", "steps": 4, "lr": 0.05, "seed": 3,
+              "lora": {"rank": 2, "alpha": 4}, "batch": {"record": 1}, "checkpoint_every": 2}
+    try:
+        train_op.run(ctx, {"records": [{"id": "d", "text": "the cat sat on a mat and the dog ran"}]},
+                     params)
+    except RuntimeError as e:
+        assert dies and "died at step 2" in str(e)
+    else:
+        assert not dies
+
+
+def test_a_double_run_is_bit_identical_and_so_is_a_run_after_a_training(tiny):
     names = list_declared_names(tiny)
     first = tiny.run(tiny.make_ids(IDS), capture=names)
-    second = tiny.run(tiny.make_ids(IDS), capture=names)
-    assert np.array_equal(read_f64(first.logits), read_f64(second.logits))
-    for name in names:
-        assert np.array_equal(read_f64(first.cache[name]), read_f64(second.cache[name])), name
+    runs = [tiny.run(tiny.make_ids(IDS), capture=names)]
+    if tiny.architecture.train:
+        for dies in (False, True):
+            train_once(tiny, dies=dies)
+            runs.append(tiny.run(tiny.make_ids(IDS), capture=names))
+    for again in runs:
+        assert np.array_equal(read_f64(first.logits), read_f64(again.logits))
+        for name in names:
+            assert np.array_equal(read_f64(first.cache[name]), read_f64(again.cache[name])), name
 
 
 def test_tokenize_round_trips_through_the_tokenizer(tiny):

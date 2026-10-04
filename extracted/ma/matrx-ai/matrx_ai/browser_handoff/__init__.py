@@ -2,7 +2,7 @@
 
 Executable form of contracts S5 (handoff ↔ runtime park/resume) and S6 (tool
 surface / typed outcomes) in
-``common-docs/projects/persistent-cloud-browser/``.
+``common-docs/systems/architecture/persistent-cloud-browser/``.
 
 A handoff is a client-delegated tool call whose "client" is a human at a Cloud
 Browser panel. This package adds the human-episode lifecycle on top of the

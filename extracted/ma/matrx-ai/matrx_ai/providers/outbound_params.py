@@ -127,9 +127,7 @@ def warn_client_about_dropped_settings(adjustments: list[Any], *, model: Any = "
             recoverable=True,
             metadata={
                 "model": str(model),
-                "dropped": [
-                    {"key": str(a.key), "requested": a.canonical_value} for a in lost
-                ],
+                "dropped": [{"key": str(a.key), "requested": a.canonical_value} for a in lost],
             },
         ),
         name="outbound_params_warning",
@@ -384,6 +382,58 @@ def resolve_outbound_params(
     return params
 
 
+def translate_session_settings(
+    settings: dict[str, Any] | None,
+    controls: CompiledControlsMap,
+    *,
+    model: Any = "?",
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Translate a realtime / live SESSION's canonical settings through the cells.
+
+    The session seams (OpenAI realtime client secrets, xAI realtime session
+    config, Google Live connect config) build their provider config outside the
+    chat translators. Without this they bypassed every translation cell: an off
+    reached the provider as "not set", a value outside the provider's range was
+    refused. This is the SAME ``CompiledControlsMap.outbound`` pass every chat
+    and media seam runs — candidate rules, family conversion, off rules,
+    defaults, adjustments voiced to server log and client — and returns the
+    provider-shaped (nested) params ready to merge into the session config.
+    """
+    controls = with_candidate_rules(controls)
+    canonical = {k: v for k, v in (settings or {}).items() if v is not None}
+    gate: list[Any] = []
+    # The same declared-keys gate / K7 family conversion the chat and media
+    # seams run before outbound (a budget becomes the session's effort).
+    drop_foreign_canonical_keys(canonical, controls, model=model, adjustments=gate)
+    params, adjustments = controls.outbound(canonical, context=context or {})
+    adjustments = gate + adjustments
+    remember_outbound_adjustments(model, adjustments)
+    remember_outbound_params(model, params)
+    if adjustments:
+        vcprint(
+            data=[
+                {
+                    "key": adj.key,
+                    "action": adj.action,
+                    "requested": adj.canonical_value,
+                    "sent": adj.sent_value,
+                    "reason": adj.reason,
+                }
+                for adj in adjustments
+            ],
+            title=(
+                f"⚠️  CAPABILITY ADJUSTMENT [{model}] (session): {len(adjustments)} "
+                "setting(s) adjusted by the api/offering control rules — the session "
+                "opens with the adjusted values."
+            ),
+            color="yellow",
+            verbose=True,
+        )
+    warn_client_about_dropped_settings(adjustments, model=model)
+    return params
+
+
 def resolve_structural_setting(
     value: Any,
     key: str,
@@ -454,5 +504,6 @@ __all__ = [
     "resolve_outbound_params",
     "resolve_structural_setting",
     "send_client_warning",
+    "translate_session_settings",
     "warn_client_about_dropped_settings",
 ]

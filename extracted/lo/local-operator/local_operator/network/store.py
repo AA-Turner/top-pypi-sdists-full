@@ -105,6 +105,9 @@ OUTBOX_DIRNAME = "outbox"
 PENDING_DIRNAME = "pending"
 CATALOG_FILENAME = "catalog.json"
 AUDIT_FILENAME = "audit.jsonl"
+#: The JOINER side's own record of its last join attempt (see
+#: :func:`join_attempt_path`). One file, replaced per attempt.
+JOIN_ATTEMPT_FILENAME = "join-attempt.json"
 CORRUPT_SUFFIX = ".corrupt"
 
 #: Invite entries are kept a day — long past any plausible pairing, short enough
@@ -601,6 +604,41 @@ def clear_join_answer(invite_id: str, root: Path | None = None) -> None:
 
 
 # ---------------------------------------------------------------------------
+# The last join attempt: what the JOINER's own files say when a join stops
+# ---------------------------------------------------------------------------
+
+
+def join_attempt_path(root: Path | None = None) -> Path:
+    """``<config>/network/join-attempt.json`` — the last join attempt's record.
+
+    ONE FILE, REPLACED PER ATTEMPT, keyed in its CONTENT rather than by invite:
+    the invite a failed attempt used is exactly the token a retry replaces, so a
+    per-invite file would accumulate records nothing ever reads again, while
+    "what did the last join do" is the question `join --explain` and a status
+    reader actually ask. LOCAL ONLY — the record never crosses the wire (the
+    anti-oracle rule: a peer that learns which class failed learns about keys).
+    """
+    return network_root(root) / JOIN_ATTEMPT_FILENAME
+
+
+def save_join_attempt(attempt: dict[str, Any], root: Path | None = None) -> Path:
+    """Write the last join attempt, 0600 and staged like every other record here."""
+    return _write_private_json(join_attempt_path(root), attempt)
+
+
+def join_attempt(root: Path | None = None) -> dict[str, Any] | None:
+    """The last join attempt's record, or ``None`` when nothing readable is there.
+
+    NOT quarantined on a parse failure, unlike the membership records: this file
+    is a diagnostic snapshot whose loss costs one re-run, not a list of who is a
+    member — so an unreadable one is simply absent, and the next attempt rewrites
+    it.
+    """
+    data = _read_json(join_attempt_path(root))
+    return data if isinstance(data, dict) else None
+
+
+# ---------------------------------------------------------------------------
 # Purge: what `lop network uninstall --purge[-identity]` deletes
 # ---------------------------------------------------------------------------
 
@@ -808,7 +846,7 @@ def require_secrets(network_id: str, root: Path | None = None) -> SecretState:
             "no_network_secret",
             "this device has no secret for that network: it was forgotten with "
             "`lop network rm`, deleted by `lop network disconnect`, or never written. "
-            "Rejoin with `lop network join` and a fresh invite from a member.",
+            "Re-join with `lop network join` and a fresh invite from a member.",
         )
     return load_secrets(network_id, root)
 

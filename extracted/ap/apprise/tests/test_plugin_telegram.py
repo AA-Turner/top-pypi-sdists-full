@@ -32,7 +32,9 @@ from json import dumps, loads
 import logging
 import os
 import re
+from timeit import default_timer
 from unittest import mock
+from urllib.parse import urlparse
 
 from helpers import AppriseURLTester
 import pytest
@@ -46,7 +48,13 @@ from apprise import (
     NotifyType,
 )
 from apprise.exception import AppriseImproperlyConfigured
-from apprise.plugins.telegram import NotifyTelegram
+from apprise.plugins.base import _delivery_tracker
+from apprise.plugins.telegram import (
+    NotifyTelegram,
+    TelegramGroupResult,
+    TelegramHTMLReducer,
+    TelegramMediaKind,
+)
 
 logging.disable(logging.CRITICAL)
 
@@ -1046,10 +1054,10 @@ def test_plugin_telegram_formatting(mock_post):
 
     # Test that everything is escaped properly in a HTML mode
     assert (
-        payload["text"] == "<b>\r\n<b>🚨 Another Change detected for "
+        payload["text"] == "<b><b>🚨 Another Change detected for "
         "<i>Apprise Test Title</i></b>\r\n</b>\r\n<i>"
         '<a href="http://localhost">Apprise Body Title</a>'
-        '</i> had <a href="http://127.0.0.2">a change</a>\r\n'
+        '</i> had <a href="http://127.0.0.2">a change</a>'
     )
 
     # Now we'll test an edge case where a title was defined, but after
@@ -1346,7 +1354,7 @@ def test_plugin_telegram_formatting(mock_post):
     # Test that everything is escaped properly in a HTML mode
     assert (
         payload["text"]
-        == "<b>Test Message Title</b>\r\nTest Message Body\r\nok\r\n"
+        == "<b>Test Message Title</b>\r\nTest Message Body\r\nok"
     )
 
 
@@ -1417,8 +1425,8 @@ def test_plugin_telegram_html_formatting(mock_post):
     # Test that everything is escaped properly in a HTML mode
     assert (
         payload["text"]
-        == "<b>\r\n<b>'information'</b>\r\n</b>\r\n<i>\"This is in Italic\""
-        "</i>\r\n<b>      Headings are dropped and converted to bold</b>\r\n"
+        == "<b><b>'information'</b>\r\n</b>\r\n<i>\"This is in Italic\""
+        "</i>\r\n<b>      Headings are dropped and converted to bold</b>"
     )
 
     mock_post.reset_mock()
@@ -1453,9 +1461,9 @@ def test_plugin_telegram_html_formatting(mock_post):
     payload = loads(mock_post.call_args_list[0][1]["data"])
     assert (
         payload["text"]
-        == "\r\n<b>Bootstrap 101 Template</b>\r\n<b>My Title</b>\r\n"
-        "<b>Heading 1</b>\r\n-Bullet 1\r\n-Bullet 2\r\n-Bullet 3\r\n"
-        "-Bullet 1\r\n-Bullet 2\r\n-Bullet 3\r\n<b>Heading 2</b>\r\n"
+        == "<b>Bootstrap 101 Template</b>\r\n<b>My Title</b>\r\n"
+        "<b>Heading 1</b>\r\n- Bullet 1\r\n- Bullet 2\r\n- Bullet 3\r\n"
+        "1. Bullet 1\r\n2. Bullet 2\r\n3. Bullet 3\r\n<b>Heading 2</b>\r\n"
         "A div entry\r\nA div entry\r\n"
         "<pre><code class=\"language-python\">print('hello')</code></pre>\r\n"
         "<b>Heading 3</b>\r\n<b>Heading 4</b>\r\n<b>Heading 5</b>\r\n"
@@ -1479,16 +1487,153 @@ def test_plugin_telegram_html_heading_padding_needs_source(
     aobj = Apprise()
     assert aobj.add("tgram://123456789:abcdefg_hijklmnop/12345678")
 
-    # Declared HTML: heading gets padded on both sides.
+    # Declared HTML: the heading sits on its own line.
     assert aobj.notify(body=body, body_format=NotifyFormat.HTML)
     payload = loads(mock_post.call_args_list[-1][1]["data"])
-    assert payload["text"] == "\r\n<b>Heading</b>\r\nBody text here"
+    assert payload["text"] == "<b>Heading</b>\r\nBody text here"
     mock_post.reset_mock()
 
     # Undeclared input resolves to HTML but remains unpadded.
     assert aobj.notify(body=body)
     payload = loads(mock_post.call_args_list[-1][1]["data"])
     assert payload["text"] == "<b>Heading</b>Body text here"
+
+
+def test_plugin_telegram_html_reduced_to_supported_tags():
+    """HTML is rewritten to the tags Telegram accepts."""
+
+    def reduce(html):
+        return TelegramHTMLReducer().reduce(html)
+
+    # Supported tags are kept; their aliases are mapped
+    assert (
+        reduce(
+            "<strong>a</strong><em>b</em><ins>c</ins><strike>d</strike>"
+            "<del>e</del><s>f</s><tg-spoiler>g</tg-spoiler>"
+        )
+        == "<b>a</b><i>b</i><u>c</u><s>d</s><s>e</s><s>f</s>"
+        "<tg-spoiler>g</tg-spoiler>"
+    )
+
+    # Spoiler spans are kept; other spans only keep their text
+    assert (
+        reduce('<span class="x tg-spoiler">a</span> <span class="y">b</span>')
+        == "<tg-spoiler>a</tg-spoiler> b"
+    )
+
+    # Links and custom emoji keep only the attribute Telegram needs
+    assert (
+        reduce('<a href="http://e.com?a=1&amp;b=2" rel="x">l</a> <a>n</a>')
+        == '<a href="http://e.com?a=1&amp;b=2">l</a> n'
+    )
+    assert (
+        reduce('<tg-emoji emoji-id="5368">x</tg-emoji><tg-emoji>y</tg-emoji>')
+        == '<tg-emoji emoji-id="5368">x</tg-emoji>y'
+    )
+
+    # Links are never nested
+    assert (
+        reduce('<a href="http://a">x <a href="http://b">y</a></a>')
+        == '<a href="http://a">x y</a>'
+    )
+
+    # Code blocks keep their language, but no formatting inside them
+    assert (
+        reduce(
+            '<pre><code class="language-py">a <b>&lt;</b>\n b</code></pre>'
+            '<code class="language-py">c</code>'
+        )
+        == '<pre><code class="language-py">a &lt;\n b</code></pre>\r\n'
+        "<code>c</code>"
+    )
+
+    # A character reference that decodes to nothing adds nothing to code
+    assert reduce("<pre>&#1;</pre>x") == "<pre></pre>x"
+
+    # Quotes are never nested and can be expandable
+    assert (
+        reduce(
+            "<blockquote expandable>a<blockquote>b</blockquote></blockquote>"
+        )
+        == "<blockquote expandable>a\r\nb</blockquote>"
+    )
+
+    # Hidden content, images, tables, dividers and unknown tags
+    assert (
+        reduce(
+            '<script>bad()</script><style>x</style><img alt="pic" src="a">'
+            '<img src="b"><hr/><table><tr><th>a</th><th>b</th></tr>'
+            "<tr><td>1</td><td>2</td></tr></table><font>c</font>"
+        )
+        == "pic\r\na | b\r\n1 | 2\r\nc"
+    )
+
+    # Nested and numbered lists
+    assert (
+        reduce(
+            "<ul><li>a<ul><li>b</li></ul></li></ul>"
+            "<ol><li>one</li><li>two</li></ol>"
+        )
+        == "- a\r\n  - b\r\n1. one\r\n2. two"
+    )
+    assert reduce("<li>orphan</li>") == "- orphan"
+
+    # Unsupported spaces become plain ones
+    assert reduce("a&nbsp;b&emsp;c&nbspd") == "a b   c d"
+
+    # Stray, crossed and unclosed tags still give balanced output
+    assert reduce("</b>stray <b>open <i>both") == (
+        "stray <b>open <i>both</i></b>"
+    )
+    assert reduce("<b>x <i>y</b> z</i>") == "<b>x <i>y</i></b> z"
+
+    # Self-closed tags other than br, hr and img are ignored
+    assert reduce("a<b/>c") == "ac"
+
+    # A list closed without being opened only ends the line
+    assert reduce("a</ul>b") == "a\r\nb"
+
+    # Blank input stays blank
+    assert reduce("   \n  ") == ""
+
+
+def test_plugin_telegram_dialect_leaves_text_alone():
+    """Formats Telegram does not render pass through unchanged."""
+
+    obj = NotifyTelegram(bot_token="123456789:abcdefg_hijklmnop", targets=1)
+    assert obj.dialect_convert("<b>&</b>", NotifyFormat.TEXT) == "<b>&</b>"
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_balances_split_html(mock_post):
+    """Split HTML pieces only hold balanced, supported tags."""
+
+    mock_post.return_value = requests.Request()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = "{}"
+
+    aobj = Apprise()
+    assert aobj.add(
+        "tgram://123456789:abcdefg_hijklmnop/12345678?overflow=split"
+    )
+
+    body = (
+        "<h1>Title</h1>" + "<p><strong>bold</strong> <em>word</em></p>" * 300
+    )
+    assert aobj.notify(body=body, body_format=NotifyFormat.HTML)
+
+    texts = [
+        loads(call[1]["data"])["text"] for call in mock_post.call_args_list
+    ]
+    assert len(texts) > 1
+    for text in texts:
+        assert len(text) <= NotifyTelegram.body_maxlen
+
+        # Only Telegram's own tags remain, and each one is closed
+        tags = re.findall(r"</?([a-z-]+)", text)
+        assert set(tags) <= {"b", "i"}
+        assert text.count("<b>") == text.count("</b>")
+        assert text.count("<i>") == text.count("</i>")
 
 
 @mock.patch("requests.post")
@@ -1819,7 +1964,7 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
     stray_body = "[label] and ](http://x.com/a(b)c) end"
     assert (
         NotifyTelegram._commonmark_to_telegram(stray_body, strict=False)
-        == "[label] and ](http://x.com/a(b)c) end"
+        == r"\[label] and ](http://x.com/a(b)c) end"
     )
     assert NotifyTelegram._commonmark_to_telegram(stray_body, strict=True) == (
         "\\[label\\] and \\]\\(http://x\\.com/a\\(b\\)c\\) end"
@@ -1841,12 +1986,12 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
         == "\\[label\\]\\(unterminated"
     )
 
-    # Telegram v1 leaves the rejected destination literal.
+    # Telegram v1 keeps the rejected destination as literal text.
     assert (
         NotifyTelegram._commonmark_to_telegram(
             "[label](has space)", strict=False
         )
-        == "[label](has space)"
+        == r"\[label](has space)"
     )
 
     # An unfinished angle destination follows the same v2 fallback.
@@ -1857,12 +2002,12 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
         == "\\[label\\]\\(\\<https://unterminated"
     )
 
-    # Telegram v1 also leaves the unfinished angle destination literal.
+    # Telegram v1 also keeps the unfinished angle destination literal.
     assert (
         NotifyTelegram._commonmark_to_telegram(
             "[label](<https://unterminated", strict=False
         )
-        == "[label](<https://unterminated"
+        == r"\[label](<https://unterminated"
     )
 
     # Escape a dangling "[" during end-of-scan cleanup.
@@ -1906,17 +2051,17 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
         == "[label](https://example.com/a_\\(b\\))"
     )
 
-    # Preserve an opener with no closer.
-    assert NotifyTelegram._commonmark_to_telegram("****x") == "****x"
+    # Keep an opener with no closer as literal (escaped) text.
+    assert NotifyTelegram._commonmark_to_telegram("****x") == r"\*\*\*\*x"
 
-    # Preserve a run that is neither left- nor right-flanking.
-    assert NotifyTelegram._commonmark_to_telegram("******") == "******"
+    # Keep a run that is neither left- nor right-flanking as literal text.
+    assert NotifyTelegram._commonmark_to_telegram("******") == r"\*" * 6
 
-    # Preserve unmatched markers in a complete body.
+    # Keep unmatched markers in a complete body as literal text.
     f1 = NotifyTelegram._commonmark_to_telegram
-    assert f1("***italic text") == "***italic text"
-    assert f1("**text") == "**text"
-    assert f1("**") == "**"
+    assert f1("***italic text") == r"\*\*\*italic text"
+    assert f1("**text") == r"\*\*text"
+    assert f1("**") == r"\*\*"
 
     # User-provided Private Use text must not collide in either Markdown mode.
     marker = chr(0xE000)
@@ -1934,10 +2079,11 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
         NotifyTelegram._commonmark_to_telegram("a" * 9 + "*", strict=True)
         == "a" * 9 + "\\*"
     )
-    # Legacy v1 does not enforce universal escaping.
+    # Legacy v1 also escapes a literal marker outside a span, or Telegram
+    # rejects it as an entity that never ends.
     assert (
         NotifyTelegram._commonmark_to_telegram("a" * 9 + "_", strict=False)
-        == "a" * 9 + "_"
+        == "a" * 9 + "\\_"
     )
 
     # Preserve genuine underscore-based italics.
@@ -1978,9 +2124,10 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
         "\\*\\_"
     )
 
-    # Preserve unrelated unmatched delimiter families.
+    # Keep unrelated unmatched delimiter families as literal text.
     assert (
-        NotifyTelegram._commonmark_to_telegram("**_a", strict=False) == "**_a"
+        NotifyTelegram._commonmark_to_telegram("**_a", strict=False)
+        == r"\*\*\_a"
     )
 
     # Do not close asterisk emphasis with an underscore.
@@ -2012,9 +2159,10 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
         == "*a*\\_"
     )
 
-    # Preserve unmatched mixed delimiter families.
+    # Keep unmatched mixed delimiter families as literal text.
     assert (
-        NotifyTelegram._commonmark_to_telegram("*__a", strict=False) == "*__a"
+        NotifyTelegram._commonmark_to_telegram("*__a", strict=False)
+        == r"\*\_\_a"
     )
 
     # A run wide enough to supply both kinds of emphasis nests regular
@@ -2053,6 +2201,59 @@ def test_plugin_telegram_html_to_markdown_hardening(mock_post):
     payload = loads(mock_post.call_args_list[-1][1]["data"])
     assert payload["text"] == "*hello*"
     mock_post.reset_mock()
+
+
+def test_plugin_telegram_v1_unmatched_markers_escaped():
+    """Legacy Markdown rejects an entity marker that never closes.
+
+    Telegram answers "can't parse entities" for a lone "_", "*", "`" or "["
+    outside an entity, and reads text inside an entity literally.
+    """
+    f1 = NotifyTelegram._commonmark_to_telegram
+
+    # CommonMark literals outside a span are escaped.
+    assert f1("Backup of app_data failed") == r"Backup of app\_data failed"
+    assert f1("snake_case_name") == r"snake\_case\_name"
+    assert f1("5 * 3 = 15") == r"5 \* 3 = 15"
+    assert f1("a lone ` tick") == r"a lone \` tick"
+    assert f1("x ``` y") == r"x \`\`\` y"
+
+    # Text inside a visible span is left as is.
+    assert f1("**disk a_b** on c_d") == r"*disk a_b* on c\_d"
+    assert f1("_it a*b_ x*y") == r"_it a*b_ x\*y"
+    assert f1("**a ` b** c") == "*a ` b* c"
+    assert f1("**[a** b") == "*[a* b"
+
+    # A "[" that opens no link is escaped too.
+    assert f1("[ERROR] disk full") == r"\[ERROR] disk full"
+    assert f1("a [b") == r"a \[b"
+
+    # Real markup and code spans are unchanged.
+    assert f1("**bold** and _it_") == "*bold* and _it_"
+    assert f1("`code_x` y_z") == r"`code_x` y\_z"
+
+    # MarkdownV2 output is unchanged.
+    assert f1("app_data", strict=True) == r"app\_data"
+    assert f1("a ` b", strict=True) == r"a \` b"
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_v1_markdown_body_with_underscore(mock_post):
+    """A Markdown body is sent in legacy Markdown with its literals escaped."""
+    mock_post.return_value = requests.Request()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = dumps({"ok": True, "result": True})
+
+    aobj = Apprise()
+    aobj.add("tgram://123456789:abcdefg_hijklmnop/12345")
+    assert aobj.notify(
+        title="Backup",
+        body="Backup of app_data failed",
+        body_format=NotifyFormat.MARKDOWN,
+    )
+    payload = loads(mock_post.call_args_list[-1][1]["data"])
+    assert payload["parse_mode"] == "MARKDOWN"
+    assert payload["text"] == "*Backup*\n" r"Backup of app\_data failed"
 
 
 @mock.patch("requests.post")
@@ -3051,3 +3252,647 @@ def test_plugin_telegram_template_request_exception(mock_post, tmpdir):
     assert (
         obj.notify(body="x", title="y", notify_type=NotifyType.INFO) is False
     )
+
+
+def test_plugin_telegram_html_reducer_many_open_tags_is_fast():
+    """Thousands of open tags or empty lines are reduced quickly."""
+
+    # Every open tag is still closed at the end
+    start = default_timer()
+    result = TelegramHTMLReducer().reduce("<b>" * 33333)
+    elapsed = default_timer() - start
+    assert result == "<b>" * 33333 + "</b>" * 33333
+    assert elapsed < 5.0
+
+    # Empty tags followed by many blocks add no blank lines
+    start = default_timer()
+    result = TelegramHTMLReducer().reduce("<b></b>" * 20000 + "<p>" * 20000)
+    elapsed = default_timer() - start
+    assert result == "<b></b>" * 20000
+    assert elapsed < 5.0
+
+
+def telegram_album_obj(targets=None):
+    """Build an album-enabled Telegram object without throttling."""
+    obj = NotifyTelegram(
+        bot_token="123456789:abcdefg_hijklmnop",
+        targets=targets if targets else ["12345"],
+        album=True,
+    )
+    obj.throttle = mock.Mock()
+    return obj
+
+
+def telegram_album_calls(mock_post):
+    """Return the Telegram endpoint used by each recorded POST."""
+    return [
+        urlparse(call[0][0]).path.rsplit("/", 1)[-1]
+        for call in mock_post.call_args_list
+    ]
+
+
+def test_plugin_telegram_album_url():
+    """Verify album= parsing and URL round trips."""
+
+    obj = Apprise.instantiate(
+        "tgram://123456789:abcdefg_hijklmnop/12345/?album=yes"
+    )
+    assert isinstance(obj, NotifyTelegram)
+    assert obj.album is True
+    assert "album=yes" in obj.url()
+
+    # Our default is off
+    obj = Apprise.instantiate("tgram://123456789:abcdefg_hijklmnop/12345/")
+    assert obj.album is False
+    assert "album=no" in obj.url()
+
+    # The flag survives a full round trip
+    obj = Apprise.instantiate(
+        Apprise.instantiate(
+            "tgram://123456789:abcdefg_hijklmnop/12345/?album=yes"
+        ).url()
+    )
+    assert obj.album is True
+
+
+def test_plugin_telegram_album_kind():
+    """Verify MIME types select album or separate delivery."""
+
+    obj = telegram_album_obj()
+
+    photo = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"))
+    video = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.mp4"))
+    animation = AppriseAttachment(
+        os.path.join(TEST_VAR_DIR, "apprise-test.gif")
+    )
+    archive = AppriseAttachment(
+        os.path.join(TEST_VAR_DIR, "apprise-archive.zip")
+    )
+
+    assert obj._album_kind(photo[0]) == TelegramMediaKind.PHOTO
+    assert obj._album_kind(video[0]) == TelegramMediaKind.VIDEO
+
+    # Animations go out on their own; sendAnimation has no album form
+    assert obj._album_kind(animation[0]) == TelegramMediaKind.SINGLE
+    assert obj._album_kind(archive[0]) == TelegramMediaKind.SINGLE
+
+    # An attachment we can't reach has no mime type to go on
+    missing = AppriseAttachment("file:///path/does/not/exist.png")
+    assert obj._album_kind(missing[0]) == TelegramMediaKind.SINGLE
+
+    # Anything that isn't an attachment object is left alone
+    assert obj._album_kind(None) == TelegramMediaKind.SINGLE
+
+
+def test_plugin_telegram_album_kind_size():
+    """Verify files over Telegram's size limits leave the album."""
+
+    obj = telegram_album_obj()
+
+    photo = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"))
+    video = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.mp4"))
+
+    # Telegram's limits are 10 MB for photos and 50 MB for videos
+    with mock.patch("os.path.getsize", return_value=10000000):
+        assert obj._album_kind(photo[0]) == TelegramMediaKind.PHOTO
+
+    with mock.patch("os.path.getsize", return_value=10000001):
+        assert obj._album_kind(photo[0]) == TelegramMediaKind.SINGLE
+
+    with mock.patch("os.path.getsize", return_value=50000000):
+        assert obj._album_kind(video[0]) == TelegramMediaKind.VIDEO
+
+    with mock.patch("os.path.getsize", return_value=50000001):
+        assert obj._album_kind(video[0]) == TelegramMediaKind.SINGLE
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_groups_media(mock_post):
+    """Verify eligible attachments are posted as one album."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.mp4"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is True
+
+    # One album, not three separate messages
+    assert telegram_album_calls(mock_post) == ["sendMediaGroup"]
+
+    details = mock_post.call_args_list[0]
+    assert urlparse(details[0][0]).hostname == "api.telegram.org"
+
+    media = loads(details[1]["data"]["media"])
+    assert [entry["type"] for entry in media] == ["photo", "photo", "video"]
+    assert [entry["media"] for entry in media] == [
+        "attach://file0",
+        "attach://file1",
+        "attach://file2",
+    ]
+    assert sorted(details[1]["files"]) == ["file0", "file1", "file2"]
+
+    # The caption rides on the first album entry only
+    assert media[0]["caption"] == "hello"
+    assert "caption" not in media[1]
+    assert "caption" not in media[2]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_preserves_order(mock_post):
+    """Verify separate attachments keep their original position."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-archive.zip"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is True
+
+    # A lone photo can't form an album, the zip never could, and the
+    # trailing pair does
+    assert telegram_album_calls(mock_post) == [
+        "sendPhoto",
+        "sendDocument",
+        "sendMediaGroup",
+    ]
+
+    # Only the very first message carries the caption
+    assert mock_post.call_args_list[0][1]["data"].get("caption") == "hello"
+    assert "caption" not in mock_post.call_args_list[1][1]["data"]
+    media = loads(mock_post.call_args_list[2][1]["data"]["media"])
+    assert "caption" not in media[0]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_batches(mock_post):
+    """Verify more than ten media are split across albums."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = telegram_album_obj()
+    path = os.path.join(TEST_VAR_DIR, "apprise-test.jpeg")
+
+    # Eleven photos: a full album of ten, then a single leftover
+    assert obj.notify(body="hello", attach=AppriseAttachment([path] * 11))
+    assert telegram_album_calls(mock_post) == ["sendMediaGroup", "sendPhoto"]
+    assert len(loads(mock_post.call_args_list[0][1]["data"]["media"])) == 10
+
+    # Twelve photos: two albums, since two is enough to form one
+    mock_post.reset_mock()
+    assert obj.notify(body="hello", attach=AppriseAttachment([path] * 12))
+    assert telegram_album_calls(mock_post) == [
+        "sendMediaGroup",
+        "sendMediaGroup",
+    ]
+    assert len(loads(mock_post.call_args_list[1][1]["data"]["media"])) == 2
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_topic(mock_post):
+    """Verify album requests include the topic thread."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = telegram_album_obj(targets=["12345:9"])
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is True
+    assert mock_post.call_args_list[0][1]["data"]["message_thread_id"] == 9
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_unnamed_attachment(mock_post):
+    """Verify unnamed attachments receive a filename."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    # Use the instance's class because other tests may reload Apprise.
+    with mock.patch.object(
+        type(attach[0]),
+        "name",
+        new_callable=mock.PropertyMock,
+        return_value=None,
+    ):
+        assert (
+            obj._send_media_group(
+                (12345, None),
+                list(attach),
+                [TelegramMediaKind.PHOTO] * 2,
+            )
+            == TelegramGroupResult.OK
+        )
+
+    files = mock_post.call_args_list[0][1]["files"]
+    assert files["file0"][0] == "file000.dat"
+    assert files["file1"][0] == "file001.dat"
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_retry(mock_post):
+    """Verify a refused album is retried as separate messages."""
+
+    refused = mock.Mock()
+    refused.status_code = requests.codes.bad_request
+    refused.content = b'{"ok":false,"description":"group is invalid"}'
+
+    accepted = mock.Mock()
+    accepted.status_code = requests.codes.ok
+    accepted.content = b'{"ok":true}'
+
+    mock_post.side_effect = [refused, accepted, accepted]
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is True
+    assert telegram_album_calls(mock_post) == [
+        "sendMediaGroup",
+        "sendPhoto",
+        "sendPhoto",
+    ]
+
+    # The caption moves to the first of the retried messages
+    assert mock_post.call_args_list[1][1]["data"].get("caption") == "hello"
+    assert "caption" not in mock_post.call_args_list[2][1]["data"]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_retry_failure(mock_post):
+    """Verify delivery stops when an album retry fails."""
+
+    refused = mock.Mock()
+    refused.status_code = requests.codes.bad_request
+    refused.content = b'{"ok":false}'
+
+    rejected = mock.Mock()
+    rejected.status_code = requests.codes.internal_server_error
+    rejected.content = b'{"ok":false}'
+
+    # The photo endpoint fails and so does the document fallback
+    mock_post.side_effect = [refused, rejected, rejected]
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is False
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_document_fallback(mock_post):
+    """Verify refused media is resent as a document."""
+
+    refused = mock.Mock()
+    refused.status_code = requests.codes.bad_request
+    refused.content = b'{"ok":false,"description":"bad photo"}'
+
+    accepted = mock.Mock()
+    accepted.status_code = requests.codes.ok
+    accepted.content = b'{"ok":true}'
+
+    # The album and the first photo are refused, the rest go through
+    mock_post.side_effect = [refused, refused, accepted, accepted]
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is True
+    assert telegram_album_calls(mock_post) == [
+        "sendMediaGroup",
+        "sendPhoto",
+        "sendDocument",
+        "sendPhoto",
+    ]
+
+    # The document keeps the caption the refused photo would have had
+    assert mock_post.call_args_list[2][1]["data"].get("caption") == "hello"
+    assert "document" in mock_post.call_args_list[2][1]["files"]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_oversized_photo(mock_post):
+    """Verify oversized photos are sent straight as documents."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    with mock.patch("os.path.getsize", return_value=10000001):
+        assert obj.notify(body="hello", attach=attach) is True
+
+    assert telegram_album_calls(mock_post) == ["sendDocument", "sendDocument"]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_size_budget(mock_post):
+    """Verify an album is split before it grows past 50 MB."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [os.path.join(TEST_VAR_DIR, "apprise-test.mp4")] * 3
+    )
+
+    # Two 20 MB videos fit in one album; the third does not
+    with mock.patch("os.path.getsize", return_value=20000000):
+        assert obj.notify(body="hello", attach=attach) is True
+
+    assert telegram_album_calls(mock_post) == ["sendMediaGroup", "sendVideo"]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_attach_size_limits(mock_post):
+    """Verify Telegram's upload limits are enforced before sending."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = NotifyTelegram(
+        bot_token="123456789:abcdefg_hijklmnop", targets=["12345"]
+    )
+    obj.throttle = mock.Mock()
+
+    photo = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"))
+    video = AppriseAttachment(os.path.join(TEST_VAR_DIR, "apprise-test.mp4"))
+
+    # A photo over 10 MB is sent as a document instead
+    with mock.patch("os.path.getsize", return_value=10000001):
+        assert obj.notify(body="hello", attach=photo) is True
+
+    assert telegram_album_calls(mock_post) == ["sendDocument"]
+
+    # Anything over 50 MB is never uploaded
+    mock_post.reset_mock()
+    with mock.patch("os.path.getsize", return_value=50000001):
+        assert obj.notify(body="hello", attach=video) is False
+
+    assert not mock_post.called
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_single_failure(mock_post):
+    """Verify a failed separate attachment stops delivery."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.internal_server_error
+    mock_post.return_value.content = b'{"ok":false}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        os.path.join(TEST_VAR_DIR, "apprise-archive.zip")
+    )
+
+    assert obj.notify(body="hello", attach=attach) is False
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_server_error(mock_post):
+    """Verify only HTTP 400 responses retry an album."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.internal_server_error
+    mock_post.return_value.content = b'{"ok":false}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is False
+    assert telegram_album_calls(mock_post) == ["sendMediaGroup"]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_inaccessible(mock_post):
+    """Verify unreadable attachments stop before upload."""
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    with mock.patch("os.path.isfile", return_value=False):
+        assert (
+            obj._send_media_group(
+                (12345, None),
+                list(attach),
+                [TelegramMediaKind.PHOTO] * 2,
+            )
+            == TelegramGroupResult.FAIL
+        )
+
+    # Reporting a missing attachment must not raise
+    assert (
+        obj._send_media_group(
+            (12345, None), [None, None], [TelegramMediaKind.PHOTO] * 2
+        )
+        == TelegramGroupResult.FAIL
+    )
+
+    assert not mock_post.called
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_open_error(mock_post):
+    """Verify file read errors are handled."""
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    with mock.patch("builtins.open", side_effect=OSError):
+        assert (
+            obj._send_media_group(
+                (12345, None),
+                list(attach),
+                [TelegramMediaKind.PHOTO] * 2,
+            )
+            == TelegramGroupResult.FAIL
+        )
+
+    assert not mock_post.called
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_request_exception(mock_post):
+    """Verify album connection errors are handled."""
+
+    mock_post.side_effect = requests.ConnectionError(
+        0, "requests.ConnectionError() not handled"
+    )
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is False
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_disabled(mock_post):
+    """Verify attachments remain separate by default."""
+
+    mock_post.return_value = mock.Mock()
+    mock_post.return_value.status_code = requests.codes.ok
+    mock_post.return_value.content = b'{"ok":true}'
+
+    obj = NotifyTelegram(
+        bot_token="123456789:abcdefg_hijklmnop", targets=["12345"]
+    )
+    obj.throttle = mock.Mock()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+        ]
+    )
+
+    assert obj.notify(body="hello", attach=attach) is True
+    assert telegram_album_calls(mock_post) == ["sendPhoto", "sendPhoto"]
+
+
+@mock.patch("requests.post")
+def test_plugin_telegram_album_delivery_tracking(mock_post):
+    """Verify a retry only resends album items that never arrived."""
+
+    refused = mock.Mock()
+    refused.status_code = requests.codes.bad_request
+    refused.content = b'{"ok":false}'
+
+    rejected = mock.Mock()
+    rejected.status_code = requests.codes.internal_server_error
+    rejected.content = b'{"ok":false}'
+
+    accepted = mock.Mock()
+    accepted.status_code = requests.codes.ok
+    accepted.content = b'{"ok":true}'
+
+    obj = telegram_album_obj()
+    attach = AppriseAttachment(
+        [
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.png"),
+            os.path.join(TEST_VAR_DIR, "apprise-test.jpeg"),
+        ]
+    )
+
+    token = _delivery_tracker.set(set())
+    try:
+        # The album is refused, the first photo arrives on its own, and
+        # the second photo fails along with its document fallback
+        mock_post.side_effect = [refused, accepted, rejected, rejected]
+        assert (
+            obj._send_attachments(
+                (12345, None),
+                NotifyType.INFO,
+                attach,
+                payload={"caption": "hello"},
+            )
+            is False
+        )
+
+        # The retry skips the delivered photo and its caption, and the
+        # two remaining photos still form an album
+        mock_post.reset_mock()
+        mock_post.side_effect = [accepted]
+        assert (
+            obj._send_attachments(
+                (12345, None),
+                NotifyType.INFO,
+                attach,
+                payload={"caption": "hello"},
+            )
+            is True
+        )
+        assert telegram_album_calls(mock_post) == ["sendMediaGroup"]
+        media = loads(mock_post.call_args_list[0][1]["data"]["media"])
+        assert len(media) == 2
+        assert "caption" not in media[0]
+
+        # Nothing is left to send on a further retry
+        mock_post.reset_mock()
+        assert (
+            obj._send_attachments((12345, None), NotifyType.INFO, attach)
+            is True
+        )
+        assert not mock_post.called
+
+    finally:
+        _delivery_tracker.reset(token)

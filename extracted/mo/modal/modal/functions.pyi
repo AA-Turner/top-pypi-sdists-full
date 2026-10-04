@@ -1024,7 +1024,7 @@ class Function(
     spawn_map: __spawn_map_spec
 
     class __experimental_spawn_map_spec(typing_extensions.Protocol):
-        def __call__(self, /, *input_iterators, kwargs={}) -> modal._functions._FunctionCall:
+        def __call__(self, /, *input_iterators, kwargs={}) -> FunctionCall:
             """mdmd:hidden
             Spawn parallel execution over a set of inputs, returning as soon as the inputs are created.
 
@@ -1047,7 +1047,7 @@ class Function(
             """
             ...
 
-        async def aio(self, /, *input_iterators, kwargs={}) -> modal._functions._FunctionCall: ...
+        async def aio(self, /, *input_iterators, kwargs={}) -> FunctionCall: ...
 
     experimental_spawn_map: __experimental_spawn_map_spec
 
@@ -1170,7 +1170,9 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
     get: __get_spec[modal._functions.ReturnType]
 
     class __iter_spec(typing_extensions.Protocol[ReturnType_INNER]):
-        def __call__(self, /, *, start: int = 0, end: typing.Optional[int] = None) -> typing.Iterator[ReturnType_INNER]:
+        def __call__(
+            self, /, *, start: int = 0, end: typing.Optional[int] = None
+        ) -> typing.Generator[ReturnType_INNER, None, None]:
             """Iterate in-order over the results of the function call.
 
             Optionally, specify a range [start, end) to iterate over.
@@ -1202,7 +1204,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
 
         def aio(
             self, /, *, start: int = 0, end: typing.Optional[int] = None
-        ) -> collections.abc.AsyncIterator[ReturnType_INNER]:
+        ) -> collections.abc.AsyncGenerator[ReturnType_INNER, None]:
             """Iterate in-order over the results of the function call.
 
             Optionally, specify a range [start, end) to iterate over.

@@ -48,9 +48,6 @@ from pymysql.constants.SERVER_STATUS import SERVER_STATUS_IN_TRANS
 from pymysql.cursors import Cursor
 
 import mycli as mycli_package
-from mycli.clibuffer import cli_is_multiline
-from mycli.clistyle import style_factory_ptoolkit
-from mycli.clitoolbar import create_toolbar_tokens_func, get_vi_mode
 from mycli.compat import WIN
 from mycli.constants import (
     DEFAULT_HOST,
@@ -60,27 +57,33 @@ from mycli.constants import (
     ISSUES_URL,
     QueryState,
 )
-from mycli.key_bindings import mycli_bindings
-from mycli.lexer import MyCliLexer
-from mycli.packages import special
-from mycli.packages.filepaths import dir_path_exists
-from mycli.packages.hybrid_redirection import get_redirect_components, is_redirect_command
-from mycli.packages.interactive_utils import confirm, confirm_destructive_query
-from mycli.packages.key_binding_utils import (
-    handle_clip_command,
-    handle_editor_command,
-)
-from mycli.packages.polars_transform import (
+from mycli.packages import special_commands
+from mycli.packages.dataframes.transform import (
     PolarsTransform,
     PolarsTransformError,
     parse_polars_transform,
     prepare_polars_transform,
     run_polars_transform,
 )
-from mycli.packages.ptoolkit.history import FRECENCY_HISTORY_ENTRIES, FRECENCY_REFRESH_INTERVAL, FileHistoryWithTimestamp
-from mycli.packages.special.iocommands import temporary_redirect
-from mycli.packages.special.utils import format_uptime, get_ssl_version, get_uptime, get_warning_count
-from mycli.packages.sql_utils import (
+from mycli.packages.execution.background_runner import BackgroundRunner, QueryCancelled, runner_for
+from mycli.packages.execution.sql_execute import SQLExecute
+from mycli.packages.prompt_toolkit.history import FRECENCY_HISTORY_ENTRIES, FRECENCY_REFRESH_INTERVAL, FileHistoryWithTimestamp
+from mycli.packages.prompt_toolkit.key_bindings import mycli_bindings
+from mycli.packages.prompt_toolkit.multiline import repl_is_multiline
+from mycli.packages.prompt_toolkit.style import style_factory_prompt_toolkit
+from mycli.packages.prompt_toolkit.toolbar import create_toolbar_tokens_func, get_vi_mode
+from mycli.packages.pygments.mycli_lexer import MyCliLexer
+from mycli.packages.redirection.hybrid_redirection import get_redirect_components, is_redirect_command
+from mycli.packages.special_commands.io_commands import temporary_redirect
+from mycli.packages.special_commands.special_command_utils import format_uptime, get_ssl_version, get_uptime, get_warning_count
+from mycli.packages.sql_result.sql_result import SQLResult
+from mycli.packages.utils.interactive_utils import confirm, confirm_destructive_query
+from mycli.packages.utils.key_binding_utils import (
+    handle_clip_command,
+    handle_editor_command,
+)
+from mycli.packages.utils.path_utils import dir_path_exists
+from mycli.packages.utils.sql_utils import (
     extract_new_password,
     is_dropping_database,
     is_mutating,
@@ -90,10 +93,7 @@ from mycli.packages.sql_utils import (
     need_completion_refresh,
     need_completion_reset,
 )
-from mycli.packages.sqlresult import SQLResult
-from mycli.packages.string_utils import sanitize_terminal_title
-from mycli.query_runner import QueryCancelled, QueryRunner, runner_for
-from mycli.sqlexecute import SQLExecute
+from mycli.packages.utils.string_utils import sanitize_terminal_title
 from mycli.types import Query
 
 if TYPE_CHECKING:
@@ -169,13 +169,13 @@ def _create_history(mycli: 'MyCli') -> FileHistoryWithTimestamp | None:
 
 def _show_startup_banner(
     mycli: 'MyCli',
-    sqlexecute: SQLExecute,
+    sql_execute: SQLExecute,
 ) -> None:
     if mycli.verbosity < 0:
         return
 
-    if sqlexecute.server_info is not None:
-        print(sqlexecute.server_info)
+    if sql_execute.server_info is not None:
+        print(sql_execute.server_info)
     print('mycli', mycli_package.__version__)
     print(SUPPORT_INFO)
     if random.random() <= 0.25:
@@ -305,25 +305,25 @@ def render_prompt_string(
     string: str,
     _render_counter: int,
 ) -> FormattedText:
-    sqlexecute = mycli.sqlexecute
-    assert sqlexecute is not None
+    sql_execute = mycli.sql_execute
+    assert sql_execute is not None
     if mycli.login_path and mycli.login_path_as_host:
         prompt_host = mycli.login_path
-    elif sqlexecute.host is not None:
-        prompt_host = sqlexecute.host
+    elif sql_execute.host is not None:
+        prompt_host = sql_execute.host
     else:
         prompt_host = DEFAULT_HOST
     short_prompt_host, _, _ = prompt_host.partition('.')
     if re.match(r'^[\d\.]+$', short_prompt_host):
         short_prompt_host = prompt_host
     now = datetime.now()
-    species_name = sqlexecute.server_info.species.name if sqlexecute.server_info and sqlexecute.server_info.species else 'MySQL'
+    species_name = sql_execute.server_info.species.name if sql_execute.server_info and sql_execute.server_info.species else 'MySQL'
     strings = string.split('\\\\')
     is_html = strings[0].startswith('\\<html>')
-    strings = [x.replace('\\u', maybe_html_escape(sqlexecute.user or '(none)', is_html)) for x in strings]
+    strings = [x.replace('\\u', maybe_html_escape(sql_execute.user or '(none)', is_html)) for x in strings]
     strings = [x.replace('\\h', maybe_html_escape(prompt_host or '(none)', is_html)) for x in strings]
     strings = [x.replace('\\H', maybe_html_escape(short_prompt_host or '(none)', is_html)) for x in strings]
-    strings = [x.replace('\\d', maybe_html_escape(sqlexecute.dbname or '(none)', is_html)) for x in strings]
+    strings = [x.replace('\\d', maybe_html_escape(sql_execute.dbname or '(none)', is_html)) for x in strings]
     strings = [x.replace('\\t', maybe_html_escape(species_name, is_html)) for x in strings]
     strings = [x.replace('\\n', '\n') for x in strings]
     strings = [x.replace('\\D', maybe_html_escape(now.strftime('%a %b %d %H:%M:%S %Y'), is_html)) for x in strings]
@@ -332,24 +332,24 @@ def render_prompt_string(
     strings = [x.replace('\\R', maybe_html_escape(now.strftime('%H'), is_html)) for x in strings]
     strings = [x.replace('\\r', maybe_html_escape(now.strftime('%I'), is_html)) for x in strings]
     strings = [x.replace('\\s', maybe_html_escape(now.strftime('%S'), is_html)) for x in strings]
-    strings = [x.replace('\\p', maybe_html_escape(str(sqlexecute.port), is_html)) for x in strings]
+    strings = [x.replace('\\p', maybe_html_escape(str(sql_execute.port), is_html)) for x in strings]
     strings = [
-        x.replace('\\j', maybe_html_escape(os.path.basename(sqlexecute.socket or '(none)').replace('\\', '/'), is_html)) for x in strings
+        x.replace('\\j', maybe_html_escape(os.path.basename(sql_execute.socket or '(none)').replace('\\', '/'), is_html)) for x in strings
     ]
-    strings = [x.replace('\\J', maybe_html_escape((sqlexecute.socket or '(none)').replace('\\', '/'), is_html)) for x in strings]
+    strings = [x.replace('\\J', maybe_html_escape((sql_execute.socket or '(none)').replace('\\', '/'), is_html)) for x in strings]
     strings = [
-        x.replace('\\k', maybe_html_escape(os.path.basename(sqlexecute.socket or str(sqlexecute.port)).replace('\\', '/'), is_html))
+        x.replace('\\k', maybe_html_escape(os.path.basename(sql_execute.socket or str(sql_execute.port)).replace('\\', '/'), is_html))
         for x in strings
     ]
     strings = [
-        x.replace('\\K', maybe_html_escape((sqlexecute.socket or str(sqlexecute.port)).replace('\\', '/'), is_html)) for x in strings
+        x.replace('\\K', maybe_html_escape((sql_execute.socket or str(sql_execute.port)).replace('\\', '/'), is_html)) for x in strings
     ]
     strings = [x.replace('\\A', maybe_html_escape(mycli.dsn_alias or '(none)', is_html)) for x in strings]
     strings = [x.replace('\\_', ' ') for x in strings]
 
     checker_string = ' '.join(strings)
     if r'\b' in checker_string:
-        connection = getattr(sqlexecute, 'conn', None)
+        connection = getattr(sql_execute, 'conn', None)
         if connection:
             connection.ping()
         server_status = getattr(connection, 'server_status', 0) or 0
@@ -363,33 +363,33 @@ def render_prompt_string(
         else:
             edit_mode = mycli.key_bindings.lower()
         strings = [x.replace(r'\e', maybe_html_escape(edit_mode, is_html)) for x in strings]
-    if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
+    if hasattr(sql_execute, 'conn') and sql_execute.conn is not None:
         if '\\y' in checker_string:
-            with sqlexecute.conn.cursor() as cur:
+            with sql_execute.conn.cursor() as cur:
                 strings = [x.replace('\\y', maybe_html_escape(str(get_uptime(cur)) or '(none)', is_html)) for x in strings]
         if '\\Y' in checker_string:
-            with sqlexecute.conn.cursor() as cur:
+            with sql_execute.conn.cursor() as cur:
                 strings = [x.replace('\\Y', maybe_html_escape(format_uptime(str(get_uptime(cur))) or '(none)', is_html)) for x in strings]
     else:
         strings = [x.replace('\\y', '(none)') for x in strings]
         strings = [x.replace('\\Y', '(none)') for x in strings]
 
-    if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
+    if hasattr(sql_execute, 'conn') and sql_execute.conn is not None:
         if '\\T' in checker_string:
-            with sqlexecute.conn.cursor() as cur:
+            with sql_execute.conn.cursor() as cur:
                 strings = [x.replace('\\T', maybe_html_escape(get_ssl_version(cur) or '(none)', is_html)) for x in strings]
     else:
         strings = [x.replace('\\T', '(none)') for x in strings]
 
-    if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
+    if hasattr(sql_execute, 'conn') and sql_execute.conn is not None:
         if '\\w' in checker_string:
-            with sqlexecute.conn.cursor() as cur:
+            with sql_execute.conn.cursor() as cur:
                 strings = [x.replace('\\w', maybe_html_escape(str(get_warning_count(cur) or '(none)'), is_html)) for x in strings]
     else:
         strings = [x.replace('\\w', '(none)') for x in strings]
-    if hasattr(sqlexecute, 'conn') and sqlexecute.conn is not None:
+    if hasattr(sql_execute, 'conn') and sql_execute.conn is not None:
         if '\\W' in checker_string:
-            with sqlexecute.conn.cursor() as cur:
+            with sql_execute.conn.cursor() as cur:
                 strings = [x.replace('\\W', maybe_html_escape(str(get_warning_count(cur) or ''), is_html)) for x in strings]
     else:
         strings = [x.replace('\\W', '') for x in strings]
@@ -459,8 +459,8 @@ def _output_results(
     *,
     raise_interrupts: bool = False,
 ) -> None:
-    sqlexecute = mycli.sqlexecute
-    assert sqlexecute is not None
+    sql_execute = mycli.sql_execute
+    assert sql_execute is not None
 
     result_iterator = iter(results)
     try:
@@ -469,7 +469,7 @@ def _output_results(
         return
 
     if first_result.command is not None and first_result.command['name'] == 'source_page':
-        if special.is_redirected():
+        if special_commands.is_redirected():
             _output_results(mycli, state, result_iterator, start)
             return
         paged_output = _single_paged_output_results(mycli, state, result_iterator, start)
@@ -534,8 +534,8 @@ def _output_results(
         with runner.rendering() if runner else nullcontext():
             formatted = mycli.format_sqlresult(
                 result,
-                is_expanded=special.is_expanded_output(),
-                is_redirected=special.is_redirected(),
+                is_expanded=special_commands.is_expanded_output(),
+                is_redirected=special_commands.is_redirected(),
                 null_string=mycli.null_string,
                 numeric_alignment=mycli.numeric_alignment,
                 binary_display=mycli.binary_display,
@@ -559,7 +559,7 @@ def _output_results(
                 if mycli.beep_after_seconds > 0 and duration >= mycli.beep_after_seconds:
                     assert mycli.prompt_session is not None
                     mycli.prompt_session.output.bell()
-                if special.is_timing_enabled():
+                if special_commands.is_timing_enabled():
                     mycli.output_timing(f'Time: {duration:0.03f}s')
             except KeyboardInterrupt:
                 if raise_interrupts:
@@ -569,16 +569,16 @@ def _output_results(
         result_count += 1
         state.mutating = state.mutating or is_mutating(result.status_plain)
 
-        if special.is_show_warnings_enabled() and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
-            warnings = sqlexecute.run('SHOW WARNINGS')
+        if special_commands.is_show_warnings_enabled() and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
+            warnings = sql_execute.run('SHOW WARNINGS')
             warnings_duration = time.time() - start
             saw_warning = False
             for warning in warnings:
                 saw_warning = True
                 formatted = mycli.format_sqlresult(
                     warning,
-                    is_expanded=special.is_expanded_output(),
-                    is_redirected=special.is_redirected(),
+                    is_expanded=special_commands.is_expanded_output(),
+                    is_redirected=special_commands.is_redirected(),
                     null_string=mycli.null_string,
                     numeric_alignment=mycli.numeric_alignment,
                     binary_display=mycli.binary_display,
@@ -588,7 +588,7 @@ def _output_results(
                 mycli.echo('')
                 mycli.output(formatted, warning, is_warnings_style=True)
 
-            if saw_warning and special.is_timing_enabled():
+            if saw_warning and special_commands.is_timing_enabled():
                 mycli.output_timing(f'Time: {warnings_duration:0.03f}s', is_warnings_style=True)
 
 
@@ -599,8 +599,8 @@ def _single_paged_output_results(
     start: float,
 ) -> Generator[str, None, None]:
     """Render results lazily through one pager session."""
-    sqlexecute = mycli.sqlexecute
-    assert sqlexecute is not None
+    sql_execute = mycli.sql_execute
+    assert sql_execute is not None
     result_iterator = iter(results)
     result_count = 0
     watch_count = 0
@@ -640,7 +640,7 @@ def _single_paged_output_results(
 
             formatted = mycli.format_sqlresult(
                 result,
-                is_expanded=special.is_expanded_output(),
+                is_expanded=special_commands.is_expanded_output(),
                 is_redirected=False,
                 null_string=mycli.null_string,
                 numeric_alignment=mycli.numeric_alignment,
@@ -654,9 +654,9 @@ def _single_paged_output_results(
                 yield '\n'
             for line in formatted:
                 mycli.log_output(line)
-                special.write_tee(line)
-                special.write_once(line)
-                special.write_pipe_once(line)
+                special_commands.write_tee(line)
+                special_commands.write_once(line)
+                special_commands.write_pipe_once(line)
                 yield f'{line}\n'
             if result.status:
                 mycli.log_output(result.status_plain)
@@ -665,7 +665,7 @@ def _single_paged_output_results(
             if mycli.beep_after_seconds > 0 and duration >= mycli.beep_after_seconds:
                 assert mycli.prompt_session is not None
                 mycli.prompt_session.output.bell()
-            if special.is_timing_enabled():
+            if special_commands.is_timing_enabled():
                 timing = f'Time: {duration:0.03f}s'
                 mycli.log_output(timing)
                 yield f'{timing}\n'
@@ -674,15 +674,15 @@ def _single_paged_output_results(
             result_count += 1
             state.mutating = state.mutating or is_mutating(result.status_plain)
 
-            if special.is_show_warnings_enabled() and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
-                warnings = sqlexecute.run('SHOW WARNINGS')
+            if special_commands.is_show_warnings_enabled() and isinstance(result.rows, Cursor) and result.rows.warning_count > 0:
+                warnings = sql_execute.run('SHOW WARNINGS')
                 warnings_duration = time.time() - start
                 saw_warning = False
                 for warning in warnings:
                     saw_warning = True
                     warning_output = mycli.format_sqlresult(
                         warning,
-                        is_expanded=special.is_expanded_output(),
+                        is_expanded=special_commands.is_expanded_output(),
                         is_redirected=False,
                         null_string=mycli.null_string,
                         numeric_alignment=mycli.numeric_alignment,
@@ -694,15 +694,15 @@ def _single_paged_output_results(
                     yield '\n'
                     for line in warning_output:
                         mycli.log_output(line)
-                        special.write_tee(line)
-                        special.write_once(line)
-                        special.write_pipe_once(line)
+                        special_commands.write_tee(line)
+                        special_commands.write_once(line)
+                        special_commands.write_pipe_once(line)
                         yield f'{line}\n'
                     if warning.status:
                         mycli.log_output(warning.status_plain)
                         yield f'{warning.status_plain}\n'
 
-                if saw_warning and special.is_timing_enabled():
+                if saw_warning and special_commands.is_timing_enabled():
                     timing = f'Time: {warnings_duration:0.03f}s'
                     mycli.log_output(timing)
                     yield f'{timing}\n'
@@ -726,9 +726,9 @@ def _keepalive_hook(
         mycli._keepalive_counter = 0
         mycli.logger.debug('keepalive ping')
         try:
-            assert mycli.sqlexecute is not None
-            assert mycli.sqlexecute.conn is not None
-            mycli.sqlexecute.conn.ping()
+            assert mycli.sql_execute is not None
+            assert mycli.sql_execute.conn is not None
+            mycli.sql_execute.conn.ping()
         except Exception as e:
             mycli.logger.debug('keepalive ping error %r', e)
 
@@ -781,8 +781,8 @@ def _build_prompt_session(
             history=history,
             auto_suggest=ThreadedAutoSuggest(AutoSuggestFromHistory()),
             complete_while_typing=complete_while_typing_filter,
-            multiline=cli_is_multiline(mycli),
-            style=style_factory_ptoolkit(mycli.syntax_style, mycli.cli_style),
+            multiline=repl_is_multiline(mycli),
+            style=style_factory_prompt_toolkit(mycli.syntax_style, mycli.cli_style),
             include_default_pygments_style=False,
             key_bindings=key_bindings,
             enable_open_in_editor=True,
@@ -803,8 +803,8 @@ def _one_iteration(
     state: ReplState,
     text: str | None = None,
 ) -> None:
-    sqlexecute = mycli.sqlexecute
-    assert sqlexecute is not None
+    sql_execute = mycli.sql_execute
+    assert sql_execute is not None
 
     inputhook = partial(_keepalive_hook, mycli) if mycli.keepalive_ticks and mycli.keepalive_ticks >= 1 else None
 
@@ -828,9 +828,9 @@ def _one_iteration(
         except KeyboardInterrupt:
             return
 
-        special.set_expanded_output(False)
-        special.set_forced_horizontal_output(False)
-        special.set_explorer_output(False)
+        special_commands.set_expanded_output(False)
+        special_commands.set_forced_horizontal_output(False)
+        special_commands.set_explorer_output(False)
 
         try:
             text = handle_editor_command(
@@ -854,15 +854,15 @@ def _one_iteration(
             mycli.echo(str(e), err=True, fg='red')
             return
 
-        while special.is_llm_command(text):
+        while special_commands.is_llm_command(text):
             start = time.time()
             try:
-                assert sqlexecute.conn is not None
-                cur = sqlexecute.conn.cursor()
-                context, sql, duration = special.handle_llm(
+                assert sql_execute.conn is not None
+                cur = sql_execute.conn.cursor()
+                context, sql, duration = special_commands.handle_llm(
                     text,
                     cur,
-                    sqlexecute.dbname or '',
+                    sql_execute.dbname or '',
                     mycli.llm_prompt_field_truncate,
                     mycli.llm_prompt_section_truncate,
                 )
@@ -870,7 +870,7 @@ def _one_iteration(
                     click.echo('LLM Response:')
                     click.echo(context)
                     click.echo('---')
-                if special.is_timing_enabled():
+                if special_commands.is_timing_enabled():
                     mycli.output_timing(f'Time: {duration:0.03f}s')
                 assert mycli.prompt_session is not None
                 text = mycli.prompt_session.prompt(
@@ -880,7 +880,7 @@ def _one_iteration(
                 )
             except KeyboardInterrupt:
                 return
-            except special.FinishIteration as e:
+            except special_commands.FinishIteration as e:
                 if e.results:
                     _output_results(mycli, state, e.results, start)
                 return
@@ -906,7 +906,7 @@ def _one_iteration(
         sql_part, command_part, file_operator_part, file_part = get_redirect_components(text)
         text = sql_part or ''
         try:
-            special.set_redirect(command_part, file_operator_part, file_part)
+            special_commands.set_redirect(command_part, file_operator_part, file_part)
         except (FileNotFoundError, OSError, RuntimeError) as e:
             mycli.logger.error('sql: %r, error: %r', text, e)
             mycli.logger.error('traceback: %r', traceback.format_exc())
@@ -931,7 +931,7 @@ def _one_iteration(
             mycli.echo('Wise choice!')
             return
 
-    dropping_active_database = is_dropping_database(text, sqlexecute.dbname)
+    dropping_active_database = is_dropping_database(text, sql_execute.dbname)
     if dropping_active_database:
         mycli.completion_refresher.stop()
 
@@ -942,14 +942,14 @@ def _one_iteration(
             prepare_polars_transform(text, polars_pipeline.expression) if polars_pipeline is not None else None
         )
         query_history_text = original_text if polars_transform is not None else text
-        special.write_tee(mycli.last_prompt_message, nl=False)
-        special.write_tee(query_history_text)
+        special_commands.write_tee(mycli.last_prompt_message, nl=False)
+        special_commands.write_tee(query_history_text)
         mycli.log_query(query_history_text)
 
         start = time.time()
         if runner := runner_for(mycli):
             runner.reset_progress()
-        results = sqlexecute.run(text)
+        results = sql_execute.run(text)
         mycli.main_formatter.query = text
         mycli.redirect_formatter.query = text
         mycli.explorer_formatter.query = text
@@ -980,9 +980,9 @@ def _one_iteration(
                     )
             if polars_pipeline.output_path is None:
                 if polars_pipeline.output_mode == 'explorer':
-                    special.set_explorer_output(True)
+                    special_commands.set_explorer_output(True)
                 elif polars_pipeline.output_mode == 'expanded':
-                    special.set_expanded_output(True)
+                    special_commands.set_expanded_output(True)
             redirect = polars_pipeline.shell_redirect
             try:
                 with (
@@ -994,14 +994,14 @@ def _one_iteration(
             except KeyboardInterrupt:
                 raise QueryCancelled(False) from None
             if polars_pipeline.output_path is not None:
-                special.run_post_redirect_hook(
+                special_commands.run_post_redirect_hook(
                     mycli.post_redirect_command,
                     polars_pipeline.output_path,
                 )
         else:
             _output_results(mycli, state, results, start)
-            special.unset_once_if_written(mycli.post_redirect_command)
-            special.flush_pipe_once_if_written(mycli.post_redirect_command)
+            special_commands.unset_once_if_written(mycli.post_redirect_command)
+            special_commands.flush_pipe_once_if_written(mycli.post_redirect_command)
         successful = True
     except QueryCancelled as exc:
         mycli.echo('Query cancelled.', err=True, fg='blue')
@@ -1016,12 +1016,12 @@ def _one_iteration(
     except EOFError as e:
         raise e
     except KeyboardInterrupt:
-        connection_id_to_kill = sqlexecute.connection_id or 0
+        connection_id_to_kill = sql_execute.connection_id or 0
         if connection_id_to_kill > 0:
             mycli.logger.debug('connection id to kill: %r', connection_id_to_kill)
             try:
-                sqlexecute.connect()
-                for kill_result in sqlexecute.run(f'kill {connection_id_to_kill}'):
+                sql_execute.connect()
+                for kill_result in sql_execute.run(f'kill {connection_id_to_kill}'):
                     status_str = str(kill_result.status_plain).lower()
                     if status_str.find('ok') > -1:
                         mycli.logger.debug('cancelled query, connection id: %r, sql: %r', connection_id_to_kill, text)
@@ -1069,9 +1069,9 @@ def _one_iteration(
         if mycli.sandbox_mode and is_password_change(text):
             new_password = extract_new_password(text)
             if new_password is not None:
-                sqlexecute.password = new_password
+                sql_execute.password = new_password
             try:
-                sqlexecute.connect()
+                sql_execute.connect()
                 mycli.sandbox_mode = False
                 mycli.echo("Password changed successfully. Reconnected.", err=True, fg='green')
                 mycli.refresh_completions()
@@ -1084,8 +1084,8 @@ def _one_iteration(
                 )
 
         if dropping_active_database:
-            sqlexecute.dbname = None
-            sqlexecute.connect()
+            sql_execute.dbname = None
+            sql_execute.connect()
 
         if need_completion_refresh(text):
             mycli.refresh_completions(reset=dropping_active_database or need_completion_reset(text))
@@ -1103,7 +1103,7 @@ def _contributors_picker() -> str:
     lines: str = ""
 
     try:
-        with resources.files(mycli_package).joinpath("AUTHORS").open('r') as f:
+        with resources.files(mycli_package).joinpath("AUTHORS.txt").open('r') as f:
             lines += f.read()
     except FileNotFoundError:
         pass
@@ -1119,7 +1119,7 @@ def _sponsors_picker() -> str:
     lines: str = ""
 
     try:
-        with resources.files(mycli_package).joinpath("SPONSORS").open('r') as f:
+        with resources.files(mycli_package).joinpath("SPONSORS.txt").open('r') as f:
             lines += f.read()
     except FileNotFoundError:
         pass
@@ -1135,7 +1135,7 @@ def _tips_picker() -> str:
     tips = []
 
     try:
-        with resources.files(mycli_package).joinpath('TIPS').open('r') as f:
+        with resources.files(mycli_package).joinpath('TIPS.txt').open('r') as f:
             for line in f:
                 if line.startswith("#"):
                     continue
@@ -1160,8 +1160,8 @@ def _configure_editor(mycli: 'MyCli') -> None:
 
 
 def main_repl(mycli: 'MyCli') -> None:
-    sqlexecute = mycli.sqlexecute
-    assert sqlexecute is not None
+    sql_execute = mycli.sql_execute
+    assert sql_execute is not None
     state = ReplState()
 
     mycli.configure_pager()
@@ -1173,24 +1173,24 @@ def main_repl(mycli: 'MyCli') -> None:
         mycli.refresh_completions()
 
     key_bindings = mycli_bindings(mycli)
-    _show_startup_banner(mycli, sqlexecute)
+    _show_startup_banner(mycli, sql_execute)
     _build_prompt_session(mycli, state, history, key_bindings)
     set_all_external_titles(mycli)
 
     config = mycli.config['main']
     show_state_interval = config.as_float('show_query_state_interval')
-    runner = QueryRunner(show_state_interval)
-    if isinstance(sqlexecute, SQLExecute):
-        sqlexecute.set_query_runner(runner)
+    runner = BackgroundRunner(show_state_interval)
+    if isinstance(sql_execute, SQLExecute):
+        sql_execute.set_background_runner(runner)
     try:
         while True:
             _one_iteration(mycli, state)
             state.iterations += 1
     except EOFError:
-        special.close_tee()
+        special_commands.close_tee()
         if mycli.verbosity >= 0:
             mycli.echo('Goodbye!')
     finally:
-        if isinstance(sqlexecute, SQLExecute):
-            sqlexecute.set_query_runner(None)
+        if isinstance(sql_execute, SQLExecute):
+            sql_execute.set_background_runner(None)
         runner.close()

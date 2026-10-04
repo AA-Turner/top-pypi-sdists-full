@@ -65,6 +65,7 @@ class ExtendedExpression(google.protobuf.message.Message):
     BASE_SCHEMA_FIELD_NUMBER: builtins.int
     ADVANCED_EXTENSIONS_FIELD_NUMBER: builtins.int
     EXPECTED_TYPE_URLS_FIELD_NUMBER: builtins.int
+    DETACHED_EXPRESSIONS_FIELD_NUMBER: builtins.int
     @property
     def version(self) -> substrait.plan_pb2.Version:
         """Substrait version of the expression. Optional up to 0.17.0, required for later
@@ -100,6 +101,13 @@ class ExtendedExpression(google.protobuf.message.Message):
         one or more message types defined here are unknown.
         """
 
+    @property
+    def detached_expressions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[substrait.algebra_pb2.Expression]:
+        """Expression subtrees stored separately to reduce protobuf nesting.
+        Referenced by zero-based ordinals local to this ExtendedExpression.
+        See https://substrait.io/serialization/binary_serialization/#bounded-expression-nesting.
+        """
+
     def __init__(
         self,
         *,
@@ -110,8 +118,9 @@ class ExtendedExpression(google.protobuf.message.Message):
         base_schema: substrait.type_pb2.NamedStruct | None = ...,
         advanced_extensions: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
         expected_type_urls: collections.abc.Iterable[builtins.str] | None = ...,
+        detached_expressions: collections.abc.Iterable[substrait.algebra_pb2.Expression] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "base_schema", b"base_schema", "version", b"version"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "base_schema", b"base_schema", "expected_type_urls", b"expected_type_urls", "extension_urns", b"extension_urns", "extensions", b"extensions", "referred_expr", b"referred_expr", "version", b"version"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extensions", b"advanced_extensions", "base_schema", b"base_schema", "detached_expressions", b"detached_expressions", "expected_type_urls", b"expected_type_urls", "extension_urns", b"extension_urns", "extensions", b"extensions", "referred_expr", b"referred_expr", "version", b"version"]) -> None: ...
 
 Global___ExtendedExpression: typing_extensions.TypeAlias = ExtendedExpression

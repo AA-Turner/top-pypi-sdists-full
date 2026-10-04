@@ -308,6 +308,9 @@ def test_tag_deployment_injects_and_verifies_every_browser_origin() -> None:
     assert workflow.count(
         "done < <(printf '%s' \"$PRODUCTION_CORS_ORIGINS\" | tr ',' '\\n')"
     ) == 2
+    assert "exec 9>/var/tmp/matrx-seo-deploy.lock" in workflow
+    assert "flock -w 900 9" in workflow
+    assert "flock -w 900 /var/tmp/matrx-seo-deploy.lock" in deploy_script
     assert workflow.count(
         'grep -Fqi "access-control-allow-origin: $origin"'
     ) == 2

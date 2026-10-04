@@ -195,6 +195,9 @@ class CapabilitiesNormalization:
     value: dict[str, Any]
     corrections: list[str] = field(default_factory=list)
     rejections: list[str] = field(default_factory=list)
+    #: Advisory: valid but probably wrong — the writer is told, the write proceeds
+    #: (validation offers, never blocks).
+    notices: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -374,10 +377,42 @@ def normalize_capabilities(raw: Any, *, label: str = "") -> CapabilitiesNormaliz
                         "non-negative integer"
                     )
 
-    return CapabilitiesNormalization(value=out, corrections=corrections, rejections=rejections)
+    return CapabilitiesNormalization(
+        value=out,
+        corrections=corrections,
+        rejections=rejections,
+        notices=chat_model_function_calling_notices(out, label=label),
+    )
+
+
+def chat_model_function_calling_notices(caps: dict[str, Any], *, label: str = "") -> list[str]:
+    """A text chat model that declares no ``function_calling`` loses EVERY tool at call time.
+
+    Until 2026-07-07 function calling was derived from the retired ``api_class`` for every
+    chat class; the cut to capability data backfilled structured output (ai_011) but not
+    function calling, so rows whose data lacked the token silently stopped taking tools
+    (gemini-2.5-flash, gpt-5.1, gpt-5.2 …). Nearly every chat model takes tools; the few
+    that do not (classifiers, compound systems) are real but rare. Every writer is told to
+    confirm against the provider's documentation — loud, never a refusal.
+    """
+    if not isinstance(caps, dict) or caps.get("interaction", "turn") != "turn":
+        return []
+    inputs = set(caps.get("input") or [])
+    outputs = set(caps.get("output") or [])
+    if "text" not in inputs or outputs != {"text"}:
+        return []
+    if "function_calling" in set(caps.get("features") or []):
+        return []
+    where = f" {label!r}" if label else ""
+    return [
+        f"text chat model{where} declares no function_calling — it will run with NO tools "
+        "(removed and announced at call time). Confirm against the provider's documentation "
+        "and add function_calling if the model takes tools."
+    ]
 
 
 __all__ = [
+    "chat_model_function_calling_notices",
     "CONTENT_TYPES",
     "CONTENT_TYPE_ALIASES",
     "CANONICAL_KEYS",

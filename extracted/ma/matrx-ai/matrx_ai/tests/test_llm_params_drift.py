@@ -45,6 +45,11 @@ UNIFIED_CONFIG_INTERNAL_FIELDS = {
     "system_prompt_spans",
     "authored_tools",
     "dynamic_tools",
+    "dynamic_tool_sources",
+    # The agent's tool policy carried by the conversation (stamped by the host funnel).
+    "agent_auto_tools_disabled",
+    "agent_excluded_tools",
+    "dynamic_tools_withheld",
     "tool_authority_filtered",
     "tool_authority_exclusions",
     "tool_authority_filter_applied_runtime",

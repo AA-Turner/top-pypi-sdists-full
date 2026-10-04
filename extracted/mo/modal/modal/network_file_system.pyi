@@ -140,11 +140,11 @@ class _NetworkFileSystem(modal._object._Object):
         """
         ...
 
-    def read_file(self, path: str) -> collections.abc.AsyncIterator[bytes]:
+    def read_file(self, path: str) -> collections.abc.AsyncGenerator[bytes, None]:
         """Read a file from the network file system"""
         ...
 
-    def iterdir(self, path: str) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
+    def iterdir(self, path: str) -> collections.abc.AsyncGenerator[modal.types.FileEntry, None]:
         """Iterate over all files in a directory in the network file system.
 
         * Passing a directory path lists all files in the directory (names are relative to the directory)
@@ -386,18 +386,18 @@ class NetworkFileSystem(modal.object.Object):
     write_file: __write_file_spec
 
     class __read_file_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str) -> typing.Iterator[bytes]:
+        def __call__(self, /, path: str) -> typing.Generator[bytes, None, None]:
             """Read a file from the network file system"""
             ...
 
-        def aio(self, /, path: str) -> collections.abc.AsyncIterator[bytes]:
+        def aio(self, /, path: str) -> collections.abc.AsyncGenerator[bytes, None]:
             """Read a file from the network file system"""
             ...
 
     read_file: __read_file_spec
 
     class __iterdir_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str) -> typing.Iterator[modal.types.FileEntry]:
+        def __call__(self, /, path: str) -> typing.Generator[modal.types.FileEntry, None, None]:
             """Iterate over all files in a directory in the network file system.
 
             * Passing a directory path lists all files in the directory (names are relative to the directory)
@@ -407,7 +407,7 @@ class NetworkFileSystem(modal.object.Object):
             """
             ...
 
-        def aio(self, /, path: str) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
+        def aio(self, /, path: str) -> collections.abc.AsyncGenerator[modal.types.FileEntry, None]:
             """Iterate over all files in a directory in the network file system.
 
             * Passing a directory path lists all files in the directory (names are relative to the directory)

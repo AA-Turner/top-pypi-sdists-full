@@ -80,7 +80,7 @@ class _Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.6.0",
+        version: str = "1.6.1",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):
@@ -290,7 +290,7 @@ class Client:
         server_url: str,
         client_type: int,
         credentials: typing.Optional[tuple[str, str]],
-        version: str = "1.6.0",
+        version: str = "1.6.1",
         *,
         oauth_credentials: typing.Optional[_OAuthCredentials] = None,
     ):

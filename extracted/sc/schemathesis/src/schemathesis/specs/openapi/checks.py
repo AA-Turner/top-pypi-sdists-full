@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import http.client
+import math
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from functools import wraps
@@ -15,7 +16,7 @@ from schemathesis.core import NOT_SET, media_types, string_to_boolean
 from schemathesis.core.failures import AcceptedNegativeData, Failure
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator
 from schemathesis.core.jsonschema.types import JsonSchema
-from schemathesis.core.mutations import OperatorKind, render_mutations
+from schemathesis.core.mutations import Mutation, OperatorKind, render_mutations
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
 from schemathesis.core.transport import HTTP_METHODS_SCHEMA, Response, expand_status_code
 from schemathesis.generation.case import Case
@@ -53,6 +54,8 @@ from schemathesis.transport.prepare import prepare_path
 from schemathesis.transport.serialization import contains_binary
 
 if TYPE_CHECKING:
+    import jsonschema_rs
+
     from schemathesis.engine.recorder import RecordedScenario
     from schemathesis.schemas import APIOperation
     from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter, OpenApiParameterSet
@@ -302,8 +305,8 @@ def _declared_parameters_are_valid(case: Case, location: ParameterLocation) -> b
         return False
 
 
-def _has_other_negated_location(case: Case, location: ParameterLocation) -> bool:
-    """Whether a location other than `location` carries a negation the server could act on."""
+def _has_other_negated_location(case: Case, *locations: ParameterLocation) -> bool:
+    """Whether a location outside `locations` carries a negation the server could act on."""
     meta = case.meta
     assert meta is not None
     for other in (
@@ -313,7 +316,7 @@ def _has_other_negated_location(case: Case, location: ParameterLocation) -> bool
         ParameterLocation.COOKIE,
         ParameterLocation.BODY,
     ):
-        if other == location:
+        if other in locations:
             continue
         component = meta.components.get(other)
         if component is None or not component.mode.is_negative:
@@ -413,6 +416,12 @@ def _coerce_string_to_numeric(value: str, expected_types: list[str]) -> int | fl
     return None
 
 
+def _numeric_wire_value_is_valid(coerced: int | float | list[int | float], validator: jsonschema_rs.Validator) -> bool:
+    # Values like `nan` or `1e400` parse as non-finite floats that servers may read as numbers.
+    values = coerced if isinstance(coerced, list) else [coerced]
+    return any(isinstance(value, float) and not math.isfinite(value) for value in values) or validator.is_valid(coerced)
+
+
 def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
     """Check if an array value for a scalar parameter becomes valid after serialization.
 
@@ -421,7 +430,7 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
     - Multi-element [True, 1] -> "?page_size=True&page_size=1"
 
     For single-element arrays, the serialized form is indistinguishable from a scalar,
-    so the server will accept any value valid for the original schema.
+    so the server accepts it only when that element is valid for the original schema.
 
     For multi-element arrays, some frameworks pick one value from repeated keys (e.g.
     the last one). If any element in the array is valid for the original scalar schema,
@@ -434,6 +443,7 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
     if meta is None:
         return False
 
+    neutralized: set[tuple[ParameterLocation, str]] = set()
     # Check query, header, and cookie parameters
     for location in (
         ParameterLocation.QUERY,
@@ -476,45 +486,47 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
             if "array" in expected_types or not expected_types:
                 continue
 
-            # Single-element arrays serialize identically to a scalar
-            if len(param_value) == 1:
-                return True
-
-            # Multi-element arrays serialize as repeated keys. If any element is valid
-            # for the full original schema (including enum, minimum, pattern, etc.),
-            # some frameworks may accept the request by picking that element.
+            # A single element serializes identically to a scalar; multiple elements become repeated keys and
+            # some frameworks pick one of them. Either way, the request is valid if any element is.
             try:
                 validator = make_validator(schema, param.adapter.jsonschema_validator_cls)
             except Exception:
-                return True
+                neutralized.add((location, param_name))
+                continue
             for element in param_value:
                 if validator.is_valid(element):
-                    return True
+                    neutralized.add((location, param_name))
+                    break
                 # Query/header/cookie values are transmitted as strings, so a string element
                 # like "44" produces the same wire form as int 44. Frameworks that coerce the
                 # raw query value to integer/number will accept it.
                 if isinstance(element, str):
                     coerced = _coerce_string_to_numeric(element, expected_types)
-                    if coerced is not None and validator.is_valid(coerced):
-                        return True
+                    if coerced is not None and _numeric_wire_value_is_valid(coerced, validator):
+                        neutralized.add((location, param_name))
+                        break
 
-    return False
+    # Any other mutated parameter or location still makes the request invalid.
+    return bool(neutralized) and all(
+        (mutation.parameter_location, mutation.parameter) in neutralized for mutation in meta.phase.data.mutations
+    )
 
 
 def _wire_value_matches_parameter(parameter: OpenApiParameter, expected_types: list[str], wire_value: str) -> bool:
     """Check whether the text actually sent for `parameter` satisfies its original schema."""
-    if _coerce_string_to_numeric(wire_value, expected_types) is not None:
-        return True
+    coerced = _coerce_string_to_numeric(wire_value, expected_types)
     try:
         validator = make_validator(parameter.validation_schema, parameter.adapter.jsonschema_validator_cls)
     except Exception:
         # Schema rejected by jsonschema_rs - validity is unknown, so don't report a failure.
         return True
+    if coerced is not None:
+        return _numeric_wire_value_is_valid(coerced, validator)
     return validator.is_valid(wire_value)
 
 
-def _string_type_mutation_becomes_valid_after_serialization(case: Case, location: ParameterLocation) -> bool:
-    """Check if a type mutation for a numeric path/query parameter becomes valid after serialization.
+def _type_mutations_become_valid_after_serialization(case: Case) -> bool:
+    """Check if every type mutation of a numeric path/query parameter becomes valid after serialization.
 
     Both path and query parameters are transmitted as strings on the wire, so a negative
     type mutation for an integer/number parameter can still be accepted when the serialized
@@ -525,58 +537,56 @@ def _string_type_mutation_becomes_valid_after_serialization(case: Case, location
       like {"5": "x"} produces ?param=5, which is integer-parseable.
     - Path parameters are additionally URL-decoded by servers (e.g. `%2B1` -> `+1`).
     """
-    from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter
-
     meta = case.meta
     if meta is None:
         return False
 
-    target_component = meta.components.get(location)
-    if target_component is None or not target_component.mode.is_negative:
+    phase_data = meta.phase.data
+    if not isinstance(phase_data, FuzzingPhaseData) or not phase_data.mutations:
         return False
+
+    locations = set()
+    for mutation in phase_data.mutations:
+        location = mutation.parameter_location
+        component = meta.components.get(location) if location is not None else None
+        if (
+            mutation.operator != OperatorKind.CHANGE_TYPE
+            or location not in (ParameterLocation.PATH, ParameterLocation.QUERY)
+            or component is None
+            or not component.mode.is_negative
+            or mutation.parameter is None
+            or not _type_mutation_is_valid_on_wire(case, location, mutation.parameter)
+        ):
+            return False
+        locations.add(location)
 
     # If there are other negative components, we should still validate them.
-    if _has_other_negated_location(case, location):
-        return False
+    return not _has_other_negated_location(case, *locations)
 
-    phase_data = meta.phase.data
-    if not isinstance(phase_data, FuzzingPhaseData) or phase_data.parameter_location != location:
-        return False
-    # Multi-site mutations are conservatively skipped — can't pin one keyword expectation.
-    if len(phase_data.mutations) != 1 or phase_data.mutations[0].operator != OperatorKind.CHANGE_TYPE:
-        return False
 
-    container_name = location.container_name
+def _type_mutation_is_valid_on_wire(case: Case, location: ParameterLocation, name: str) -> bool:
+    from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter
+
     case_container = case.get_container(location)
-    if not isinstance(case_container, Mapping) or not case_container:
+    parameter = getattr(case.operation, location.container_name).get(name)
+    if not isinstance(case_container, Mapping) or name not in case_container:
+        return False
+    if not isinstance(parameter, OpenApiParameter):
         return False
 
-    operation_container = getattr(case.operation, container_name)
-    names = [phase_data.parameter] if phase_data.parameter else list(case_container.keys())
-    for param_name in names:
-        if param_name is None or param_name not in case_container or param_name not in operation_container:
-            continue
-
-        value = case_container[param_name]
-        parameter = operation_container.get(param_name)
-        if not isinstance(parameter, OpenApiParameter):
-            continue
-        expected_types = get_type(parameter.definition.get("schema", {}))
-
-        if isinstance(value, (str, int, float)):
-            # `str` subclasses like already-encoded path values are rejected by the validator.
-            wire_value = str(value)
-            # Path parameters are URL-encoded; decode before parsing.
-            if location == ParameterLocation.PATH:
-                wire_value = unquote(wire_value)
-            if _wire_value_matches_parameter(parameter, expected_types, wire_value):
-                return True
-        elif location == ParameterLocation.QUERY and isinstance(value, dict):
-            # urlencode(doseq=True) iterates over dict keys, producing one query value per key.
-            # e.g. {"5": "x"} becomes ?page_size=5, which the server sees as a valid integer.
-            if any(_wire_value_matches_parameter(parameter, expected_types, str(key)) for key in value):
-                return True
-
+    value = case_container[name]
+    expected_types = get_type(parameter.definition.get("schema", {}))
+    if isinstance(value, (str, int, float)):
+        # `str` subclasses like already-encoded path values are rejected by the validator.
+        wire_value = str(value)
+        # Path parameters are URL-encoded; decode before parsing.
+        if location == ParameterLocation.PATH:
+            wire_value = unquote(wire_value)
+        return _wire_value_matches_parameter(parameter, expected_types, wire_value)
+    if location == ParameterLocation.QUERY and isinstance(value, dict):
+        # urlencode(doseq=True) iterates over dict keys, producing one query value per key.
+        # e.g. {"5": "x"} becomes ?page_size=5, which the server sees as a valid integer.
+        return any(_wire_value_matches_parameter(parameter, expected_types, str(key)) for key in value)
     return False
 
 
@@ -625,7 +635,8 @@ def _path_array_becomes_valid_after_serialization(case: Case) -> bool:
         # Items arrive as text, so `18` is the wire form of `[18]` for an integer array.
         item_types = get_type(schema.get("items", {}))
         coerced = [_coerce_string_to_numeric(item, item_types) for item in items]
-        if None not in coerced and validator.is_valid(coerced):
+        numbers = [value for value in coerced if value is not None]
+        if len(numbers) == len(coerced) and _numeric_wire_value_is_valid(numbers, validator):
             return True
 
     return False
@@ -697,8 +708,7 @@ def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -
         and not _body_negation_becomes_valid_after_serialization(case)
         and not _body_negation_is_only_forbidden_property(case)
         and not _single_element_array_becomes_valid_after_serialization(case)
-        and not _string_type_mutation_becomes_valid_after_serialization(case, ParameterLocation.PATH)
-        and not _string_type_mutation_becomes_valid_after_serialization(case, ParameterLocation.QUERY)
+        and not _type_mutations_become_valid_after_serialization(case)
         and not _path_array_becomes_valid_after_serialization(case)
         and not _non_body_negative_values_match_schema(case)
     ):
@@ -975,6 +985,9 @@ def unsupported_method(ctx: CheckContext, response: Response, case: Case) -> boo
             # undeclared method with 401/403 without ever reaching routing.
             if response.status_code in AUTH_REJECTION_STATUSES and _requires_authentication(case.operation):
                 return None
+            # Rate limiters usually run as middleware ahead of routing and throttle every method alike.
+            if response.status_code == 429:
+                return None
             raise UnsupportedMethodResponse(
                 operation=case.operation.label,
                 method=cast(str, response.request.method),
@@ -1048,7 +1061,8 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
     # available, trust the actually-targeted location over the coarse flags.
     phase_data = meta.phase.data
     if isinstance(phase_data, FuzzingPhaseData) and phase_data.mutations:
-        if phase_data.parameter_location in (ParameterLocation.BODY, ParameterLocation.PATH):
+        targeted = {phase_data.parameter_location, *(mutation.parameter_location for mutation in phase_data.mutations)}
+        if ParameterLocation.BODY in targeted or ParameterLocation.PATH in targeted:
             return False
     elif (ParameterLocation.BODY in meta.components and meta.components[ParameterLocation.BODY].mode.is_negative) or (
         ParameterLocation.PATH in meta.components and meta.components[ParameterLocation.PATH].mode.is_negative
@@ -1064,7 +1078,11 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
             schema = container.schema
 
             if _has_serialization_sensitive_types(schema, container):
-                # Can't reliably determine if only additional properties were added
+                # Wire-serialized arrays and objects can't be re-validated, so only mutation metadata can tell.
+                if isinstance(phase_data, FuzzingPhaseData) and any(
+                    _negates_declared_parameter(mutation, location, schema) for mutation in phase_data.mutations
+                ):
+                    return False
                 continue
 
             properties = schema.get("properties", {})
@@ -1082,6 +1100,17 @@ def has_only_additional_properties_in_non_body_parameters(case: Case) -> bool:
                 return False
     # Only additional properties are added
     return True
+
+
+def _negates_declared_parameter(mutation: Mutation, location: ParameterLocation, schema: dict) -> bool:
+    """Whether `mutation` invalidates a declared parameter in a way that survives wire serialization."""
+    if mutation.parameter_location != location or mutation.parameter is None:
+        return False
+    types = get_type(schema.get("properties", {}).get(mutation.parameter, {}))
+    if "array" not in types and "object" not in types:
+        return True
+    # Other types arrive as a string that reads as a one-element array, and an empty value is sent as no value.
+    return mutation.operator != OperatorKind.CHANGE_TYPE and "required" not in mutation.keywords
 
 
 def _boolean_from_wire_spelling(value: object, schema: JsonSchema) -> object:

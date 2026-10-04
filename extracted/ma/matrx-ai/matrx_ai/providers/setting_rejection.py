@@ -65,7 +65,7 @@ class SettingRejection:
     provider_type: str | None
     provider_message: str
     provider_limit: Any  # parsed when the provider states one
-    shape: str  # above_max | string_too_long | deprecated | unsupported | mode_unsupported | combination | invalid_value | opaque
+    shape: str  # above_max | string_too_long | too_many_items | invalid_item | deprecated | unsupported | mode_unsupported | combination | invalid_value | opaque
     recognizer: str  # "structured" or the RECOGNIZERS row id
 
     @property
@@ -188,6 +188,126 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
         shape="invalid_value",
         example="Unsupported value: 'temperature' does not support 0.2 with this model.",
     ),
+    Recognizer(
+        id="google.thinking_level_unsupported",
+        providers=("google",),
+        pattern=_rx(r"Thinking level \w+ is not supported for this model"),
+        shape="invalid_value",
+        example=(
+            "Thinking level MINIMAL is not supported for this model. Please retry with other "
+            "thinking level."
+        ),
+        param="thinking_config.thinking_level",
+    ),
+    Recognizer(
+        id="xai.unsupported_value",
+        providers=("xai",),
+        pattern=_rx(r"does not support `(?P<param>[\w.]+)` value `"),
+        shape="invalid_value",
+        example="This model does not support `reasoning_effort` value `none`.",
+    ),
+    # LIST-valued settings (stop sequences). Every example below is the real
+    # message, captured live 2026-10-04 (FIXV1: Groq conversation fdf78037…,
+    # Anthropic 555d5547…, the rest from a direct 5/10/16-item probe).
+    Recognizer(
+        id="groq.max_items",
+        providers=("groq",),
+        pattern=_rx(r"'(?P<param>[\w.]+)' : maximum number of items is (?P<limit>\d+)"),
+        shape="too_many_items",
+        example=(
+            "'stop' : one of the following must be satisfied[('stop' : value must be a string) "
+            "OR ('stop' : maximum number of items is 4)]"
+        ),
+    ),
+    Recognizer(
+        id="openai_compat.array_too_long",
+        providers=("moonshot", "openai", "together", "xai", "cerebras", "groq"),
+        pattern=_rx(
+            r"(?:Invalid '(?P<param>[\w.]+)':|request:\s*(?P<bare>[\w.]+)) array too long\. "
+            r"Expected an array with maximum length (?P<limit>\d+)"
+        ),
+        shape="too_many_items",
+        example=(
+            "Invalid request: stop array too long. Expected an array with maximum length 5, "
+            "but got an array with length 10 instead"
+        ),
+    ),
+    Recognizer(
+        id="together.max_stop_sequences",
+        providers=("together",),
+        pattern=_rx(r"(?P<param>[\w.]+): Validation error: maximum (?P<limit>\d+) stop sequences allowed"),
+        shape="too_many_items",
+        example=(
+            'stop: Validation error: maximum 4 stop sequences allowed [{"value": Array '
+            '[String("ZQ0X"), String("ZQ1X"), String("ZQ2X"), String("ZQ3X"), String("ZQ4X")]}]'
+        ),
+    ),
+    Recognizer(
+        id="xai.max_stop_strings",
+        providers=("xai",),
+        pattern=_rx(r"Cannot provide more than (?P<limit>\d+) stop strings"),
+        shape="too_many_items",
+        example="Cannot provide more than 8 stop strings but len(stop) = 10",
+        param="stop",
+    ),
+    # Cerebras answers a list-length refusal as a pydantic validation error with
+    # code wrong_api_format and param "validation_error" (live 2026-10-04).
+    Recognizer(
+        id="cerebras.list_at_most",
+        providers=("cerebras",),
+        pattern=_rx(r"(?P<param>[\w.]+)\.list\[\w+\]: List should have at most (?P<limit>\d+) items"),
+        shape="too_many_items",
+        example=(
+            "stop.str: Input should be a valid string\nstop.list[str]: List should have at most "
+            "4 items after validation, not 5"
+        ),
+    ),
+    Recognizer(
+        id="anthropic.stop_sequence_whitespace",
+        providers=("anthropic",),
+        pattern=_rx(r"(?P<param>[\w.]+): each stop sequence must contain non-whitespace"),
+        shape="invalid_item",
+        example="stop_sequences: each stop sequence must contain non-whitespace",
+    ),
+    # Live 2026-10-04 (V2 verifier battery 3g) — each landed as an unrecognised
+    # ``provider_request_failed`` with no fingerprint before these rows existed.
+    Recognizer(
+        id="groq.number_at_most",
+        providers=("groq",),
+        pattern=_rx(r"'(?P<param>[\w.]+)'\s*:\s*number must be at most (?P<limit>\d+)"),
+        shape="above_max",
+        example="'temperature' : number must be at most 2",
+    ),
+    Recognizer(
+        id="xai.does_not_support_parameter",
+        providers=("xai",),
+        pattern=_rx(r"does not support parameter (?P<param>[\w.]+?)\.?(?:\s|\"|$)"),
+        shape="unsupported",
+        example="Model grok-4.20-0309-reasoning does not support parameter stop.",
+    ),
+    Recognizer(
+        id="google.thinking_budget_range",
+        providers=("google",),
+        pattern=_rx(r"thinking budget -?\d+ is invalid\. Please choose a value between -?\d+ and (?P<limit>\d+)"),
+        shape="above_max",
+        example="The thinking budget 64000 is invalid. Please choose a value between 128 and 32768.",
+        param="thinking_config.thinking_budget",
+    ),
+    # Range refusals boundary-probed live 2026-10-04 (NET lane census).
+    Recognizer(
+        id="cerebras.input_le",
+        providers=("cerebras",),
+        pattern=_rx(r"(?P<param>[\w.]+): Input should be less than or equal to (?P<limit>\d+)"),
+        shape="above_max",
+        example="temperature: Input should be less than or equal to 2",
+    ),
+    Recognizer(
+        id="together.must_be_within",
+        providers=("together",),
+        pattern=_rx(r"(?P<param>[\w.]+) must be within \[-?[\d.]+, (?P<limit>\d+)\]"),
+        shape="above_max",
+        example="temperature must be within [0, 1], got 2",
+    ),
     # Google's opaque 400: no param anywhere. A settings rejection we cannot
     # pin to a field — the record carries ``suspect_params`` instead.
     Recognizer(
@@ -218,6 +338,10 @@ _NON_SETTING_CODES = frozenset(
     {"invalid_json_schema", "wrong_api_format", "context_length_exceeded", "insufficient_quota"}
 )
 
+# Cerebras answers setting refusals as pydantic validation errors (code
+# wrong_api_format): only these rows, built for those exact messages, may claim one.
+_WRONG_API_FORMAT_SETTING_ROWS = frozenset({"cerebras.list_at_most", "cerebras.input_le"})
+
 # Codes that, with a param, say "this setting's value/name was refused".
 _CODE_SHAPES = {
     "string_above_max_length": "string_too_long",
@@ -229,6 +353,7 @@ _CODE_SHAPES = {
     "unsupported_value": "invalid_value",
     "unknown_parameter": "unsupported",
     "invalid_value": "invalid_value",
+    "array_above_max_length": "too_many_items",
 }
 
 _LIMIT_PATTERNS = (
@@ -275,6 +400,8 @@ def _unwrap_google_message(message: str) -> str:
 
 def _shape_from_message(message: str, default: str) -> str:
     lowered = message.lower()
+    if "array too long" in lowered or "number of items" in lowered or "at most" in lowered and "items" in lowered:
+        return "too_many_items"
     if "less than or equal" in lowered or "above max" in lowered:
         return "above_max"
     if "string too long" in lowered:
@@ -306,10 +433,30 @@ def _recognize(provider: str, message: str, body: dict[str, Any]) -> SettingReje
     code = str(code) if code not in (None, "") else None
     ptype = body.get("type")
     ptype = str(ptype) if ptype not in (None, "") else None
-    if code in _NON_SETTING_CODES:
-        return None
     param = body.get("param")
     param = str(param) if param not in (None, "") else None
+    if param == "validation_error":  # Cerebras: a category, not a field
+        param = None
+    if code in _NON_SETTING_CODES:
+        # A validation-shaped code can still carry a SETTING refusal (Cerebras
+        # list length); only rows built for that exact message may claim it.
+        if code != "wrong_api_format":
+            return None
+        for rec in RECOGNIZERS:
+            if rec.id in _WRONG_API_FORMAT_SETTING_ROWS:
+                m = rec.pattern.search(text)
+                if m:
+                    return SettingRejection(
+                        provider=key,
+                        provider_param=m.group("param"),
+                        provider_code=code,
+                        provider_type=ptype,
+                        provider_message=text,
+                        provider_limit=int(m.group("limit")),
+                        shape=rec.shape,
+                        recognizer=rec.id,
+                    )
+        return None
 
     # 1 — STRUCTURED: the provider named the field.
     if param is not None:
@@ -337,7 +484,7 @@ def _recognize(provider: str, message: str, body: dict[str, Any]) -> SettingReje
             if not m:
                 continue
             groups = m.groupdict()
-            found_param = groups.get("param") or rec.param
+            found_param = groups.get("param") or groups.get("bare") or rec.param
             if found_param and _is_non_setting_param(found_param):
                 return None
             limit = groups.get("limit")
@@ -522,13 +669,24 @@ def canonical_state(value: Any) -> str:
 
 
 def fingerprint(
-    *, provider: str, model_or_profile: str | None, provider_param: str | None, canonical_key: str | None, shape: str
+    *,
+    provider: str,
+    model_or_profile: str | None,
+    provider_param: str | None,
+    canonical_key: str | None,
+    shape: str,
+    message_signature: str | None = None,
 ) -> str:
-    """Stable identity of ONE defect: same model, same field, same refusal → same print."""
-    basis = json.dumps(
-        [provider, model_or_profile or "", provider_param or "", canonical_key or "", shape],
-        separators=(",", ":"),
-    )
+    """Stable identity of ONE defect: same model, same field, same refusal → same print.
+
+    ``message_signature`` (the safety net's unrecognised rejections only, which
+    name no field) tells two different refusals on one model apart; it is left
+    out of the basis when absent so every existing print stays stable.
+    """
+    parts = [provider, model_or_profile or "", provider_param or "", canonical_key or "", shape]
+    if message_signature:
+        parts.append(message_signature)
+    basis = json.dumps(parts, separators=(",", ":"))
     return hashlib.sha256(basis.encode()).hexdigest()[:32]
 
 
@@ -591,6 +749,61 @@ def suspect_params(provider: str, model: str | None, failed_payload: Any) -> tup
     failed = _flat_scalars(failed_payload)
     keys = sorted(k for k in set(failed) | set(passing) if failed.get(k, _MISSING) != passing.get(k, _MISSING))
     return keys, "last_passing_in_process"
+
+
+#: Wire keys that are the request itself, never a setting: content, tools, the
+#: answer contract, identity and transport. Everything else on the wire is a
+#: setting a provider may refuse.
+_STRUCTURAL_WIRE_KEYS = frozenset(
+    {
+        *_CONTENT_KEYS,
+        "model",
+        "stream",
+        "stream_options",
+        "tool_choice",
+        "parallel_tool_calls",
+        "response_format",
+        "text.format",
+        "response_mime_type",
+        "response_schema",
+        "response_json_schema",
+        "user",
+        "metadata",
+        "store",
+        "prompt_cache_key",
+        "previous_response_id",
+        "safety_identifier",
+        "cached_content",
+        "system_instruction",
+        "tool_config",
+    }
+)
+
+
+def setting_keys_sent(wire_payload: Any, canonical: dict[str, Any] | None = None) -> tuple[list[str], str]:
+    """Every non-structural SETTING key the failed call carried.
+
+    From the captured wire body when there is one (top level + one nested level,
+    content skipped), else the canonical settings of the config. Returns
+    ``(keys, source)``; never raises.
+    """
+    try:
+        flat = _flat_scalars(wire_payload) if wire_payload is not None else {}
+        mapping = _as_mapping(wire_payload) or {}
+        for key, value in mapping.items():  # list settings (stop) are not scalars
+            if isinstance(value, (list, tuple)) and key not in _CONTENT_KEYS:
+                flat[key] = True
+        keys = sorted(
+            k
+            for k, v in flat.items()
+            if v is not None and k not in _STRUCTURAL_WIRE_KEYS and k.split(".")[0] not in _STRUCTURAL_WIRE_KEYS
+        )
+        if keys:
+            return keys, "setting_keys_on_wire"
+        keys = sorted(k for k in (canonical or {}) if not k.startswith("_") and k != "response_format")
+        return keys, ("canonical_settings" if keys else "no_settings_found")
+    except Exception:  # noqa: BLE001
+        return [], "no_settings_found"
 
 
 def _first_present(lookup: Any, *models: Any) -> Any:
@@ -735,6 +948,10 @@ def build_record(
     suspect_source = "not_opaque"
     if rej.get("opaque"):
         suspects, suspect_source = suspect_params(provider, model_name, wire_payload)
+        if not suspects:
+            # No passing call to compare against: EVERY setting the call carried
+            # is a suspect (the fixer narrows it), never an empty list.
+            suspects, suspect_source = setting_keys_sent(wire_payload, canonical)
 
     return {
         "provider": provider,
@@ -765,6 +982,7 @@ def build_record(
             provider_param=provider_param,
             canonical_key=canonical_key,
             shape=str(rej.get("shape") or ""),
+            message_signature=rej.get("message_signature"),
         ),
         "suspect_params": suspects,
         "suspect_params_source": suspect_source,
@@ -802,7 +1020,9 @@ REPAIRS_PER_CALL = 1
 #: K10 payload key carrying the R2 outcome.
 SELF_HEALED_KEY = "self_healed"
 
-_CLAMP_SHAPES = frozenset({"above_max", "string_too_long"})
+_CLAMP_SHAPES = frozenset({"above_max", "string_too_long", "too_many_items"})
+# A LIST item the provider refuses (Anthropic: a whitespace-only stop sequence).
+_ITEM_SHAPES = frozenset({"invalid_item"})
 _DROP_SHAPES = frozenset({"deprecated", "unsupported", "mode_unsupported", "combination"})
 _MAP_SHAPES = frozenset({"invalid_value"})
 
@@ -838,6 +1058,7 @@ _LABELS = {
     "top_k": "Top K",
     "duration_seconds": "Duration",
     "aspect_ratio": "Aspect ratio",
+    "stop_sequences": "Stop sequences",
 }
 
 #: Secondary-text slot budget for the stream warning (interface-text-is-layout).
@@ -1000,7 +1221,21 @@ def _plan(info: Any, *, profile: Any, config: Any, facts: dict[str, Any] | None)
             return repair("clamped", int(limit) if isinstance(current, int) else limit, source)
         if isinstance(current, str) and len(current) > int(limit):
             return repair("clamped", current[: int(limit)], source)
+        if isinstance(current, list | tuple) and len(current) > int(limit):
+            return repair("clamped", list(current)[: int(limit)], source)
         return _no("value_within_stated_limit")
+
+    if shape in _ITEM_SHAPES:
+        if not isinstance(current, list | tuple):
+            return _no("not_a_list_setting")
+        kept = [item for item in current if not (isinstance(item, str) and not item.strip())]
+        if not kept:
+            return repair("dropped", None, "shape")
+        if len(kept) < len(current):
+            return repair("clamped", kept, "provider_message")
+        # The provider named an item rule we cannot apply mechanically: leave the
+        # setting out (the R3 ruling for an unknown accepted set).
+        return repair("dropped", None, "accepted_values_unknown")
 
     if shape in _DROP_SHAPES:
         return repair("dropped", None, "shape")
@@ -1105,6 +1340,241 @@ def repair_warning(repair: SettingRepair, *, provider: str, model: Any) -> Any:
     )
 
 
+# ── NET: the universal safety net (settings-translation lane NET) ────────────
+#
+# R1/R2 understand only rejection messages someone already catalogued. Every NEW
+# settings rejection (live 2026-10-04: Groq temperature 5, xAI ``stop``, Gemini
+# 2.5 Pro thinking budget) landed as ``provider_request_failed`` with no
+# fingerprint and no answer. The net closes the class at the shared dispatch
+# seam: ANY provider 400/422 on a call that carried settings —
+#
+#   (a) is filed as a typed ``<provider>.invalid_setting`` candidate (K10, shape
+#       ``unrecognized``, recognizer ``safety_net``) with ``suspect_params`` and a
+#       fingerprint, so the fixer (R3) sees it;
+#   (b) is sent ONCE more pre-stream: the specific repair when a recognizer
+#       understood the message (R2), else the SAFE MINIMUM request — every
+#       optional sampling / reasoning / list setting the person set is left out;
+#       messages, tools, response format, model and output limit stay — with one
+#       warning naming what was left out;
+#   (c) never loops and never touches billing, auth, content or schema errors.
+
+#: Error classes the net may treat as a settings candidate. Everything else
+#: (auth, permission, billing, context length, content filter, not found, rate
+#: limits, server errors) has its own class and is never retried by the net.
+NET_ERROR_TYPES = frozenset({"invalid_request", "unprocessable_request"})
+NET_STATUS_CODES = frozenset({400, 422})
+NET_SHAPE = "unrecognized"
+NET_RECOGNIZER = "safety_net"
+
+#: A 400 that is about the CONTENT or the SCHEMA, not a setting. Leaving
+#: settings out cannot fix these, so the net neither files nor retries them.
+_NET_NOT_A_SETTING = _rx(
+    r"\b(?:messages?|contents?|prompt|input|image|images|file|files|audio|video|document|pdf|"
+    r"tools?|functions?|tool_use|tool_result|function_call|response_format|json_schema|schema|"
+    r"context(?:_| )length|context window|too many tokens|token limit|safety|moderation|policy|"
+    r"api key|credit|billing|quota|balance)\b"
+)
+
+#: UnifiedConfig attribute -> (canonical key, value meaning "not set").
+#: The SAFE MINIMUM leaves every one of these out. Kept: model, messages,
+#: tools, tool_choice, response_format, max_output_tokens, media knobs.
+SAFE_MINIMUM_ATTRS: dict[str, tuple[str, Any]] = {
+    "temperature": ("temperature", None),
+    "top_p": ("top_p", None),
+    "top_k": ("top_k", None),
+    "seed": ("seed", None),
+    "frequency_penalty": ("frequency_penalty", None),
+    "presence_penalty": ("presence_penalty", None),
+    "verbosity": ("verbosity", None),
+    "stop_sequences": ("stop_sequences", []),
+    "reasoning_effort": ("reasoning_effort", None),
+    "disable_reasoning": ("reasoning_effort", None),
+    "thinking_budget": ("thinking_budget", None),
+    "thinking_level": ("thinking_level", None),
+    "reasoning_summary": ("reasoning_summary", None),
+    "include_thoughts": ("include_thoughts", None),
+    "clear_thinking": ("clear_thinking", None),
+}
+
+SAFE_MINIMUM_SOURCE = "safe_minimum"
+
+
+def _message_signature(message: str) -> str:
+    """The refusal's wording with numbers and quoted values blanked, for the print."""
+    text = _unwrap_google_message(message or "")
+    text = re.sub(r"\d+(?:\.\d+)?", "#", text)
+    text = re.sub(r"\s+", " ", text).strip().lower()
+    return text[:120]
+
+
+def net_candidate(info: Any) -> Any:
+    """An UNRECOGNISED 400/422 → a typed ``invalid_setting`` candidate, else None.
+
+    Pure; never raises. Returns a new ``RetryableError`` (the original is left
+    as it is) whose ``details["setting_rejection"]`` is an opaque rejection with
+    shape ``unrecognized`` — so the K10 record, the dedupe and the fixer treat
+    it like any other settings rejection.
+    """
+    try:
+        from matrx_ai.providers.errors import RetryableError, is_billing_refusal
+
+        if info is None or getattr(info, "error_type", None) not in NET_ERROR_TYPES:
+            return None
+        if getattr(info, "status_code", None) not in NET_STATUS_CODES:
+            return None
+        details = dict(getattr(info, "details", None) or {})
+        message = str(details.get("message") or getattr(info, "message", "") or "")
+        full = f"{getattr(info, 'message', '')} {message}"
+        if is_billing_refusal(full):
+            return None
+        param = details.get("param")
+        if param not in (None, "") and _is_non_setting_param(str(param)):
+            return None
+        code = details.get("code")
+        if code not in (None, "") and str(code) in _NON_SETTING_CODES:
+            return None
+        inner = _unwrap_google_message(message or str(getattr(info, "message", "")))
+        if _NET_NOT_A_SETTING.search(inner):
+            return None
+        provider = provider_key(str(details.get("provider") or ""))
+        rejection = SettingRejection(
+            provider=provider,
+            provider_param=None,
+            provider_code=str(code) if code not in (None, "") else None,
+            provider_type=str(details.get("type")) if details.get("type") else None,
+            provider_message=inner[:2000],
+            provider_limit=None,
+            shape=NET_SHAPE,
+            recognizer=NET_RECOGNIZER,
+        )
+        rej = rejection.as_details()
+        rej["message_signature"] = _message_signature(inner)
+        return RetryableError(
+            error_type=SETTING_REJECTION_ERROR_TYPE,
+            message=getattr(info, "message", "") or inner,
+            status_code=getattr(info, "status_code", None),
+            is_retryable=False,
+            user_message=getattr(info, "user_message", "") or inner,
+            details={**details, "provider": provider, "setting_rejection": rej},
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@dataclass(frozen=True)
+class SafeMinimum:
+    """The safe-minimum retry: every optional setting the person set, left out."""
+
+    dropped: tuple[tuple[str, Any], ...]  # (config attr, value as sent)
+    provider_message: str
+
+    @property
+    def canonical_keys(self) -> list[str]:
+        seen: list[str] = []
+        for attr, _ in self.dropped:
+            key = SAFE_MINIMUM_ATTRS[attr][0]
+            if key not in seen:
+                seen.append(key)
+        return seen
+
+    def adjustments(self) -> list[Any]:
+        from matrx_ai.catalog.models import Adjustment
+
+        return [
+            Adjustment(
+                key=SAFE_MINIMUM_ATTRS[attr][0],
+                action="dropped",
+                canonical_value=_json_scalar(old),
+                sent_value=None,
+                reason="provider refused the request (unrecognised settings rejection); sent once more without it",
+                expected=True,
+                provenance="computed",
+            )
+            for attr, old in self.dropped
+        ]
+
+    def as_record(self) -> dict[str, Any]:
+        return {
+            "action": "safe_minimum",
+            "source": SAFE_MINIMUM_SOURCE,
+            "dropped": {attr: _json_scalar(old) for attr, old in self.dropped},
+            "canonical_keys": self.canonical_keys,
+            "adjustments": [a.model_dump(mode="json") for a in self.adjustments()],
+        }
+
+
+def plan_safe_minimum(config: Any, *, provider_message: str = "") -> SafeMinimum | None:
+    """Which optional settings the config carries (None = nothing to leave out)."""
+    if config is None:
+        return None
+    dropped: list[tuple[str, Any]] = []
+    for attr, (_, unset) in SAFE_MINIMUM_ATTRS.items():
+        if not hasattr(config, attr):
+            continue
+        value = getattr(config, attr)
+        if value is None or value == unset or (isinstance(value, (list, tuple)) and not value):
+            continue
+        dropped.append((attr, value))
+    if not dropped:
+        return None
+    return SafeMinimum(tuple(dropped), provider_message)
+
+
+def apply_safe_minimum(config: Any, plan: SafeMinimum) -> bool:
+    """Leave every planned setting out of the per-call wire config. Never raises."""
+    try:
+        for attr, _ in plan.dropped:
+            setattr(config, attr, SAFE_MINIMUM_ATTRS[attr][1])
+        return True
+    except Exception:  # noqa: BLE001
+        try:
+            for attr, old in plan.dropped:
+                setattr(config, attr, old)
+        except Exception:  # noqa: BLE001
+            pass
+        return False
+
+
+def config_as_sent_before_safe_minimum(config: Any, plan: SafeMinimum) -> Any:
+    from copy import copy
+
+    sent = copy(config)
+    for attr, old in plan.dropped:
+        try:
+            setattr(sent, attr, old)
+        except Exception:  # noqa: BLE001
+            pass
+    return sent
+
+
+def safe_minimum_user_message(plan: SafeMinimum) -> str:
+    """One label-length sentence (≤ REPAIR_WARNING_BUDGET) naming what was left out."""
+    labels = [_label(k) for k in plan.canonical_keys]
+    if len(labels) == 1:
+        text = f"{labels[0]} left out; this model refused it."
+    else:
+        text = f"Left out: {', '.join(labels)}."
+    if len(text) > REPAIR_WARNING_BUDGET:
+        text = f"{len(labels)} settings left out; this model refused them."
+    return text
+
+
+def safe_minimum_warning(plan: SafeMinimum, *, provider: str, model: Any) -> Any:
+    from matrx_connect.context.events import WarningPayload
+
+    return WarningPayload(
+        code="setting_repaired",
+        system_message=(
+            f"{provider} refused the request ({plan.provider_message[:200]}); sent once more with "
+            f"only the safe minimum — left out: {', '.join(plan.canonical_keys)}."
+        ),
+        user_message=safe_minimum_user_message(plan),
+        level="low",
+        recoverable=True,
+        metadata={"model": str(model), "repair": plan.as_record()},
+    )
+
+
 async def load_parameter_facts(profile: Any) -> dict[str, Any] | None:
     """The I1 facts for this offering through the host seam, or None. Never raises."""
     try:
@@ -1120,6 +1590,15 @@ async def load_parameter_facts(profile: Any) -> dict[str, Any] | None:
 
 
 __all__ = [
+    "NET_ERROR_TYPES",
+    "NET_SHAPE",
+    "SAFE_MINIMUM_ATTRS",
+    "SafeMinimum",
+    "apply_safe_minimum",
+    "net_candidate",
+    "plan_safe_minimum",
+    "safe_minimum_warning",
+    "setting_keys_sent",
     "LIFECYCLE",
     "PARAMETER_FACTS_EXT",
     "REPAIRS_PER_CALL",

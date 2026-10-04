@@ -85,3 +85,7 @@ class UnifiedMessageModel(BaseModel):
 
     # cx_message.position. Corpus: never serialized.
     position: int | None = None
+
+    # chat.message.agent_id — the agent that wrote the row. Corpus: never
+    # serialized (carried in-memory from from_cx_message).
+    agent_id: str | None = None

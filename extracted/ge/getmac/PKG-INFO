@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: getmac
-Version: 0.9.5
+Version: 0.9.6
 Summary: Get MAC addresses of remote hosts and local interfaces
 Home-page: https://github.com/GhostofGoes/getmac
 Author: Christopher Goes
@@ -34,6 +34,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: IronPython
 Classifier: Programming Language :: Python :: Implementation :: Jython
+Classifier: Typing :: Typed
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Information Technology
@@ -45,6 +46,18 @@ Classifier: Topic :: Utilities
 Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-python
+Dynamic: summary
 
 
 [![Latest version on PyPI](https://badge.fury.io/py/getmac.svg)](https://pypi.org/project/getmac/)
@@ -295,6 +308,7 @@ The [Python Discord server](https://discord.gg/python) is a good place to ask qu
 - Tomasz Duda (@tomaszduda23) - support for docker in network bridge mode
 - Steven Looman (@StevenLooman) - Windows 11 testing
 - Reimund Renner (@raymanP) - macOS fixes
+- Simone Chemelli (@chemelli74) - py.typed the library
 
 ## Sources
 Many of the methods used to acquire an address and the core logic framework are attributed to the CPython project's UUID implementation.
@@ -316,6 +330,11 @@ MIT. Feel free to copy, modify, and use to your heart's content. Enjoy :)
 **NOTE**: if any changes significantly impact your project or use case, please open an issue on [GitHub](https://github.com/GhostofGoes/getmac/issues) or email me (see git commit author info for address).
 
 **Announcement**: Compatibility with Python versions older than 3.7 (2.7, 3.4, 3.5, and 3.6) is deprecated and will be removed in getmac 1.0.0. If you are stuck on an unsupported Python, consider loosely pinning the version of this package in your dependency list, e.g. `getmac<1.0.0` or `getmac~=0.9.0`.
+
+## 0.9.6 (10/03/2026)
+
+### Changed
+* Made library py.typed
 
 ## 0.9.5 (07/15/2024)
 

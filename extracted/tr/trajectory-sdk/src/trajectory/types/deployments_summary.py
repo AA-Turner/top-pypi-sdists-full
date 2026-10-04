@@ -25,3 +25,9 @@ class DeploymentsSummary(BaseModel):
 
   active: int
   """Deployments currently answering for their slug."""
+
+  cancelling: int = 0
+  """Deployments awaiting confirmed cleanup."""
+
+  cancelled: int = 0
+  """Deployments cancelled before publication."""

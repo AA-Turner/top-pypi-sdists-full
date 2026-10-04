@@ -51,6 +51,38 @@ async def _load_unified_config(conversation_id: str) -> UnifiedConfig:
     return await cxm.get_conversation_unified_config(conversation_id)
 
 
+async def _load_sticky_toolset(conversation_id: str) -> tuple[list[str], dict[str, str]]:
+    """The conversation's OWN sticky toolset (``dynamic_tools`` + ``dynamic_tool_sources``)
+    from its row. A responder-held turn takes its structural half from the Holder, but the
+    tools added during THIS conversation belong to the conversation, not the Holder
+    (TOOL-SOURCES.md, stickiness), so they ride every turn the Holder answers. A failed read
+    is said out loud and degrades to "no sticky tools this turn" — never a dead turn."""
+    from matrx_ai.client_host import get_conversation_store
+
+    try:
+        store = get_conversation_store()
+        if store is not None:
+            data = await store.get_conversation_config(conversation_id) or {}
+            cfg = data.get("config") if isinstance(data.get("config"), dict) else data
+        else:
+            from matrx_ai.db import cxm
+
+            row = await cxm.conversation.load_conversation_by_id(conversation_id)
+            cfg = getattr(row, "config", None) or {}
+    except Exception as exc:  # noqa: BLE001 — the turn still runs on the Holder's own tools
+        vcprint(
+            f"[ConversationResolver] could not read the sticky toolset of {conversation_id}: "
+            f"{type(exc).__name__}: {exc} — this turn carries only the Holder's tools",
+            color="red",
+        )
+        return [], {}
+    if not isinstance(cfg, dict):
+        return [], {}
+    names = [n for n in (cfg.get("dynamic_tools") or []) if isinstance(n, str) and n]
+    sources = cfg.get("dynamic_tool_sources")
+    return names, (dict(sources) if isinstance(sources, dict) else {})
+
+
 async def _load_persisted_messages(conversation_id: str) -> list[UnifiedMessage]:
     """Load only the canonical rebuilt message projection for a continuation.
 
@@ -153,6 +185,16 @@ class ConversationResolver:
             # is not mandate-held and must keep freezing normally.
             if responder_mandate_key:
                 config.responder_mandate_key = str(responder_mandate_key)
+            # The conversation's sticky toolset is the conversation's, not the Holder's.
+            sticky_names, sticky_sources = await _load_sticky_toolset(conversation_id)
+            if sticky_names:
+                config.dynamic_tools = list(
+                    dict.fromkeys([*sticky_names, *(config.dynamic_tools or [])])
+                )
+                config.dynamic_tool_sources = {
+                    **sticky_sources,
+                    **(config.dynamic_tool_sources or {}),
+                }
             try:
                 persisted_messages = await _load_persisted_messages(conversation_id)
             except Exception as exc:

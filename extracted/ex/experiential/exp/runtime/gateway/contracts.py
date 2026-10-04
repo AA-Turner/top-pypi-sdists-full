@@ -26,6 +26,7 @@ from exp.common.models.gateway_catalog import (
 )
 from exp.common.models.gateway_chains import ModelExecutionStage, ModelTraversalEvent
 from exp.common.models.model import MAXIMUM_TOOL_CALL_ID_CHARACTERS, ReasoningEffort, ToolCall
+from exp.runtime.gateway.client_apps import ClientAttribution
 from exp.runtime.gateway.model_chain_authority import ModelChainAuthority
 from exp.runtime.gateway.reasoning_blocks import EncryptedReasoningBlock as EncryptedReasoningBlock
 from exp.runtime.gateway.reasoning_blocks import (
@@ -892,14 +893,13 @@ class ProjectSelection(ContractModel):
     fallback_reason: str | None = Field(default=None, max_length=512)
 
 
-class AuthorizationSnapshot(ContractModel):
+class AuthorizationSnapshot(ClientAttribution):
     """Immutable authority and alias target frozen before learned model selection.
 
     Attributes:
-        model_chain_authority: Optional backend-issued binding, revalidated by
-            the host at acceptance and every attempt reservation.
-        fair_share_weight: Organization weight in [1, 1,000,000], default 1,
-            used only on rungs authoring weighted fair-share admission.
+        model_chain_authority: Optional backend binding, revalidated at acceptance and reservation.
+        fair_share_weight: Organization weight in [1, 1,000,000], default 1.
+        priority_admission: Host-vouched 0 free, 1 paying, 2 Pro (lane_saturation caps).
         descendant_start_authorized: False unless the host proves root funding
             and policy gates before allowing a request to start at a child.
         zdr_requested: Caller demand for stricter ZDR filtering, default False.
@@ -935,9 +935,9 @@ class AuthorizationSnapshot(ContractModel):
     and never a credential; ``None`` when no trusted hop yields an address (an
     allowlist then fails closed, a denylist open). 45 chars fits any IPv6 form."""
     fair_share_weight: int = Field(default=1, ge=1, le=1_000_000)
+    priority_admission: int = Field(default=0, ge=0, le=2)
     descendant_start_authorized: bool = False
     zdr_requested: bool = False
-    # Fair-share weights default to equal shares and apply only on opted-in rungs.
 
 
 class ExecutionSnapshot(ContractModel):

@@ -17,6 +17,7 @@ import arrow as ar
 import pandas as pd
 
 from geocif import __version__
+from geocif.agmet.utils import get_crop_abbrev
 
 logger = logging.getLogger(__name__)
 
@@ -112,18 +113,92 @@ def _find_images(base_dir, pattern="*.png"):
     return sorted(base.glob(pattern))
 
 
+def _pearson_summary_paths(dir_outlook, analysis_dirs, country_slug, crop_slug):
+    """Existing ``pearson_summary.csv`` files for a country/crop, best first.
+
+    The CID EDA (viz/diagnostics.cid_vs_yield_scatters) writes it under the
+    Geocif dir_analysis, ``<P>/ml/analysis/<MMMM_DD_YYYY>/explore/
+    cid_vs_yield/<country>/<crop>/csvs/``, while yield_outlook's dir_outlook
+    is ``<P>/ml/analysis/<MMMM_DD_YYYY_HHhmm>/outlook/``. So the run's
+    ``analysis_dirs`` (newest first) are searched before the roots relative
+    to dir_outlook, which only match when dir_outlook sits in a dir_analysis.
+    """
+    rel = (
+        Path("explore") / "cid_vs_yield" / country_slug / crop_slug
+        / "csvs" / "pearson_summary.csv"
+    )
+    candidate_roots = [
+        *analysis_dirs,
+        dir_outlook.parent,    # dir_outlook = <dir_analysis>/outlook/
+        dir_outlook,           # dir_outlook = <dir_analysis>/
+        dir_outlook.parent.parent,  # belt-and-suspenders
+    ]
+    return [
+        Path(root) / rel for root in candidate_roots
+        if (Path(root) / rel).is_file()
+    ]
+
+
+def _find_xai_images(analysis_dirs, countries, crops, models, year):
+    """SHAP beeswarm/waterfall PNGs for ``year``, from the newest of the run's
+    ``analysis_dirs`` that has any. ml/xai.py writes them to the Geocif
+    dir_analysis: ``<P>/ml/analysis/<MMMM_DD_YYYY>/<country>/<crop>/<model>/
+    <year>/``.
+    """
+    for root in analysis_dirs:
+        pngs = [
+            png
+            for country in countries
+            for crop in crops
+            for model in models
+            for pattern in ("beeswarm_*.png", "waterfall_*.png")
+            for png in _find_images(
+                Path(root) / country / crop / model / str(year), pattern
+            )
+        ]
+        if pngs:
+            return pngs
+    return []
+
+
+def _agmet_pngs(agmet_dir):
+    """PNGs in an agmet ``condition/`` folder: geoagmet writes one per region
+    to ``adm1/`` or ``adm2/`` and one per calendar region to ``district/``."""
+    return [
+        png
+        for sub in ("adm1", "adm2", "district")
+        for png in _find_images(Path(agmet_dir) / sub)
+    ]
+
+
 def _find_agmet_dir(parser, country, crop, season, year):
-    """Locate agmet output directory for a country/crop/season/year."""
-    dir_output = Path(parser.get("PATHS", "dir_output"))
+    """Locate agmet output directory for a country/crop/season/year.
+
+    geoagmet writes ``<[PATHS] dir_output>/<project_name>/crop_condition/
+    <date>/plots/<category>/<country>/<crop code>_s<season>_<year>/
+    condition/``, with the crop code from agmet.utils (maize -> mz).
+    """
+    dir_output = (
+        Path(parser.get("PATHS", "dir_output"))
+        / parser.get("DEFAULT", "project_name", fallback="geocif")
+    )
     category = parser.get(country, "category", fallback="AMIS")
-    crop_short = crop[:2]
+    crop_short = get_crop_abbrev(crop)
     folder = f"{crop_short}_s{season}_{year}"
 
     base = dir_output / "crop_condition"
     if not base.exists():
         return None
 
-    dated_dirs = sorted(base.iterdir(), reverse=True)
+    def _date_key(d):
+        # geoagmet names run folders MMMM_DD_YYYY, so a plain name sort puts
+        # September_26 ahead of October_03. Unparseable names sort last.
+        try:
+            return ar.get(d.name, "MMMM_DD_YYYY")
+        except ValueError:  # arrow's ParserError subclasses ValueError
+            return ar.get(0)
+
+    dated_dirs = sorted(base.iterdir(), key=_date_key, reverse=True)
     for d in dated_dirs:
         candidate = d / "plots" / category / country / folder / "condition"
         if candidate.exists():
@@ -143,8 +218,13 @@ def generate_report(
     crops,
     models,
     dir_output=None,
+    analysis_dirs=None,
 ):
-    """Generate a PDF report from yield outlook outputs."""
+    """Generate a PDF report from yield outlook outputs.
+
+    ``analysis_dirs``: the Geocif dir_analysis folders the run wrote to (CID
+    EDA, XAI figures), newest first — see yield_outlook._run_analysis_dirs.
+    """
     # [ML] show_production_share (default True): when off, strip the
     # production-share sentences from figure captions so the PDF doesn't
     # reference a share that isn't shown (e.g. poppy).
@@ -177,6 +257,7 @@ def generate_report(
         return
 
     dir_outlook = Path(dir_outlook)
+    analysis_dirs = [Path(d) for d in analysis_dirs or []]
     if dir_output is None:
         dir_output = dir_outlook
 
@@ -365,27 +446,12 @@ def generate_report(
 
     def _load_top_features(country_slug, crop_slug, top_n=10):
         """Read the top CIDs by |Pearson r| from the cid_vs_yield EDA
-        artifact and pass them as top_features to the narrative. The
-        EDA writes pearson_summary.csv at
-            <analysis_root>/explore/cid_vs_yield/<country>/<crop>/csvs/
-                pearson_summary.csv
-        which lives a sibling of the outlook dir; try a few sensible
-        roots so this works whether dir_outlook is the analysis root or
-        the outlook subdir.
+        artifact (pearson_summary.csv, located by _pearson_summary_paths)
+        and pass them as top_features to the narrative.
         """
-        candidate_roots = [
-            dir_outlook.parent,    # dir_outlook = .../analysis/<today>/outlook/
-            dir_outlook,           # dir_outlook = .../analysis/<today>/
-            dir_outlook.parent.parent,  # belt-and-suspenders
-        ]
-        rel = (
-            Path("explore") / "cid_vs_yield" / country_slug / crop_slug
-            / "csvs" / "pearson_summary.csv"
-        )
-        for root in candidate_roots:
-            path = root / rel
-            if not path.is_file():
-                continue
+        for path in _pearson_summary_paths(
+            dir_outlook, analysis_dirs, country_slug, crop_slug
+        ):
             try:
                 df_pr = pd.read_csv(path)
             except Exception:
@@ -687,7 +753,7 @@ def generate_report(
     for country in countries:
         for crop in crops:
             agmet_dir = _find_agmet_dir(parser, country, crop, 1, current_year)
-            if agmet_dir and list(Path(agmet_dir).glob("*.png")):
+            if agmet_dir and _agmet_pngs(agmet_dir):
                 agmet_found = True
                 break
         if agmet_found:
@@ -703,7 +769,7 @@ def generate_report(
                 if not agmet_dir:
                     continue
 
-                agmet_pngs = sorted(Path(agmet_dir).glob("*.png"))
+                agmet_pngs = _agmet_pngs(agmet_dir)
                 if not agmet_pngs:
                     continue
 
@@ -716,14 +782,12 @@ def generate_report(
     # ========================================
     # Explainability (SHAP)
     # ========================================
-    xai_dir = dir_outlook.parent / "xai" if dir_outlook.parent.exists() else None
-    if xai_dir and xai_dir.exists():
-        shap_pngs = _find_images(xai_dir, "**/*.png")
-        if shap_pngs:
-            _section("Model Explainability (SHAP)")
-            _reset_subsection()
-            for png in shap_pngs[:10]:
-                _add_image(png, caption=png.stem.replace("_", " ").title())
+    shap_pngs = _find_xai_images(analysis_dirs, countries, crops, models, current_year)
+    if shap_pngs:
+        _section("Model Explainability (SHAP)")
+        _reset_subsection()
+        for png in shap_pngs[:10]:
+            _add_image(png, caption=png.stem.replace("_", " ").title())
 
     # ---- Build PDF with footer ----
     try:

@@ -8,6 +8,8 @@ config:
   gcp:project: internal-airbyte-ai-infra
   gcp:region: us-west3
   agent-chat-internal:domain: chat.internal.airbyte.ai
+  agent-chat-internal:preview-domain: preview.chat.internal.airbyte.ai
+  agent-chat-internal:preview-redirect-host: preview.ops.internal.airbyte.ai
   agent-chat-internal:dns-zone-project: airbyte-intranet
   agent-chat-internal:dns-zone-name: internal-airbyte-ai
   # Required. `apply` fails until an immutable tag is pinned after bootstrap

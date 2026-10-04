@@ -41,7 +41,8 @@ Three independent checks; all must be satisfied for success:
    gate — UNLESS it is the poller itself or one of a small, explicit
    :data:`SOFT_ALLOWLIST` of jobs that already exist in ``ci.yml`` as non-gating
    (advisory / warn-only / not in ci-summary's ``needs`` / not a required
-   context). This sweep is what makes the poller *stricter* than the old gate:
+   context). The sweep also WAITS for non-exempt running rows without a verdict
+   (PENDING, re-polled). This makes the poller *stricter* than the old gate:
    the old ``tests-gate`` greens when ``test-parallel`` is ``skipped``, so a
    failure in ``detect-changes`` / ``plugin-env-service-completeness`` /
    ``compose-required-env-coverage`` / ``contract-path-preflight`` (which skip
@@ -139,6 +140,9 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     "Writer-Migration Coupling Check",  # migration-required-check
     "Node Migration Declaration Check",  # node-migration-declaration-check (OMN-15717)
     "no-noncanonical-lifecycle-classes",  # OMN-14350 non-canonical lifecycle-class ratchet
+    "Canonical Handler-Shape Gate (OMN-20298)",  # canonical-handler-shape-gate — detector with no preflight dependency
+    "No Plugin Daemon Classes Gate (OMN-20298)",  # no-plugin-daemon-classes-gate — detector with no preflight dependency
+    "Shape-Gate Independence (OMN-20298)",  # shape-gate-independence — refuses a detector behind the preflight
     "Effect-Assertion Gate (RT-5)",  # OMN-14467 deploy-trigger fails closed on zero output
     "OCC Companion Merged Gate (OMN-15214)",  # occ-companion-merged — cited OCC evidence must be MERGED before product merge
     # OMN-16774: whole event chains driven through the REAL dispatch seam on the
@@ -333,6 +337,10 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     "Validator Requirements Baseline One-way (OMN-19677) / anti-growth-baseline",
     "Runtime Profiles Allowlist One-way (OMN-19677) / anti-growth-baseline",
     "Skip Count Baseline One-way (OMN-19677) / anti-growth-baseline",
+    # OMN-20304: canonical-file-shape ratchet (no new scripts, plugins or
+    # exceptions). The job is unconditional in ci.yml (no needs/if), so a skip
+    # or absence fails closed here instead of reading green.
+    "Canonical File Shape (OMN-20304)",  # canonical-file-shape
 )
 
 # Gates the old ci-summary accepted as ``success`` OR ``skipped``. Each carries
@@ -775,6 +783,10 @@ EXPECTED_EXTERNAL_CONTEXTS: tuple[str, ...] = (
     # Admitted under POST_FIXTURE_WINDOW_CONTEXTS and placed at the tail for
     # the reason the `Governed helper primitive gate` entry states.
     "delegation-health-check / Delegation Health Check",
+    # OMN-20295: direct-model-call.yml reports on every pull request to main or
+    # dev; registered so a red run blocks a merge. Admitted under
+    # POST_FIXTURE_WINDOW_CONTEXTS and placed at the tail for the same reason.
+    "Direct Model Call Gate",
 )
 
 # OMN-17199 — contexts admitted AFTER the last historical measurement window
@@ -800,6 +812,9 @@ POST_FIXTURE_WINDOW_CONTEXTS: frozenset[str] = frozenset(
         # OMN-19451: registered 2026-09-29, after both fixture windows closed.
         # Comes out at the next fixture re-capture.
         "delegation-health-check / Delegation Health Check",
+        # OMN-20295: the workflow lands in this same PR, so no merged PR in
+        # either fixture window could have produced this check-run.
+        "Direct Model Call Gate",
         # Landed with its validator in the same PR (Rule 5) on 2026-08-30; both
         # fixture windows (#2546…#2567, #2705…#2720) close well before that.
         "exposure-reader-coverage",
@@ -1881,6 +1896,18 @@ def drop_superseded_non_verdicts(
         for raw in check_runs
         if str(raw.get("name") or "") and not _is_non_verdict_row(raw)
     }
+    # OMN-20275: a reusable-workflow caller job whose own ``if:`` is false
+    # writes its row under the BARE caller name (``deploy-gate``); when it runs
+    # it writes ``caller / reusable-job`` (``deploy-gate / deploy-gate``). The
+    # two never share a name, so a PR opened as a draft against dev keeps the
+    # draft-time ``deploy-gate`` skip on its head forever after the
+    # ready_for_review run reports success, and a rerun cannot clear it (it
+    # reuses the draft payload). A verdict row ``caller / job`` therefore also
+    # supersedes a non-verdict row for ``caller`` on the same head. One
+    # direction only: a bare-name verdict never clears a ``caller / job`` skip.
+    verdict_keys |= {
+        (name.split(" / ", 1)[0], head) for name, head in verdict_keys if " / " in name
+    }
     return [
         raw
         for raw in check_runs
@@ -2825,7 +2852,8 @@ def evaluate(
         )
     )
 
-    # (3) Default-deny sweep over every OTHER present+completed job.
+    # (3) Default-deny sweep over every OTHER present job: fail decided refusals
+    #     and WAIT for running rows without a verdict (PENDING, re-polled).
     sweep_failures = sorted(
         j.name
         for name, j in latest.items()
@@ -2834,6 +2862,15 @@ def evaluate(
         and not _is_allowlisted(name, allowlist)
         and is_decided(j)
         and j.conclusion not in GOOD_CONCLUSIONS
+    )
+    sweep_running = sorted(
+        j.name
+        for name, j in latest.items()
+        if name != self_name
+        and name not in gate_names
+        and not _is_allowlisted(name, allowlist)
+        and j.status != "completed"
+        and not is_decided(j)
     )
 
     # Completeness anchor: every gate must be present AND completed.
@@ -2917,7 +2954,10 @@ def evaluate(
     # the same row reds with a named reason, and the caller's deadline still
     # converts a sustained PENDING into FAILURE.
     all_unresolved = (
-        gate_missing_or_pending + external_unresolved + ext_sweep_provisional
+        gate_missing_or_pending
+        + sweep_running
+        + external_unresolved
+        + ext_sweep_provisional
     )
 
     def _verdict(label: str) -> str:
@@ -2936,6 +2976,7 @@ def evaluate(
             external_provisional,
             docs_only=docs_only,
             relaxed=relaxed,
+            sweep_running=sweep_running,
             sweep_names=ext_sweep_names,
             sweep_external_failures=ext_sweep_failures,
             sweep_in_flight=ext_sweep_in_flight,
@@ -2969,6 +3010,7 @@ def _report(
     *,
     docs_only: bool = False,
     relaxed: frozenset[str] = frozenset(),
+    sweep_running: list[str] | None = None,
     sweep_names: list[str] | None = None,
     sweep_external_failures: list[str] | None = None,
     sweep_in_flight: list[str] | None = None,
@@ -3021,6 +3063,11 @@ def _report(
         lines.append(f"  skippable-gate failures: {', '.join(skippable_failures)}")
     if sweep_failures:
         lines.append(f"  default-deny sweep failures: {', '.join(sweep_failures)}")
+    if sweep_running:
+        lines.append(
+            "  default-deny sweep rows still running (PENDING, re-polled): "
+            + ", ".join(sweep_running)
+        )
     if gate_missing_or_pending:
         lines.append(f"  gates missing/pending: {', '.join(gate_missing_or_pending)}")
     if external_contexts:

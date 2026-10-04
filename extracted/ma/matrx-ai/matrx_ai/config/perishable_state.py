@@ -31,6 +31,21 @@ last message the person sent — prefixes its content with::
 
 Results from the current turn are never touched: they are this turn's truth.
 
+A DATE OR TIME THE ASSISTANT SAID is a photograph too (Lane BC, 2026-10-03). On
+test@test.com's staff thread, asked "what's today's date?" on Friday October 2,
+the Chief answered "Monday, September 28, 2026" — word for word its own answer to
+the same question four days earlier — while its instructions that very turn said
+"Right now it is 9:01 PM on Friday, October 2" and "Today is Saturday, October 3".
+The provision was live; the history won. So every earlier ASSISTANT text that
+states a calendar date, a weekday or a clock time is prefixed::
+
+    [STALE — said at 2026-09-28 22:59 UTC, in an earlier turn. Any "today",
+    weekday or current time in it described THAT moment, not now; the current
+    date and time are in your instructions.]
+
+Same properties as the tool-result marker: the message's own timestamp, in
+memory only, idempotent, current-turn text untouched.
+
 Properties the send boundary depends on
 ---------------------------------------
 * In-memory only. The database row is never written; the original output stays
@@ -55,6 +70,7 @@ and may be called from nowhere else — ``tests/test_send_boundary_guard.py``.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -97,9 +113,14 @@ class PerishableReport:
 
     blocks_marked: int = 0
     tools: list[str] = field(default_factory=list)
+    dated_statements_marked: int = 0
 
     def to_dict(self) -> dict[str, Any]:
-        return {"blocks_marked": self.blocks_marked, "tools": list(self.tools)}
+        return {
+            "blocks_marked": self.blocks_marked,
+            "tools": list(self.tools),
+            "dated_statements_marked": self.dated_statements_marked,
+        }
 
 
 def _get(obj: Any, attr: str) -> Any:
@@ -173,6 +194,63 @@ def _already_marked(content: Any) -> bool:
     return isinstance(content, str) and content.startswith(STALE_MARKER)
 
 
+#: A calendar date, a weekday or a clock time stated in prose. Deliberately
+#: plain: a false positive only adds a true sentence ("this was said then").
+_MONTHS = (
+    "January|February|March|April|May|June|July|August|September|October|November|December"
+    "|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec"
+)
+DATED_STATEMENT = re.compile(
+    r"\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|today|tonight|yesterday|tomorrow)\b"
+    rf"|\b(?:{_MONTHS})\.?\s+\d{{1,2}}\b"
+    r"|\b\d{4}-\d{2}-\d{2}\b"
+    r"|\b\d{1,2}:\d{2}\s*(?:[AaPp]\.?[Mm]\.?)?",
+    re.IGNORECASE,
+)
+
+
+def said_prefix(timestamp: Any) -> str:
+    return (
+        f"{STALE_MARKER}said at {stamp_for(timestamp)}, in an earlier turn. Any \"today\", "
+        "weekday or current time in it described THAT moment, not now; the current date and "
+        "time are in your instructions.]\n"
+    )
+
+
+def _mark_dated_assistant_text(message: Any, report: PerishableReport) -> None:
+    """Prefix the first text block of an earlier assistant message that states a date/time."""
+    if _role(message) != "assistant":
+        return
+    blocks = _get(message, "content")
+    if isinstance(blocks, str):
+        if blocks.startswith(STALE_MARKER) or not DATED_STATEMENT.search(blocks):
+            return
+        prefix = said_prefix(_get(message, "timestamp"))
+        if isinstance(message, dict):
+            message["content"] = prefix + blocks
+        else:
+            message.content = prefix + blocks
+        report.dated_statements_marked += 1
+        return
+    if not isinstance(blocks, list):
+        return
+    texts = [
+        b for b in blocks
+        if _get(b, "type") == "text" and isinstance(_get(b, "text"), str)
+    ]
+    if not texts or any(str(_get(b, "text")).startswith(STALE_MARKER) for b in texts):
+        return
+    if not any(DATED_STATEMENT.search(str(_get(b, "text"))) for b in texts):
+        return
+    first = texts[0]
+    value = said_prefix(_get(message, "timestamp")) + str(_get(first, "text"))
+    if isinstance(first, dict):
+        first["text"] = value
+    else:
+        first.text = value
+    report.dated_statements_marked += 1
+
+
 def mark_perishable_state(messages: list[Any]) -> PerishableReport:
     """Mark every perishable tool result from an earlier turn as stale, in place.
 
@@ -190,6 +268,7 @@ def mark_perishable_state(messages: list[Any]) -> PerishableReport:
         return report
 
     for message in messages[:current_turn_start]:
+        _mark_dated_assistant_text(message, report)
         blocks = _get(message, "content")
         if not isinstance(blocks, list):
             continue
@@ -224,7 +303,9 @@ __all__ = [
     "PerishableReport",
     "STALE_MARKER",
     "is_perishable_tool",
+    "DATED_STATEMENT",
     "mark_perishable_state",
+    "said_prefix",
     "stale_prefix",
     "stamp_for",
 ]

@@ -48,6 +48,8 @@ from typing import Any, Literal
 
 from matrx_utils import vcprint
 
+from matrx_ai.config.remarks import REMARKS_PART_TYPE
+
 # ---------------------------------------------------------------------------
 # Bookmark normalization (input_table / input_list)
 # ---------------------------------------------------------------------------
@@ -1098,6 +1100,76 @@ class DocumentInputContent(_StructuredInputBase):
 
 
 # ---------------------------------------------------------------------------
+# input_remarks
+# The person's comments / choices / edits / answers / interactions on earlier
+# output, riding along with their next message. The items are structured
+# (``matrx_ai.config.remarks.RemarkItem``); the model reads the markdown-native
+# projection. Location wording ("your previous reply") needs the conversation,
+# so the resolver binds the turn map (``bind_turns_back``) before resolve(); the
+# result is frozen in resolved_text at its own turn and never re-counted.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RemarksInputContent(_StructuredInputBase):
+    type: Literal["input_remarks"] = "input_remarks"
+    items: list[dict[str, Any]] = field(default_factory=list)
+    # assistant message id -> assistant turns back from the containing message.
+    _turns_back: dict[str, int] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+
+    # assistant message id -> the NAME of the other agent that wrote it (only
+    # in multi-agent conversations; see remarks.reply_authors).
+    _authors: dict[str, str] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+
+    # comment_reply failures the model has not been told about yet (THREADS R3).
+    _reply_failures: list[dict[str, Any]] = field(
+        default_factory=list, init=False, repr=False, compare=False
+    )
+
+    def bind_turns_back(
+        self,
+        turns_back: dict[str, int],
+        authors: dict[str, str] | None = None,
+        reply_failures: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self._turns_back = dict(turns_back)
+        self._authors = dict(authors or {})
+        self._reply_failures = list(reply_failures or [])
+
+    def typed_items(self) -> list[Any]:
+        from matrx_ai.config.remarks import RemarkItem
+
+        return [RemarkItem.model_validate(item) for item in self.items]
+
+    async def resolve(self) -> None:
+        from matrx_ai.config.remarks import render_remarks
+
+        if not self.items:
+            return
+        self.metadata["resolved_text"] = render_remarks(
+            self.typed_items(), self._turns_back, self._authors, self._reply_failures
+        )
+
+    def to_storage_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "type": REMARKS_PART_TYPE,
+            "items": [dict(item) for item in self.items],
+            "convert_to_text": self.convert_to_text,
+            "optional_context": self.optional_context,
+            "keep_fresh": self.keep_fresh,
+        }
+        if self.editable is not None:
+            result["editable"] = self.editable
+        if self.metadata:
+            result["metadata"] = {**self.metadata}
+        return result
+
+
+# ---------------------------------------------------------------------------
 # Union type for all structured input content
 # ---------------------------------------------------------------------------
 
@@ -1116,6 +1188,7 @@ StructuredInputContent = (
     | TranscriptSessionInputContent
     | WorkbookInputContent
     | DocumentInputContent
+    | RemarksInputContent
 )
 
 # Canonical type string → class mapping (used by parse_content and reconstruct)
@@ -1134,6 +1207,7 @@ STRUCTURED_INPUT_TYPE_MAP: dict[str, type] = {
     "input_transcript_session": TranscriptSessionInputContent,
     "input_workbook": WorkbookInputContent,
     "input_document": DocumentInputContent,
+    REMARKS_PART_TYPE: RemarksInputContent,
 }
 
 
@@ -1231,6 +1305,12 @@ def reconstruct_structured_input(block: dict[str, Any]) -> StructuredInputConten
 
     if block_type == "input_document":
         return DocumentInputContent(document_ids=block.get("document_ids", []), **common)
+
+    if block_type == REMARKS_PART_TYPE:
+        items = block.get("items") or []
+        return RemarksInputContent(
+            items=[dict(item) for item in items if isinstance(item, dict)], **common
+        )
 
     return None
 

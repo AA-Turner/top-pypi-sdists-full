@@ -328,6 +328,28 @@ _PATH_PATTERN_MUTATION = _mutation(OperatorKind.VALUE_VIOLATOR, ("pattern",), pa
             False,
             id="real-path-mutation-still-denies",
         ),
+        # Mutating several locations leaves no single targeted location on the case.
+        pytest.param(
+            {
+                "query": {"key": 5, "": "null"},
+                "_meta": build_metadata(
+                    query=GenerationMode.NEGATIVE,
+                    path_parameters=GenerationMode.NEGATIVE,
+                    generation_modes=[GenerationMode.NEGATIVE],
+                    mutations=(
+                        _ADDITIONAL_PROPERTIES_MUTATION,
+                        _mutation(
+                            OperatorKind.NEGATE_CONSTRAINTS,
+                            ("pattern",),
+                            parameter="id",
+                            location=ParameterLocation.PATH,
+                        ),
+                    ),
+                ),
+            },
+            False,
+            id="path-mutation-beside-query-extra-denies",
+        ),
     ],
 )
 def test_has_only_additional_properties_mutations_aware(sample_schema, kwargs, expected):
@@ -404,6 +426,50 @@ def test_negative_data_rejection_reports_invalid_boolean_next_to_extras(ctx, res
     assert has_only_additional_properties_in_non_body_parameters(case) is False
     with pytest.raises(AcceptedNegativeData):
         negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
+def _array_query_case(ctx, query, mutation):
+    schema = ctx.openapi.load_schema(
+        {
+            "/tags": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "tag",
+                            "required": True,
+                            "style": "form",
+                            "explode": True,
+                            "schema": {"type": "array", "items": {"type": "string"}, "maxItems": 1},
+                        },
+                    ]
+                }
+            }
+        }
+    )
+    return schema["/tags"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter=mutation.parameter,
+            parameter_location=ParameterLocation.QUERY,
+            mutations=(mutation,),
+        ),
+        query=query,
+    )
+
+
+def test_negative_data_rejection_reports_negated_array_query_parameter(ctx, response_factory):
+    case = _array_query_case(ctx, {"tag": ["", ""]}, _mutation(OperatorKind.NEGATE_CONSTRAINTS, ("maxItems",), "tag"))
+    assert has_only_additional_properties_in_non_body_parameters(case) is False
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
+def test_negative_data_rejection_ignores_extras_next_to_array_query_parameter(ctx, response_factory):
+    case = _array_query_case(ctx, {"tag": ["a"], "unknown": "junk"}, _ADDITIONAL_PROPERTIES_MUTATION)
+    assert has_only_additional_properties_in_non_body_parameters(case) is True
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
 def _opaque_rejection(response_factory):
@@ -733,6 +799,173 @@ def test_negative_data_rejection_names_no_parameters_when_several_locations_are_
     assert "- query: violates `type` at /properties/key" in exc.value.message
     assert "- header: violates `minimum` at /properties/X-Key" in exc.value.message
     assert "parameters" not in exc.value.message
+
+
+@pytest.fixture
+def path_and_query_schema(ctx):
+    return ctx.openapi.load_schema(
+        {
+            "/items/{id}": {
+                "get": {
+                    "parameters": [
+                        {"in": "path", "name": "id", "required": True, "schema": {"type": "integer", "minimum": 1}},
+                        {"in": "query", "name": "key", "required": True, "schema": {"type": "integer", "minimum": 1}},
+                        {"in": "header", "name": "X-Key", "required": True, "schema": {"type": "integer"}},
+                    ]
+                }
+            }
+        }
+    )
+
+
+def _path_and_query_case(schema, path_parameters, query, headers, mutations):
+    meta = build_metadata(generation_modes=[GenerationMode.NEGATIVE], mutations=mutations)
+    meta.components = {
+        mutation.parameter_location: ComponentInfo(mode=GenerationMode.NEGATIVE) for mutation in mutations
+    }
+    return schema["/items/{id}"]["GET"].Case(
+        _meta=meta,
+        path_parameters=path_parameters,
+        query=query,
+        headers=headers,
+    )
+
+
+_PATH_TYPE_MUTATION = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="id", location=ParameterLocation.PATH)
+_HEADER_TYPE_MUTATION = _mutation(
+    OperatorKind.CHANGE_TYPE, ("type",), parameter="X-Key", location=ParameterLocation.HEADER
+)
+
+
+def test_negative_data_rejection_ignores_type_mutations_wire_identical_in_every_location(
+    response_factory, path_and_query_schema
+):
+    case = _path_and_query_case(
+        path_and_query_schema,
+        {"id": "7"},
+        {"key": "7"},
+        {"X-Key": "7"},
+        (_PATH_TYPE_MUTATION, _QUERY_TYPE_MUTATION),
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+@pytest.mark.parametrize(
+    ("query", "headers", "mutations"),
+    [
+        ({"key": "abc"}, {"X-Key": "7"}, (_PATH_TYPE_MUTATION, _QUERY_TYPE_MUTATION)),
+        ({"key": 7}, {"X-Key": "bad"}, (_PATH_TYPE_MUTATION, _HEADER_TYPE_MUTATION)),
+    ],
+    ids=["query-not-numeric", "header-not-numeric"],
+)
+def test_negative_data_rejection_reports_when_one_location_stays_invalid_on_the_wire(
+    response_factory, path_and_query_schema, query, headers, mutations
+):
+    case = _path_and_query_case(path_and_query_schema, {"id": "7"}, query, headers, mutations)
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(), case)
+
+
+@pytest.mark.parametrize(("value", "is_accepted"), [("-1", True), ("5", False)], ids=["below-minimum", "valid"])
+def test_negative_data_rejection_validates_numeric_wire_value_against_query_schema(
+    response_factory, path_and_query_schema, value, is_accepted
+):
+    case = _path_and_query_case(path_and_query_schema, {"id": 7}, {"key": value}, {"X-Key": 7}, (_QUERY_TYPE_MUTATION,))
+    if is_accepted:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response_factory.requests(), case)
+    else:
+        assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+# Servers commonly parse these as floats, so they may legitimately read them as numbers.
+@pytest.mark.parametrize("value", ["nan", "inf", "-Infinity", "1e400"])
+@pytest.mark.parametrize("location", [ParameterLocation.PATH, ParameterLocation.QUERY], ids=["path", "query"])
+def test_negative_data_rejection_ignores_non_finite_numeric_wire_value(ctx, response_factory, value, location):
+    schema = ctx.openapi.load_schema(
+        {
+            "/rate/{value}": {
+                "get": {
+                    "parameters": [
+                        {"in": "path", "name": "value", "required": True, "schema": {"type": "number"}},
+                        {"in": "query", "name": "value", "required": True, "schema": {"type": "number"}},
+                    ]
+                }
+            }
+        }
+    )
+    mutation = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="value", location=location)
+    meta = build_metadata(generation_modes=[GenerationMode.NEGATIVE], mutations=(mutation,))
+    meta.components = {location: ComponentInfo(mode=GenerationMode.NEGATIVE)}
+    case = schema["/rate/{value}"]["GET"].Case(
+        _meta=meta,
+        path_parameters={"value": value if location == ParameterLocation.PATH else 1.5},
+        query={"value": value if location == ParameterLocation.QUERY else 1.5},
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+def test_negative_data_rejection_ignores_huge_integer_wire_value(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{id}": {
+                "get": {"parameters": [{"in": "path", "name": "id", "required": True, "schema": {"type": "integer"}}]}
+            }
+        }
+    )
+    mutation = _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="id", location=ParameterLocation.PATH)
+    meta = build_metadata(generation_modes=[GenerationMode.NEGATIVE], mutations=(mutation,))
+    meta.components = {ParameterLocation.PATH: ComponentInfo(mode=GenerationMode.NEGATIVE)}
+    case = schema["/items/{id}"]["GET"].Case(_meta=meta, path_parameters={"id": "9" * 400})
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+def test_negative_data_rejection_ignores_non_finite_element_in_query_array(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {"/rates": {"get": {"parameters": [{"in": "query", "name": "rate", "schema": {"type": "number"}}]}}}
+    )
+    case = schema["/rates"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter="rate",
+            parameter_location=ParameterLocation.QUERY,
+        ),
+        query={"rate": [{"a": None}, "nan"]},
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+def test_negative_data_rejection_ignores_non_finite_item_in_path_array(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/rates/{values}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "path",
+                            "name": "values",
+                            "required": True,
+                            "schema": {"type": "array", "items": {"type": "number"}},
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    case = schema["/rates/{values}"]["GET"].Case(
+        _meta=build_metadata(
+            path_parameters=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter="values",
+            parameter_location=ParameterLocation.PATH,
+            mutations=(
+                _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="values", location=ParameterLocation.PATH),
+            ),
+        ),
+        path_parameters={"values": EncodedPath("1.5,inf")},
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
 _READ_ONLY_COMPONENTS = {
@@ -1316,6 +1549,98 @@ def test_negative_data_rejection_single_element_array_serialization(ctx, respons
 
     # Should return None (no error) because the serialized value is valid
     assert result is None
+
+
+@pytest.mark.parametrize(
+    ("value", "is_accepted_negative"),
+    [(["false"], True), ([-1], True), (["5"], False), ([5], False)],
+    ids=["non-numeric-string", "below-minimum", "numeric-string", "valid-integer"],
+)
+def test_negative_data_rejection_single_element_array_element_validity(
+    ctx, response_factory, value, is_accepted_negative
+):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "id", "in": "query", "required": True, "schema": {"type": "integer", "minimum": 1}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        query={"id": value},
+    )
+    response = response_factory.requests(status_code=200)
+    if is_accepted_negative:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
+
+
+def _type_mutation(name, location, new_value):
+    return Mutation(
+        path=(name,),
+        parameter_location=location,
+        schema_pointer=f"/properties/{name}",
+        channel=MutationChannel.SCHEMA,
+        operator=OperatorKind.CHANGE_TYPE,
+        keywords=("type",),
+        parameter=name,
+        original_value="integer",
+        new_value=new_value,
+    )
+
+
+@pytest.mark.parametrize("other_location", [ParameterLocation.QUERY, ParameterLocation.HEADER], ids=["query", "header"])
+@pytest.mark.parametrize(
+    ("other_value", "other_is_negated", "is_accepted_negative"),
+    [("not-an-int", True, True), ("7", False, False)],
+    ids=["other-invalid", "other-valid"],
+)
+def test_negative_data_rejection_valid_array_element_beside_invalid_parameter(
+    ctx, response_factory, other_location, other_value, other_is_negated, is_accepted_negative
+):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "a", "in": "query", "required": True, "schema": {"type": "integer"}},
+                        {"name": "b", "in": other_location.value, "required": True, "schema": {"type": "integer"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    mutations = [_type_mutation("a", ParameterLocation.QUERY, "array")]
+    components = {"query": GenerationMode.NEGATIVE}
+    if other_is_negated:
+        mutations.append(_type_mutation("b", other_location, "string"))
+        components[other_location.container_name] = GenerationMode.NEGATIVE
+    query = {"a": [5]}
+    headers = None
+    if other_location == ParameterLocation.QUERY:
+        query["b"] = other_value
+    else:
+        headers = {"b": other_value}
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(**components, generation_modes=[GenerationMode.NEGATIVE], mutations=tuple(mutations)),
+        query=query,
+        headers=headers,
+    )
+    response = response_factory.requests(status_code=200)
+    if is_accepted_negative:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
 
 
 def test_negative_data_rejection_multi_element_array_with_valid_element(ctx, response_factory):
@@ -2415,6 +2740,8 @@ def test_missing_required_header_404_on_templated_path(ctx, response_factory, pi
         (False, 403, "Unsupported method TRACE returned 403"),
         (True, 500, "Unsupported method TRACE returned 500"),
         (True, 405, "TRACE returned 405 without required `Allow` header"),
+        (True, 429, None),
+        (False, 429, None),
     ],
     ids=[
         "secured-401",
@@ -2423,10 +2750,12 @@ def test_missing_required_header_404_on_templated_path(ctx, response_factory, pi
         "open-403",
         "secured-non-auth-status",
         "secured-405-without-allow",
+        "secured-429",
+        "open-429",
     ],
 )
 def test_unsupported_method_auth_before_routing(ctx, response_factory, secured, status_code, expected_message):
-    # Many frameworks authenticate before method dispatch, so a protected path answers 401/403 instead of 405.
+    # Many frameworks authenticate and rate-limit before method dispatch, so 401/403/429 can precede 405.
     schema = ctx.openapi.load_schema(
         {
             "/items": {
@@ -2606,3 +2935,277 @@ def test_allow_header_conformance_repeated_header(ctx, response_factory):
     raw.raw.headers.add("Allow", "POST")
     case = ctx.openapi.load_schema(ALLOW_SCHEMA_PATHS)["/items"]["GET"].Case()
     assert allow_header_conformance(check_context(), Response.from_requests(raw, verify=True), case) is None
+
+
+def _negative_case(operation, location, parameter, mutation=None, **kwargs):
+    return operation.Case(
+        _meta=build_metadata(
+            generation_modes=[GenerationMode.NEGATIVE],
+            parameter=parameter,
+            parameter_location=location,
+            mutations=(mutation,) if mutation else (),
+            description="Invalid component",
+            **{location.container_name: GenerationMode.NEGATIVE},
+        ),
+        **kwargs,
+    )
+
+
+def test_negative_data_rejection_path_non_numeric_string_for_number(ctx, response_factory):
+    operation = ctx.openapi.load_schema(
+        {
+            "/items/{price}": {
+                "get": {
+                    "parameters": [{"name": "price", "in": "path", "required": True, "schema": {"type": "number"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )["/items/{price}"]["GET"]
+    case = _negative_case(
+        operation,
+        ParameterLocation.PATH,
+        "price",
+        _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="price", location=ParameterLocation.PATH),
+        path_parameters={"price": "abc"},
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
+
+
+# Validity can't be decided when the validator rejects the schema itself, so nothing is reported.
+@pytest.mark.parametrize(
+    ("location", "parameter_schema", "value", "mutation"),
+    [
+        pytest.param(
+            ParameterLocation.QUERY,
+            # A literal in Python regex, but an invalid ECMA 262 pattern
+            {"type": "string", "pattern": "{,3}"},
+            ["a", "b"],
+            None,
+            id="query-array-invalid-pattern",
+        ),
+        pytest.param(
+            ParameterLocation.PATH,
+            {"type": "array", "items": {"type": "string", "pattern": "{,3}"}},
+            "a,b",
+            None,
+            id="path-array-invalid-pattern",
+        ),
+        pytest.param(
+            ParameterLocation.PATH,
+            {"type": "integer", "multipleOf": 0},
+            "abc",
+            OperatorKind.CHANGE_TYPE,
+            id="path-type-mutation-zero-multiple-of",
+        ),
+        pytest.param(
+            ParameterLocation.QUERY,
+            {"type": "integer", "multipleOf": 0},
+            "abc",
+            None,
+            id="query-zero-multiple-of",
+        ),
+    ],
+)
+def test_negative_data_rejection_skips_schemas_rejected_by_validator(
+    ctx, response_factory, location, parameter_schema, value, mutation
+):
+    parameters = [{"name": "key", "in": location.value, "required": True, "schema": parameter_schema}]
+    if location != ParameterLocation.PATH:
+        parameters.append({"name": "key", "in": "path", "required": True, "schema": {"type": "string"}})
+    operation = ctx.openapi.load_schema(
+        {"/items/{key}": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}}
+    )["/items/{key}"]["GET"]
+    case = _negative_case(
+        operation,
+        location,
+        "key",
+        _mutation(mutation, ("type",), parameter="key", location=location) if mutation else None,
+        **{location.container_name: {"key": value}},
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(status_code=200), case) is None
+
+
+def test_negative_data_rejection_reports_header_beside_query_rejected_by_validator(ctx, response_factory):
+    operation = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"name": "q", "in": "query", "required": True, "schema": {"type": "integer", "multipleOf": 0}},
+                        {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )["/items"]["GET"]
+    case = operation.Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            headers=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            description="Invalid component",
+        ),
+        query={"q": "abc"},
+        headers={"X-Id": "abc"},
+    )
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
+
+
+def test_negative_data_rejection_ignores_negative_path_value_that_matches_schema(ctx, response_factory):
+    operation = ctx.openapi.load_schema(
+        {
+            "/items/{key}": {
+                "get": {
+                    "parameters": [
+                        {"name": "key", "in": "path", "required": True, "schema": {"type": "string", "minLength": 2}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )["/items/{key}"]["GET"]
+    case = _negative_case(operation, ParameterLocation.PATH, "key", path_parameters={"key": "ab"})
+    assert negative_data_rejection(check_context(), response_factory.requests(status_code=200), case) is None
+
+
+_NAME_PROPERTY = {"type": "object", "properties": {"name": {"type": "string"}}}
+
+
+@pytest.mark.parametrize(
+    ("version", "content", "components", "body", "media_type", "hint"),
+    [
+        pytest.param(
+            "3.0.2",
+            {"application/xml": {"schema": {"type": "object"}}, "application/json": {"schema": _NAME_PROPERTY}},
+            {},
+            {"name": "x", "extra": "yes"},
+            "application/json",
+            _EXTRA_PROPERTY_HINT,
+            id="matching-media-type-after-another",
+        ),
+        pytest.param(
+            "3.1.0",
+            {"application/json": {"schema": {"allOf": [True, _NAME_PROPERTY]}}},
+            {},
+            {"name": "x", "extra": "yes"},
+            "application/json",
+            _EXTRA_PROPERTY_HINT,
+            id="boolean-branch",
+        ),
+        pytest.param(
+            "3.0.2",
+            {"application/json": {"schema": {"$ref": "#/components/schemas/Node"}}},
+            {
+                "schemas": {
+                    "Node": {
+                        "allOf": [{"$ref": "#/components/schemas/Node"}],
+                        "properties": {"name": {"type": "string"}},
+                    }
+                }
+            },
+            {"name": "x", "extra": "yes"},
+            "application/json",
+            _EXTRA_PROPERTY_HINT,
+            id="recursive-ref",
+        ),
+        pytest.param(
+            "3.1.0",
+            {"application/json": {"schema": True}},
+            {},
+            {"name": "x", "extra": "yes"},
+            "application/json",
+            "",
+            id="boolean-schema",
+        ),
+        pytest.param(
+            "3.0.2",
+            {"application/json": {"schema": _NAME_PROPERTY}},
+            {},
+            {"name": 1, "extra": "yes"},
+            "application/json",
+            "",
+            id="declared-properties-invalid",
+        ),
+        pytest.param(
+            "3.0.2",
+            {"application/json": {"schema": _NAME_PROPERTY}},
+            {},
+            {"name": "x", "extra": "yes"},
+            "application/x-other",
+            "",
+            id="undeclared-media-type",
+        ),
+    ],
+)
+def test_positive_data_acceptance_additional_properties_hint(
+    ctx, response_factory, version, content, components, body, media_type, hint
+):
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "requestBody": {"required": True, "content": content},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version=version,
+        components=components,
+    )
+    case = schema["/foo"]["POST"].Case(body=body, media_type=media_type, _meta=build_metadata())
+    with pytest.raises(RejectedPositiveData) as exc:
+        positive_data_acceptance(check_context(), _opaque_rejection(response_factory), case)
+    assert (
+        exc.value.message == f"Valid data should have been accepted\nExpected: 2xx, 401, 403, 404, 409, 429, 5xx{hint}"
+    )
+
+
+def test_additional_properties_hint_ignores_blame_on_query_parameter(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/foo": {
+                "post": {
+                    "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer"}}],
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": _NAME_PROPERTY}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/foo"]["POST"].Case(
+        body={"name": "value", "extra": "yes"},
+        query={"limit": 5},
+        media_type="application/json",
+        _meta=build_metadata(),
+    )
+    error_body = {"detail": [{"type": "missing", "loc": ["query", "limit"], "msg": "Field required"}]}
+    response = Response.from_requests(
+        response_factory.requests(status_code=400, content=json.dumps(error_body).encode()), verify=True
+    )
+    with pytest.raises(RejectedPositiveData) as exc:
+        positive_data_acceptance(check_context(), response, case)
+    assert exc.value.message == (
+        f"Valid data should have been accepted\nExpected: 2xx, 401, 403, 404, 409, 429, 5xx{_EXTRA_PROPERTY_HINT}"
+    )
+
+
+# An implicit flow has no token endpoint, so no operation is a credential grant.
+def test_positive_data_acceptance_reports_rejection_on_implicit_oauth_flow_operation(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {"/token": {"post": {"responses": {"200": {"description": "OK"}}}}},
+        components={
+            "securitySchemes": {
+                "oauth": {
+                    "type": "oauth2",
+                    "flows": {"implicit": {"authorizationUrl": "/token", "scopes": {}}},
+                }
+            }
+        },
+    )
+    case = schema["/token"]["POST"].Case(_meta=build_metadata())
+    with pytest.raises(RejectedPositiveData):
+        positive_data_acceptance(check_context(), _opaque_rejection(response_factory), case)

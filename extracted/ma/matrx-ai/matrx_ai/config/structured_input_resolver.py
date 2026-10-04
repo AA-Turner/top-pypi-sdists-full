@@ -137,13 +137,6 @@ def inject_editable_tools(messages: MessageList, config: UnifiedConfig) -> None:
     from matrx_ai.tools.merge import active_tool_executors, merge_request_tools
     from matrx_ai.tools.specs import RegisteredToolSpec
 
-    # CANONICAL capability gate. A model with no function calling never gets tools
-    # — including these editable-structured-input tools. Honoured here directly so
-    # the no-ctx fallback below (which writes config.tools without going through
-    # merge_request_tools) can't bypass the gate.
-    if not getattr(config, "supports_tools", True):
-        return
-
     needed: set[str] = set()
     for message in messages:
         if message.role != Role.USER:
@@ -231,6 +224,99 @@ def collect_read_only_resource_ids(messages: MessageList) -> None:
         )
 
 
+async def _load_agent_names(agent_ids: set[str]) -> dict[str, str]:
+    """agent.definition id -> name, in ONE batched read. {} on any failure —
+    the wording then falls back to "your …" rather than failing the turn."""
+    if not agent_ids:
+        return {}
+    try:
+        from matrx_ai.db._registry import get_model
+
+        rows = await get_model("Definition").filter(id__in=sorted(agent_ids)).all()
+    except Exception as exc:  # noqa: BLE001 — naming is wording, never a failed turn
+        vcprint(
+            f"[StructuredInputResolver] remarks: agent names unavailable ({exc}) — "
+            "using 'your …' wording",
+            color="yellow",
+        )
+        return {}
+    return {
+        str(row.id): str(getattr(row, "name", "") or "")  # orm-getattr-ok: model row
+        for row in rows
+    }
+
+
+def _active_conversation_id() -> str | None:
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:  # noqa: BLE001 — no request context (a bare unit test)
+        return None
+    value = getattr(ctx, "conversation_id", None) if ctx is not None else None
+    return str(value) if value else None
+
+
+async def _prepare_remarks(
+    messages: MessageList,
+    containing: object,
+    blocks_to_resolve: list[_StructuredInputBase],
+) -> None:
+    """Give each unresolved remarks block its location map, and put remarks last.
+
+    Location wording ("your previous reply", "your reply 3 back") counts
+    assistant TURNS back from the user message that CONTAINS the remark, so it
+    needs the conversation — which a block's own resolve() never sees. It is
+    bound here, once, and the rendered text is frozen in resolved_text: later
+    turns skip resolved blocks, so the wording stays true to its own turn.
+
+    When the counted replies come from more than one agent, another agent's
+    reply is named ("Archaeologist's previous reply"): its names load in one
+    batched read; the answering agent's own replies keep "your …".
+
+    Remarks ride AFTER the person's typed text in the same turn: their typed
+    message is what they are saying now; the remarks are what it refers to.
+    """
+    from matrx_ai.config.remarks import reply_agents, reply_authors, turns_back_by_message_id
+    from matrx_ai.config.structured_input_config import RemarksInputContent
+
+    remarks = [b for b in blocks_to_resolve if isinstance(b, RemarksInputContent)]
+    if not remarks:
+        return
+    history = list(messages)
+
+    # THREADS R1: every item gets its stable id and its conversation-wide
+    # handle (c1, c2 …) BEFORE the wording is frozen — the handle is part of
+    # the marker. R3: comment_reply failures recorded since the last remarks
+    # ride in this remarks text (on the first block).
+    from matrx_ai.config.remark_handles import assign_remark_handles, drain_reply_failures
+
+    conversation_id = _active_conversation_id()
+    await assign_remark_handles(
+        history, [item for block in remarks for item in block.items], conversation_id
+    )
+    reply_failures = await drain_reply_failures(conversation_id)
+
+    turns_back = turns_back_by_message_id(history, containing)
+    authors: dict[str, str] = {}
+    agent_by_reply = reply_agents(history, turns_back)
+    if agent_by_reply:
+        from matrx_ai.persistence.queue_helpers import running_agent_id
+
+        answering = running_agent_id()
+        names = await _load_agent_names(set(agent_by_reply.values()) - {answering})
+        authors = reply_authors(agent_by_reply, names, answering)
+    for index, block in enumerate(remarks):
+        block.bind_turns_back(turns_back, authors, reply_failures if index == 0 else None)
+
+    content = containing.content  # type: ignore[attr-defined]
+    ordered = [c for c in content if not isinstance(c, RemarksInputContent)] + [
+        c for c in content if isinstance(c, RemarksInputContent)
+    ]
+    if any(a is not b for a, b in zip(ordered, content, strict=True)):
+        content[:] = ordered
+
+
 async def resolve_structured_inputs(messages: MessageList) -> None:
     """Resolve all unresolved structured input blocks in the last user message.
 
@@ -259,6 +345,8 @@ async def resolve_structured_inputs(messages: MessageList) -> None:
 
     if not blocks_to_resolve:
         return
+
+    await _prepare_remarks(messages, last_user, blocks_to_resolve)
 
     vcprint(
         f"[StructuredInputResolver] Resolving {len(blocks_to_resolve)} block(s)",

@@ -14,14 +14,25 @@ points at. Resolution flow:
      ``tool_resolve_bundle(p_bundle_name)`` RPC → list of ``tool_def``
      rows for the bundle's members.
   6. For each member, fetches the canonical ``ToolDefinition`` from the
-     registry. Builds a ``RegisteredToolSpec`` for server-runnable tools
-     or ``InlineToolSpec`` for client-delegated ones (heuristic: tool_type
-     ``EXTERNAL_HANDLER`` → inline, else registered).
+     registry and builds its ``RegisteredToolSpec`` (always registered — see
+     below).
   7. Writes **identity** alias-map entries (``{canonical: canonical}``)
      into ``AppContext.metadata['tool_aliases']`` so dispatch lookups stay
      uniform with every other load path.
-  8. Calls ``ctx.queue_tool_changes(add=specs, remove=[ctx.tool_name])`` —
-     the lister removes itself once it's done loading.
+  8. Calls ``ctx.queue_tool_changes(add=specs)``. The lister STAYS: an opened
+     bundle's members join the conversation's sticky toolset (TOOL-SOURCES.md)
+     after the lister, so the tool list only ever grows at its end — the
+     prompt-cache prefix survives — and a second call is a harmless no-op
+     (members dedupe in the merge primitive). Until 2026-10-03 the lister
+     removed itself; the next turn's source (surface, agent) put it back at a
+     different position, so every opened bundle reshuffled the cached prefix.
+
+Every member loads as a ``RegisteredToolSpec``. Whether it runs on the server
+or is delegated to a live client is decided ONCE, by the merge primitive's
+binding × active-executor authority — the same as for every other source. The
+old inline (client-delegated) spec for external handlers could not be restored
+on a later turn (inline specs are request-scoped) and clashed by kind with the
+same tool arriving registered from any other source (``ToolMergeError``).
 
 Members are exposed under their **canonical names**, not rebranded to
 ``<bundle>:<local_alias>``. The rebranding half of Decision 26
@@ -49,7 +60,7 @@ from matrx_utils import vcprint
 from matrx_ai.tools.declared import NoArgs, tool_family
 from matrx_ai.tools.kinds.tooling import ToolBundleListing
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
-from matrx_ai.tools.specs import InlineToolSpec, RegisteredToolSpec
+from matrx_ai.tools.specs import RegisteredToolSpec
 
 
 @tool_family(
@@ -62,8 +73,7 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
     """Generic discovery handler for any ``bundle:list_<name>`` lister.
 
     Reads ``ctx.tool_name`` to identify the calling lister, fetches the
-    bundle's members through the ``tool_resolve_bundle`` RPC, queues them
-    as the new active toolset, and removes itself.
+    bundle's members and queues them onto the active toolset (the lister stays).
     """
     started = time.time()
     lister_name = ctx.tool_name or ""
@@ -122,9 +132,7 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
             from matrx_ai.tools.mcp_sync import sync_server
 
             discovery_auth = await _resolve_user_discovery_auth(server_slug, ctx)
-            sync_result = await sync_server(
-                server_slug, force=False, discovery_auth=discovery_auth
-            )
+            sync_result = await sync_server(server_slug, force=False, discovery_auth=discovery_auth)
             sync_error = sync_result.error
         except Exception as exc:
             # Log but don't abort — fall through to read whatever members
@@ -195,8 +203,31 @@ async def list_bundle_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
     if app_ctx is not None:
         add_identity_aliases(app_ctx, [s.name for s in add_specs])
 
-    # Queue the load (and remove self).
-    ctx.queue_tool_changes(add=add_specs, remove=[lister_name])
+    if not add_specs:
+        # A bundle that resolves to no tool is a broken bundle, never a successful
+        # empty listing the model cannot act on (nothing fails silently).
+        reason = (
+            f"none of its {len(members)} member(s) is registered on this server: "
+            f"{skipped_unresolved}"
+            if members
+            else "it has no member tools"
+        )
+        vcprint(f"[bundle_lister] bundle={bundle_name} produced NO tools: {reason}", color="red")
+        return ToolResult(
+            success=False,
+            error=ToolError(
+                error_type="bundle_empty",
+                message=f"The {bundle_name} bundle produced no tools: {reason}. "
+                "Tell the user; do not retry this tool.",
+            ),
+            started_at=started,
+            completed_at=time.time(),
+            tool_name=lister_name,
+            call_id=ctx.call_id,
+        )
+
+    # Queue the load. The lister stays (see the module docstring).
+    ctx.queue_tool_changes(add=add_specs)
 
     vcprint(
         f"[bundle_lister] bundle={bundle_name} "
@@ -314,7 +345,7 @@ async def _resolve_mcp_bundle_members(server_slug: str) -> list[tuple[str, str]]
     if any(registry.get(name) is None for name in names):
         await registry.reload_from_database()
     prefix = f"mcp.{server_slug}."
-    return [(name, name[len(prefix):] if name.startswith(prefix) else name) for name in names]
+    return [(name, name[len(prefix) :] if name.startswith(prefix) else name) for name in names]
 
 
 async def _resolve_bundle_members(bundle_name: str) -> list[tuple[str, str]]:
@@ -385,48 +416,15 @@ async def _resolve_bundle_members(bundle_name: str) -> list[tuple[str, str]]:
 
 
 def _build_spec_for(canonical_name: str):
-    """Construct the right ToolSpec kind for a canonical tool name.
+    """The ``RegisteredToolSpec`` for a member, or None when it is not registered.
 
-    ``EXTERNAL_HANDLER`` (client-delegated) tools become ``InlineToolSpec``
-    so the merge primitive routes them to client_tools. Everything else
-    becomes ``RegisteredToolSpec`` — the executor dispatches via the
-    registry.
+    Always registered: routing (server vs a live client) is the merge primitive's
+    single decision, and a registered name survives into the conversation's sticky
+    toolset on every later turn.
     """
-    from matrx_ai.tools.models import ToolType
     from matrx_ai.tools.registry import ToolRegistry
 
-    registry = ToolRegistry.get_instance()
-    tool = registry.get(canonical_name)
+    tool = ToolRegistry.get_instance().get(canonical_name)
     if tool is None:
         return None
-
-    if tool.tool_type == ToolType.EXTERNAL_HANDLER:
-        # Build an inline spec so the model sees the schema at request time
-        # and the merge primitive treats it as client-delegated.
-        return InlineToolSpec(
-            name=canonical_name,
-            description=tool.description or canonical_name,
-            input_schema=_params_to_input_schema(tool.parameters or {}),
-        )
     return RegisteredToolSpec(name=canonical_name, tool_id=tool.tool_id)
-
-
-def _params_to_input_schema(params: dict[str, Any]) -> dict[str, Any]:
-    """Inverse of the seed scripts' parameter packing — reconstruct a
-    JSON Schema ``{type: object, properties, required}`` from the flat
-    ``ToolDefinition.parameters`` shape."""
-    properties: dict[str, Any] = {}
-    required: list[str] = []
-    for prop_name, prop_schema in params.items():
-        if isinstance(prop_schema, dict):
-            cleaned = {k: v for k, v in prop_schema.items() if k != "required"}
-            properties[prop_name] = cleaned
-            if prop_schema.get("required"):
-                required.append(prop_name)
-        else:
-            properties[prop_name] = {"type": prop_schema}
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": required,
-    }

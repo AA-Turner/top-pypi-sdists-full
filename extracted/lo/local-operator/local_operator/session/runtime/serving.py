@@ -1189,18 +1189,20 @@ class ServingSessionHandle(SessionHandle):
         if callable(install_sink):
             install_sink(self._ask_state_changed)
 
-    def _ask_state_changed(self, rows: Any, open_count: Any) -> None:
+    def _ask_state_changed(self, rows: Any, outstanding_count: Any) -> None:
         """The session's ask fold moved: re-front the mirror and repaint.
 
         Called by ``Session.publish_ask_state`` (which the queue drives on every
         enqueue/answer/decline/dismiss/reconcile) so the phone projection carries
-        the new asks WITHOUT waiting for the next unrelated refresh. The legacy
-        card is re-fronted by the same call, because ``_publish_pending_gate``
+        the new asks WITHOUT waiting for the next unrelated refresh. The count is
+        the session's OUTSTANDING tally (open + timed-out-and-answerable), passed
+        through rather than re-derived here. The legacy card is re-fronted by the
+        same call, because ``_publish_pending_gate``
         reads the fold's ``pending`` — which now falls back to the head open
         ask's mirrored card when no real gate is waiting (design §4).
         """
         try:
-            self._fold.set_asks(list(rows) if rows is not None else None, open_count)
+            self._fold.set_asks(list(rows) if rows is not None else None, outstanding_count)
         except Exception:  # noqa: BLE001 -- a repaint is never worth a turn
             logger.debug("ask: could not install the wire fold", exc_info=True)
         self._publish_pending_gate()
@@ -4951,6 +4953,36 @@ class ServingSessionHandle(SessionHandle):
         return "answered"
 
     @_on_session_loop
+    async def ask_revise(self, ask_id: str, answers: dict[str, list[str]], by: str = "") -> str:
+        """REVISE a queued ask's recorded answer before it is delivered (design §10).
+
+        The same op family, the same atomic whole-ask body and the same awaited
+        reconcile as :meth:`ask_respond`: what changes is INTENT, not shape. This
+        is the sanctioned replacement of an answer the log already holds, so it
+        supersedes while the response row is absent and refuses once it exists —
+        where a second ``ask_respond`` refuses on the first recorded answer. The
+        caller must say REVISE in those words; no layer infers it from comparing
+        values (design §10).
+
+        THE HOP IS PART OF THE CONTRACT, not boilerplate: ``AskQueue.revise``
+        justifies accepting on the ground that the response-row check and the log
+        append run on the session's own loop — the only writer of that row — so
+        this body MUST run there too. Without it, a relay/desktop call would read
+        the fold and write the log on the caller's thread, concurrently with
+        ``reconcile`` on the loop, which is exactly the accepted-and-then-dropped
+        interleaving §10 forbids.
+        """
+        outcome = self._session.revise_ask(ask_id, answers, by=by or "remote")
+        if not outcome.get("ok"):
+            raise ValueError(str(outcome.get("error") or "the revision was refused"))
+        # Awaited for the same reason ``ask_respond`` awaits it: the caller's
+        # word must be a claim about a row that EXISTS.
+        await self._session.reconcile_asks()
+        # The revision degrades to a first answer when the ask had none recorded;
+        # saying "revised" there would be the one place this path lied.
+        return "revised" if outcome.get("revised") else "answered"
+
+    @_on_session_loop
     async def ask_decline(self, ask_id: str, by: str = "") -> str:
         """Decline a queued ask: explicit "no answer, decide yourself" (§2.4)."""
         outcome = self._session.decline_ask(ask_id, by=by or "remote")
@@ -5787,7 +5819,8 @@ class ServingSessionHandle(SessionHandle):
 
         Read through the ONE derivation every publisher uses
         (``session.frontend_state.ask_wire``), so the phone, the desktop and the
-        list rows cannot disagree about which asks are open. Absence (``None``)
+        list rows cannot disagree about which asks are OUTSTANDING. Absence
+        (``None``)
         is carried through rather than flattened to an empty list: presence is
         the client-side capability proxy, and a runtime without queued asks must
         look exactly like the old runtime it is.
@@ -5795,8 +5828,8 @@ class ServingSessionHandle(SessionHandle):
         from local_operator.session.frontend_state import ask_wire
 
         try:
-            rows, open_count = ask_wire(self._session)
-            self._fold.set_asks(rows, open_count)
+            rows, outstanding_count = ask_wire(self._session)
+            self._fold.set_asks(rows, outstanding_count)
         except Exception:  # noqa: BLE001 -- the card is chrome; the gate is not
             logger.debug("could not publish the ask fold", exc_info=True)
 

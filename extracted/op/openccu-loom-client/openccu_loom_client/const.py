@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 OpenCCU-Loom authors.
+# Copyright (C) 2026 SukramJ.
 
 """
 Package-wide constants.
@@ -14,4 +14,4 @@ from __future__ import annotations
 
 from typing import Final
 
-VERSION: Final = "2026.10.5"
+VERSION: Final = "2026.10.6"

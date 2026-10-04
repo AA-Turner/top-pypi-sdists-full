@@ -17,11 +17,11 @@ from linkedin_mcp_server.core.exceptions import (
 )
 from linkedin_mcp_server.dependencies import get_ready_extractor, handle_auth_error
 from linkedin_mcp_server.error_handler import raise_tool_error
-from linkedin_mcp_server.scraping.contracts import (
+from linkedin_mcp_server.linkedin.contracts import (
     SEND_INTERRUPTED_WARNING,
     refuse_an_invalid_message,
 )
-from linkedin_mcp_server.scraping.identifiers import (
+from linkedin_mcp_server.linkedin.identifiers import (
     normalize_person_identifier,
     normalize_profile_urn,
     normalize_thread_id,
@@ -39,7 +39,7 @@ def register_messaging_tools(
         timeout=tool_timeout,
         title="Get Inbox",
         annotations={"readOnlyHint": True, "openWorldHint": True},
-        tags={"messaging", "scraping"},
+        tags={"messaging"},
     )
     async def get_inbox(
         ctx: Context,
@@ -97,7 +97,7 @@ def register_messaging_tools(
         # The docstring below has always said so. An unread message the user has
         # not seen is state, and losing it is not something a reader should do.
         annotations={"openWorldHint": True},
-        tags={"messaging", "scraping"},
+        tags={"messaging"},
     )
     async def get_conversation(
         ctx: Context,

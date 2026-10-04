@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from typing import Any
 
@@ -127,6 +128,23 @@ def response_format_identity(response_format: Any) -> dict[str, Any]:
 _GATE_PENDING: ContextVar[list[dict[str, Any]] | None] = ContextVar(
     "structured_output_gate_findings", default=None
 )
+
+
+#: True while a dry run (prompt preview) simulates the gates: no call happens, so nothing
+#: it would give up is a finding — it is shown in the preview instead.
+_SIMULATING: ContextVar[bool] = ContextVar("structured_output_gate_simulation", default=False)
+
+
+@contextmanager
+def simulating_gates():
+    """Run the capability gates for a preview: record nothing, leave no pending finding."""
+    token = _SIMULATING.set(True)
+    pending_token = _GATE_PENDING.set([])
+    try:
+        yield
+    finally:
+        _GATE_PENDING.reset(pending_token)
+        _SIMULATING.reset(token)
 
 
 def open_gate_findings() -> None:
@@ -320,6 +338,8 @@ def record_structured_output_finding_sync(
     nothing and the finding would arrive with no agent named — the exact defect
     that left 65 of 68 rows unattributable.
     """
+    if _SIMULATING.get():
+        return False  # a preview: the call never happens, so nothing is given up
     detail = {**_agent_identity(), **detail}
     if was_recovered is None:
         pending = _GATE_PENDING.get()

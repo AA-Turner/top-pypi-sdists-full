@@ -1,0 +1,281 @@
+import threading
+from time import monotonic
+from typing import Callable
+
+import pymysql
+from pymysql.constants.ER import BAD_DB_ERROR
+
+from mycli.packages.completion.sql_completer import SQLCompleter
+from mycli.packages.execution.sql_execute import ServerSpecies, SQLExecute
+from mycli.packages.special_commands.main import COMMANDS
+from mycli.packages.sql_result.sql_result import SQLResult
+
+MIN_COMPLETION_REFRESH_MESSAGE_SECONDS = 1.0
+
+
+class CompletionRefresher:
+    refreshers: dict = {}
+
+    def __init__(self, invalidate_app: Callable[[], None] | None = None) -> None:
+        self._completer_thread: threading.Thread | None = None
+        self._restart_refresh = threading.Event()
+        self._stop_refresh = threading.Event()
+        self._executor_lock = threading.Lock()
+        self._active_executor: SQLExecute | None = None
+        self._refresh_visible_until = 0.0
+        self._visibility_timer: threading.Timer | None = None
+        self._invalidate_app = invalidate_app
+
+    def refresh(
+        self,
+        executor: SQLExecute,
+        callbacks: Callable | list[Callable],
+        completer_options: dict | None = None,
+    ) -> list[SQLResult]:
+        """Creates a SQLCompleter object and populates it with the relevant
+        completion suggestions in a background thread.
+
+        executor - SQLExecute object, used to extract the credentials to connect
+                   to the database.
+        callbacks - A function or a list of functions to call after the thread
+                    has completed the refresh. The newly created completion
+                    object will be passed in as an argument to each callback.
+        completer_options - dict of options to pass to SQLCompleter.
+
+        """
+        if completer_options is None:
+            completer_options = {}
+
+        if self._thread_is_alive():
+            self._restart_refresh.set()
+            return [SQLResult(status="Auto-completion refresh restarted.")]
+        else:
+            if self._visibility_timer is not None:
+                self._visibility_timer.cancel()
+                self._visibility_timer = None
+            self._stop_refresh.clear()
+            self._refresh_visible_until = monotonic() + MIN_COMPLETION_REFRESH_MESSAGE_SECONDS
+            self._completer_thread = threading.Thread(
+                target=self._bg_refresh, args=(executor, callbacks, completer_options), name="completion_refresh"
+            )
+            self._completer_thread.daemon = True
+            self._completer_thread.start()
+            return [SQLResult(status="Auto-completion refresh started in the background.")]
+
+    def is_refreshing(self) -> bool:
+        return self._thread_is_alive() or monotonic() < self._refresh_visible_until
+
+    def _thread_is_alive(self) -> bool:
+        return bool(self._completer_thread and self._completer_thread.is_alive())
+
+    def stop(self) -> None:
+        """Stop and wait for an in-flight completion refresh."""
+        self._stop_refresh.set()
+        self._restart_refresh.clear()
+        self._refresh_visible_until = 0.0
+        if self._visibility_timer is not None:
+            self._visibility_timer.cancel()
+            self._visibility_timer = None
+
+        with self._executor_lock:
+            executor = self._active_executor
+        if executor is not None:
+            try:
+                executor.close()
+            except Exception:
+                pass
+
+        thread = self._completer_thread
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join()
+        if thread is not None and not thread.is_alive():
+            self._completer_thread = None
+
+    def _bg_refresh(
+        self,
+        sql_execute: SQLExecute,
+        callbacks: Callable | list[Callable],
+        completer_options: dict,
+    ) -> None:
+        completer = SQLCompleter(**completer_options)
+
+        # Create a new sql_execute method to populate the completions.
+        e = sql_execute
+        try:
+            executor = SQLExecute(
+                e.dbname,
+                e.user,
+                e.password,
+                e.host,
+                e.port,
+                e.socket,
+                e.character_set,
+                e.local_infile,
+                e.ssl,
+            )
+        except pymysql.err.OperationalError:
+            self._finish_refreshing()
+            return
+
+        with self._executor_lock:
+            self._active_executor = executor
+        try:
+            if self._stop_refresh.is_set():
+                return
+
+            # If callbacks is a single function then push it into a list.
+            if callable(callbacks):
+                callbacks = [callbacks]
+
+            while 1:
+                for refresher in self.refreshers.values():
+                    refresher(completer, executor)
+                    if self._stop_refresh.is_set():
+                        return
+                    if self._restart_refresh.is_set():
+                        self._restart_refresh.clear()
+                        break
+                else:
+                    # Break out of while loop if the for loop finishes natually
+                    # without hitting the break statement.
+                    break
+
+                # Start over the refresh from the beginning if the for loop hit the
+                # break statement.
+                continue
+
+            if not self._stop_refresh.is_set():
+                for callback in callbacks:
+                    callback(completer)
+        except pymysql.err.OperationalError as error:
+            if not self._stop_refresh.is_set() and error.args[0] != BAD_DB_ERROR:
+                raise
+        except Exception:
+            if not self._stop_refresh.is_set():
+                raise
+        finally:
+            with self._executor_lock:
+                if self._active_executor is executor:
+                    self._active_executor = None
+            try:
+                executor.close()
+            except Exception:
+                if not self._stop_refresh.is_set():
+                    raise
+            finally:
+                self._finish_refreshing()
+
+    def _finish_refreshing(self) -> None:
+        self._invalidate()
+        remaining = self._refresh_visible_until - monotonic()
+        if remaining <= 0:
+            return
+        if self._visibility_timer is not None:
+            self._visibility_timer.cancel()
+        self._visibility_timer = threading.Timer(remaining, self._invalidate_after_visibility_deadline)
+        self._visibility_timer.daemon = True
+        self._visibility_timer.start()
+
+    def _invalidate_after_visibility_deadline(self) -> None:
+        self._visibility_timer = None
+        self._invalidate()
+
+    def _invalidate(self) -> None:
+        if self._invalidate_app is not None:
+            self._invalidate_app()
+
+
+def refresher(name: str, refreshers: dict = CompletionRefresher.refreshers) -> Callable:
+    """Decorator to add the decorated function to the dictionary of
+    refreshers. Any function decorated with a @refresher will be executed as
+    part of the completion refresh routine."""
+
+    def wrapper(wrapped):
+        refreshers[name] = wrapped
+        return wrapped
+
+    return wrapper
+
+
+@refresher("databases")
+def refresh_databases(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_database_names(executor.databases())
+
+
+@refresher("schemata")
+def refresh_schemata(completer: SQLCompleter, executor: SQLExecute) -> None:
+    # schemata - In MySQL Schema is the same as database. But for mycli
+    # schemata will be the name of the current database.
+    completer.extend_schemata(executor.dbname)
+    completer.set_dbname(executor.dbname)
+
+
+@refresher("tables")
+def refresh_tables(completer: SQLCompleter, executor: SQLExecute) -> None:
+    table_columns_dbresult = list(executor.table_columns())
+    completer.extend_relations(table_columns_dbresult, kind="tables")
+    completer.extend_columns(table_columns_dbresult, kind="tables")
+
+
+@refresher("indexed_columns")
+def refresh_indexed_columns(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_indexed_columns(executor.indexed_columns())
+
+
+@refresher("foreign_keys")
+def refresh_foreign_keys(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_foreign_keys(executor.foreign_keys())
+
+
+@refresher("enum_values")
+def refresh_enum_values(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_enum_values(executor.enum_values())
+
+
+@refresher("users")
+def refresh_users(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_users(executor.users())
+
+
+# @refresher('views')
+# def refresh_views(completer: SQLCompleter, executor: SQLExecute) -> None:
+#     completer.extend_relations(executor.views(), kind='views')
+#     completer.extend_columns(executor.view_columns(), kind='views')
+
+
+@refresher("functions")
+def refresh_functions(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_functions(executor.functions())
+    if executor.server_info and executor.server_info.species == ServerSpecies.TiDB:
+        completer.extend_functions(completer.tidb_functions, builtin=True)
+
+
+@refresher("procedures")
+def refresh_procedures(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_procedures(executor.procedures())
+
+
+@refresher("character_sets")
+def refresh_character_sets(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_character_sets(executor.character_sets())
+
+
+@refresher("collations")
+def refresh_collations(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_collations(executor.collations())
+
+
+@refresher("special_commands")
+def refresh_special(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_special_commands({command: details.completion_snippet or details.description for command, details in COMMANDS.items()})
+
+
+@refresher("show_commands")
+def refresh_show_commands(completer: SQLCompleter, executor: SQLExecute) -> None:
+    completer.extend_show_items(executor.show_candidates())
+
+
+@refresher("keywords")
+def refresh_keywords(completer: SQLCompleter, executor: SQLExecute) -> None:
+    if executor.server_info and executor.server_info.species == ServerSpecies.TiDB:
+        completer.extend_keywords(completer.tidb_keywords, replace=True)

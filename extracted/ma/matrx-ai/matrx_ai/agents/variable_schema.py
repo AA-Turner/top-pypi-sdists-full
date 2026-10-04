@@ -232,6 +232,18 @@ def variable_definition_to_parameter(entry: dict[str, Any]) -> dict[str, Any]:
         param["type"] = "string"
         return _with_note(param, f"(A {ctype} reference — URL or file id.)")
 
+    if ctype == "table":
+        # A table REFERENCE — the server reads the table as the caller and hands the agent its
+        # name, id, columns and first rows (aidream table_reference_variables).
+        # No `format`: providers disagree on which string formats they accept.
+        param["type"] = "string"
+        return _with_note(param, "(A table id — one of the caller's tables.)")
+
+    if ctype == "tables":
+        param["type"] = "array"
+        param["items"] = {"type": "string"}
+        return _with_note(param, "(Table ids — the caller's tables.)")
+
     # textarea, typed string scalars, currency, and anything unrecognized:
     # a plain string parameter (the system default input).
     if ctype not in _STRING_COMPONENTS and ctype != "textarea":

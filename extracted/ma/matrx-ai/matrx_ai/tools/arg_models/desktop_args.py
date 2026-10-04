@@ -239,3 +239,20 @@ class FsWatchArgs(ToolArgs):
         le=25,
         description="events: wait up to this long for a change when none is waiting.",
     )
+
+
+class DesktopAudioArgs(ToolArgs):
+    action: Literal["devices", "record", "play"] = Field(
+        description="devices: microphones and outputs; record: record a clip to a WAV file; play: play an audio file aloud.",
+    )
+    seconds: float | None = Field(
+        default=None, ge=0.5, le=600, description="record: how long to record, in seconds."
+    )
+    device_id: str | None = Field(
+        default=None,
+        description="record: the microphone (its id from devices); the default one when omitted.",
+    )
+    path: str | None = Field(
+        default=None,
+        description="record: where to save the WAV (a temp file when omitted); play: the file to play. Absolute, or relative to the home folder.",
+    )

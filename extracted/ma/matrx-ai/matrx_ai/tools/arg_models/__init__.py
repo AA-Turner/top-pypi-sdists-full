@@ -8,6 +8,7 @@ from .browser_args import (
 from .db_args import DbInsertArgs, DbQueryArgs, DbSchemaArgs, DbUpdateArgs, SqlArgs
 from .desktop_args import (
     DesktopAppsArgs,
+    DesktopAudioArgs,
     DesktopClipboardArgs,
     DesktopInputArgs,
     DesktopPowerArgs,
@@ -64,6 +65,7 @@ from .web_args import (
 
 __all__ = [
     "DesktopAppsArgs",
+    "DesktopAudioArgs",
     "DesktopClipboardArgs",
     "DesktopInputArgs",
     "DesktopPowerArgs",

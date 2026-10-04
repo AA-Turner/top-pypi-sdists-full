@@ -1,77 +1,69 @@
 """scrapli.exceptions"""
 
-from typing import Optional
-
 
 class ScrapliException(Exception):
     """Base Exception for all scrapli exceptions"""
 
 
-class ScrapliModuleNotFound(ScrapliException):
-    """ModuleNotFound but for scrapli related issues"""
+class LibScrapliException(ScrapliException):
+    """Exception raised when encountering errors loading libscrapli shared library"""
 
 
-class ScrapliTypeError(ScrapliException):
-    """TypeError but for scrapli related typing issues"""
+class OptionsException(ScrapliException):
+    """Exception raised when encountering errors applying options"""
 
 
-class ScrapliValueError(ScrapliException):
-    """ValueError but for scrapli related value issues"""
+class AllocationException(ScrapliException):
+    """Exception raised when encountering errors allocating a cli/netconf object"""
 
 
-class ScrapliUnsupportedPlatform(ScrapliException):
-    """Exception for unsupported platform; i.e. using system transport on windows"""
+class FFIException(ScrapliException):
+    """Exception raised when encountering errors at the ffi boundary"""
 
 
-class ScrapliTransportPluginError(ScrapliException):
-    """Exception for transport plugin issues"""
+class NotOpenedException(ScrapliException):
+    """Exception raised when attempting to call methods of cli/netconf object and ptr is None"""
 
 
-class ScrapliConnectionNotOpened(ScrapliException):
-    """Exception for trying to operate on a transport which has not been opened"""
-
-    def __init__(
-        self,
-        message: Optional[str] = None,
-    ) -> None:
-        """
-        Scrapli connection not opened exception
-
-        Args:
-            message: optional message
-
-        Returns:
-            None
-
-        Raises:
-            N/A
-
-        """
-        if not message:
-            self.message = (
-                "connection not opened, but attempting to call a method that requires an open "
-                "connection, do you need to call 'open()'?"
-            )
-        else:
-            self.message = message
-        super().__init__(self.message)
+class OperationException(ScrapliException):
+    """Exception raised when an error is returned from an operation"""
 
 
-class ScrapliAuthenticationFailed(ScrapliException):
-    """Exception for scrapli authentication issues"""
+class ParsingException(ScrapliException):
+    """Exception raised when parsing (usually cli) output fails"""
 
 
-class ScrapliConnectionError(ScrapliException):
-    """Exception for underlying connection issues"""
+class NoMessagesException(ScrapliException):
+    """Exception raised when attempting to request notifications or subscriptions and none exist"""
 
 
-class ScrapliTimeout(ScrapliException):
-    """Exception for any scrapli timeouts"""
+class OutOfMememoryException(ScrapliException, MemoryError):
+    """Exception raised when allocations in libscrapli fail"""
 
 
-class ScrapliCommandFailure(ScrapliException):
-    """Exception for scrapli command/config failures"""
+class EOFException(ScrapliException, EOFError):
+    """Exception raised when libscrapli returns an EOF"""
 
 
-class ScrapliPrivilegeError(ScrapliException):
-    """Exception for all privilege related scrapli issues"""
+class CancelledException(ScrapliException):
+    """Exception raised when libscrapli returns an error due to an operation being cancelled"""
+
+
+class TimeoutException(ScrapliException, TimeoutError):
+    """Exception raised when libscrapli returns an error due to an operation being timed out"""
+
+
+class DriverException(ScrapliException):
+    """Exception raised when libscrapli returns a driver error"""
+
+
+class SessionException(ScrapliException):
+    """Exception raised when libscrapli returns a session error"""
+
+
+class TransportException(ScrapliException):
+    """Exception raised when libscrapli returns a transport error"""
+
+
+class InvalidArgumentException(ScrapliException):
+    """Exception raised when libscrapli returns an invalid argument error"""

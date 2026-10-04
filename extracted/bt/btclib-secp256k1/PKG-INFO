@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: btclib-secp256k1
-Version: 0.8.0.9
+Version: 0.8.0.10
 Summary: Simple python bindings to libsecp256k1
 Project-URL: homepage, https://btclib-secp256k1.readthedocs.io
 Project-URL: documentation, https://btclib-secp256k1.readthedocs.io
@@ -13,6 +13,7 @@ Author-email: The btclib developers <devs@btclib.org>
 License-Expression: MIT
 License-File: AUTHORS.md
 License-File: LICENSE
+License-File: secp256k1/COPYING
 Keywords: bip324,bip340,bitcoin,cffi,cryptography,ecdh,ecdsa,ellswift,libsecp256k1,musig2,public-key-recovery,python-bindings,rfc-6979,schnorr,secp256k1
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -91,6 +92,7 @@ says how the choice is enforced.
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/btclib-org/btclib-secp256k1/badge)](https://scorecard.dev/viewer/?uri=github.com/btclib-org/btclib-secp256k1)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14814/badge)](https://www.bestpractices.dev/projects/14814)
+[![OpenSSF Baseline](https://www.bestpractices.dev/projects/14814/baseline)](https://www.bestpractices.dev/projects/14814)
 
 ---
 
@@ -159,11 +161,12 @@ When a new release of the bindings is needed while still wrapping the
 same libsecp256k1 version, a fourth number is appended:
 0.8.0.1, 0.8.0.2, etc.
 
-<!-- The link below is read by check_submodule_pin.py's zkp half, the
-same way the one above is read by its release half -- see that module's
-docstring. A commit rather than a tag, because secp256k1-zkp cuts none;
-keep this the only link to a secp256k1-zkp commit in this file, for the
-same reason the paragraph above gives for its own link. -->
+<!-- The link below is read by check_submodule_pin.py's zkp half and by
+zkp-pin.yml, the same way the one above is read by its release half --
+see that module's docstring. A commit rather than a tag, because
+secp256k1-zkp cuts none; keep this the only link to a secp256k1-zkp
+commit in this file, for the same reason the paragraph above gives for
+its own link. -->
 
 secp256k1-zkp (btclib-org/btclib-secp256k1#603) is vendored beside
 secp256k1, not in place of it, and carries no release of its own to
@@ -267,10 +270,11 @@ went:
   survived, `context.check()` reporting it verbatim. What that
   validation is, and what it deliberately is not, is What the boundary
   checks below
-- side channels are the context's problem, and it is handled: the one
-  shared context is randomized at import time, before any thread
-  exists; concurrent use is documented and tested, free-threaded
-  interpreter included (see Thread safety)
+- side channels are the context's problem, and it is handled: each
+  shared context is randomized when it is created, which for the
+  primary package is at import time, before any thread exists, and for
+  `zkp` is its first call; concurrent use is documented and tested,
+  free-threaded interpreter included (see Thread safety)
 - the boundary is typed: `py.typed` ships, mypy runs in strict mode,
   and the cffi extension itself is described by a hand-written stub, so
   what downstream type-checks against is the real signatures rather
@@ -339,7 +343,11 @@ and decides nothing else.
   being the curve's. What they are not is passed through. The copy is
   taken at the boundary, so a caller holding a secret in memory they can
   overwrite — which is the reason to reach for a `bytearray` at all —
-  cannot change what libsecp256k1 is about to read
+  cannot change what libsecp256k1 is about to read. Objects are held to
+  their types the same way: a `keyagg_cache` that is not a `KeyAggCache`,
+  a `session` that is not a `Session` and `labels` that is not a mapping
+  raise `TypeError`, not the
+  `AttributeError` of the first attribute looked up on them
 - **validity is libsecp256k1's to decide, and it does.** Whether 32 bytes
   are a scalar in `[1, n-1]` is answered by
   `secp256k1_ec_seckey_verify`, and `keys.prvkey_verify` is that call, not
@@ -357,7 +365,11 @@ and decides nothing else.
   package's word for it is a message it would have to translate. The
   length is part of the verdict — 34 octets are no public key, and
   answering `False` is what a caller asking "do I have one" wants — where
-  every entry point that goes on to *use* the key raises instead
+  every entry point that goes on to *use* the key raises instead. An
+  `int` that does not fit in 32 bytes is `prvkey_verify`'s version of
+  the same case. What the four do raise is `TypeError` for a value of
+  the wrong type — `None`, a `str`, a `list`, a `float` — which is a
+  malformed call and not a key
 - **nothing is normalized into validity.** An argument of the wrong size
   raises, and is never padded: the 32 bytes of nonce entropy are 32 bytes
   or omitted, a shorter value being a caller mistake rather than a small
@@ -1143,11 +1155,15 @@ and reads that eligibility off the keys the vector file itself publishes
 rather than off its scripts, for the same reason.
 
 Some things about it are worth knowing before it is used. The summary
-`prevouts_summary` returns is opaque and not a serialization: what is
-inside is libsecp256k1's own, portable across neither platforms nor
-versions, and the only thing to do with it is hand it to `scan_outputs`
-in the same process. And the label cache is a mapping the caller owns:
-libsecp256k1 recognizes a label by calling back to look it up, so a
+`prevouts_summary` returns is a serialization: the 36-byte smallest
+outpoint and the 33-byte compressed sum of the eligible input keys. It
+holds no secret and is portable across platforms and versions.
+`scan_outputs` parses it and rebuilds libsecp256k1's own summary through
+the call that hashes the outpoint with the sum, so a point that is not on
+the curve is refused before the scan key is used. A summary from elsewhere
+is checked for that and nothing more: that it is the sum of the
+transaction's inputs is taken on trust. And the label cache is a mapping the
+caller owns: libsecp256k1 recognizes a label by calling back to look it up, so a
 labeled output is found only if its label is in the mapping handed in --
 which is also why the keys of that mapping are `bytes` and only bytes,
 a `bytearray` and a `memoryview` not being hashable.
@@ -1166,13 +1182,14 @@ MuSig2 is wrapped, in `musig`. What its two-round protocol needs is a
 session whose secret nonce cannot be reused, and that is a property of
 an object's lifetime rather than of a function: only whoever owns the
 session can invalidate it. This package is otherwise stateless by
-construction, every other function being one libsecp256k1 call with its
-arguments validated, and `musig.KeyAggCache` and `musig.Session` are its
-exception -- the *Outposts past the boundary* section above says why the
-existing rule for holding an object does not reach them, and `musig.py`'s
-own module docstring records the decision to take the exception rather
-than to leave the state to whoever calls this package, `KeyAggCache` and
-`Session` having no serialization to hand back regardless.
+construction: every other function validates its arguments and calls
+libsecp256k1. The exceptions are the two outposts of *Outposts past the
+boundary* above and, of another kind, `musig.KeyAggCache` and
+`musig.Session`: that section says why the existing rule for holding an
+object does not reach them, and `musig.py`'s own module docstring
+records the decision to take the exception rather than to leave the
+state to whoever calls this package, `KeyAggCache` and `Session` having
+no serialization to hand back regardless.
 
 `musig.SecretNonce` is the object that carries the secret: `nonce_gen`
 and `nonce_gen_counter` return one, `partial_sign` wipes it whether it

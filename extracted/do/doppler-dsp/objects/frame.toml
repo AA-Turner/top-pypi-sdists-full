@@ -190,6 +190,22 @@ params = [
     { name = "bits", type = "size_t" },
 ]
 
+# The object spelling of the Field text `data:LEN` (rx-frame-description.md
+# §8.2, D5): a field whose bits a data source supplies per frame. A method,
+# not Field text in add_field, because an object takes bits and a data
+# field has none.
+[[frame.methods]]
+name = "add_data"
+arg_type = "void"
+return_type = "int"
+error_negative = true
+error = "ValueError"
+error_message = "cannot append a data field: len is 0 or past the Field grammar's bound (WFM_FIELD_MAX_BITS), or the description is full, already built, or already carries the name"
+params = [
+    { name = "name", type = "const char *" },
+    { name = "len", type = "size_t" },
+]
+
 [[frame.methods]]
 name = "add_stage_over"
 doc = "Append a stage covering `[first .. last]` BY NAME -- `add_stage_over(STAGE_CRC16, \"payload\", \"crc\")` says what three integers used to. It wires a derived field's producer for you, which applies the invariant the layout already enforces: a field with a declared length and no source sitting at the end of a cover has exactly one possible producer. `kind` is a stage kind, as for `add_stage`. Returns the new stage's index; a refusal raises `ValueError`."
@@ -208,7 +224,7 @@ params = [
 
 [[frame.methods]]
 name = "build"
-doc = "Lay out and materialise a description. Where a description is checked: one that cannot produce its own bits is not a frame. Separate from the constructor only because the description arrives over several calls and there is no earlier moment at which it is complete. Raises if it is empty, unbuildable, names a stage no kernel here covers, or was already built."
+doc = "Lay out and materialise a description. Where a description is checked: one that cannot produce its own bits is not a frame. Separate from the constructor only because the description arrives over several calls and there is no earlier moment at which it is complete. A description with a data field builds too, laid out from its lengths with its stages proved runnable over a discarded chunk: it has no single frame, so bits() returns none, while deframe() and check() work. Raises if it is empty, unbuildable, names a stage no kernel here covers, or was already built."
 arg_type = "void"
 return_type = "int"
 status_return = true

@@ -1090,6 +1090,19 @@ class BaseMediaGeneration(ABC):
                     )
                 )
 
+            # The SAME request snapshot the chat seam writes (chat.request_snapshot.
+            # request_payload): without it a media rejection cannot be replayed by
+            # the settings fixer and nobody can audit what an image call sent
+            # (V1 verifier 2026-10-04: request_payload was {} on every image call).
+            from matrx_ai.providers.snapshot import capture_request_payload
+
+            capture_request_payload(
+                {
+                    k: (v if isinstance(v, str | int | float | bool | type(None) | dict | list) else f"<{type(v).__name__}>")
+                    for k, v in kwargs.items()
+                },
+                provider=self.provider,
+            )
             initial = await self._maybe_await(self._call_provider, kwargs)
             paid_provider_call_completed = True
             raw = await self._maybe_await(self._poll_if_long_running, initial)

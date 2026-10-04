@@ -482,6 +482,55 @@ class _SFTPAttrsSFTPServer(SFTPServer):
             yield name
 
 
+class _InvalidFilenameSFTPServer(SFTPServer):
+    """Have scandir send invalid filenames with path separators"""
+
+    async def scandir(self, path):
+        """Add a leading slash to names being returned"""
+
+        async for name in super().scandir(path):
+            name.filename = b'/' + name.filename
+            yield name
+
+
+class _AbsoluteSymlinkSFTPServer(SFTPServer):
+    """Return an absolute symlink target for testing path validation"""
+
+    async def readlink(self, path):
+        """Return an absolute path as the symlink target"""
+
+        return b'/etc/passwd'
+
+    async def scandir(self, path):
+        """Inject a symlink entry with an absolute target"""
+
+        async for name in super().scandir(path):
+            yield name
+
+        yield SFTPName(b'abslink',
+                       attrs=SFTPAttrs(type=FILEXFER_TYPE_SYMLINK,
+                                       permissions=stat.S_IFLNK | 0o777))
+
+
+class _DuplicateSymlinkSFTPServer(SFTPServer):
+    """Return a symlink entry followed by a regular file with the same name
+
+       Readdir results are not deduplicated, so the client must handle
+       a symlink entry reappearing as a regular file gracefully.
+    """
+
+    async def scandir(self, path):
+        """Emit each symlink entry a second time as a regular file"""
+
+        async for name in super().scandir(path):
+            yield name
+
+            if name.attrs.type == FILEXFER_TYPE_SYMLINK:
+                yield SFTPName(name.filename,
+                               attrs=SFTPAttrs(type=FILEXFER_TYPE_REGULAR,
+                                               size=0))
+
+
 class _AsyncSFTPServer(SFTPServer):
     """Implement all SFTP callbacks as async methods"""
 
@@ -928,13 +977,16 @@ class _TestSFTP(_CheckSFTP):
         for method in ('get', 'put', 'copy'):
             with self.subTest(method=method):
                 try:
-                    os.symlink('file', 'link1')
-                    os.utime('link1', times=(1, 2), follow_symlinks=False)
-                    await getattr(sftp, method)(
-                        'link1', 'link2', preserve=True, follow_symlinks=False)
-                    self.assertEqual(os.lstat('link2').st_mtime, 2)
+                    os.mkdir('src')
+                    os.mkdir('dst')
+                    os.symlink('file', 'src/link')
+                    os.utime('src/link', times=(1, 2), follow_symlinks=False)
+                    await getattr(sftp, method)('src/link', 'dst',
+                                                preserve=True,
+                                                follow_symlinks=False)
+                    self.assertEqual(os.lstat('dst/link').st_mtime, 2)
                 finally:
-                    remove('link1 link2')
+                    remove('src dst')
 
     @unittest.skipIf(sys.platform == 'win32', 'skip lsetstat tests on Windows')
     def test_copy_preserve_link_unsupported(self):
@@ -1310,6 +1362,17 @@ class _TestSFTP(_CheckSFTP):
 
                 with self.assertRaises(ValueError):
                     await sftp.remote_copy(f, f)
+        finally:
+            remove('file')
+
+    @sftp_test
+    async def test_oversized_sftp_write(self, sftp):
+        """Test an oversized write to a remote file"""
+
+        try:
+            async with sftp.open('file', 'wb', block_size=0) as f:
+                with self.assertRaises(SFTPConnectionLost):
+                    await f.write(8*1024*1024*b'\0')
         finally:
             remove('file')
 
@@ -4201,7 +4264,7 @@ class _TestSFTP(_CheckSFTP):
             await sftp.realpath('.')
             await sftp.stat('.')
 
-            if sys.platform != 'win32': # pragma: no cover
+            if sys.platform != 'win32': # pragma: no branch
                 await sftp.statvfs('.')
 
         asyncssh.set_sftp_log_level('WARNING')
@@ -4234,6 +4297,77 @@ class _TestSFTP(_CheckSFTP):
         with patch.object(sftp, 'mkdir', side_effect=SFTPPermissionDenied('')):
             with self.assertRaises(SFTPPermissionDenied):
                 await sftp.makedirs(os.path.join(root, 'dir/dir1'))
+
+    @sftp_test
+    async def test_set_size_no_follow_symlinks_error(self, sftp):
+        """Test setting file size on a symlink with follow_symlinks off"""
+
+        try:
+            self._create_file('dst')
+            os.symlink('dst', 'link')
+
+            with self.assertRaises(SFTPOpUnsupported):
+                await sftp.setstat('link', SFTPAttrs(size=0),
+                                   follow_symlinks=False)
+        finally:
+            remove('dst link')
+
+    @sftp_test
+    async def test_set_uid_gid_no_follow_symlinks_error(self, sftp):
+        """Test setting uid/gid on a symlink with follow_symlinks off"""
+
+        def chown_error(path, uid, gid, *, follow_symlinks=True):
+            """Raise an error when attempting to call chown"""
+
+            raise NotImplementedError
+
+        try:
+            self._create_file('dst')
+            os.symlink('dst', 'link')
+
+            with patch('os.chown', chown_error, create=True):
+                with self.assertRaises(SFTPOpUnsupported):
+                    await sftp.chown('link', 0, 0, follow_symlinks=False)
+        finally:
+            remove('dst link')
+
+    @sftp_test
+    async def test_set_permissions_no_follow_symlinks_error(self, sftp):
+        """Test setting permissions on a symlink with follow_symlinks off"""
+
+        def chmod_error(path, mode, *, follow_symlinks=True):
+            """Raise an error when attempting to call chown"""
+
+            raise NotImplementedError
+
+        try:
+            self._create_file('dst')
+            os.symlink('dst', 'link')
+
+            with patch('os.chmod', chmod_error):
+                with self.assertRaises(SFTPOpUnsupported):
+                    await sftp.chmod('link', 0o666, follow_symlinks=False)
+        finally:
+            remove('dst link')
+
+    @sftp_test
+    async def test_set_times_no_follow_symlinks_error(self, sftp):
+        """Test setting times on a symlink with follow_symlinks off"""
+
+        def utime_error(path, *, ns, follow_symlinks=True):
+            """Raise an error when attempting to call chown"""
+
+            raise NotImplementedError
+
+        try:
+            self._create_file('dst')
+            os.symlink('dst', 'link')
+
+            with patch('os.utime', utime_error):
+                with self.assertRaises(SFTPOpUnsupported):
+                    await sftp.utime('link', ns=(0, 1), follow_symlinks=False)
+        finally:
+            remove('dst link')
 
 
 class _TestSFTPCallable(_CheckSFTP):
@@ -4475,6 +4609,20 @@ class _TestSFTPChroot(_CheckSFTP):
                 await sftp.makedirs('file/dir')
         finally:
             remove('chroot/dir')
+
+    @unittest.skipUnless(sys.platform == 'win32',
+                         'backslash escape only applies on Windows')
+    @sftp_test
+    async def test_chroot_backslash(self, sftp): # pragma: cover only win32
+        """Backslash paths must not escape the chroot on Windows"""
+
+        try:
+            self._create_file('secret')  # outside the jail
+
+            with self.assertRaises(SFTPNoSuchFile):
+                await sftp.open(rb'/..\secret', 'r')
+        finally:
+            remove('secret')
 
 
 class _TestSFTPReadEOFWithAttrs(_CheckSFTP):
@@ -5012,6 +5160,52 @@ class _TestSFTPAsync(_TestSFTP):
         self.assertEqual(name.attrs.type, FILEXFER_TYPE_REGULAR)
 
 
+class _TestSFTPInvalidFilename(_CheckSFTP):
+    """Test a server sending back an invalid filename in scandir"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SFTP server for the tests to use"""
+
+        return await cls.create_server(sftp_factory=_InvalidFilenameSFTPServer)
+
+    @sftp_test
+    async def test_invalid_filename(self, sftp):
+        """Test a server returning an invalid filename in scandir"""
+
+        try:
+            os.mkdir('src')
+
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.get('src', 'dst', recurse=True)
+        finally:
+            remove('src dst')
+
+    @sftp_test
+    async def test_invalid_filename_glob(self, sftp):
+        """Test a server returning an invalid filename from glob in scandir"""
+
+        try:
+            os.mkdir('src')
+
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.mget('src/*', 'dst', recurse=True)
+        finally:
+            remove('src dst')
+
+    @sftp_test
+    async def test_invalid_filename_rmtree(self, sftp):
+        """Test a server returning an invalid filename in scandir in rmtree"""
+
+        try:
+            os.mkdir('src')
+
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.rmtree('src')
+        finally:
+            remove('src')
+
+
 class _CheckSCP(_CheckSFTP):
     """Utility functions for AsyncSSH SCP unit tests"""
 
@@ -5453,7 +5647,7 @@ class _TestSCP(_CheckSCP):
         def err_handler(exc):
             """Catch error for non-recursive copy of directory"""
 
-            if sys.platform == 'win32': # pragma: no cover
+            if sys.platform == 'win32': # pragma: cover only win32
                 self.assertEqual(exc.reason,
                                  'scp: Permission denied: dst\\src2')
             else:
@@ -5740,6 +5934,9 @@ class _TestSCPErrors(_CheckSCP):
                 elif command.endswith('get_invalid_filename_response'):
                     await process.stdin.read(1)
                     process.stdout.write('C0644 0 ../src\n')
+                elif command.endswith('get_dot_filename_response'):
+                    await process.stdin.read(1)
+                    process.stdout.write('C0644 0 .\n')
                 elif command.endswith('get_dir_no_recurse'):
                     await process.stdin.read(1)
                     process.stdout.write('D0755 0 src\n')
@@ -5782,6 +5979,17 @@ class _TestSCPErrors(_CheckSCP):
         try:
             with self.assertRaises((SFTPBadMessage, SFTPConnectionLost)):
                 await scp((self._scp_server, 'get_invalid_filename_response'),
+                          'dst')
+        finally:
+            remove('dst')
+
+    @asynctest
+    async def test_get_dot_filename_response(self):
+        """Test receiving single dot filename is rejected"""
+
+        try:
+            with self.assertRaises((SFTPBadMessage, SFTPConnectionLost)):
+                await scp((self._scp_server, 'get_dot_filename_response'),
                           'dst')
         finally:
             remove('dst')
@@ -5902,3 +6110,157 @@ class _TestSCPErrors(_CheckSCP):
 
         with self.assertRaises(SFTPConnectionLost):
             await scp('src', (self._scp_server, 'unknown'))
+
+
+class _TestSFTPSymlinkTraversal(_CheckSFTP):
+    """Tests for symlink target validation in recursive download
+
+       Verify that recursive downloads reject symlink targets that escape
+       the download directory while allowing those that stay within it.
+    """
+
+    @classmethod
+    async def start_server(cls):
+        """Start a standard SFTP server for the tests to use"""
+
+        return await cls.create_server(sftp_factory=True)
+
+    @sftp_test
+    async def test_symlink_escaping_download_root_rejected(self, sftp):
+        """A symlink target that escapes the download root must be rejected"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('src')
+            os.mkdir('dst')
+            self._create_file('src/file1')
+            os.symlink(os.path.join('..', '..', 'escape'), 'src/evil')
+
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.get('src/evil', 'dst/evil')
+
+            # The escaping symlink must not have been created locally.
+            self.assertFalse(os.path.lexists('dst/evil'))
+        finally:
+            remove('src dst')
+
+    @sftp_test
+    async def test_symlink_escaping_download_dir_rejected(self, sftp):
+        """A symlink target that escapes the download dir must be rejected"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('src')
+            self._create_file('src/file1')
+            os.symlink(os.path.join('..', '..', 'escape'), 'src/evil')
+
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.get('src', 'dst', recurse=True)
+
+            # The escaping symlink must not have been created locally.
+            self.assertFalse(os.path.lexists('dst/evil'))
+        finally:
+            remove('src dst')
+
+    @sftp_test
+    async def test_symlink_with_parent_ref_within_dir_allowed(self, sftp):
+        """A '..' symlink that stays within the download dir must be allowed"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('src')
+            self._create_file('src/file1')
+            os.mkdir('src/sub')
+            # From src/sub, '../file1' resolves back inside the download tree.
+            os.symlink(os.path.join('..', 'file1'), 'src/sub/link')
+
+            await sftp.get('src', 'dst', recurse=True)
+
+            self.assertTrue(os.path.islink('dst/sub/link'))
+        finally:
+            remove('src dst')
+
+    @sftp_test
+    async def test_symlink_within_download_dir_allowed(self, sftp):
+        """A simple relative symlink target within the dir must be allowed"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('src')
+            self._create_file('src/file1')
+            os.symlink('file1', 'src/good')
+
+            await sftp.get('src', 'dst', recurse=True)
+
+            self.assertTrue(os.path.islink('dst/good'))
+        finally:
+            remove('src dst')
+
+
+class _TestSFTPAbsoluteSymlink(_CheckSFTP):
+    """Tests that absolute symlink targets are rejected"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start a server that returns absolute symlink targets"""
+
+        return await cls.create_server(
+            sftp_factory=_AbsoluteSymlinkSFTPServer)
+
+    @sftp_test
+    async def test_absolute_symlink_target_rejected(self, sftp):
+        """A symlink with an absolute target path must be rejected"""
+
+        try:
+            os.mkdir('src')
+            self._create_file('src/file1')
+
+            with self.assertRaises(SFTPBadMessage):
+                await sftp.get('src', 'dst', recurse=True)
+
+            self.assertFalse(os.path.lexists('dst/abslink'))
+        finally:
+            remove('src dst')
+
+
+class _TestSFTPDuplicateSymlink(_CheckSFTP):
+    """Tests for a downloaded file landing on a local symlink
+
+       When the server returns a symlink entry and then a regular-file
+       entry with the same name, the client must not blindly write the
+       file through the symlink.
+    """
+
+    @classmethod
+    async def start_server(cls):
+        """Start a server whose readdir returns duplicate symlink entries"""
+
+        return await cls.create_server(
+            sftp_factory=_DuplicateSymlinkSFTPServer)
+
+    @sftp_test
+    async def test_plain_file_over_in_root_symlink_allowed(self, sftp):
+        """Writing through a symlink whose target is within root is allowed"""
+
+        if not self._symlink_supported: # pragma: no cover
+            raise unittest.SkipTest('symlink not available')
+
+        try:
+            os.mkdir('src')
+            self._create_file('src/file1', 'legitimate')
+            os.symlink('file1', 'src/data')
+
+            await sftp.get('src', 'dst', recurse=True)
+
+            self.assertTrue(os.path.islink('dst/data'))
+            self.assertTrue(os.path.exists('dst/file1'))
+        finally:
+            remove('src dst')

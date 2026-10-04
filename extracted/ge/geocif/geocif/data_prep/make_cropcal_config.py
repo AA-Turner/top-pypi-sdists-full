@@ -34,7 +34,7 @@ import pandas as pd
 from geocif.cropcal import calendar as cropcal_calendar
 from geocif.cropcal import naming
 
-DEFAULT_CONFIG_ROOT = Path(r"D:/Users/ritvik/projects/GEO/config")
+DEFAULT_CONFIG_ROOT = Path(r"D:/Users/ritvik/projects/GEO/config/production")
 DEFAULT_TEMPLATE = DEFAULT_CONFIG_ROOT / "agmet" / "geobase.txt"
 
 PROJECT = "cropcal"

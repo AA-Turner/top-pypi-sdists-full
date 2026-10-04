@@ -837,7 +837,14 @@ def flash_attention_kernel(
               l_i *= alpha
             m_i *= 1 / math.log2(math.e)
             for residual, gmem_ref in zip((m_i, l_i), residual_gmems):
-              gmem_ref.at[hi, qs].set(residual.astype(gmem_ref.dtype))
+              if jax.__version_info__ >= (0, 11, 3):
+                plgpu.store(
+                    gmem_ref.at[hi, qs],
+                    residual.astype(gmem_ref.dtype),
+                    optimized=False,
+                )
+              else:
+                gmem_ref.at[hi, qs].set(residual.astype(gmem_ref.dtype))
 
       @pl.when(wg == _SCALE_WG)
       def scale_wg():
@@ -877,7 +884,7 @@ def flash_attention_kernel(
               | ((not normalize_output) & (ki == ub - 1))
           )
 
-          per_warp_type = plgpu.ShapeDtypeStruct((), jnp.bool_, _WG_SPLAT)
+          per_warp_type = plgpu.ShapeDtypeStruct((), jnp.bool_, _WG_SPLAT)  # pyrefly: ignore[bad-argument-type]
 
           @plgpu.inline_mgpu(arg_types=(_TMEM_ROW,), return_type=per_warp_type)
           def warp_any(_, needs_rescale):

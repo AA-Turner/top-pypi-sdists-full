@@ -38,6 +38,7 @@ from matrx_ai.config.structured_input_config import (
     ListInputContent,
     NotesInputContent,
     ProjectInputContent,
+    RemarksInputContent,
     TableInputContent,
     TaskInputContent,
     TranscriptInputContent,
@@ -750,7 +751,7 @@ UnifiedContent = (
     | CodeExecutionResultContent
     | WebSearchCallContent
     | HostedToolContent
-    # The full STRUCTURED_INPUT_TYPE_MAP, all fourteen.
+    # The full STRUCTURED_INPUT_TYPE_MAP, all fifteen.
     | WebpageInputContent
     | NotesInputContent
     | TaskInputContent
@@ -765,6 +766,7 @@ UnifiedContent = (
     | TranscriptSessionInputContent
     | WorkbookInputContent
     | DocumentInputContent
+    | RemarksInputContent
     | DecisionQuestionsContent
     | DecisionAnswersContent
     | SpeechScriptContent

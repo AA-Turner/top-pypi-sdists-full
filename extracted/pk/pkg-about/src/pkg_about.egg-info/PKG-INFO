@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 2.4.4
+Version: 2.4.5
 Summary: Unified access to Python package metadata at runtime.
 Author-email: Adam Karpierz <adam@karpierz.net>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>
@@ -12,7 +12,7 @@ Project-URL: Download, https://pypi.org/project/pkg-about/
 Project-URL: Repository, https://github.com/karpierz/pkg_about
 Project-URL: Tracker, https://github.com/karpierz/pkg_about/issues
 Project-URL: Sponsoring, https://www.paypal.com/donate/?hosted_button_id=FX8L7CJUGLW7S
-Keywords: pkg_about,__about__,packaging
+Keywords: pkg_about,pkg-about,__about__,packaging
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -35,7 +35,7 @@ Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 Requires-Dist: typing-extensions>=4.16.0
 Requires-Dist: packaging>=26.3.0
-Requires-Dist: build>=1.5.0
+Requires-Dist: build>=1.6.1
 Dynamic: license-file
 
 pkg_about

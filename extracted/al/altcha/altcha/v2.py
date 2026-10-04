@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import base64
 import datetime
+import decimal
 import hashlib
 import hmac as _hmac_module
 import json
+import math
 import re
 import secrets
 import struct
@@ -19,10 +21,13 @@ from typing import Callable, Literal
 # ---------------------------------------------------------------------------
 
 HmacAlgorithmV2 = Literal["SHA-256", "SHA-384", "SHA-512"]
+# Counter encoding in the KDF password; 'string' is for compatibility with V1.
+CounterModeV2 = Literal["uint32", "string"]
 
 DEFAULT_KEY_LENGTH: int = 32
 DEFAULT_KEY_PREFIX: str = "00"
 DEFAULT_HMAC_ALGORITHM: HmacAlgorithmV2 = "SHA-256"
+DEFAULT_COUNTER_MODE: CounterModeV2 = "uint32"
 
 DeriveKeyFunctionV2 = Callable[["ChallengeParameters", bytes, bytes], bytes]
 
@@ -30,6 +35,15 @@ DeriveKeyFunctionV2 = Callable[["ChallengeParameters", bytes, bytes], bytes]
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
+# Optional parameter keys (camelCase) and their attribute names.
+_OPTIONAL_PARAMETERS = {
+    "keySignature": "key_signature",
+    "memoryCost": "memory_cost",
+    "parallelism": "parallelism",
+    "expiresAt": "expires_at",
+    "data": "data",
+}
 
 
 class ChallengeParameters:
@@ -49,6 +63,11 @@ class ChallengeParameters:
         expires_at: Unix timestamp (seconds) after which the challenge is invalid.
         data: Arbitrary metadata embedded in the challenge.
     """
+
+    # Optional keys received as explicit JSON null; kept so the signed JSON matches
+    # issuers (altcha-lib) that sign them as null. Set on the instance by from_dict
+    # only when present, so __dict__ holds just the constructor arguments.
+    _explicit_nulls: frozenset[str] = frozenset()
 
     def __init__(
         self,
@@ -86,21 +105,15 @@ class ChallengeParameters:
             "nonce": self.nonce,
             "salt": self.salt,
         }
-        if self.key_signature is not None:
-            d["keySignature"] = self.key_signature
-        if self.memory_cost is not None:
-            d["memoryCost"] = self.memory_cost
-        if self.parallelism is not None:
-            d["parallelism"] = self.parallelism
-        if self.expires_at is not None:
-            d["expiresAt"] = self.expires_at
-        if self.data is not None:
-            d["data"] = self.data
+        for key, attr in _OPTIONAL_PARAMETERS.items():
+            value = getattr(self, attr)
+            if value is not None or key in self._explicit_nulls:
+                d[key] = value
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> ChallengeParameters:
-        return cls(
+        params = cls(
             algorithm=d["algorithm"],
             nonce=d["nonce"],
             salt=d["salt"],
@@ -113,6 +126,12 @@ class ChallengeParameters:
             expires_at=d.get("expiresAt"),
             data=d.get("data"),
         )
+        explicit_nulls = frozenset(
+            key for key in _OPTIONAL_PARAMETERS if key in d and d[key] is None
+        )
+        if explicit_nulls:
+            params._explicit_nulls = explicit_nulls
+        return params
 
 
 class Challenge:
@@ -245,8 +264,16 @@ class VerifySolutionResult:
 # ---------------------------------------------------------------------------
 
 
-def _make_password(nonce: bytes, counter: int) -> bytes:
-    """Combine nonce and counter (uint32 big-endian) into a KDF password buffer."""
+def _make_password(
+    nonce: bytes, counter: int, counter_mode: CounterModeV2 = DEFAULT_COUNTER_MODE
+) -> bytes:
+    """Combine nonce and counter into a KDF password buffer.
+
+    ``'uint32'`` appends the counter as a big-endian uint32; ``'string'`` appends its
+    decimal digits.
+    """
+    if counter_mode == "string":
+        return nonce + str(counter).encode()
     return nonce + struct.pack(">I", counter)
 
 
@@ -256,18 +283,134 @@ def _buffer_starts_with(buf: bytes, prefix: bytes) -> bool:
     return buf[: len(prefix)] == prefix
 
 
-def _sort_keys(obj: object) -> object:
-    """Recursively sort dict keys; exclude None values (equivalent to JS undefined)."""
-    if isinstance(obj, dict):
-        return {k: _sort_keys(v) for k, v in sorted(obj.items()) if v is not None}
-    if isinstance(obj, list):
-        return [_sort_keys(item) for item in obj]
-    return obj
+_HEX_RE = re.compile(r"(?:[0-9a-fA-F]{2})*")
+
+
+def _hex_to_bytes(value: object) -> bytes | None:
+    """Decode an even-length hex string; ``None`` for non-strings or malformed hex."""
+    if not isinstance(value, str) or _HEX_RE.fullmatch(value) is None:
+        return None
+    return bytes.fromhex(value)
+
+
+_JSON_ESCAPE_RE = re.compile(r'[\x00-\x1f"\\\ud800-\udfff]')
+_JSON_ESCAPES = {
+    '"': '\\"',
+    "\\": "\\\\",
+    "\b": "\\b",
+    "\f": "\\f",
+    "\n": "\\n",
+    "\r": "\\r",
+    "\t": "\\t",
+}
+_ARRAY_INDEX_RE = re.compile(r"0|[1-9][0-9]*")
+_MAX_ARRAY_INDEX = 2**32 - 2
+_MAX_SAFE_INTEGER = 2**53
+
+
+def _js_string(s: str) -> str:
+    """``JSON.stringify`` of a string: JS escapes, lone surrogates as ``\\uXXXX``."""
+    # Re-pair surrogate halves so only lone surrogates remain as surrogate chars.
+    s = s.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "surrogatepass")
+    escaped = _JSON_ESCAPE_RE.sub(
+        lambda m: _JSON_ESCAPES.get(m[0], f"\\u{ord(m[0]):04x}"), s
+    )
+    return f'"{escaped}"'
+
+
+def _js_number(x: float) -> str:
+    """``JSON.stringify`` of a number: IEEE-754 double, ECMAScript ``Number::toString``."""
+    if isinstance(x, int):
+        if -_MAX_SAFE_INTEGER <= x <= _MAX_SAFE_INTEGER:
+            # int.__repr__ like json.dumps: subclasses (IntEnum) may override str().
+            return int.__repr__(x)
+        try:
+            x = float(x)
+        except OverflowError:
+            return "null"
+    if not math.isfinite(x):
+        return "null"
+    if x == 0:
+        return "0"
+    # repr() yields the shortest round-tripping digits, as JS does.
+    sign, digit_tuple, exp = decimal.Decimal(float.__repr__(x)).as_tuple()
+    assert isinstance(exp, int)
+    padded = "".join(map(str, digit_tuple))
+    digits = padded.rstrip("0")
+    k = len(digits)
+    n = exp + len(padded)  # value = 0.digits * 10**n
+    if k <= n <= 21:
+        out = digits + "0" * (n - k)
+    elif 0 < n <= 21:
+        out = f"{digits[:n]}.{digits[n:]}"
+    elif -6 < n <= 0:
+        out = "0." + "0" * -n + digits
+    else:
+        mantissa = f"{digits[0]}.{digits[1:]}" if k > 1 else digits
+        out = f"{mantissa}e{'+' if n > 0 else '-'}{abs(n - 1)}"
+    return f"-{out}" if sign else out
+
+
+def _js_key(key: object) -> str:
+    """Coerce a dict key the way ``json.dumps`` does when the payload is sent."""
+    if isinstance(key, str):
+        return key
+    if key is None or isinstance(key, (int, float)):
+        return json.dumps(key)
+    raise TypeError(
+        f"keys must be str, int, float, bool or None, not {type(key).__name__}"
+    )
+
+
+def _is_array_index(key: str) -> bool:
+    return _ARRAY_INDEX_RE.fullmatch(key) is not None and int(key) <= _MAX_ARRAY_INDEX
+
+
+def _js_json(value: object, sort: bool) -> str:
+    """``JSON.stringify(sortKeys(value))`` (when *sort*) or ``JSON.stringify(value)``.
+
+    JS objects enumerate array-index keys first in numeric order, then the other
+    keys in insertion order; ``sortKeys`` inserts them sorted by UTF-16 code units.
+    ``sortKeys`` does not descend into arrays.
+
+    Raises:
+        ValueError: On a ``__proto__`` key at a sorted level. ``sortKeys`` assigns it
+            through the prototype setter, so JS leaves it unsigned; rejected instead.
+    """
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, str):
+        return _js_string(value)
+    if isinstance(value, (int, float)):
+        return _js_number(value)
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_js_json(item, False) for item in value) + "]"
+    if isinstance(value, dict):
+        items = {_js_key(k): v for k, v in value.items()}
+        index_keys = sorted((k for k in items if _is_array_index(k)), key=int)
+        other_keys = [k for k in items if not _is_array_index(k)]
+        if sort:
+            if "__proto__" in items:
+                raise ValueError("'__proto__' keys cannot be signed")
+            other_keys.sort(key=lambda k: k.encode("utf-16-be", "surrogatepass"))
+        return (
+            "{"
+            + ",".join(
+                f"{_js_string(k)}:{_js_json(items[k], sort)}"
+                for k in index_keys + other_keys
+            )
+            + "}"
+        )
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def _canonical_json(obj: dict) -> str:
-    """Produce a sorted-key, compact JSON string for deterministic signing."""
-    return json.dumps(_sort_keys(obj), separators=(",", ":"), ensure_ascii=False)
+    """Canonical JSON for signing; byte-identical to altcha-lib's ``canonicalJSON``."""
+    return _js_json(obj, True)
 
 
 def _hmac_v2(algorithm: str, data: str | bytes, key: str | bytes) -> bytes:
@@ -280,8 +423,13 @@ def _hmac_v2(algorithm: str, data: str | bytes, key: str | bytes) -> bytes:
     return _hmac_module.new(key, data, getattr(hashlib, hash_name)).digest()
 
 
-def _constant_time_equal(a: str, b: str) -> bool:
-    return _hmac_module.compare_digest(a, b)
+def _constant_time_equal(a: object, b: object) -> bool:
+    """Constant-time string comparison; ``False`` if either side is not a string."""
+    if not isinstance(a, str) or not isinstance(b, str):
+        return False
+    return _hmac_module.compare_digest(
+        a.encode("utf-8", "surrogatepass"), b.encode("utf-8", "surrogatepass")
+    )
 
 
 def _sign_challenge_v2(
@@ -292,7 +440,7 @@ def _sign_challenge_v2(
     hmac_key_secret: str | bytes | None = None,
 ) -> Challenge:
     """Sign challenge parameters with HMAC, optionally also signing the derived key."""
-    if derived_key is not None and hmac_key_secret is not None:
+    if derived_key is not None and hmac_key_secret:
         parameters.key_signature = _hmac_v2(
             hmac_algorithm, derived_key, hmac_key_secret
         ).hex()
@@ -308,15 +456,19 @@ def _sign_challenge_v2(
 # ---------------------------------------------------------------------------
 
 
+# Exact-match lookups with a sha256 fallback, as in altcha-lib's getDigest.
+_SHA_DIGESTS = {"SHA-512": "sha512", "SHA-384": "sha384"}
+_PBKDF2_DIGESTS = {"PBKDF2/SHA-512": "sha512", "PBKDF2/SHA-384": "sha384"}
+
+
 def _sha_digest(algorithm: str) -> str:
-    """Map algorithm string to hashlib name (e.g. 'SHA-256' → 'sha256')."""
-    return algorithm.lower().replace("-", "")
+    """Map algorithm string to hashlib name; unrecognized values use ``'sha256'``."""
+    return _SHA_DIGESTS.get(algorithm, "sha256")
 
 
 def _pbkdf2_digest(algorithm: str) -> str:
-    """Map PBKDF2 algorithm string to hashlib name (e.g. 'PBKDF2/SHA-256' → 'sha256')."""
-    part = algorithm.split("/")[-1]  # 'SHA-256', 'SHA-384', 'SHA-512'
-    return part.lower().replace("-", "")
+    """Map PBKDF2 algorithm string to hashlib name; unrecognized values use ``'sha256'``."""
+    return _PBKDF2_DIGESTS.get(algorithm, "sha256")
 
 
 def derive_key_sha(
@@ -326,7 +478,8 @@ def derive_key_sha(
     Iterated SHA key derivation (mirrors the JS sha.ts algorithm).
 
     Performs ``cost`` iterations of hashing, starting with ``salt + password``,
-    then feeding the previous hash into the next round.
+    then feeding the previous hash into the next round. 'SHA-384' and 'SHA-512'
+    select those digests; any other algorithm uses SHA-256.
     """
     algo = _sha_digest(parameters.algorithm)
     iterations = max(1, parameters.cost)
@@ -342,7 +495,8 @@ def derive_key_sha(
 def derive_key_pbkdf2(
     parameters: ChallengeParameters, salt: bytes, password: bytes
 ) -> bytes:
-    """PBKDF2 key derivation. Algorithm must be 'PBKDF2/SHA-256', 'PBKDF2/SHA-384', or 'PBKDF2/SHA-512'."""
+    """PBKDF2 key derivation. 'PBKDF2/SHA-384' and 'PBKDF2/SHA-512' select those digests;
+    any other algorithm uses SHA-256."""
     digest = _pbkdf2_digest(parameters.algorithm)
     return hashlib.pbkdf2_hmac(
         digest, password, salt, parameters.cost, parameters.key_length
@@ -422,6 +576,7 @@ def create_challenge(
     *,
     derive_key: DeriveKeyFunctionV2 | None = None,
     counter: int | None = None,
+    counter_mode: CounterModeV2 = DEFAULT_COUNTER_MODE,
     key_length: int = DEFAULT_KEY_LENGTH,
     key_prefix: str = DEFAULT_KEY_PREFIX,
     key_prefix_length: int | None = None,
@@ -443,21 +598,29 @@ def create_challenge(
             Defaults to the built-in function selected by *algorithm*.
         counter: If given, pre-solve with this counter and embed the resulting key prefix
             so the client must find this exact counter (deterministic mode).
+        counter_mode: Counter encoding in the KDF password: ``'uint32'`` (default) or
+            ``'string'`` (V1 compatibility). Solver and verifier must use the same mode.
         key_length: Derived key length in bytes. Defaults to 32.
-        key_prefix: Hex prefix the derived key must start with. Defaults to ``'00'``.
+        key_prefix: Hex prefix the derived key must start with; stored lowercased.
+            Defaults to ``'00'``.
         key_prefix_length: Bytes of the derived key used as prefix in deterministic mode.
             Defaults to ``key_length // 2``.
         memory_cost: Memory cost in KiB (Argon2id / scrypt).
         parallelism: Parallelism factor (Argon2id / scrypt).
         expires_at: Expiry as a Unix timestamp (int) or ``datetime``.
-        data: Arbitrary metadata to embed in the challenge parameters.
+        data: Arbitrary metadata to embed in the challenge parameters. Dict keys
+            named ``'__proto__'`` (outside arrays) cannot be signed.
         hmac_secret: Secret used to HMAC-sign the challenge parameters.
-            If omitted, the challenge is unsigned.
-        hmac_key_secret: If set, also HMAC the derived key for fast verification.
+            If omitted or empty, the challenge is unsigned.
+        hmac_key_secret: If set and non-empty, also HMAC the derived key for fast
+            verification.
         hmac_algorithm: HMAC digest algorithm. Defaults to ``'SHA-256'``.
 
     Returns:
         A :class:`Challenge` instance.
+
+    Raises:
+        ValueError: If signing and *data* contains a ``'__proto__'`` key.
     """
     if derive_key is None:
         derive_key = _select_derive_key(algorithm)
@@ -481,7 +644,7 @@ def create_challenge(
         salt=salt,
         cost=cost,
         key_length=key_length,
-        key_prefix=key_prefix,
+        key_prefix=key_prefix.lower(),
         memory_cost=memory_cost,
         parallelism=parallelism,
         expires_at=expires_at_ts,
@@ -492,11 +655,11 @@ def create_challenge(
     if counter is not None:
         nonce_bytes = bytes.fromhex(nonce)
         salt_bytes = bytes.fromhex(salt)
-        password = _make_password(nonce_bytes, counter)
+        password = _make_password(nonce_bytes, counter, counter_mode)
         derived_key_bytes = derive_key(parameters, salt_bytes, password)
         parameters.key_prefix = derived_key_bytes[:key_prefix_length].hex()
 
-    if hmac_secret is None:
+    if not hmac_secret:
         return Challenge(parameters=parameters, signature=None)
 
     return _sign_challenge_v2(
@@ -511,6 +674,7 @@ def solve_challenge(
     counter_start: int = 0,
     counter_step: int = 1,
     timeout: float = 90.0,
+    counter_mode: CounterModeV2 = DEFAULT_COUNTER_MODE,
 ) -> Solution | None:
     """
     Solve a v2 challenge by brute-forcing counter values.
@@ -521,6 +685,8 @@ def solve_challenge(
         counter_start: First counter value to try.
         counter_step: Increment between attempts. Use > 1 for parallel partitioning.
         timeout: Maximum seconds to spend. Returns ``None`` on timeout.
+        counter_mode: Counter encoding in the KDF password: ``'uint32'`` (default) or
+            ``'string'``. Must match the mode used by the issuer.
 
     Returns:
         A :class:`Solution` on success, or ``None`` if no solution was found in time.
@@ -532,7 +698,7 @@ def solve_challenge(
     nonce_bytes = bytes.fromhex(params.nonce)
     salt_bytes = bytes.fromhex(params.salt)
 
-    key_prefix = params.key_prefix
+    key_prefix = params.key_prefix.lower()
     prefix_bytes: bytes | None = (
         bytes.fromhex(key_prefix) if len(key_prefix) % 2 == 0 else None
     )
@@ -541,10 +707,10 @@ def solve_challenge(
     counter = counter_start
 
     while True:
-        if counter % 10 == 0 and timeout and (time.monotonic() - start_time) > timeout:
+        if timeout and (time.monotonic() - start_time) > timeout:
             return None
 
-        password = _make_password(nonce_bytes, counter)
+        password = _make_password(nonce_bytes, counter, counter_mode)
         derived_key = derive_key(params, salt_bytes, password)
 
         matched = (
@@ -570,6 +736,7 @@ def verify_solution(
     *,
     hmac_key_secret: str | bytes | None = None,
     hmac_algorithm: HmacAlgorithmV2 = DEFAULT_HMAC_ALGORITHM,
+    counter_mode: CounterModeV2 = DEFAULT_COUNTER_MODE,
 ) -> VerifySolutionResult:
     """
     Verify a v2 challenge solution.
@@ -583,14 +750,21 @@ def verify_solution(
 
     Args:
         payload: Base64-encoded JSON payload string or a :class:`Payload` object.
-        hmac_secret: Secret used to verify the challenge signature.
+        hmac_secret: Secret used to verify the challenge signature. Must not be empty.
         derive_key: KDF function for re-derivation. Defaults to built-in for the algorithm.
         hmac_key_secret: Secret used to verify the derived-key signature (fast path).
         hmac_algorithm: HMAC digest algorithm. Defaults to ``'SHA-256'``.
+        counter_mode: Counter encoding used when re-deriving the key: ``'uint32'``
+            (default) or ``'string'``. Must match the mode used by the issuer.
 
     Returns:
         A :class:`VerifySolutionResult` describing the outcome.
+
+    Raises:
+        ValueError: If *hmac_secret* is empty.
     """
+    if not hmac_secret:
+        raise ValueError("hmac_secret must not be empty")
     start_time = time.monotonic()
 
     challenge: Challenge
@@ -601,7 +775,7 @@ def verify_solution(
             d = json.loads(base64.b64decode(payload).decode())
             challenge = Challenge.from_dict(d["challenge"])
             solution = Solution.from_dict(d["solution"])
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, RecursionError):
             return VerifySolutionResult(
                 expired=False,
                 invalid_signature=None,
@@ -615,10 +789,10 @@ def verify_solution(
         solution = payload.solution
 
     # 1. Expiration check.
-    if (
-        challenge.parameters.expires_at
-        and challenge.parameters.expires_at < time.time()
-    ):
+    # Non-numeric values are left to the signature check, which rejects them
+    # unless the server signed them.
+    expires_at = challenge.parameters.expires_at
+    if isinstance(expires_at, (int, float)) and expires_at and expires_at < time.time():
         return VerifySolutionResult(
             expired=True,
             invalid_signature=None,
@@ -637,11 +811,15 @@ def verify_solution(
             verified=False,
         )
 
-    # 3. Verify challenge signature (tamper check).
-    params_dict = challenge.parameters.to_dict()
-    canonical = _canonical_json(params_dict)
-    expected_sig = _hmac_v2(hmac_algorithm, canonical, hmac_secret).hex()
-    if not _constant_time_equal(challenge.signature, expected_sig):
+    # 3. Verify challenge signature (tamper check). Data that cannot be serialized
+    # (nested too deeply, '__proto__' keys) cannot carry a valid signature.
+    try:
+        canonical = _canonical_json(challenge.parameters.to_dict())
+    except (RecursionError, ValueError):
+        canonical = None
+    if canonical is None or not _constant_time_equal(
+        challenge.signature, _hmac_v2(hmac_algorithm, canonical, hmac_secret).hex()
+    ):
         return VerifySolutionResult(
             expired=False,
             invalid_signature=True,
@@ -654,11 +832,11 @@ def verify_solution(
 
     # 4a. Fast path: verify derived key via its HMAC signature.
     if params.key_signature and hmac_key_secret:
-        derived_key_bytes = bytes.fromhex(solution.derived_key)
-        expected_key_sig = _hmac_v2(
-            hmac_algorithm, derived_key_bytes, hmac_key_secret
-        ).hex()
-        valid = _constant_time_equal(params.key_signature, expected_key_sig)
+        derived_key_bytes = _hex_to_bytes(solution.derived_key)
+        valid = derived_key_bytes is not None and _constant_time_equal(
+            params.key_signature,
+            _hmac_v2(hmac_algorithm, derived_key_bytes, hmac_key_secret).hex(),
+        )
         return VerifySolutionResult(
             expired=False,
             invalid_signature=False,
@@ -669,16 +847,26 @@ def verify_solution(
 
     # 4b. Slow path: re-derive the key from the counter and compare, and
     # require it to satisfy the signed key prefix.
+    counter = solution.counter
+    if type(counter) is not int or not 0 <= counter <= 0xFFFFFFFF:
+        return VerifySolutionResult(
+            expired=False,
+            invalid_signature=False,
+            invalid_solution=True,
+            time=(time.monotonic() - start_time) * 1000,
+            verified=False,
+        )
+
     if derive_key is None:
         derive_key = _select_derive_key(params.algorithm)
 
     nonce_bytes = bytes.fromhex(params.nonce)
     salt_bytes = bytes.fromhex(params.salt)
-    password = _make_password(nonce_bytes, solution.counter)
+    password = _make_password(nonce_bytes, counter, counter_mode)
     recomputed = derive_key(params, salt_bytes, password)
     recomputed_hex = recomputed.hex()
     key_matches = _constant_time_equal(recomputed_hex, solution.derived_key)
-    prefix_matches = recomputed_hex.startswith(params.key_prefix)
+    prefix_matches = recomputed_hex.startswith(params.key_prefix.lower())
     invalid = not (key_matches and prefix_matches)
 
     return VerifySolutionResult(
@@ -812,6 +1000,17 @@ def parse_verification_data(
         return None
 
 
+# Digests available to WebCrypto, which altcha-lib uses to hash verificationData.
+_SERVER_SIGNATURE_HASHES = frozenset({"sha1", "sha256", "sha384", "sha512"})
+
+
+def _js_utf8(s: str) -> bytes:
+    """UTF-8 encode like JS ``TextEncoder``: lone surrogates become U+FFFD."""
+    return (
+        s.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "replace").encode()
+    )
+
+
 def verify_server_signature(
     payload: str | ServerSignaturePayload,
     hmac_secret: str | bytes,
@@ -823,18 +1022,25 @@ def verify_server_signature(
 
     Args:
         payload: Base64-encoded JSON string or a :class:`ServerSignaturePayload` object.
-        hmac_secret: Secret used to verify the HMAC signature.
+            Its ``algorithm`` (hash of ``verificationData``) must be SHA-1, SHA-256,
+            SHA-384 or SHA-512; malformed payloads fail with ``invalid_signature``.
+        hmac_secret: Secret used to verify the HMAC signature. Must not be empty.
         hmac_algorithm: HMAC digest algorithm. Defaults to ``'SHA-256'``.
 
     Returns:
         A :class:`VerifyServerSignatureResult` describing the outcome.
+
+    Raises:
+        ValueError: If *hmac_secret* is empty.
     """
+    if not hmac_secret:
+        raise ValueError("hmac_secret must not be empty")
     start_time = time.monotonic()
 
     if isinstance(payload, str):
         try:
             p = ServerSignaturePayload.from_base64(payload)
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, RecursionError):
             return VerifyServerSignatureResult(
                 expired=False,
                 invalid_signature=True,
@@ -847,8 +1053,21 @@ def verify_server_signature(
         p = payload
 
     # Compute expected signature: HMAC(hash(verificationData), secret)
-    hash_name = p.algorithm.lower().replace("-", "")
-    data_hash = hashlib.new(hash_name, p.verification_data.encode()).digest()
+    hash_name = (
+        p.algorithm.lower().replace("-", "") if isinstance(p.algorithm, str) else None
+    )
+    if hash_name not in _SERVER_SIGNATURE_HASHES or not isinstance(
+        p.verification_data, str
+    ):
+        return VerifyServerSignatureResult(
+            expired=False,
+            invalid_signature=True,
+            invalid_solution=True,
+            time=(time.monotonic() - start_time) * 1000,
+            verified=False,
+            verification_data=None,
+        )
+    data_hash = hashlib.new(hash_name, _js_utf8(p.verification_data)).digest()
     expected_sig = _hmac_v2(hmac_algorithm, data_hash, hmac_secret).hex()
 
     verification_data = parse_verification_data(p.verification_data)

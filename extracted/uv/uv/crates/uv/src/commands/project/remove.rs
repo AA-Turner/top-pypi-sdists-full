@@ -34,8 +34,8 @@ use crate::commands::project::install_target::InstallTarget;
 use crate::commands::project::lock::LockMode;
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
-    LinkErrorReporting, ProjectEnvironment, ProjectEnvironmentPolicy, ProjectError,
-    ProjectInterpreter, ScriptInterpreter, UniversalState, WorkspacePython,
+    LinkErrorReporting, ProjectEnvironment, ProjectEnvironmentPolicy, ProjectEnvironmentTarget,
+    ProjectError, ProjectInterpreter, ProjectPythonRequest, ScriptInterpreter, UniversalState,
 };
 use crate::commands::{ExitStatus, UvError, project};
 use crate::printer::Printer;
@@ -244,7 +244,7 @@ pub(crate) async fn remove(
         RemoveTarget::Project(project) => {
             if no_sync {
                 // Discover the interpreter.
-                let workspace_python = WorkspacePython::from_request(
+                let project_python = ProjectPythonRequest::from_request(
                     python.as_deref().map(PythonRequest::parse),
                     Some(project.workspace()),
                     &groups,
@@ -253,9 +253,8 @@ pub(crate) async fn remove(
                 )
                 .await?;
                 let interpreter = ProjectInterpreter::discover(
-                    project.workspace(),
-                    &groups,
-                    workspace_python,
+                    ProjectEnvironmentTarget::from(project.workspace()),
+                    project_python,
                     &client_builder,
                     python_preference,
                     python_arch,
@@ -274,7 +273,7 @@ pub(crate) async fn remove(
             } else {
                 // Discover or create the virtual environment.
                 let environment = ProjectEnvironment::get_or_init(
-                    project.workspace(),
+                    ProjectEnvironmentTarget::from(project.workspace()),
                     None,
                     &groups,
                     python.as_deref().map(PythonRequest::parse),

@@ -33,6 +33,7 @@ from laya.serve import (  # noqa: E402
     _env_bool,
     _LONE_SURROGATE_DETAIL,
     _resolve_max_token_budget,
+    _resolve_idle_unload_seconds,
     _resolve_max_loaded,
     _resolve_model,
     create_app,
@@ -1388,6 +1389,237 @@ def test_batch_too_many_states_returns_413(monkeypatch):
     r = client.post("/v1/systemone/batch", json=oversized)
     assert r.status_code == 413
     assert "too many states" in r.json()["detail"]
+
+
+def _noul_questions(n):
+    """`n` minimal questions, so a batch's row count is `len(states) * n` and nothing else."""
+    return {("q%03d" % i): {"type": "noul", "instructions": "is it urgent?"} for i in range(n)}
+
+
+def _batch_env_client(monkeypatch, **env):
+    """A batch client with the batch-token knob explicitly set, or explicitly unset.
+
+    Every test below states the budget it measures against. Without this an exported
+    `LAYA_MAX_BATCH_TOKENS` silently changes the chunk and these pass or fail for a reason that is not
+    in the file -- there is no `conftest.py` in this repo to isolate the environment, and
+    `_batch_client` clears only `LAYA_API_KEY`.
+    """
+    if "LAYA_MAX_BATCH_TOKENS" in env:
+        monkeypatch.setenv("LAYA_MAX_BATCH_TOKENS", env["LAYA_MAX_BATCH_TOKENS"])
+    else:
+        monkeypatch.delenv("LAYA_MAX_BATCH_TOKENS", raising=False)
+    return _batch_client(monkeypatch)
+
+
+def _sent_batch_size(fake):
+    """The `batch_size` the route handed `predict_batch`, or the sentinel when it passed none."""
+    _, kwargs = fake.batch_calls[0]
+    return kwargs["batch_size"] if "batch_size" in kwargs else "<absent>"
+
+
+# --------------------------------------------------------------------- the batch token budget
+#
+# `/v1/systemone/batch` collates `states x questions` rows into one tensor and `batch_size` defaults to
+# `None` -- "all in one pass" -- so the two field caps multiply: 64 states of 64 questions is 4096 rows
+# from a 4.1 KB body. The budget SPLITS the work rather than refusing it, because a refusal would have
+# to be right about hardware this process cannot see: measured on english, peak RSS did not move
+# between 32, 64 and 128 rows. So the contract under test is "one pass stays inside the budget, and a
+# request that already fits is passed no `batch_size` at all".
+
+def test_batch_within_the_budget_is_passed_no_batch_size(monkeypatch):
+    """A request that fits must behave byte-identically, which means not passing `batch_size`.
+
+    `predict_batch` warns that changing batch shapes can move floating-point results, so a request
+    that works today must not start answering differently. Not-passing is the only way to guarantee
+    that: it leaves `predict_batch` on its own default.
+    """
+    import laya.serve as serve_mod
+
+    client, fake = _batch_env_client(monkeypatch)
+    rows = serve_mod.DEFAULT_MAX_BATCH_TOKENS // serve_mod._BATCH_ROW_TOKENS_ASSUMED
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"] * 8, "questions": _noul_questions(rows // 8)})
+    assert r.status_code == 200, r.text
+    requests, kwargs = fake.batch_calls[0]
+    assert len(requests) * len(requests[0]["questions"]) == rows, "exactly at the budget"
+    assert "batch_size" not in kwargs, kwargs
+
+
+def test_batch_over_the_budget_is_split_not_refused(monkeypatch):
+    """The 4096-row shape still answers; it is chunked so one pass stays inside the budget."""
+    import laya.serve as serve_mod
+
+    client, fake = _batch_env_client(monkeypatch)
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"] * serve_mod.MAX_BATCH_STATES,
+                          "questions": _noul_questions(serve_mod.MAX_QUESTIONS)})
+    assert r.status_code == 200, r.text
+    rows_per_pass = serve_mod.DEFAULT_MAX_BATCH_TOKENS // serve_mod._BATCH_ROW_TOKENS_ASSUMED
+    expected = max(1, rows_per_pass // serve_mod.MAX_QUESTIONS)
+    assert _sent_batch_size(fake) == expected
+    requests, _ = fake.batch_calls[0]
+    assert len(requests) == serve_mod.MAX_BATCH_STATES, "every state is still sent"
+    assert expected * serve_mod.MAX_QUESTIONS * serve_mod._BATCH_ROW_TOKENS_ASSUMED \
+        <= serve_mod.DEFAULT_MAX_BATCH_TOKENS, "one pass must fit the budget"
+
+
+def test_batch_one_row_over_the_budget_is_split(monkeypatch):
+    """One row over, with both factors inside their own caps, so the comparison cannot be off by one."""
+    import laya.serve as serve_mod
+
+    client, fake = _batch_env_client(monkeypatch)
+    rows = serve_mod.DEFAULT_MAX_BATCH_TOKENS // serve_mod._BATCH_ROW_TOKENS_ASSUMED
+    states, questions = 9, rows // 8
+    assert states <= serve_mod.MAX_BATCH_STATES and questions <= serve_mod.MAX_QUESTIONS
+    assert states * questions > rows, "must be over by at least one row"
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"] * states, "questions": _noul_questions(questions)})
+    assert r.status_code == 200, r.text
+    assert _sent_batch_size(fake) == max(1, rows // questions)
+
+
+def test_batch_a_raised_max_len_chunks_harder(monkeypatch):
+    """A row cap would be the wrong bound, because `max_len` is a request field.
+
+    `max_len` is capped only by `DEFAULT_MAX_TOKEN_BUDGET` (8192), 16x the english checkpoint's own
+    512, so 256 rows at 8192 is the same token count as 4096 rows at 512 and collates the same tensor.
+    Counting tokens means a wider row buys proportionally fewer rows per pass.
+    """
+    import laya.serve as serve_mod
+
+    wide = serve_mod.DEFAULT_MAX_TOKEN_BUDGET
+    assert wide > serve_mod._BATCH_ROW_TOKENS_ASSUMED
+    rows = serve_mod.DEFAULT_MAX_BATCH_TOKENS // serve_mod._BATCH_ROW_TOKENS_ASSUMED
+
+    narrow_client, narrow = _batch_env_client(monkeypatch)
+    narrow_client.post("/v1/systemone/batch",
+                       json={"states": ["hi"] * 8, "questions": _noul_questions(rows // 8)})
+    assert "batch_size" not in narrow.batch_calls[0][1], "fits at the default width"
+
+    wide_client, wide_fake = _batch_env_client(monkeypatch)
+    r = wide_client.post("/v1/systemone/batch",
+                         json={"states": ["hi"] * 8, "questions": _noul_questions(rows // 8),
+                               "max_len": wide})
+    assert r.status_code == 200, r.text
+    rows_per_pass = serve_mod.DEFAULT_MAX_BATCH_TOKENS // wide
+    assert _sent_batch_size(wide_fake) == max(1, rows_per_pass // (rows // 8))
+
+
+def test_batch_an_explicit_batch_size_is_never_overridden(monkeypatch):
+    """The caller asked for a shape. Planning one on top would silently change what they requested."""
+    import laya.serve as serve_mod
+
+    client, fake = _batch_env_client(monkeypatch)
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"] * serve_mod.MAX_BATCH_STATES,
+                          "questions": _noul_questions(serve_mod.MAX_QUESTIONS),
+                          "batch_size": 7})
+    assert r.status_code == 200, r.text
+    assert _sent_batch_size(fake) == 7
+
+
+def test_batch_chunking_follows_a_raised_budget(monkeypatch):
+    """A deployment whose hardware can take more stops being chunked."""
+    import laya.serve as serve_mod
+
+    client, fake = _batch_env_client(monkeypatch, LAYA_MAX_BATCH_TOKENS="2097152")
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"] * serve_mod.MAX_BATCH_STATES,
+                          "questions": _noul_questions(serve_mod.MAX_QUESTIONS)})
+    assert r.status_code == 200, r.text
+    assert "batch_size" not in fake.batch_calls[0][1], "4096 rows x 512 fits a 2 097 152 budget"
+
+
+def test_batch_chunking_follows_a_lowered_budget(monkeypatch):
+    """And a LOWERED one -- the regime an operator on small hardware actually uses."""
+    import laya.serve as serve_mod
+
+    assert 2048 < serve_mod.DEFAULT_MAX_BATCH_TOKENS, "2048 must be the lowered regime"
+    client, fake = _batch_env_client(monkeypatch, LAYA_MAX_BATCH_TOKENS="2048")
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"] * 8, "questions": _noul_questions(2)})
+    assert r.status_code == 200, r.text
+    # 2048 / 512 = 4 rows per pass, / 2 questions = 2 states per pass
+    assert _sent_batch_size(fake) == 2
+
+
+@pytest.mark.parametrize("raw", ["nonsense", "0", "-5", "3.5"])
+def test_batch_budget_warns_and_falls_back_on_an_unusable_value(monkeypatch, caplog, raw):
+    """A bad knob must not disable the chunking, and must say so in the log."""
+    import laya.serve as serve_mod
+
+    monkeypatch.setenv("LAYA_MAX_BATCH_TOKENS", raw)
+    with caplog.at_level(logging.WARNING, logger="laya.serve"):
+        assert serve_mod._resolve_max_batch_tokens() == serve_mod.DEFAULT_MAX_BATCH_TOKENS
+    assert "LAYA_MAX_BATCH_TOKENS" in caplog.text, caplog.text
+    assert ("invalid" in caplog.text or "must be positive" in caplog.text), caplog.text
+
+    client, fake = _batch_client(monkeypatch)
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"] * serve_mod.MAX_BATCH_STATES,
+                          "questions": _noul_questions(serve_mod.MAX_QUESTIONS)})
+    assert r.status_code == 200, r.text
+    assert _sent_batch_size(fake) != "<absent>", "the fallback budget must still chunk"
+
+
+def test_batch_an_empty_environment_value_falls_back_silently(monkeypatch):
+    """Unset and empty both mean "not configured", which is not worth a warning."""
+    import laya.serve as serve_mod
+
+    monkeypatch.setenv("LAYA_MAX_BATCH_TOKENS", "")
+    assert serve_mod._resolve_max_batch_tokens() == serve_mod.DEFAULT_MAX_BATCH_TOKENS
+
+
+def test_batch_chunk_plan_floors_at_one_state(monkeypatch):
+    """A single state cannot be split, so the plan stops at one state per pass and never 0.
+
+    At that floor one pass carries `len(questions)` rows, which is exactly what one `/v1/systemone`
+    request can already ask for -- so the batch route's worst pass is the single route's worst pass.
+    """
+    import laya.serve as serve_mod
+
+    monkeypatch.delenv("LAYA_MAX_BATCH_TOKENS", raising=False)
+    plan = serve_mod._batch_chunk_size(serve_mod.MAX_BATCH_STATES, serve_mod.MAX_QUESTIONS,
+                                       serve_mod.DEFAULT_MAX_TOKEN_BUDGET)
+    assert plan == 1, plan
+    assert serve_mod._batch_chunk_size(1, serve_mod.MAX_QUESTIONS,
+                                       serve_mod.DEFAULT_MAX_TOKEN_BUDGET) == 1
+
+
+@pytest.mark.parametrize("states,questions", [(0, 4), (4, 0), (0, 0)])
+def test_batch_chunk_plan_is_none_for_a_degenerate_shape(monkeypatch, states, questions):
+    """Nothing to split, and no division by the question count."""
+    import laya.serve as serve_mod
+
+    monkeypatch.delenv("LAYA_MAX_BATCH_TOKENS", raising=False)
+    assert serve_mod._batch_chunk_size(states, questions) is None
+
+
+def test_batch_an_empty_questions_body_is_not_chunked(monkeypatch):
+    """Zero rows: no plan, no crash, and `predict_batch` short-circuits on its own."""
+    client, fake = _batch_env_client(monkeypatch)
+    r = client.post("/v1/systemone/batch", json={"states": ["hi"] * 8, "questions": {}})
+    assert r.status_code == 200, r.text
+    assert "batch_size" not in fake.batch_calls[0][1]
+
+
+def test_batch_a_non_object_questions_body_keeps_its_own_400(monkeypatch):
+    """The planner must not turn a 400 into something else by calling len() on a list."""
+    client, _ = _batch_env_client(monkeypatch)
+    r = client.post("/v1/systemone/batch", json={"states": ["hi"] * 8, "questions": ["nope"] * 300})
+    assert r.status_code == 400, r.text
+    assert "'questions' must be an object" in r.json()["detail"], r.json()["detail"]
+
+
+def test_batch_too_many_questions_still_gets_its_own_413(monkeypatch):
+    """Chunking does not replace the per-question cap: 300 questions is still refused, by name."""
+    import laya.serve as serve_mod
+
+    client, _ = _batch_env_client(monkeypatch)
+    r = client.post("/v1/systemone/batch",
+                    json={"states": ["hi"], "questions": _noul_questions(serve_mod.MAX_QUESTIONS + 1)})
+    assert r.status_code == 413, r.text
+    assert "too many questions" in r.json()["detail"], r.json()["detail"]
 
 
 def test_batch_individual_oversized_state_returns_413(monkeypatch):
@@ -2834,3 +3066,164 @@ def test_http_api_page_documents_the_gate_report_on_an_answer():
         assert set(answer) == discriminator | rows[answer["type"]] | rows["all"], (
             "the sample's %s answer says %s, its table row plus the shared row say %s" % (
                 qid, sorted(answer), sorted(discriminator | rows[answer["type"]] | rows["all"])))
+
+
+class IdleRouter(FakeRouter):
+    def __init__(self):
+        import threading
+        super().__init__()
+        self.loaded = ["english"]
+        self.unloaded = threading.Event()
+        self.unload_threads = []
+
+    def unload(self):
+        import threading
+        self.unload_threads.append(threading.current_thread().name)
+        self.loaded = []
+        self.unloaded.set()
+
+    def predict(self, *args, **kwargs):
+        self.loaded = ["english"]
+        return super().predict(*args, **kwargs)
+
+
+@pytest.mark.parametrize("raw, expected", [
+    (None, 0.0), ("", 0.0), ("  ", 0.0), ("0", 0.0), ("-5", 0.0), ("abc", 0.0),
+    ("nan", 0.0), ("inf", 0.0), ("-inf", 0.0), ("1e999", 0.0),
+    ("300", 300.0), (" 0.5 ", 0.5), ("1e2", 100.0),
+])
+def test_idle_unload_setting_is_finite_and_opt_in(monkeypatch, raw, expected):
+    if raw is None:
+        monkeypatch.delenv("LAYA_IDLE_UNLOAD_SECONDS", raising=False)
+    else:
+        monkeypatch.setenv("LAYA_IDLE_UNLOAD_SECONDS", raw)
+    assert _resolve_idle_unload_seconds() == expected
+
+
+def test_idle_unload_is_off_by_default(monkeypatch):
+    monkeypatch.delenv("LAYA_IDLE_UNLOAD_SECONDS", raising=False)
+    router = IdleRouter()
+    with TestClient(create_app(router)) as client:
+        assert not router.unloaded.wait(0.15)
+        assert router.loaded == ["english"]
+        assert "idle_seconds" not in client.get("/health").json()
+
+
+def test_idle_unload_reloads_on_the_next_request(monkeypatch):
+    monkeypatch.setenv("LAYA_IDLE_UNLOAD_SECONDS", "0.1")
+    monkeypatch.delenv("LAYA_API_KEY", raising=False)
+    router = IdleRouter()
+    with TestClient(create_app(router)) as client:
+        first = client.post("/v1/systemone", json=REQ).json()
+        assert router.unloaded.wait(2.0)
+        health = client.get("/health").json()
+        assert health["loaded"] == [] and health["idle_unload_seconds"] == 0.1
+        assert health["idle_seconds"] >= 0.1
+        assert client.post("/v1/systemone", json=REQ).json() == first
+        assert router.loaded == ["english"]
+    assert all(name.startswith("laya-infer") for name in router.unload_threads)
+
+
+def test_idle_details_stay_authenticated(monkeypatch):
+    monkeypatch.setenv("LAYA_IDLE_UNLOAD_SECONDS", "300")
+    monkeypatch.setenv("LAYA_API_KEY", "key")
+    with TestClient(create_app(IdleRouter())) as client:
+        assert client.get("/health").json() == {"status": "ok"}
+        assert client.get("/health", headers={"Authorization": "Bearer key"}).json()["idle_unload_seconds"] == 300
+
+
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("cancel", [False, True])
+@pytest.mark.parametrize("fail", [False, True])
+def test_idle_window_starts_after_worker_finishes_even_on_cancel_or_failure(monkeypatch, batch, cancel, fail):
+    import threading
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+
+    monkeypatch.setenv("LAYA_IDLE_UNLOAD_SECONDS", "0.2")
+    monkeypatch.delenv("LAYA_API_KEY", raising=False)
+
+    class BlockingRouter(IdleRouter):
+        def __init__(self):
+            super().__init__()
+            self.started = threading.Event()
+            self.release = threading.Event()
+            self.finished = threading.Event()
+            self.active = False
+
+        def predict(self, *args, **kwargs):
+            self.active = True
+            self.started.set()
+            try:
+                assert self.release.wait(3.0)
+                if fail:
+                    raise ValueError("test failure")
+                return super().predict(*args, **kwargs)
+            finally:
+                self.active = False
+                self.finished.set()
+
+        def unload(self):
+            assert not self.active, "unload overlapped inference"
+            super().unload()
+
+    router = BlockingRouter()
+    path = "/v1/systemone/batch" if batch else "/v1/systemone"
+    body = {"states": [REQ["state"]], "questions": REQ["questions"]} if batch else REQ
+    app = create_app(router)
+    if cancel:
+        import httpx
+
+        async def exercise():
+            async with app.router.lifespan_context(app):
+                async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://test") as client:
+                    task = asyncio.create_task(client.post(path, json=body))
+                    try:
+                        assert await asyncio.to_thread(router.started.wait, 2.0)
+                        task.cancel()
+                        with pytest.raises(asyncio.CancelledError):
+                            await task
+                        # A reaper can now queue behind the still-running forward pass.
+                        await asyncio.sleep(0.3)
+                        assert not router.unloaded.is_set()
+                        router.release.set()
+                        assert await asyncio.to_thread(router.finished.wait, 2.0)
+                        assert not await asyncio.to_thread(router.unloaded.wait, 0.1)
+                        assert await asyncio.to_thread(router.unloaded.wait, 2.0)
+                    finally:
+                        router.release.set()
+        asyncio.run(exercise())
+    else:
+        with TestClient(app) as client, ThreadPoolExecutor(max_workers=1) as callers:
+            request = callers.submit(client.post, path, json=body)
+            try:
+                assert router.started.wait(2.0)
+                time.sleep(0.3)
+                assert not router.unloaded.is_set()
+                router.release.set()
+                assert request.result(timeout=2.0).status_code == (422 if fail else 200)
+                assert not router.unloaded.wait(0.1)
+                assert router.unloaded.wait(2.0)
+            finally:
+                router.release.set()
+
+
+def test_idle_unload_retries_failure_and_stops_at_shutdown(monkeypatch):
+    monkeypatch.setenv("LAYA_IDLE_UNLOAD_SECONDS", "0.05")
+
+    class RetryRouter(IdleRouter):
+        attempts = 0
+
+        def unload(self):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("test unload failure")
+            super().unload()
+
+    router = RetryRouter()
+    with TestClient(create_app(router)):
+        assert router.unloaded.wait(2.0)
+    assert router.attempts == 2
+    router.loaded = ["english"]
+    router.unloaded.clear()
+    assert not router.unloaded.wait(0.15)

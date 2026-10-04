@@ -276,7 +276,7 @@ def read_value_array(
     elif node.m_Type == "string":
         value = [reader.read_aligned_string() for _ in range(size)]
     elif node.m_Type == "TypelessData":
-        value = [reader.read_bytes() for _ in range(size)]
+        value = [reader.read_byte_array() for _ in range(size)]
     elif node.m_Type == "pair":
         key_node = node.m_Children[0]
         value_node = node.m_Children[1]

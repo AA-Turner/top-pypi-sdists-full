@@ -334,10 +334,41 @@ def anthropic_thinking(
     return _anthropic_budget_thinking(canonical, params, ctx)
 
 
+def effort_lookup(table: dict[str, Any], effort: str, unknown: Any = None) -> Any:
+    """``table[effort]``; an effort ABOVE the table's top lands on the TOP entry.
+
+    Live 2026-10-04: the Gemini 2.5 effort->budget table stops at ``xhigh``, so
+    ``max`` fell to the 1,024 "unknown effort" budget — maximum effort became
+    minimal thinking (and Anthropic budget mode sent no thinking at all). The
+    model's real ceiling belongs in the table's top (or the cell's to_number /
+    clamp); ``unknown`` is only for a value that is not on the scale."""
+    if effort in table:
+        return table[effort]
+    if effort in D.EFFORT_SCALE:
+        ranked = [k for k in table if k in D.EFFORT_SCALE]
+        if ranked:
+            top = max(ranked, key=D.EFFORT_SCALE.index)
+            if D.EFFORT_SCALE.index(effort) > D.EFFORT_SCALE.index(top):
+                return table[top]
+    return unknown
+
+
+def _unset_output_default(ctx: ProcessorContext) -> int:
+    """The output cap sent when the caller declared none: the MODEL'S REAL MAXIMUM
+    (``ctx.output_maximum``, ai.model_definition.max_tokens) whenever it is known.
+    A cell's ``default_max_tokens`` is a fallback only — an api- or profile-layer
+    cell cannot know each member model's room (live 2026-10-04: the anthropic_chat
+    api cell said 32768 and Claude Haiku 4.5 / Sonnet 4.5 were capped at half
+    their 64,000). Guard: scripts/check_output_ceiling_defaults.py (the wire)."""
+    if ctx.output_maximum:
+        return int(ctx.output_maximum)
+    return int(ctx.config.get("default_max_tokens", ANTHROPIC_DEFAULT_MAX_TOKENS))
+
+
 def _anthropic_budget_thinking(
     canonical: dict[str, Any], params: dict[str, Any], ctx: ProcessorContext
 ) -> dict[str, Any]:
-    default_max = ctx.config.get("default_max_tokens", ANTHROPIC_DEFAULT_MAX_TOKENS)
+    default_max = _unset_output_default(ctx)
     current_max = _current_max_tokens(canonical, params)
     min_budget = int(ctx.table("min_budget_tokens", D.ANTHROPIC_MIN_BUDGET_TOKENS))
     headroom = int(ctx.table("max_tokens_headroom", D.ANTHROPIC_MAX_TOKENS_HEADROOM))
@@ -349,7 +380,7 @@ def _anthropic_budget_thinking(
     else:
         effort = _explicit_effort(canonical)
         if effort:
-            thinking_budget = ctx.to_number_table(D.ANTHROPIC_EFFORT_TO_BUDGET).get(effort)
+            thinking_budget = effort_lookup(ctx.to_number_table(D.ANTHROPIC_EFFORT_TO_BUDGET), effort)
 
     if not thinking_budget:  # None or 0 — no thinking; translator max_tokens fallback
         params["max_tokens"] = ctx.cap_output(current_max if current_max is not None else default_max)
@@ -375,19 +406,49 @@ def _anthropic_budget_thinking(
     if current_max is None:
         validated_max = max(thinking_budget + headroom, default_max)
     elif current_max <= thinking_budget:
-        validated_max = thinking_budget + headroom
+        # Chair ruling R-a (2026-10-04): a translation never DEFEATS what the person
+        # explicitly set. Their output cap is honoured; the THINKING yields to fit
+        # under it (live e7c78e54: effort max + cap 50 was sent max_tokens 26624).
+        # Anthropic needs budget >= min_budget and max_tokens > budget, and the
+        # answer needs room (R-b: an empty answer is a failure) — so the budget
+        # shrinks to leave ``headroom`` visible tokens, and when even the floor
+        # budget cannot fit, thinking is switched off (the nearest honest
+        # equivalent). Silent: a conversion is the system working.
+        cap = ctx.cap_output(current_max)
+        fitted = cap - headroom
+        if fitted >= min_budget:
+            ctx.adjustments.append(
+                Adjustment(
+                    key="thinking_budget",
+                    action="clamped",
+                    canonical_value=thinking_budget,
+                    sent_value=fitted,
+                    provenance="computed",
+                    reason=(
+                        f"thinking budget {thinking_budget} fitted to {fitted} so the "
+                        f"requested output cap {cap} still leaves room for the answer"
+                    ),
+                )
+            )
+            params["thinking"] = {"type": "enabled", "budget_tokens": fitted}
+            params["max_tokens"] = cap
+            return params
         ctx.adjustments.append(
             Adjustment(
-                key="max_output_tokens",
-                action="clamped",
-                canonical_value=current_max,
-                sent_value=validated_max,
+                key="thinking_budget",
+                action="omitted",
+                canonical_value=thinking_budget,
+                sent_value=None,
+                provenance="computed",
                 reason=(
-                    f"Anthropic requires max_tokens ({current_max}) > thinking.budget_tokens "
-                    f"({thinking_budget}); adjusted max_tokens to {validated_max}"
+                    f"the requested output cap {cap} is below the smallest thinking budget "
+                    f"Anthropic accepts ({min_budget}); thinking switched off to honour the cap"
                 ),
             )
         )
+        params.pop("thinking", None)
+        params["max_tokens"] = cap
+        return params
     else:
         validated_max = current_max
 
@@ -468,7 +529,7 @@ def _always_on_thinking_floor(
 def _anthropic_adaptive_thinking(
     canonical: dict[str, Any], params: dict[str, Any], ctx: ProcessorContext
 ) -> dict[str, Any]:
-    default_max = ctx.config.get("default_max_tokens", ANTHROPIC_DEFAULT_MAX_TOKENS)
+    default_max = _unset_output_default(ctx)
     current_max = _current_max_tokens(canonical, params)
     # Adaptive thinking has no budget_tokens constraint — max_tokens is the
     # caller's value, translator-defaulted when unset (thinking or not).
@@ -508,13 +569,11 @@ def _anthropic_adaptive_thinking(
             canonical["thinking_level"]
         )
 
-    # Priority 4: include_thoughts=False disables thinking outright.
-    if canonical.get("include_thoughts") is False:
-        if always_on:
-            return _always_on_thinking_floor(
-                params, ctx, effort_level=effort_level, key="include_thoughts", requested=False
-            )
-        return params
+    # VISIBILITY IS NEVER DEPTH (settings-translation C7b). include_thoughts=False
+    # and reasoning_summary="never" HIDE the thoughts; they never turn thinking
+    # off and never change its effort. Before C7b include_thoughts=False dropped
+    # the thinking block (or, always-on, floored the effort to "low").
+    hide = canonical.get("include_thoughts") is False or canonical.get("reasoning_summary") == "never"
     if thinking_off:
         if always_on:
             return _always_on_thinking_floor(
@@ -526,6 +585,12 @@ def _anthropic_adaptive_thinking(
             )
         return params
     if effort_level is None:
+        # No depth asked for. A model that thinks anyway (always-on, or
+        # processor_config.thinks_by_default — Opus 5 / Sonnet 5, probed) is
+        # told to hide its thoughts at ITS OWN default effort; any other model
+        # is not thinking, so there is nothing to hide and nothing is sent.
+        if hide and (always_on or ctx.config.get("thinks_by_default")):
+            params["thinking"] = {"type": "adaptive", "display": "omitted"}
         return params
 
     # ai_047: engine-side ceiling — the second gate behind ui_values.
@@ -536,8 +601,9 @@ def _anthropic_adaptive_thinking(
         return params
 
     # Always send display explicitly so the whole adaptive class streams
-    # thinking unless the caller opted out with reasoning_summary="never".
-    display = "omitted" if canonical.get("reasoning_summary") == "never" else "summarized"
+    # thinking unless the caller hid it (include_thoughts=False /
+    # reasoning_summary="never").
+    display = "omitted" if hide else "summarized"
     params["thinking"] = {"type": "adaptive", "display": display}
     existing = params.get("output_config")
     if isinstance(existing, dict):
@@ -684,14 +750,16 @@ def google_thinking(
     target = ctx.config.get("target", "thinking_config")
     if mode == "legacy":
         fragment = _google_thinking_legacy_fragment(canonical, ctx)
-        # A budget authored for a bigger model converts instead of 400ing.
-        # Google's field accepts [-1, 65535] on every legacy model (probed live
-        # 2026-10-02: 65,535 accepted, 9,999,999 rejected), and on 2.5 thinking
-        # counts against output, so the model's output maximum bounds it too.
-        # processor_config.max_thinking_budget may declare a tighter one.
-        ceiling = ctx.cap_output(
-            int(ctx.config.get("max_thinking_budget") or D.GOOGLE_THINKING_BUDGET_FIELD_MAX)
-        )
+        # A budget authored for a bigger model converts instead of 400ing. The
+        # ceiling is the model's THINKING-BUDGET ceiling — never its output
+        # maximum (live 2026-10-04, da318b6f: 2.5 Pro's 100,000 was clamped to
+        # its 64,000 OUTPUT max and Google refused it; the budget range is
+        # per model — boundary-probed 2026-10-04: 2.5 Pro 128..32768, 2.5 Flash
+        # 0..24576, 2.5 Flash-Lite 512..24576). The per-model ceiling is the
+        # cell's processor_config.max_thinking_budget; undeclared, only the
+        # field's own range applies (the safety net repairs from Google's
+        # stated range and files the missing cell).
+        ceiling = _google_budget_ceiling(ctx)
         budget = fragment.get("thinking_budget")
         if isinstance(budget, int) and budget > ceiling:
             ctx.adjustments.append(
@@ -704,6 +772,21 @@ def google_thinking(
                 )
             )
             fragment["thinking_budget"] = ceiling
+        # ...and a budget BELOW the model's floor clamps UP to it (record ae16d0f2:
+        # "The thinking budget 50 is invalid. Please choose a value between 128 and
+        # 32768" — 2.5 Pro). The floor is the cell's processor_config.min_thinking_budget.
+        floor = ctx.config.get("min_thinking_budget")
+        if floor is not None and isinstance(budget, int) and 0 < budget < int(floor):
+            ctx.adjustments.append(
+                Adjustment(
+                    key="thinking_budget",
+                    action="clamped",
+                    canonical_value=budget,
+                    sent_value=int(floor),
+                    reason=f"thinking_budget {budget} raised to this model's minimum {int(floor)}",
+                )
+            )
+            fragment["thinking_budget"] = int(floor)
         params[target] = fragment
         return params
     if mode == "gemini_3":
@@ -716,18 +799,16 @@ def google_thinking(
     )
 
 
+def _google_budget_ceiling(ctx: ProcessorContext) -> int:
+    """The model's thinking-budget ceiling: the declared one, else the field's range."""
+    return int(ctx.config.get("max_thinking_budget") or D.GOOGLE_THINKING_BUDGET_FIELD_MAX)
+
+
 def _google_thinking_legacy_fragment(
     canonical: dict[str, Any], ctx: ProcessorContext
 ) -> dict[str, Any]:
     fragment: dict[str, Any] = {}
     include_thoughts = canonical.get("include_thoughts")
-    if include_thoughts is False:
-        fragment["include_thoughts"] = False
-        fragment["thinking_budget"] = ctx.table(
-            "hidden_thoughts_budget", D.GOOGLE_LEGACY_HIDDEN_THOUGHTS_BUDGET
-        )
-        return fragment
-
     if include_thoughts is not None:
         fragment["include_thoughts"] = include_thoughts
 
@@ -737,12 +818,25 @@ def _google_thinking_legacy_fragment(
     else:
         effort = _explicit_effort(canonical)
         if effort:
-            thinking_budget = ctx.to_number_table(D.GOOGLE_LEGACY_EFFORT_TO_BUDGET).get(
-                effort, ctx.table("unknown_effort_budget", D.GOOGLE_LEGACY_UNKNOWN_EFFORT_BUDGET)
+            thinking_budget = effort_lookup(
+                ctx.to_number_table(D.GOOGLE_LEGACY_EFFORT_TO_BUDGET),
+                effort,
+                ctx.table("unknown_effort_budget", D.GOOGLE_LEGACY_UNKNOWN_EFFORT_BUDGET),
             )
+            # MAX effort is the model's real top budget when its ceiling is
+            # declared (V2 battery 3e: 2.5 Pro max sent 24,576; its top is 32,768).
+            declared = ctx.config.get("max_thinking_budget")
+            if effort == D.EFFORT_SCALE[-1] and declared and "max" not in ctx.to_number_table({}):
+                thinking_budget = int(declared)
 
     if thinking_budget is not None and thinking_budget > 0:
         fragment["thinking_budget"] = thinking_budget
+    elif include_thoughts is False:
+        # Hiding the thoughts is VISIBILITY, not depth: an explicit budget or effort the
+        # caller set is kept above; only with none does the hidden-thoughts budget apply.
+        fragment["thinking_budget"] = ctx.table(
+            "hidden_thoughts_budget", D.GOOGLE_LEGACY_HIDDEN_THOUGHTS_BUDGET
+        )
     return fragment
 
 
@@ -758,7 +852,7 @@ def _google_thinking_3_fragment(
         default_map = D.GOOGLE_3_EFFORT_TO_LEVEL.get(
             family, D.GOOGLE_3_EFFORT_TO_LEVEL[D.GOOGLE_3_DEFAULT_FAMILY]
         )
-        thinking_level = ctx.table("level_map", default_map).get(effort)
+        thinking_level = effort_lookup(ctx.table("level_map", default_map), effort)
 
     reasoning_summary = canonical.get("reasoning_summary")
     if reasoning_summary:
@@ -787,10 +881,14 @@ def _google_thinking_3_fragment(
 
 
 # ── together_reasoning ───────────────────────────────────────────────────────
-# Exact port of ThinkingConfig.to_together_reasoning_params. Together/Z.AI
-# thinking models default to reasoning_effort="max" when the field is OMITTED —
-# expensive and never our product default — so an explicit effort is ALWAYS
-# sent. "none" (which canonicalize also produces from disable_reasoning=True)
+# Together/Z.AI reasoning. NOT SET SENDS NOTHING (settings-translation law: an
+# unset key carries a value only when a cell DECLARES it, with a why — here
+# ``processor_config.default_effort``). The old hidden "high" for unset (V2
+# verifier, live 6f26a08b) is gone: a live probe 2026-10-04 (Kimi-K3 on
+# Together, "17*23") answered with the field omitted at the same reasoning
+# depth as "high" (23-25 vs 29-48 reasoning tokens), so omission is neither
+# refused nor the costly "max" the old comment assumed. "none" (which
+# canonicalize also produces from disable_reasoning=True)
 # instead disables reasoning via the nested reasoning.enabled=false switch —
 # a DIFFERENT provider key, which is why this is a processor and not a scalar
 # value_map rule (a value_map can only land values on ONE provider_key).
@@ -811,10 +909,14 @@ def together_reasoning(
         # so "send nothing" here is the explicit disable, never an effort level.
         params["reasoning"] = {"enabled": False}
         return params
-    # Anything short of an explicit deep ask is "high" (OUR default, incl. unset).
-    sent = ctx.table("effort_map", D.TOGETHER_EFFORT_MAP).get(
-        effort, ctx.table("default_effort", D.TOGETHER_DEFAULT_EFFORT)
-    )
+    if effort is None:
+        # NOT SET: only a cell-declared default rides (processor_config.default_effort).
+        sent = ctx.config.get("default_effort")
+    else:
+        # A set effort short of an explicit deep ask maps to "high".
+        sent = ctx.table("effort_map", D.TOGETHER_EFFORT_MAP).get(
+            effort, ctx.table("set_effort_fallback", D.TOGETHER_SET_EFFORT_FALLBACK)
+        )
     sent = ctx.reconcile_accepted(sent)  # K6 accepts (only when declared)
     if sent is not None:
         params["reasoning_effort"] = sent
@@ -1002,6 +1104,10 @@ def media_dims(
 
     if mode == "sora_size":
         target = ctx.config.get("target", "size")
+        # NOT SET means not set: no shape asked for → no size (Sora's own default).
+        asked = [canonical.get("aspect_ratio"), canonical.get("resolution")]
+        if not any(asked) and not (canonical.get("width") or canonical.get("height")):
+            return params
         width, height = _derive_wh_table(canonical, ctx)
         if width and height:
             params[target] = f"{width}x{height}"
@@ -1029,6 +1135,11 @@ def media_count(
     target = ctx.config["target"]
     cap = int(ctx.config["max"])
     raw = canonical.get("count")
+    if raw is None:
+        # NOT SET means not set: only a DECLARED default is sent for an empty count.
+        raw = ctx.config.get("default")
+        if raw is None:
+            return params
     n = max(1, min(int(raw or 1), cap))
     if raw is not None and int(raw) > cap:
         ctx.adjustments.append(
@@ -1139,7 +1250,7 @@ def flux_safety_tolerance(
     params["safety_tolerance"] = (
         ctx.table("with_image_input", D.FLUX_SAFETY_TOLERANCE_WITH_IMAGE_INPUT)
         if (ctx.extra or {}).get("has_image_input")
-        else ctx.table("tolerance", D.FLUX_SAFETY_TOLERANCE)
+        else ctx.table("default", ctx.table("tolerance", D.FLUX_SAFETY_TOLERANCE))
     )
     return params
 

@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from httpx import Response
+from httpx2 import Response
 
 from esi.openapi_clients import ESIClientProvider
 

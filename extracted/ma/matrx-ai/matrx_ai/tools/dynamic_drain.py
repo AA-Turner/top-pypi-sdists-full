@@ -119,6 +119,9 @@ async def drain_tool_mutations(config, ctx):
     before_active = _active_tool_names(config)
 
     add_specs: list[ToolSpec] = []
+    # Which tool queued each addition — a bundle's members inherit their lister's
+    # source class (a compute target's bundle stays tied to that target).
+    added_by: dict[int, str] = {}
     remove_names: list[str] = []
     sources: list[str] = []
 
@@ -129,7 +132,9 @@ async def drain_tool_mutations(config, ctx):
         by = entry.get("by") or "?"
         if action == "add":
             for raw in entry.get("specs") or []:
-                add_specs.append(_coerce_spec(raw))
+                spec = _coerce_spec(raw)
+                added_by[id(spec)] = str(by)
+                add_specs.append(spec)
             sources.append(f"+by:{by}")
         elif action == "remove":
             remove_names.extend(str(n) for n in entry.get("names") or [])
@@ -186,26 +191,44 @@ async def drain_tool_mutations(config, ctx):
     removed_tools = [name for name in before_active if name not in after_set]
 
     # Registered discovery additions are conversation state, not a one-request
-    # capability side effect. Persist the delta on UnifiedConfig so
-    # ConversationResolver cache hits and DB reconstruction both restore it on
-    # the next turn; apply_unified_tools will still re-run hard authority and
-    # executor viability against the current client before exposing anything.
+    # capability side effect: they join the conversation's STICKY toolset
+    # (TOOL-SOURCES.md) so ConversationResolver cache hits and DB reconstruction
+    # both restore them on every later turn; apply_unified_tools still re-runs
+    # hard authority and executor viability against the current client before
+    # exposing anything. A queued removal is an explicit removal and forgets.
     # Inline specs intentionally remain request-scoped because a name alone is
     # insufficient to reconstruct their caller-authored schema safely.
-    from matrx_ai.tools.merge import canonical_tool_names
+    from matrx_ai.tools.merge import (
+        STICKY_SOURCE_AGENT_BUNDLE,
+        STICKY_SOURCE_BUNDLE,
+        STICKY_SOURCE_COMPUTE_TARGET,
+        agent_owned_listers,
+        canonical_tool_names,
+        forget_conversation_tools,
+        record_conversation_tools,
+        sticky_tool_source,
+    )
 
-    dynamic_tools = canonical_tool_names(getattr(config, "dynamic_tools", None) or [])
-    removed_set = set(canonical_tool_names(remove_names))
-    if removed_set:
-        dynamic_tools = [name for name in dynamic_tools if name not in removed_set]
-    authored = set(canonical_tool_names(getattr(config, "authored_tools", None) or []))
+    if remove_names:
+        forget_conversation_tools(config, remove_names)
     for spec in add_specs:
         if not isinstance(spec, RegisteredToolSpec):
             continue
         name = canonical_tool_names([spec.resolved_tool_id() or spec.name])[0]
-        if name in after_set and name not in authored and name not in dynamic_tools:
-            dynamic_tools.append(name)
-    config.dynamic_tools = dynamic_tools
+        if name not in after_set:
+            continue
+        by = added_by.get(id(spec), "")
+        # A member inherits its lister's standing: a compute target's bundle stays tied to
+        # the target, an agent-owned bundle to the agent; any other opened bundle is the
+        # conversation's own (``bundle``).
+        lister_source = sticky_tool_source(config, by) if by else STICKY_SOURCE_BUNDLE
+        if by and by in agent_owned_listers(config):
+            source = f"{STICKY_SOURCE_AGENT_BUNDLE}{by}"
+        elif lister_source.startswith(STICKY_SOURCE_COMPUTE_TARGET):
+            source = lister_source
+        else:
+            source = STICKY_SOURCE_BUNDLE
+        record_conversation_tools(config, [name], source)
 
     if (added_tools or removed_tools) and ctx.emitter is not None:
         active_count = len(after_active)

@@ -24,6 +24,7 @@ from matrx_ai.tools.arg_models import (
     ContextPatchArgs,
     DatasetArgs,
     DesktopAppsArgs,
+    DesktopAudioArgs,
     DesktopClipboardArgs,
     DesktopInputArgs,
     DesktopPowerArgs,
@@ -1250,6 +1251,15 @@ _reg(
     FsWatchArgs,
     "matrx_ai.tools.implementations.desktop",
     "fs_watch",
+    validate=False,
+)
+_reg(
+    "desktop_audio",
+    "native",
+    "matrx-ai-core",
+    DesktopAudioArgs,
+    "matrx_ai.tools.implementations.desktop",
+    "desktop_audio",
     validate=False,
 )
 _reg(

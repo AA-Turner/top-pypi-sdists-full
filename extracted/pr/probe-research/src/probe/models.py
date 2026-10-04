@@ -28,6 +28,8 @@ from ._generated.models import (
     ArtifactPinImpact,
     ArtifactVersionCreate,
     ArtifactVersionOut,
+    CitationGraphOut,
+    CitationLinkOut,
     DerivedProvenance,
     DownloadResponse,
     EdgeCreate,
@@ -52,6 +54,7 @@ from ._generated.models import (
     MetricViewPatch,
     MetricViewPreviewRequest,
     MetricViewSpec,
+    PaperCitationsOut,
     ParentRelation,
     ProjectCreate,
     RunCreate,
@@ -79,6 +82,11 @@ from ._generated.models import (
     UploadResponse,
 )
 
+# The citation graph's two enums carry generic generated names (`Direction`,
+# `GraphState`); they are re-exported under names that say what they are.
+from ._generated.models import Direction as CitationDirection
+from ._generated.models import GraphState as CitationGraphState
+
 __all__ = [
     # The vertically-movable artifact anchors, backing `probe artifact move --to`.
     # Taken from the contract rather than spelled out in the CLI so a level the
@@ -88,6 +96,11 @@ __all__ = [
     "ArtifactPinImpact",
     "ArtifactVersionCreate",
     "ArtifactVersionOut",
+    # The citation graph (`Client.citation_graph`, `Client.paper_citations`).
+    "CitationDirection",
+    "CitationGraphOut",
+    "CitationGraphState",
+    "CitationLinkOut",
     "DerivedProvenance",
     "DownloadResponse",
     "EdgeCreate",
@@ -112,6 +125,7 @@ __all__ = [
     "MetricViewPatch",
     "MetricViewPreviewRequest",
     "MetricViewSpec",
+    "PaperCitationsOut",
     "ParentRelation",
     "ProjectCreate",
     "RunCreate",

@@ -39,8 +39,8 @@ use crate::commands::project::install_target::InstallTarget;
 use crate::commands::project::lock::LockMode;
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
-    LinkErrorReporting, ProjectEnvironment, ProjectEnvironmentPolicy, ProjectError,
-    ProjectInterpreter, UniversalState, WorkspacePython,
+    LinkErrorReporting, ProjectEnvironment, ProjectEnvironmentPolicy, ProjectEnvironmentTarget,
+    ProjectError, ProjectInterpreter, ProjectPythonRequest, UniversalState,
 };
 use crate::commands::{ExitStatus, UvError, project};
 use crate::printer::Printer;
@@ -580,7 +580,7 @@ async fn lock_and_sync(
     // Convert to an `AddTarget` by attaching the appropriate interpreter or environment.
     let target = if no_sync {
         // Discover the interpreter.
-        let workspace_python = WorkspacePython::from_request(
+        let project_python = ProjectPythonRequest::from_request(
             python.as_deref().map(PythonRequest::parse),
             Some(project.workspace()),
             &groups,
@@ -589,9 +589,8 @@ async fn lock_and_sync(
         )
         .await?;
         let interpreter = ProjectInterpreter::discover(
-            project.workspace(),
-            &groups,
-            workspace_python,
+            ProjectEnvironmentTarget::from(project.workspace()),
+            project_python,
             &client_builder,
             python_preference,
             python_arch,
@@ -609,7 +608,7 @@ async fn lock_and_sync(
     } else {
         // Discover or create the virtual environment.
         let environment = ProjectEnvironment::get_or_init(
-            project.workspace(),
+            ProjectEnvironmentTarget::from(project.workspace()),
             None,
             &groups,
             python.as_deref().map(PythonRequest::parse),

@@ -71,9 +71,12 @@ HOLDER_OWNED_CONFIG_KEYS = (
     "tool_authority_exclusions",
     "tools",
     "authored_tools",
-    "dynamic_tools",
     "custom_tools",
 )
+# NOT here: ``dynamic_tools`` / ``dynamic_tool_sources``. They are the CONVERSATION's sticky
+# toolset (tools a surface, compute target, attached context or opened bundle added during
+# this conversation), not the Holder's belt, so persistence keeps them and the resolver lays
+# them over the live Holder every turn (``resolver._load_sticky_toolset``).
 
 
 @dataclass(frozen=True)

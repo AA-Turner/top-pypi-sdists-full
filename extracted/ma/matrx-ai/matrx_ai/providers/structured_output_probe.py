@@ -23,7 +23,7 @@ Two guards used to each own a private copy of this wire instead:
 
 Neither belonged in a script. The right answer to both is ONE primitive, which is
 also why the answer is reusable: the in-app checks system
-(``common-docs/projects/checks-run-in-the-app``) can run these probes on a
+(``common-docs/systems/architecture/observability/projects/checks-run-in-the-app``) can run these probes on a
 schedule without a second implementation.
 
 What a probe is, and is not

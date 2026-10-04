@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: laya
-Version: 0.3.24
+Version: 0.3.26
 Summary: Fast, non-autoregressive System 1 decision engine with calibrated probabilities
 Author: Convai Innovations
 License: Apache-2.0
@@ -145,6 +145,35 @@ The shipped checkpoints work zero-shot, but fine-tuning on decisions from your o
 ## Documentation
 
 **[nandhakishorm.github.io/laya](https://nandhakishorm.github.io/laya/)**: guides for [prediction hooks](https://nandhakishorm.github.io/laya/hooks/), [schema-driven decisions](https://nandhakishorm.github.io/laya/structured/), [Docker](https://nandhakishorm.github.io/laya/docker/) and [LangChain and LangGraph](https://nandhakishorm.github.io/laya/langchain/), plus a full [API reference](https://nandhakishorm.github.io/laya/reference/).
+
+## What's new in 0.3.26
+
+A small release: one new SDK, one TypeScript port, and the dependency bumps.
+
+* **.NET SDK.** `laya-dotnet/` is a C# port of the inference path running the official checkpoints exported to ONNX on ONNX Runtime, so calling Laya from .NET no longer needs a Python sidecar (#673). It ships with a parity lane that re-records its golden fixtures from the Python package at every commit, so drift surfaces on the pull request that causes it; the lane is advisory, because a Python improvement should not wait on a C# port. Long prediction, per-language temperatures, hooks, batching, option ordering, digest controls and usage diagnostics are not ported yet, and there is no NuGet package.
+* **Histogram binning in laya-ts.** `applyBinningMap` / `checkBinningMap` port the non-parametric recalibration from core, including the language-override bypass, and the recalibrated `answer_confidence` is what the abstention gate reads.
+* **Dependencies.** `@types/node` 24 to 26, zensical 0.0.65 to 0.0.67, ruff 0.16.8 to 0.16.9, and the CodeQL actions to 4.38.2. The three that could have broken a lane were each verified against that lane before merging.
+
+7 pull requests: 2 from contributors and 5 dependency bumps.
+
+---
+
+## What's new in 0.3.25
+
+* **Memory on demand.** `LAYA_IDLE_UNLOAD_SECONDS` lets `laya-serve` give its checkpoints back after an idle window, and `LAYA_BASE_URL` lets `laya-mcp-server` answer from a running server over HTTP instead of loading its own copy, so several editor sessions share one resident model (#888). Both default to off.
+* **Backends.** `Agent(backend=...)` and `agent.set_backend(...)` select `auto` / `eager` / `compile` / `tilelang` / `onnx` through one class layer, with ONNX routed to the existing `ONNXAgent` rather than a second copy of that path.
+* **Compile defaults.** `compile=True` warms during load instead of paying 50 s on the first request, with `compile_warmup=False` to restore the lazy shape. `compile_cache` gives Inductor a Laya-specific directory and `compile_mode` reaches `reduce-overhead`.
+* **AOTInductor packaging works.** `DecisionModel.forward` cast to fp32 before the action head while the encoder ran under AMP, which packaged a graph that died with `mat1 and mat2 must have the same dtype`. The cast now matches the head's weight dtype outside autocast only, so eager and AMP numerics are untouched.
+* **Oversized batches split instead of collating whole.** `/v1/systemone/batch` chooses a state chunk size when the token product would exceed the cap, rather than building one 4,096-row forward pass. No request that worked before is refused and none changes its answer.
+* **Calibration.** Histogram binning is wired into answers and the calibration payload, so a fitted `binning_map` ships and loads like the temperatures.
+* **TileLang.** All five kernels now lower for the CPU target as an explicit fp32 specialization, and GEGLU uses two pipeline stages.
+* **Stricter device handling.** A CUDA ordinal past `device_count`, and `auto` in any casing, are resolved at load with the same warn-and-CPU shape as the existing fallbacks instead of dying later in `.to()`.
+* **Encoding.** `laya` writes redirected stdout as utf-8, the output half of the stdin fix in #799.
+* **TypeScript.** Both clients accept the per-bucket `minConfidence` map, and `laya-ts` ports it to the on-device engine.
+
+13 pull requests from 9 contributors.
+
+---
 
 ## What's new in 0.3.24
 
@@ -690,7 +719,7 @@ curl -s localhost:8000/v1/systemone -H 'content-type: application/json' -d '{
 }'
 ```
 
-To evaluate multiple states in a single call, send a `states` array to `POST /v1/systemone/batch` (capped at 64 states):
+To evaluate multiple states in a single call, send a `states` array to `POST /v1/systemone/batch` (capped at 64 states; a batch larger than `LAYA_MAX_BATCH_TOKENS` is split across several forward passes rather than refused):
 
 ```bash
 curl -s localhost:8000/v1/systemone/batch -H 'content-type: application/json' -d '{
@@ -714,7 +743,8 @@ language evidence falls back to, `english` by default; set it to `multilingual` 
 your traffic is not English), `LAYA_MAX_LOADED` (checkpoints resident at
 once, 2 by default; raise it to 3 when `LAYA_AUTO_TASK` makes a third one
 reachable on demand, or the server rebuilds one every time routing switches),
-and `LAYA_API_KEY` (when set, clients must
+`LAYA_IDLE_UNLOAD_SECONDS` (unload idle checkpoints; `0` disables it, `300` frees device memory
+after five minutes and makes the next request pay a cold load), and `LAYA_API_KEY` (when set, clients must
 send `Authorization: Bearer <key>`). A client's `model` field is honoured when it
 names a Laya checkpoint (`english`/`multilingual`/`typed-decisions`), otherwise
 the router auto-selects by script/language. The same body can also carry `task`,
@@ -916,25 +946,36 @@ restores it. Kernels compile once per shape bucket on first use (a few seconds, 
 
 ### Warm-up before serving: `agent.warmup()`
 
-`compile=True` compiles on the first request that needs a graph, and the first single-question request
-needs a second one (torch specialises a batch of 1). Both stall a live request. `agent.warmup()` runs the
-forward on a few synthetic shapes now and returns the seconds it took, so the compiles happen before
-traffic arrives:
+`compile=True` now runs `agent.warmup()` before returning from load. This moves the batch and
+single-row graph compiles into startup; startup can take tens of seconds. To defer the work:
 
 ```python
-agent = laya.load("convaiinnovations/laya", compile=True)
-agent.warmup()                   # ~46 s on an RTX 4070 Ti SUPER; every later request ~10-30 ms
+agent = laya.load("convaiinnovations/laya", compile=True, compile_warmup=False)
+seconds = agent.warmup()         # manual entry point, also accepts shapes=[(rows, tokens, markers)]
 ```
 
-Measured with `benchmarks/bench_compile.py --device cuda [--warmup]` (English checkpoint, torch 2.11, ten
-requests of changing shape): without it the first request took 51 s and the first single-question request,
-the eighth, took another 41 s; after `warmup()` no request took more than 30 ms. It works the same with
-`fast=True` (kernels and CUDA graphs for those buckets) and costs a few forward passes on the stock path.
+If automatic warm-up fails, load emits a `RuntimeWarning` naming the underlying error and returns
+with the `torch.compile` wrapper and compile settings intact. Later requests still use the compiled
+model and propagate compilation failures; there is no automatic eager fallback. Explicit
+`agent.warmup()` calls also propagate failures, even after automatic warm-up has failed.
+
+Warm-up uses synthetic inputs without prediction hooks or prediction caches. It covers common batch
+and single-row shapes, not every possible guard or CUDA graph shape. `compile=False` and `fast=True`
+do not warm automatically. Manual warm-up still works on both paths.
 On CUDA, compiled inference pads the masked end of each sequence to a multiple of eight tokens. This
 avoids extra SDPA graph specialisations on PyTorch versions that distinguish lengths modulo eight;
 reported token usage still counts the original, unpadded sequence.
 Inductor caches compiled graphs under `TORCHINDUCTOR_CACHE_DIR` (by default in `/tmp`); point it at a
-persistent directory to keep them across restarts.
+persistent directory to keep them across restarts. Alternatively, load with
+`compile=True, compile_cache=True` to use `$XDG_CACHE_HOME/laya/torchinductor` (or
+`~/.cache/laya/torchinductor`). This opt-in sets the process-wide environment variable only if
+absent; an existing value always wins. It does nothing on eager or TileLang loads.
+
+`compile_mode="reduce-overhead"` is a separate opt-in for CUDA graphs. With `compile=True`, it
+can reduce launch overhead on repeated shapes, but each new shape needs recording and GPU memory
+can grow. Laya copies outputs out of reusable graph buffers and serializes these CUDA forwards.
+The default mode remains unchanged. See [the engineering notes](https://github.com/NandhaKishorM/laya/blob/main/docs/compile-and-fast-path.md)
+for measurements and limitations.
 
 ---
 
@@ -1237,6 +1278,12 @@ This is an **optional extra**: the core package has no `mcp` dependency.
 pip install "laya[mcp]"
 laya-mcp-server          # or: python -m laya.mcp.server
 ```
+
+To share a `laya-serve` on your own hardware across editor sessions, set
+`LAYA_BASE_URL=http://127.0.0.1:8000` in each MCP client's environment. Its prediction tools use
+HTTP and import no torch; routing stays local. Set `LAYA_API_KEY` to the server's bearer key and
+`LAYA_REMOTE_TIMEOUT` to the allowed HTTP wait (300 seconds by default). `laya_shortlist` is
+unavailable in this mode. See [shared-server MCP setup](https://github.com/NandhaKishorM/laya/blob/main/docs/cli-mcp.md#share-one-model-server-across-mcp-sessions).
 
 Example MCP client configuration (stdio transport):
 

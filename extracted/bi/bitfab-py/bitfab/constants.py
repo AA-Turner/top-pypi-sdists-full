@@ -9,6 +9,8 @@ from typing import Any
 # Default service URL for Bitfab API
 DEFAULT_SERVICE_URL = "https://bitfab.ai"
 
+REPLAY_API_KEY_ENV = "BITFAB_REPLAY_BITFAB_API_KEY"
+
 # Get SDK version from installed package metadata
 try:
     __version__ = version("bitfab-py")

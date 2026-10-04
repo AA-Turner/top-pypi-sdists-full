@@ -8696,8 +8696,10 @@ class Session:
         a Session owns the queue and the frontend state, but the MOBILE
         projection and the legacy single-slot card are built by whichever host
         is attached, and only that host can repaint them. The sink receives
-        ``(rows, open_count)`` — the frozen wire shape and its open tally — so a
-        host never re-derives the fold.
+        ``(rows, outstanding_count)`` — the frozen wire shape and its outstanding
+        tally (open + timed-out-and-answerable; see
+        ``asks.store.OUTSTANDING_STATUSES``) — so a host never re-derives the
+        fold.
         """
         self._ask_state_sink = sink
 
@@ -8707,7 +8709,7 @@ class Session:
         The ONE publication seam: the queue calls it on every change (see
         ``AskQueue._publish_state``), and ``refresh_from_session`` folds the same
         values into the periodic snapshot, so the two can never disagree about
-        which asks are open.
+        which asks are OUTSTANDING.
 
         PRESENCE IS THE CAPABILITY PROXY, so this publishes ABSENCE — ``None``,
         not an empty list — whenever the queue is not there (the flag is off, or
@@ -8719,14 +8721,14 @@ class Session:
         """
         from local_operator.session.frontend_state import ask_wire
 
-        rows, open_count = ask_wire(self)
+        rows, outstanding_count = ask_wire(self)
         store = getattr(self, "_frontend_state_store", None)
         if store is not None:
-            store.mutate(asks=rows, asks_open=open_count)
+            store.mutate(asks=rows, asks_open=outstanding_count)
         sink = self._ask_state_sink
         if sink is not None:
             try:
-                sink(rows, open_count)
+                sink(rows, outstanding_count)
             except Exception:  # noqa: BLE001 — a repaint is never worth a turn
                 logger.debug("ask: the host's state sink failed", exc_info=True)
 
@@ -8808,13 +8810,15 @@ class Session:
         return str(value)
 
     def ask_queue(self) -> Any:
-        """The session's ask queue, or ``None`` while the feature is DARK.
+        """The session's ask queue, or ``None`` while the BLOCKING arm is live.
 
         Two conditions, and both are the ones that already decide whether ``ask``
-        exists at all: the flag (``asks.policy.NONBLOCKING_ASK``) and the host
-        hook. With either missing this returns ``None`` and nothing in this file
+        exists at all: the flag (``asks.policy.NONBLOCKING_ASK`` — on unless the
+        operator set the kill switch ``LOP_ASK_NONBLOCKING=0``) and the host hook.
+        With either missing this returns ``None`` and nothing in this file
         constructs a log, a timer or a transcript row — which is what makes the
-        PR's flag-off invariant a property of the code rather than a promise.
+        kill-switch arm's "every old path is untouched" a property of the code
+        rather than a promise.
         """
         from local_operator.asks import policy
 
@@ -8869,6 +8873,10 @@ class Session:
         durable, replayed to the provider and shown on every card. The value
         therefore never reaches ``asks.jsonl``, the index, the transcript, an
         event or a notification, which is what the sentinel-grep test asserts.
+
+        The one sanctioned way to CHANGE a recorded answer is :meth:`revise_ask`
+        (design §10, #1936) — a plain repeat of this call keeps its refusal,
+        because a repeat tap is a retry, not a change of mind.
         """
         queue = self.ask_queue()
         if queue is None:
@@ -8895,6 +8903,67 @@ class Session:
                 )
             )
         return queue.respond(ask_id, merged, by=by)
+
+    def revise_ask(
+        self, ask_id: str, answers: Mapping[str, Sequence[str]], *, by: str = "unknown"
+    ) -> dict[str, Any]:
+        """Revise a queued ask's recorded answer while it is still undelivered.
+
+        The sanctioned exception to the one-way rule (design §10, #1936), and the
+        only path allowed to change an answer the log already holds — a plain
+        second :meth:`respond_ask` still refuses, in the same sentence as before.
+
+        THE ORDER IS :meth:`respond_ask`'s, and it is a contract rather than a
+        detail: the queue decides FIRST (``AskQueue.revision_refusal``), and only
+        a revision the queue will take reaches the SECRET hop. Without that, a
+        revision refused as delivered — or declined, or expired — would still
+        store the pasted value in the session's credential store and announce it
+        to later turns: a durable, user-visible effect from a path whose whole
+        contract is that the refusal IS the effect (agent review round 1, MAJOR
+        2). The hop itself is unchanged: the value reaches the memory-only store
+        before anything is appended, and the log carries the KEY NAME only.
+
+        NO state-table refusal is consulted here, deliberately: for an answered
+        ask the state table says "already answered by <surface>", and that is
+        exactly the sentence a revision must NOT use — the revision path has its
+        own line for the delivered case. The queue decides, so the copy cannot
+        drift between this hop and the wire (design §10, "one sentence is
+        op-qualified").
+
+        Under the kill switch this refuses in words exactly like
+        :meth:`respond_ask`: with no queue there is nothing to revise, and the
+        caller hears that rather than a traceback or a silent success.
+        """
+        queue = self.ask_queue()
+        if queue is None:
+            return {"ok": False, "error": "this session's runtime predates queued asks"}
+        record = queue.find(ask_id)
+        if record is None:
+            return {"ok": False, "error": _ask_refusal_copy(None)}
+        # THE PROBE BEFORE THE HOP. Same decision the write path makes, asked
+        # without writing; see the docstring for what doing it in the other order
+        # costs. Nothing can interleave between the two — this method is sync and
+        # runs on the session's loop, which is also the only writer of the row the
+        # probe tests — so the probe is not a weaker answer than the write's.
+        refusal = queue.revision_refusal(ask_id)
+        if refusal:
+            return {"ok": False, "error": refusal}
+        merged = {str(k): [str(v) for v in (vals or ())] for k, vals in answers.items()}
+        if any(q.get("secret") for q in (record.get("questions") or ())):
+            # The same hop and the same order as ``respond_ask``: the value is
+            # stored, the row keeps the key name, and a refused store is reported
+            # as NOT PROVIDED rather than as a leaked value.
+            from local_operator.asks.render import apply_secret_answers
+
+            merged.update(
+                apply_secret_answers(
+                    record.get("questions") or (),
+                    answers,
+                    variables=self._variables,
+                    journal_credential=self.journal_credential_change,
+                )
+            )
+        return queue.revise(ask_id, merged, by=by)
 
     def answer_ask_question(
         self,

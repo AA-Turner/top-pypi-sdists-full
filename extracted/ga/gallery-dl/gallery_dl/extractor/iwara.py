@@ -139,7 +139,9 @@ class IwaraExtractor(Extractor):
             "comments": item.get("numComments"),
             "tags"    : [t["id"] for t in item.get("tags") or ()],
             "title"   : t.strip() if (t := item.get("title")) else "",
-            "description": t.strip() if (t := item.get("body")) else "",
+            "description" : t.strip() if (t := item.get("body")) else "",
+            "date"        : self.parse_datetime_iso(item.get("createdAt")),
+            "date_updated": self.parse_datetime_iso(item.get("updatedAt")),
         }
 
         if include_file_info:
@@ -149,9 +151,9 @@ class IwaraExtractor(Extractor):
             info["file_id"] = file_info.get("id")
             info["filename"] = filename
             info["extension"] = extension
-            info["date"] = self.parse_datetime_iso(
+            info["file_date"] = self.parse_datetime_iso(
                 file_info.get("createdAt"))
-            info["date_updated"] = self.parse_datetime_iso(
+            info["file_date_updated"] = self.parse_datetime_iso(
                 file_info.get("updatedAt"))
             info["mime"] = file_info.get("mime")
             info["size"] = file_info.get("size")
@@ -445,7 +447,7 @@ class IwaraAPI():
             }
             data = self.extractor.request_json(
                 url, method="POST", headers=self.headers, json=json,
-                fatal=False)
+                expected=(400,))
 
             if not (refresh_token := data.get("token")):
                 self.extractor.log.debug(data)

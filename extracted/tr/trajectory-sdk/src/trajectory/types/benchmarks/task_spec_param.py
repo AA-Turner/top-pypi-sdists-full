@@ -6,10 +6,10 @@ from collections.abc import Iterable, Mapping
 from typing import Any, Literal, Required, TypedDict
 
 from trajectory._types import SequenceNotStr
-from trajectory.types.benchmarks._internal_params import BenchmarkMessageParam
-from trajectory.types.benchmarks.env_resources_param import EnvResourcesParam
-from trajectory.types.benchmarks.runtime_spec_param import RuntimeSpecParam
-from trajectory.types.benchmarks.secret_ref_param import SecretRefParam
+from trajectory.types._internal_params import BenchmarkMessageParam
+from trajectory.types.env_resources_param import EnvResourcesParam
+from trajectory.types.runtime_spec_param import RuntimeSpecParam
+from trajectory.types.secret_ref_param import SecretRefParam
 
 
 class TaskSpecParam(TypedDict, total=False):

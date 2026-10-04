@@ -1,0 +1,2910 @@
+"""scrapli.netconf"""
+
+from collections.abc import Callable
+from ctypes import (
+    POINTER,
+    c_bool,
+    c_char_p,
+    c_int,
+    c_size_t,
+    c_uint8,
+    c_uint32,
+    c_uint64,
+    c_void_p,
+    cast,
+    pointer,
+)
+from dataclasses import dataclass, field
+from enum import Enum
+from logging import getLogger
+from types import TracebackType
+
+from scrapli.auth import Options as AuthOptions
+from scrapli.exceptions import (
+    AllocationException,
+    FFIException,
+    NoMessagesException,
+    NotOpenedException,
+    OperationException,
+)
+from scrapli.ffi_mapping import LibScrapliMapping
+from scrapli.ffi_options import DriverOptions, DriverOptionsPointer
+from scrapli.ffi_types import (
+    Cancel,
+    DriverPointer,
+    IntPointer,
+    NetconfCapabilitesCallback,
+    OperationIdPointer,
+    U8Pointer,
+    U64Pointer,
+    ZigSlice,
+    ZigU64Slice,
+    capabilities_callback_wrapper,
+    ffi_logger_callback_wrapper,
+    ffi_logger_level,
+    to_c_string,
+)
+from scrapli.helper import (
+    wait_for_available_operation_result,
+    wait_for_available_operation_result_async,
+)
+from scrapli.netconf_decorators import handle_operation_timeout, handle_operation_timeout_async
+from scrapli.netconf_result import Result
+from scrapli.session import Options as SessionOptions
+from scrapli.transport import BinOptions as TransportBinOptions
+from scrapli.transport import Options as TransportOptions
+
+
+class Version(str, Enum):
+    """
+    Enum representing a netconf version
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    VERSION_1_0 = "1.0"
+    VERSION_1_1 = "1.1"
+
+
+class DatastoreType(str, Enum):
+    """
+    Enum representing the datastore types
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    CONVENTIONAL = "conventional"
+    RUNNING = "running"
+    CANDIDATE = "candidate"
+    STARTUP = "startup"
+    INTENDED = "intended"
+    DYNAMIC = "dynamic"
+    OPERATIONAL = "operational"
+
+    def _to_ffi(self) -> U8Pointer:  # noqa: PLR0911
+        match self:
+            case DatastoreType.CONVENTIONAL:
+                return pointer(c_uint8(0))
+            case DatastoreType.RUNNING:
+                return pointer(c_uint8(1))
+            case DatastoreType.CANDIDATE:
+                return pointer(c_uint8(2))
+            case DatastoreType.STARTUP:
+                return pointer(c_uint8(3))
+            case DatastoreType.INTENDED:
+                return pointer(c_uint8(4))
+            case DatastoreType.DYNAMIC:
+                return pointer(c_uint8(5))
+            case DatastoreType.OPERATIONAL:
+                return pointer(c_uint8(6))
+            case _:
+                return U8Pointer()
+
+
+class FilterType(str, Enum):
+    """
+    Enum representing a filter type value
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    SUBTREE = "subtree"
+    XPATH = "xpath"
+
+    def _to_ffi(self) -> U8Pointer:
+        match self:
+            case FilterType.SUBTREE:
+                return pointer(c_uint8(0))
+            case FilterType.XPATH:
+                return pointer(c_uint8(1))
+            case _:
+                return U8Pointer()
+
+
+class DefaultsType(str, Enum):
+    """
+    Enum representing a defaults type value
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    REPORT_ALL = "report-all"
+    REPORT_ALL_TAGGED = "report-all-tagged"
+    TRIM = "trim"
+    EXPLICIT = "explicit"
+    UNSET = "unset"
+
+    def _to_ffi(self) -> U8Pointer:
+        match self:
+            case DefaultsType.REPORT_ALL:
+                return pointer(c_uint8(0))
+            case DefaultsType.REPORT_ALL_TAGGED:
+                return pointer(c_uint8(1))
+            case DefaultsType.TRIM:
+                return pointer(c_uint8(2))
+            case DefaultsType.EXPLICIT:
+                return pointer(c_uint8(3))
+            case _:
+                return U8Pointer()
+
+
+class SchemaFormat(str, Enum):
+    """
+    Enum representing valid schema formats
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    XSD = "xsd"
+    YANG = "yang"
+    YIN = "yin"
+    RNG = "rng"
+    RNC = "rnc"
+
+    def _to_ffi(self) -> U8Pointer:
+        match self:
+            case SchemaFormat.XSD:
+                return pointer(c_uint8(0))
+            case SchemaFormat.YANG:
+                return pointer(c_uint8(1))
+            case SchemaFormat.YIN:
+                return pointer(c_uint8(2))
+            case SchemaFormat.RNG:
+                return pointer(c_uint8(3))
+            case SchemaFormat.RNC:
+                return pointer(c_uint8(4))
+            case _:
+                return U8Pointer()
+
+
+class ConfigFilter(str, Enum):
+    """
+    Enum representing valid config filter values
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    TRUE = "true"
+    FALSE = "false"
+    UNSET = "unset"
+
+    def _to_ffi(self) -> U8Pointer:
+        match self:
+            case ConfigFilter.TRUE:
+                return pointer(c_uint8(0))
+            case ConfigFilter.FALSE:
+                return pointer(c_uint8(1))
+            case _:
+                return U8Pointer()
+
+
+class DefaultOperation(str, Enum):
+    """
+    Enum representing valid default operation values
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    MERGE = "merge"
+    REPLACE = "replace"
+    NONE = "none"
+    UNSET = "unset"
+
+    def _to_ffi(self) -> U8Pointer:
+        match self:
+            case DefaultOperation.MERGE:
+                return pointer(c_uint8(0))
+            case DefaultOperation.REPLACE:
+                return pointer(c_uint8(1))
+            case DefaultOperation.NONE:
+                return pointer(c_uint8(2))
+            case _:
+                return U8Pointer()
+
+
+class TestOption(str, Enum):
+    """
+    Enum representing valid test option values
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    TEST_THEN_SET = "test-then-set"
+    SET = "set"
+    UNSET = "unset"
+
+    def _to_ffi(self) -> U8Pointer:
+        match self:
+            case TestOption.TEST_THEN_SET:
+                return pointer(c_uint8(0))
+            case TestOption.SET:
+                return pointer(c_uint8(1))
+            case _:
+                return U8Pointer()
+
+
+class ErrorOption(str, Enum):
+    """
+    Enum representing valid error option values
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    STOP_ON_ERROR = "stop-on-error"
+    CONTINUE_ON_ERROR = "continue-on-error"
+    ROLLBACK_ON_ERROR = "rollback-on-error"
+    UNSET = "unset"
+
+    def _to_ffi(self) -> U8Pointer:
+        match self:
+            case ErrorOption.STOP_ON_ERROR:
+                return pointer(c_uint8(0))
+            case ErrorOption.CONTINUE_ON_ERROR:
+                return pointer(c_uint8(1))
+            case ErrorOption.ROLLBACK_ON_ERROR:
+                return pointer(c_uint8(2))
+            case _:
+                return U8Pointer()
+
+
+@dataclass
+class Options:
+    """
+    Options holds netconf related options to pass to the ffi layer.
+
+    Args:
+        error_tag: the error tag substring that identifies errors in an rpc reply
+        preferred_version: preferred netconf version to use
+        message_poll_interval_ns: interval in ns for message polling
+        force_close: exists to enable sending "force" on close when using the context manager, this
+            option causes the connection to not wait for the result of the close-session rpc. this
+            can be useful if the device immediately closes the connection, not sending the "ok"
+            reply.
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    error_tag: str | None = None
+    preferred_version: Version | None = None
+    message_poll_interval_ns: int | None = None
+    capabilities_callback: Callable[[list[str]], list[str]] | None = None
+    close_force: bool = False
+
+    _error_tag: c_char_p | None = field(init=False, default=None, repr=False)
+    _preferred_version: c_char_p | None = field(init=False, default=None, repr=False)
+    _capabilities_callback: NetconfCapabilitesCallback | None = field(
+        init=False, default=None, repr=False
+    )
+
+    def apply(self, *, options: DriverOptionsPointer) -> None:
+        """
+        Applies the options to the given options struct.
+
+        Should not be called directly/by users.
+
+        Args:
+            options: the options struct to write set options to
+
+        Returns:
+            None
+
+        Raises:
+            N/A
+
+        """
+        if self.error_tag is not None:
+            self._error_tag = to_c_string(self.error_tag)
+
+            options.contents.netconf.error_tag = self._error_tag
+            options.contents.netconf.error_tag_len = c_size_t(len(self.error_tag))
+
+        if self.preferred_version is not None:
+            self._preferred_version = to_c_string(self.preferred_version)
+
+            options.contents.netconf.preferred_version = self._preferred_version
+            options.contents.netconf.preferred_version_len = c_size_t(len(self.preferred_version))
+
+        if self.message_poll_interval_ns is not None:
+            options.contents.netconf.message_poll_interval = pointer(
+                c_uint64(self.message_poll_interval_ns)
+            )
+
+        if self.capabilities_callback is not None:
+            self._capabilities_callback = capabilities_callback_wrapper(self.capabilities_callback)
+
+            options.contents.netconf.capabilities_callback = self._capabilities_callback
+
+    def __repr__(self) -> str:
+        """
+        Magic repr method for Options object
+
+        Args:
+            N/A
+
+        Returns:
+            str: repr for Options object
+
+        Raises:
+            N/A
+
+        """
+        return (
+            # it will probably be "canonical" to import Options as NetconfOptions, so we'll make
+            # the repr do that too
+            f"Netconf{self.__class__.__name__}("
+            f"error_tag={self.error_tag!r}, "
+            f"preferred_version={self.preferred_version!r}, "
+            f"message_poll_interval_ns={self.message_poll_interval_ns!r}, "
+            f"close_force={self.close_force!r})"
+        )
+
+
+class Netconf:
+    """
+    Netconf represents a netconf connection object.
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    def __init__(  # noqa: PLR0913
+        self,
+        host: str,
+        *,
+        port: int = 830,
+        options: Options | None = None,
+        auth_options: AuthOptions | None = None,
+        session_options: SessionOptions | None = None,
+        transport_options: TransportOptions | None = None,
+        logging_uid: str | None = None,
+    ) -> None:
+        logger_name = f"{__name__}.{host}:{port}"
+        if logging_uid is not None:
+            logger_name += f":{logging_uid}"
+
+        self.logger = getLogger(logger_name)
+        self.logger_callback = ffi_logger_callback_wrapper(logger=self.logger)
+        self._logging_uid = logging_uid
+
+        self.ffi_mapping = LibScrapliMapping()
+
+        self.host = host
+        self._host = to_c_string(host)
+
+        self.port = port
+
+        self.options = options or Options()
+        self.auth_options = auth_options or AuthOptions()
+        self.session_options = session_options or SessionOptions()
+        self.transport_options = transport_options or TransportBinOptions()
+
+        self.ptr: DriverPointer | None = None
+        self.poll_fd: int = 0
+
+        self._session_id: int | None = None
+
+    def __enter__(self: "Netconf") -> "Netconf":
+        """
+        Enter method for context manager
+
+        Args:
+            N/A
+
+        Returns:
+            Cli: a concrete implementation of the opened Cli object
+
+        Raises:
+            ScrapliConnectionError: if an exception occurs during opening
+
+        """
+        self.open()
+
+        return self
+
+    def __exit__(
+        self,
+        exception_type: BaseException | None,
+        exception_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """
+        Exit method to cleanup for context manager
+
+        Args:
+            exception_type: exception type being raised
+            exception_value: message from exception being raised
+            traceback: traceback from exception being raised
+
+        Returns:
+            None
+
+        Raises:
+            N/A
+
+        """
+        self.close(
+            force=self.options.close_force,
+        )
+
+    async def __aenter__(self: "Netconf") -> "Netconf":
+        """
+        Enter method for context manager.
+
+        Args:
+            N/A
+
+        Returns:
+            Netconf: a concrete implementation of the opened Netconf object
+
+        Raises:
+            N/A
+
+        """
+        await self.open_async()
+
+        return self
+
+    async def __aexit__(
+        self,
+        exception_type: BaseException | None,
+        exception_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """
+        Exit method to cleanup for context manager.
+
+        Args:
+            exception_type: exception type being raised
+            exception_value: message from exception being raised
+            traceback: traceback from exception being raised
+
+        Returns:
+            None
+
+        Raises:
+            N/A
+
+        """
+        await self.close_async(
+            force=self.options.close_force,
+        )
+
+    def __str__(self) -> str:
+        """
+        Magic str method for Netconf object.
+
+        Args:
+            N/A
+
+        Returns:
+            str: str representation of Netconf
+
+        Raises:
+            N/A
+
+        """
+        return f"scrapli.Netconf {self.host}:{self.port}"
+
+    def __repr__(self) -> str:
+        """
+        Magic repr method for Netconf object.
+
+        Args:
+            N/A
+
+        Returns:
+            str: repr for Netconf object
+
+        Raises:
+            N/A
+
+        """
+        return (
+            f"{self.__class__.__name__}("
+            f"host={self.host!r}, "
+            f"port={self.port!r}, "
+            f"options={self.options!r}, "
+            f"auth_options={self.auth_options!r}, "
+            f"session_options={self.session_options!r}, "
+            f"transport_options={self.transport_options!r})"
+        )
+
+    def __copy__(self) -> "Netconf":
+        # reasonably safely copy of the object... *reasonably*... basically assumes that options
+        # will never be mutated during an objects lifetime, which *should* be the case. probably.
+        return Netconf(
+            host=self.host,
+            port=self.port,
+            options=self.options,
+            auth_options=self.auth_options,
+            session_options=self.session_options,
+            transport_options=self.transport_options,
+            logging_uid=self._logging_uid,
+        )
+
+    def _ptr_or_exception(self) -> DriverPointer:
+        if self.ptr is None:
+            raise NotOpenedException
+
+        return self.ptr
+
+    def _alloc(
+        self,
+        *,
+        options_ptr: c_void_p,
+    ) -> None:
+        ptr = self.ffi_mapping.netconf_mapping.alloc(
+            host=self._host,
+            options_ptr=options_ptr,
+        )
+        if ptr == 0:  # type: ignore[comparison-overlap]
+            raise AllocationException("failed to allocate netconf")
+
+        self.ptr = ptr
+
+        poll_fd = int(
+            self.ffi_mapping.shared_mapping.get_poll_fd(
+                ptr=self._ptr_or_exception(),
+            )
+        )
+        if poll_fd <= 0:
+            raise AllocationException("failed to allocate poll fd")
+
+        self.poll_fd = poll_fd
+
+    def _free(
+        self,
+    ) -> None:
+        self.ffi_mapping.shared_mapping.free(ptr=self._ptr_or_exception())
+
+    def _get_options(self) -> str:
+        """
+        Returns the options provided as a json string.
+
+        Args:
+            N/A
+
+        Returns:
+            str: the options as a json string
+
+        Raises:
+            OptionsException: if we fail to get the size of the options from libscrapli.
+
+        """
+        options_ptr = self.ffi_mapping.shared_mapping.alloc_driver_options()
+        options = cast(options_ptr, POINTER(DriverOptions))
+
+        options.contents.apply(
+            logger_callback=self.logger_callback,
+            logger_level=ffi_logger_level(logger=self.logger),
+            port=self.port,
+            transport_kind=self.transport_options.transport_kind._to_ffi(),
+        )
+
+        self.options.apply(options=options)
+        self.auth_options.apply(options=options)
+        self.session_options.apply(options=options)
+        self.transport_options.apply(options=options)
+
+        options_size = pointer(c_size_t())
+
+        self.ffi_mapping.shared_mapping.fetch_options_size(
+            options_ptr=options_ptr,
+            options_size=options_size,
+        )
+
+        options_slice = pointer(ZigSlice(size=options_size.contents))
+
+        self.ffi_mapping.shared_mapping.fetch_options(
+            options_ptr=options_ptr, options=options_slice
+        )
+
+        self.ffi_mapping.shared_mapping.free_driver_options(options_ptr=options_ptr)
+
+        return options_slice.contents.get_decoded_contents()
+
+    def _open(
+        self,
+        *,
+        operation_id_ptr: OperationIdPointer,
+        cancel: Cancel,
+    ) -> None:
+        options_ptr = self.ffi_mapping.shared_mapping.alloc_driver_options()
+        options = cast(options_ptr, POINTER(DriverOptions))
+
+        options.contents.apply(
+            logger_callback=self.logger_callback,
+            logger_level=ffi_logger_level(logger=self.logger),
+            port=self.port,
+            transport_kind=self.transport_options.transport_kind._to_ffi(),
+        )
+
+        self.options.apply(options=options)
+        self.auth_options.apply(options=options)
+        self.session_options.apply(options=options)
+        self.transport_options.apply(options=options)
+
+        try:
+            self._alloc(options_ptr=options_ptr)
+        finally:
+            self.ffi_mapping.shared_mapping.free_driver_options(options_ptr=options_ptr)
+
+        try:
+            self.ffi_mapping.netconf_mapping.open(
+                ptr=self._ptr_or_exception(),
+                operation_id_ptr=operation_id_ptr,
+                cancel=cancel._to_ffi(),
+            )
+        except FFIException:
+            self._free()
+
+            raise
+
+    @handle_operation_timeout
+    def open(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Open the netconf connection.
+
+        Args:
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            None
+
+        Raises:
+            OpenException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self._open(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def open_async(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Open the netconf connection.
+
+        Args:
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            None
+
+        Raises:
+            OpenException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self._open(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    def _close(
+        self,
+        *,
+        operation_id_ptr: OperationIdPointer,
+        cancel: Cancel,
+        force: c_bool,
+    ) -> None:
+        self.ffi_mapping.netconf_mapping.close(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            force=force,
+        )
+
+    @handle_operation_timeout
+    def close(
+        self,
+        *,
+        force: bool = False,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Close the netconf connection.
+
+        Args:
+            force: skips sending a close-session rpc and just directly shuts down the connection
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            None
+
+        Raises:
+            NotOpenedException: if the ptr to the netconf object is None (via _ptr_or_exception)
+            CloseException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+        _force = c_bool(force)
+
+        self._close(operation_id_ptr=operation_id_ptr, cancel=cancel, force=_force)
+
+        result = self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+        self._free()
+
+        return result
+
+    @handle_operation_timeout_async
+    async def close_async(
+        self,
+        *,
+        force: bool = False,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Close the netconf connection.
+
+        Args:
+            force: skips sending a close-session rpc and just directly shuts down the connection
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            None
+
+        Raises:
+            NotOpenedException: if the ptr to the netconf object is None (via _ptr_or_exception)
+            CloseException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+        _force = c_bool(force)
+
+        self._close(operation_id_ptr=operation_id_ptr, cancel=cancel, force=_force)
+
+        result = await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+        self._free()
+
+        return result
+
+    def _get_result(
+        self,
+        operation_id_ptr: OperationIdPointer,
+        cancel: Cancel,
+    ) -> Result:
+        wait_for_available_operation_result(
+            self.poll_fd,
+            cancel=cancel,
+            operation_id_ptr=operation_id_ptr,
+        )
+
+        operation_id_value = c_uint32(operation_id_ptr.contents.value)
+
+        input_size = pointer(c_size_t())
+        result_raw_size = pointer(c_size_t())
+        result_size = pointer(c_size_t())
+        rpc_warnings_size = pointer(c_size_t())
+        rpc_errors_size = pointer(c_size_t())
+        err_size = pointer(c_size_t())
+        last_err_str_size = pointer(c_size_t())
+
+        self.ffi_mapping.netconf_mapping.fetch_sizes(
+            ptr=self._ptr_or_exception(),
+            operation_id_value=operation_id_value,
+            input_size=input_size,
+            result_raw_size=result_raw_size,
+            result_size=result_size,
+            rpc_warnings_size=rpc_warnings_size,
+            rpc_errors_size=rpc_errors_size,
+            err_size=err_size,
+            last_err_str_size=last_err_str_size,
+        )
+
+        start_time = U64Pointer(c_uint64())
+        end_time = U64Pointer(c_uint64())
+
+        input_slice = pointer(ZigSlice(size=input_size.contents))
+        result_raw_slice = pointer(ZigSlice(size=result_raw_size.contents))
+        result_slice = pointer(ZigSlice(size=result_size.contents))
+
+        rpc_warnings_slice = pointer(ZigSlice(size=rpc_warnings_size.contents))
+        rpc_errors_slice = pointer(ZigSlice(size=rpc_errors_size.contents))
+        err_slice = pointer(ZigSlice(size=err_size.contents))
+        last_err_string = pointer(ZigSlice(size=last_err_str_size.contents))
+
+        self.ffi_mapping.netconf_mapping.fetch(
+            ptr=self._ptr_or_exception(),
+            operation_id_value=operation_id_value,
+            start_time=start_time,
+            end_time=end_time,
+            input_slice=input_slice,
+            result_raw_slice=result_raw_slice,
+            result_slice=result_slice,
+            rpc_warnings_slice=rpc_warnings_slice,
+            rpc_errors_slice=rpc_errors_slice,
+            err_slice=err_slice,
+            last_err_string=last_err_string,
+        )
+
+        err_contents = err_slice.contents.get_decoded_contents()
+        if err_contents:
+            if last_err_string:
+                err_contents += f": {last_err_string.contents.get_decoded_contents()}"
+
+            raise OperationException(err_contents)
+
+        return Result(
+            input_=input_slice.contents.get_decoded_contents(),
+            host=self.host,
+            port=self.port,
+            start_time=start_time.contents.value,
+            end_time=end_time.contents.value,
+            result_raw_journal=result_raw_slice.contents.get_contents(),
+            _result=result_slice.contents.get_decoded_contents(),
+            rpc_warnings=rpc_warnings_slice.contents.get_decoded_contents(),
+            rpc_errors=rpc_errors_slice.contents.get_decoded_contents(),
+        )
+
+    async def _get_result_async(
+        self,
+        operation_id_ptr: OperationIdPointer,
+        cancel: Cancel,
+    ) -> Result:
+        await wait_for_available_operation_result_async(
+            self.poll_fd,
+            cancel=cancel,
+            operation_id_ptr=operation_id_ptr,
+        )
+
+        operation_id_value = c_uint32(operation_id_ptr.contents.value)
+
+        input_size = pointer(c_size_t())
+        result_raw_size = pointer(c_size_t())
+        result_size = pointer(c_size_t())
+        rpc_warnings_size = pointer(c_size_t())
+        rpc_errors_size = pointer(c_size_t())
+        err_size = pointer(c_size_t())
+        last_err_str_size = pointer(c_size_t())
+
+        self.ffi_mapping.netconf_mapping.fetch_sizes(
+            ptr=self._ptr_or_exception(),
+            operation_id_value=operation_id_value,
+            input_size=input_size,
+            result_raw_size=result_raw_size,
+            result_size=result_size,
+            rpc_warnings_size=rpc_warnings_size,
+            rpc_errors_size=rpc_errors_size,
+            err_size=err_size,
+            last_err_str_size=last_err_str_size,
+        )
+
+        start_time = U64Pointer(c_uint64())
+        end_time = U64Pointer(c_uint64())
+
+        input_slice = pointer(ZigSlice(size=input_size.contents))
+        result_raw_slice = pointer(ZigSlice(size=result_raw_size.contents))
+        result_slice = pointer(ZigSlice(size=result_size.contents))
+
+        rpc_warnings_slice = pointer(ZigSlice(size=rpc_warnings_size.contents))
+        rpc_errors_slice = pointer(ZigSlice(size=rpc_errors_size.contents))
+        err_slice = pointer(ZigSlice(size=err_size.contents))
+        last_err_string = pointer(ZigSlice(size=last_err_str_size.contents))
+
+        self.ffi_mapping.netconf_mapping.fetch(
+            ptr=self._ptr_or_exception(),
+            operation_id_value=operation_id_value,
+            start_time=start_time,
+            end_time=end_time,
+            input_slice=input_slice,
+            result_raw_slice=result_raw_slice,
+            result_slice=result_slice,
+            rpc_warnings_slice=rpc_warnings_slice,
+            rpc_errors_slice=rpc_errors_slice,
+            err_slice=err_slice,
+            last_err_string=last_err_string,
+        )
+
+        err_contents = err_slice.contents.get_decoded_contents()
+        if err_contents:
+            if last_err_string:
+                err_contents += f": {last_err_string.contents.get_decoded_contents()}"
+
+            raise OperationException(err_contents)
+
+        return Result(
+            input_=input_slice.contents.get_decoded_contents(),
+            host=self.host,
+            port=self.port,
+            start_time=start_time.contents.value,
+            end_time=end_time.contents.value,
+            result_raw_journal=result_raw_slice.contents.get_contents(),
+            _result=result_slice.contents.get_decoded_contents(),
+            rpc_warnings=rpc_warnings_slice.contents.get_decoded_contents(),
+            rpc_errors=rpc_errors_slice.contents.get_decoded_contents(),
+        )
+
+    @property
+    def session_id(self) -> int:
+        """
+        Get the session id of the connection.
+
+        Args:
+            N/A
+
+        Returns:
+            int: session id of the connection
+
+        Raises:
+            GetResultException: if fetching the session id fails
+
+        """
+        if self._session_id is not None:
+            return self._session_id
+
+        session_id = IntPointer(c_int())
+
+        self.ffi_mapping.netconf_mapping.get_session_id(
+            ptr=self._ptr_or_exception(), session_id=session_id
+        )
+
+        self._session_id = session_id.contents.value
+
+        return self._session_id
+
+    def get_subscription_id(self, payload: str) -> int:
+        """
+        Get the subscription id from a rpc-reply (from an establish-subscription rpc).
+
+        Args:
+            payload: the payload to find the subscription id in
+
+        Returns:
+            int: subscription id
+
+        Raises:
+            N/A
+
+        """
+        _payload = to_c_string(payload)
+        subscription_id = U64Pointer(c_uint64())
+
+        self.ffi_mapping.netconf_mapping.get_subscription_id(
+            payload=_payload,
+            subscription_id=subscription_id,
+        )
+
+        return int(subscription_id.contents.value)
+
+    def get_next_notification(
+        self,
+    ) -> str:
+        """
+        Fetch the next notification message if available.
+
+        Args:
+            N/A
+
+        Returns:
+            str: the string content of the next notification
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+            NoMessagesException: if there are no notifications to fetch
+
+        """
+        notification_size = U64Pointer(c_uint64())
+
+        self.ffi_mapping.netconf_mapping.get_next_notification_size(
+            ptr=self._ptr_or_exception(),
+            notification_size=notification_size,
+        )
+
+        if notification_size.contents.value == 0:
+            raise NoMessagesException("no notification messages available")
+
+        notification_slice = pointer(ZigSlice(size=notification_size.contents))
+
+        self.ffi_mapping.netconf_mapping.get_next_notification(
+            ptr=self._ptr_or_exception(),
+            notification_slice=notification_slice,
+        )
+
+        return notification_slice.contents.get_decoded_contents()
+
+    def get_next_subscription(
+        self,
+        subscription_id: int,
+    ) -> str:
+        """
+        Fetch the next notification message if available.
+
+        Args:
+            subscription_id: subscription id to fetch a message for
+
+        Returns:
+            str: the string content of the next notification
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+            NoMessagesException: if there are no notifications to fetch
+
+        """
+        subscription_size = pointer(c_uint64())
+
+        self.ffi_mapping.netconf_mapping.get_next_subscription_size(
+            ptr=self._ptr_or_exception(),
+            subscription_id=c_uint64(subscription_id),
+            subscription_size=subscription_size,
+        )
+
+        if subscription_size.contents.value == 0:
+            raise NoMessagesException(
+                f"no subscription messages available for subscription id {subscription_id}",
+            )
+
+        subscription_slice = pointer(ZigSlice(size=subscription_size.contents))
+
+        self.ffi_mapping.netconf_mapping.get_next_subscription(
+            ptr=self._ptr_or_exception(),
+            subscription_id=c_uint64(subscription_id),
+            subscription_slice=subscription_slice,
+        )
+
+        return subscription_slice.contents.get_decoded_contents()
+
+    @handle_operation_timeout
+    def raw_rpc(
+        self,
+        payload: str,
+        *,
+        base_namespace_prefix: str = "",
+        extra_namespaces: list[tuple[str, str]] | None = None,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a "raw" / user crafted rpc operation.
+
+        Args:
+            payload: the raw rpc payload
+            base_namespace_prefix: prefix to use for hte base/default netconf base namespace
+            extra_namespaces: optional list of pairs of prefix::namespaces. this plus the base
+                namespace prefix can allow for weird cases like nxos where the base namespace must
+                be prefixed and then additional namespaces indicating desired targets must be added
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _payload = to_c_string(payload)
+        _base_namespace_prefix = to_c_string(base_namespace_prefix)
+
+        encoded_extra_namespaces = []
+
+        if extra_namespaces is not None:
+            for prefix, namespace in extra_namespaces:
+                encoded_extra_namespaces.append(prefix.encode(encoding="utf-8"))
+                encoded_extra_namespaces.append(namespace.encode(encoding="utf-8"))
+
+        _extra_namespaces = pointer(ZigSlice(content=b"".join(encoded_extra_namespaces)))
+        _extra_namespace_lens = pointer(
+            ZigU64Slice(vals=[len(e) for e in encoded_extra_namespaces])
+        )
+
+        self.ffi_mapping.netconf_mapping.raw_rpc(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            payload=_payload,
+            base_namespace_prefix=_base_namespace_prefix,
+            extra_namespaces=_extra_namespaces,
+            extra_namespace_lens=_extra_namespace_lens,
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def raw_rpc_async(
+        self,
+        payload: str,
+        *,
+        base_namespace_prefix: str = "",
+        extra_namespaces: list[tuple[str, str]] | None = None,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a "raw" / user crafted rpc operation.
+
+        Args:
+            payload: the raw rpc payload
+            base_namespace_prefix: prefix to use for hte base/default netconf base namespace
+            extra_namespaces: optional list of pairs of prefix::namespaces. this plus the base
+                namespace prefix can allow for weird cases like nxos where the base namespace must
+                be prefixed and then additional namespaces indicating desired targets must be added
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _payload = to_c_string(payload)
+        _base_namespace_prefix = to_c_string(base_namespace_prefix)
+
+        encoded_extra_namespaces = []
+
+        if extra_namespaces is not None:
+            for prefix, namespace in extra_namespaces:
+                encoded_extra_namespaces.append(prefix.encode(encoding="utf-8"))
+                encoded_extra_namespaces.append(namespace.encode(encoding="utf-8"))
+
+        _extra_namespaces = pointer(ZigSlice(content=b"".join(encoded_extra_namespaces)))
+        _extra_namespace_lens = pointer(
+            ZigU64Slice(vals=[len(e) for e in encoded_extra_namespaces])
+        )
+
+        self.ffi_mapping.netconf_mapping.raw_rpc(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            payload=_payload,
+            base_namespace_prefix=_base_namespace_prefix,
+            extra_namespaces=_extra_namespaces,
+            extra_namespace_lens=_extra_namespace_lens,
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def get_config(  # noqa: PLR0913
+        self,
+        *,
+        source: DatastoreType = DatastoreType.RUNNING,
+        filter_: str = "",
+        filter_type: FilterType = FilterType.SUBTREE,
+        filter_namespace_prefix: str = "",
+        filter_namespace: str = "",
+        defaults_type: DefaultsType = DefaultsType.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get-config rpc operation.
+
+        Args:
+            source: source datastore to get config from
+            filter_: filter to apply to the get-config (or not if empty string)
+            filter_type: type of filter to apply, subtree|xpath
+            filter_namespace_prefix: filter namespace prefix
+            filter_namespace: filter namespace
+            defaults_type: defaults type to apply to the get-config, "unset" means dont apply one
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _filter = to_c_string(filter_)
+        _filter_namespace_prefix = to_c_string(filter_namespace_prefix)
+        _filter_namespace = to_c_string(filter_namespace)
+
+        self.ffi_mapping.netconf_mapping.get_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            source=source._to_ffi(),
+            filter_=_filter,
+            filter_type=filter_type._to_ffi(),
+            filter_namespace_prefix=_filter_namespace_prefix,
+            filter_namespace=_filter_namespace,
+            defaults_type=defaults_type._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def get_config_async(  # noqa: PLR0913
+        self,
+        *,
+        source: DatastoreType = DatastoreType.RUNNING,
+        filter_: str = "",
+        filter_type: FilterType = FilterType.SUBTREE,
+        filter_namespace_prefix: str = "",
+        filter_namespace: str = "",
+        defaults_type: DefaultsType = DefaultsType.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get-config rpc operation.
+
+        Args:
+            source: source datastore to get config from
+            filter_: filter to apply to the get-config (or not if empty string)
+            filter_type: type of filter to apply, subtree|xpath
+            filter_namespace_prefix: filter namespace prefix
+            filter_namespace: filter namespace
+            defaults_type: defaults type to apply to the get-config, "unset" means dont apply one
+            operation_timeout_ns: operation timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _filter = to_c_string(filter_)
+        _filter_namespace_prefix = to_c_string(filter_namespace_prefix)
+        _filter_namespace = to_c_string(filter_namespace)
+
+        self.ffi_mapping.netconf_mapping.get_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            source=source._to_ffi(),
+            filter_=_filter,
+            filter_type=filter_type._to_ffi(),
+            filter_namespace_prefix=_filter_namespace_prefix,
+            filter_namespace=_filter_namespace,
+            defaults_type=defaults_type._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def edit_config(  # noqa: PLR0913
+        self,
+        *,
+        config: str = "",
+        target: DatastoreType = DatastoreType.RUNNING,
+        default_operation: DefaultOperation = DefaultOperation.UNSET,
+        test_option: TestOption = TestOption.UNSET,
+        error_option: ErrorOption = ErrorOption.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an edit-config rpc operation.
+
+        Args:
+            config: string config payload to send
+            target: target datastore as DatastoreType enum
+            default_operation: value (or none) for default operation field
+            test_option: the value (or none) for the test option field
+            error_option: the value (or none) for the error option field
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _config = to_c_string(config)
+
+        self.ffi_mapping.netconf_mapping.edit_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            config=_config,
+            target=target._to_ffi(),
+            default_operation=default_operation._to_ffi(),
+            test_option=test_option._to_ffi(),
+            error_option=error_option._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def edit_config_async(  # noqa: PLR0913
+        self,
+        *,
+        config: str = "",
+        target: DatastoreType = DatastoreType.RUNNING,
+        default_operation: DefaultOperation = DefaultOperation.UNSET,
+        test_option: TestOption = TestOption.UNSET,
+        error_option: ErrorOption = ErrorOption.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an edit-config rpc operation.
+
+        Args:
+            config: string config payload to send
+            target: target datastore as DatastoreType enum
+            default_operation: value (or none) for default operation field
+            test_option: the value (or none) for the test option field
+            error_option: the value (or none) for the error option field
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _config = to_c_string(config)
+
+        self.ffi_mapping.netconf_mapping.edit_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            config=_config,
+            target=target._to_ffi(),
+            default_operation=default_operation._to_ffi(),
+            test_option=test_option._to_ffi(),
+            error_option=error_option._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def copy_config(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        source: DatastoreType = DatastoreType.STARTUP,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a copy-config rpc operation.
+
+        Args:
+            target: target to copy *to*
+            source: source to copy *from*
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.copy_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+            source=source._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def copy_config_async(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        source: DatastoreType = DatastoreType.STARTUP,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a copy-config rpc operation.
+
+        Args:
+            target: target to copy *to*
+            source: source to copy *from*
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.copy_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+            source=source._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def delete_config(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a delete-config rpc operation.
+
+        Args:
+            target: target datastore to delete
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.delete_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def delete_config_async(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a delete-config rpc operation.
+
+        Args:
+            target: target datastore to delete
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.delete_config(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def lock(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a lock rpc operation.
+
+        Args:
+            target: target datastore to lock
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.lock(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def lock_async(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a lock rpc operation.
+
+        Args:
+            target: target datastore to lock
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.lock(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def unlock(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an unlock rpc operation.
+
+        Args:
+            target: target datastore to unlock
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.unlock(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def unlock_async(
+        self,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an unlock rpc operation.
+
+        Args:
+            target: target datastore to unlock
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.unlock(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            target=target._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def get(  # noqa: PLR0913
+        self,
+        *,
+        filter_: str = "",
+        filter_type: FilterType = FilterType.SUBTREE,
+        filter_namespace_prefix: str = "",
+        filter_namespace: str = "",
+        defaults_type: DefaultsType = DefaultsType.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get rpc operation.
+
+        Args:
+            filter_: filter to apply to the get-config (or not if empty string)
+            filter_type: type of filter to apply, subtree|xpath
+            filter_namespace_prefix: filter namespace prefix
+            filter_namespace: filter namespace
+            defaults_type: defaults type to apply to the get-config, "unset" means dont apply one
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _filter = to_c_string(filter_)
+        _filter_namespace_prefix = to_c_string(filter_namespace_prefix)
+        _filter_namespace = to_c_string(filter_namespace)
+
+        self.ffi_mapping.netconf_mapping.get(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            filter_=_filter,
+            filter_type=filter_type._to_ffi(),
+            filter_namespace_prefix=_filter_namespace_prefix,
+            filter_namespace=_filter_namespace,
+            defaults_type=defaults_type._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def get_async(  # noqa: PLR0913
+        self,
+        *,
+        filter_: str = "",
+        filter_type: FilterType = FilterType.SUBTREE,
+        filter_namespace_prefix: str = "",
+        filter_namespace: str = "",
+        defaults_type: DefaultsType = DefaultsType.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get rpc operation.
+
+        Args:
+            filter_: filter to apply to the get-config (or not if empty string)
+            filter_type: type of filter to apply, subtree|xpath
+            filter_namespace_prefix: filter namespace prefix
+            filter_namespace: filter namespace
+            defaults_type: defaults type to apply to the get-config, "unset" means dont apply one
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _filter = to_c_string(filter_)
+        _filter_namespace_prefix = to_c_string(filter_namespace_prefix)
+        _filter_namespace = to_c_string(filter_namespace)
+
+        self.ffi_mapping.netconf_mapping.get(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            filter_=_filter,
+            filter_type=filter_type._to_ffi(),
+            filter_namespace_prefix=_filter_namespace_prefix,
+            filter_namespace=_filter_namespace,
+            defaults_type=defaults_type._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def close_session(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a close-session rpc operation.
+
+        Args:
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.close_session(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def close_session_async(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a close-session rpc operation.
+
+        Args:
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.close_session(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def kill_session(
+        self,
+        session_id: int,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a kill-session rpc operation.
+
+        Args:
+            session_id: session id to kill
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.kill_session(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            session_id=c_int(session_id),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def kill_session_async(
+        self,
+        session_id: int,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a kill-session rpc operation.
+
+        Args:
+            session_id: session id to kill
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.kill_session(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            session_id=c_int(session_id),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def commit(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a commit rpc operation.
+
+        Args:
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.commit(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def commit_async(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a commit rpc operation.
+
+        Args:
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.commit(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def discard(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a discard rpc operation.
+
+        Args:
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.discard(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def discard_async(
+        self,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a discard rpc operation.
+
+        Args:
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.discard(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def cancel_commit(
+        self,
+        *,
+        persist_id: str | None = None,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a cancel-commit rpc operation.
+
+        Args:
+            persist_id: optional persist-id value
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _persist_id = to_c_string(persist_id or "")
+
+        self.ffi_mapping.netconf_mapping.cancel_commit(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            persist_id=_persist_id,
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def cancel_commit_async(
+        self,
+        *,
+        persist_id: str | None = None,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a cancel-commit rpc operation.
+
+        Args:
+            persist_id: optional persist-id value
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _persist_id = to_c_string(persist_id or "")
+
+        self.ffi_mapping.netconf_mapping.cancel_commit(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            persist_id=_persist_id,
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def validate(
+        self,
+        *,
+        source: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a validate rpc operation.
+
+        Args:
+            source: datastore to validate
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.validate(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            source=source._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def validate_async(
+        self,
+        *,
+        source: DatastoreType = DatastoreType.RUNNING,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a validate rpc operation.
+
+        Args:
+            source: datastore to validate
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        self.ffi_mapping.netconf_mapping.validate(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            source=source._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def get_schema(
+        self,
+        identifier: str,
+        *,
+        version: str = "",
+        format_: SchemaFormat = SchemaFormat.YANG,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get-schema rpc operation.
+
+        Args:
+            identifier: schema identifier to get
+            version: optional schema version to request
+            format_: schema format to apply
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _identifier = to_c_string(identifier)
+        _version = to_c_string(version)
+
+        self.ffi_mapping.netconf_mapping.get_schema(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            identifier=_identifier,
+            version=_version,
+            format_=format_._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def get_schema_async(
+        self,
+        identifier: str,
+        *,
+        version: str = "",
+        format_: SchemaFormat = SchemaFormat.YANG,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get-schema rpc operation.
+
+        Args:
+            identifier: schema identifier to get
+            version: optional schema version to request
+            format_: schema format to apply
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _identifier = to_c_string(identifier)
+        _version = to_c_string(version)
+
+        self.ffi_mapping.netconf_mapping.get_schema(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            identifier=_identifier,
+            version=_version,
+            format_=format_._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def get_data(  # noqa: PLR0913
+        self,
+        *,
+        source: DatastoreType = DatastoreType.RUNNING,
+        filter_: str = "",
+        filter_type: FilterType = FilterType.SUBTREE,
+        filter_namespace_prefix: str = "",
+        filter_namespace: str = "",
+        config_filter: ConfigFilter = ConfigFilter.UNSET,
+        origin_filters: str = "",
+        max_depth: int = 0,
+        with_origin: bool = False,
+        defaults_type: DefaultsType = DefaultsType.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get-data rpc operation.
+
+        Args:
+            source: source datastore to get data from
+            filter_: filter to apply to the get-config (or not if empty string)
+            filter_type: type of filter to apply, subtree|xpath
+            filter_namespace_prefix: filter namespace prefix
+            filter_namespace: filter namespace
+            config_filter: config filter true/false, or unset to leave up to the server
+            origin_filters: fully formed origin filter xml payload to embed
+            max_depth: max depth of data requested
+            with_origin: include origin data
+            defaults_type: defaults type to apply to the get-config, "unset" means dont apply one
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _filter = to_c_string(filter_)
+        _filter_namespace_prefix = to_c_string(filter_namespace_prefix)
+        _filter_namespace = to_c_string(filter_namespace)
+        _origin_filters = to_c_string(origin_filters)
+
+        self.ffi_mapping.netconf_mapping.get_data(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            source=source._to_ffi(),
+            filter_=_filter,
+            filter_type=filter_type._to_ffi(),
+            filter_namespace_prefix=_filter_namespace_prefix,
+            filter_namespace=_filter_namespace,
+            config_filter=config_filter._to_ffi(),
+            origin_filters=_origin_filters,
+            max_depth=c_int(max_depth),
+            with_origin=c_bool(with_origin),
+            defaults_type=defaults_type._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def get_data_async(  # noqa: PLR0913
+        self,
+        *,
+        source: DatastoreType = DatastoreType.RUNNING,
+        filter_: str = "",
+        filter_type: FilterType = FilterType.SUBTREE,
+        filter_namespace_prefix: str = "",
+        filter_namespace: str = "",
+        config_filter: ConfigFilter = ConfigFilter.UNSET,
+        origin_filters: str = "",
+        max_depth: int = 0,
+        with_origin: bool = False,
+        defaults_type: DefaultsType = DefaultsType.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute a get-data rpc operation.
+
+        Args:
+            source: source datastore to get data from
+            filter_: filter to apply to the get-config (or not if empty string)
+            filter_type: type of filter to apply, subtree|xpath
+            filter_namespace_prefix: filter namespace prefix
+            filter_namespace: filter namespace
+            config_filter: config filter true/false, or unset to leave up to the server
+            origin_filters: fully formed origin filter xml payload to embed
+            max_depth: max depth of data requested
+            with_origin: include origin data
+            defaults_type: defaults type to apply to the get-config, "unset" means dont apply one
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _filter = to_c_string(filter_)
+        _filter_namespace_prefix = to_c_string(filter_namespace_prefix)
+        _filter_namespace = to_c_string(filter_namespace)
+        _origin_filters = to_c_string(origin_filters)
+
+        self.ffi_mapping.netconf_mapping.get_data(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            source=source._to_ffi(),
+            filter_=_filter,
+            filter_type=filter_type._to_ffi(),
+            filter_namespace_prefix=_filter_namespace_prefix,
+            filter_namespace=_filter_namespace,
+            config_filter=config_filter._to_ffi(),
+            origin_filters=_origin_filters,
+            max_depth=c_int(max_depth),
+            with_origin=c_bool(with_origin),
+            defaults_type=defaults_type._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def edit_data(
+        self,
+        content: str,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        default_operation: DefaultOperation = DefaultOperation.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an edit-data rpc operation.
+
+        Args:
+            content: full payload content to send
+            target: datastore to target
+            default_operation: value (or none) for default operation field
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _content = to_c_string(content)
+
+        self.ffi_mapping.netconf_mapping.edit_data(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            content=_content,
+            target=target._to_ffi(),
+            default_operation=default_operation._to_ffi(),
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def edit_data_async(
+        self,
+        content: str,
+        *,
+        target: DatastoreType = DatastoreType.RUNNING,
+        default_operation: DefaultOperation = DefaultOperation.UNSET,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an edit-data rpc operation.
+
+        Args:
+            content: full payload content to send
+            target: datastore to target
+            default_operation: value (or none) for default operation field
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _content = to_c_string(content)
+
+        self.ffi_mapping.netconf_mapping.edit_data(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            content=_content,
+            target=target._to_ffi(),
+            default_operation=default_operation._to_ffi(),
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout
+    def action(
+        self,
+        action: str,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an action rpc operation.
+
+        Args:
+            action: action to execute
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _action = to_c_string(action)
+
+        self.ffi_mapping.netconf_mapping.action(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            action=_action,
+        )
+
+        return self._get_result(operation_id_ptr=operation_id_ptr, cancel=cancel)
+
+    @handle_operation_timeout_async
+    async def action_async(
+        self,
+        action: str,
+        *,
+        operation_timeout_ns: int | None = None,
+        cancel: Cancel | None = None,
+    ) -> Result:
+        """
+        Execute an action rpc operation.
+
+        Args:
+            action: action to execute
+            operation_timeout_ns: optional timeout in ns for this operation
+            cancel: cancellation context for this operation
+
+        Returns:
+            Result: a Result object representing the operation
+
+        Raises:
+            NotOpenedException: if the ptr to the cli object is None (via _ptr_or_exception)
+            FFIException: if the operation fails
+
+        """
+        if cancel is None:
+            cancel = Cancel()
+
+        # only used in the decorator
+        _ = operation_timeout_ns
+
+        operation_id_ptr = OperationIdPointer(c_uint32(0))
+
+        _action = to_c_string(action)
+
+        self.ffi_mapping.netconf_mapping.action(
+            ptr=self._ptr_or_exception(),
+            operation_id_ptr=operation_id_ptr,
+            cancel=cancel._to_ffi(),
+            action=_action,
+        )
+
+        return await self._get_result_async(operation_id_ptr=operation_id_ptr, cancel=cancel)

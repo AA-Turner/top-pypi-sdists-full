@@ -85,6 +85,23 @@ own child. See ``tests/test_mac_native_driver.py``'s
 regression guard, mirroring :mod:`coord.win_native_driver`'s own
 ``test_no_image_name_kill_path_exists_in_the_module``.
 
+**Frontmost refusal, never a blind retry (#3566).** The first live
+`mac-native` bugbash attempt found `AXIsProcessTrusted() == False`, then
+improvised: Terminal.app `do script`, a hand-rolled key-injection helper,
+clicks sent while its own log read `frontmost confirmed: False` with the
+actual frontmost pid belonging to the operator's iTerm2. Those landed in the
+operator's live session — a context menu, a "terminate running process?"
+dialog. :meth:`NativeRunner._do_key`/:meth:`_do_click` now call
+:meth:`MacCalls.is_frontmost` immediately before every single key/click and
+refuse (:class:`MacNativeRuntimeError`, folded into an ordinary failing step
+— never retried into whatever window happens to be in front) unless the
+launched pid is frontmost *right now*. :meth:`MacOSCalls.send_click`/
+:meth:`send_key` additionally post through `CGEventPostToPid` rather than
+the global `CGEventPost(kCGHIDEventTap, ...)` HID tap — input is addressed
+to the launched process directly rather than broadcast to whichever window
+the real pointer/keyboard focus happens to be on, so even a frontmost-check
+race lands on the intended process rather than an arbitrary other one.
+
 **Locked/absent session precheck (#3510).** The same vimcode#1629 class of
 problem applies here: a locked screen or no GUI session (headless/SSH-only)
 is an environment condition, not an app bug. Before :meth:`NativeRunner.run`
@@ -94,6 +111,30 @@ launches anything it calls :meth:`MacCalls.session_available` — real check:
 unavailable, the run returns a single ``status="unavailable"`` result —
 never a ``"fail"`` — and no step (not even ``launch``) runs. See
 :mod:`coord.win_native_driver`'s own module docstring for the same shape.
+
+**Accessibility-trust precheck, in production, not just in a test fixture
+(#3566).** The locked-screen precheck above answers "is there a session to
+launch into" — it says nothing about whether THIS process identity actually
+holds Accessibility trust, which is the exact incident this driver exists to
+prevent: the first live `mac-native` bugbash attempt found
+`AXIsProcessTrusted() == False` deep inside a worker and, with nothing in
+the driver itself to catch it, improvised unsafe workarounds instead (see
+the frontmost-refusal note above). Immediately after `session_available`,
+:meth:`NativeRunner.run` also calls :meth:`MacCalls.ax_trust_available` —
+real check: `ApplicationServices.AXIsProcessTrusted()`, asked IN-PROCESS
+(unlike `coord.prereqs`'s own `/health` probe, which deliberately asks from
+a fresh subprocess because it runs inside the long-lived `coord agent`
+process — a different identity than the worker that will actually drive
+input; here, `NativeRunner.run` already runs INSIDE the worker's own
+process, so asking in-process asks the right identity directly). A denied
+grant returns a single `status="unavailable"` result — same shape and same
+non-"fail" treatment as the session precheck — before `launch` or any other
+step runs, so a missing grant fails fast with a real, worker-emitted verdict
+instead of every subsequent `send_key`/`send_click` silently (or unsafely)
+failing later. The message text deliberately matches
+`coord.bugbash._UNAVAILABLE_SIGNATURES`'s `"AXIsProcessTrusted() is False"`
+entry, so a worker's raw transcript carries the real driver's own words, not
+just a hand-written test string.
 """
 
 from __future__ import annotations
@@ -284,7 +325,15 @@ class MacCalls(Protocol):
 
     def is_window_alive(self, window_id: int) -> bool: ...
 
-    def send_click(self, window_id: int, x: int, y: int, button: str) -> None: ...
+    def is_frontmost(self, pid: int) -> tuple[bool, int]:
+        """``(True, pid)`` when *pid*'s window is frontmost right now;
+        ``(False, actual_frontmost_pid)`` otherwise — checked by
+        :class:`NativeRunner` immediately before every ``key``/``click``
+        step (#3566). Never raises: a probe failure here must read as "not
+        confirmed frontmost" (refuse), never crash the step."""
+        ...
+
+    def send_click(self, pid: int, window_id: int, x: int, y: int, button: str) -> None: ...
 
     def send_key(self, pid: int, key: str) -> None: ...
 
@@ -312,6 +361,18 @@ class MacCalls(Protocol):
         ``status="unavailable"`` rather than a failed step. Never raises —
         a probe failure here is itself an "unavailable" verdict, not a
         crash."""
+        ...
+
+    def ax_trust_available(self) -> tuple[bool, str]:
+        """``(True, "")`` when THIS process identity currently holds
+        Accessibility trust (``AXIsProcessTrusted()``); ``(False, reason)``
+        when it does not (#3566) — checked by :meth:`NativeRunner.run`
+        immediately after :meth:`session_available`, BEFORE any step
+        (including ``launch``) runs, so a missing grant is reported as
+        ``status="unavailable"`` rather than every subsequent key/click
+        step failing (or, worse, a worker improvising an unsafe workaround
+        around it). Never raises — a probe failure here is itself an
+        "unavailable" verdict, not a crash."""
         ...
 
 
@@ -367,10 +428,12 @@ class NativeRunner:
 
     def run(self, spec: NativeSpec) -> list[dict]:
         """Run *spec*, first checking :meth:`MacCalls.session_available`
-        (#3510). A locked screen or absent GUI session is an environment
-        condition, not an app bug: when unavailable, this returns a single
-        ``status="unavailable"`` entry and runs NO step at all (not even
-        ``launch``) — never folding it into an ordinary ``"fail"``."""
+        (#3510) and then :meth:`MacCalls.ax_trust_available` (#3566). A
+        locked screen, absent GUI session, or missing Accessibility grant is
+        an environment condition, not an app bug: when either is
+        unavailable, this returns a single ``status="unavailable"`` entry
+        and runs NO step at all (not even ``launch``) — never folding it
+        into an ordinary ``"fail"``."""
         self._spec = spec
         available, reason = self._calls.session_available()
         if not available:
@@ -378,6 +441,13 @@ class NativeRunner:
                 "id": "session",
                 "status": "unavailable",
                 "message": reason or "no unlocked GUI session is available",
+            }]
+        trusted, trust_reason = self._calls.ax_trust_available()
+        if not trusted:
+            return [{
+                "id": "ax-trust",
+                "status": "unavailable",
+                "message": trust_reason or "AXIsProcessTrusted() is False",
             }]
         results: list[dict] = []
         try:
@@ -449,13 +519,31 @@ class NativeRunner:
         self._calls.move_window(pid, window_id, 0, 0, spec.width, spec.height)
         return None
 
+    def _require_frontmost(self, pid: int) -> None:
+        """#3566: refuse any key/click unless *pid* is frontmost RIGHT NOW.
+        Raises :class:`MacNativeRuntimeError` (folded by :meth:`_run_step`
+        into an ordinary failing step — no retry path exists anywhere in
+        this runner, so a focus failure can never blindly retry into
+        whatever window happens to be in front) rather than letting
+        :meth:`MacCalls.send_click`/:meth:`send_key` fire blind."""
+        is_front, front_pid = self._calls.is_frontmost(pid)
+        if not is_front:
+            raise MacNativeRuntimeError(
+                f"refusing to send input — pid={pid} is not frontmost right "
+                f"now (actual frontmost pid={front_pid}); a focus failure "
+                f"is a step failure, never a blind retry into whatever "
+                f"window is in front (#3566)"
+            )
+
     def _do_key(self, step: NativeStep) -> None:
         pid, _ = self._require_window()
+        self._require_frontmost(pid)
         self._calls.send_key(pid, step.key)
 
     def _do_click(self, step: NativeStep) -> None:
-        _, window_id = self._require_window()
-        self._calls.send_click(window_id, step.x, step.y, step.button or "left")
+        pid, window_id = self._require_window()
+        self._require_frontmost(pid)
+        self._calls.send_click(pid, window_id, step.x, step.y, step.button or "left")
 
     def _do_wait(self, step: NativeStep) -> None:
         time.sleep(step.ms / 1000)
@@ -635,6 +723,33 @@ class MacOSCalls:
             )
         return True, ""
 
+    # -- Accessibility-trust precheck (#3566) --
+
+    def ax_trust_available(self) -> tuple[bool, str]:
+        """Real check: ``ApplicationServices.AXIsProcessTrusted()``, asked
+        IN-PROCESS. Unlike :mod:`coord.prereqs`'s own ``/health`` probe
+        (which deliberately shells out to a fresh ``sys.executable``
+        subprocess because IT runs inside the long-lived ``coord agent``
+        process, a different identity than a dispatched worker), this call
+        already runs inside the worker process that will actually drive
+        input — so asking in-process asks exactly the identity that
+        matters, with no subprocess indirection needed. The message text
+        deliberately matches
+        :data:`coord.bugbash._UNAVAILABLE_SIGNATURES`'s
+        ``"AXIsProcessTrusted() is False"`` entry."""
+        ax = self._ax
+        try:
+            trusted = bool(ax.AXIsProcessTrusted())
+        except Exception as e:  # noqa: BLE001 — a probe failure IS the verdict
+            return False, f"AXIsProcessTrusted() probe raised: {e}"
+        if not trusted:
+            return False, (
+                "AXIsProcessTrusted() is False for this process identity — "
+                "grant Accessibility to it in System Settings -> Privacy & "
+                "Security -> Accessibility, then relaunch the agent (#3566)"
+            )
+        return True, ""
+
     def find_top_window(self, pid: int, timeout_s: float) -> int:
         quartz = self._quartz
         deadline = time.monotonic() + timeout_s
@@ -657,6 +772,23 @@ class MacOSCalls:
         )
         return any(info.get("kCGWindowNumber") == window_id for info in info_list or [])
 
+    def is_frontmost(self, pid: int) -> tuple[bool, int]:
+        """#3566: `CGWindowListCopyWindowInfo`'s on-screen-only list is
+        already ordered front-to-back — the first entry at the normal
+        window layer (``kCGWindowLayer == 0``; menu bar items/status icons
+        sit at other layers and would otherwise masquerade as "frontmost")
+        is the actual frontmost app window right now."""
+        quartz = self._quartz
+        info_list = quartz.CGWindowListCopyWindowInfo(
+            quartz.kCGWindowListOptionOnScreenOnly, quartz.kCGNullWindowID,
+        )
+        for info in info_list or []:
+            if info.get("kCGWindowLayer", 0) != 0:
+                continue
+            front_pid = int(info.get("kCGWindowOwnerPID", -1))
+            return front_pid == pid, front_pid
+        return False, -1
+
     def move_window(
         self, pid: int, window_id: int, x: int, y: int, width: int, height: int,
     ) -> None:
@@ -675,7 +807,10 @@ class MacOSCalls:
 
     # -- input injection --
 
-    def send_click(self, window_id: int, x: int, y: int, button: str) -> None:
+    def send_click(self, pid: int, window_id: int, x: int, y: int, button: str) -> None:
+        """#3566: posts via ``CGEventPostToPid`` — addressed directly to
+        *pid* — rather than the global ``CGEventPost(kCGHIDEventTap, ...)``
+        HID tap every other window on the desktop would also receive."""
         quartz = self._quartz
         info_list = quartz.CGWindowListCopyWindowInfo(
             quartz.kCGWindowListOptionIncludingWindow, window_id,
@@ -695,9 +830,11 @@ class MacOSCalls:
         point = quartz.CGPointMake(screen_x, screen_y)
         for event_type in (down_type, up_type):
             event = quartz.CGEventCreateMouseEvent(None, event_type, point, cg_button)
-            quartz.CGEventPost(quartz.kCGHIDEventTap, event)
+            quartz.CGEventPostToPid(pid, event)
 
     def send_key(self, pid: int, key: str) -> None:
+        """#3566: posts via ``CGEventPostToPid`` — see :meth:`send_click`'s
+        own docstring for why, same rationale."""
         quartz = self._quartz
         vkey, needs_shift = _vkey_for(key)
         needs_ctrl = key.lower().startswith("ctrl+")
@@ -711,8 +848,8 @@ class MacOSCalls:
         if flags:
             quartz.CGEventSetFlags(down, flags)
             quartz.CGEventSetFlags(up, flags)
-        quartz.CGEventPost(quartz.kCGHIDEventTap, down)
-        quartz.CGEventPost(quartz.kCGHIDEventTap, up)
+        quartz.CGEventPostToPid(pid, down)
+        quartz.CGEventPostToPid(pid, up)
 
     # -- Accessibility --
 

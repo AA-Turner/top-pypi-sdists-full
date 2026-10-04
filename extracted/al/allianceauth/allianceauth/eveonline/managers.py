@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, cast
 
-from httpx import Response
+from httpx2 import Response
 
 from django.apps import apps
 from django.db import transaction

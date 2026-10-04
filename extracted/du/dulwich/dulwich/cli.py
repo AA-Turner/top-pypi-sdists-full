@@ -29,6 +29,7 @@ a way to test Dulwich.
 """
 
 __all__ = [
+    "SUPPORTED_HOOKS",
     "AutoFlushBinaryIOWrapper",
     "AutoFlushTextIOWrapper",
     "Command",
@@ -36,6 +37,140 @@ __all__ = [
     "Pager",
     "PagerBuffer",
     "SuperCommand",
+    "cmd_add",
+    "cmd_am",
+    "cmd_annotate",
+    "cmd_apply",
+    "cmd_archive",
+    "cmd_bisect",
+    "cmd_blame",
+    "cmd_branch",
+    "cmd_bundle",
+    "cmd_cat_file",
+    "cmd_check_ignore",
+    "cmd_check_mailmap",
+    "cmd_checkout",
+    "cmd_cherry",
+    "cmd_cherry_pick",
+    "cmd_clean",
+    "cmd_clone",
+    "cmd_column",
+    "cmd_commit",
+    "cmd_commit_tree",
+    "cmd_config",
+    "cmd_count_objects",
+    "cmd_daemon",
+    "cmd_describe",
+    "cmd_diagnose",
+    "cmd_diff",
+    "cmd_diff_tree",
+    "cmd_dump_index",
+    "cmd_dump_pack",
+    "cmd_fetch",
+    "cmd_fetch_pack",
+    "cmd_filter_branch",
+    "cmd_for_each_ref",
+    "cmd_format_patch",
+    "cmd_fsck",
+    "cmd_gc",
+    "cmd_grep",
+    "cmd_hash_object",
+    "cmd_help",
+    "cmd_hook",
+    "cmd_hook_run",
+    "cmd_init",
+    "cmd_interpret_trailers",
+    "cmd_lfs",
+    "cmd_log",
+    "cmd_ls_files",
+    "cmd_ls_remote",
+    "cmd_ls_tree",
+    "cmd_mailinfo",
+    "cmd_mailsplit",
+    "cmd_maintenance",
+    "cmd_merge",
+    "cmd_merge_base",
+    "cmd_merge_tree",
+    "cmd_mktag",
+    "cmd_mv",
+    "cmd_notes",
+    "cmd_notes_add",
+    "cmd_notes_list",
+    "cmd_notes_remove",
+    "cmd_notes_show",
+    "cmd_pack_objects",
+    "cmd_pack_refs",
+    "cmd_prune",
+    "cmd_pull",
+    "cmd_push",
+    "cmd_range_diff",
+    "cmd_rebase",
+    "cmd_receive_pack",
+    "cmd_reflog",
+    "cmd_remote",
+    "cmd_remote_add",
+    "cmd_repack",
+    "cmd_replace",
+    "cmd_replace_delete",
+    "cmd_replace_list",
+    "cmd_request_pull",
+    "cmd_rerere",
+    "cmd_reset",
+    "cmd_restore",
+    "cmd_rev_list",
+    "cmd_rev_parse",
+    "cmd_revert",
+    "cmd_rm",
+    "cmd_shortlog",
+    "cmd_show",
+    "cmd_show_branch",
+    "cmd_show_index",
+    "cmd_show_ref",
+    "cmd_sparse_checkout",
+    "cmd_sparse_checkout_add",
+    "cmd_sparse_checkout_disable",
+    "cmd_sparse_checkout_init",
+    "cmd_sparse_checkout_list",
+    "cmd_sparse_checkout_set",
+    "cmd_stash",
+    "cmd_stash_list",
+    "cmd_stash_pop",
+    "cmd_stash_push",
+    "cmd_status",
+    "cmd_stripspace",
+    "cmd_submodule",
+    "cmd_submodule_add",
+    "cmd_submodule_init",
+    "cmd_submodule_list",
+    "cmd_submodule_update",
+    "cmd_subtree",
+    "cmd_subtree_add",
+    "cmd_subtree_merge",
+    "cmd_subtree_pull",
+    "cmd_subtree_push",
+    "cmd_subtree_split",
+    "cmd_switch",
+    "cmd_symbolic_ref",
+    "cmd_tag",
+    "cmd_unpack_objects",
+    "cmd_update_ref",
+    "cmd_update_server_info",
+    "cmd_upload_pack",
+    "cmd_var",
+    "cmd_verify_commit",
+    "cmd_verify_tag",
+    "cmd_web_daemon",
+    "cmd_worktree",
+    "cmd_worktree_add",
+    "cmd_worktree_list",
+    "cmd_worktree_lock",
+    "cmd_worktree_move",
+    "cmd_worktree_prune",
+    "cmd_worktree_remove",
+    "cmd_worktree_repair",
+    "cmd_worktree_unlock",
+    "cmd_write_tree",
+    "commands",
     "detect_terminal_width",
     "disable_pager",
     "enable_pager",
@@ -86,7 +221,14 @@ from .errors import (
     ApplyDeltaError,
     FileFormatException,
     GitProtocolError,
+    HookError,
     NotGitRepository,
+)
+from .hooks import (
+    CommitMsgShellHook,
+    PostCommitShellHook,
+    PreCommitShellHook,
+    UpdateShellHook,
 )
 from .index import Index, InvalidPathError
 from .log_utils import _configure_logging_from_trace
@@ -117,6 +259,20 @@ def to_display_str(value: bytes | str) -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8", "replace")
     return value
+
+
+def _optional_locks_enabled(env: Mapping[str, str] | None = None) -> bool:
+    """Check whether optional locks are enabled via GIT_OPTIONAL_LOCKS.
+
+    Args:
+        env: Environment variables dict (defaults to os.environ)
+
+    Returns:
+        False when GIT_OPTIONAL_LOCKS is set to "0", True otherwise.
+    """
+    if env is None:
+        env = os.environ
+    return env.get("GIT_OPTIONAL_LOCKS", "").strip() != "0"
 
 
 def _should_auto_flush(
@@ -1494,6 +1650,12 @@ class cmd_log(Command):
             action="store_true",
             help="Follow file renames",
         )
+        parser.add_argument(
+            "--full-history",
+            action="store_true",
+            help="Show every commit that touched the path, without git's "
+            "default history simplification",
+        )
         parser.add_argument("paths", nargs="*", help="Paths to show log for")
         parsed_args = parser.parse_args(args)
 
@@ -1519,6 +1681,7 @@ class cmd_log(Command):
                     stat=parsed_args.stat,
                     patch=parsed_args.patch,
                     follow=parsed_args.follow,
+                    full_history=parsed_args.full_history,
                     outstream=outstream,
                 )
 
@@ -3553,7 +3716,9 @@ class cmd_status(Command):
             help="Display untracked files in columns",
         )
         parsed_args = parser.parse_args(args)
-        status = porcelain.status(parsed_args.gitdir)
+        status = porcelain.status(
+            parsed_args.gitdir, optional_locks=_optional_locks_enabled()
+        )
         if any(names for (kind, names) in status.staged.items()):
             sys.stdout.write("Changes to be committed:\n\n")
             for kind, names in status.staged.items():
@@ -7675,6 +7840,11 @@ class cmd_am(Command):
     """Apply patches from mailbox-style email messages."""
 
     def run(self, args: Sequence[str]) -> None:
+        """Execute the am command.
+
+        Args:
+            args: Command line arguments
+        """
         parser = argparse.ArgumentParser()
         parser.add_argument(
             "patches",
@@ -7769,6 +7939,102 @@ class cmd_am(Command):
                 sys.stdout.write(sha.decode("ascii") + "\n")
 
 
+SUPPORTED_HOOKS = ("pre-commit", "post-commit", "commit-msg", "update")
+
+
+class cmd_hook_run(Command):
+    """Run hooks manually.
+
+    Supported hooks: pre-commit, post-commit, commit-msg, update.
+    """
+
+    def run(self, args: Sequence[str]) -> int | None:
+        """Run a hook manually.
+
+        Args:
+            args: Command line arguments
+        """
+        parser = argparse.ArgumentParser(
+            description="Run a git hook manually. "
+            f"Supported hooks: {', '.join(SUPPORTED_HOOKS)}."
+        )
+        parser.add_argument(
+            "--ignore-missing",
+            action="store_true",
+            help="Exit successfully when the hook is not installed",
+        )
+        parser.add_argument("hook_name", help="Name of the hook to run")
+        parser.add_argument(
+            "hook_args", nargs="*", help="Arguments to pass to the hook"
+        )
+        parsed_args = parser.parse_args(args)
+
+        hook_name = parsed_args.hook_name
+        hook_args = parsed_args.hook_args
+
+        if hook_name not in SUPPORTED_HOOKS:
+            logger.error(f"unsupported hook: {hook_name}")
+            return 1
+
+        try:
+            with porcelain.open_repo_closing(None) as r:
+                controldir = r.controldir()
+                hook_path = os.path.join(controldir, "hooks", hook_name)
+                if not os.path.exists(hook_path):
+                    if parsed_args.ignore_missing:
+                        return None
+                    logger.error(f"cannot find a hook named {hook_name}")
+                    return 1
+                if hook_name == "pre-commit":
+                    if hook_args:
+                        logger.error("pre-commit takes no arguments")
+                        return 1
+                    PreCommitShellHook(r.path, controldir).execute()
+                elif hook_name == "post-commit":
+                    if hook_args:
+                        logger.error("post-commit takes no arguments")
+                        return 1
+                    PostCommitShellHook(controldir).execute()
+                elif hook_name == "commit-msg":
+                    if len(hook_args) != 1:
+                        logger.error(
+                            "commit-msg takes a single argument: "
+                            "the commit message file"
+                        )
+                        return 1
+                    with open(hook_args[0], "rb") as f:
+                        msg = f.read()
+                    new_msg = CommitMsgShellHook(controldir).execute(msg)
+                    if new_msg is not None:
+                        with open(hook_args[0], "wb") as f:
+                            f.write(new_msg)
+                elif hook_name == "update":
+                    if len(hook_args) != 3:
+                        logger.error(
+                            "update takes three arguments: "
+                            "<ref-name> <old-sha> <new-sha>"
+                        )
+                        return 1
+                    ref_name, old_sha, new_sha = (a.encode() for a in hook_args)
+                    out, err = UpdateShellHook(controldir).execute(
+                        ref_name, old_sha, new_sha
+                    )
+                    sys.stdout.buffer.write(out)
+                    sys.stderr.buffer.write(err)
+        except (HookError, OSError) as e:
+            logger.error(f"error: {e}")
+            return 1
+        return None
+
+
+class cmd_hook(SuperCommand):
+    """Manage git hooks."""
+
+    subcommands: ClassVar[dict[str, type[Command]]] = {
+        "run": cmd_hook_run,
+    }
+
+
 commands = {
     "add": cmd_add,
     "am": cmd_am,
@@ -7809,6 +8075,7 @@ commands = {
     "grep": cmd_grep,
     "hash-object": cmd_hash_object,
     "help": cmd_help,
+    "hook": cmd_hook,
     "init": cmd_init,
     "interpret-trailers": cmd_interpret_trailers,
     "lfs": cmd_lfs,

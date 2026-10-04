@@ -33,6 +33,7 @@ from bitfab.baml import run_function_with_baml
 from bitfab.commit_ref import CommitRef, current_commit_ref, start_commit_ref_resolution
 from bitfab.constants import (
     DEFAULT_SERVICE_URL,
+    REPLAY_API_KEY_ENV,
     _replay_context,
     _seed_context,
     _submit_origin,
@@ -1237,20 +1238,10 @@ class Bitfab:
         """Remove all overrides registered via :meth:`register_mock_override`."""
         self._mock_overrides = []
 
-    def _resolve_api_key(self) -> str | None:
-        """Resolve the API key lazily, the first time a span actually needs it.
-
-        The key is intentionally NOT read at construction. A module that builds
-        the client at import time (e.g. ``Bitfab(api_key=os.environ.get(...))``)
-        runs before the entrypoint's ``load_dotenv()`` when imported early, so
-        the key would be empty at construction even though it is set moments
-        later. Resolving here (first decorated call / first request) reads it
-        after env loading has run.
-
-        Resolution order: the configured value (string, or function called
-        while still unresolved), then a fallback read of ``BITFAB_API_KEY`` from
-        the environment. Once a non-empty key is found it is cached.
-        """
+    def _resolve_api_key_without_raising(self) -> str | None:
+        replay_key = os.environ.get(REPLAY_API_KEY_ENV)
+        if replay_key and replay_key.strip():
+            return replay_key
         if self._resolved_api_key is not None:
             return self._resolved_api_key
         from_config = (
@@ -1266,6 +1257,24 @@ class Bitfab:
         key = candidate if candidate and candidate.strip() else None
         if key:
             self._resolved_api_key = key
+        return key
+
+    def _resolve_api_key(self) -> str | None:
+        """Resolve the API key lazily, the first time a span actually needs it.
+
+        The key is intentionally NOT read at construction. A module that builds
+        the client at import time (e.g. ``Bitfab(api_key=os.environ.get(...))``)
+        runs before the entrypoint's ``load_dotenv()`` when imported early, so
+        the key would be empty at construction even though it is set moments
+        later. Resolving here (first decorated call / first request) reads it
+        after env loading has run.
+
+        Resolution order: the configured value (string, or function called
+        while still unresolved), then a fallback read of ``BITFAB_API_KEY`` from
+        the environment. Once a non-empty key is found it is cached.
+        """
+        key = self._resolve_api_key_without_raising()
+        if key:
             return key
         if self._strict:
             raise RuntimeError(

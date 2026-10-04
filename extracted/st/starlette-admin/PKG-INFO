@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: starlette-admin
-Version: 1.0.1
+Version: 1.0.2
 Summary: Fast, beautiful and extensible administrative interface framework for FastAPI & Starlette applications
 Project-URL: Homepage, https://github.com/jowilf/starlette-admin
 Project-URL: Documentation, https://jowilf.github.io/starlette-admin

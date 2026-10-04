@@ -19,6 +19,7 @@ if TYPE_CHECKING:
   from trajectory.resources.chat.chat import Chat
   from trajectory.resources.datasets import Datasets
   from trajectory.resources.deployments import Deployments
+  from trajectory.resources.diagnostics import Diagnostics
   from trajectory.resources.evals.evals import Evals
   from trajectory.resources.inference import Inference
   from trajectory.resources.organizations import Organizations
@@ -131,6 +132,12 @@ class Client(APIClient):
     from trajectory.resources.benchmarks.benchmarks import Benchmarks
 
     return Benchmarks(self)
+
+  @cached_property
+  def diagnostics(self) -> Diagnostics:
+    from trajectory.resources.diagnostics import Diagnostics
+
+    return Diagnostics(self)
 
   @cached_property
   def chat(self) -> Chat:

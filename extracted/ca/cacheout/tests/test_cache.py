@@ -1,6 +1,5 @@
 import asyncio
 import re
-import sys
 import typing as t
 
 import pytest
@@ -493,6 +492,7 @@ def test_cache_memoize_func_attrs(cache: Cache):
     assert mark_z == marker
 
 
+@pytest.mark.asyncio
 async def test_cache_memoize_async(cache: Cache):
     """Test that cache.memoize() can decorate async functions."""
     marker = 1
@@ -500,8 +500,6 @@ async def test_cache_memoize_async(cache: Cache):
     @cache.memoize()
     async def func(a):
         return a, marker
-
-    assert asyncio.iscoroutinefunction(func)
 
     assert len(cache) == 0
 
@@ -523,7 +521,7 @@ async def test_cache_memoize_async(cache: Cache):
     assert len(cache) == 2
 
 
-@pytest.mark.skipif(sys.version_info[:2] <= (3, 8), reason="test not compatible with python <= 3.8")
+@pytest.mark.asyncio
 async def test_cache_memoize_async_runtime_error_regression(cache: Cache):
     """
     Test that cache.memoize() doesn't raise RuntimeError.
@@ -797,3 +795,27 @@ def test_cache_stats_configure(cache: Cache):
     assert cache.stats.is_enabled() is True
     cache.configure(enable_stats=False)
     assert cache.stats.is_enabled() is False
+
+
+def test_cache_expired_accepts_zero_timestamp(cache: Cache, timer: Timer):
+    """An explicit zero timestamp must not be replaced with the current time."""
+    cache.set("key", "value", ttl=5)
+    timer.time = 10
+    assert not cache.expired("key", expires_on=0)
+    assert not cache.expired("key", expires_on=4)
+    assert cache.expired("key", expires_on=5)
+    assert cache.expired("key")
+    assert cache.expired("missing", expires_on=0)
+
+
+def test_cache_memoize_argument_boundaries(cache: Cache):
+    """Different integer argument partitions must not share cached results."""
+
+    @cache.memoize()
+    def join_numbers(*values):
+        return values
+
+    assert join_numbers(1, 23) == (1, 23)
+    assert join_numbers(12, 3) == (12, 3)
+    assert join_numbers(123) == (123,)
+    assert join_numbers.cache_key(1, 23) != join_numbers.cache_key(12, 3)

@@ -370,48 +370,6 @@ LEGACY_MIGRATION_TABLE_DECLARATIONS: tuple[ContractTableDeclaration, ...] = (
             role="demo_readiness",
         ),
     ),
-    # OMN-20154: infra vendors provider_quota_state before omnimarket#3134
-    # lands its node contract. This bridge expires once the pin includes it.
-    # Retired by: omnimarket#3134 merging and the pin advancing past it.
-    ContractTableDeclaration(
-        node="legacy_migration:provider_quota_state",
-        contract_path=Path(
-            "docker/migrations/forward/nodes/node_projection_provider_quota/"
-            "0000_create_provider_quota_state.sql"
-        ),
-        table=ModelDbTableDeclaration(
-            name="provider_quota_state",
-            database_ref="application",
-            schema="public",
-            migration=(
-                "docker/migrations/forward/nodes/node_projection_provider_quota/"
-                "0000_create_provider_quota_state.sql"
-            ),
-            access="read_write",
-            role="provider_quota_state",
-        ),
-    ),
-    # OMN-20242: infra vendors the disposition table before the omnimarket
-    # node_projection_delegation_disposition contract lands. This bridge expires
-    # when that source change merges and the pin advances to declare the table.
-    ContractTableDeclaration(
-        node="legacy_migration:delegation_dispositions",
-        contract_path=Path(
-            "docker/migrations/forward/nodes/node_projection_delegation_disposition/"
-            "0000_create_delegation_dispositions.sql"
-        ),
-        table=ModelDbTableDeclaration(
-            name="delegation_dispositions",
-            database_ref="application",
-            schema="public",
-            migration=(
-                "docker/migrations/forward/nodes/node_projection_delegation_disposition/"
-                "0000_create_delegation_dispositions.sql"
-            ),
-            access="read_write",
-            role="delegation_dispositions",
-        ),
-    ),
     # OMN-18862: migration 089 grants BOTH savings read views to
     # tenant_projection_writer on ADJACENT lines -- projection_delegation_savings
     # at :716 and projection_cost_savings_overview at :717 -- and the OMN-17426

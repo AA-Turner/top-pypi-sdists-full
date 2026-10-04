@@ -60,12 +60,16 @@ class _RecordingEmitter:
     def __init__(self) -> None:
         self.warnings: list[Any] = []
         self.chunks: list[str] = []
+        self.errors: list[dict[str, Any]] = []
 
     async def send_warning(self, payload: Any, *a: Any, **k: Any) -> None:
         self.warnings.append(payload)
 
     async def send_chunk(self, text: str) -> None:
         self.chunks.append(text)
+
+    async def send_error(self, *a: Any, **k: Any) -> None:
+        self.errors.append(k)
 
     def reset_turn_text(self) -> None:
         return None
@@ -127,9 +131,15 @@ def _provider_response(
     finish_reason: str,
     usage: TokenUsage | None,
     raw_response: dict[str, Any] | None = None,
+    content: list[Any] | None = None,
 ) -> UnifiedResponse:
     return UnifiedResponse(
-        messages=[UnifiedMessage(role="assistant", content=[TextContent(text=_PARTIAL_TEXT)])],
+        messages=[
+            UnifiedMessage(
+                role="assistant",
+                content=content if content is not None else [TextContent(text=_PARTIAL_TEXT)],
+            )
+        ],
         usage=usage,
         finish_reason=finish_reason,
         raw_response=raw_response,
@@ -153,6 +163,7 @@ async def _run_one_turn(
     usage: TokenUsage | None = None,
     with_usage: bool = True,
     raw_response: dict[str, Any] | None = None,
+    content: list[Any] | None = None,
 ) -> dict[str, Any]:
     captured: list[dict[str, Any]] = []
     finalized: list[dict[str, Any]] = []
@@ -207,6 +218,7 @@ async def _run_one_turn(
             finish_reason,
             (usage or _usage()) if with_usage else None,
             raw_response,
+            content,
         )
     )
     token = set_app_context(ctx)
@@ -233,6 +245,7 @@ async def _run_one_turn(
         "queued": queued,
         "warnings": emitter.warnings,
         "chunks": emitter.chunks,
+        "errors": emitter.errors,
     }
 
 
@@ -447,3 +460,32 @@ async def test_a_clean_stop_never_announces_a_truncation(
         assert "truncation" not in (finalized.get("metadata") or {})
         for message in finalized["current_request"].config.messages:
             assert "truncation" not in (getattr(message, "metadata", None) or {})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("finish_reason", _TRUNCATION_SIGNALS)
+async def test_limit_spent_on_reasoning_fails_the_turn_honestly(
+    monkeypatch: pytest.MonkeyPatch, finish_reason: str
+) -> None:
+    """2026-10-03 (clone): the Vision Interview Archaeologist at 500 tokens thought until
+    the cap and wrote nothing. The turn was finalized as a ``truncated`` success under
+    "what you see above is incomplete" — over an empty reply. It must FAIL, with ONE
+    terminal error whose sentence says nothing was answered."""
+    from matrx_ai.config.unified_content import ThinkingContent
+
+    run = await _run_one_turn(
+        monkeypatch,
+        finish_reason,
+        content=[ThinkingContent(text="Weighing the no-show economics for a four-therapist clinic...")],
+    )
+
+    assert len(run["finalized"]) == 1
+    meta = run["finalized"][0]["metadata"]
+    assert meta["status"] == "failed"
+    assert meta["error_type"] == "empty_reply_at_output_limit"
+    assert "never wrote an answer" in meta["error"] and "above" not in meta["error"]
+    assert [e["error_type"] for e in run["errors"]] == ["empty_reply_at_output_limit"]
+    assert [w.code for w in run["warnings"]] == []  # one terminal error, no second notice
+    last = run["finalized"][0]["current_request"].config.messages[-1]
+    assert last.role == "assistant" and last.status == "failed"
+    assert "never wrote an answer" in [getattr(b, "text", "") for b in last.content][-1]

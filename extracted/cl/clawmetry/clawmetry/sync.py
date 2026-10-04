@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import sys
 import tempfile
 import time
@@ -33,6 +34,7 @@ from typing import Any
 from clawmetry import error_signal as _error_signal
 from clawmetry import nonsecret_hash as _nsh
 from clawmetry import session_titles as _session_titles
+from clawmetry import url_guard as _url_guard
 from clawmetry.adapters import phase as _phase
 # The ONE actuator both the Guard tab and the policy pass call. A leaf
 # module (it imports this one lazily), so there is no cycle. Bound under
@@ -188,6 +190,14 @@ def _holder_cmdline_verdict(pid: int) -> str:
     ``_proc_cmdline`` reads nothing on a Windows host without psutil, and
     treating "I could not look" as "not ours" there would let an upgrade
     reclaim a lock a perfectly healthy daemon still holds.
+
+    The one exception is Linux: ``/proc/<pid>/cmdline`` is always non-empty for
+    a live process.  An empty read there means the process has already exited or
+    is a zombie — the process-table entry is still visible to ``is_alive()`` but
+    the process can no longer hold a lock meaningfully.  Return ``"foreign"`` so
+    the stale entry is reclaimed rather than leaving the daemon locked out in a
+    supervisor restart loop (field-failure #6271, daemon_lock_refused on Linux /
+    py3.12 caused by a zombie holding a recycled PID).
     """
     try:
         from clawmetry.process_control import _proc_cmdline
@@ -195,6 +205,11 @@ def _holder_cmdline_verdict(pid: int) -> str:
     except Exception:  # noqa: BLE001
         return "unknown"
     if not blob:
+        # On Linux /proc/<pid>/cmdline is populated for every live process;
+        # empty means exited or zombie.  On other platforms an empty result
+        # just means "could not read" — keep "unknown" there.
+        if sys.platform.startswith("linux"):
+            return "foreign"
         return "unknown"
     if "clawmetry" in blob and ("sync" in blob or "daemon" in blob):
         return "ours"
@@ -2988,7 +3003,7 @@ def _detect_docker_openclaw() -> dict:
                                 timeout=30,
                             )
                             # Copy logs
-                            for log_path in ["/tmp/openclaw", f"{check_path}/logs"]:
+                            for log_path in ["/tmp/openclaw", f"{check_path}/logs"]:  # nosec B108 - container-side source for docker cp, read out of the container; not a host path
                                 subprocess.run(
                                     [
                                         "docker",
@@ -3085,12 +3100,12 @@ def detect_paths() -> dict:
             log.warning("           protocol: https")
 
     log_candidates = [
-        Path("/tmp/openclaw"),
+        Path("/tmp/openclaw"),  # nosec B108 - read-only discovery candidate, probed with .exists(); never written
         Path(_get_openclaw_dir()) / "logs",
         Path("/data/logs"),
     ]
     log_dir = docker_paths.get("log_dir") or next(
-        (str(p) for p in log_candidates if p.exists()), "/tmp/openclaw"
+        (str(p) for p in log_candidates if p.exists()), "/tmp/openclaw"  # nosec B108 - fallback log dir for the printed diagnostic; reported as text, never opened
     )
 
     workspace_candidates = [
@@ -4926,6 +4941,43 @@ def _local_ingest_session_batch(
             store.ingest_spans_batch(_spans)
     except Exception as _e:
         log.debug("span reconstruction skipped (non-fatal): %s", _e)
+    # Replay stream (#4816): the canonical replay_events rows for this
+    # session, re-read from the transcript the batch came from plus the
+    # read-only OpenClaw state database. Idempotent (upsert on span_id), so
+    # a grown transcript simply re-delivers the same ids. OpenClaw only: a
+    # NemoClaw sandbox batch on this shape has no state database to join,
+    # and a sub-agent batch is keyed on a session key, not a transcript.
+    if agent_type == "openclaw" and not subagent_id:
+        try:
+            _ingest_openclaw_replay_events(store, session_id)
+        except Exception as _e:
+            log.debug("openclaw replay ingest skipped (non-fatal): %s", _e)
+
+
+def _ingest_openclaw_replay_events(store, session_id: str,
+                                   limit: int = 5000) -> int:
+    """Write the OpenClaw replay stream for one session (#4816).
+
+    Mirrors ``_ingest_family_replay_events`` for the OpenClaw path, which
+    never ran through ``sync_family_runtimes``. Best effort: a mapper or
+    store failure logs and returns 0, so the transcript ingest that called
+    us is never affected. Returns the number of rows written.
+    """
+    if not session_id or ":" in session_id:
+        return 0  # runtime-prefixed ids belong to the family path
+    try:
+        from clawmetry.adapters.openclaw import OpenClawAdapter
+        rows = list(OpenClawAdapter().iter_replay_events(session_id, limit=limit))
+    except Exception as _e:
+        log.debug("openclaw replay mapper failed (%s): %s", session_id, _e)
+        return 0
+    if not rows:
+        return 0
+    try:
+        return int(store.ingest_replay_events(rows) or 0)
+    except Exception as _e:
+        log.debug("openclaw replay write failed (%s): %s", session_id, _e)
+        return 0
 
 
 # Where each runtime records the working directory and git branch of a
@@ -8170,6 +8222,7 @@ _LITE_RT_LABELS = {
     "replit": "Replit Agent",
     "muse_code": "Muse Code",
     "openexecutive": "OpenExecutive",
+    "opendots": "OpenDots",
 
 }
 
@@ -9399,6 +9452,12 @@ def send_heartbeat(config: dict) -> bool:
         # accounts without the clawmetry-pro adapters too.
         "detected_runtimes": _detect_runtimes_for_heartbeat(),
     }
+    try:
+        from clawmetry.assistant_relay import capability
+        payload["assistant_relay"] = capability(config)
+    except Exception:
+        # Never advertise readiness before writer/receipt initialization.
+        payload["assistant_relay"] = {"v": 1, "epoch": "", "enabled": False, "paused": False}
     # Stuck-agent signal (clawmetry-hardware#15). The WiFi desk device fetches
     # the CLOUD device_summary (built from Postgres), NOT the local dashboard or
     # the legacy E2E snapshot, so the daemon's loop_signals never reached it.
@@ -9624,6 +9683,7 @@ def send_heartbeat(config: dict) -> bool:
 # daemon stays safe when `routes/` isn't on sys.path (some installs run the
 # sync daemon without the dashboard module loaded).
 _PENDING_SHAPES = {
+    "incidents", "investigation", "activity", "error_groups", "session_catalog",
     "events", "sessions", "aggregates", "health", "transcript",
     # Added in P4 (#2990): new live shapes from P2 materialized rollups.
     "runtimes", "models", "rollup_sessions",
@@ -9661,6 +9721,11 @@ def _local_dispatch_fallback(shape: str, args: dict) -> dict:
     if shape == "health":
         return store.health()
     method_map = {
+        "incidents": "query_incidents",
+        "investigation": "query_investigation",
+        "error_groups": "query_error_groups",
+        "session_catalog": "query_session_catalog",
+        "activity": "query_activity",
         "events":     "query_events",
         "sessions":   "query_sessions",
         "aggregates": "query_aggregates",
@@ -9670,7 +9735,24 @@ def _local_dispatch_fallback(shape: str, args: dict) -> dict:
     method = method_map.get(shape)
     if not method:
         raise ValueError(f"unknown shape: {shape}")
-    result = getattr(store, method)(**_filter_store_kwargs(shape, args or {}))
+    if shape in ("error_groups", "session_catalog"):
+        allowed = {"node_id", "runtime", "session_id", "limit"}
+        if shape == "error_groups":
+            allowed.add("days")
+        kwargs = {k: v for k, v in (args or {}).items() if k in allowed}
+    elif shape in ("incidents", "investigation", "activity"):
+        allowed = {"node_id", "runtime", "session_id", "cursor", "incident_id", "state", "limit", "event_id"}
+        kwargs = {k: v for k, v in (args or {}).items() if k in allowed}
+        if shape == "activity":
+            kwargs = {k: v for k, v in kwargs.items() if k not in ("incident_id", "state", "event_id")}
+        elif shape == "incidents":
+            kwargs.pop("cursor", None)
+            kwargs.pop("event_id", None)
+        else:
+            kwargs.pop("state", None)
+    else:
+        kwargs = _filter_store_kwargs(shape, args or {})
+    result = getattr(store, method)(**kwargs)
     if isinstance(result, dict):
         # transcript_page returns {rows, has_more, next_before_ts} directly.
         result.setdefault("_shape", shape)
@@ -10546,8 +10628,13 @@ def _build_memory_cache_pushes(config: dict) -> list:
             "scope":    scope,
         })
         body = content[:MEMORY_CONTENT_TRUNCATE]
+        content_available = isinstance(blob_raw, (str, bytes, bytearray))
+        content_truncated = len(body) < len(content)
+        omitted_reason = "" if content_available else "not_collected"
         if spent + len(body) > MEMORY_CACHE_TOTAL_BUDGET:
             body = ""
+            content_available = False
+            omitted_reason = "snapshot_budget"
             dropped += 1
         else:
             spent += len(body)
@@ -10555,7 +10642,10 @@ def _build_memory_cache_pushes(config: dict) -> list:
         # runtimes can carry the same path, so a viewer that matches on path
         # alone would show one runtime's copy under the other's tree.
         contents.append({"path": path, "content": body,
-                         "runtime": r.get("agent_type") or "openclaw"})
+                         "runtime": r.get("agent_type") or "openclaw",
+                         "content_available": content_available,
+                         "truncated": content_truncated,
+                         "omitted_reason": omitted_reason})
     if not files:
         return []
     if dropped:
@@ -10744,6 +10834,7 @@ CHANNEL_STATUS_CACHE_TTL_SEC = 3600
 # approvals enqueue path.
 _PENDING_ACTIONS = frozenset({
     "guard_check_update",
+    "incident_acknowledge",
     "channel_config_upsert",
     "channel_test",
     "alert_rule_upsert",
@@ -10756,6 +10847,7 @@ _PENDING_ACTIONS = frozenset({
     "cron_killall",
     "cron_fix",
     "dives_query",
+    "assistant_request",
     "runtime_backfill",
     # Runaway-agent control (engine in clawmetry/process_control.py). Relayed
     # from the web dashboard AND the desk device via the cloud action queue.
@@ -10997,6 +11089,10 @@ def _dispatch_pending_action(config: dict, action: dict) -> None:
             atype,
         )
         return
+    if atype == "incident_acknowledge":
+        from clawmetry.incident_actions import apply_acknowledgement
+        apply_acknowledgement(config, action)
+        return
     if atype == "guard_check_update":
         _action_guard_check(config, action)
         return
@@ -11042,6 +11138,10 @@ def _dispatch_pending_action(config: dict, action: dict) -> None:
         return
     if atype == "dives_query":
         _action_dives_query(config, action)
+        return
+    if atype == "assistant_request":
+        from clawmetry.assistant_relay import dispatch
+        dispatch(config, action)
         return
     if atype in ("kill_session", "pause_session", "resume_session"):
         _action_process_control(config, action)
@@ -12312,6 +12412,8 @@ def _build_q1_cache_pushes(config: dict) -> list:
     now = time.time()
 
     for shape, spec in QUERY_CONTRACT.items():
+        if shape == "activity":
+            continue
         if spec["status"] != STATUS_LIVE:
             continue
         # Skip methods with any required arg — we can't pre-push those without
@@ -12511,7 +12613,7 @@ def _dispatch_pending_queries(config: dict, pending: list) -> None:
                 "blob": blob,
                 "shape": shape,
                 "args_hash": _canonical_args_hash(args),
-                "ttl": 3600,
+                "ttl": 15 if shape in ("incidents", "investigation", "activity", "error_groups", "session_catalog") else 3600,
             }, api_key)
         except Exception as e:
             log.warning("pending_query dispatch failed (id=%s shape=%s): %s",
@@ -13624,7 +13726,7 @@ def sync_run_ledger(config: dict, state: dict, paths: dict) -> int:
                     f"SELECT {', '.join(_RUN_LEDGER_SRC_COLS)} FROM task_runs "
                     "WHERE COALESCE(last_event_at, ended_at, created_at, 0) >= ? "
                     "ORDER BY COALESCE(last_event_at, ended_at, created_at, 0) ASC "
-                    "LIMIT 5000",
+                    "LIMIT 5000",  # nosec B608 - column list is the _RUN_LEDGER_SRC_COLS module constant; the watermark is bound
                     [watermark],
                 )
                 rows = [dict(r) for r in cur.fetchall()]
@@ -15060,6 +15162,7 @@ _FAMILY_ADAPTER_SPECS = (
     # the audit log with per-call usage, and the outbound sends its scheduler
     # has queued. The store has no fixed home, so the adapter discovers it.
     ("clawmetry_pro.adapters.openexecutive", "OpenExecutiveAdapter"),
+    ("clawmetry_pro.adapters.opendots", "OpenDotsAdapter"),
 )
 
 
@@ -16216,6 +16319,13 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 # would freeze every quiet session at whatever it was last doing.
                 # Cheap: adapter fields only, no event read.
                 _s_extra = s.extra if isinstance(s.extra, dict) else {}
+                # Some native stores update records without advancing their
+                # timestamps (OpenDots late call transcripts). Adapters may
+                # provide a content digest to invalidate this session's mark.
+                _session_rev = _ingest_rev
+                _data_rev = _s_extra.get("ingestRevision")
+                if isinstance(_data_rev, str) and re.fullmatch(r"[0-9a-f]{16,64}", _data_rev):
+                    _session_rev += "/data:" + _data_rev
                 _record_session_phase(
                     store, ns_id, runtime,
                     phase=getattr(s, "phase", None),
@@ -16257,7 +16367,7 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 _child_running = bool(getattr(s, "parent_id", None)) and (
                     (getattr(s, "cost_status", "") or "") == "running")
                 if (_hw_ts and _activity and _activity <= _hw_ts
-                        and _hw_rev == _ingest_rev and not _child_running):
+                        and _hw_rev == _session_rev and not _child_running):
                     continue
                 metadata = {
                     "runtime": runtime,
@@ -16648,13 +16758,13 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                         # again. Only on a clean ingest -- a failure leaves the
                         # mark behind so we retry the session next cycle.
                         if _activity:
-                            _evt_hw[ns_id] = _activity + "@@" + _ingest_rev
+                            _evt_hw[ns_id] = _activity + "@@" + _session_rev
                     except Exception as _ee:
                         log.warning("family event ingest failed (%s): %s", ns_id, _ee)
                 elif _activity:
                     # No event rows (e.g. an empty/metadata-only session): still
                     # mark it seen so we don't re-scan it every cycle forever.
-                    _evt_hw[ns_id] = _activity + "@@" + _ingest_rev
+                    _evt_hw[ns_id] = _activity + "@@" + _session_rev
                 # Replay stream (#4813): adapters with iter_replay_events
                 # feed the replay_events table for this session. Independent
                 # of the event rows above so an empty transcript read still
@@ -16945,6 +17055,7 @@ _RUNTIME_PREFIXES = frozenset({
     "replit",
     "muse_code",
     "openexecutive",
+    "opendots",
 })
 
 
@@ -22192,18 +22303,20 @@ def _detector_runtime(session_id: str, agent_type: str) -> str:
     ``runtime:openclaw`` cohort, which quietly destroys the point of a
     per-runtime baseline.
 
-    The session-id prefix is the identity the rest of the product uses
-    (memory: prefix = runtime), and it is what ``detectors._runtime_of``
-    already uses to label the incident, so deriving it the same way here keeps
-    the label and the cohort in agreement. ``agent_type`` remains the fallback
-    for a resolver failure.
+    Resolve from the persisted runtime catalogue, independent of the paid
+    extension. Using the optional waste heuristics here labels a retained
+    paid-runtime session OpenClaw when that extension is absent, then exact
+    recovery queries cannot find the evidence. ``agent_type`` is the fallback
+    for bare session ids; legacy OpenClaw role labels normalize to OpenClaw.
     """
+    fallback = str(agent_type or "").strip().lower()
+    if fallback in ("", "main", "subagent", "cron"):
+        fallback = "openclaw"
     try:
-        from clawmetry import waste_flags as _wf
-        rt = str(_wf.runtime_from_session_id(session_id) or "").strip().lower()
+        from clawmetry.local_store import _runtime_of_session_id
+        return _runtime_of_session_id(session_id, fallback)
     except Exception:
-        rt = ""
-    return rt or str(agent_type or "").strip().lower()
+        return fallback
 
 
 def _guard_cohorts(runtime: str, agent_id: str) -> tuple:
@@ -22666,8 +22779,8 @@ def _emit_detector_incidents(store, state: dict) -> int:
     as a ``loop_signals`` row (reusing the stuck detector's device-alert path)
     and fold the highest-severity incident per session into ``_LATEST_STUCK``
     so the plaintext heartbeat carries it to cloud/device. Deduped per
-    (session, kind) within a re-emit window; self-clears when the behavior stops
-    (we simply stop re-emitting and the 30-min loop_signals window ages out).
+    (session, kind) within a re-emit window. Trajectory findings with stable
+    evidence have durable episodes; silence is stale, never recovery.
     Never raises into the daemon loop. Returns the number of incidents emitted.
     """
     try:
@@ -22677,14 +22790,27 @@ def _emit_detector_incidents(store, state: dict) -> int:
         return 0
 
     from clawmetry import guard_checks as _checks
+    settings_available = True
     try:
         _check_settings = store.list_node_settings()
         disabled = _checks.disabled_kinds(_check_settings)
     except Exception as exc:
         log.warning("Guard check settings unavailable: %s", exc)
         disabled = set()
+        settings_available = False
 
     candidates = _candidate_active_sessions(store)
+    # Lifecycle maintenance is independent of alert re-emission and continues
+    # when a session completes. Never make a failed read look like recovery.
+    try:
+        if hasattr(store, "age_incidents"):
+            from clawmetry.incident_evidence import reconcile_ended_sessions
+            store.age_incidents()
+            if settings_available:
+                reconcile_ended_sessions(store, {s.get("session_id") for s in candidates},
+                                         disabled=disabled)
+    except Exception as exc:
+        log.warning("Incident lifecycle maintenance unavailable: %s", exc, exc_info=True)
     if not candidates:
         return 0
 
@@ -22714,16 +22840,17 @@ def _emit_detector_incidents(store, state: dict) -> int:
     # Each session's write actions, for the fleet pass after the loop
     # (clawmetry/detector_swarm.py). Collected here so the steps are parsed once.
     fleet_fps: dict = {}
+    # Opt-in capability-gap export (#5412, clawmetry/capability_gaps.py).
+    # None unless CLAWMETRY_CAPGAP_EXPORT_DIR is set, so the default tick
+    # pays one env read. Reads the SAME events this loop already fetched.
+    capgap = None
+    try:
+        from clawmetry import capability_gaps as _capgap
+        capgap = _capgap.Exporter.from_env()
+    except Exception as _ce:  # noqa: BLE001
+        log.debug("capability gaps: exporter unavailable: %s", _ce)
     for s in candidates:
         sid = s.get("session_id") or ""
-        try:
-            events = store.query_events(
-                session_id=sid, limit=_det.DETECT_EVENT_WINDOW,
-            ) or []
-        except Exception as e:  # noqa: BLE001
-            log.warning("detectors: query_events failed for %s: %s", sid, e)
-            continue
-
         facts = facts_by_session.get(sid) or {}
         # Derived from the session id, not from agent_type: see
         # _detector_runtime. Getting this wrong silently merges every runtime
@@ -22738,6 +22865,16 @@ def _emit_detector_incidents(store, state: dict) -> int:
         except Exception:  # noqa: BLE001
             runtime = None
         runtime = runtime or _detector_runtime(sid, s.get("agent_type") or "") or None
+        try:
+            if hasattr(store, "query_incident_window") and s.get("node_id") and runtime:
+                events = store.query_incident_window(
+                    session_id=sid, node_id=s["node_id"], runtime=runtime,
+                    limit=_det.DETECT_EVENT_WINDOW) or []
+            else:
+                events = store.query_events(session_id=sid, limit=_det.DETECT_EVENT_WINDOW) or []
+        except Exception as e:  # noqa: BLE001
+            log.warning("detectors: query_events failed for %s: %s", sid, e)
+            continue
         baseline = _guard_baseline_for(store, baseline_cache, runtime or "",
                                        facts.get("agent_id") or "")
         try:
@@ -22750,6 +22887,11 @@ def _emit_detector_incidents(store, state: dict) -> int:
         _record_guard_observation(
             store, sid, runtime or "", facts.get("agent_id") or "",
             _det.session_profile(steps, thresholds.get("write_tools")))
+        if capgap is not None:
+            try:
+                capgap.observe_events(sid, runtime or "", events)
+            except Exception as _ce:  # noqa: BLE001
+                log.debug("capability gaps: observe skipped for %s: %s", sid, _ce)
         try:
             from clawmetry import detector_swarm as _swarm
             _fps = _swarm.write_fingerprints(steps)
@@ -22758,13 +22900,16 @@ def _emit_detector_incidents(store, state: dict) -> int:
         except Exception as _fe:  # noqa: BLE001
             log.debug("detectors: fingerprinting skipped for %s: %s", sid, _fe)
 
+        inspection_complete = settings_available
+        inspection = {}
         try:
             incidents = _det.run_all(events, sid, runtime, facts=facts,
-                                     thresholds=thresholds, steps=steps,
+                                     thresholds=thresholds, steps=steps, inspection=inspection,
                                      **({"disabled": disabled} if disabled else {})) or []
         except Exception as e:  # noqa: BLE001
             log.warning("detectors: run_all errored for %s: %s", sid, e)
             incidents = []
+            inspection_complete = False
         if incidents:
             # A session whose whole tool stream was RECEIVED as telemetry was
             # seen after each action ran; nothing held it. Say so on the
@@ -22778,6 +22923,24 @@ def _emit_detector_incidents(store, state: dict) -> int:
                         _og.label_incident(_inc, _obs)
             except Exception as _oe:  # noqa: BLE001
                 log.debug("detectors: observation label skipped: %s", _oe)
+        # Resolve stable evidence while its exact window still exists, and
+        # persist before the notification cooldown can skip a re-emission.
+        episodes = {}
+        try:
+            if hasattr(store, "record_incident_observation"):
+                from clawmetry.incident_evidence import reconcile_session
+                nodes = {e.get("node_id") for e in events if isinstance(e, dict) and e.get("node_id")}
+                node_id = s.get("node_id") or (next(iter(nodes)) if len(nodes) == 1 else "")
+                if len(nodes) > 1 or (nodes and node_id not in nodes):
+                    log.warning("Incident evidence spans multiple nodes; reconciliation withheld")
+                else:
+                    episodes = reconcile_session(
+                        store, incidents, events, steps, session_id=sid, runtime=runtime or "",
+                        node_id=node_id, completed=inspection_complete, disabled=set(disabled) | {k for k, ok in inspection.items() if not ok},
+                        observed_at=int(now * 1000))
+        except Exception as exc:
+            log.warning("Incident reconciliation unavailable for %s: %s", sid, exc, exc_info=True)
+        if incidents:
             all_incidents.extend(incidents)
             # Remember when this session FIRST looked wrong, so the next tick
             # can say how long it has been that way (and price the stretch).
@@ -22863,6 +23026,17 @@ def _emit_detector_incidents(store, state: dict) -> int:
             except Exception as _ie:  # noqa: BLE001
                 log.debug("detectors: alert delivery skipped: %s", _ie)
             try:
+                # A persisted episode owns its compatibility projection. The
+                # legacy write below is only for unmigrated/older producers.
+                if kind in episodes:
+                    if delivered_via:
+                        inc["delivered_via"] = delivered_via
+                        store.record_incident_observation(
+                            incident=inc, node_id=episodes[kind]["node_id"],
+                            observed_at=int(now * 1000))
+                    memo[memo_key] = now
+                    emitted += 1
+                    continue
                 store.ingest_loop_signal(
                     session_id=sid,
                     # Stable per-kind signature so a re-emit UPSERTs the same row
@@ -22903,6 +23077,20 @@ def _emit_detector_incidents(store, state: dict) -> int:
                 log.warning("detectors: ingest_loop_signal failed for %s: %s",
                             sid, e)
                 continue
+
+    if capgap is not None:
+        # A denied approval is a permission the operator refused (E02). One
+        # bounded read per tick; the exporter dedups by approval id.
+        try:
+            capgap.observe_approvals(store.query_approvals(status="denied", limit=200) or [])
+        except Exception as _ce:  # noqa: BLE001
+            log.debug("capability gaps: approvals skipped: %s", _ce)
+        try:
+            n_gap = capgap.flush()
+            if n_gap:
+                log.info("capability gaps: %d record(s) exported", n_gap)
+        except Exception as _ce:  # noqa: BLE001
+            log.debug("capability gaps: flush skipped: %s", _ce)
 
     # A session that recovered drops out of the memo so its "bad for" clock
     # restarts if it goes wrong again later. This also bounds the memo: it can
@@ -24504,6 +24692,16 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     except Exception as _e_br:
         log.debug("snapshot: briefs slice failed: %s", _e_br)
 
+    # AC-ASSIST-006.2/.4: daemon-owned, bounded shared candidate evidence.
+    # This stays inside the encrypted snapshot, never the plaintext heartbeat.
+    from clawmetry.improve_candidates import build_snapshot as _improve_snapshot
+    from clawmetry import local_store as _improve_ls
+    try:
+        _improve_slice = _improve_snapshot(_improve_ls.get_store(), node_id=node_id)
+    except Exception:
+        from clawmetry.improve_candidates import unavailable as _improve_unavailable
+        _improve_slice = {"improve": _improve_unavailable(node_id=node_id), "improveByRuntime": {}}
+
     from clawmetry.providers_pricing import provider_for_model as _pfm
     payload = {
         "system": system,
@@ -24550,6 +24748,8 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         # WO-62 Briefs: saved questions with a schedule and a channel, read-only
         # on the cloud (manage them on the local dashboard).
         "briefs": _briefs_slice,
+        "improve": _improve_slice["improve"],
+        "improveByRuntime": _improve_slice["improveByRuntime"],
         "subagentCounts": {
             "active": active_count,
             "idle": len([s for s in subagents_list if s["status"] == "idle"]),
@@ -25482,6 +25682,12 @@ def run_daemon() -> None:
         log.warning("local query server: failed to start: %s", _e)
 
     # ── Startup sync: recent-first so Brain feed shows current activity ──
+    try:
+        from clawmetry import assistant_executor, assistant_relay, local_store
+        assistant_executor.initialize(local_store.get_store(), config.get("node_id") or "local")
+        assistant_relay.configure(load_config)
+    except Exception:
+        log.warning("Assistant executor could not initialize; requests remain unavailable")
     send_heartbeat(config)
     log.info("Initial heartbeat sent")
 
@@ -26053,7 +26259,16 @@ def run_daemon() -> None:
 
     while True:
         try:
-            state = load_state()
+            # field-failure #6302 (daemon_ingest_stalled on Linux py3.11):
+            # load_state() internally guards the JSON read, but not the
+            # STATE_FILE.exists() call that precedes it.  An OSError/
+            # PermissionError there propagated to the outer "Sync cycle
+            # error" handler, leaving last_sync unwritten every cycle.
+            try:
+                state = load_state()
+            except Exception as _ls_e:
+                log.warning("load_state failed, using empty state (non-fatal): %s", _ls_e)
+                state = {"last_event_ids": {}, "last_log_offsets": {}, "last_sync": None}
 
             # ── BOOTSTRAP.md "First Contact" capture (issue #690) ─────────
             # Best-effort; runs early in the tick so we snapshot the file
@@ -26373,6 +26588,12 @@ def run_daemon() -> None:
                     log.warning(f"alerts: evaluator tick errored: {_ae}")
                 # Per-project budgets ride the same throttle. Independent of
                 # cloud rules: a node with no cloud account still alerts.
+                # CLAWMETRY_PROJECT on the collector tags new sessions first,
+                # so a budget on that project counts them on this same tick.
+                try:
+                    tag_env_project_sessions()
+                except Exception as _epe:
+                    log.warning(f"env project: tick errored: {_epe}")
                 try:
                     evaluate_project_budget_alerts(config)
                 except Exception as _pbe:
@@ -28159,6 +28380,12 @@ def _rule_wants_webhook(rule: dict) -> bool:
 
 def _post_local_alert_webhook(url: str, payload: dict) -> bool:
     """POST the match JSON to the configured webhook. Never raises."""
+    # urlopen also speaks file:// and ftp://, and serves a file:// URL even
+    # with a data= body, so the configured scheme is checked before the
+    # request is built. See clawmetry/url_guard.py.
+    if not _url_guard.is_http_url(url):
+        log.warning("alerts(local): webhook URL rejected (scheme must be http/https)")
+        return False
     try:
         req = urllib.request.Request(
             url,
@@ -28407,6 +28634,41 @@ def _evaluate_alerts_local(config: dict, state: dict) -> int:
 
     state["alerts_last_eval_ts"] = _iso_now()
     return delivered
+
+
+# When this collector process started. Only sessions that begin after it are
+# tagged from CLAWMETRY_PROJECT, so setting the variable never rewrites the
+# project of history collected before it.
+_ENV_PROJECT_SINCE = time.time()
+_env_project_warned: set = set()
+
+
+def tag_env_project_sessions(since: float | None = None) -> int:
+    """Assign new sessions to ``CLAWMETRY_PROJECT`` when the collector has it
+    set (#5941). Runs on the alert tick. Returns the number of sessions
+    assigned by this call. Never raises into the daemon loop."""
+    name = os.environ.get("CLAWMETRY_PROJECT", "").strip()
+    if not name:
+        return 0
+    try:
+        from clawmetry import local_store
+        store = local_store.get_store()
+        res = store.record_env_project_assignments(
+            project_name=name,
+            since=_ENV_PROJECT_SINCE if since is None else since)
+    except Exception as e:
+        log.warning("env project: assignment failed: %s", e)
+        return 0
+    if not res.get("ok"):
+        err = str(res.get("error") or "")
+        if err not in _env_project_warned:
+            _env_project_warned.add(err)
+            log.warning("env project: CLAWMETRY_PROJECT ignored: %s", err)
+        return 0
+    n = int(res.get("assigned") or 0)
+    if n:
+        log.info("env project: assigned %d new session(s) to the CLAWMETRY_PROJECT project", n)
+    return n
 
 
 def evaluate_project_budget_alerts(config: dict) -> int:

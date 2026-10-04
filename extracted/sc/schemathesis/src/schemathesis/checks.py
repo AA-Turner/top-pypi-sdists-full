@@ -4,7 +4,7 @@ import inspect
 import threading
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, Protocol, TypeVar, cast
 
 from typing_extensions import TypeIs
 
@@ -62,6 +62,7 @@ class RunCheck(Protocol):
 CheckClass = type[ResponseCheck] | type[RunCheck]
 # An instantiated check class — the runtime object held by RunChecks.
 CheckInstance = ResponseCheck | RunCheck
+CheckT = TypeVar("CheckT", bound=CheckFunction | CheckClass)
 
 
 class ResponseCheckEntry(NamedTuple):
@@ -339,7 +340,7 @@ def load_all_checks() -> None:
     from schemathesis.specs.openapi.checks import status_code_conformance  # noqa: F401
 
 
-def check(func: CheckFunction | CheckClass) -> CheckFunction | CheckClass:
+def check(func: CheckT) -> CheckT:
     """Register a custom validation check.
 
     Args:
@@ -400,7 +401,8 @@ def check(func: CheckFunction | CheckClass) -> CheckFunction | CheckClass:
             raise IncorrectUsage(f"A check named {name!r} is already registered.")
     if is_check_class(func):
         _validate_check_class(func)
-    return CHECKS.register(func)
+    CHECKS.register(func)
+    return func
 
 
 def _check_content_type_probe(
@@ -574,6 +576,9 @@ def collect_after_run_failures(
 
 
 def __getattr__(name: str) -> Any:
+    # Import machinery probes dunders like `__path__` while this module is still initializing
+    if not name.startswith("__"):
+        load_all_checks()
     try:
         return CHECKS.get_one(name)
     except KeyError:
@@ -581,4 +586,5 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
+    load_all_checks()
     return sorted(list(globals().keys()) + CHECKS.get_all_names())

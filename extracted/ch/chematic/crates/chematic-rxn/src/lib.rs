@@ -25,6 +25,7 @@ pub mod enumerate;
 pub mod green;
 pub mod perf_counters;
 pub mod query;
+mod rdkit_valence;
 pub mod reaction;
 pub mod requirements;
 pub mod retro;
@@ -51,7 +52,8 @@ pub use query::{
 };
 pub use reaction::{
     Reaction, ReactionCenter, ReactionParseLimits, RxnError, expand_atomic_number_primitives,
-    find_reaction_center, parse_reaction, parse_reaction_with_limits, write_reaction,
+    find_reaction_center, normalize_product_query_atoms, parse_reaction,
+    parse_reaction_with_limits, write_reaction,
 };
 pub use requirements::{ReactionBondKind, ReactionBondLowerBound, ReactionRequirements};
 pub use retro::{DEFAULT_TEMPLATES, RetroClass, RetroResult, RetroTemplate, retro_disconnect};
@@ -62,9 +64,10 @@ pub use stoichiometry::{
     StoichiometryStep, analyze_components, analyze_reaction_document, analyze_reaction_step,
 };
 pub use transform::{
-    PreparedReaction, ReactantAtom, ReactionMatch, ReactionMatchContext,
-    ReactionTransformDiagnostics, ReactionTransformLimits, ReactionTransformReport,
-    ReactionVariantDiagnostics, TracedProduct, TransformError, apply_reaction_match,
+    PreparedReaction, ReactantAtom, ReactionCompatibilityUnsupported, ReactionMatch,
+    ReactionMatchContext, ReactionTransformDiagnostics, ReactionTransformLimits,
+    ReactionTransformReport, ReactionVariantDiagnostics, TracedProduct,
+    TracedReactionTransformReport, TransformError, apply_reaction_match,
     apply_reaction_match_traced, find_reaction_matches, find_reaction_matches_with_limits,
     run_reactants, run_reactants_strict, run_reactants_strict_with_limits,
     run_reactants_with_diagnostics, run_reactants_with_limits,

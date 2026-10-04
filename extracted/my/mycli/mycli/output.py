@@ -32,11 +32,11 @@ from pymysql.cursors import Cursor
 from mycli.compat import WIN, is_windows_console
 from mycli.constants import DEFAULT_HEIGHT, DEFAULT_WIDTH
 import mycli.main_modes.repl as repl_mode
-from mycli.packages import special
-from mycli.packages.sqlresult import SQLResult
+from mycli.packages import special_commands
+from mycli.packages.execution.background_runner import rendering_output, runner_for
+from mycli.packages.execution.sql_execute import FIELD_TYPES
+from mycli.packages.sql_result.sql_result import SQLResult
 from mycli.packages.tabular_output import sql_format
-from mycli.query_runner import rendering_output, runner_for
-from mycli.sqlexecute import FIELD_TYPES
 
 
 class MyCliState(Protocol):
@@ -63,7 +63,7 @@ class OutputMixin(MyCliState):
     prompt_session: PromptSession | None
     prompt_format: str
     explicit_pager: bool
-    ptoolkit_style: _MergedStyle
+    prompt_toolkit_style: _MergedStyle
     helpers_style: PygmentsStyle
     helpers_warnings_style: PygmentsStyle
     main_formatter: TabularOutputFormatter
@@ -73,7 +73,7 @@ class OutputMixin(MyCliState):
         add_style = 'class:warnings.timing' if is_warnings_style else 'class:output.timing'
         formatted_timing = FormattedText([('', timing)])
         styled_timing = to_formatted_text(formatted_timing, style=add_style)
-        prompt_toolkit.print_formatted_text(styled_timing, style=self.ptoolkit_style)
+        prompt_toolkit.print_formatted_text(styled_timing, style=self.prompt_toolkit_style)
 
     def log_query(self, query: str) -> None:
         if isinstance(self.logfile, TextIOWrapper):
@@ -103,7 +103,7 @@ class OutputMixin(MyCliState):
             prompt_string = repl_mode.render_prompt_string(self, self.prompt_format, render_counter)
             self.prompt_lines = to_plain_text(prompt_string).count('\n') + 1
         margin = self.get_reserved_space() + self.prompt_lines
-        if special.is_timing_enabled():
+        if special_commands.is_timing_enabled():
             margin += 1
         if status:
             margin += 1 + status.count("\n")
@@ -146,22 +146,22 @@ class OutputMixin(MyCliState):
 
             fits = True
             buf = []
-            output_via_pager = self.explicit_pager and special.is_pager_enabled()
+            output_via_pager = self.explicit_pager and special_commands.is_pager_enabled()
             for i, line in enumerate(output, 1):
                 self.log_output(line)
-                special.write_tee(line)
-                special.write_once(line)
-                special.write_pipe_once(line)
+                special_commands.write_tee(line)
+                special_commands.write_once(line)
+                special_commands.write_pipe_once(line)
 
-                if special.is_redirected():
+                if special_commands.is_redirected():
                     pass
-                elif special.is_explorer_output():
+                elif special_commands.is_explorer_output():
                     buf.append(line)
                 elif fits or output_via_pager:
                     buf.append(line)
                     if len(line) > size_columns or i > (size_rows - margin):
                         fits = False
-                        if not self.explicit_pager and special.is_pager_enabled():
+                        if not self.explicit_pager and special_commands.is_pager_enabled():
                             output_via_pager = True
 
                         if not output_via_pager:
@@ -180,7 +180,7 @@ class OutputMixin(MyCliState):
                     for line in text:
                         yield line + "\n"
 
-                if special.is_explorer_output():
+                if special_commands.is_explorer_output():
                     if self.explorer_exists() or not self.explorer_command:
                         old_pager = os.environ.get('PAGER')
                         os.environ['PAGER'] = self.explorer_command or old_pager or 'less'
@@ -206,7 +206,7 @@ class OutputMixin(MyCliState):
             else:
                 status = FormattedText([('', result.status_plain)])
             styled_status = to_formatted_text(status, style=add_style)
-            prompt_toolkit.print_formatted_text(styled_status, style=self.ptoolkit_style)
+            prompt_toolkit.print_formatted_text(styled_status, style=self.prompt_toolkit_style)
 
     def output_iterm2_image(self, image: bytes) -> None:
         """Emit a PNG using the iTerm2 inline image protocol."""
@@ -234,13 +234,13 @@ class OutputMixin(MyCliState):
             config_pager = 'more'
 
         if config_pager:
-            special.set_pager(config_pager)
+            special_commands.set_pager(config_pager)
             self.explicit_pager = True
         else:
             self.explicit_pager = False
 
         if not self.config["main"].as_bool("enable_pager"):
-            special.disable_pager()
+            special_commands.disable_pager()
 
     def explorer_exists(self) -> bool:
         if cmd := shlex.split(self.explorer_command or ''):
@@ -261,7 +261,7 @@ class OutputMixin(MyCliState):
     ) -> itertools.chain[str]:
         if is_redirected:
             use_formatter = self.redirect_formatter
-        elif special.is_explorer_output():
+        elif special_commands.is_explorer_output():
             use_formatter = self.explorer_formatter
         else:
             use_formatter = self.main_formatter
@@ -318,7 +318,7 @@ class OutputMixin(MyCliState):
             if isinstance(formatted, str):
                 formatted = formatted.splitlines()
 
-            if special.is_explorer_output() and self.explorer_trim_footer:
+            if special_commands.is_explorer_output() and self.explorer_trim_footer:
                 formatted = list(formatted)
                 formatted.pop()
 

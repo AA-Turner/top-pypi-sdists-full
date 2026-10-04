@@ -446,8 +446,8 @@ class GoogleTranslator(BaseTranslator):
             # STEP 3: Process tools directly on config object
             # ========================
             # Tools that a model can't honour are stripped at the provider
-            # boundary BEFORE this runs (unified_client._warn_and_strip_leaked_tools,
-            # the loud fallback to the canonical request-prep gates). So for a
+            # boundary BEFORE this runs (unified_client.adapt_tools_for_call, the one
+            # call-time tool adaptation, which announces every removal). So for a
             # non-function-calling model config.tools is already empty here — no
             # per-provider tool guard is needed.
             tools_list: list[Any] = []

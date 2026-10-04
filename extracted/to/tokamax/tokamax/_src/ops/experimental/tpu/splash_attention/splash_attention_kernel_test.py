@@ -671,14 +671,21 @@ class SplashAttentionTest(test_utils.SplashAttentionTestCase):
       mode=("forward", "backward"),
       qk_diag_grid=(2, 4),
       head_dim_qk=(128, 192),
+      q_layout=(splash.QKVLayout.HEAD_DIM_MINOR, splash.QKVLayout.SEQ_MINOR),
+      k_layout=(splash.QKVLayout.HEAD_DIM_MINOR, splash.QKVLayout.SEQ_MINOR),
   )
-  def test_qk_diag_skip_bit_exact(self, mode, qk_diag_grid, head_dim_qk):
+  def test_qk_diag_skip_bit_exact(
+      self, mode, qk_diag_grid, head_dim_qk, q_layout, k_layout
+  ):
     """`qk_diag_skip` must be BIT-EXACT vs the stock (`qk_diag_skip=False`) path.
 
     The skip fills `mask_value` on fully-masked (kv > q) diagonal sub-tiles, which the
     softmax's `jnp.where` overwrites — so the output is identical for any `qk_diag_grid`.
     Covers forward `O` and backward `dQ/dK/dV` on a causal mask with square, power-of-2
-    blocks, at two head dims (incl. the DS-v3 192/128 shape).
+    blocks, at two head dims (incl. the DS-v3 192/128 shape), for both q and k
+    layouts. The kernels keep q and k in their configured layouts rather than
+    transposing, so `SEQ_MINOR` moves the sequence axis and the diagonal
+    sub-tiles must be sliced along the axis that actually carries it.
     """
     seq_len, num_heads, block = 512, 2, 256
     k1, k2, k3, k4 = random.split(random.key(0), 4)
@@ -694,6 +701,7 @@ class SplashAttentionTest(test_utils.SplashAttentionTestCase):
           block_q_dkv=block, block_kv_dkv=block, block_kv_dkv_compute=block,
           use_fused_bwd_kernel=True, residual_checkpoint_name="context",
           qk_diag_skip=qk_diag_skip, qk_diag_grid=qk_diag_grid,
+          q_layout=q_layout, k_layout=k_layout,
           interpret=self.INTERPRET,
       )
       attn = splash.make_splash_mha_single_device(mask, config=config)
@@ -826,14 +834,18 @@ def _get_dropout_mask_kernel(
     prng_key_ref: jax.Ref,
     out_ref: jax.Ref,
     *,
+    q_seq_len: int,
+    kv_seq_len: int,
     bq: int,
     bkv_compute: int,
     canonical_q: int,
     canonical_kv: int,
     dropout_rate: float,
 ):
+  n_q_blocks = (q_seq_len + canonical_q - 1) // canonical_q
+  n_kv_blocks = (kv_seq_len + canonical_kv - 1) // canonical_kv
   # pylint: disable-next=protected-access
-  out_ref[...] = splash._dropout_mask_tile(
+  scaled_mask = splash._dropout_mask_tile(
       prng_key_ref,
       head_idx=pl.program_id(0),
       q_block_idx=pl.program_id(1),
@@ -843,7 +855,11 @@ def _get_dropout_mask_kernel(
       canonical_q=canonical_q,
       canonical_kv=canonical_kv,
       dropout_rate=dropout_rate,
+      n_q_blocks=n_q_blocks,
+      n_kv_blocks=n_kv_blocks,
   )
+  # out_ref is a boolean dropout mask.
+  out_ref[...] = scaled_mask == 0.0
 
 
 def _get_dropout_mask(
@@ -882,6 +898,8 @@ def _get_dropout_mask(
     return pl.pallas_call(
         partial(
             _get_dropout_mask_kernel,
+            q_seq_len=q_seq_len,
+            kv_seq_len=kv_seq_len,
             bq=bq,
             bkv_compute=bkv_compute,
             canonical_q=canonical_q,
@@ -916,13 +934,16 @@ def _restated_dropout_mask_kernel(
     dropout_rate: float,
 ):
   """Restates the derivation `_generate_blockwise_dropout_mask` implements."""
-  key_h = random.fold_in(prng_key_ref[...], pl.program_id(0))
-  for i in range(out_ref.shape[0] // bq):
-    key_q = random.fold_in(key_h, i)
-    for j in range(out_ref.shape[1] // bkv):
-      out_ref[i * bq : (i + 1) * bq, j * bkv : (j + 1) * bkv] = (
-          random.bernoulli(random.fold_in(key_q, j), dropout_rate, (bq, bkv))
-      )
+  head_idx = pl.program_id(0)
+  threshold = np.uint32(dropout_rate * (2**32))
+  n_q_blocks = (out_ref.shape[0] + bq - 1) // bq
+  n_kv_blocks = (out_ref.shape[1] + bkv - 1) // bkv
+  for i in range(n_q_blocks):
+    for j in range(n_kv_blocks):
+      tile_id = (head_idx * n_q_blocks + i) * n_kv_blocks + j
+      sub_key = random.fold_in(prng_key_ref[...], tile_id)
+      bits = random.bits(sub_key, (bq, bkv), dtype=jnp.uint32)
+      out_ref[i * bq : (i + 1) * bq, j * bkv : (j + 1) * bkv] = bits < threshold
 
 
 def _restated_dropout_mask(
@@ -937,9 +958,9 @@ def _restated_dropout_mask(
   `_get_dropout_mask` calls the kernel's own `_generate_blockwise_dropout_mask`,
   so on its own it can only show that the forward and backward passes agree with
   each other --- it cannot show that they agree with the *intended* scheme. This
-  spells the scheme out a second time: fold head, then canonical q block, then
-  canonical kv block into the key, in that order, and draw a
-  (dropout_block_q, dropout_block_kv) tile.
+  spells the scheme out a second time: pack head, canonical q block, and
+  canonical kv block into a single integer tile_id, fold into the key, and
+  compare random uint32 bits against the threshold.
 
   The two differ structurally on purpose. Here the grid is over heads alone and
   the block loop is unrolled inside the kernel with Python ints, so the block

@@ -30,6 +30,7 @@ class PlanRel(google.protobuf.message.Message):
 
     REL_FIELD_NUMBER: builtins.int
     ROOT_FIELD_NUMBER: builtins.int
+    DETACHED_EXPRESSIONS_FIELD_NUMBER: builtins.int
     @property
     def rel(self) -> substrait.algebra_pb2.Rel:
         """Any relation (used for references and CTEs)"""
@@ -38,14 +39,22 @@ class PlanRel(google.protobuf.message.Message):
     def root(self) -> substrait.algebra_pb2.RelRoot:
         """The root of a relation tree"""
 
+    @property
+    def detached_expressions(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[substrait.algebra_pb2.Expression]:
+        """Expression subtrees stored separately to reduce protobuf nesting.
+        Referenced by zero-based ordinals local to this PlanRel.
+        See https://substrait.io/serialization/binary_serialization/#bounded-expression-nesting.
+        """
+
     def __init__(
         self,
         *,
         rel: substrait.algebra_pb2.Rel | None = ...,
         root: substrait.algebra_pb2.RelRoot | None = ...,
+        detached_expressions: collections.abc.Iterable[substrait.algebra_pb2.Expression] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["rel", b"rel", "rel_type", b"rel_type", "root", b"root"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["rel", b"rel", "rel_type", b"rel_type", "root", b"root"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["detached_expressions", b"detached_expressions", "rel", b"rel", "rel_type", b"rel_type", "root", b"root"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["rel_type", b"rel_type"]) -> typing.Literal["rel", "root"] | None: ...
 
 Global___PlanRel: typing_extensions.TypeAlias = PlanRel

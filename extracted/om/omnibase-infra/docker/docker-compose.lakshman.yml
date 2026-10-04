@@ -66,7 +66,7 @@
 #   postgres        45436
 #   valkey          46379
 #   redpanda kafka  55092   (external; container-internal stays 19092)
-#   redpanda admin  55644
+#   redpanda admin  55644   (host loopback only, OMN-20260)
 #   projection-api  53002
 #   keycloak        58080   reserved, unused — this lane runs no Keycloak
 #
@@ -87,7 +87,12 @@ x-omninode-contract-overlay:
   lakshman-redpanda:
     advertised_kafka_addr: &lakshman_redpanda_advertised_kafka_addr "internal://redpanda:9092,external://localhost:55092"
     kafka_port_publish: &lakshman_redpanda_kafka_port_publish "55092:19092"
-    admin_port_publish: &lakshman_redpanda_admin_port_publish "55644:9644"
+    # Admin API on the host loopback ONLY (OMN-20260). admin_api_require_auth is
+    # false on this broker (the healthcheck and the rpk one-shots call it with no
+    # credentials), so an all-interfaces publish let any LAN or tailnet host
+    # create SCRAM users and rewrite cluster config. In-network consumers use
+    # redpanda:9644; host-side tools on .201 still reach localhost:55644.
+    admin_port_publish: &lakshman_redpanda_admin_port_publish "127.0.0.1:55644:9644"
   lakshman-model-secrets:
     # Correction (b): no required_secret_refs. Every cloud LLM ref below is
     # optional so the lane boots without any of them.
@@ -554,6 +559,11 @@ services:
       ONEX_GROUP_ID: onex-lakshman-runtime-effects
       KAFKA_INSTANCE_ID: lakshman-effects
       OMNIBASE_INFRA_SAVINGS_KAFKA_BOOTSTRAP_SERVERS: "redpanda:9092"
+      # OMN-20159: node_projection_read_effect runs here and reads through the
+      # runtime binding; without it the /skill edge refuses every read with
+      # projection_binding_unconfigured. The same binding is the delegation
+      # evidence target of node_delegate_skill_orchestrator in this container.
+      OMNIMARKET_PROJECTION_RUNTIME_BINDING_OVERLAY: /etc/onex/projection-runtime-binding.yaml
     ports: !override
       - "${LAKSHMAN_RUNTIME_EFFECTS_PORT:?runtime policy contract must set LAKSHMAN_RUNTIME_EFFECTS_PORT}:8085"
     stop_grace_period: 90s
@@ -562,6 +572,7 @@ services:
       - lakshman_effects_data:/app/data
       - ../contracts:/app/contracts:ro
       - ./lane-overlays/lakshman.bifrost.yaml:/app/config/delegation/lakshman.bifrost.yaml:ro
+      - ./projection-runtime-binding/lakshman-runtime-read.yaml:/etc/onex/projection-runtime-binding.yaml:ro
       - ${OMNICLAUDE_SKILLS_DIR:?OMNICLAUDE_SKILLS_DIR must point to the host skills directory}:/app/skills:ro
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8085/health"]

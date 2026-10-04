@@ -415,3 +415,42 @@ async def test_gemini_image_is_never_silently_dropped(monkeypatch):
     storage.calls, storage.fail_times = 0, 99
     with pytest.raises(PaidOutputStorageError):
         await ImageContent.from_google_async(part)
+
+
+# ---------------------------------------------------- request snapshot (FIXV1)
+
+
+@pytest.mark.asyncio
+async def test_a_media_call_writes_the_request_snapshot_the_chat_seam_writes(monkeypatch, ctx):
+    """V1 verifier 2026-10-04: every image call stored ``request_payload: {}`` — a
+    media rejection could not be replayed by the settings fixer. The media seam
+    captures what it sends onto the turn's ExecutionState, like every chat seam."""
+    import matrx_ai.media as media
+    from matrx_ai.orchestrator.execution_state import (
+        ExecutionState,
+        clear_execution_state,
+        set_execution_state,
+    )
+    from matrx_ai.testing.profile_factory import make_profile
+
+    monkeypatch.setattr(media, "save_media_envelope_async", _StorageStub(fail_times=99))
+    generator = _ImageStub.build({"provider": 0})
+    profile = make_profile(
+        model_name="gpt-image-1",
+        wire_format="openai_image",
+        capabilities={"input": ["text"], "output": ["image"], "features": [], "interaction": "turn"},
+        rules={},
+    )
+    config = UnifiedConfig(
+        model="gpt-image-1",
+        messages=[UnifiedMessage(role="user", content=[TextContent(text="a lighthouse")])],
+    )
+    state = ExecutionState()
+    token = set_execution_state(state)
+    try:
+        with pytest.raises(Exception):
+            await generator.execute(config, profile)
+    finally:
+        clear_execution_state(token)
+    assert state.snapshot_payload == {"prompt": "a lighthouse"}
+    assert state.snapshot_provider == "openai"

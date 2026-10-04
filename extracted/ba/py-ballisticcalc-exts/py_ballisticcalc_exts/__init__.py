@@ -12,14 +12,18 @@ from .base_engine import CythonizedBaseIntegrationEngine
 from .euler_engine import CythonizedEulerIntegrationEngine
 from .rk4_engine import CythonizedRK4IntegrationEngine
 from .velocity_verlet_engine import CythonizedVelocityVerletIntegrationEngine
+from .cashkarp_engine import CythonizedCashKarpIntegrationEngine
+from .dopri_engine import CythonizedDormandPrinceIntegrationEngine
+from .tsitouras_engine import CythonizedTsitourasIntegrationEngine
 
 
 # Version matching guard
 from importlib.metadata import metadata
 
+
+CORE_PACKAGE_NAME = "py-ballisticcalc"
+EXTS_PACKAGE_NAME = "py-ballisticcalc-exts"
 try:
-    CORE_PACKAGE_NAME = "py-ballisticcalc"
-    EXTS_PACKAGE_NAME = "py-ballisticcalc-exts"
     __core_version = metadata(CORE_PACKAGE_NAME)["Version"]
     __exts_version = metadata(EXTS_PACKAGE_NAME)["Version"]
 except KeyError:
@@ -38,6 +42,9 @@ __all__ = (
     "CythonizedEulerIntegrationEngine",
     "CythonizedRK4IntegrationEngine",
     "CythonizedVelocityVerletIntegrationEngine",
+    "CythonizedCashKarpIntegrationEngine",
+    "CythonizedDormandPrinceIntegrationEngine",
+    "CythonizedTsitourasIntegrationEngine",
     # externs for docs generation
     "CythonizedBaseIntegrationEngine",
     "CythonizedBaseTrajData",

@@ -908,6 +908,34 @@ FrameObj_exit (FrameObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
+static PyObject *
+FrameObj_add_data (FrameObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char       *_kwlist[] = { "name", "len", NULL };
+  const char        *name      = NULL;
+  unsigned long long len_raw   = 0ULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "sK", _kwlist, &name,
+                                    &len_raw))
+    return NULL;
+  size_t len = (size_t)len_raw;
+  int    _rc = dp_frame_add_data (self->handle, name, len);
+  if (_rc < 0)
+    {
+      PyErr_Format (PyExc_ValueError, "%s (rc=%lld)",
+                    "cannot append a data field: len must be 1..261120 (the "
+                    "Field grammar's bound), and the description must not be "
+                    "full, already built, or already carry the name",
+                    (long long)_rc);
+      return NULL;
+    }
+  return PyLong_FromLong ((long)_rc);
+}
+
 static PyMethodDef FrameObj_methods[] = {
 
   { "bits", (PyCFunction)(void *)FrameObj_bits, METH_VARARGS | METH_KEYWORDS,
@@ -927,7 +955,7 @@ static PyMethodDef FrameObj_methods[] = {
     "    How many output samples to ask for. The call may return fewer; size\n"
     "    an `out=` buffer with the matching `_max_out()` when you need the\n"
     "    worst case.\n"
-    "out : NDArray[np.uint8] | None\n"
+    "out : npt.NDArray[np.uint8] | None\n"
     "    Output, one bit per byte.\n"
     "\n"
     "Returns\n"
@@ -974,7 +1002,7 @@ static PyMethodDef FrameObj_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "rx_bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
+    "rx_bits : npt.NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    Received bits, one per byte.\n"
     "\n"
     "Returns\n"
@@ -1019,7 +1047,7 @@ static PyMethodDef FrameObj_methods[] = {
     "name : str\n"
     "    The field's name, or NULL/\"\" for anonymous; a name another field\n"
     "    carries is refused.\n"
-    "bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
+    "bits : npt.NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    The bits, one per element, each 0 or 1.\n"
     "\n"
     "Returns\n"
@@ -1318,9 +1346,11 @@ static PyMethodDef FrameObj_methods[] = {
     "Lay out and materialise a description. Where a description is checked: "
     "one that cannot produce its own bits is not a frame. Separate from the "
     "constructor only because the description arrives over several calls and "
-    "there is no earlier moment at which it is complete. Raises if it is "
-    "empty, unbuildable, names a stage no kernel here covers, or was already "
-    "built.\n"
+    "there is no earlier moment at which it is complete. A description with a "
+    "data field builds too, laid out from its lengths with its stages proved "
+    "runnable over a discarded chunk: it has no single frame, so bits() "
+    "returns none, while deframe() and check() work. Raises if it is empty, "
+    "unbuildable, names a stage no kernel here covers, or was already built.\n"
     "\n"
     "The point at which a description is checked, which for dp_frame_create\n"
     "happens inside the constructor: a description that cannot produce its\n"
@@ -1334,6 +1364,13 @@ static PyMethodDef FrameObj_methods[] = {
     "nothing here carries is refused rather than skipped, because a stage\n"
     "that quietly did not run produces a frame that still assembles and\n"
     "syncs to nothing.\n"
+    "\n"
+    "A description with a data field (dp_frame_add_data) builds too: the\n"
+    "field has no bits until a source draws them, so the description is laid\n"
+    "out from its lengths and its stages are proved runnable over a chunk\n"
+    "that is thrown away. It then has no single frame, so dp_frame_bits\n"
+    "writes none, while dp_frame_deframe and dp_frame_check work as for any\n"
+    "other -- a receiver needs the data field's length and nothing else.\n"
     "\n"
     "The inner encoder starts from the all-zero register on every build: a\n"
     "description describes ONE frame. A stream of CADUs sharing one register\n"
@@ -1395,10 +1432,10 @@ static PyMethodDef FrameObj_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "rx_bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
+    "rx_bits : npt.NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    Received bits, `frame_bits` of them; treated as a capture and never\n"
     "    modified.\n"
-    "out : NDArray[np.uint8] | None\n"
+    "out : npt.NDArray[np.uint8] | None\n"
     "    Receives the corrected frame.\n"
     "\n"
     "Returns\n"
@@ -1480,7 +1517,7 @@ static PyMethodDef FrameObj_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "rx_bits : NDArray[np.uint8] | bytes | bytearray | memoryview\n"
+    "rx_bits : npt.NDArray[np.uint8] | bytes | bytearray | memoryview\n"
     "    Received bits, one per byte. Copied, not modified.\n"
     "\n"
     "Returns\n"
@@ -1707,6 +1744,69 @@ static PyMethodDef FrameObj_methods[] = {
     "    Exception instance, or None. Ignored.\n"
     "tb : object | None\n"
     "    Traceback object, or None. Ignored.\n" },
+  { "add_data", (PyCFunction)(void *)FrameObj_add_data,
+    METH_VARARGS | METH_KEYWORDS,
+    "add_data(name, len) -> int\n"
+    "\n"
+    "Append a named DATA field: len bits a data source fills, one chunk\n"
+    "per frame. Returns its index; -1 in C, `ValueError` from Python.\n"
+    "\n"
+    "The object spelling of the Field text `data:LEN`, and the same field: a\n"
+    "WFM_SEQ_DATA sequence of length len, which is exactly what\n"
+    "`dp_wfm_field_parse(\"data:LEN\")` produces for a scene's or the CLI's\n"
+    "frame. The description knows the field's length and never its bits: a\n"
+    "transmitter draws them from its data source at each frame (a source's\n"
+    "`data=`), and a CRC or outer code covering the field covers that\n"
+    "frame's chunk. It is a method rather than Field text in\n"
+    "dp_frame_add_field because an object takes bits, and a data field has\n"
+    "none (rx-frame-description.md, D5).\n"
+    "\n"
+    "A frame draws from one data source, so a description carries at most\n"
+    "one data field; a second is refused where geometry is judged, by the\n"
+    "layout, as it is for every other face.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "name : str\n"
+    "    The field's name, or NULL/\"\" for anonymous; a name another field\n"
+    "    carries is refused.\n"
+    "len : int\n"
+    "    Bits per frame, `LEN` in `data:LEN`: from 1 to WFM_FIELD_MAX_BITS,\n"
+    "    the bound the Field grammar puts on the text form.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "int\n"
+    "    The new field's index, or -1 if len is out of range, the\n"
+    "    description is full or already built, or the name is taken.\n"
+    "\n"
+    "Raises\n"
+    "------\n"
+    "ValueError\n"
+    "    If the C call returns a negative value. The exception message is\n"
+    "    ``cannot append a data field: len is 0 or past the Field grammar's\n"
+    "    bound (WFM_FIELD_MAX_BITS), or the description is full, already\n"
+    "    built, or already carries the name``, with the return code appended\n"
+    "    (gh-869).\n"
+    "\n"
+    "Examples\n"
+    "--------\n"
+    ">>> import numpy as np\n"
+    ">>> from doppler.wfm import FrameDesc, STAGE_CRC16, Segment, Composer\n"
+    ">>> d = FrameDesc()\n"
+    ">>> d.add_field(\"sync\", np.array([1, 1, 1, 0, 0, 1, 0], np.uint8))\n"
+    "0\n"
+    ">>> d.add_data(\"payload\", 8)          # 8 bits of the data source a "
+    "frame\n"
+    "1\n"
+    ">>> d.add_derived(\"crc\", 16)\n"
+    "2\n"
+    ">>> d.add_stage_over(STAGE_CRC16, \"payload\", \"crc\")\n"
+    "0\n"
+    ">>> seg = Segment(type=\"bits\", sps=1, modulation=\"bpsk\", frame=d,\n"
+    "...               data=np.unpackbits(np.array([0xA5, 0x3C], np.uint8)))\n"
+    ">>> len(Composer([seg]).compose())    # two frames of 7 + 8 + 16 bits\n"
+    "62\n" },
   { NULL }
 };
 

@@ -39,9 +39,9 @@ def run(
     return anthropic_thinking(dict(canonical), {}, ctx), adjustments
 
 
+# include_thoughts=False is VISIBILITY, never an off signal (settings-translation C7b).
 OFF_SIGNALS = [
     ({"reasoning_effort": "none"}, "reasoning_effort"),
-    ({"include_thoughts": False}, "include_thoughts"),
     ({"thinking_budget": 0}, "thinking_budget"),
 ]
 
@@ -71,14 +71,21 @@ class TestAlwaysOn:
         )
         assert params["output_config"]["effort"] == "high"
         assert params["thinking"]["display"] == "omitted"
-        assert adjustments[0].key == "include_thoughts"
+        assert adjustments == []
 
-    def test_floor_still_respects_effort_ceiling(self) -> None:
+    def test_hiding_alone_hides_at_the_models_own_default_depth(self) -> None:
+        params, adjustments = run({"include_thoughts": False}, ALWAYS_ON)
+        assert params["thinking"] == {"type": "adaptive", "display": "omitted"}
+        assert "output_config" not in params  # never floored: hiding is not off
+        assert adjustments == []
+
+    def test_hidden_effort_still_respects_effort_ceiling(self) -> None:
         params, adjustments = run(
             {"reasoning_effort": "max", "include_thoughts": False}, ALWAYS_ON_CEILING
         )
         assert params["output_config"]["effort"] == "high"
-        assert [a.action for a in adjustments] == ["effort_ceiling", "mapped"]
+        assert params["thinking"]["display"] == "omitted"
+        assert [a.action for a in adjustments] == ["effort_ceiling"]
 
     def test_unset_still_defers_to_provider_default(self) -> None:
         params, adjustments = run({}, ALWAYS_ON)

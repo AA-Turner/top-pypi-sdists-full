@@ -37,9 +37,9 @@ from pathlib import Path, PurePath
 from random import SystemRandom
 from types import TracebackType
 from typing import Any, AsyncContextManager, Awaitable, Callable, Dict
-from typing import Generator, Generic, IO, Iterator, List, Mapping, Optional
-from typing import Sequence, Tuple, Type, TypeVar, Union, cast, overload
-from typing_extensions import Literal, Protocol
+from typing import Generator, Generic, IO, Iterator, List, Literal, Mapping
+from typing import Sequence, Optional, Protocol, Tuple, Type, TypeVar, Union
+from typing import cast, overload
 
 from .constants import DEFAULT_LANG
 from .constants import DISC_COMPRESSION_ERROR, DISC_CONNECTION_LOST
@@ -51,7 +51,7 @@ from .constants import DISC_SERVICE_NOT_AVAILABLE
 
 _pywin32_available = False
 
-if sys.platform == 'win32': # pragma: no cover
+if sys.platform == 'win32': # pragma: cover only win32
     try:
         import msvcrt
         import win32file
@@ -59,8 +59,7 @@ if sys.platform == 'win32': # pragma: no cover
         _pywin32_available = True
     except ImportError:
         pass
-
-if sys.platform != 'win32': # pragma: no branch
+else:
     import fcntl
     import struct
     import termios
@@ -153,7 +152,7 @@ _time_units = {'': 1, 's': 1, 'm': 60, 'h': 60*60,
 
 
 def encode_env(env: Env) -> Iterator[Tuple[bytes, bytes]]:
-    """Convert environemnt dict or list to bytes-based dictionary"""
+    """Convert environment dict or list to bytes-based dictionary"""
 
     if hasattr(env, 'items'):
         env = cast(Env, env.items())
@@ -180,7 +179,7 @@ def encode_env(env: Env) -> Iterator[Tuple[bytes, bytes]]:
 
 
 def lookup_env(patterns: EnvSeq) -> Iterator[Tuple[bytes, bytes]]:
-    """Look up environemnt variables with wildcard matches"""
+    """Look up environment variables with wildcard matches"""
 
     for pattern in patterns:
         if isinstance(pattern, str):
@@ -199,7 +198,7 @@ def lookup_env(patterns: EnvSeq) -> Iterator[Tuple[bytes, bytes]]:
 
 
 def decode_env(env: Dict[bytes, bytes]) -> Iterator[Tuple[str, str]]:
-    """Convert bytes-based environemnt dict to Unicode strings"""
+    """Convert bytes-based environment dict to Unicode strings"""
 
     for key, value in env.items():
         try:
@@ -330,7 +329,7 @@ def write_file(filename: FilePath, data: bytes, mode: str = 'wb') -> int:
         return f.write(data)
 
 
-if sys.platform == 'win32' and _pywin32_available: # pragma: no cover
+if sys.platform == 'win32' and _pywin32_available: # pragma: cover only win32
     def make_sparse_file(file_obj: IO) -> None:
         """Enable sparse file support on a file on Windows"""
 
@@ -410,7 +409,7 @@ def split_args(command: str) -> Sequence[str]:
     lex = shlex.shlex(command, posix=True)
     lex.whitespace_split = True
 
-    if sys.platform == 'win32': # pragma: no cover
+    if sys.platform == 'win32': # pragma: cover only win32
         lex.escape = []
 
     return list(lex)

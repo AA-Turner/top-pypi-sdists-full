@@ -42,22 +42,25 @@ Known capabilities that are not supported:
 __all__ = [
     "COMMON_CAPABILITIES",
     "DEFAULT_GIT_CREDENTIALS_PATHS",
+    "DEFAULT_POST_BUFFER_SIZE",
     "DEFAULT_REF_PREFIX",
     "MAX_IN_VAIN",
     "RECEIVE_CAPABILITIES",
     "UPLOAD_CAPABILITIES",
     "AbstractHttpGitClient",
+    "AuthCallbackPoolManager",
     "BundleClient",
-    "BundleList",
     "BundleURIError",
     "FetchPackResult",
     "GitClient",
     "HTTPProxyUnauthorized",
     "HTTPUnauthorized",
+    "HttpGitClient",
     "InvalidWants",
     "LocalGitClient",
     "LsRemoteResult",
     "PLinkSSHVendor",
+    "PackDataProgressWrapper",
     "ReportStatusParser",
     "SSHGitClient",
     "SSHVendor",
@@ -70,18 +73,21 @@ __all__ = [
     "TraditionalGitClient",
     "Urllib3HttpGitClient",
     "apply_bundle_uri",
+    "build_fetch_request_v2",
+    "build_ls_refs_request_v2",
     "check_for_proxy_bypass",
     "check_wants",
+    "default_local_git_client_cls",
     "default_urllib3_manager",
     "default_user_agent_string",
-    "fetch_bundle_uri",
+    "extract_object_format_from_capabilities",
     "find_capability",
     "find_git_command",
     "get_credentials_from_store",
+    "get_ssh_vendor",
     "get_transport_and_path",
     "get_transport_and_path_from_url",
     "negotiate_protocol_version",
-    "parse_bundle_list",
     "parse_rsync_url",
     "read_pkt_refs_v1",
     "read_pkt_refs_v2",
@@ -164,14 +170,9 @@ if TYPE_CHECKING:
             ...
 
 
+from . import _deprecated_aliases
 from .bundle import Bundle
-from .bundle_uri import (
-    BundleList,
-    BundleURIError,
-    apply_bundle_uri,
-    fetch_bundle_uri,
-    parse_bundle_list,
-)
+from .bundle_uri import BundleURIError, apply_bundle_uri
 from .config import (
     Config,
     apply_instead_of,
@@ -265,6 +266,16 @@ MAX_IN_VAIN = 256
 
 
 logger = logging.getLogger(__name__)
+
+
+__getattr__ = _deprecated_aliases(
+    __name__,
+    {
+        "BundleList": "dulwich.bundle_uri.BundleList",
+        "fetch_bundle_uri": "dulwich.bundle_uri.fetch_bundle_uri",
+        "parse_bundle_list": "dulwich.bundle_uri.parse_bundle_list",
+    },
+)
 
 
 class InvalidWants(Exception):
@@ -1090,6 +1101,7 @@ class PackDataProgressWrapper:
         report_interval: float = 0.5,
         report_byte_threshold: int = 1024 * 1024,
     ) -> None:
+        """Initialize PackDataProgressWrapper."""
         self.file_write = file_write
         self.progress = progress
         self.report_interval = report_interval
@@ -1450,6 +1462,7 @@ class GitClient:
         filter_spec: bytes | None = None,
         protocol_version: int | None = None,
         bundle_uri: str | None = None,
+        origin_url: str | bytes | None = None,
     ) -> Repo:
         """Clone a repository.
 
@@ -1470,6 +1483,8 @@ class GitClient:
             This can be a URL to a bundle file or a bundle list.
             Using a bundle URI can speed up the clone by downloading
             pre-computed pack data.
+          origin_url: Optional original URL or location for the remote
+            configuration (defaults to synthesized URL from path).
 
         Returns:
           The newly created Repo object
@@ -1493,7 +1508,13 @@ class GitClient:
                 target = Repo.init_bare(target_path)
 
             # TODO(jelmer): abstract method for get_location?
-            if isinstance(self, LocalGitClient | SubprocessGitClient):
+            if origin_url is not None:
+                encoded_path = (
+                    origin_url.encode("utf-8")
+                    if isinstance(origin_url, str)
+                    else origin_url
+                )
+            elif isinstance(self, LocalGitClient | SubprocessGitClient):
                 encoded_path = path.encode("utf-8")
             else:
                 encoded_path = self.get_url(path).encode("utf-8")
@@ -3246,6 +3267,7 @@ class LocalGitClient(GitClient):
         filter_spec: bytes | None = None,
         protocol_version: int | None = None,
         bundle_uri: str | None = None,
+        origin_url: str | bytes | None = None,
     ) -> Repo:
         """Clone a local repository.
 
@@ -3275,7 +3297,14 @@ class LocalGitClient(GitClient):
                     raise ValueError("checkout and bare are incompatible")
                 target = Repo.init_bare(target_path, object_format=object_format_name)
 
-            encoded_path = path.encode("utf-8")
+            if origin_url is not None:
+                encoded_path = (
+                    origin_url.encode("utf-8")
+                    if isinstance(origin_url, str)
+                    else origin_url
+                )
+            else:
+                encoded_path = path.encode("utf-8")
 
             assert target is not None
             if origin is not None:
@@ -4160,13 +4189,21 @@ class AuthCallbackPoolManager:
         proxy_auth_callback: Callable[[str, str, int], dict[str, str] | None]
         | None = None,
     ) -> None:
+        """Initialize AuthCallbackPoolManager.
+
+        Args:
+          pool_manager: Pool manager to wrap
+          auth_callback: Called with (url, www_authenticate, attempt) on a
+            401 response; returns credentials or None
+          proxy_auth_callback: Like auth_callback, for 407 responses
+        """
         self._pool_manager = pool_manager
         self._auth_callback = auth_callback
         self._proxy_auth_callback = proxy_auth_callback
         self._auth_attempts: dict[str, int] = {}
 
     def __getattr__(self, name: str):  # type: ignore[no-untyped-def]
-        # Delegate all other attributes to the wrapped pool manager
+        """Delegate all other attributes to the wrapped pool manager."""
         return getattr(self._pool_manager, name)
 
     def request(self, method: str, url: str, *args, **kwargs):  # type: ignore[no-untyped-def]

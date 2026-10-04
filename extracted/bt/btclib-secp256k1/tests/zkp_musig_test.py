@@ -18,9 +18,11 @@ known secret, extract the secret back out of the two signatures.
 
 from __future__ import annotations
 
+import copy
 import gc
 import hashlib
 import inspect
+import pickle
 import secrets
 from collections.abc import Callable
 
@@ -319,6 +321,17 @@ def test_a_wiped_secret_nonce_refuses_to_sign() -> None:
     secnonces[0].wipe()
     with pytest.raises(ValueError, match="wiped or already spent"):
         secnonces[0].partial_sign(PRVKEYS[0], cache, session)
+
+
+@pytest.mark.parametrize("duplicate", [copy.copy, copy.deepcopy, pickle.dumps])
+def test_a_secret_nonce_cannot_be_duplicated(
+    duplicate: Callable[[object], object],
+) -> None:
+    """A second handle to one secnonce would defeat `SecretNonce`'s take."""
+    cache, secnonces, session = two_of_two_session()
+    with pytest.raises(TypeError, match="no copy, no pickle"):
+        duplicate(secnonces[0])
+    assert secnonces[0].partial_sign(PRVKEYS[0], cache, session)
 
 
 def test_wipe_overwrites_the_secret_nonce() -> None:
@@ -741,3 +754,39 @@ def test_the_static_context_is_not_randomized() -> None:
     _, zlib, _ = zkp_context._bindings()
     with pytest.raises(RuntimeError, match="context randomization failed"):
         zkp_context._randomize(zlib.secp256k1_context_static)
+
+
+def test_a_key_aggregation_cache_of_the_wrong_type_is_a_type_error() -> None:
+    """Each entry point taking a `KeyAggCache` or a `Session` refuses others.
+
+    The attribute lookup on the first line that used one raised
+    `AttributeError: 'bytes' object has no attribute '_cache_'`, which
+    names neither the argument nor the type that was expected.
+    """
+    _, secnonces, session = two_of_two_session()
+    aggnonce = musig.nonce_agg([secnonce.pubnonce for secnonce in secnonces])
+    other_cache, other_secnonces, other_session = two_of_two_session()
+    partial_sig = other_secnonces[0].partial_sign(
+        PRVKEYS[0], other_cache, other_session
+    )
+    wrong = b"x"
+    match = "key aggregation cache must be a KeyAggCache, not bytes"
+
+    with pytest.raises(TypeError, match=match):
+        musig.nonce_gen(PUBKEYS[0], 7, keyagg_cache=wrong)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=match):
+        musig.nonce_gen_counter(7, 0, keyagg_cache=wrong)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=match):
+        musig.Session(aggnonce, MSG, wrong)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match=match):
+        session.partial_sig_verify(
+            partial_sig,
+            other_secnonces[0].pubnonce,
+            PUBKEYS[0],
+            wrong,  # type: ignore[arg-type]
+        )
+    with pytest.raises(TypeError, match=match):
+        secnonces[0].partial_sign(PRVKEYS[0], wrong, session)  # type: ignore[arg-type]
+    other_cache, other_secnonces, _ = two_of_two_session()
+    with pytest.raises(TypeError, match="session must be a Session, not bytes"):
+        other_secnonces[0].partial_sign(PRVKEYS[0], other_cache, wrong)  # type: ignore[arg-type]

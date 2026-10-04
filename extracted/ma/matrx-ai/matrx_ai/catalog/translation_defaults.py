@@ -47,6 +47,11 @@ OFF_VALUES: dict[str, tuple[Any, ...]] = {
     "reasoning_summary": ("never",),
     "reasoning_format": ("hidden",),
 }
+# The VISIBILITY offs (hide the thoughts). Never depth: hiding thoughts never turns
+# thinking off or changes its effort (C7b). Fallback when ai.setting.family is absent.
+VISIBILITY_OFF_KEYS: frozenset[str] = frozenset(
+    {"include_thoughts", "reasoning_summary", "reasoning_format"}
+)
 # Numeric keys whose off is "at or below" a number (a budget of 0 or -1 is off).
 OFF_AT_OR_BELOW: dict[str, float] = {
     "thinking_budget": 0,
@@ -82,6 +87,10 @@ ANTHROPIC_MAX_TOKENS_HEADROOM = 2048
 # must BE the model's real maximum. Never raise this to chase a new model
 # (guard: scripts/check_output_ceiling_defaults.py).
 ANTHROPIC_DEFAULT_MAX_TOKENS = 32768
+
+#: Canonical effort scale, lowest to highest. An effort above a table's top lands
+#: on the top entry (processors.effort_lookup), never on an "unknown" default.
+EFFORT_SCALE: tuple[str, ...] = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
 # budget mode: effort -> budget_tokens (the rule's ``to_number`` overrides).
 ANTHROPIC_EFFORT_TO_BUDGET: dict[str, int] = {
@@ -194,7 +203,9 @@ GOOGLE_3_FROM_NUMBER: list[dict[str, Any]] = [
 # Omission means the provider's "max", so an effort is ALWAYS sent: these map
 # (processor_config["effort_map"] overrides), anything else -> the default.
 TOGETHER_EFFORT_MAP: dict[str, str] = {"xhigh": "max", "max": "max"}
-TOGETHER_DEFAULT_EFFORT = "high"
+# A SET effort Together has no own word for (low/medium/high) is sent as "high".
+# Never applied to NOT SET — that sends nothing unless a cell declares default_effort.
+TOGETHER_SET_EFFORT_FALLBACK = "high"
 
 # ── media_dims ───────────────────────────────────────────────────────────────
 # aspect -> (w, h) (processor_config["aspect_table"] overrides).

@@ -1,14 +1,18 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.103.2
+Version: 1.104.0
 Requires-Dist: fastuuid>=0.14.0,<1.0
+Requires-Dist: filelock>=3.16.1,<4.0
 Requires-Dist: httpx[http2]>=0.28.0,<1.0
 Requires-Dist: openai>=2.20.0,<3.0.0
 Requires-Dist: python-dotenv>=1.0.0,<2.0
+Requires-Dist: pyyaml>=6.0.3,<7.0
+Requires-Dist: packaging>=24.0
+Requires-Dist: importlib-metadata>=8.0.0,<9.0
 Requires-Dist: tiktoken>=0.8.0,<1.0 ; python_full_version < '3.14'
 Requires-Dist: tiktoken>=0.12.0,<1.0 ; python_full_version >= '3.14'
-Requires-Dist: importlib-metadata>=8.0.0,<9.0
 Requires-Dist: tokenizers>=0.21.0,<1.0
+Requires-Dist: huggingface-hub>=0.34.0,<2.0
 Requires-Dist: click>=8.0.0,<9.0
 Requires-Dist: jinja2>=3.1.6,<4.0
 Requires-Dist: aiohttp>=3.14.2,<4.0
@@ -65,8 +69,8 @@ Requires-Dist: azure-storage-blob>=12.28.0,<13.0 ; extra == 'proxy'
 Requires-Dist: mcp>=2.2.0,<3 ; extra == 'proxy'
 Requires-Dist: httpx2>=2.5.0,<3 ; extra == 'proxy'
 Requires-Dist: pydantic>=2.12.0,<3 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.100 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.69.post1 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.102.post1 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.71 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.5,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'
@@ -81,11 +85,11 @@ Requires-Dist: google-genai>=1.37.0,<2.0 ; extra == 'proxy-runtime'
 Requires-Dist: anthropic[vertex]>=0.84.0,<1.0 ; extra == 'proxy-runtime'
 Requires-Dist: grpcio==1.78.0 ; extra == 'proxy-runtime'
 Requires-Dist: prometheus-client>=0.20.0,<1.0 ; extra == 'proxy-runtime'
-Requires-Dist: langfuse>=2.59.7,<3.0 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-api==1.28.0 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-sdk==1.28.0 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-exporter-otlp==1.28.0 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-instrumentation-fastapi==0.49b0 ; extra == 'proxy-runtime'
+Requires-Dist: langfuse>=4.7,<5.0 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-api==1.33.1 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-sdk==1.33.1 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-exporter-otlp==1.33.1 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-instrumentation-fastapi==0.54b1 ; extra == 'proxy-runtime'
 Requires-Dist: ddtrace>=4.8.2,<5.0 ; extra == 'proxy-runtime'
 Requires-Dist: sentry-sdk>=2.21.0,<3.0 ; extra == 'proxy-runtime'
 Requires-Dist: mangum>=0.17.0,<1.0 ; extra == 'proxy-runtime'
@@ -298,7 +302,7 @@ from a2a.utils.constants import TransportProtocol
 from uuid import uuid4
 
 base_url = "http://localhost:4000/a2a/my-agent"  # LiteLLM proxy + agent name
-headers = {"Authorization": "Bearer sk-1234"}    # LiteLLM Virtual Key
+headers = {"Authorization": "Bearer <your-master-key>"}    # LiteLLM master key or a virtual key
 
 async with httpx.AsyncClient(headers=headers, timeout=60.0) as http_client:
     resolver = A2ACardResolver(httpx_client=http_client, base_url=base_url)
@@ -363,7 +367,7 @@ async with stdio_client(server_params) as (read, write):
 
 ```bash
 curl -X POST 'http://0.0.0.0:4000/v1/chat/completions' \
-  -H 'Authorization: Bearer sk-1234' \
+  -H 'Authorization: Bearer <your-master-key>' \
   -H 'Content-Type: application/json' \
   -d '{
     "model": "gpt-4o",
@@ -385,7 +389,7 @@ curl -X POST 'http://0.0.0.0:4000/v1/chat/completions' \
     "LiteLLM": {
       "url": "http://localhost:4000/mcp/",
       "headers": {
-        "x-litellm-api-key": "Bearer sk-1234"
+        "x-litellm-api-key": "Bearer <your-master-key>"
       }
     }
   }
@@ -437,6 +441,7 @@ For MCP OAuth, an upstream may advertise dynamic client registration but refuse 
 | [Deepgram (`deepgram`)](https://docs.litellm.ai/docs/providers/deepgram) | ✅ | ✅ | ✅ |  |  | ✅ |  |  |  |  |
 | [DeepInfra (`deepinfra`)](https://docs.litellm.ai/docs/providers/deepinfra) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Deepseek (`deepseek`)](https://docs.litellm.ai/docs/providers/deepseek) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
+| [Eden AI (`edenai`)](https://docs.litellm.ai/docs/providers/edenai) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |  |
 | [ElevenLabs (`elevenlabs`)](https://docs.litellm.ai/docs/providers/elevenlabs) | ✅ | ✅ | ✅ |  |  | ✅ | ✅ |  |  |  |
 | [Empower (`empower`)](https://docs.litellm.ai/docs/providers/empower) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Fal AI (`fal_ai`)](https://docs.litellm.ai/docs/providers/fal_ai) | ✅ | ✅ | ✅ |  | ✅ |  |  |  |  |  |
@@ -486,7 +491,7 @@ For MCP OAuth, an upstream may advertise dynamic client registration but refuse 
 | [Petals (`petals`)](https://docs.litellm.ai/docs/providers/petals) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Pinstripes (`pinstripes`)](https://docs.litellm.ai/docs/providers/pinstripes) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Predibase (`predibase`)](https://docs.litellm.ai/docs/providers/predibase) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
-| [Qwen AI Platform (`qwen_ai_platform`)](https://docs.litellm.ai/docs/providers/qwencloud) | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |  |  | ✅ |
+| [Qianwen AI Platform (`qwen_ai_platform`)](https://docs.litellm.ai/docs/providers/qwencloud) | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |  |  | ✅ |
 | [QwenCloud (`qwencloud`)](https://docs.litellm.ai/docs/providers/qwencloud) | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |  |  | ✅ |
 | [Recraft (`recraft`)](https://docs.litellm.ai/docs/providers/recraft) |  |  |  |  | ✅ |  |  |  |  |  |
 | [Replicate (`replicate`)](https://docs.litellm.ai/docs/providers/replicate) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |

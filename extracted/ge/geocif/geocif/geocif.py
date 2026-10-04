@@ -5877,7 +5877,7 @@ class Geocif:
             # so the imputation matches what the model saw at fit (cached
             # by GAMFitter.fit). Last-resort fallback = 0 for columns that
             # had no training median (e.g. fully-NaN at fit, which
-            # _fill_missing_values would also have left at 0).
+            # _record_nan_fills also leaves without a fill).
             medians = getattr(self, "_gam_fit_medians", None)
             if medians is not None:
                 X_aligned = X_aligned.fillna(medians)
@@ -7175,7 +7175,7 @@ class Geocif:
         self.X_train = self._clean_training_features(self.X_train)
 
         if self.dispatch_name not in _NAN_NATIVE_MODELS:
-            self._fill_missing_values()
+            self._record_nan_fills()
         else:
             # Never let a previous region/model's fills reach this test frame.
             self._nan_fill_values = {}
@@ -7259,7 +7259,8 @@ class Geocif:
 
         Only fully all-NaN columns are dropped here; partial-NaN columns
         survive and are handled downstream:
-        - gam/linear/gpr → ``_fill_missing_values`` median/mode imputes.
+        - other models → ``_record_nan_fills`` records train median/mode;
+          the fitted matrix and the test rows are filled with them.
         - tabpfn/catboost → handle NaN natively.
         - feature_selection (gOMP etc.) → drops cols with > threshold_nan
           proportion of NaN and median-fills the rest.
@@ -7300,14 +7301,21 @@ class Geocif:
 
         return X_train
 
-    def _fill_missing_values(self):
-        """Fill missing values for models that can't handle NaN.
+    def _record_nan_fills(self):
+        """Record train-only fill values for models that can't handle NaN.
 
         Median for numerics (undefined on Categorical).  Mode (most common
         level) for categoricals/objects — same behavior as sklearn
-        ``SimpleImputer(strategy='most_frequent')``. The fill values are
-        recorded in ``self._nan_fill_values`` so the test rows get the same
-        (train-only) imputation in ``_preprocess_test_data``.
+        ``SimpleImputer(strategy='most_frequent')``. Stored in
+        ``self._nan_fill_values``; ``_prepare_training_data`` fills the fitted
+        matrix and ``_preprocess_test_data`` the test rows with them.
+
+        ``self.X_train`` itself is NOT filled: it is the feature-selection
+        frame, and ``select_features`` drops columns more than 20 % missing
+        only if it can see the NaN. Filling it here (until 0.4.1068) let
+        calendar-structural windows, missing for most US counties every year,
+        through as near-constant columns that displaced heat features
+        (county maize 2012 R2 0.642 -> 0.695 with the gate working).
         """
         fills = {}
         for col in self.X_train.columns:
@@ -7325,8 +7333,6 @@ class Geocif:
                 else:
                     fill = ""
             fills[col] = fill
-            if s.isna().any():
-                self.X_train[col] = s.fillna(fill)
         self._nan_fill_values = fills
 
     def _select_features(self, region_id: int, dir_output: Path):
@@ -7472,10 +7478,10 @@ class ModelTrainer:
                 )
                 X = X.loc[common]
         # Same train-only fills the test rows get in _preprocess_test_data.
-        # _fill_missing_values recorded them on self.X_train (the
-        # feature-selection frame), which is NOT the matrix fitted here
-        # (2026-10-01 review: non-NaN-native models were fitted on NaN and
-        # predicted on medians).
+        # _record_nan_fills computed them from self.X_train (the
+        # feature-selection frame, deliberately left unfilled), which is NOT
+        # the matrix fitted here (2026-10-01 review: non-NaN-native models
+        # were fitted on NaN and predicted on medians).
         fills = getattr(self.obj, "_nan_fill_values", None)
         if (
             fills
@@ -7507,10 +7513,10 @@ class ModelTrainer:
     def _scale_if_needed(self, X_train: pd.DataFrame, scaler):
         """Scale features if scaler is provided.
 
-        Median-imputes BEFORE fitting the scaler. The per-split
-        ``_fill_missing_values`` only mutates ``self.X_train``, while this
-        matrix is re-sliced fresh from ``df_region`` — so its fill never
-        reaches the fit. Lag features (``t -1/-2/-3 Yield``) are NaN for the
+        Median-imputes BEFORE fitting the scaler. ``_prepare_training_data``
+        does not apply the ``_record_nan_fills`` values to the scaled
+        families, so without this the NaN reaches the fit. Lag features
+        (``t -1/-2/-3 Yield``) are NaN for the
         earliest training years by construction, StandardScaler passes NaN
         through, and LassoCV refuses it — which killed all 44 folds of the
         first ``last9m_linear`` run with "Input X contains NaN". The train

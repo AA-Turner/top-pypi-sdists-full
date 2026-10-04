@@ -14,7 +14,7 @@ and the handler:
      permission-gated tools when the user hasn't granted them, and
      ``desktop_run_command`` when the desktop bridge is unreachable.
   4. Queues a tool-set mutation via ``ctx.queue_tool_changes(...)`` —
-     adds the filtered set, removes itself. The orchestrator drains the
+     adds the filtered set; the loader stays. The orchestrator drains the
      mutation between turns and the model's next API call sees the new
      toolset.
 
@@ -418,7 +418,6 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
         _warn_on_loaded_categories_drift(loaded_categories)
 
     if category in loaded_categories:
-        ctx.queue_tool_changes(add=[], remove=["load_chrome_tools"])
         vcprint(
             f"[load_chrome_tools] category={category!r} already in "
             f"client.state['browser-dom'].loaded_categories — short-circuit "
@@ -509,10 +508,10 @@ async def load_chrome_tools(args: dict[str, Any], ctx: ToolContext) -> ToolResul
             continue
         loaded_specs.append(RegisteredToolSpec(name=tool.name))
 
-    ctx.queue_tool_changes(
-        add=loaded_specs,
-        remove=["load_chrome_tools"],
-    )
+    # The loader STAYS (TOOL-SOURCES.md, bundles): another category may be needed later, and
+    # a loader that removes itself is put back by its source next turn at a new position,
+    # reshuffling the cached tool prefix. Loaded tools join the sticky toolset after it.
+    ctx.queue_tool_changes(add=loaded_specs)
 
     vcprint(
         f"[load_chrome_tools] category={category} "

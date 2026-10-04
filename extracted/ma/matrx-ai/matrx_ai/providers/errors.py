@@ -923,7 +923,11 @@ def classify_moonshot_error(exception: Exception) -> RetryableError:
             user_message="The provider connection closed before completion. Please try again.",
         )
     elif provider_type == "invalid_request_error" or status_code == 400:
-        if any(marker in provider_message.lower() for marker in ("context", "token limit", "too long")):
+        lowered = provider_message.lower()
+        # "stop array too long" is a SETTING (list length), never the context window.
+        if "array too long" not in lowered and any(
+            marker in lowered for marker in ("context", "token limit", "too long")
+        ):
             result = _handle_context_length_exceeded("Moonshot", provider_message)
         else:
             result = _handle_bad_request("Moonshot", provider_message, {"message": provider_message})
@@ -1918,6 +1922,16 @@ def classify_xai_error(exception: Exception) -> RetryableError:
     except ImportError:
         pass
 
+    # xai_sdk speaks gRPC: every refusal is a grpc RpcError whose status code IS
+    # the typed answer. Laundering it into ``unknown_error`` hid every refused
+    # setting (settings-translation C7b: effort "none" on grok-4.5).
+    grpc_status = _grpc_status_and_message(exception)
+    if grpc_status is not None:
+        status_code, message = grpc_status
+        return _classify_stainless_by_status(
+            "xAI", status_code, exception, message=message, body={"message": message}
+        )
+
     status_code = _extract_status_code(exception)
     if status_code is not None:
         return _classify_stainless_by_status("xAI", status_code, exception)
@@ -2089,12 +2103,51 @@ def _classify_stainless_provider(
     return _fallback_classify(str(exception), provider)
 
 
+# gRPC status -> the HTTP status every handler below already speaks (xai_sdk).
+_GRPC_STATUS_TO_HTTP: dict[str, int] = {
+    "INVALID_ARGUMENT": 400,
+    "FAILED_PRECONDITION": 400,
+    "OUT_OF_RANGE": 400,
+    "UNAUTHENTICATED": 401,
+    "PERMISSION_DENIED": 403,
+    "NOT_FOUND": 404,
+    "RESOURCE_EXHAUSTED": 429,
+    "INTERNAL": 500,
+    "UNAVAILABLE": 503,
+    "DEADLINE_EXCEEDED": 504,
+}
+
+
+def _grpc_status_and_message(exception: Exception) -> tuple[int, str] | None:
+    """(http status, provider message) of a gRPC ``RpcError`` — None for anything else."""
+    code_fn = getattr(exception, "code", None)
+    details_fn = getattr(exception, "details", None)
+    if not callable(code_fn) or not callable(details_fn):
+        return None
+    try:
+        code = code_fn()
+        details = details_fn()
+    except Exception:  # noqa: BLE001 — not a gRPC error after all
+        return None
+    name = str(getattr(code, "name", "") or "")
+    status = _GRPC_STATUS_TO_HTTP.get(name)
+    if status is None:
+        return None
+    return status, str(details or name)
+
+
 def _classify_stainless_by_status(
-    provider: str, status_code: int, exception: Exception
+    provider: str,
+    status_code: int,
+    exception: Exception,
+    *,
+    message: str | None = None,
+    body: dict[str, object] | None = None,
 ) -> RetryableError:
-    """Status-code dispatch for any Stainless-SDK based provider."""
-    body = _extract_error_body(exception)
-    msg = str(exception)
+    """Status-code dispatch for any Stainless-SDK based provider (and gRPC statuses
+    mapped onto HTTP ones — then ``message``/``body`` carry the provider's text)."""
+    body = body if body is not None else _extract_error_body(exception)
+    msg = message if message is not None else str(exception)
     retry_after = _extract_retry_after(exception)
 
     if status_code == 400:

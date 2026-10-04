@@ -22,10 +22,12 @@ The caller is expected to seed a well-known ContextObject in the request's
 If the expected context object is not present in the manifest, the tool returns
 a structured ``missing_context`` error telling the model which key to ask for.
 
-Clients that prefer to execute these themselves (the most common case) simply
-pass the widget tool names in ``client_tools`` and the executor short-circuits
-before reaching this module — exactly the same mechanism used by every other
-tool the client chooses to own.
+A client that holds a widget handle executes these itself (the normal case): it
+declares the ``widget-handle`` capability, which turns on the
+``matrx-user.widget-handle`` executor for that request, and every widget tool
+bound to that executor is delegated to the client (see
+``ToolRegistry.resolve_executor_binding``). This module only runs when no
+handle was declared and the request carries the widget's ContextObject.
 
 Why keep the 10 names rather than forcing everyone onto ``context_patch``?
 ----------------------------------------------------------------------
@@ -48,6 +50,30 @@ WIDGET_CONTENT_KEY = "widget_content"
 WIDGET_RECORD_KEY = "widget_record"
 WIDGET_MEDIA_KEY = "widget_media"
 WIDGET_ARTIFACTS_KEY = "widget_artifacts"
+
+#: The widget is CLIENT state, so the client applies these tools to it. A client that holds a
+#: widget handle declares this capability on the request (``client.capabilities``); that turns
+#: on :data:`WIDGET_HANDLE_EXECUTOR` for the request, and every widget tool bound to it
+#: (``tool.binding``) is delegated to the client instead of running here. Never turned on by a
+#: surface — only by the request that carries the handle.
+WIDGET_HANDLE_CAPABILITY = "widget-handle"
+WIDGET_HANDLE_EXECUTOR = "matrx-user.widget-handle"
+
+#: The tools that CANNOT work without a mutable context object, and the key each needs
+#: (TOOL-SOURCES.md rule N). The context stage reads this map and never offers one of them
+#: to a run whose manifest lacks that mutable key — the model would only call it and fail
+#: with ``missing_context``. ``widget_attach_media`` / ``widget_create_artifact`` are absent
+#: on purpose: without their key they create one instead.
+REQUIRED_MUTABLE_CONTEXT: dict[str, str] = {
+    "widget_text_replace": WIDGET_CONTENT_KEY,
+    "widget_text_insert_before": WIDGET_CONTENT_KEY,
+    "widget_text_insert_after": WIDGET_CONTENT_KEY,
+    "widget_text_prepend": WIDGET_CONTENT_KEY,
+    "widget_text_append": WIDGET_CONTENT_KEY,
+    "widget_text_patch": WIDGET_CONTENT_KEY,
+    "widget_update_field": WIDGET_RECORD_KEY,
+    "widget_update_record": WIDGET_RECORD_KEY,
+}
 
 
 # ---------------------------------------------------------------------------

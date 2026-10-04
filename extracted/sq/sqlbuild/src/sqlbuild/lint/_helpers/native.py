@@ -4,13 +4,17 @@ from __future__ import annotations
 
 import re
 import textwrap
-from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
 
+from sqlbuild.compiler.compile.classes.model_description_resolution import (
+    ModelDescriptionResolution,
+)
 from sqlbuild.compiler.discovery._helpers.sql.model_files import (
     parse_header_values,  # noqa: FFL102 - the compiler owns the canonical native header grammar
     prepare_model_header_tokens,
+    source_line_starts,
+    source_position,
 )
 from sqlbuild.compiler.discovery.exceptions import ModelSqlParseError
 from sqlbuild.lint.constants import (
@@ -32,7 +36,6 @@ from sqlbuild.lint.constants import (
     VIOLATION_SEVERITY_WARNING,
 )
 from sqlbuild.lint.models import HeaderSpan, LintConfig, LintViolation
-from sqlbuild.lint.types import LintSeverity
 
 _QUOTE_CHARACTERS: frozenset[str] = frozenset({"'", '"'})
 _ESCAPE_CHARACTER: str = "\\"
@@ -81,12 +84,11 @@ def lint_native_headers(
     file_path: Path,
     headers: tuple[HeaderSpan, ...],
     config: LintConfig,
-    description_present_severity: LintSeverity = VIOLATION_SEVERITY_FAULT,
 ) -> tuple[LintViolation, ...]:
     """Run all native header rules and return their violations."""
 
     violations: list[LintViolation] = []
-    line_starts: tuple[int, ...] = _line_starts(contents)
+    line_starts: tuple[int, ...] = source_line_starts(contents)
     header: HeaderSpan
     for header in headers:
         violations.extend(
@@ -96,7 +98,6 @@ def lint_native_headers(
                 header=header,
                 config=config,
                 line_starts=line_starts,
-                description_present_severity=description_present_severity,
             )
         )
         violations.extend(
@@ -176,7 +177,6 @@ def _header_parse_faults(
             file_path=file_path,
             headers=headers,
             config=config,
-            description_present_severity=VIOLATION_SEVERITY_WARNING,
         )
         if violation.code == RULE_HEADER_PARSE
     )
@@ -230,15 +230,12 @@ def _lint_header_values(
     header: HeaderSpan,
     config: LintConfig,
     line_starts: tuple[int, ...],
-    description_present_severity: LintSeverity,
 ) -> tuple[LintViolation, ...]:
     header_text: str = contents[header.start : header.end]
     try:
         values: dict[str, object] = _parse_header_values(kind=header.kind, header_text=header_text)
     except Exception as error:  # noqa: BLE001 - any parse failure is a lint fault
-        position: tuple[int, int] = _offset_to_position(
-            offset=header.start, line_starts=line_starts
-        )
+        position: tuple[int, int] = source_position(offset=header.start, line_starts=line_starts)
         return (
             LintViolation(
                 file_path=file_path,
@@ -276,8 +273,10 @@ def _lint_header_values(
                 header=header,
                 code=RULE_DESCRIPTION_PRESENT,
                 message=f"{header.kind}() header requires a description",
-                remediation=f"Add a description to the {header.kind}() header.",
-                severity=description_present_severity,
+                remediation=(
+                    f'Add description "<what it is>" to the {header.kind}() header; '
+                    "every named resource must be described."
+                ),
             )
         )
     if header.kind in DESCRIPTION_HEADER_KINDS and isinstance(effective_description, str):
@@ -341,7 +340,7 @@ def _lint_header_whitespace(
     header_text: str = contents[header.start : header.end]
     if not any(line != line.rstrip() for line in _split_outside_quotes(text=header_text)):
         return ()
-    position: tuple[int, int] = _offset_to_position(offset=header.start, line_starts=line_starts)
+    position: tuple[int, int] = source_position(offset=header.start, line_starts=line_starts)
     return (
         LintViolation(
             file_path=file_path,
@@ -592,8 +591,8 @@ def _relocate_leading_comment(
     )
     faults: list[LintViolation] = []
     if relocated_description.count("\n") + 1 > config.max_description_lines:
-        position: tuple[int, int] = _offset_to_position(
-            offset=header.start, line_starts=_line_starts(contents)
+        position: tuple[int, int] = source_position(
+            offset=header.start, line_starts=source_line_starts(contents)
         )
         faults.append(
             LintViolation(
@@ -698,10 +697,9 @@ def _violation_for_header_start(
     code: str,
     message: str,
     remediation: str,
-    severity: LintSeverity = VIOLATION_SEVERITY_FAULT,
 ) -> LintViolation:
-    position: tuple[int, int] = _offset_to_position(
-        offset=header.start, line_starts=_line_starts(contents)
+    position: tuple[int, int] = source_position(
+        offset=header.start, line_starts=source_line_starts(contents)
     )
     return LintViolation(
         file_path=file_path,
@@ -709,24 +707,10 @@ def _violation_for_header_start(
         column=position[1],
         code=code,
         message=message,
-        severity=severity,
+        severity=VIOLATION_SEVERITY_FAULT,
         engine=LINT_ENGINE_SQLBUILD,
         remediation=remediation,
     )
-
-
-def _line_starts(contents: str) -> tuple[int, ...]:
-    starts: list[int] = [0]
-    index: int = contents.find("\n")
-    while index >= 0:
-        starts.append(index + 1)
-        index = contents.find("\n", index + 1)
-    return tuple(starts)
-
-
-def _offset_to_position(*, offset: int, line_starts: tuple[int, ...]) -> tuple[int, int]:
-    line_index: int = bisect_right(line_starts, offset) - 1
-    return line_index + 1, offset - line_starts[line_index] + 1
 
 
 def _inner_header_text(*, header_text: str) -> str:
@@ -839,3 +823,22 @@ def _audits_key_start(*, text: str, bracket: int) -> int:
     while start > 0 and text[start - 1].isspace():
         start -= 1
     return max(0, start - len(_AUDITS_KEYWORD))
+
+
+def drop_resolved_description_faults(
+    *, violations: list[LintViolation], project_dir: Path
+) -> list[LintViolation]:
+    """Drop `description-present` faults for models described outside their header."""
+
+    if not any(violation.code == RULE_DESCRIPTION_PRESENT for violation in violations):
+        return violations
+    described: frozenset[Path] = frozenset(
+        path.resolve()
+        for path in ModelDescriptionResolution.externally_described_models(project_dir=project_dir)
+    )
+    return [
+        violation
+        for violation in violations
+        if violation.code != RULE_DESCRIPTION_PRESENT
+        or violation.file_path.resolve() not in described
+    ]

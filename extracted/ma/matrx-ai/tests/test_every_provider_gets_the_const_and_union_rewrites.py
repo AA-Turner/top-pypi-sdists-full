@@ -3,7 +3,7 @@
 Both defects in this file are the same mistake twice: a rule that only ONE
 provider's boundary called, and a ceiling measured on a copy that was never sent.
 Independent verification, 2026-09-28
-(``common-docs/projects/checks-run-in-the-app/SCHEMA-TRANSLATION-VERIFY.md``):
+(``common-docs/systems/ai/ai-models/STATE.md``):
 
 * **F5 (HIGH)** — ``__kind: {"const": …}`` with no ``type`` made **78 live bound
   contracts unbindable on OpenAI**, 78 of 78 refused live

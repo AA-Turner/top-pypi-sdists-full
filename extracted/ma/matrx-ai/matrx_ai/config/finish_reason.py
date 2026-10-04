@@ -236,8 +236,15 @@ def truncation_notice(
     max_output_tokens: int | None = None,
     interrupted_tool_calls: list[str] | None = None,
     continuable: bool = True,
+    empty_reply: bool = False,
 ) -> str:
     """The honest sentence a person reads when a turn ran out of room.
+
+    ``empty_reply`` — the limit was spent before ANY visible answer was written
+    (a reasoning model thought until the cap). "What you see above is
+    incomplete" would be a lie: there is nothing above. The sentence says
+    nothing was answered and names the only remedy that works — a higher limit
+    (asking it to continue re-spends the same allowance on thinking).
 
     Plain language, no codes, no paths — it is addressed to the person in the
     conversation, and it always says what happened to the work.
@@ -263,6 +270,18 @@ def truncation_notice(
             f"call never went through and nothing was saved. {retry}"
         )
     limit = f" (the limit is {max_output_tokens:,} tokens)" if max_output_tokens else ""
+    if empty_reply:
+        if not continuable:
+            return (
+                f"This step used its whole output limit{limit} thinking and never wrote "
+                "an answer, so nothing was produced. Whoever built this workflow needs to "
+                "raise this step's output limit."
+            )
+        return (
+            f"I used my whole output limit{limit} thinking and never wrote an answer, so "
+            "nothing was answered. This agent's output limit needs to be raised; until "
+            "then, asking again may hit the same wall."
+        )
     if not continuable:
         return (
             f"This step's reply was cut off at its output limit{limit} and stopped "

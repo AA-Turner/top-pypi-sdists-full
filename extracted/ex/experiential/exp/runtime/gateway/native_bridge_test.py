@@ -5226,6 +5226,43 @@ def test_admit_persists_caller_app_identity_for_attribution(tmp_path: Path) -> N
     assert row == ("https://app.example.com", "Example App")
 
 
+def test_admit_classifies_and_persists_the_calling_app(tmp_path: Path) -> None:
+    """Forwarded User-Agent and app headers classify the caller onto the durable request."""
+    control, raw_key = _control_plane(tmp_path)
+    attempt_ids: dict[str, str] = {}
+    for label, headers in {
+        "claude": {"user_agent": "claude-cli/2.1.278 (external, cli)"},
+        "hermes": {"user_agent": "OpenAI/Python 2.8.1", "app_title": "Hermes Agent"},
+        "unknown": {"user_agent": "python-httpx/0.28.1"},
+        "absent": {},
+    }.items():
+        admission = json.loads(
+            control.admit(json.dumps({"raw_key": raw_key, "body": _chat_body(), **headers}))
+        )
+        attempt_ids[label] = str(_flatten_started(control, admission)["attempt_id"])
+
+    ledger = cast("SQLiteAttemptLedger", control._components.ledger)  # noqa: SLF001
+    with sqlite3.connect(ledger.database_path) as connection:
+        rows = {
+            label: connection.execute(
+                """
+                SELECT r.client_app, r.user_agent
+                FROM gateway_requests AS r
+                JOIN gateway_attempts AS a ON a.request_id = r.request_id
+                WHERE a.attempt_id = ?
+                """,
+                (attempt_id,),
+            ).fetchone()
+            for label, attempt_id in attempt_ids.items()
+        }
+    assert rows == {
+        "claude": ("claude_code", "claude-cli/2.1.278 (external, cli)"),
+        "hermes": ("hermes", "OpenAI/Python 2.8.1"),
+        "unknown": (None, "python-httpx/0.28.1"),
+        "absent": (None, None),
+    }
+
+
 class _HostedComponents:
     """Hosted-shaped components: no group-commit writer, sync ledger only.
 
@@ -6354,6 +6391,121 @@ def test_reasoning_content_native_rung_round_trips_preserved_thinking_off_the_te
     plain_messages = cast("list[JsonObject]", plain_payload["messages"])
     assert plain_messages[1]["reasoning_content"] == "ls lists the directory."
     assert plain.get("ignored_parameters", []) == []
+
+
+def test_reasoning_content_native_rung_round_trips_a_codex_responses_tool_turn(
+    tmp_path: Path,
+) -> None:
+    """A Codex-shaped Responses loop keeps a native rung's thinking across a tool call.
+
+    Codex sends ``store: false`` with ``include: ["reasoning.encrypted_content"]``
+    on every turn. On a declared ``reasoning_content_native`` rung (the
+    Experiential Cloud GLM vLLM origins) the include was refused because only a
+    native Responses or Fireworks route counted as a carrier channel; the
+    Hunyuan-scheme route is one too. The replayed reasoning item carries the
+    exposed summary text beside the sealed carrier, and the decoder must take
+    the carrier by its own scheme prefix, not only the Fireworks one.
+    """
+    _manager, raw_key = _configured_gateway(
+        tmp_path,
+        base_url="https://glm.example.test/v1",
+        capabilities=ModelCapabilities(
+            maximum_output_tokens=128_000,
+            supports_tools=True,
+            reasoning_output_exposed=True,
+            reasoning_content_native=True,
+        ),
+    )
+    tools: list[JsonObject] = [
+        {"type": "function", "name": "lookup", "parameters": {"type": "object"}}
+    ]
+    codex: JsonObject = {
+        "model": "coding",
+        "store": False,
+        "include": ["reasoning.encrypted_content"],
+        "tools": tools,
+    }
+    control = NativeControlPlane(
+        load_gateway_components(tmp_path, environment={"TEST_PROVIDER_KEY": "shared-secret"})
+    )
+    admission = _admit(
+        control,
+        raw_key,
+        json.dumps({**codex, "input": [{"role": "user", "content": "hi"}]}),
+        surface="responses",
+    )
+    assert "error" not in admission, admission
+    initial = _flatten_started(control, admission)
+    route_sha256 = initial["hunyuan_reasoning_route_sha256"]
+    assert isinstance(route_sha256, str)
+
+    hidden = "reason privately about the lookup"
+    sealed = json.loads(
+        control.seal_reasoning_content(
+            json.dumps(
+                {
+                    "request_id": initial["request_id"],
+                    "route_depth": initial["route_depth"],
+                    "route_sha256": route_sha256,
+                    "content": hidden,
+                    "assistant_content": None,
+                    "tool_calls": [
+                        {"call_id": "call-one", "name": "lookup", "raw_arguments": "{}"}
+                    ],
+                }
+            )
+        )
+    )["carrier"]
+    assert sealed.startswith("x-experiential-hunyuan-reasoning-v1:")
+    control.settle(
+        json.dumps(
+            {
+                "request_id": initial["request_id"],
+                "attempt_id": initial["attempt_id"],
+                "outcome": "completed",
+                "usage": {"input_tokens": 3, "output_tokens": 2},
+                "tool_names": ["lookup"],
+                "failure": None,
+            }
+        )
+    )
+
+    replica = NativeControlPlane(
+        load_gateway_components(tmp_path, environment={"TEST_PROVIDER_KEY": "shared-secret"})
+    )
+    continued = _admit(
+        replica,
+        raw_key,
+        json.dumps(
+            {
+                **codex,
+                "input": [
+                    {"role": "user", "content": "hi"},
+                    {
+                        "type": "reasoning",
+                        "id": "rs_glm",
+                        "summary": [{"type": "summary_text", "text": hidden}],
+                        "encrypted_content": sealed,
+                    },
+                    {
+                        "type": "function_call",
+                        "call_id": "call-one",
+                        "name": "lookup",
+                        "arguments": "{}",
+                    },
+                    {"type": "function_call_output", "call_id": "call-one", "output": "done"},
+                ],
+            }
+        ),
+        surface="responses",
+    )
+    assert "error" not in continued, continued
+    route = cast("list[JsonObject]", continued["route"])
+    payload = cast("JsonObject", route[0]["upstream_payload"])
+    messages = cast("list[JsonObject]", payload["messages"])
+    assistant = next(message for message in messages if message.get("tool_calls"))
+    assert continued["route_reason"] == "reasoning_continuation"
+    assert assistant["reasoning_content"] == hidden
 
 
 def test_an_unflagged_self_hosted_rung_stays_stripped_with_no_carrier_route(

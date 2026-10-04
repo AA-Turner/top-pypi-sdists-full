@@ -22,7 +22,7 @@ THE STEPS (named receipts, §3.3 steps 3-10; steps 1-2 are the request path):
 
     invite    mint the one invite + pre-answer the relay's parked confirm (§2.6)
     pre_read  the credentialed pre-read; halt-on-contradiction
-    install   ``uv tool install local-operator==<tag>`` | ``lop-update <tag>``
+    install   ``uv tool install [--force] --refresh local-operator==<tag>`` | ``lop-update <tag>``
     join      identity + ``lop network join @<token> --automated``
     anchor    ``lop operator anchor export`` → node → ``install --from`` (F4b)
     grants    ``lop network member grant <net> <mac> approve unattended``
@@ -764,6 +764,115 @@ def _json_from(text: str) -> dict[str, Any] | None:
     return loaded if isinstance(loaded, dict) else None
 
 
+def _invite_network_label(
+    token_path: Any, *, network_id: str = "", network_name: str = ""
+) -> tuple[str, str] | None:
+    """``(network_id, name)`` of the network an invite token joins, or ``None``.
+
+    THE MINT'S OWN PAYLOAD is the first source (``step_invite`` records it the
+    moment the token is minted), because the copy must still be network-aware
+    when the token file has served its purpose and is gone. The token FILE is
+    the fallback — the authority for what is being joined, so the copy can
+    compare the network the join was FOR against what a device's relay already
+    serves (drill decision, 2026-10-04: "join ADOPTS a relay already serving the
+    SAME network; a DIFFERENT one refuses with cause"). Best-effort by
+    contract: neither source available — a hand-made fixture, a file whose bytes
+    are already consumed — answers ``None``, and the caller falls back to the
+    generic sentence, because "cannot tell" must never be dressed up as
+    "serves nothing".
+    """
+    if network_id or network_name:
+        return str(network_id), str(network_name)
+    try:
+        from local_operator.network import invite as invite_mod
+
+        token = Path(str(token_path)).read_text(encoding="utf-8").strip()
+        envelope = invite_mod.decode(token)
+        return str(envelope.network_id or ""), str(envelope.network_name or "")
+    except Exception:  # noqa: BLE001 — a copy probe must never fail a step
+        return None
+
+
+def _invite_epoch(token_path: Any) -> int | None:
+    """The minting epoch of the held invite token, or ``None`` when unreadable.
+
+    The join entry check compares the NODE's epoch against the epoch the invite was
+    minted at, and the token's envelope is the only local source of it — the
+    mint's own payload (:func:`cli._invite_locally`) carries no epoch. ``None``
+    means "cannot tell" and is never dressed as a mismatch: the caller falls
+    through to the join, exactly as before the check existed.
+    """
+    try:
+        from local_operator.network import invite as invite_mod
+
+        token = Path(str(token_path)).read_text(encoding="utf-8").strip()
+        return int(invite_mod.decode(token).epoch or 0)
+    except Exception:  # noqa: BLE001 — an entry-check probe must never fail a step
+        return None
+
+
+def _relay_kind_note(status: dict[str, Any]) -> str:
+    """What a restart would and would not do to the relay a status reported.
+
+    Round-1 D1: the old sentence stated the hand-started replacement mechanism
+    for ANY relay, but a supervised one restarts back onto the same served set —
+    the relay serves ``store.list_networks()``, and a failed handshake never
+    writes the join target's membership — so nothing about a restart clears the
+    join failure in EITHER case. This note says what is true per kind and never
+    promises the restart fixes the join.
+
+    Round-2 D6: the kind reads ``status['relay_served_by']`` — the probe's
+    VERIFIED reading of the serving process (:func:`relay._serving_relay_kind`:
+    the supervisor's own pid, or the foreground ``serve`` shape that no unit of
+    this product runs) — and NEVER unit-file presence: a unit file can exist
+    while a hand-started relay serves the port (the drill node's exact state —
+    the arm's failed install left the file, ``stop`` leaves it), and calling
+    that process "the service's own" was the round-1 copy's one unverified
+    claim. The second clause — a restart cannot change what the relay serves —
+    is true in every case and is always printed; an unproven kind gets only it.
+    """
+    kind = status.get("relay_served_by")
+    if kind == "service":
+        return (
+            "That relay is the service's own, and restarting it would not change what " "it serves."
+        )
+    if kind == "manual":
+        return (
+            "That relay was started by hand, not by the service — `lop network restart` "
+            "replaces it with the service's own relay — and neither changes what the "
+            "relay serves."
+        )
+    return "Restarting the relay would not change what it serves."
+
+
+def _served_networks(status: dict[str, Any]) -> list[dict[str, str]]:
+    """The networks a node's status says its relay SERVES, ``[]`` when unknown.
+
+    ONLY A LIVE REPLY COUNTS. ``status["networks"]`` is the answering relay's
+    own list when it answered and the LOCAL RECORDS when it did not — and a
+    record is not a serving relay, so a relay that is down must not be reported
+    as serving what its store remembers. Rows without both a ``network_id`` and
+    a ``name`` are kept with empty strings (the sentence handles them) rather
+    than dropped silently.
+    """
+    if not status.get("relay_answering"):
+        return []
+    rows = status.get("networks")
+    if not isinstance(rows, list):
+        return []
+    served: list[dict[str, str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        served.append(
+            {
+                "network_id": str(row.get("network_id") or ""),
+                "name": str(row.get("name") or ""),
+            }
+        )
+    return served
+
+
 def _facts_from(text: str) -> dict[str, str]:
     facts: dict[str, str] = {}
     for line in text.splitlines():
@@ -813,6 +922,60 @@ def _compiled_tag() -> str:
         return ""
 
 
+#: The resolver-class install failure, however uv wraps it: "there is no version
+#: of local-operator==X … unsatisfiable", "No compatible version found". This is
+#: what uv emits whether the index response is stale OR the version is genuinely
+#: absent — knowledge of neither — see ``_install_failure_detail``.
+_INSTALL_RESOLVER_MARKERS: tuple[str, ...] = (
+    "unsatisfiable",
+    "no version of",
+    "no compatible version",
+)
+
+
+def _install_failure_detail(tag: str, result: CommandResult) -> str:
+    """The install step's failure sentence, in the family's cause+remedy shape.
+
+    WHY (drill finding F3, 2026-10-04): two drill runs ended at ``install`` with
+    uv's raw text — "there is no version of local-operator==0.67.4 and you
+    require local-operator==0.67.4, we can conclude that your requirements are
+    unsatisfiable" — six minutes and again ~1 h after the release was published,
+    because the node's uv served a CACHED simple-index response; the same node's
+    curl showed the version present, and ``--refresh`` cured it by hand. Raw,
+    the text told the reader something false with no remedy.
+
+    Shape (design round 1, D1-D5 + N1-N3): the ACTION leads — a clipping surface
+    keeps cause and remedy, not the machine fragment; the cache is named as the
+    likely cause and the escape names genuine absence, because the same uv text
+    covers a version that is not on the index and a retry must not be a loop;
+    one name for the artefact ("the approved build <tag>"); the window matches
+    the drill's own clock ("shortly before the run"); uv's words ride last,
+    flattened and glyph-stripped (terminal box-drawing renders as tofu in a UI
+    sheet), head-kept when long (the head names the resolver) and never with a
+    doubled stop (§2.9: remedies name product actions, never terminal commands).
+    Any other failure keeps the previous surface.
+    """
+    output = (result.stderr or result.stdout or "").strip()
+    flat = " ".join(output.split())
+    if any(marker in flat.lower() for marker in _INSTALL_RESOLVER_MARKERS):
+        excerpt = flat.replace("×", "").replace("╰─▶", "")
+        excerpt = " ".join(excerpt.split()).rstrip(". ")
+        if len(excerpt) > 300:
+            excerpt = excerpt[:300].rstrip() + "…"
+        return (
+            "the approved build could not be installed. Retry the install: it "
+            "re-resolves against a refreshed index, so a release published "
+            "shortly before the run can no longer stay hidden by a cached "
+            "answer — a cached index is the likely cause. If the approved build "
+            "is still missing after the retry, it is not on the index — ask "
+            "Local Operator to file a fresh request with the corrected tag. "
+            f"(The machine's uv could not see the approved build {tag} — "
+            f"{excerpt}.)"
+        )
+    tail = output.splitlines()
+    return "the approved build could not be installed: " + (tail[-1][:200] if tail else "no output")
+
+
 # ---------------------------------------------------------------------------
 # The run
 # ---------------------------------------------------------------------------
@@ -858,6 +1021,12 @@ class OnboardRun:
         self.facts: dict[str, str] = {}
         self.invite_id = ""
         self.invite_path: Path | None = None
+        #: The network the invite joins, from the mint's own payload — carried
+        #: so the join-failure copy can compare it against what a serving relay
+        #: reports, even when the token file is already gone (drill finding,
+        #: 2026-10-04: "join ADOPTS a relay already serving the SAME network").
+        self.invite_network_id = ""
+        self.invite_network_name = ""
         self.credential: ResolvedCredential | None = None
         self._connected = False
 
@@ -913,6 +1082,8 @@ class OnboardRun:
             detail = (result.stderr or result.stdout or "the invite was not minted").strip()
             return _StepOutcome(False, f"the invite was not minted: {detail[:200]}")
         self.invite_id = str(payload["invite_id"])
+        self.invite_network_id = str(payload.get("network_id") or "")
+        self.invite_network_name = str(payload.get("network_name") or "")
         path = str(payload.get("path") or "")
         if not path or not Path(path).exists():
             return _StepOutcome(
@@ -957,11 +1128,18 @@ class OnboardRun:
         """
         expected_fp = str(self.view.device.get("host_key_fp") or "")
         if not expected_fp:
+            # OBSERVE BEFORE HALTING (drill finding, 2026-10-03): a request filed
+            # without the host key halts here, and the auto-refiled replacement
+            # used to be minted with the same hole — the remedy reproduced the
+            # failure. The host key is a credential-free read (the same handshake
+            # step zero runs), so the halt can carry the value the fresh request
+            # needs instead of filing another card that cannot run.
+            found = self.transport.probe()
             raise self._contradiction(
                 {
                     "check": "host_key_fp",
                     "approved": "",
-                    "observed": "",
+                    "observed": found.host_key_fp if found.ok else "",
                     "why": "the request does not say which host key to expect",
                 },
                 "the request does not carry the host-key fingerprint it was approved "
@@ -1147,12 +1325,14 @@ class OnboardRun:
                 )
             except MeshRefusal:
                 refiled = None
+        why = str(finding.get("why") or "").strip()
         suffix = (
             f" A new request {refiled} now carries the corrected facts — ask Local "
             "Operator to take it to approval."
             if refiled
-            else " A new request is needed before anything runs — ask Local Operator "
-            "to file one."
+            else " Nothing can run until this changes"
+            + (f": {why}" if why else "")
+            + ". A new request is needed then — ask Local Operator to file one."
         )
         return OnboardContradiction(sentence + "." + suffix, finding=finding, refiled=refiled)
 
@@ -1179,7 +1359,11 @@ class OnboardRun:
                     "the machine has no build and no `uv` to install one with; nothing "
                     "was installed",
                 )
-            command = f"uv tool install local-operator=={shlex.quote(tag)}"
+            # `--refresh` revalidates uv's cached simple-index response: the
+            # drill (F3, 2026-10-04) measured a release published shortly
+            # before the run resolving as "no version … unsatisfiable" off
+            # that cache.
+            command = f"uv tool install --refresh local-operator=={shlex.quote(tag)}"
             method = "uv-tool-install"
         elif facts.get("lop_update") == "yes":
             command = f"lop-update {shlex.quote(tag)}"
@@ -1188,8 +1372,9 @@ class OnboardRun:
             # §3.4 names `lop-update` for an existing build; a node with a build
             # but no updater script still has uv, and a pinned reinstall is the
             # remaining documented spelling. The running relay picks the new
-            # build up at step 9's restart.
-            command = f"uv tool install --force local-operator=={shlex.quote(tag)}"
+            # build up at step 9's restart. `--refresh` as at the fresh-install
+            # branch: a cached index can hide the release this run is for.
+            command = f"uv tool install --force --refresh local-operator=={shlex.quote(tag)}"
             method = "uv-tool-reinstall"
         else:
             return _StepOutcome(
@@ -1199,11 +1384,9 @@ class OnboardRun:
             )
         result = self._remote_lop(command, timeout=self._step_timeout("install"))
         if result.rc != 0:
-            tail = (result.stderr or result.stdout or "").strip().splitlines()
             return _StepOutcome(
                 False,
-                "the approved build could not be installed: "
-                + (tail[-1][:200] if tail else "no output"),
+                _install_failure_detail(tag, result),
                 {"tag": tag, "method": method},
             )
         check = self._remote_lop("lop --version", timeout=min(60.0, self._step_timeout("install")))
@@ -1231,6 +1414,11 @@ class OnboardRun:
         its own derivation — a mismatch refuses, spends the attempt and audits
         ``sas_mismatch``. The compare lives in the relay; this step must never
         turn the send into a bless, and does not.
+
+        A node that is ALREADY an active member both on its own side and in this
+        device's table passes before the token push (``_join_already_active``):
+        the step is satisfied, no re-join is attempted, and the invite goes
+        unused. Everything else runs exactly as it always did.
         """
         if self.invite_path is None:
             return _StepOutcome(False, "no invite token is held; the invite step must run first")
@@ -1238,6 +1426,9 @@ class OnboardRun:
         identity_before = ""
         if show and show.get("ok"):
             identity_before = str(show.get("device_id") or "")
+        satisfied = self._join_already_active(identity_before)
+        if satisfied is not None:
+            return satisfied
         remote_token = f"/tmp/lop-invite-{self.invite_id}.invite"
         pushed = self.transport.copy(self.invite_path, remote_token)
         if pushed.rc != 0:
@@ -1258,16 +1449,197 @@ class OnboardRun:
             payload = _json_from(joined.stdout or "")
             if joined.rc != 0 or not payload or not payload.get("ok"):
                 refusal = ""
+                message = ""
                 if isinstance(payload, dict):
-                    refusal = str(payload.get("code") or payload.get("message") or "")
+                    refusal = str(payload.get("code") or "")
+                    message = str(payload.get("message") or payload.get("error") or "")
                 tail = (joined.stderr or "").strip().splitlines()
-                detail = refusal or (tail[-1][:200] if tail else "the join was refused")
-                # The token file is removed by the ``finally`` below — one place.
-                return _StepOutcome(
-                    False,
-                    f"the join did not complete ({detail})",
-                    {"invite_id": self.invite_id, "node_refused": bool(refusal)},
+                # THE SENTENCE IS THE MESSAGE; THE CODE IS A MACHINE FIELD (drill
+                # finding, 2026-10-03; design round 1, D6): preferring the code
+                # alone rendered every failed re-onboard as a bare ``join_failed``
+                # and dropped the payload's ``message`` — where the per-host detail
+                # lives ("nothing was listening at …"). The message now rides the
+                # sentence; the code rides ``data.code`` for the machine register.
+                embedded = message or refusal
+                embedded = embedded or (tail[-1][:200] if tail else "the join was refused")
+                data: dict[str, Any] = {
+                    "invite_id": self.invite_id,
+                    "code": refusal,
+                    "node_refused": bool(refusal or message),
+                }
+                # THE NODE'S OWN LOCAL FAILURE CLASS (F4, drill 2026-10-04): the
+                # node's ``join --json`` refusal body carries a ``join`` block —
+                # stage + class + kind (a sealed record that failed
+                # authentication, a peer that closed, a timeout) — and copying it
+                # here is what lets the inviter-side agent read which step and
+                # which class failed WITHOUT an SSH session. Absent on an older
+                # node (no ``join`` key) and on failures that never dialled; the
+                # receipt then says nothing rather than guessing. The block is
+                # the node's LOCAL diagnosis and never rides any frame.
+                node_join = payload.get("join") if isinstance(payload, dict) else None
+                if isinstance(node_join, dict):
+                    copied = {
+                        key: node_join[key]
+                        for key in ("stage", "class", "kind")
+                        if node_join.get(key) not in (None, "")
+                    }
+                    # THE RECEIPT'S OWN WORD RIDES ``refusal_code`` (design round 1,
+                    # N3): the block's other keys are the node's taxonomy, and the
+                    # receipt's refusal word filed under a bare ``code`` beside them
+                    # read as one object with two vocabularies. A node block that
+                    # carries its own ``code`` keeps it (its word wins over our
+                    # reconstruction); when neither exists the field stays absent.
+                    block_code = str(node_join.get("code") or refusal or "")
+                    if block_code:
+                        copied["refusal_code"] = block_code
+                    if copied:
+                        data["join"] = copied
+                # WHAT THE NODE PROBE VERIFIED, IN ITS OWN WORDS (drill finding,
+                # 2026-10-03; design round 1, D4/D5; extended 2026-10-04). Four
+                # failed re-onboards ran while the node's own systemd relay held
+                # :4097 (its log: ``OSError: [Errno 98] Address already in use``).
+                # The probe is the one ``step_relay`` reads; the failure names what
+                # it SAW — never a mechanism this build cannot produce, never a port
+                # it did not verify. AND THE SENTENCE IS NETWORK-AWARE (drill
+                # decision, 2026-10-04): a relay that already serves the network
+                # this join was FOR is ADOPTED — named as correct, left in place,
+                # and the remedy never sends the reader to restart it; a relay
+                # serving other networks gets the restart remedy, which is true
+                # because ``lop network restart`` now replaces a hand-started relay
+                # with the supervised one (``relay._supervised_action``). The
+                # generic sentence stays for a status payload that cannot tell the
+                # two apart (no decoded token, no served list).
+                # FAILURE-PATH ONLY: a join that completes never probes.
+                status = self._node_json("lop network status", timeout=60.0)
+                where = str(self.view.device.get("name") or "").strip() or "that machine"
+                status = status if isinstance(status, dict) else {}
+                listening = status.get("listening")
+                live_port = None
+                if isinstance(listening, dict):
+                    try:
+                        live_port = int(listening.get("port") or 0) or None
+                    except (TypeError, ValueError):
+                        live_port = None
+                served = _served_networks(status)
+                target = _invite_network_label(
+                    self.invite_path,
+                    network_id=self.invite_network_id,
+                    network_name=self.invite_network_name,
                 )
+                if status.get("relay_answering") and live_port is not None:
+                    # VERIFIED serving: the relay answered THIS probe AND named
+                    # its port — the only state that may say "serving :<port>".
+                    # The parenthetical prevents the one misread this sentence
+                    # invites: the serving listener is the node's OWN port, not
+                    # one of the addresses the join's refusal names.
+                    #
+                    # WHAT THE SERVING RELAY SERVES DECIDES THE SENTENCE (drill
+                    # decision, 2026-10-04 — "join ADOPTS a relay already serving
+                    # the SAME network; a DIFFERENT one refuses with cause").
+                    # Round 1 sharpened every branch to say only what is true
+                    # (D1/D3/D4/Q-1): a restart never clears a join failure in
+                    # ANY branch, no branch prescribes it as the fix, and with no
+                    # usable target the probe claims no comparison. Round 2
+                    # closed the three claims left in these same sentences: the
+                    # EMPTY served list is its own branch (D7 — an answering
+                    # relay that lists nothing TOLD the probe that, it is the
+                    # ordinary fresh-device shape), the "once a join completes"
+                    # claim is scoped to the join target (D8 — `lop network init`
+                    # puts a network in the store with no join at all), and the
+                    # kind note reads the probe's verified `relay_served_by`,
+                    # never unit-file presence (D6). Each branch still ends on
+                    # the next move: retry once the cause the node reported is
+                    # cleared.
+                    same_network = bool(target) and any(
+                        (target[0] and row["network_id"] == target[0])
+                        or (target[1] and row["name"] == target[1])
+                        for row in served
+                    )
+                    label = ""
+                    if target is not None:
+                        label = target[1] or target[0] or "the network this join is for"
+                    if same_network:
+                        detail = (
+                            f"a relay is already serving :{live_port} on {where}, and it "
+                            f"serves {label} — that relay was left as it is and is not the "
+                            f"cause of this failure ({embedded}). Retry the join once the "
+                            "cause in the node's message is cleared; nothing about the relay "
+                            "needs restarting"
+                        )
+                        data["relay_serving"] = True
+                        data["relay_port"] = live_port
+                        data["relay_serves_target"] = True
+                    elif target is not None and served:
+                        # Empty display values are filtered BEFORE the join
+                        # (round-1 R-NIT-1): two all-empty rows used to render
+                        # "a different network (, )".
+                        names = ", ".join(
+                            value
+                            for value in (row["name"] or row["network_id"] for row in served)
+                            if value
+                        )
+                        names = names or "a different network"
+                        detail = (
+                            f"a relay is already serving :{live_port} on {where}, but it does "
+                            f"not serve {label} — it serves {names} instead; the network this "
+                            f"join is for can appear there only after a completed join, so the "
+                            f"relay is not the cause of this failure ({embedded}). "
+                            f"{_relay_kind_note(status)} Retry the join once the cause in the "
+                            "node's message is cleared"
+                        )
+                        data["relay_serving"] = True
+                        data["relay_port"] = live_port
+                        data["relay_serves_target"] = False
+                    elif target is not None and status.get("networks") == []:
+                        # D7: the probe DID tell here — the relay answered and
+                        # lists no network at all (the ordinary fresh-device
+                        # shape). It certainly does not serve the target.
+                        detail = (
+                            f"a relay is already serving :{live_port} on {where}, and it serves "
+                            f"no network yet; the network this join is for can appear there "
+                            f"only after a completed join, so the relay is not the cause of "
+                            f"this failure ({embedded}). {_relay_kind_note(status)} Retry the "
+                            "join once the cause in the node's message is cleared"
+                        )
+                        data["relay_serving"] = True
+                        data["relay_port"] = live_port
+                        data["relay_serves_target"] = False
+                    else:
+                        # Q-1: with NO usable target (no payload ids, undecodable
+                        # token) the probe cannot compare anything — it must not
+                        # render the different-network sentence or claim a
+                        # ``relay_serves_target`` it never determined. It says it
+                        # could not MATCH the relay to the join's network (D7's
+                        # wording: the honest failure of the comparison, not an
+                        # overclaim in either direction), and writes no target
+                        # field.
+                        detail = (
+                            f"a relay is already serving :{live_port} on {where} (its own "
+                            "listener — a different address from any endpoint the join's "
+                            "refusal names), and this probe could not match it to the network "
+                            f"this join is for, so it cannot be cleared as the cause "
+                            f"({embedded}). {_relay_kind_note(status)} Retry the join once the "
+                            "cause in the node's message is cleared"
+                        )
+                        data["relay_serving"] = True
+                        data["relay_port"] = live_port
+                elif status.get("relay_running"):
+                    # RUNNING BUT UNCONFIRMED (review round 1, R-MINOR): the earlier
+                    # shape fell back to the port it was ASKED about and asserted
+                    # it serving — a claim the probe did not verify. It says what
+                    # is known instead, with the same one action.
+                    detail = (
+                        f"a relay process is registered on {where} but this probe "
+                        f"could not confirm it serving (state: "
+                        f"{status.get('relay_state') or 'unknown'}), and the join did "
+                        f"not complete ({embedded}). Restart the relay on {where} with "
+                        "`lop network restart`, then retry the join"
+                    )
+                    data["relay_state"] = str(status.get("relay_state") or "")
+                else:
+                    detail = f"the join did not complete ({embedded})"
+                # The token file is removed by the ``finally`` below — one place.
+                return _StepOutcome(False, detail, data)
             after = self._node_json("lop network identity show", timeout=60.0)
             device_id = str((after or {}).get("device_id") or payload.get("device_id") or "")
             fingerprint = str((after or {}).get("fingerprint") or payload.get("fingerprint") or "")
@@ -1300,6 +1672,115 @@ class OnboardRun:
             self._remote_lop(f"rm -f {shlex.quote(remote_path)}", timeout=30.0)
         except MeshRefusal:
             pass
+
+    def _join_already_active(self, node_device_id: str) -> _StepOutcome | None:
+        """``join``'s question, when local reads already answer it (slice A).
+
+        Run 10 (2026-10-04) re-ran ``join`` over a node that was already an active
+        member — ``ready`` showed ``winner_verified: true`` beside a live link —
+        and the attempt stopped inside the sealed-record phase, so the cell was
+        exercising the join MECHANISM rather than the requirement the step exists
+        to answer: "is this node admitted?". The requirement is answerable without
+        the wire: the node's own ``status`` row for the invite's network ID
+        (``membership_state`` active, at the invite's epoch — matched by
+        ``network_id``; names are not unique by design), the inviter's member
+        table (the row present, active, not burned), and the device id the
+        ``identity show`` read above returned. When the reads agree the step is
+        SATISFIED and returns before the token push — no push, no dial.
+
+        THE GATE IS BOTH-SIDED, and anything short of both sides falls through to
+        the join EXACTLY as before: a status row that is missing, inactive, at
+        another epoch, or built by the relay-down fallback (which carries no
+        ``membership_state`` at all) cannot confirm the node side; an inviter
+        record that cannot be read, or lacks the row, or has it inactive, cannot
+        confirm ours; an unreadable token carries no epoch. The ONE pre-empted
+        refusal is a BURNED id: ``removed_ids`` is forever (R5), the relay would
+        refuse ``device_id_conflict`` however the invite was minted, and its
+        sentence is :func:`relay.membership_conflict`'s own so the two sites
+        cannot drift. A key mismatch is NOT checkable here — ``identity show``
+        exposes no public key — and stays the handshake's job.
+        """
+        if not node_device_id:
+            return None
+        target = _invite_network_label(
+            self.invite_path,
+            network_id=self.invite_network_id,
+            network_name=self.invite_network_name,
+        )
+        if target is None or not target[0]:
+            # A name-only target cannot load the inviter's record, and the record
+            # is half the gate.
+            return None
+        from local_operator.network import relay as relay_mod
+        from local_operator.network import store as network_store
+
+        try:
+            record = network_store.load(target[0], self.root)
+        except Exception:  # noqa: BLE001 — a membership probe must never fail a step
+            return None
+        conflict = relay_mod.membership_conflict(record, node_device_id)
+        if conflict:
+            return _StepOutcome(
+                False,
+                conflict,
+                {"invite_id": self.invite_id, "code": "device_id_conflict", "node_refused": False},
+            )
+        member = record.member(node_device_id)
+        if member is None or not member.active:
+            # Ours alone cannot satisfy the gate: the join upserts this row, and a
+            # table that disagrees with the node is exactly what the join is for.
+            return None
+        epoch = _invite_epoch(self.invite_path)
+        if epoch is None:
+            return None
+        status = self._node_json("lop network status", timeout=60.0)
+        row: dict[str, Any] | None = None
+        for candidate in (status or {}).get("networks") or []:
+            if not isinstance(candidate, dict):
+                continue
+            # THE ID IS THE IDENTITY, the name is not: network names are not
+            # unique by design (``store.match_networks`` refuses ambiguity rather
+            # than picking), so a name match could read a SAME-NAMED OTHER
+            # network's row — satisfied while the invite's own row says
+            # ``removed``, row-order dependent (reviewer round 1, MINOR-1,
+            # reproduced). Every producer row carries a ``network_id``; one
+            # without cannot be vouched for, so not matching it falls through to
+            # the join, the safe direction.
+            if str(candidate.get("network_id") or "") == target[0]:
+                row = candidate
+                break
+        if row is None or str(row.get("membership_state") or "") != "active":
+            return None
+        try:
+            row_epoch = int(row.get("epoch") or 0)
+        except (TypeError, ValueError):
+            return None
+        if row_epoch != epoch:
+            return None
+        where = str(self.view.device.get("name") or "").strip() or "that machine"
+        label = target[1] or target[0] or "the network this join is for"
+        return _StepOutcome(
+            True,
+            f"{where} is already an active member of {label} (epoch {epoch}); admission "
+            "is satisfied and no re-join was attempted — the invite goes unused and "
+            "expires.",
+            {
+                "invite_id": self.invite_id,
+                "device_id": node_device_id,
+                # A DIFFERENT SCHEMA from the relay row block that shares this key
+                # name (``{state, sentence, remedies, ...}``, rendered by
+                # ``relay.membership_lines``): this one is the runner's own
+                # ``{state, epoch, device_id, source}``, machine-only. Same key,
+                # different shape — do not feed one to the other's renderer
+                # (design round 1, D4).
+                "membership": {
+                    "state": "active",
+                    "epoch": epoch,
+                    "device_id": node_device_id,
+                    "source": ["node status", "inviter member table"],
+                },
+            },
+        )
 
     def step_anchor(self) -> _StepOutcome:
         """§3.3 step 7 (+ F4b): copy EXACTLY the digested statement and install it.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: forestci
-Version: 0.8
+Version: 0.9
 Summary: Confidence intervals for scikit-learn forest algorithms
 Author: Bryna Hazelton, Kivan Polimis
 Author-email: Ariel Rokem <arokem@uw.edu>
@@ -29,6 +29,9 @@ Requires-Dist: scikit-learn<2.0,>=1.0
 Requires-Dist: scipy
 Provides-Extra: test
 Requires-Dist: pytest==9.0.3; extra == "test"
+Requires-Dist: tqdm; extra == "test"
+Provides-Extra: progress
+Requires-Dist: tqdm; extra == "progress"
 Provides-Extra: docs
 Requires-Dist: matplotlib; extra == "docs"
 Requires-Dist: numpydoc; extra == "docs"
@@ -49,6 +52,7 @@ Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx-autoapi; extra == "dev"
 Requires-Dist: sphinx-gallery; extra == "dev"
 Requires-Dist: sphinx-rtd-theme; extra == "dev"
+Requires-Dist: tqdm; extra == "dev"
 Dynamic: license-file
 
 # `forestci`: confidence intervals for Forest algorithms
@@ -68,7 +72,7 @@ implemented in scikit-learn random forest regression or classification objects.
 The core functions calculate an in-bag and error bars for random forest
 objects.
 
-Version 0.8 supports scikit-learn 1.0 through 1.9, including the signature
+Version 0.9 supports scikit-learn 1.0 through 1.9, including the signature
 changes introduced in scikit-learn 1.9.
 
 This module is based on R code from Stefan Wager 
@@ -117,13 +121,66 @@ ci = fci.random_forest_error(
 
 ## Examples
 
-The examples (gallery below) demonstrates the package functionality with random forest classifiers and regression models.
-The regression examples use scikit-learn's bundled diabetes dataset, while the
-classifier example simulates how to add measurements of uncertainty to tasks
-like predicting spam emails. Keeping the regression data bundled makes
+The examples (gallery below) demonstrate the package functionality with random forest classifiers and regression models.
+The regression examples use a bundled copy of the
+[UCI Auto MPG dataset](https://doi.org/10.24432/C5859H), while the classifier
+example simulates how to add measurements of uncertainty to tasks like
+predicting spam emails. Keeping the regression data in the repository makes
 documentation builds reproducible without relying on an external data service.
 
 [Examples gallery](http://contrib.scikit-learn.org/forest-confidence-interval/auto_examples/index.html)
+
+## Rebuilding and publishing the documentation
+
+Documentation builds run **only when manually requested**, not on pushes or
+pull requests. In GitHub, open **Actions → Documentation build → Run workflow**,
+select the desired branch under **Use workflow from**, and click **Run workflow**.
+For a pull request, select its source branch in this repository, not `master`;
+the build checks out and publishes that selected branch. Because every branch
+publishes to the same website, a new run cancels any previous unfinished run.
+The workflow must be present on the default branch for
+GitHub to offer this button. See GitHub's
+[manual workflow instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+
+Each run installs the documentation dependencies, refits the benchmark models,
+regenerates the calibration table and the 2,000-estimator confidence-width
+versus observed-error plots, and executes every Python gallery example.
+Generated tables and images are build outputs, not checked-in inputs; even
+local incremental builds rerun the generators and gallery scripts. The legacy
+`paper/` folder is not part of this workflow.
+
+Every selected branch publishes to the same
+[documentation website](https://contrib.scikit-learn.org/forest-confidence-interval/).
+To preview a PR before merging, run the action on its source branch and follow
+the deployment link on the completed run. This temporarily replaces the public
+documentation; it does not create a separate preview URL or merge the PR.
+To restore the documentation from `master`, start a new run with `master`
+selected and wait for deployment to finish. The last successfully deployed
+version stays online while a build runs or if it fails. The downloadable
+`github-pages` artifact is also available under **Artifacts** on each run.
+Python package tests still run automatically as before.
+
+Repository setup: GitHub Pages must use **GitHub Actions** as its source, and
+**Settings → Environments → github-pages → Deployment branches and tags** must
+allow the branches you want to publish (choose **No restriction** to permit
+any selected branch). A `master`-only environment rule prevents PR branches
+from deploying even when the workflow itself allows them.
+
+To build locally from the repository root:
+
+```sh
+python -m pip install -e ".[docs]"
+MPLBACKEND=Agg make -C docs html
+```
+
+Open `docs/_build/html/index.html` after the build. California Housing is fetched
+on the first run (internet access required); scikit-learn may cache the raw
+input dataset. Models, tables and plots are always recomputed. Allow several
+minutes and several GiB of memory: a complete build took about 3 minutes
+38 seconds on a four-core Intel MacBook Pro. The calibration benchmark alone
+previously peaked near 3 GiB. GitHub runner timings may differ.
+Failures in a generator or gallery example fail the build instead of publishing
+incomplete results.
 
 ## Contributing
 

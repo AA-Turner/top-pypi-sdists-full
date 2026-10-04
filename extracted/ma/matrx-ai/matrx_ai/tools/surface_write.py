@@ -472,7 +472,7 @@ NOT_SURFACE_WRITES: dict[str, str] = {
     "records:table_list", "research_run:bounds", "research_run:status", "research_web",
     "reverse_image_search", "rulebook:read", "rulebook:read_rule", "rulebook_read:get",
     "rulebook_read:list", "rulebook_read:sections", "scope_system:expand_context_item", "scope_system:expand_scope",
-    "scope_system:expand_scope_type", "scope_system:overview", "sealed_case:ledger", "seo:check_batch",
+    "scope_system:expand_scope_type", "scope_system:list_organizations", "scope_system:overview", "sealed_case:ledger", "seo:check_batch",
     "seo:check_descriptions", "seo:check_titles", "seo:keyword_data", "skill:get",
     "skill:list", "skill:search", "sql:query", "sql:schema",
     "staff_roster", "storage_source_browse", "storage_source_connections", "task:get",

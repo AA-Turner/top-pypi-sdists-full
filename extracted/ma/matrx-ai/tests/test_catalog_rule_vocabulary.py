@@ -90,6 +90,37 @@ class TestRuleValidation:
         assert out2["temperature"] == 0.7
         assert not [a for a in adj2 if a.action == "clamped"]
 
+    def test_consumed_key_own_clamp_applies_before_processor(self):
+        # A key a processor CONSUMES (anthropic top_p / top_k) skips pass 1, so
+        # its own cell's clamp must still act before the processor reads it —
+        # Anthropic answers 400 "top_p: range: 0..1" for top_p 3.0 (probe
+        # 2026-10-04, claude-haiku-4-5).
+        compiled = _compiled(
+            {
+                "temperature": {
+                    "processor": "anthropic_temp_topp_exclusion",
+                    "processor_config": {
+                        "consumes": ["top_p", "top_k"],
+                        "order": 200,
+                        "wire_container": "extra_body",
+                    },
+                    "clamp": {"min": 0, "max": 1},
+                },
+                "top_p": {"clamp": {"min": 0, "max": 1}},
+                "top_k": {"clamp": {"min": 0}},
+            }
+        )
+        out, adjustments = compiled.outbound({"top_p": 3.0, "top_k": -1})
+        assert out["extra_body"]["top_p"] == 1
+        assert out["extra_body"]["top_k"] == 0
+        clamped = {a.key for a in adjustments if a.action == "clamped"}
+        assert {"top_p", "top_k"} <= clamped
+        out2, _ = compiled.outbound({"top_p": -1})
+        assert out2["extra_body"]["top_p"] == 0
+        out3, adj3 = compiled.outbound({"top_p": 0.5})
+        assert out3["extra_body"]["top_p"] == 0.5
+        assert not [a for a in adj3 if a.action == "clamped"]
+
     def test_processor_config_requires_processor(self):
         with pytest.raises(ValidationError, match="processor_config requires processor"):
             ControlRule.model_validate({"processor_config": {"mode": "legacy"}})

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apprise
-Version: 2.0.0
+Version: 2.0.1
 Summary: Push Notifications that work with just about every platform!
 Author-email: Chris Caron <lead2gold@gmail.com>
 License: BSD-2-Clause
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://appriseit.com
 Project-URL: Source, https://github.com/caronc/apprise
 Project-URL: Tracker, https://github.com/caronc/apprise/issues
 Project-URL: Documentation, https://appriseit.com
-Keywords: 46elks,800.com,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,Amazon Chime,AWS,Bark,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,Delta Chat,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Flowtriq,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kook,Kumulos,LaMetric,Lark,Lauther,Line,MacOSX,Mailgun,MailerSend,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,MobileMessage,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,Notifiarr,Notifico,Notifyre,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Pinglet,Pingram,Plivo,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,PushWard,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SerwerSMS,Session Open Group Server,SES,Seven,SFR,Signal,Signalgrid,SIGNL4,SimplePush,Sinch,Slack,SMPP,SMS Manager,SMSC,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Stackfield,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Telnyx,Threema Gateway,Trigv,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WPUSH,WxPusher,XBMC,XML,XMPP,YouLMK,Zoom,Zulip
+Keywords: 46elks,800.com,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,Amazon Chime,AWS,Bark,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,Delta Chat,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Flowtriq,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kook,Kumulos,LaMetric,Lark,Lauther,Line,MacOSX,Mailgun,MailerSend,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,MobileMessage,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,Notifiarr,Notifico,Notifyre,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Pinglet,Pingram,Plivo,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,PushWard,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SerwerSMS,Session Open Group Server,SES,Seven,SFR,Signal,Signalgrid,SIGNL4,Simplepush,Sinch,Slack,SMPP,SMS Manager,SMSC,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Stackfield,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Telnyx,Threema Gateway,Trigv,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WPUSH,WxPusher,XBMC,XML,XMPP,YouLMK,Zoom,Zulip
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -44,11 +44,13 @@ Requires-Dist: tox; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: ruff==0.15.8; extra == "dev"
 Requires-Dist: babel; extra == "dev"
 Requires-Dist: validate-pyproject; extra == "dev"
 Provides-Extra: all-plugins
 Requires-Dist: cryptography; extra == "all-plugins"
+Requires-Dist: PyNaCl; extra == "all-plugins"
 Requires-Dist: gntp; extra == "all-plugins"
 Requires-Dist: paho-mqtt>=2.1.0; extra == "all-plugins"
 Requires-Dist: PGPy; extra == "all-plugins"
@@ -175,7 +177,7 @@ The table below identifies the services this tool supports and some example serv
 | [Misskey](https://appriseit.com/services/misskey/) | misskey:// or misskeys://| (TCP) 80 or 443  | misskey://access_token@hostname
 | [MQTT](https://appriseit.com/services/mqtt/) | mqtt://  or mqtts:// | (TCP) 1883 or 8883   | mqtt://hostname/topic<br />mqtt://user@hostname/topic<br />mqtts://user:pass@hostname:9883/topic
 | [Nextcloud](https://appriseit.com/services/nextcloud/) | ncloud:// or nclouds:// | (TCP) 80 or 443 | ncloud://adminuser:pass@host/User<br/>nclouds://adminuser:pass@host/User1/User2/UserN
-| [NextcloudTalk](https://appriseit.com/services/nextcloudtalk/) | nctalk:// or nctalks:// | (TCP) 80 or 443 | nctalk://user:pass@host/RoomId<br/>nctalks://user:pass@host/RoomId1/RoomId2/RoomIdN
+| [NextcloudTalk](https://appriseit.com/services/nextcloudtalk/) | nctalk:// or nctalks:// | (TCP) 80 or 443 | nctalk://user:pass@host/RoomId<br/>nctalks://user:pass@host/RoomId1/RoomId2/RoomIdN<br/>nctalks://host/RoomId?secret=BotSecret
 | [Notica](https://appriseit.com/services/notica/) | notica://  | (TCP) 443   | notica://Token/
 | [Notifiarr](https://appriseit.com/services/notifiarr/) | notifiarr:// | (TCP) 443 | notifiarr://apikey/#channel<br />notifiarr://apikey/#channel1/#channel2/#channeln
 | [Notifico](https://appriseit.com/services/notifico/) | notifico:// or notificos://  | (TCP) 80 or 443   | notifico://ProjectID/MessageHook/<br />notifico://host/ProjectID/MessageHook/<br />notificos://host/ProjectID/MessageHook/
@@ -216,7 +218,7 @@ The table below identifies the services this tool supports and some example serv
 | [Signal API](https://appriseit.com/services/signal/) | signal://  or signals:// | (TCP) 80 or 443  | signal://hostname:port/FromPhoneNo<br/>signal://hostname:port/FromPhoneNo/ToPhoneNo<br/>signal://hostname:port/FromPhoneNo/ToPhoneNo1/ToPhoneNo2/ToPhoneNoN/
 | [Signalgrid](https://appriseit.com/services/signalgrid/) | signalgrid://  | (TCP) 443   | signalgrid://CLIENT_KEY/CHANNEL<br />signalgrid://CLIENT_KEY/CHANNEL1/CHANNEL2<br />signalgrid://CLIENT_KEY/CHANNEL?critical=true
 | [SIGNL4](https://appriseit.com/services/signl4/) | signl4://  | (TCP) 80 or 443  | signl4://hostname
-| [SimplePush](https://appriseit.com/services/simplepush/) | spush://   | (TCP) 443    | spush://apikey<br />spush://salt:password@apikey<br />spush://apikey?event=Apprise
+| [Simplepush](https://appriseit.com/services/simplepush/) | spush://   | (TCP) 443    | spush://APIToken<br />spush://APIToken/Topic<br />spush://Password@APIToken/Topic<br />spush://IntegrationToken/@Member<br />spush://IntegrationToken/?broadcast=yes
 | [Slack](https://appriseit.com/services/slack/) | slack://  | (TCP) 443   | slack://TokenA/TokenB/TokenC/<br />slack://TokenA/TokenB/TokenC/Channel<br />slack://botname@TokenA/TokenB/TokenC/Channel<br />slack://user@TokenA/TokenB/TokenC/Channel1/Channel2/ChannelN
 | [SMTP2Go](https://appriseit.com/services/smtp2go/) | smtp2go:// | (TCP) 443 | smtp2go://user@hostname/apikey<br />smtp2go://user@hostname/apikey/email<br />smtp2go://user@hostname/apikey/email1/email2/emailN<br />smtp2go://user@hostname/apikey/?name="From%20User"
 | [SparkPost](https://appriseit.com/services/sparkpost/) | sparkpost:// | (TCP) 443 | sparkpost://user@hostname/apikey<br />sparkpost://user@hostname/apikey/email<br />sparkpost://user@hostname/apikey/email1/email2/emailN<br />sparkpost://user@hostname/apikey/?name="From%20User"

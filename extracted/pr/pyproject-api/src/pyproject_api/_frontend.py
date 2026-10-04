@@ -17,7 +17,7 @@ from packaging.requirements import Requirement
 from pyproject_api._util import ensure_empty_dir
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator, Iterator
 
 if sys.version_info >= (3, 11):  # pragma: no cover (py311+)
     import tomllib
@@ -55,11 +55,11 @@ class CmdStatus(ABC):
 class RequiresBuildSdistResult(NamedTuple):
     """Information collected while acquiring the source distribution build dependencies."""
 
-    #: wheel build dependencies
+    #: source distribution build dependencies
     requires: tuple[Requirement, ...]
     #: backend standard output while acquiring the source distribution build dependencies
     out: str
-    #: backend standard output while acquiring the source distribution build dependencies
+    #: backend standard error while acquiring the source distribution build dependencies
     err: str
 
 
@@ -75,7 +75,7 @@ class RequiresBuildWheelResult(NamedTuple):
 
 
 class RequiresBuildEditableResult(NamedTuple):
-    """Information collected while acquiring the wheel build dependencies."""
+    """Information collected while acquiring the editable wheel build dependencies."""
 
     #: editable wheel build dependencies
     requires: tuple[Requirement, ...]
@@ -92,7 +92,7 @@ class MetadataForBuildWheelResult(NamedTuple):
     metadata: Path
     #: backend standard output while generating the wheel metadata
     out: str
-    #: backend standard output while generating the wheel metadata
+    #: backend standard error while generating the wheel metadata
     err: str
 
 
@@ -103,7 +103,7 @@ class MetadataForBuildEditableResult(NamedTuple):
     metadata: Path
     #: backend standard output while generating the editable wheel metadata
     out: str
-    #: backend standard output while generating the editable wheel metadata
+    #: backend standard error while generating the editable wheel metadata
     err: str
 
 
@@ -114,7 +114,7 @@ class SdistResult(NamedTuple):
     sdist: Path
     #: backend standard output while building the source distribution
     out: str
-    #: backend standard output while building the source distribution
+    #: backend standard error while building the source distribution
     err: str
 
 
@@ -211,10 +211,11 @@ class Frontend(ABC):
         folder: Path,
     ) -> tuple[Path, tuple[Path, ...], str, str | None, tuple[Requirement, ...], bool]:
         """
-        Frontend creation arguments from a python project folder (thould have a ``pypyproject.toml`` file per PEP-518).
+        Frontend creation arguments from a python project folder (should have a ``pyproject.toml`` file per PEP-518).
 
         :param folder: the python project folder
         :return: the frontend creation args
+        :raises ValueError: if ``build-system`` is not a table, or one of its keys has a type PEP-518 rules out
 
         E.g., to create a frontend from a python project folder:
 
@@ -226,16 +227,20 @@ class Frontend(ABC):
         if py_project_toml.exists():
             with py_project_toml.open("rb") as file_handler:
                 py_project = tomllib.load(file_handler)
-            build_system = py_project.get("build-system", {})
+            if not isinstance(build_system := py_project.get("build-system", {}), dict):
+                msg = f"build-system must be a table, got {build_system!r}"
+                raise ValueError(msg)
             if "backend-path" in build_system:
-                backend_paths: tuple[Path, ...] = tuple(folder / p for p in build_system["backend-path"])
+                backend_paths: tuple[Path, ...] = tuple(folder / p for p in _str_list(build_system, "backend-path"))
             else:
                 backend_paths = ()
             if "requires" in build_system:
-                requires: tuple[Requirement, ...] = tuple(Requirement(r) for r in build_system.get("requires"))
+                requires: tuple[Requirement, ...] = tuple(Requirement(r) for r in _str_list(build_system, "requires"))
             else:
                 requires = cls.LEGACY_REQUIRES
-            build_backend = build_system.get("build-backend", cls.LEGACY_BUILD_BACKEND)
+            if not isinstance(build_backend := build_system.get("build-backend", cls.LEGACY_BUILD_BACKEND), str):
+                msg = f"build-system.build-backend must be a string, got {build_backend!r}"
+                raise ValueError(msg)
         else:
             backend_paths = ()
             requires = cls.LEGACY_REQUIRES
@@ -490,7 +495,7 @@ class Frontend(ABC):
         return metadata_directory / basename, out, err
 
     @contextmanager
-    def _wheel_directory(self) -> Iterator[Path]:  # ruff:ignore[no-self-use]
+    def _wheel_directory(self) -> Generator[Path, None, None]:  # ruff:ignore[no-self-use]
         with TemporaryDirectory() as wheel_directory:
             yield Path(wheel_directory)
 
@@ -528,3 +533,10 @@ class Frontend(ABC):
     @contextmanager
     def _send_msg(self, cmd: str, result_file: Path, msg: str) -> Iterator[CmdStatus]:
         raise NotImplementedError
+
+
+def _str_list(build_system: dict[str, Any], key: str) -> list[str]:
+    if not isinstance(value := build_system[key], list) or not all(isinstance(entry, str) for entry in value):
+        msg = f"build-system.{key} must be a list of strings, got {value!r}"
+        raise ValueError(msg)
+    return value

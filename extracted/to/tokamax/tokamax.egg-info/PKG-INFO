@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokamax
-Version: 0.0.14
+Version: 0.0.15
 Summary: A Pallas Custom Kernel Library.
 Author-email: Ani Udipi <udipi@google.com>, Chris Jones <cjfj@google.com>, Christos Perivolaropoulos <cperivol@google.com>, Giorgio Arena <giorgioa@google.com>, Gleb Pobudzey <pobudzey@google.com>, Robert Dyro <rdyro@google.com>, Sebastian Bodenstein <sbodenstein@google.com>, Selim Seferbekov <selimsef@google.com>, Stanley Tzeng <stzeng@google.com>, Niyati Chaudhary <niyatic@google.com>
 License: 
@@ -211,13 +211,12 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: absl-py>=2.3.0
 Requires-Dist: einshape
-Requires-Dist: jax>=0.11.0
-Requires-Dist: jaxlib>=0.11.0
+Requires-Dist: jax>=0.10.2
+Requires-Dist: jaxlib>=0.10.2
 Requires-Dist: jaxtyping>=0.3
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: qwix>=0.1.2
 Requires-Dist: tqdm
-Requires-Dist: typeguard==2.13.3
 Requires-Dist: immutabledict
 Requires-Dist: tensorboardx
 Requires-Dist: xprof>=2.23.1
@@ -230,14 +229,17 @@ Requires-Dist: pytest; extra == "test"
 Requires-Dist: hypothesis; extra == "test"
 Provides-Extra: bench
 Requires-Dist: google-benchmark>=1.9.0; extra == "bench"
+Requires-Dist: jax==0.11.2; extra == "bench"
 Provides-Extra: cuda
-Requires-Dist: jax[cuda13]>=0.11.0; extra == "cuda"
+Requires-Dist: jax[cuda13]>=0.10.2; extra == "cuda"
 Requires-Dist: nvidia-cudnn-cu13>=9.23.0.39; extra == "cuda"
 Requires-Dist: cuequivariance-jax>=0.10.0; extra == "cuda"
 Requires-Dist: cuequivariance-ops-jax-cu13>=0.10.0; extra == "cuda"
 Requires-Dist: triton; extra == "cuda"
+Requires-Dist: nvidia-cudnn-frontend>=1.28.0; extra == "cuda"
+Requires-Dist: jax-triton; extra == "cuda"
 Provides-Extra: tpu
-Requires-Dist: jax[tpu]>=0.11.0; extra == "tpu"
+Requires-Dist: jax[tpu]>=0.10.2; extra == "tpu"
 Dynamic: license-file
 
 # Tokamax

@@ -12,6 +12,7 @@ from jsonschema_rs import canonical
 
 import schemathesis
 from schemathesis.config import GenerationConfig
+from schemathesis.core.control import SkipTest
 from schemathesis.core.jsonschema import CANONICALIZE_DRAFT_BY_VALIDATOR, _is_valid_uuid, make_validator
 from schemathesis.core.jsonschema.bundler import BUNDLE_STORAGE_KEY
 from schemathesis.core.parameters import ParameterLocation
@@ -1548,9 +1549,10 @@ def test_can_negate(schema, expected):
     assert can_negate(schema) is expected
 
 
-def _operation_with_parameters(ctx, parameters):
+def _operation_with_parameters(ctx, parameters, *, version="3.0.2"):
     schema = ctx.openapi.load_schema(
-        {"/items/{itemId}": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}}
+        {"/items/{itemId}": {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}}},
+        version=version,
     )
     return schema["/items/{itemId}"]["GET"]
 
@@ -1631,6 +1633,51 @@ def test_unnegatable_path_falls_back_to_positive(ctx):
     test()
     assert modes
     assert all(entry["path"] == "positive" and entry["header"] == "negative" for entry in modes), modes
+
+
+@pytest.mark.parametrize(
+    "path_schema",
+    [
+        {"type": "string", "properties": {"a": {"type": "integer"}}},
+        {"type": "string", "patternProperties": {"^a": {"type": "integer"}}},
+        {"type": "string", "additionalProperties": {"type": "integer"}},
+        {"type": "string", "items": {"type": "integer"}},
+        {"type": "string", "minimum": 3},
+        {"type": "string", "prefixItems": [{"type": "integer"}]},
+        {"type": "string", "minContains": 1},
+        {"type": "string", "maxContains": 1},
+        {"type": "string", "unevaluatedItems": False},
+        {"type": "string", "unevaluatedProperties": False},
+        {"type": "string", "dependentRequired": {"a": ["b"]}},
+        {"type": "string", "dependentSchemas": {"a": {"required": ["b"]}}},
+    ],
+    ids=[
+        "properties",
+        "pattern-properties",
+        "additional-properties",
+        "items",
+        "minimum",
+        "prefix-items",
+        "min-contains",
+        "max-contains",
+        "unevaluated-items",
+        "unevaluated-properties",
+        "dependent-required",
+        "dependent-schemas",
+    ],
+)
+def test_path_keywords_for_other_types_leave_nothing_to_negate(ctx, path_schema):
+    # Keywords for other types never apply to a string value, so they leave nothing to negate.
+    operation = _operation_with_parameters(ctx, [{**PLAIN_STRING_PARAMETER, "schema": path_schema}], version="3.1.0")
+    operation.schema.config.generation.update(modes=[GenerationMode.NEGATIVE])
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=1, database=None)
+    def test(case):
+        pass
+
+    with pytest.raises(SkipTest, match="Impossible to generate negative test cases"):
+        test()
 
 
 @pytest.mark.parametrize(

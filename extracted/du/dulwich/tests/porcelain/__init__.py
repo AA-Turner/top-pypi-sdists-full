@@ -40,21 +40,31 @@ import warnings
 from io import BytesIO, StringIO
 from pathlib import Path
 from unittest import skipIf
+from wsgiref.simple_server import make_server
 
 from dulwich import porcelain
 from dulwich.am import AmConflict
 from dulwich.client import SendPackResult
 from dulwich.commit_graph import read_commit_graph
-from dulwich.diff_tree import tree_changes
-from dulwich.errors import CommitError, WorkingTreeModifiedError
+from dulwich.diff_tree import TreeChange, tree_changes
+from dulwich.errors import CommitError, NoIndexPresent, WorkingTreeModifiedError
 from dulwich.index import (
     Index,
     IndexEntry,
+    InvalidPathError,
     validate_path_element_default,
     validate_path_element_ntfs,
 )
 from dulwich.object_store import DEFAULT_TEMPFILE_GRACE_PERIOD
-from dulwich.objects import S_IFGITLINK, ZERO_SHA, Blob, Commit, Tag, Tree
+from dulwich.objects import (
+    S_IFGITLINK,
+    ZERO_SHA,
+    Blob,
+    Commit,
+    Tag,
+    Tree,
+    TreeEntry,
+)
 from dulwich.patch import PatchApplicationFailure
 from dulwich.porcelain import (
     CheckoutError,  # Hypothetical or real error class
@@ -66,9 +76,11 @@ from dulwich.porcelain import (
     _ssh_command_from_env,
     add,
     commit,
+    print_name_only,
+    print_name_status,
 )
 from dulwich.porcelain.submodule import _check_submodule_path
-from dulwich.repo import NoIndexPresent, Repo
+from dulwich.repo import Repo
 from dulwich.server import DictBackend
 from dulwich.signature import (
     BadSignature,
@@ -76,7 +88,7 @@ from dulwich.signature import (
     get_signature_vendor_for_signature,
 )
 from dulwich.tests.utils import build_commit_graph, make_commit, make_object
-from dulwich.web import make_server, make_wsgi_chain
+from dulwich.web import make_wsgi_chain
 
 from .. import DependencyMissing, TestCase
 
@@ -1752,6 +1764,52 @@ class CloneTests(PorcelainTestCase):
         self.addCleanup(r.close)
         self.assertEqual(r.path, target_path)
 
+    def test_clone_scp_url_stores_original_url(self) -> None:
+        from dulwich.client import LocalGitClient
+
+        real = porcelain.get_transport_and_path
+
+        def get_transport_and_path(location, **kwargs):
+            client = LocalGitClient()
+            return client, self.repo.path
+
+        porcelain.get_transport_and_path = get_transport_and_path
+        self.addCleanup(setattr, porcelain, "get_transport_and_path", real)
+
+        target_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, target_dir)
+        target = os.path.join(target_dir, "clone")
+        scp_url = "git@github.com:octocat/Hello-World.git"
+        with porcelain.clone(scp_url, target) as r:
+            config = r.get_config()
+            self.assertEqual(
+                b"git@github.com:octocat/Hello-World.git",
+                config.get((b"remote", b"origin"), b"url"),
+            )
+
+    def test_clone_bytes_url_stores_original_url(self) -> None:
+        from dulwich.client import LocalGitClient
+
+        real = porcelain.get_transport_and_path
+
+        def get_transport_and_path(location, **kwargs):
+            client = LocalGitClient()
+            return client, self.repo.path
+
+        porcelain.get_transport_and_path = get_transport_and_path
+        self.addCleanup(setattr, porcelain, "get_transport_and_path", real)
+
+        target_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, target_dir)
+        target = os.path.join(target_dir, "clone")
+        source = b"git@github.com:octocat/Hello-World.git"
+        with porcelain.clone(source, target) as r:
+            config = r.get_config()
+            self.assertEqual(
+                b"git@github.com:octocat/Hello-World.git",
+                config.get((b"remote", b"origin"), b"url"),
+            )
+
 
 class InitTests(TestCase):
     def test_non_bare(self) -> None:
@@ -1871,6 +1929,23 @@ class AddTests(PorcelainTestCase):
         self.assertIn(b"bar", self.repo.open_index())
         self.assertEqual({"bar"}, set(added))
         self.assertEqual({"foo", "subdir/"}, ignored)
+
+    def test_add_directory_with_reincluded_file(self) -> None:
+        # "__tmp/*" excludes the contents rather than naming the directory, so
+        # git descends into it and "!__tmp/keep" still applies.
+        with open(os.path.join(self.repo.path, ".gitignore"), "w") as f:
+            f.write("__tmp/*\n!__tmp/keep\n")
+        os.mkdir(os.path.join(self.repo.path, "__tmp"))
+        for name in ("keep", "other"):
+            with open(os.path.join(self.repo.path, "__tmp", name), "w") as f:
+                f.write("x")
+
+        (added, ignored) = porcelain.add(
+            self.repo.path, paths=[os.path.join(self.repo.path, "__tmp")]
+        )
+        self.assertEqual({"__tmp/keep"}, set(added))
+        self.assertEqual({"__tmp/other"}, ignored)
+        self.assertIn(b"__tmp/keep", self.repo.open_index())
 
     def test_add_from_ignored_directory(self) -> None:
         # Test for issue #550 - adding files when cwd is in ignored directory
@@ -2965,6 +3040,21 @@ Date:   Fri Jan 01 2010 00:00:00 +0000
         porcelain.log(self.repo.path, outstream=outstream, name_only=True)
         output = outstream.getvalue()
         self.assertIn("testfile.txt", output)
+
+    def test_name_status_merge_with_unchanged_parent(self) -> None:
+        # Regression test for #2412: for merge commits, changes() contains
+        # None for parents the path is unchanged against.
+        change = TreeChange.add(TreeEntry(b"a", 0o100644, b"1" * 40))
+        self.assertEqual(
+            ["A" + " " * 7 + "a" + " " * 39],
+            list(print_name_status([[None, change]])),
+        )
+        self.assertEqual([], list(print_name_status([[None, None]])))
+
+    def test_name_only_merge_with_unchanged_parent(self) -> None:
+        change = TreeChange.add(TreeEntry(b"a", 0o100644, b"1" * 40))
+        self.assertEqual(["a"], list(print_name_only([[None, change]])))
+        self.assertEqual([], list(print_name_only([[None, None]])))
 
     def _commit_file(self, filename: str, content: bytes) -> bytes:
         """Helper to create a commit with a file."""
@@ -4419,6 +4509,62 @@ class ResetTests(PorcelainTestCase):
         # Check that working tree is unchanged (still has "MODIFIED")
         with open(fullpath) as f:
             self.assertEqual(f.read(), "MODIFIED")
+
+    def test_mixed_reset_preserves_case_differing_entries(self) -> None:
+        # Build a commit whose tree holds two blobs whose paths only differ
+        # by case. Real git creates these in a case-insensitive repo via
+        # ``git update-index --cacheinfo``; here we assemble the objects
+        # directly so the test is platform-independent.
+        config = self.repo.get_config()
+        config.set((b"core",), b"ignorecase", b"true")
+        config.write_to_path()
+
+        blob_upper = Blob.from_string(b"AAA")
+        blob_lower = Blob.from_string(b"BBB")
+        self.repo.object_store.add_object(blob_upper)
+        self.repo.object_store.add_object(blob_lower)
+
+        tree = Tree()
+        tree.add(b"Foo.py", 0o100644, blob_upper.id)
+        tree.add(b"foo.py", 0o100644, blob_lower.id)
+        self.repo.object_store.add_object(tree)
+
+        commit = Commit()
+        commit.tree = tree.id
+        commit.author = commit.committer = b"Test <test@example.com>"
+        commit.author_time = commit.commit_time = 0
+        commit.author_timezone = commit.commit_timezone = 0
+        commit.message = b"case-differing entries"
+        self.repo.object_store.add_object(commit)
+        self.repo.refs[b"HEAD"] = commit.id
+
+        porcelain.reset(self.repo, "mixed", commit.id)
+
+        index = self.repo.open_index()
+        self.assertEqual([b"Foo.py", b"foo.py"], sorted(index))
+        self.assertEqual(blob_upper.id, index[b"Foo.py"].sha)
+        self.assertEqual(blob_lower.id, index[b"foo.py"].sha)
+
+    def test_mixed_reset_rejects_dotdot_path(self) -> None:
+        blob = Blob.from_string(b"pwned\n")
+        inner = Tree()
+        inner.add(b"escaped.txt", 0o100644, blob.id)
+        tree = Tree()
+        tree.add(b"..", 0o040000, inner.id)
+        commit = Commit()
+        commit.tree = tree.id
+        commit.author = commit.committer = b"Test <test@example.com>"
+        commit.author_time = commit.commit_time = 0
+        commit.author_timezone = commit.commit_timezone = 0
+        commit.message = b"escape"
+        for obj in (blob, inner, tree, commit):
+            self.repo.object_store.add_object(obj)
+
+        with self.assertRaises(InvalidPathError) as cm:
+            porcelain.reset(self.repo, "mixed", commit.id)
+        self.assertEqual(b"../escaped.txt", cm.exception.path)
+        self.assertEqual([], list(self.repo.open_index()))
+        self.assertRaises(KeyError, self.repo.head)
 
     def test_soft_reset(self) -> None:
         # Create initial commit
@@ -7466,6 +7612,22 @@ class StatusTests(PorcelainTestCase):
             untracked, [os.fsencode(os.path.join("untracked_dir", "untracked_file"))]
         )
 
+    def test_status_untracked_reincluded_under_glob_contents(self) -> None:
+        # "__tmp/*" excludes the contents rather than naming the directory, so
+        # the walk enters it and reports the re-included file.
+        with open(os.path.join(self.repo_path, ".gitignore"), "w") as f:
+            f.write("__tmp/*\n!__tmp/keep\n")
+        os.mkdir(os.path.join(self.repo_path, "__tmp"))
+        for name in ("keep", "other"):
+            with open(os.path.join(self.repo_path, "__tmp", name), "w") as fh:
+                fh.write("x")
+
+        _, _, untracked = porcelain.status(self.repo.path, untracked_files="all")
+        self.assertEqual(
+            [b".gitignore", os.fsencode(os.path.join("__tmp", "keep"))],
+            sorted(untracked),
+        )
+
     def test_status_untracked_path_normal(self) -> None:
         # Create an untracked directory with multiple files
         untracked_dir = os.path.join(self.repo_path, "untracked_dir")
@@ -8318,6 +8480,80 @@ class StatusTests(PorcelainTestCase):
         # Verify the config is read (status should not error)
         results = porcelain.status(self.repo)
         self.assertIsNotNone(results)
+
+    def test_status_refresh_stat_cache(self) -> None:
+        """Status refreshes the index stat cache for unchanged files."""
+        fullpath = os.path.join(self.repo.path, "foo")
+        with open(fullpath, "w") as f:
+            f.write("stuff")
+        porcelain.add(repo=self.repo.path, paths=[fullpath])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"initial",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+
+        # Rewrite the file with the same content but a different mtime.
+        # After this, the stat cache in the index no longer matches disk,
+        # even though the content sha is unchanged.
+        os.utime(fullpath, (0, 0))
+        index = self.repo.open_index()
+        entry = index[b"foo"]
+        stale_mtime = entry.mtime
+
+        results = porcelain.status(self.repo)
+        self.assertEqual([], results.unstaged)
+
+        # The refresh should have updated the mtime in the index.
+        index = self.repo.open_index()
+        self.assertNotEqual(index[b"foo"].mtime, stale_mtime)
+
+    def test_status_optional_locks_false_skips_refresh(self) -> None:
+        """When optional_locks=False, the index is not written back."""
+        fullpath = os.path.join(self.repo.path, "foo")
+        with open(fullpath, "w") as f:
+            f.write("stuff")
+        porcelain.add(repo=self.repo.path, paths=[fullpath])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"initial",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+
+        os.utime(fullpath, (0, 0))
+        index_path = os.path.join(self.repo.controldir(), "index")
+        mtime_before = os.stat(index_path).st_mtime_ns
+
+        results = porcelain.status(self.repo, optional_locks=False)
+        self.assertEqual([], results.unstaged)
+
+        # The index file should not have been rewritten.
+        self.assertEqual(mtime_before, os.stat(index_path).st_mtime_ns)
+
+    @skipIf(sys.platform == "win32", "chmod semantics differ on Windows")
+    def test_status_tolerates_readonly_gitdir(self) -> None:
+        """Status does not fail when it cannot lock the index for refresh."""
+        fullpath = os.path.join(self.repo.path, "foo")
+        with open(fullpath, "w") as f:
+            f.write("stuff")
+        porcelain.add(repo=self.repo.path, paths=[fullpath])
+        porcelain.commit(
+            repo=self.repo.path,
+            message=b"initial",
+            author=b"author <email>",
+            committer=b"committer <email>",
+        )
+        os.utime(fullpath, (0, 0))
+        gitdir = self.repo.controldir()
+        old_mode = os.stat(gitdir).st_mode
+        os.chmod(gitdir, 0o555)
+        try:
+            results = porcelain.status(self.repo)
+        finally:
+            os.chmod(gitdir, old_mode)
+        self.assertEqual([], results.unstaged)
 
 
 # TODO(jelmer): Add test for dulwich.porcelain.daemon

@@ -53,6 +53,13 @@ extensions = [
     "sphinx_copybutton",
 ]
 
+# `selectolax.lexbor` is a compiled Cython extension, so autodoc prefers its
+# PEP 561 stub (`selectolax/lexbor.pyi`) over the extension itself. Stubs are
+# not meant to be executed, and ours can't be: enum members are declared with
+# `...` values, which makes `IntFlag` raise on import. The extension module
+# carries the real docstrings, so tell autodoc to document it instead.
+os.environ["SPHINX_AUTODOC_IGNORE_NATIVE_MODULE_TYPE_STUBS"] = "1"
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 

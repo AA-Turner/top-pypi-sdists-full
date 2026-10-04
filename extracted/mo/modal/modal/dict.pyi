@@ -629,7 +629,7 @@ class _Dict(modal._object._Object):
         """
         ...
 
-    def keys(self) -> collections.abc.AsyncIterator[typing.Any]:
+    def keys(self) -> collections.abc.AsyncGenerator[typing.Any, None]:
         """Return an iterator over the keys in this Dict.
 
         Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -637,7 +637,7 @@ class _Dict(modal._object._Object):
         """
         ...
 
-    def values(self) -> collections.abc.AsyncIterator[typing.Any]:
+    def values(self) -> collections.abc.AsyncGenerator[typing.Any, None]:
         """Return an iterator over the values in this Dict.
 
         Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -645,7 +645,7 @@ class _Dict(modal._object._Object):
         """
         ...
 
-    def items(self) -> collections.abc.AsyncIterator[tuple[typing.Any, typing.Any]]:
+    def items(self) -> collections.abc.AsyncGenerator[tuple[typing.Any, typing.Any], None]:
         """Return an iterator over the (key, value) tuples in this Dict.
 
         Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -1023,7 +1023,7 @@ class Dict(modal.object.Object):
     __contains__: ____contains___spec
 
     class __keys_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> typing.Iterator[typing.Any]:
+        def __call__(self, /) -> typing.Generator[typing.Any, None, None]:
             """Return an iterator over the keys in this Dict.
 
             Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -1031,7 +1031,7 @@ class Dict(modal.object.Object):
             """
             ...
 
-        def aio(self, /) -> collections.abc.AsyncIterator[typing.Any]:
+        def aio(self, /) -> collections.abc.AsyncGenerator[typing.Any, None]:
             """Return an iterator over the keys in this Dict.
 
             Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -1042,7 +1042,7 @@ class Dict(modal.object.Object):
     keys: __keys_spec
 
     class __values_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> typing.Iterator[typing.Any]:
+        def __call__(self, /) -> typing.Generator[typing.Any, None, None]:
             """Return an iterator over the values in this Dict.
 
             Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -1050,7 +1050,7 @@ class Dict(modal.object.Object):
             """
             ...
 
-        def aio(self, /) -> collections.abc.AsyncIterator[typing.Any]:
+        def aio(self, /) -> collections.abc.AsyncGenerator[typing.Any, None]:
             """Return an iterator over the values in this Dict.
 
             Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -1061,7 +1061,7 @@ class Dict(modal.object.Object):
     values: __values_spec
 
     class __items_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> typing.Iterator[tuple[typing.Any, typing.Any]]:
+        def __call__(self, /) -> typing.Generator[tuple[typing.Any, typing.Any], None, None]:
             """Return an iterator over the (key, value) tuples in this Dict.
 
             Note that (unlike with Python dicts) the return value is a simple iterator,
@@ -1069,7 +1069,7 @@ class Dict(modal.object.Object):
             """
             ...
 
-        def aio(self, /) -> collections.abc.AsyncIterator[tuple[typing.Any, typing.Any]]:
+        def aio(self, /) -> collections.abc.AsyncGenerator[tuple[typing.Any, typing.Any], None]:
             """Return an iterator over the (key, value) tuples in this Dict.
 
             Note that (unlike with Python dicts) the return value is a simple iterator,

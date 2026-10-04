@@ -48,6 +48,9 @@ def test_the_closure_is_the_number_the_plan_rests_on():
     # Not a golden-file assertion for its own sake: this number is what PLAN.md
     # and the phase estimate rest on. If it moves, the plan moves with it —
     # a new contract dataclass is a new twin nobody scheduled.
+    # 38 since 2026-10-03: RemarksInputContent (input_remarks — the person's
+    # comments/choices/edits/answers on earlier replies), twinned in the same
+    # commit as RemarksInputContentModel.
     # 37 since 2026-09-27: SystemInstruction is reachable through UnifiedConfig.
     # Its Pydantic parity remains explicitly tracked as a migration decision, so
     # the closure truthfully counts it rather than hiding the contract edge.
@@ -59,7 +62,7 @@ def test_the_closure_is_the_number_the_plan_rests_on():
     # 34 since 2026-09-14: HostedToolContent (a provider-hosted tool block carried
     # verbatim so an interleaved hosted-search turn replays block-for-block) — its
     # twin is HostedToolContentModel, scheduled in the same commit.
-    assert len(dataclasses_in_contract) == 37, (
+    assert len(dataclasses_in_contract) == 38, (
         "the contract closure changed; update PLAN.md in the same commit. Now: "
         + ", ".join(sorted(f"{c.__module__}.{c.__name__}" for c in dataclasses_in_contract))
     )

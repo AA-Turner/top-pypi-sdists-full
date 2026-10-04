@@ -622,12 +622,17 @@ def _announce_live_date(config: Any, *, now: datetime | None = None) -> None:
         if pinned and pinned != today
         else ""
     )
+    # 🚨 NO "Today is <UTC date>" HEADLINE (Lane BC, 2026-10-03 04:54Z): at 9:54 PM
+    # Friday in Los Angeles the block opened "Today is Saturday, October 3" and the
+    # Chief said Saturday, although its profile said Friday. The UTC date is named
+    # only as the UTC reading of the instant, and the person's own date wins.
     attach(
-        f"Today is {moment:%A}, {moment:%B} {moment.day}, {moment.year} — "
-        f"{moment:%Y-%m-%dT%H:%MZ} in UTC. {began}"
+        f"The current moment is {moment:%Y-%m-%dT%H:%MZ} (UTC). In UTC that falls on "
+        f"{moment:%A}, {moment:%B} {moment.day}, {moment.year}, but the date and day "
+        f"depend on the time zone. When your instructions give the person's own local "
+        f"time, state THAT date, day and time to them, never the UTC ones. {began}"
         f"Never state a date or time remembered from earlier in this conversation as "
-        f"the current one. When your instructions give the person's own local time, "
-        f"that is the one to say to them — their date may differ from the UTC date.",
+        f"the current one.",
         slot=LIVE_DATE_SLOT,
     )
 

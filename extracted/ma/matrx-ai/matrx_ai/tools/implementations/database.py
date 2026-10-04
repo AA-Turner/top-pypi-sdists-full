@@ -559,6 +559,7 @@ def _guard_vocabulary(
             label = str(row.get("name") or row.get("id") or "")
             result = normalize_capabilities(row[column], label=label)
             corrections.extend(result.corrections)
+            corrections.extend(f"REVIEW: {notice}" for notice in result.notices)
             if result.ok:
                 replacements.append((row, column, result.value))
             else:

@@ -1,9 +1,8 @@
-from __future__ import annotations
-
+from collections.abc import Iterator
 from enum import IntFlag
-from typing import Any, Iterator, Literal, NoReturn, Optional, TypeVar, overload
+from typing import NoReturn, TypeVar, overload
 
-DefaultT = TypeVar("DefaultT")
+_DefaultT = TypeVar("_DefaultT")
 
 class LexborDocumentOptions(IntFlag):
     """Parser options for the Lexbor document.
@@ -27,7 +26,7 @@ class LexborDocumentOptions(IntFlag):
 
     Default value. No options are set.
     """
-    UNDEF: int
+    UNDEF = ...
 
     """Original Lexbor name: ``LXB_DOM_DOCUMENT_OPT_WO_EVENTS``.
 
@@ -38,7 +37,7 @@ class LexborDocumentOptions(IntFlag):
     disables behaviors implemented through those callbacks, such as
     ``<selectedcontent>`` copying the selected ``<option>``.
     """
-    WO_EVENTS: int
+    WO_EVENTS = ...
 
 class LexborAttributes:
     """A dict-like object that represents attributes."""
@@ -51,16 +50,15 @@ class LexborAttributes:
     def __iter__(self) -> Iterator[str]: ...
     def __len__(self) -> int: ...
     def __getitem__(self, key: str) -> str | None: ...
-    def __setitem__(self, key: str, value: Optional[str]) -> None: ...
+    def __setitem__(self, key: str, value: str | None) -> None: ...
     def __delitem__(self, key: str) -> None: ...
     def __contains__(self, key: str) -> bool: ...
-    def __repr__(self) -> str: ...
     @overload
-    def get(self, key: str, default: DefaultT) -> DefaultT | str | None: ...
+    def get(self, key: str, default: _DefaultT) -> _DefaultT | str | None: ...
     @overload
     def get(self, key: str, default: None = ...) -> str | None: ...
     @overload
-    def sget(self, key: str, default: str | DefaultT) -> str | DefaultT: ...
+    def sget(self, key: str, default: _DefaultT) -> str | _DefaultT: ...
     @overload
     def sget(self, key: str, default: str = "") -> str: ...
 
@@ -77,24 +75,20 @@ class LexborSelector:
     @property
     def matches(self) -> list[LexborNode]:
         """Returns all possible matches"""
-        ...
 
     @property
     def any_matches(self) -> bool:
         """Returns True if there are any matches"""
-        ...
 
     def text_contains(
         self, text: str, deep: bool = True, separator: str = "", strip: bool = False
     ) -> LexborSelector:
         """Filter all current matches given text."""
-        ...
 
     def any_text_contains(
         self, text: str, deep: bool = True, separator: str = "", strip: bool = False
     ) -> bool:
         """Returns True if any node in the current search scope contains specified text"""
-        ...
 
     def attribute_longer_than(
         self, attribute: str, length: int, start: str | None = None
@@ -103,44 +97,14 @@ class LexborSelector:
 
         Similar to string-length in XPath.
         """
-        ...
 
     def any_attribute_longer_than(
         self, attribute: str, length: int, start: str | None = None
     ) -> bool:
         """Returns True any href attribute longer than a specified length.
 
-        Similar to string-length in XPath.
+        Similar to `string-length` in XPath.
         """
-        ...
-
-    @property
-    def inner_html(self) -> str | None:
-        """Return HTML representation of the child nodes.
-
-        Works similar to innerHTML in JavaScript.
-        Unlike the `.html` property, does not include the current node.
-        Can be used to set HTML as well. See the setter docstring.
-
-        Returns
-        -------
-        text : str or None
-        """
-        ...
-
-    @inner_html.setter
-    def inner_html(self, html: str):
-        """Set inner HTML to the specified HTML.
-
-        Replaces existing data inside the node.
-        Works similar to innerHTML in JavaScript.
-
-        Parameters
-        ----------
-        html : str
-
-        """
-        ...
 
 class LexborCSSSelector:
     def __init__(self): ...
@@ -160,32 +124,26 @@ class LexborNode:
 
         **Deprecated**. Please use `first_child` instead.
         """
-        ...
 
     @property
     def first_child(self) -> LexborNode | None:
         """Return the first child node."""
-        ...
 
     @property
     def parent(self) -> LexborNode | None:
         """Return the parent node."""
-        ...
 
     @property
     def next(self) -> LexborNode | None:
         """Return next node."""
-        ...
 
     @property
     def prev(self) -> LexborNode | None:
         """Return previous node."""
-        ...
 
     @property
     def last_child(self) -> LexborNode | None:
         """Return last child node."""
-        ...
 
     @property
     def html(self) -> str | None:
@@ -195,7 +153,6 @@ class LexborNode:
         -------
         text : str
         """
-        ...
 
     def html_pretty(
         self,
@@ -232,7 +189,6 @@ class LexborNode:
         html5test : bool, optional
             Serialize using Lexbor's HTML5 test formatting mode.
         """
-        ...
 
     def __hash__(self) -> int: ...
     def text_lexbor(self) -> str:
@@ -240,7 +196,6 @@ class LexborNode:
 
         Uses builtin method from lexbor.
         """
-        ...
 
     def text(
         self,
@@ -271,7 +226,6 @@ class LexborNode:
         text : str
             Combined textual content assembled according to the provided options.
         """
-        ...
 
     def css(self, query: str) -> list[LexborNode]:
         """Evaluate CSS selector against current node and its child nodes.
@@ -294,19 +248,18 @@ class LexborNode:
         -------
         selector : list of `Node` objects
         """
-        ...
 
     @overload
     def css_first(
-        self, query: str, default: Any = ..., strict: Literal[True] = ...
-    ) -> LexborNode:
+        self, query: str, default: _DefaultT, strict: bool = False
+    ) -> LexborNode | _DefaultT:
         """Same as `css` but returns only the first match.
 
         Parameters
         ----------
 
         query : str
-        default : bool, default None
+        default : Any, optional
             Default value to return if there is no match.
         strict: bool, default False
             Set to True if you want to check if there is strictly only one match in the document.
@@ -314,31 +267,8 @@ class LexborNode:
 
         Returns
         -------
-        selector : `LexborNode` object
+        selector : `LexborNode` or `default`
         """
-        ...
-
-    @overload
-    def css_first(
-        self, query: str, default: DefaultT, strict: bool = False
-    ) -> LexborNode | DefaultT:
-        """Same as `css` but returns only the first match.
-
-        Parameters
-        ----------
-
-        query : str
-        default : bool, default None
-            Default value to return if there is no match.
-        strict: bool, default False
-            Set to True if you want to check if there is strictly only one match in the document.
-
-
-        Returns
-        -------
-        selector : `LexborNode` object
-        """
-        ...
 
     @overload
     def css_first(
@@ -350,7 +280,7 @@ class LexborNode:
         ----------
 
         query : str
-        default : bool, default None
+        default : None, optional
             Default value to return if there is no match.
         strict: bool, default False
             Set to True if you want to check if there is strictly only one match in the document.
@@ -358,17 +288,14 @@ class LexborNode:
 
         Returns
         -------
-        selector : `LexborNode` object
+        selector : `LexborNode` or None
         """
-        ...
 
     def any_css_matches(self, selectors: tuple[str]) -> bool:
         """Returns True if any of CSS selectors matches a node"""
-        ...
 
     def css_matches(self, selector: str) -> bool:
         """Returns True if CSS selector matches a node."""
-        ...
 
     @property
     def tag_id(self) -> int: ...
@@ -381,12 +308,14 @@ class LexborNode:
          * `-text` - text node
          * `-document` - document node
          * `-comment` - comment node
+         * `-doctype` - doctype node
+
+        Returns ``None`` for any other non-element node.
 
         Returns
         -------
-        text : str
+        text : str or None
         """
-        ...
 
     def decompose(self, recursive: bool = True) -> None:
         """Remove the current node from the tree.
@@ -403,7 +332,6 @@ class LexborNode:
         >>> for tag in tree.css('script'):
         >>>     tag.decompose()
         """
-        ...
 
     def strip_tags(self, tags: list[str], recursive: bool = False) -> None:
         """Remove specified tags from the HTML tree.
@@ -424,13 +352,22 @@ class LexborNode:
         >>> tree.html
         '<html><body><div>Hello world!</div></body></html>'
         """
-        ...
 
     @property
     def attributes(self) -> dict[str, str | None]:
         """Get all attributes that belong to the current node.
 
         The value of empty attributes is None.
+
+        Keys are the attribute names as written in the markup, so a namespaced
+        attribute keeps its prefix and stays addressable. This matters whenever
+        an element carries both a plain and a prefixed variant of the same local
+        name, where reporting local names alone would collapse the two into one
+        key and silently drop one of the values:
+
+        >>> tree = LexborHTMLParser("<svg><use href='/a' xlink:href='/b'></use></svg>")
+        >>> tree.css_first("use").attributes
+        {'href': '/a', 'xlink:href': '/b'}
 
         Returns
         -------
@@ -444,11 +381,14 @@ class LexborNode:
         >>> node.attributes
         {'data': None, 'id': 'my_id'}
         """
-        ...
 
     @property
     def attrs(self) -> LexborAttributes:
         """A dict-like object that is similar to the ``attributes`` property, but operates directly on the Node data.
+
+        Iteration yields the same keys ``attributes`` reports, i.e. the attribute
+        names as written in the markup, so every iterated key round-trips
+        through ``attrs[key]`` and ``del attrs[key]``.
 
         .. warning:: Use ``attributes`` instead, if you don't want to modify Node attributes.
 
@@ -473,19 +413,17 @@ class LexborNode:
         >>> node.html
         '<div foo="bar" id="new_id"></div>'
         """
-        ...
 
     @property
     def id(self) -> str | None:
         """Get the id attribute of the node.
 
-        Returns None if id does not set.
+        Returns None if id does not set, or if the node is not an element node.
 
         Returns
         -------
-        text : str
+        text : str | None
         """
-        ...
 
     def iter(
         self, include_text: bool = False, skip_empty: bool = False
@@ -508,7 +446,6 @@ class LexborNode:
             Child nodes on the same tree level as this node, filtered according
             to the provided options.
         """
-        ...
 
     def unwrap(self, delete_empty: bool = False) -> None:
         """Replace node with whatever is inside this node.
@@ -530,7 +467,6 @@ class LexborNode:
 
         Note: by default, empty tags are ignored, use "delete_empty" to change this.
         """
-        ...
 
     def unwrap_tags(self, tags: list[str], delete_empty: bool = False) -> None:
         """Unwraps specified tags from the HTML tree.
@@ -554,7 +490,6 @@ class LexborNode:
 
         Note: by default, empty tags are ignored, use "delete_empty" to change this.
         """
-        ...
 
     def merge_text_nodes(self) -> None:
         """Iterates over all text nodes and merges all text nodes that are close to each other.
@@ -574,7 +509,6 @@ class LexborNode:
         >>> tree.text(deep=True, separator=" ", strip=True)
         "John Doe"
         """
-        ...
 
     def traverse(
         self, include_text: bool = False, skip_empty: bool = False
@@ -597,7 +531,6 @@ class LexborNode:
             Nodes encountered in depth-first order beginning with the current
             node, filtered according to the provided options.
         """
-        ...
 
     def replace_with(self, value: bytes | str | LexborNode) -> None:
         """Replace current Node with specified value.
@@ -626,7 +559,6 @@ class LexborNode:
         >>> img_node.replace_with(html_parser2.body.child)
         '<div>Get <span alt="Laptop"><div>Test</div> <div></div></span></div>'
         """
-        ...
 
     def insert_before(self, value: bytes | str | LexborNode) -> None:
         """Insert a node before the current Node.
@@ -655,7 +587,6 @@ class LexborNode:
         >>> img_node.insert_before(html_parser2.body.child)
         <div>Get <span alt="Laptop"><div>Test</div><img src="/jpg"> <div></div></span></div>'
         """
-        ...
 
     def insert_after(self, value: bytes | str | LexborNode) -> None:
         """Insert a node after the current Node.
@@ -684,7 +615,6 @@ class LexborNode:
         >>> img_node.insert_after(html_parser2.body.child)
         <div>Get <span alt="Laptop"><img src="/jpg"><div>Test</div> <div></div></span></div>'
         """
-        ...
 
     def insert_child(self, value: bytes | str | LexborNode) -> None:
         """Insert a node inside (at the end of) the current Node.
@@ -713,7 +643,6 @@ class LexborNode:
         >>> span_node.insert_child(html_parser2.body.child)
         <div>Get <span alt="Laptop"> <div>Laptop</div> <div>Test</div> </span></div>'
         """
-        ...
 
     @property
     def raw_value(self) -> NoReturn:
@@ -736,34 +665,37 @@ class LexborNode:
         >>> selector.child.raw_value
         b'&#x3C;test&#x3E;'
         """
-        ...
 
     def scripts_contain(self, query: str) -> bool:
         """Returns True if any of the script tags contain specified text.
 
-        Caches script tags on the first call to improve performance.
+        The script texts are cached per document, keyed both by the node the
+        search was rooted at and by the document's mutation counter, so
+        repeating the call on the same subtree is cheap while a different
+        subtree - or an edited tree - never reuses the previous answer.
 
         Parameters
         ----------
         query : str
             The query to check.
         """
-        ...
 
     def script_srcs_contain(self, queries: tuple[str]) -> bool:
         """Returns True if any of the script SRCs attributes contain on of the specified text.
 
-        Caches values on the first call to improve performance.
+        The ``src`` values are cached per document, keyed both by the node the
+        search was rooted at and by the document's mutation counter, so
+        repeating the call on the same subtree is cheap while a different
+        subtree - or an edited tree, including one whose ``src`` was changed
+        through ``attrs`` - never reuses the previous answer.
 
         Parameters
         ----------
         queries : tuple of str
         """
-        ...
 
     def remove(self, recursive: bool = True) -> None:
         """An alias for the decompose method."""
-        ...
 
     def select(self, query: str | None = None) -> LexborSelector:
         """Select nodes given a CSS selector.
@@ -779,7 +711,6 @@ class LexborNode:
         -------
         selector : The `Selector` class.
         """
-        ...
 
     @property
     def text_content(self) -> str | None:
@@ -792,7 +723,6 @@ class LexborNode:
         -------
         text : str or None.
         """
-        ...
 
     @property
     def comment_content(self) -> str | None:
@@ -807,12 +737,11 @@ class LexborNode:
 
         Examples
         --------
-        >>> parse_fragment("<!-- hello -->")[0].comment_content
+        >>> LexborHTMLParser("<!-- hello -->", is_fragment=True).root.comment_content
         'hello'
-        >>> parse_fragment("<div>not a comment</div>")[0].comment_content is None
+        >>> LexborHTMLParser("<div>not a comment</div>", is_fragment=True).root.comment_content is None
         True
         """
-        ...
 
     @property
     def inner_html(self) -> str | None:
@@ -826,7 +755,6 @@ class LexborNode:
         -------
         text : str or None
         """
-        ...
 
     @inner_html.setter
     def inner_html(self, html: str):
@@ -835,12 +763,20 @@ class LexborNode:
         Replaces existing data inside the node.
         Works similar to innerHTML in JavaScript.
 
+        Only available for element nodes.
+
         Parameters
         ----------
         html : str
 
+        Raises
+        ------
+        TypeError
+            If the current node is not an element node.
+        SelectolaxError
+            If the HTML could not be parsed into the node.
+
         """
-        ...
 
     def inner_html_pretty(
         self,
@@ -877,7 +813,6 @@ class LexborNode:
         html5test : bool, optional
             Serialize using Lexbor's HTML5 test formatting mode.
         """
-        ...
 
     def clone(self) -> LexborNode:
         """Clone the current node.
@@ -887,27 +822,22 @@ class LexborNode:
         It is tied to the current parser instance.
         Gets destroyed when parser instance is destroyed.
         """
-        ...
 
     @property
     def is_element_node(self) -> bool:
         """Return True if the node represents an element node."""
-        ...
 
     @property
     def is_text_node(self) -> bool:
         """Return True if the node represents a text node."""
-        ...
 
     @property
     def is_comment_node(self) -> bool:
         """Return True if the node represents a comment node."""
-        ...
 
     @property
     def is_document_node(self) -> bool:
         """Return True if the node represents a document node."""
-        ...
 
     @property
     def is_empty_text_node(self) -> bool:
@@ -920,19 +850,21 @@ class LexborNode:
             ASCII whitespace characters (space, tab, newline, form feed or
             carriage return).
         """
-        ...
 
 class LexborHTMLParser:
     """The lexbor HTML parser.
 
     Use this class to parse raw HTML.
 
-    This parser mimics most of the stuff from ``HTMLParser`` but not inherits it directly.
+    ``raw_html`` holds the bytes that were parsed. That is the UTF-8 form of the
+    input, so for non-UTF-8 input read with ``encoding=True`` it is the
+    transcoded document rather than the bytes that were passed in.
 
-    Parameters
-    ----------
-
-    html : str (unicode) or bytes
+    Notes
+    -----
+    Not thread-safe: use one parser per thread, or lock the parser. The shared
+    per-parser ``LexborCSSSelector`` races on a free-threaded build, so even
+    read-only ``css()`` calls can interfere.
     """
 
     raw_html: bytes
@@ -944,6 +876,7 @@ class LexborHTMLParser:
         fragment_tag: str = "div",
         fragment_namespace: str = "html",
         options: int = 0,
+        encoding: bool = False,
     ) -> None:
         """Create a parser and load HTML.
 
@@ -951,6 +884,8 @@ class LexborHTMLParser:
         ----------
         html : str or bytes
             HTML content to parse.
+            Bytes are parsed as UTF-8; see ``encoding`` to have the encoding
+            detected instead.
         is_fragment : bool, optional
             When ``False`` (default), the input is parsed as a full HTML document.
             If the input is only a fragment, the parser still accepts it and inserts any missing required elements,
@@ -971,11 +906,34 @@ class LexborHTMLParser:
             Accepts Lexbor namespace names such as ``"html"``, ``"svg"``, and ``"math"``,
             or a namespace URI recognized by Lexbor. Only used when ``is_fragment`` is ``True``.
         options : int, optional
-            Lexbor document options passed to ``lxb_html_document_dom_opt_set``.
-            Use the flags from :class:`LexborDocumentOptions`, e.g.
-            ``LexborDocumentOptions.WO_EVENTS`` to disable mutation events.
+            Lexbor document options, a combination of :class:`LexborDocumentOptions` flags.
+            Defaults to ``0``, which enables DOM mutation events.
+            Pass ``options`` only when you need a non-default behaviour.
 
-            Several options can be combined with the bitwise OR operator::
+            Mutation events are the side effects Lexbor applies to the tree after parsing.
+            For example, the HTML Standard has `<selectedcontent>` mirror the selected
+            `<option>`'s content, so by default the parser clones it into place::
+
+                >>> html = (
+                ...     "<select><selectedcontent></selectedcontent>"
+                ...     "<option>this gets cloned</option></select>"
+                ... )
+                >>> LexborHTMLParser(html).css_first("selectedcontent").html
+                '<selectedcontent>this gets cloned</selectedcontent>'
+
+            ``WO_EVENTS`` ("without events") turns that off, so the element keeps
+            whatever the source actually contained::
+
+                >>> LexborHTMLParser(
+                ...     html, options=LexborDocumentOptions.WO_EVENTS
+                ... ).css_first("selectedcontent").html
+                '<selectedcontent></selectedcontent>'
+
+            Reach for it when you want the raw source rather than the browser-normalised
+            tree, for example to round-trip HTML or diff markup between two documents.
+            Leave it at ``0`` when you want a tree that matches what a browser would build.
+
+            Several flags can be combined with the bitwise OR operator::
 
                 LexborDocumentOptions.WO_EVENTS | LexborDocumentOptions.UNDEF
 
@@ -983,20 +941,34 @@ class LexborHTMLParser:
 
                 LexborDocumentOptions.WO_EVENTS.value | LexborDocumentOptions.UNDEF.value
 
-            Defaults to ``0``.
+        encoding : bool, optional
+            Detect the encoding of ``bytes`` input and transcode it to UTF-8
+            before parsing. Defaults to ``False``, which parses bytes as UTF-8.
+
+            Text input is never affected: a ``str`` is already decoded, so there
+            is nothing to detect.
+
+            Detection follows the HTML Standard. A byte-order mark wins over any
+            declaration, and a ``<meta charset>`` or
+            ``<meta http-equiv="content-type" content="...charset=...">``
+            declaration is honoured within the first 1024 bytes, which is where
+            the Standard stops looking. Bytes that are invalid in the detected
+            encoding become U+FFFD rather than being kept as they are::
+
+                >>> raw = '<meta charset="windows-1251"><p>Привет</p>'.encode('windows-1251')
+                >>> LexborHTMLParser(raw).text()
+                '������'
+                >>> LexborHTMLParser(raw, encoding=True).text()
+                'Привет'
+
+            Input that declares nothing is decoded as UTF-8, not as the
+            windows-1252 a browser would fall back to, so that turning this on
+            cannot reinterpret a document that already parsed correctly.
+
+            The encoding is resolved before parsing, so this costs one extra pass
+            over non-UTF-8 input and nothing at all for UTF-8.
 
         """
-        ...
-
-    def __repr__(self) -> str:
-        """Return a concise representation of the parsed document.
-
-        Returns
-        -------
-        str
-            A string showing the number of characters in the parsed HTML.
-        """
-        ...
 
     @property
     def selector(self) -> LexborCSSSelector:
@@ -1007,7 +979,6 @@ class LexborHTMLParser:
         LexborCSSSelector
             Selector instance bound to this parser.
         """
-        ...
 
     @property
     def options(self) -> LexborDocumentOptions:
@@ -1018,7 +989,6 @@ class LexborHTMLParser:
         LexborDocumentOptions
             The options currently set on the underlying Lexbor document.
         """
-        ...
 
     @property
     def root(self) -> LexborNode | None:
@@ -1029,7 +999,6 @@ class LexborHTMLParser:
         LexborNode or None
             Root of the parsed document, or ``None`` if unavailable.
         """
-        ...
 
     @property
     def body(self) -> LexborNode | None:
@@ -1040,7 +1009,6 @@ class LexborHTMLParser:
         LexborNode or None
             ``<body>`` element when present, otherwise ``None``.
         """
-        ...
 
     @property
     def head(self) -> LexborNode | None:
@@ -1051,7 +1019,6 @@ class LexborHTMLParser:
         LexborNode or None
             ``<head>`` element when present, otherwise ``None``.
         """
-        ...
 
     def tags(self, name: str) -> list[LexborNode]:
         """Return all tags that match the provided name.
@@ -1073,7 +1040,6 @@ class LexborHTMLParser:
         SelectolaxError
             If Lexbor cannot locate the elements.
         """
-        ...
 
     def text(
         self,
@@ -1102,7 +1068,6 @@ class LexborHTMLParser:
         text : str
             Combined textual content assembled according to the provided options.
         """
-        ...
 
     @property
     def html(self) -> str | None:
@@ -1113,7 +1078,6 @@ class LexborHTMLParser:
         str or None
             Serialized HTML of the current document.
         """
-        ...
 
     def html_pretty(
         self,
@@ -1150,7 +1114,6 @@ class LexborHTMLParser:
         html5test : bool, optional
             Serialize using Lexbor's HTML5 test formatting mode.
         """
-        ...
 
     def css(self, query: str) -> list[LexborNode]:
         """A CSS selector.
@@ -1172,19 +1135,18 @@ class LexborHTMLParser:
         -------
         selector : list of `Node` objects
         """
-        ...
 
     @overload
     def css_first(
-        self, query: str, default: Any = ..., strict: Literal[True] = ...
-    ) -> LexborNode:
+        self, query: str, default: _DefaultT, strict: bool = False
+    ) -> LexborNode | _DefaultT:
         """Same as `css` but returns only the first match.
 
         Parameters
         ----------
 
         query : str
-        default : Any, default None
+        default : Any, optional
             Default value to return if there is no match.
         strict: bool, default False
             Set to True if you want to check if there is strictly only one match in the document.
@@ -1192,31 +1154,8 @@ class LexborHTMLParser:
 
         Returns
         -------
-        selector : `LexborNode` object
+        selector : `LexborNode` or `default`
         """
-        ...
-
-    @overload
-    def css_first(
-        self, query: str, default: DefaultT, strict: bool = False
-    ) -> LexborNode | DefaultT:
-        """Same as `css` but returns only the first match.
-
-        Parameters
-        ----------
-
-        query : str
-        default : Any, default None
-            Default value to return if there is no match.
-        strict: bool, default False
-            Set to True if you want to check if there is strictly only one match in the document.
-
-
-        Returns
-        -------
-        selector : `LexborNode` object
-        """
-        ...
 
     @overload
     def css_first(
@@ -1228,7 +1167,7 @@ class LexborHTMLParser:
         ----------
 
         query : str
-        default : Any, default None
+        default : None, optional
             Default value to return if there is no match.
         strict: bool, default False
             Set to True if you want to check if there is strictly only one match in the document.
@@ -1236,9 +1175,8 @@ class LexborHTMLParser:
 
         Returns
         -------
-        selector : `LexborNode` object
+        selector : `LexborNode` or None
         """
-        ...
 
     def strip_tags(self, tags: list[str], recursive: bool = False) -> None:
         """Remove specified tags from the node.
@@ -1263,7 +1201,6 @@ class LexborHTMLParser:
         -------
         None
         """
-        ...
 
     def select(self, query: str | None = None) -> LexborSelector | None:
         """Select nodes given a CSS selector.
@@ -1280,7 +1217,6 @@ class LexborHTMLParser:
         LexborSelector or None
             Selector bound to the root node, or ``None`` if the document is empty.
         """
-        ...
 
     def any_css_matches(self, selectors: tuple[str]) -> bool:
         """Return ``True`` if any of the specified CSS selectors match.
@@ -1295,12 +1231,14 @@ class LexborHTMLParser:
         bool
             ``True`` when at least one selector matches.
         """
-        ...
 
     def scripts_contain(self, query: str) -> bool:
         """Return ``True`` if any script tag contains the given text.
 
-        Caches script tags on the first call to improve performance.
+        The script texts are cached per document, keyed both by the node the
+        search was rooted at and by the document's mutation counter, so
+        repeating the call on the same subtree is cheap while a different
+        subtree - or an edited tree - never reuses the previous answer.
 
         Parameters
         ----------
@@ -1312,12 +1250,15 @@ class LexborHTMLParser:
         bool
             ``True`` when a matching script tag is found.
         """
-        ...
 
     def script_srcs_contain(self, queries: tuple[str]) -> bool:
         """Return ``True`` if any script ``src`` contains one of the strings.
 
-        Caches values on the first call to improve performance.
+        The ``src`` values are cached per document, keyed both by the node the
+        search was rooted at and by the document's mutation counter, so
+        repeating the call on the same subtree is cheap while a different
+        subtree - or an edited tree, including one whose ``src`` was changed
+        through ``attrs`` - never reuses the previous answer.
 
         Parameters
         ----------
@@ -1329,7 +1270,6 @@ class LexborHTMLParser:
         bool
             ``True`` when a matching source value is found.
         """
-        ...
 
     def css_matches(self, selector: str) -> bool:
         """Return ``True`` if the document matches the selector at least once.
@@ -1344,7 +1284,6 @@ class LexborHTMLParser:
         bool
             ``True`` when a match exists.
         """
-        ...
 
     def merge_text_nodes(self) -> None:
         """Iterates over all text nodes and merges all text nodes that are close to each other.
@@ -1368,7 +1307,6 @@ class LexborHTMLParser:
         -------
         None
         """
-        ...
 
     def clone(self) -> LexborHTMLParser:
         """Clone the current document tree.
@@ -1384,7 +1322,6 @@ class LexborHTMLParser:
         LexborHTMLParser
             A parser instance backed by a deep-copied document.
         """
-        ...
 
     def unwrap_tags(self, tags: list[str], delete_empty: bool = False) -> None:
         """Unwraps specified tags from the HTML tree.
@@ -1410,7 +1347,6 @@ class LexborHTMLParser:
         -------
         None
         """
-        ...
 
     @property
     def inner_html(self) -> str:
@@ -1424,7 +1360,6 @@ class LexborHTMLParser:
         -------
         text : str | None
         """
-        ...
 
     @inner_html.setter
     def inner_html(self, html: str) -> None:
@@ -1441,7 +1376,6 @@ class LexborHTMLParser:
         -------
         None
         """
-        ...
 
     def inner_html_pretty(
         self,
@@ -1478,7 +1412,6 @@ class LexborHTMLParser:
         html5test : bool, optional
             Serialize using Lexbor's HTML5 test formatting mode.
         """
-        ...
     def create_node(self, tag: str) -> LexborNode:
         """Given an HTML tag name, e.g. `"div"`, create a single empty node for that tag,
         e.g. `"<div></div>"`.
@@ -1493,6 +1426,7 @@ class LexborHTMLParser:
         -------
         LexborNode
             Newly created element node.
+
         Raises
         ------
         SelectolaxError
@@ -1516,19 +1450,16 @@ def create_tag(tag: str) -> LexborNode:
 
     Use `LexborHTMLParser().create_node(..)` if you need to create a node tied to a specific parser instance.
     """
-    ...
 
 def parse_fragment(html: str) -> list[LexborNode]:
     """
-    Given HTML, parse it into a list of Nodes, such that the nodes
-    correspond to the given HTML.
+    Removed. Use ``LexborHTMLParser(html, is_fragment=True)`` instead.
 
-    For contrast, HTMLParser adds `<html>`, `<head>`, and `<body>` tags
-    if they are missing. This function does not add these tags.
+    Raises
+    ------
+    SelectolaxError
+        Always.
     """
-    ...
 
 class SelectolaxError(Exception):
     """An exception that indicates error."""
-
-    pass

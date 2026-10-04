@@ -3,7 +3,11 @@ import sys
 import pytest
 
 from qbittorrentapi import APINames
-from qbittorrentapi.transfer import TransferInfoDictionary
+from qbittorrentapi.transfer import (
+    TransferInfoDictionary,
+    TransferSpeedLimitsDictionary,
+)
+from tests.utils import eventually
 
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="removeprefix not in 3.8")
@@ -68,6 +72,7 @@ def test_speed_limits_mode(client):
 
 
 def test_download_limit(client):
+    original = client.transfer_download_limit()
     client.transfer_set_download_limit(limit=2048)
     assert client.transfer_download_limit() == 2048
     client.transfer_setDownloadLimit(limit=3072)
@@ -78,8 +83,11 @@ def test_download_limit(client):
     client.transfer.downloadLimit = 5120
     assert client.transfer.downloadLimit == 5120
 
+    client.transfer_set_download_limit(limit=original)
+
 
 def test_upload_limit(client):
+    original = client.transfer_upload_limit()
     client.transfer_set_upload_limit(limit=2048)
     assert client.transfer_upload_limit() == 2048
     client.transfer_setUploadLimit(limit=3072)
@@ -90,9 +98,12 @@ def test_upload_limit(client):
     client.transfer.uploadLimit = 5120
     assert client.transfer.uploadLimit == 5120
 
+    client.transfer_set_upload_limit(limit=original)
+
 
 @pytest.mark.skipif_before_api_version("2.3")
 def test_ban_peers(client):
+    original_bans = client.app.preferences.banned_IPs
     client.transfer_ban_peers(peers="1.1.1.1:8080")
     assert "1.1.1.1" in client.app.preferences.banned_IPs
     client.transfer.ban_peers(peers="1.1.1.2:8080")
@@ -105,8 +116,72 @@ def test_ban_peers(client):
     assert "1.1.1.5" in client.app.preferences.banned_IPs
     assert "1.1.1.6" in client.app.preferences.banned_IPs
 
+    # banned_IPs is global and nothing else clears it
+    client.app.set_preferences(dict(banned_IPs=original_bans))
 
-@pytest.mark.skipif_after_api_version("2.3")
-def test_ban_peers_not_implemented(client):
-    with pytest.raises(NotImplementedError):
-        client.transfer_ban_peers(peers="1.1.1.1:8080")
+
+@pytest.mark.skipif_before_api_version("2.16.0")
+@pytest.mark.parametrize("speed_limits_func", ["transfer_speed_limits"])
+def test_speed_limits(client, speed_limits_func):
+    keys = ("up_limit", "dl_limit", "alt_up_limit", "alt_dl_limit")
+
+    limits = client.func(speed_limits_func)()
+    assert isinstance(limits, TransferSpeedLimitsDictionary)
+    for key in keys:
+        assert key in limits
+
+    # the interface exposes this as a property rather than a method
+    limits = client.transfer.speed_limits
+    assert isinstance(limits, TransferSpeedLimitsDictionary)
+    for key in keys:
+        assert key in limits
+
+
+@pytest.mark.skipif_before_api_version("2.16.0")
+@pytest.mark.parametrize(
+    "set_speed_limits_func", ["transfer_set_speed_limits", "transfer.set_speed_limits"]
+)
+def test_set_speed_limits(client, set_speed_limits_func):
+    original = client.transfer_speed_limits()
+    try:
+        client.func(set_speed_limits_func)(
+            upload_limit=2048000,
+            download_limit=3072000,
+            alt_upload_limit=1024000,
+            alt_download_limit=512000,
+        )
+        limits = client.transfer_speed_limits()
+        assert limits["up_limit"] == 2048000
+        assert limits["dl_limit"] == 3072000
+        assert limits["alt_up_limit"] == 1024000
+        assert limits["alt_dl_limit"] == 512000
+    finally:
+        client.transfer_set_speed_limits(
+            upload_limit=original["up_limit"],
+            download_limit=original["dl_limit"],
+            alt_upload_limit=original["alt_up_limit"],
+            alt_download_limit=original["alt_dl_limit"],
+        )
+
+
+@pytest.mark.skipif_before_api_version("2.16.2")
+@pytest.mark.parametrize(
+    "pause_func, resume_func",
+    [
+        ("transfer_pause_session", "transfer_resume_session"),
+        ("transfer.pause_session", "transfer.resume_session"),
+    ],
+)
+def test_pause_resume_session(client, pause_func, resume_func):
+    # session_state is True while the BitTorrent session is paused
+    try:
+        client.func(pause_func)()
+        for attempt in eventually():
+            with attempt:
+                assert client.sync_maindata().server_state.session_state
+    finally:
+        client.func(resume_func)()
+
+    for attempt in eventually():
+        with attempt:
+            assert not client.sync_maindata().server_state.session_state

@@ -453,7 +453,7 @@ WRITE_GROUP_READS = frozenset(
         "group get", "group list",
         "notes audit-advisory", "notes checkout", "notes list", "notes show", "notes status",
         "notes team",
-        "paper edges", "paper list",
+        "paper citations", "paper edges", "paper graph", "paper list",
         "project code list", "project contributors", "project get", "project list",
         "run check", "run get", "run inputs", "run list", "run metrics", "run reproduce", "run series",
         "run upstream",

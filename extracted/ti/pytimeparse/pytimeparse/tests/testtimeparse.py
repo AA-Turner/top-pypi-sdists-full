@@ -83,6 +83,18 @@ class TestTimeparse(unittest.TestCase):
         self.assertEqual(timeparse.timeparse('- 32 m 1 s'), -1921)
         self.assertIsNone(timeparse.timeparse('32 m - 1 s'))
         self.assertIsNone(timeparse.timeparse('32 m + 1 s'))
+        # A stray pipe is not a valid sign and must not be silently accepted.
+        self.assertIsNone(timeparse.timeparse('|5m'))
+        self.assertIsNone(timeparse.timeparse('| 5m'))
+        self.assertIsNone(timeparse.timeparse('|1:24'))
+
+    def test_fractional_units_with_signed_seconds(self):
+        cases = [('1.5m30s', 120), ('0.5h10s', 1810),
+                 ('0.5d1s', 43201), ('0.5w1s', 302401)]
+        for text, expected in cases:
+            for prefix, sign in [('', 1), ('+', 1), ('-', -1)]:
+                self.assertEqual(timeparse.timeparse(prefix + text),
+                                 sign * expected)
 
     def test_timeparse_1(self):
         '''timeparse test case 1.'''

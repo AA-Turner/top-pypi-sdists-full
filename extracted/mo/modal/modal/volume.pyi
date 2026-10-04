@@ -726,6 +726,8 @@ class _Volume(modal._object._Object):
     async def commit(self):
         """Commit changes to a mounted volume.
 
+        Must be called inside a container that mounts the Volume.
+
         If successful, the changes made are now persisted in durable storage and available to other containers accessing
         the volume.
         """
@@ -734,6 +736,8 @@ class _Volume(modal._object._Object):
     async def reload(self):
         """Make latest committed state of volume available in the running container.
 
+        Must be called inside a container that mounts the Volume.
+
         Any uncommitted changes to the volume, such as new or modified files, may implicitly be committed when
         reloading.
 
@@ -741,7 +745,9 @@ class _Volume(modal._object._Object):
         """
         ...
 
-    def iterdir(self, path: str, *, recursive: bool = True) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
+    def iterdir(
+        self, path: str, *, recursive: bool = True
+    ) -> collections.abc.AsyncGenerator[modal.types.FileEntry, None]:
         """Iterate over all files in a directory in the volume.
 
         Passing a directory path lists all files in the directory. For a file path, return only that
@@ -1144,6 +1150,8 @@ class Volume(modal.object.Object):
         def __call__(self, /):
             """Commit changes to a mounted volume.
 
+            Must be called inside a container that mounts the Volume.
+
             If successful, the changes made are now persisted in durable storage and available to other containers accessing
             the volume.
             """
@@ -1151,6 +1159,8 @@ class Volume(modal.object.Object):
 
         async def aio(self, /):
             """Commit changes to a mounted volume.
+
+            Must be called inside a container that mounts the Volume.
 
             If successful, the changes made are now persisted in durable storage and available to other containers accessing
             the volume.
@@ -1163,6 +1173,8 @@ class Volume(modal.object.Object):
         def __call__(self, /):
             """Make latest committed state of volume available in the running container.
 
+            Must be called inside a container that mounts the Volume.
+
             Any uncommitted changes to the volume, such as new or modified files, may implicitly be committed when
             reloading.
 
@@ -1172,6 +1184,8 @@ class Volume(modal.object.Object):
 
         async def aio(self, /):
             """Make latest committed state of volume available in the running container.
+
+            Must be called inside a container that mounts the Volume.
 
             Any uncommitted changes to the volume, such as new or modified files, may implicitly be committed when
             reloading.
@@ -1183,7 +1197,9 @@ class Volume(modal.object.Object):
     reload: __reload_spec
 
     class __iterdir_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str, *, recursive: bool = True) -> typing.Iterator[modal.types.FileEntry]:
+        def __call__(
+            self, /, path: str, *, recursive: bool = True
+        ) -> typing.Generator[modal.types.FileEntry, None, None]:
             """Iterate over all files in a directory in the volume.
 
             Passing a directory path lists all files in the directory. For a file path, return only that
@@ -1192,7 +1208,9 @@ class Volume(modal.object.Object):
             """
             ...
 
-        def aio(self, /, path: str, *, recursive: bool = True) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
+        def aio(
+            self, /, path: str, *, recursive: bool = True
+        ) -> collections.abc.AsyncGenerator[modal.types.FileEntry, None]:
             """Iterate over all files in a directory in the volume.
 
             Passing a directory path lists all files in the directory. For a file path, return only that

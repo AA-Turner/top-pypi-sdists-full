@@ -42,6 +42,20 @@ _KNOWN_PASSTHROUGH_KEYS: frozenset[str] = frozenset(
 )
 
 
+def _sandbox_fs_tool_names() -> frozenset[str]:
+    """The file/shell tools a bound box brings (the ``sandbox-fs`` capability), for tagging a
+    legacy row's sticky tools. Empty when the capability registry is unavailable."""
+    try:
+        from matrx_ai.capabilities.registry import get_capability
+
+        cap = get_capability("sandbox-fs")
+    except Exception:  # noqa: BLE001 — a bare package consumer without capabilities
+        return frozenset()
+    if cap is None:
+        return frozenset()
+    return frozenset(getattr(spec, "name", "") for spec in cap.enabled_tools)
+
+
 def _parse_custom_tools(raw: list) -> list:
     """Deserialize custom tool overrides into runtime ``CustomTool`` instances.
 
@@ -229,6 +243,31 @@ class UnifiedConfig:
     # a legacy-deserialization sentinel so pre-field rows can recover dynamic
     # additions from their persisted effective-vs-authored delta.
     dynamic_tools: list[str] | None = None
+    # THE CONVERSATION'S STICKY TOOLSET (Arman, 2026-10-03): every tool a
+    # transient source added to this conversation — a surface, a compute target,
+    # attached context, a bundle the model opened, the person's own picks —
+    # stays for the rest of the conversation until something EXPLICITLY removes
+    # it (``user.remove`` or the source's own removal). ``dynamic_tools`` holds
+    # the names in first-added order (the cache prefix order); this map says
+    # which source class added each, because a source class still decides
+    # whether the tool is OFFERED on a given turn (a compute target that is no
+    # longer attached, or the automatic-tools switch turned off, withholds — never
+    # forgets). Values: ``user`` | ``bundle`` | ``surface`` | ``request`` |
+    # ``context`` | ``compute_target:<target_kind>``. Missing entry = ``bundle``
+    # (the pre-2026-10-03 meaning of a dynamic tool).
+    # Rules: common-docs/systems/agents/agent-tools/TOOL-SOURCES.md.
+    dynamic_tool_sources: dict[str, str] = field(default_factory=dict)
+    # In-memory only: sticky names this turn WITHHOLDS (see above). Read by every
+    # restore path so a filter restore can never resurrect a withheld tool.
+    dynamic_tools_withheld: list[str] = field(default_factory=list)
+    # THE AGENT'S TOOL POLICY, carried by the conversation. Stamped on the first
+    # turn from the agent definition (``auto_tools_disabled`` / ``excluded_tools``)
+    # by ``aidream.services.tooling.tool_merge.apply_unified_tools`` and persisted,
+    # so every later turn on every route (continue, fork, resume, chat, prompts)
+    # honors the same switch and forbidden list without re-reading the agent.
+    # ``None`` = never stamped (legacy row or an agent-less run).
+    agent_auto_tools_disabled: bool | None = None
+    agent_excluded_tools: list[str] | None = None
     # Durable transition marker for authored-vs-effective restoration. It is
     # true only while host hard exclusions are applied to ``tools``; persisting
     # it lets a later reload with no bound target restore ``authored_tools``.
@@ -498,17 +537,32 @@ class UnifiedConfig:
         else:
             self.authored_tools = list(self.authored_tools)
         if self.dynamic_tools is None:
-            if self.tool_authority_filtered or self.tool_delegation_filtered:
-                authored = {entry for entry in self.authored_tools if isinstance(entry, str)}
-                self.dynamic_tools = [
+            # Legacy row (written before the sticky toolset): whatever the
+            # conversation carried beyond its authored set was added by some
+            # source during the conversation, so it is sticky from here on.
+            authored = {entry for entry in self.authored_tools if isinstance(entry, str)}
+            self.dynamic_tools = list(
+                dict.fromkeys(
                     entry
                     for entry in self.tools
                     if isinstance(entry, str) and entry not in authored
-                ]
-            else:
-                self.dynamic_tools = []
+                )
+            )
+            # Nothing says which source added a legacy tool, so it is tagged with the class
+            # that still obeys the automatic switch: a bound box's file/shell tools as the
+            # compute target's (offered only while it is attached), everything else as an
+            # automatic ``request`` tool — never ``bundle``, which would ride with the switch
+            # off and after a detach.
+            legacy_sources = dict(self.dynamic_tool_sources or {})
+            fs_names = _sandbox_fs_tool_names()
+            for entry in self.dynamic_tools:
+                legacy_sources.setdefault(
+                    entry, "compute_target:sandbox" if entry in fs_names else "request"
+                )
+            self.dynamic_tool_sources = legacy_sources
         else:
             self.dynamic_tools = list(dict.fromkeys(self.dynamic_tools))
+        self.dynamic_tool_sources = dict(self.dynamic_tool_sources or {})
         if self.authored_custom_tools is None:
             self.authored_custom_tools = list(self.custom_tools)
         else:
@@ -732,6 +786,13 @@ class UnifiedConfig:
             tools=data.get("tools", []),
             authored_tools=data.get("authored_tools"),
             dynamic_tools=data.get("dynamic_tools"),
+            dynamic_tool_sources=(
+                dict(data.get("dynamic_tool_sources"))
+                if isinstance(data.get("dynamic_tool_sources"), dict)
+                else {}
+            ),
+            agent_auto_tools_disabled=data.get("agent_auto_tools_disabled"),
+            agent_excluded_tools=data.get("agent_excluded_tools"),
             tool_authority_filtered=bool(data.get("tool_authority_filtered", False)),
             tool_authority_exclusions=data.get("tool_authority_exclusions", []),
             tool_capability_filtered=bool(data.get("tool_capability_filtered", False)),
@@ -923,10 +984,22 @@ class UnifiedConfig:
             config["top_k"] = self.top_k
         if self.tools:
             config["tools"] = self.tools
-        if self.authored_tools:
-            config["authored_tools"] = self.authored_tools
-        if self.dynamic_tools:
-            config["dynamic_tools"] = self.dynamic_tools
+        # ALWAYS written once known, even empty: an absent key reads back as ``None``,
+        # which promotes the whole effective set (surface, bundle, context tools) to
+        # "authored" — making every transient tool permanent and unremovable.
+        if self.authored_tools is not None:
+            config["authored_tools"] = list(self.authored_tools)
+        # ALWAYS written once known, even empty: an absent key reads back as the
+        # legacy ``None`` sentinel, which re-derives "dynamic" tools from the
+        # effective set and resurrects tools an explicit removal just dropped.
+        if self.dynamic_tools is not None:
+            config["dynamic_tools"] = list(self.dynamic_tools)
+        if self.dynamic_tool_sources:
+            config["dynamic_tool_sources"] = {
+                name: source
+                for name, source in self.dynamic_tool_sources.items()
+                if name in set(self.dynamic_tools or [])
+            }
         if self.authored_custom_tools:
             config["authored_custom_tools"] = [
                 tool.model_dump(mode="json") if hasattr(tool, "model_dump") else tool
@@ -934,6 +1007,10 @@ class UnifiedConfig:
             ]
         if self.authored_mcp_servers:
             config["authored_mcp_servers"] = self.authored_mcp_servers
+        if self.agent_auto_tools_disabled is not None:
+            config["agent_auto_tools_disabled"] = self.agent_auto_tools_disabled
+        if self.agent_excluded_tools is not None:
+            config["agent_excluded_tools"] = list(self.agent_excluded_tools)
         if self.tool_authority_filtered:
             config["tool_authority_filtered"] = True
         if self.tool_authority_exclusions:

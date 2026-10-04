@@ -51,6 +51,10 @@ from clawmetry import nonsecret_hash as _nsh
 from clawmetry.trail_store import TrailStoreMixin  # intent / back-fill / git join
 from clawmetry.local_store_agent_meta import AgentMetaMixin  # agent meta label surface (short module for Drift Bot)
 from clawmetry.local_store_projects import ProjectsMixin  # project attribution + budgets (REQ-OBS-PRJ-001)
+from clawmetry.activity_store import ActivityStoreMixin, ACTIVITY_DDL
+from clawmetry.incident_store import IncidentStoreMixin, INCIDENT_DDL
+from clawmetry.investigations import InvestigationStoreMixin
+from clawmetry.investigation_catalog import InvestigationCatalogMixin
 # REQ-OBS-OIA-001: a value the store cannot hold is refused on its own, not a
 # store failure (span batch retry, OTLP record refusal, event token count).
 from clawmetry.store_errors import (  # noqa: F401  (re-exported for tests)
@@ -801,6 +805,14 @@ _DDL = [
         -- 'none' when a session has events but no human prompt).
         intent                  VARCHAR,
         intent_source           VARCHAR,
+        -- #4814: how the session ran. Latest ``mode.changed`` replay event
+        -- wins (a session can enter and leave plan mode), so these are the
+        -- CURRENT mode and mode_resolved_at is that event's epoch seconds.
+        -- NULL until a replay mapper has reported a mode for the session.
+        mode_permission         VARCHAR,
+        mode_sandbox            VARCHAR,
+        mode_collaboration      VARCHAR,
+        mode_resolved_at        DOUBLE,
         PRIMARY KEY (agent_type, session_id)
     )
     """,
@@ -2820,6 +2832,10 @@ def _assistant_decode_conversation(row: tuple[Any, ...]) -> dict[str, Any]:
     }
 
 
+_DDL.extend(INCIDENT_DDL)
+_DDL.extend(ACTIVITY_DDL)
+
+
 def _session_phase_row(row) -> dict:
     """One ``session_phase`` row as the shape every reader uses.
 
@@ -2902,6 +2918,11 @@ _MIGRATIONS_V2 = [
     ("sessions", "attention_since",  "BIGINT"),
     ("sessions", "attention_signal", "VARCHAR"),
     ("sessions", "attention_tool",   "VARCHAR"),
+    # #4814 — session mode, filled from mode.changed replay events.
+    ("sessions", "mode_permission",    "VARCHAR"),
+    ("sessions", "mode_sandbox",       "VARCHAR"),
+    ("sessions", "mode_collaboration", "VARCHAR"),
+    ("sessions", "mode_resolved_at",   "DOUBLE"),
     # Issue #2200 — hash-chain columns. chain_prev_hash/chain_hash are NULL on
     # existing rows and populated on new events when CLAWMETRY_INTEGRITY=1.
     ("events",   "chain_prev_hash",   "VARCHAR"),
@@ -4102,7 +4123,7 @@ def _runtime_of_session_id(session_id: str, fallback: str = "openclaw") -> str:
     return fallback or "openclaw"
 
 
-class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
+class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin, IncidentStoreMixin, InvestigationStoreMixin, InvestigationCatalogMixin, ActivityStoreMixin):
     """Thread-safe local event store with a background batched flusher.
 
     `read_only=True` opens the DuckDB in RO mode — read paths work the same,
@@ -4118,6 +4139,8 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
         # All writes go through ``_write_lock``; reads issue cursors which
         # DuckDB makes thread-safe internally.
         self._write_lock = threading.Lock()
+        self._improve_cache_lock = threading.Lock()
+        self._improve_cache: dict = {}
         # Issue #1590 — serialise ``_flush_now`` invocations. The ring
         # snapshot-then-pop pattern is NOT safe under concurrent flushes:
         # two flushers can snapshot the same batch independently, each
@@ -12576,7 +12599,8 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
             flat: list[Any] = []
             for r in chunk:
                 flat.extend(r)
-            self._conn.execute(sql, flat)
+            inserted = self._conn.execute(sql + " RETURNING id", flat).fetchall()
+            self._record_event_changes_locked([row[0] for row in inserted])
 
     def _apply_rollup_deltas_locked(
         self,
@@ -13256,6 +13280,13 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
 
     # ── queries ─────────────────────────────────────────────────────────
 
+    def query_improve_candidates(self, *, window_days=30, runtime=None,
+                                 node_id=None, include_by_runtime=False):
+        """Bounded guidance evidence shared by local reads and encrypted sync."""
+        from clawmetry.improve_candidates import query_candidates
+        return query_candidates(self, window_days=window_days, runtime=runtime,
+                                node_id=node_id, include_by_runtime=include_by_runtime)
+
     def query_events(
         self,
         *,
@@ -13886,9 +13917,11 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
         if not updates:
             return 0
         try:
-            self._conn.executemany(
-                "UPDATE events SET cost_usd = ? WHERE id = ?", updates
-            )
+            with self._write_lock, _txn(self._conn):
+                self._conn.executemany(
+                    "UPDATE events SET cost_usd = ? WHERE id = ?", updates
+                )
+                self._record_event_changes_locked([row[1] for row in updates])
         except Exception:
             return 0
         return len(updates)
@@ -13950,9 +13983,11 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
         if not updates:
             return 0
         try:
-            self._conn.executemany(
-                "UPDATE events SET cost_usd = ? WHERE id = ?", updates
-            )
+            with self._write_lock, _txn(self._conn):
+                self._conn.executemany(
+                    "UPDATE events SET cost_usd = ? WHERE id = ?", updates
+                )
+                self._record_event_changes_locked([row[1] for row in updates])
         except Exception:
             return 0
         return len(updates)
@@ -14085,9 +14120,11 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
 
         if updates:
             try:
-                self._conn.executemany(
-                    "UPDATE events SET data = ? WHERE id = ?", updates
-                )
+                with self._write_lock, _txn(self._conn):
+                    self._conn.executemany(
+                        "UPDATE events SET data = ? WHERE id = ?", updates
+                    )
+                    self._record_event_changes_locked([row[1] for row in updates])
             except Exception:
                 return (max_id, 0, len(rows))
         return (max_id, len(updates), len(rows))
@@ -15521,20 +15558,21 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
             "kind": kind,
             "raw": (raw or "")[:300],
         }).encode("utf-8")
-        with self._write_lock:
-            self._conn.execute(
+        with self._write_lock, _txn(self._conn):
+            inserted = self._conn.execute(
                 """
                 INSERT OR IGNORE INTO events
                   (id, agent_type, node_id, agent_id, session_id, workspace_id,
                    event_type, ts, data, cost_usd, token_count, model, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
                 """,
                 [
                     ev_id, "openclaw", node_id or "local", "main", None, None,
                     "connector.health", ts_iso, payload, None, None, None,
                     int(time.time() * 1000),
                 ],
-            )
+            ).fetchall()
+            self._record_event_changes_locked([row[0] for row in inserted])
 
     def ingest_talk_lifecycle(
         self,
@@ -15582,13 +15620,13 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
             "talkDurationMs": duration_ms,
             "talkByteLength": byte_length,
         }).encode("utf-8")
-        with self._write_lock:
-            self._conn.execute(
+        with self._write_lock, _txn(self._conn):
+            inserted = self._conn.execute(
                 """
                 INSERT OR IGNORE INTO events
                   (id, agent_type, node_id, agent_id, session_id, workspace_id,
                    event_type, ts, data, cost_usd, token_count, model, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
                 """,
                 [
                     ev_id, "openclaw", node_id or "local", "main",
@@ -15596,7 +15634,8 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
                     "talk.lifecycle", ts_iso, payload, None, None, None,
                     int(time.time() * 1000),
                 ],
-            )
+            ).fetchall()
+            self._record_event_changes_locked([row[0] for row in inserted])
 
     def query_connector_health(self, since_hours: int = 24) -> list[dict[str, Any]]:
         """Recent ``connector.health`` signals, newest first.
@@ -15785,6 +15824,7 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
 
         now = int(time.time() * 1000)
         params: list[list[Any]] = []
+        latest_mode: dict[str, tuple[float, dict[str, Any]]] = {}
         for row in rows:
             if not isinstance(row, dict):
                 continue
@@ -15806,6 +15846,14 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
                 _to_blob(row.get("approval")),
                 now,
             ])
+            if row["kind"] == _rs.KIND_MODE_CHANGED:
+                # Latest mode per session in this batch (#4814). ``>=`` so
+                # that of two events in the same second the later one in
+                # transcript order wins.
+                sid = str(row["session_id"])
+                ts = float(row["ts"])
+                if sid not in latest_mode or ts >= latest_mode[sid][0]:
+                    latest_mode[sid] = (ts, row.get("mode") or {})
         if not params:
             return 0
         with self._write_lock:
@@ -15824,6 +15872,32 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
                     mode           = excluded.mode,
                     approval       = excluded.approval
             """, params)
+            for sid, (ts, mode) in latest_mode.items():
+                # Project the session's current mode onto its sessions row
+                # (#4814) so the list can show it without loading the tree.
+                # A missing row is a no-op; the mapper re-yields the same
+                # events on the next pass. Never moves backwards in time.
+                # The WHERE also skips an unchanged row: a re-read transcript
+                # must not rewrite the session row every daemon cycle.
+                perm = _clean_str(mode.get("permission"), 64)
+                sandbox = _clean_str(mode.get("sandbox"), 64)
+                collab = _clean_str(mode.get("collaboration"), 64)
+                try:
+                    self._conn.execute(
+                        "UPDATE sessions SET mode_permission = ?, "
+                        "mode_sandbox = ?, mode_collaboration = ?, "
+                        "mode_resolved_at = ? WHERE session_id = ? AND "
+                        "(mode_resolved_at IS NULL OR mode_resolved_at < ? "
+                        " OR (mode_resolved_at = ? AND ("
+                        "  mode_permission IS DISTINCT FROM ? OR "
+                        "  mode_sandbox IS DISTINCT FROM ? OR "
+                        "  mode_collaboration IS DISTINCT FROM ?)))",
+                        [perm, sandbox, collab, ts, sid, ts, ts,
+                         perm, sandbox, collab],
+                    )
+                except Exception:
+                    log.debug("local store: session mode update failed "
+                              "for %s", sid, exc_info=True)
         return len(params)
 
     def query_replay_events(
@@ -17620,6 +17694,7 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
                    s.attention_state, s.attention_since, s.attention_signal,
                    s.attention_tool,
                    s.intent, s.intent_source,
+                   s.mode_permission, s.mode_sandbox, s.mode_collaboration,
                    -- Trail outcome counts from the git join (plaintext,
                    -- no subjects). 0 when no scan has linked this session.
                    (SELECT COUNT(DISTINCT l.sha) FROM git_session_commits l
@@ -17637,7 +17712,9 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
                 "last_active_at", "ended_at", "status", "total_tokens",
                 "cost_usd", "message_count", "metadata", "cwd", "git_branch",
                 "attention_state", "attention_since", "attention_signal",
-                "attention_tool", "intent", "intent_source", "commits"]
+                "attention_tool", "intent", "intent_source",
+                "mode_permission", "mode_sandbox", "mode_collaboration",
+                "commits"]
         # PR counts need the commit -> PR join; one grouped query for the
         # page rather than a correlated subquery per row.
         pr_counts: dict[str, dict[str, int]] = {}
@@ -19822,6 +19899,8 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
                             except Exception:
                                 rc = -1
                             deleted = rc if rc is not None and rc >= 0 else rows_to_drop
+                            if deleted:
+                                self._invalidate_activity_locked()
         # CHECKPOINT forces DuckDB to merge WAL → main file, reclaiming space
         # similarly to SQLite VACUUM. Cheaper than full VACUUM on large DBs.
         with self._write_lock:
@@ -19853,11 +19932,13 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
         et = (event_type or "").strip()
         if not et:
             raise ValueError("event_type is required")
-        with self._write_lock:
+        with self._write_lock, _txn(self._conn):
             before = self._conn.execute(
                 "SELECT COUNT(*) FROM events WHERE event_type = ?", [et]
             ).fetchone()[0]
             self._conn.execute("DELETE FROM events WHERE event_type = ?", [et])
+            if before:
+                self._invalidate_activity_locked()
         return {"deleted_rows": int(before), "event_type": et}
 
     def delete_security_events_by_id_prefix(self, prefix: str) -> dict[str, Any]:
@@ -19941,10 +20022,10 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
                 cur = self._conn.execute(
                     "DELETE FROM events WHERE created_at < ?", [cutoff_ms]
                 )
-                try:
-                    deleted = cur.rowcount
-                except Exception:
-                    deleted = -1
+                deleted = cur.fetchone()[0]
+                if deleted:
+                    self._invalidate_activity_locked()
+                self._prune_incidents_locked(cutoff_ms)
             # Best-effort CHECKPOINT so the on-disk file reflects the
             # delete; mirrors the post-DELETE pattern in ``_vacuum_locked``.
             try:
@@ -20081,20 +20162,21 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
             "after_bytes": int(after_bytes),
             "cap_bytes": int(LOCAL_MAX_BYTES),
         }).encode("utf-8")
-        with self._write_lock:
-            self._conn.execute(
+        with self._write_lock, _txn(self._conn):
+            inserted = self._conn.execute(
                 """
                 INSERT OR IGNORE INTO events
                   (id, agent_type, node_id, agent_id, session_id, workspace_id,
                    event_type, ts, data, cost_usd, token_count, model, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id
                 """,
                 [
                     ev_id, "clawmetry", node_id, "local_store", None, None,
                     "local_store_over_cap", ts_iso, payload, None, None, None,
                     int(time.time() * 1000),
                 ],
-            )
+            ).fetchall()
+            self._record_event_changes_locked([row[0] for row in inserted])
 
     # ── Insights fast path (feat/insights-v1) ──────────────────────────
     # Single allowlisted entry-point for hand-authored SELECT templates in
@@ -20210,15 +20292,29 @@ class LocalStore(AgentMetaMixin, ProjectsMixin, TrailStoreMixin):
             "latency_ms": latency_ms,
             "had_error":  had_error,
         }).encode()
-        with self._write_lock:
-            self._conn.execute("""
+        with self._write_lock, _txn(self._conn):
+            inserted = self._conn.execute("""
                 INSERT INTO events
                     (id, agent_type, node_id, agent_id, event_type, ts, data, created_at)
                 VALUES (?, 'clawmetry', 'local', 'dives', 'dive_run', ?, ?, ?)
-                ON CONFLICT (id) DO NOTHING
-            """, [run_id, ts, data, int(_time.time())])
+                ON CONFLICT (id) DO NOTHING RETURNING id
+            """, [run_id, ts, data, int(_time.time())]).fetchall()
+            self._record_event_changes_locked([row[0] for row in inserted])
 
     # ── User-authored dashboard panels ─────────────────────────────────
+
+    def start_assistant_job(self, *, request_id, operation, payload):
+        """Typed RPC into the already initialized daemon executor, never a fallback."""
+        from clawmetry.assistant_executor import current
+        return current(self).start(request_id=request_id, operation=operation, payload=payload)
+
+    def read_assistant_job(self, *, request_id, renew=False):
+        from clawmetry.assistant_executor import current
+        return current(self).read(request_id=request_id, renew=renew is True)
+
+    def cancel_assistant_job(self, *, request_id):
+        from clawmetry.assistant_executor import current
+        return current(self).cancel(request_id=request_id)
 
     def query_dashboard_panels(self, *, limit: int = 50) -> list[dict[str, Any]]:
         """Return saved dashboard panel definitions, newest first."""
@@ -21559,7 +21655,7 @@ def _sql_in_clause(values: tuple[str, ...]) -> str:
 # call sites (and tests) have always reached for it via ``local_store``.
 #
 # The old implementation knew exactly two numbers, both Anthropic's, and
-# measured all 32 runtimes with that ruler: a 300K GPT-5 turn read as ">100%
+# measured all 33 runtimes with that ruler: a 300K GPT-5 turn read as ">100%
 # blown" (GPT-5 is 400K, so it was at 75%), and a genuinely blown 130K
 # DeepSeek turn read as a comfortable 65%. See that module's docstring.
 from clawmetry.context_windows import (  # noqa: E402  (kept near its callers)
@@ -21742,7 +21838,7 @@ def _pick_billable_turns(rows, extra=None):
             "ts":          ts,
             "id":          ev_id,
             "session_id":  sid,
-            "extra":       extra(data, row) if extra is not None else None,
+            "extra":       extra(data, row) if extra is not None else None,  # nosec B610 - `extra` is a local callable parameter, not a Django QuerySet.extra(); no SQL here
         }
 
         epoch_s = _ts_to_epoch_s(ts)

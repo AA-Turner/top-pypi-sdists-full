@@ -64,6 +64,8 @@ from dulwich.index import (
     _has_dos_drive_prefix,
     _is_reserved_windows_device_name,
     _tree_to_fs_path,
+    apply_stat_refresh,
+    build_file_from_blob,
     build_index_from_tree,
     cleanup_mode,
     commit_tree,
@@ -111,6 +113,26 @@ def can_symlink() -> bool:
     except (NotImplementedError, OSError):
         return False
     return True
+
+
+class DeprecatedReexportTests(TestCase):
+    def test_sha1writer(self) -> None:
+        from dulwich.pack import SHA1Writer
+
+        with self.assertWarns(DeprecationWarning):
+            from dulwich.index import SHA1Writer as IndexSHA1Writer
+        self.assertIs(SHA1Writer, IndexSHA1Writer)
+
+    def test_sha1reader(self) -> None:
+        from dulwich.pack import SHA1Reader
+
+        with self.assertWarns(DeprecationWarning):
+            from dulwich.index import SHA1Reader as IndexSHA1Reader
+        self.assertIs(SHA1Reader, IndexSHA1Reader)
+
+    def test_unknown(self) -> None:
+        with self.assertRaises(AttributeError):
+            dulwich.index.NoSuchThing
 
 
 class IndexTestCase(TestCase):
@@ -316,6 +338,41 @@ class IndexPathNormalizerTestCase(TestCase):
         reopened = Index(path, path_normalizer=lambda p: p.lower())
         self.assertIn(b"Foo.txt", reopened)
         self.assertEqual(b"foo.txt", reopened.canonical_path(b"FOO.TXT"))
+
+    def test_set_verbatim_keeps_case_differing_entries(self) -> None:
+        index = Index(
+            os.path.join(self.tempdir, "idx"),
+            read=False,
+            path_normalizer=lambda p: p.lower(),
+        )
+        index.set_verbatim(b"Foo.py", self._entry())
+        index.set_verbatim(b"foo.py", self._entry())
+        self.assertEqual([b"Foo.py", b"foo.py"], sorted(index))
+        # Normalized lookup still finds the first entry inserted.
+        self.assertEqual(b"Foo.py", index.canonical_path(b"FOO.PY"))
+
+    def test_read_preserves_case_differing_entries(self) -> None:
+        path = os.path.join(self.tempdir, "idx")
+        index = Index(path, read=False)
+        entry_lower = IndexEntry(
+            ctime=(0, 0),
+            mtime=(0, 0),
+            dev=0,
+            ino=0,
+            mode=0o100644,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"1" * 40,
+        )
+        index[b"Foo.py"] = self._entry()
+        index[b"foo.py"] = entry_lower
+        index.write()
+
+        reopened = Index(path, path_normalizer=lambda p: p.lower())
+        self.assertEqual([b"Foo.py", b"foo.py"], sorted(reopened))
+        self.assertEqual(b"0" * 40, reopened[b"Foo.py"].sha)
+        self.assertEqual(b"1" * 40, reopened[b"foo.py"].sha)
 
 
 class MakePathNormalizerTests(TestCase):
@@ -567,6 +624,38 @@ class IndexEntryFromStatTests(TestCase):
                 0,
             ),
         )
+
+
+@skipIf(sys.platform == "win32", "Requires POSIX file modes")
+class BuildFileFromBlobTests(TestCase):
+    def _write(self, content: bytes, perms: int) -> bytes:
+        path = os.path.join(os.fsencode(self.mkdtemp()), b"f")
+        with open(path, "wb") as f:
+            f.write(content)
+        os.chmod(path, perms)
+        return path
+
+    def mkdtemp(self) -> str:
+        path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, path)
+        return path
+
+    def test_mode_change_with_unchanged_content(self) -> None:
+        path = self._write(b"x\n", 0o644)
+        st = build_file_from_blob(Blob.from_string(b"x\n"), 0o100755, path)
+        self.assertEqual(0o755, stat.S_IMODE(os.lstat(path).st_mode))
+        self.assertEqual(0o755, stat.S_IMODE(st.st_mode))
+
+        st = build_file_from_blob(Blob.from_string(b"x\n"), 0o100644, path)
+        self.assertEqual(0o644, stat.S_IMODE(os.lstat(path).st_mode))
+        self.assertEqual(0o644, stat.S_IMODE(st.st_mode))
+
+    def test_mode_ignored_without_honor_filemode(self) -> None:
+        path = self._write(b"x\n", 0o644)
+        build_file_from_blob(
+            Blob.from_string(b"x\n"), 0o100755, path, honor_filemode=False
+        )
+        self.assertEqual(0o644, stat.S_IMODE(os.lstat(path).st_mode))
 
 
 class BuildIndexTests(TestCase):
@@ -1661,6 +1750,63 @@ class GetUnstagedChangesTests(TestCase):
             # Neither should report changes since content is unchanged
             self.assertEqual(changes_with_ctime, [])
             self.assertEqual(changes_without_ctime, [])
+
+
+class StatRefreshTests(TestCase):
+    def _make_repo_with_file(self) -> tuple[Repo, str]:
+        repo_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, repo_dir)
+        repo = Repo.init(repo_dir)
+        self.addCleanup(repo.close)
+        fullpath = os.path.join(repo_dir, "foo")
+        with open(fullpath, "wb") as f:
+            f.write(b"stuff")
+        repo.get_worktree().stage(["foo"])
+        repo.get_worktree().commit(
+            message=b"initial",
+            committer=b"committer <email>",
+            author=b"author <email>",
+        )
+        return repo, fullpath
+
+    def test_collects_stat_drift(self) -> None:
+        repo, fullpath = self._make_repo_with_file()
+        os.utime(fullpath, (0, 0))
+        refresh: list[tuple[bytes, os.stat_result]] = []
+        list(get_unstaged_changes(repo.open_index(), repo.path, refresh_stat=refresh))
+        self.assertEqual([p for p, _ in refresh], [b"foo"])
+
+    def test_no_drift_no_collection(self) -> None:
+        repo, _ = self._make_repo_with_file()
+        refresh: list[tuple[bytes, os.stat_result]] = []
+        list(get_unstaged_changes(repo.open_index(), repo.path, refresh_stat=refresh))
+        self.assertEqual(refresh, [])
+
+    def test_modified_content_not_collected(self) -> None:
+        repo, fullpath = self._make_repo_with_file()
+        with open(fullpath, "wb") as f:
+            f.write(b"different")
+        refresh: list[tuple[bytes, os.stat_result]] = []
+        changes = list(
+            get_unstaged_changes(repo.open_index(), repo.path, refresh_stat=refresh)
+        )
+        self.assertEqual(changes, [b"foo"])
+        self.assertEqual(refresh, [])
+
+    def test_apply_stat_refresh_updates_index(self) -> None:
+        repo, fullpath = self._make_repo_with_file()
+        os.utime(fullpath, (0, 0))
+        index = repo.open_index()
+        stale_mtime = index[b"foo"].mtime
+        refresh: list[tuple[bytes, os.stat_result]] = []
+        list(get_unstaged_changes(index, repo.path, refresh_stat=refresh))
+        self.assertTrue(apply_stat_refresh(index, refresh))
+        self.assertNotEqual(index[b"foo"].mtime, stale_mtime)
+
+    def test_apply_stat_refresh_empty(self) -> None:
+        repo, _ = self._make_repo_with_file()
+        index = repo.open_index()
+        self.assertFalse(apply_stat_refresh(index, []))
 
 
 class TestValidatePathElement(TestCase):

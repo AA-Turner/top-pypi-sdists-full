@@ -17,11 +17,20 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-from filelock import AsyncFileLock, Timeout
 from PIL import Image
 
 from ultralytics.data.utils import get_split_fraction
-from ultralytics.utils import ASSETS_URL, DATASETS_DIR, LOGGER, NUM_THREADS, PLATFORM_URL, TQDM, YAML, clean_url
+from ultralytics.utils import (
+    ASSETS_URL,
+    DATASETS_DIR,
+    LOGGER,
+    NUM_THREADS,
+    PLATFORM_URL,
+    TQDM,
+    WINDOWS,
+    YAML,
+    clean_url,
+)
 from ultralytics.utils.checks import check_file
 from ultralytics.utils.downloads import download, zip_directory
 from ultralytics.utils.files import increment_path
@@ -372,7 +381,7 @@ def convert_segment_masks_to_yolo_seg(masks_dir: str, output_dir: str, classes: 
     specified output directory with the same file stems as the masks.
 
     Args:
-        masks_dir (str): The path to the directory where all mask images (png, jpg) are stored.
+        masks_dir (str): The path to the directory where all mask images (png, jpg, jpeg) are stored.
         output_dir (str): The path to the directory where the converted YOLO segmentation masks will be stored.
         classes (int): Total number of classes in the dataset, e.g., 80 for COCO.
 
@@ -403,7 +412,7 @@ def convert_segment_masks_to_yolo_seg(masks_dir: str, output_dir: str, classes: 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     for mask_path in sorted(Path(masks_dir).iterdir()):
-        if mask_path.suffix in {".png", ".jpg"}:
+        if mask_path.suffix.lower() in {".png", ".jpg", ".jpeg"}:
             with Image.open(mask_path) as im:  # palette PNGs store class ids as indices, not colors
                 mask = np.asarray(im) if im.mode == "P" else cv2.imread(str(mask_path), cv2.IMREAD_ANYDEPTH)
             img_height, img_width = mask.shape  # Get image dimensions
@@ -633,7 +642,7 @@ def yolo_bbox2segment(
 
     # NOTE: add placeholder to pass class index check
     dataset = YOLODataset(im_dir, data={"names": list(range(1000)), "channels": 3})
-    if len(dataset.labels[0]["segments"]) > 0:  # if it's segment data
+    if any(len(lb["segments"]) for lb in dataset.labels):  # segment data, any label since background images have none
         LOGGER.info("Segmentation labels detected, no need to generate new ones!")
         return
 
@@ -662,7 +671,7 @@ def yolo_bbox2segment(
                 continue
             line = (int(cls[i, 0]), *s.reshape(-1))
             texts.append(("%g " * len(line)).rstrip() % line)
-        with open(txt_file, "a", encoding="utf-8") as f:
+        with open(txt_file, "w", encoding="utf-8") as f:
             f.writelines(text + "\n" for text in texts)
     LOGGER.info(f"Generated segment labels saved in {save_dir}")
 
@@ -894,14 +903,24 @@ async def convert_ndjson_to_yolo(
         cache_path.write_text(str(result.relative_to(output_path)))
         return result
 
-    try:
-        async with AsyncFileLock(cache_path.with_suffix(".lock"), timeout=0):
-            return await convert()
-    except Timeout:
-        pass
+    loop = asyncio.get_running_loop()
+    with await loop.run_in_executor(None, open, cache_path.with_suffix(".lock"), "a") as lock:  # released on close
+        waited = False
+        while True:
+            try:
+                if WINDOWS:
+                    import msvcrt
 
-    async with AsyncFileLock(cache_path.with_suffix(".lock")):
-        if cache_path.is_file():
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except (BlockingIOError, PermissionError):  # held by another conversion (POSIX, Windows)
+                waited = True
+                await asyncio.sleep(0.05)
+        if waited and cache_path.is_file():  # reuse the result the lock holder just produced
             result = output_path / cache_path.read_text()
             marker = result / ".ndjson.yaml" if result.is_dir() else result
             if marker.is_file():

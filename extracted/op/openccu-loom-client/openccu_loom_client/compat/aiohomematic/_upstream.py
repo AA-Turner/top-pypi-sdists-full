@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 OpenCCU-Loom authors.
+# Copyright (C) 2026 SukramJ.
 
 """
 Single seam onto the ``aiohomematic`` internals the compat layer reuses.
@@ -35,6 +35,7 @@ from aiohomematic.central.events import (
     DeviceLifecycleEventType,
     DeviceRemovedEvent,
     DeviceTriggerEvent,
+    Event,
     EventBus,
     OptimisticRollbackEvent,
 )
@@ -93,6 +94,7 @@ __all__ = [
     "DeviceRemovedEvent",
     "DeviceTriggerEvent",
     "DeviceTriggerEventType",
+    "Event",
     "EventBus",
     "InboxDeviceData",
     "Interface",

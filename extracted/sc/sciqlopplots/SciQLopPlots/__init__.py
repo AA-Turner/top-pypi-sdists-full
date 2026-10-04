@@ -71,7 +71,7 @@ _register_with_shiboken_signatures()
 
 from . import tracing  # noqa: E402,F401  -- runtime tracer facade
 
-__version__ = '0.42.3'
+__version__ = '0.47.0'
 
 def _merge_kwargs(kwargs, **kwargs2):
     for k, v in kwargs2.items():
@@ -363,4 +363,129 @@ for _graph_cls in (SciQLopPlotsBindings.SciQLopSingleLineGraph,
                    SciQLopPlotsBindings.SciQLopCurve,
                    SciQLopPlotsBindings.SciQLopNDProjectionCurves):
     _graph_cls.set_color_data = _validate_color_data(_graph_cls.set_color_data)
+
+
+# --- SciQLopTimeline.set_intervals(...): numpy-friendly front end for
+# set_intervals_coded(), which only takes float64 buffers plus a first-seen
+# name table per categorical column (lane, category).
+import numpy as np
+
+
+def _epoch_seconds(values):
+    a = np.asarray(values)
+    if np.issubdtype(a.dtype, np.datetime64):
+        return a.astype("datetime64[ns]").astype(np.int64) / 1e9
+    return np.ascontiguousarray(a, dtype=np.float64)
+
+
+def _first_seen_codes(values, n):
+    if values is None:
+        return np.zeros(n, dtype=np.float64), [""]
+    a = np.asarray(values).astype(str)
+    unique, first, inverse = np.unique(a, return_index=True, return_inverse=True)
+    order = np.argsort(first)
+    rank = np.empty_like(order)
+    rank[order] = np.arange(len(order))
+    return rank[inverse].astype(np.float64), [str(u) for u in unique[order]]
+
+
+def _check_intervals(start, stop, columns):
+    if any(len(c) != len(start) for c in [stop, *columns] if c is not None):
+        raise ValueError("start, stop, lane, category, label and ids must have the same length")
+    if np.isnan(start).any() or np.isnan(stop).any():
+        raise ValueError("start and stop must not contain NaN")
+    if (stop < start).any():
+        raise ValueError("stop must not be before start")
+
+
+def _set_intervals(self, start, stop=None, lane=None, category=None, label=None, ids=None):
+    start = _epoch_seconds(start)
+    stop = start.copy() if stop is None else _epoch_seconds(stop)
+    _check_intervals(start, stop, [lane, category, label, ids])
+    lane_codes, lane_names = _first_seen_codes(lane, len(start))
+    category_codes, category_names = _first_seen_codes(category, len(start))
+    ids = np.arange(len(start), dtype=np.float64) if ids is None else np.ascontiguousarray(ids, dtype=np.float64)
+    labels = [] if label is None else [str(s) for s in label]
+    self.set_intervals_coded(start, stop, lane_codes, lane_names, category_codes, category_names,
+                             labels, ids)
+
+
+SciQLopTimeline.set_intervals = _set_intervals
+
+
+# --- SciQLopTimeline `lanes` and editing API (`editable`, `edit_modes`, `snap_to`):
+# properties over the C++ getters/setters captured below before being
+# replaced.
+_EDIT_MODES = {"move", "resize", "change_lane", "create", "delete"}
+_edit_modes_get = SciQLopTimeline.edit_modes
+_editable_get = SciQLopTimeline.editable
+_lanes_get = SciQLopTimeline.lanes
+
+
+def _set_edit_modes(self, modes):
+    unknown = set(modes) - _EDIT_MODES
+    if unknown:
+        raise ValueError(f"unknown edit modes: {sorted(unknown)}; expected {sorted(_EDIT_MODES)}")
+    self.set_edit_modes(sorted(modes))
+
+
+def _get_snap_to(self):
+    mode = self.snap_mode()
+    if mode == "times":
+        return list(self.snap_times())
+    return {"edges": "edges", "step": self.snap_step()}.get(mode)
+
+
+def _set_snap_to(self, value):
+    if isinstance(value, (list, tuple, np.ndarray)):
+        if len(value) == 0:
+            raise ValueError("snap_to times must not be empty")
+        self.set_snap_times([float(t) for t in _epoch_seconds(value).ravel()])
+    elif value is None:
+        self.clear_snap()
+    elif value == "edges":
+        self.set_snap_edges()
+    elif isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+        self.set_snap_step(float(value))
+    else:
+        raise ValueError("snap_to must be 'edges', a positive number of seconds, "
+                         "a non-empty list of times, or None")
+
+
+SciQLopTimeline.edit_modes = property(lambda self: set(_edit_modes_get(self)), _set_edit_modes)
+SciQLopTimeline.editable = property(_editable_get, SciQLopTimeline.set_editable)
+SciQLopTimeline.snap_to = property(_get_snap_to, _set_snap_to)
+SciQLopTimeline.lanes = property(_lanes_get, SciQLopTimeline.set_lanes)
+
+
+_TIMELINE_STYLES = ("wave", "bars")
+_style_get = SciQLopTimeline.style
+
+
+def _set_style(self, name):
+    if name not in _TIMELINE_STYLES:
+        raise ValueError(f"style must be one of {_TIMELINE_STYLES}, not {name!r}")
+    self.set_style(name)
+
+
+SciQLopTimeline.style = property(_style_get, _set_style)
+
+_STACK_MODES = (None, "time", "category")
+_stack_get = SciQLopTimeline.stack
+_forbid_overlap_get = SciQLopTimeline.forbid_overlap
+_category_order_get = SciQLopTimeline.category_order
+
+
+def _set_stack(self, mode):
+    if mode not in _STACK_MODES:
+        raise ValueError(f"stack must be one of {_STACK_MODES}, not {mode!r}")
+    self.set_stack(mode or "")
+
+
+SciQLopTimeline.stack = property(lambda self: _stack_get(self) or None, _set_stack)
+SciQLopTimeline.forbid_overlap = property(lambda self: bool(_forbid_overlap_get(self)),
+                                          lambda self, v: self.set_forbid_overlap(bool(v)))
+SciQLopTimeline.category_order = property(lambda self: list(_category_order_get(self)),
+                                          lambda self, names: self.set_category_order(list(names)))
+SciQLopTimeline.interval = lambda self, id: self.interval_info(int(id)) or None
 

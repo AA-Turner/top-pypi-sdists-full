@@ -32,6 +32,7 @@
 #include <type_traits>
 
 #include <cpp_utils/reflexion/enum_name.hpp>
+#include <fmt/core.h>
 
 #include <cdfpp_config.h>
 #include "cdf-helpers.hpp"
@@ -57,6 +58,21 @@ enum class cdf_majority
     return name.empty() ? "Unknown" : std::string(name);
 }
 
+
+// The digest a file ends with, over every byte before it (CDR Flags bits 2 and 3).
+enum class cdf_checksum : int32_t
+{
+    no_checksum = 0,
+    md5_checksum = 1
+};
+
+// The VDR SRecords values: how readers fill the records a file doesn't store.
+enum class cdf_sparse_records : int32_t
+{
+    no_sparse_records = 0,
+    pad_sparse_records = 1,
+    prev_sparse_records = 2
+};
 
 enum class cdf_record_type : int32_t
 {
@@ -150,6 +166,18 @@ enum class cdf_compression_type : int32_t
     return "Unknown";
 }
 
+// The CDF format stores GZIP.1 to GZIP.9; the level is passed as is to zlib or libdeflate, whose
+// scales mean the same speed/ratio trade-off without giving the same bytes.
+inline constexpr int32_t default_gzip_level = 6;
+
+[[nodiscard]] inline int32_t checked_gzip_level(int32_t level)
+{
+    if (level < 1 || level > 9)
+        throw std::invalid_argument { fmt::format(
+            "GZIP compression level must be between 1 and 9, got {}", level) };
+    return level;
+}
+
 enum class cdf_encoding : int32_t
 {
     network = 1,
@@ -172,6 +200,15 @@ enum class cdf_encoding : int32_t
     IA64VMSd = 20,
     IA64VMSg = 21
 };
+
+// The VAX and VMS D/G floating point formats aren't IEEE 754: CDFpp reads their bytes as they
+// are, and can't convert floats to them.
+[[nodiscard]] constexpr bool has_ieee_floats(cdf_encoding encoding) noexcept
+{
+    using enum cdf_encoding;
+    return encoding != VAX && encoding != ALPHAVMSd && encoding != ALPHAVMSg
+        && encoding != IA64VMSd && encoding != IA64VMSg;
+}
 
 [[nodiscard]] inline std::string cdf_encoding_str(cdf_encoding encoding) noexcept
 {

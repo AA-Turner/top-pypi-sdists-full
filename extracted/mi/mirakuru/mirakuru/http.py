@@ -22,7 +22,7 @@ import socket
 from http.client import HTTPConnection, HTTPException
 from logging import getLogger
 from typing import Any
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from mirakuru.tcp import TCPExecutor
 
@@ -43,13 +43,17 @@ class HTTPExecutor(TCPExecutor):
         method: str = "HEAD",
         payload: dict[str, str] | None = None,
         headers: dict[str, str] | None = None,
+        request_timeout: float | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize HTTPExecutor executor.
 
         :param (str, list) command: command to be run by the subprocess
         :param str url: URL that executor checks to verify
-            if process has already started.
+            if process has already started. Its path, ``;params`` and query
+            string are all sent as the request target, so a parametrised
+            readiness endpoint can be checked. A fragment, being client-side
+            only, is ignored.
         :param bool shell: same as the `subprocess.Popen` shell definition
         :param str|int status: HTTP status code(s) that an endpoint must
             return for the executor being considered as running. This argument
@@ -60,8 +64,12 @@ class HTTPExecutor(TCPExecutor):
             Defaults to HEAD.
         :param dict payload: Payload to send along the request
         :param dict headers:
+        :param float request_timeout: number of seconds a single check request
+            may take before it is given up on and retried. ``None`` or ``0``
+            falls back to the executor's own **timeout**, a negative value is
+            rejected.
         :param int timeout: number of seconds to wait for the process to start
-            or stop. If None or False, wait indefinitely.
+            or stop.
         :param float sleep: how often to check for start/stop condition
         :param int sig_stop: signal used to stop process run by the executor.
             default is `signal.SIGTERM`
@@ -69,15 +77,18 @@ class HTTPExecutor(TCPExecutor):
             default is `signal.SIGKILL`
 
         """
-        self.url = urlparse(url)
+        self.url = urlsplit(url)
         """
-        An :func:`urlparse.urlparse` representation of an url.
+        An :func:`urllib.parse.urlsplit` representation of an url.
 
         It'll be used to check process status on.
         """
 
         if not self.url.hostname:
             raise ValueError("Url provided does not contain hostname")
+
+        if request_timeout is not None and request_timeout < 0:
+            raise ValueError(f"request_timeout must not be negative, got {request_timeout}")
 
         port = self.url.port
         if port is None:
@@ -88,18 +99,26 @@ class HTTPExecutor(TCPExecutor):
         self.method = method
         self.payload = payload
         self.headers = headers
+        self._request_timeout = request_timeout
 
         super().__init__(command, host=self.url.hostname, port=port, **kwargs)
 
     def after_start_check(self) -> bool:
-        """Check if defined URL returns expected status to a check request."""
-        conn = HTTPConnection(self.host, self.port)
+        """Check if defined URL returns the expected status to a check request."""
+        conn = HTTPConnection(
+            host=self.host,
+            port=self.port,
+            timeout=min(self._request_timeout or self._timeout, self._remaining_timeout),
+        )
         try:
             body = urlencode(self.payload) if self.payload else None
             headers = self.headers if self.headers else {}
             conn.request(
                 self.method,
-                self.url.path,
+                # An empty path has to become "/", or a query-only url would
+                # send "?query" instead of an origin-form target.
+                # The fragment is client-side only and never goes on the wire.
+                urlunsplit(("", "", self.url.path or "/", self.url.query, "")),
                 body,
                 headers,
             )

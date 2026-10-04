@@ -28,6 +28,7 @@ __all__ = [
     "INFODIR",
     "PACKDIR",
     "PACK_MODE",
+    "PEEL_CACHE_SIZE",
     "BaseObjectStore",
     "BitmapReachability",
     "BucketBasedObjectStore",
@@ -44,6 +45,7 @@ __all__ = [
     "PackCapableObjectStore",
     "PackContainer",
     "PackInputTooLarge",
+    "PeelCache",
     "commit_tree_changes",
     "find_shallow",
     "get_depth",
@@ -2670,8 +2672,21 @@ class DiskObjectStore(PackBasedObjectStore):
             sha = hex_to_sha(cast(ObjectID, sha))
 
         midx = self.get_midx()
-        if midx is not None and sha in midx:
-            return True
+        if midx is not None:
+            result = midx.object_offset(sha)
+            if result is not None:
+                pack_name, _offset = result
+                # A MIDX outlives the packs it names: repack and prune write
+                # new packs and remove the old ones without rewriting it. Only
+                # answer from the MIDX once the pack it names can still be
+                # opened, as git does in fill_midx_entry, and otherwise fall
+                # through to the per-pack scan.
+                try:
+                    self._get_pack_by_name(pack_name)
+                except (KeyError, PackFileDisappeared):
+                    pass
+                else:
+                    return True
 
         # Fall back to checking individual packs
         return super().contains_packed(sha)

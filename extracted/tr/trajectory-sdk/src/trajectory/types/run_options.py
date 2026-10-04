@@ -2,10 +2,23 @@
 
 from __future__ import annotations
 
+from typing import Literal, TypeAlias
+
 from trajectory._models import BaseModel
+
+TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "reinforce_plus_plus"]
 
 
 class RunOptions(BaseModel):
+  algorithm: TrainingAlgorithm | None = None
+  """Training algorithm; omit to preserve the model default."""
+
+  train_on_truncation: bool | None = None
+  """Include truncated trajectories in training."""
+
+  train_on_ungraded: bool | None = None
+  """Include otherwise eligible trajectories without a recorded reward."""
+
   evaluation_max_samples: int | None = None
 
   evaluation_samples_per_task: int | None = None
@@ -40,7 +53,10 @@ class RunOptions(BaseModel):
   """Eligible task-instance groups per optimizer update."""
 
   samples_per_instance: int | None = None
-  """Rollout samples generated for each training instance."""
+  """
+    Rollout samples generated for each training instance; GSPO and GRPO require at least 2,
+    while Reinforce++ requires 1.
+    """
 
   n_parallel_agents: int | None = None
   """Maximum active training rollouts (per worker for legacy runs)."""

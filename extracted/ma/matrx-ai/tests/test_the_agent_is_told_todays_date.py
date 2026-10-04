@@ -71,12 +71,12 @@ def test_a_thread_that_began_days_ago_is_told_today() -> None:
     _announce_live_date(config, now=MONDAY_28)
 
     block = _live_date_block(config)
-    assert "Today is Monday, September 28, 2026" in block, block
+    assert "In UTC that falls on Monday, September 28, 2026" in block, block
     assert "2026-09-22" in block and "BEGAN" in block
     # The cached prefix is byte-identical: the fix costs no cache.
     assert str(config.system_instruction) == prefix_before
     # And the channel actually renders it for the provider.
-    assert "Today is Monday, September 28, 2026" in (config.messages.render_turn_context() or "")
+    assert "Monday, September 28, 2026" in (config.messages.render_turn_context() or "")
 
 
 def test_a_thread_pinned_to_today_in_utc_is_still_told_the_live_instant() -> None:
@@ -88,10 +88,22 @@ def test_a_thread_pinned_to_today_in_utc_is_still_told_the_live_instant() -> Non
     config = _staff_config("2026-10-03")
     _announce_live_date(config, now=datetime(2026, 10, 3, 2, 0, tzinfo=UTC))
     block = _live_date_block(config)
-    assert "Today is Saturday, October 3, 2026 — 2026-10-03T02:00Z in UTC" in block, block
+    assert "2026-10-03T02:00Z (UTC)" in block, block
     assert "BEGAN" not in block
-    assert "person's own local time" in block
+    assert "person's own local" in block
     assert "remembered from earlier" in block
+
+
+def test_the_utc_date_is_never_the_headline() -> None:
+    """Lane BC, 2026-10-03 04:54Z: 9:54 PM Friday in LA, and the block opened
+    "Today is Saturday, October 3" — the Chief said Saturday. The UTC date may be
+    named only as the UTC reading of the instant, after the instant itself."""
+    config = _staff_config("2026-09-22")
+    _announce_live_date(config, now=datetime(2026, 10, 3, 4, 54, tzinfo=UTC))
+    block = _live_date_block(config)
+    assert "Today is" not in block, block
+    assert block.startswith("The current moment is 2026-10-03T04:54Z (UTC)."), block
+    assert "never the UTC ones" in block
 
 
 def test_the_resolve_stage_announces_the_live_date() -> None:
@@ -125,7 +137,7 @@ def test_the_live_date_reaches_every_call_of_the_turn() -> None:
         ),
     )
 
-    assert "Today is Monday, September 28, 2026" in _live_date_block(after_tool_round.config), (
+    assert "Monday, September 28, 2026" in _live_date_block(after_tool_round.config), (
         "the per-turn context channel was dropped by the loop step — the second provider "
         "call of the turn no longer knows what day it is"
     )

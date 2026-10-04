@@ -16,6 +16,10 @@
 #   NPROC        Parallel build jobs        (default: nproc || 4)
 #   CMAKE_ARGS   Extra -D flags for every configure step
 
+# Pinned to the canonical commit our vendored files match, until the org's
+# always-run exemption lands upstream and the wiring is adopted (#1809).
+STANDARD_URL = https://raw.githubusercontent.com/just-buildit/just-buildit.github.io/30f8e77b/standard.mk
+
 # ── Feature flags ────────────────────────────────────────────────────────────
 # doppler is the demanding consumer: every group is on.
 HAS_C        = 1
@@ -27,6 +31,10 @@ HAS_BENCH    = 1
 HAS_COVERAGE = 1
 HAS_RELEASE  = 1
 HAS_EXAMPLES = 1
+
+# `make pr-watch PR=<n>`: canonical's (scripts/pr-watch.sh, vendored), which
+# reports whether a PR landed or is genuinely failing and never merges.
+HAS_PR_WATCH = 1
 
 # The CI toolchain image (gh-885), now the org standard's shared one
 # (just-buildit.github.io#86): every Linux CI job runs inside it, pinned with
@@ -481,6 +489,12 @@ TEST_EXCLUDE_SWEEP = $(if $(TEST_SWEEP),,-LE sweep)
 # wrapper returns the suite's own exit code when it fails. Stdlib-only, so it
 # runs on the plain python3 of every CI image and matrix leg.
 LEAK_CHECK    = python3 scripts/check_test_leaks.py
+# The shared memory ceiling (scripts/mem-guard.sh): every parallel pytest and
+# every zensical command runs inside one capped systemd slice, so the docs
+# build (6 GiB) and an xdist run cannot together exceed RAM and kill the VM --
+# which they did twice, 2026-10-01 and 2026-10-03. `MEM_GUARD=0` skips it;
+# `make mem-guard-check` fails on a heavy command that does not reach it.
+MEM_GUARD_CMD = scripts/mem-guard.sh
 TEST_CMD      = $(LEAK_CHECK) --ctest -- \
                     $(CTEST) --test-dir $(BUILD_DIR) --output-on-failure \
                     $(TEST_EXCLUDE_SWEEP)
@@ -541,7 +555,7 @@ PYTEST_BENCH_DIRS = $(wildcard src/doppler/*/benchmarks)
 # 268s step, on all SIX Python versions, ~14 minutes a run spent timing code
 # on a shared runner and discarding the numbers. Timing on a shared runner is
 # also the thing doppler#543 already deleted perf-regression.yml over.
-TEST_PYTHON_CMD = $(LEAK_CHECK) -- uv run pytest src/ -v $(PYTEST_SELECT) \
+TEST_PYTHON_CMD = $(MEM_GUARD_CMD) $(LEAK_CHECK) -- uv run pytest src/ -v $(PYTEST_SELECT) \
                       --benchmark-disable -n auto $(PYTEST_ARGS)
 TEST_RUST_CMD   = cargo test --manifest-path $(RUST_DIR)/Cargo.toml
 
@@ -803,7 +817,7 @@ WHEEL_CMD = $(UV) build --wheel
 # invocation, so a clean checkout renders identically to CI. A stale local
 # zensical.toml (gitignored, absent in CI) shadows mkdocs.yml and silently
 # truncates the nav, so it is removed before every build.
-ZENSICAL     = $(UV) run --group docs zensical
+ZENSICAL     = $(MEM_GUARD_CMD) $(UV) run --group docs zensical
 DOCS_PREPARE = @rm -f zensical.toml
 
 # The docs gate: every check runs, every failure is reported in one pass. The
@@ -1019,7 +1033,7 @@ COV_PATCH_MIN ?= 90
 # interpreter is exported rather than prefixed, because the ctest phase
 # runs from inside $(COV_DIR) and reaches the script through $(CURDIR)/ --
 # a prefix there would be taken for the path.
-COV_GUARD     ?= scripts/mem-guard.sh
+COV_GUARD     ?= $(MEM_GUARD_CMD)
 # The instrumented C suite excludes the `sweep` validators, exactly as the
 # three sanitizer suites do (SAN_EXCLUDE_SWEEP). Spelled as its own variable
 # rather than a literal so `check_instrumented_sweep.py` can resolve it, and
@@ -1392,11 +1406,20 @@ endef
 # RW_PUBLISH_JOB must stay precise: a matcher that also caught
 # "Publish container images" would read PyPI as live before it is, and one that
 # matches nothing at all would let a rerun fire after a successful publish.
-RELEASE_WATCH_CMD = @REPO=doppler-dsp/doppler RW_PKG=doppler-dsp \
-                        RW_PUBLISH_JOB="publish to pypi" \
-                        HANG_MIN=30 RW_MIN_ASSETS=8 \
-                        RW_ASSET_PATTERN='\.(tar\.gz|zip)$$' \
-                        scripts/release-watch.sh "$(VERSION)"
+#
+# The wheel-tag check runs AFTER the script verified the release, against what
+# was actually published: the script counts archives and never reads a wheel
+# name, which is how two uninstallable Windows wheels shipped (doppler#1817).
+# A canned recipe, so the second line stays doppler's and the script stays
+# verbatim.
+define RELEASE_WATCH_CMD
+@REPO=doppler-dsp/doppler RW_PKG=doppler-dsp \
+    RW_PUBLISH_JOB="publish to pypi" \
+    HANG_MIN=30 RW_MIN_ASSETS=8 \
+    RW_ASSET_PATTERN='\.(tar\.gz|zip)$$' \
+    scripts/release-watch.sh "$(VERSION)"
+@$(MAKE) -s release-wheel-tags VERSION=$(VERSION)
+endef
 
 # ── Clean ────────────────────────────────────────────────────────────────────
 CLEAN_PATHS = $(BUILD_DIR) $(PY_BUILD_DIR) $(UBSAN_DIR) $(TSAN_DIR) \
@@ -1458,12 +1481,13 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
                 export-check public-symbols \
                 vendored-collision-check \
                 ci-image-refs-check \
-                ccsds-isolation-check instrumented-sweep-check \
+                ccsds-isolation-check instrumented-sweep-check mem-guard-check \
                 container-mount-check \
                 cargo-lock-check design-pages-check wfmgen-flag-matrix \
                 gallery-scripts-check \
-                ci-run ci-gates ccache-stats pr-watch \
+                ci-run ci-gates ccache-stats \
                 wheel-check wheel-smoke release-smoke release-smoke-pypi \
+                check-wheel-tags release-wheel-tags \
                 release-smoke-packages \
                 bench-python \
                 bench-interleaved bench-publish bench-docs bench-stream \
@@ -1474,7 +1498,7 @@ LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
 # ── Vendored from canonical ──────────────────────────────────────────────────
 # Verbatim copies the drift gate holds to canonical, alongside standard.mk
 # itself. Edit canonical and re-vendor; never edit these in place.
-VENDORED_FILES = scripts/release-watch.sh scripts/pr-watch.sh
+VENDORED_FILES = scripts/release-watch.sh
 
 # Pre-commit hooks that run their own tool rather than `make -s lint-<tool>`
 # (standard.mk's hook-dispatch-check refuses any other). All four are
@@ -1558,7 +1582,7 @@ lint: tests-ssot characterization-check validation-report-check changelog-check 
       issue-link-check deps-budget-check ci-image-refs-check cargo-floor-check \
       bench-coverage-check kwarg-parity-check doc-sections-check \
       ccsds-isolation-check container-mount-check cargo-lock-check \
-      instrumented-sweep-check \
+      instrumented-sweep-check mem-guard-check \
       design-pages-check gallery-scripts-check drift-check doxygen-check
 
 # The base the assertion ratchet compares against, same shape as COV_BASE:
@@ -1867,7 +1891,7 @@ specan: ## Launch the live spectrum analyzer in a browser
 
 record-demo: ## Re-record the specan demo frames (docs/specan/frames.json)
 	uv run python -m doppler.specan.record_demo \
-	    --frames 120 --fft-size 512 \
+	    --frames 120 --rbw 4000 \
 	    -o docs/specan/frames.json
 
 # Run all plot-generating examples and copy output PNGs to docs/assets/.
@@ -3463,6 +3487,27 @@ ifndef VERSION
 endif
 	bash tests/install/wheel-smoke.sh --pypi "$(VERSION)"
 
+# Every wheel's filename must be one pip would install (doppler#1817): parsed
+# by packaging's parse_wheel_filename, and at least one of its tags among
+# cpython_tags() for its OWN Python and platform. v0.60.0 and v0.61.0 shipped
+# `cp313-cpwin_amd64-win_amd64`, which pip skips for the sdist. Two faces, one
+# script: WHEELS= is the built dist/ that release.yml checks before
+# publish-python, VERSION= is what PyPI and the GitHub Release now serve.
+# --no-install-project: a name check has no reason to build the extension.
+WHEEL_TAGS = $(UV) sync -q --group dev --no-install-project && \
+             $(UV) run --no-sync python scripts/check_wheel_tags.py
+
+check-wheel-tags: ## WHEELS="dist/*.whl" — refuse a wheel pip would never install
+	@test -n '$(WHEELS)' || { echo "usage: make check-wheel-tags WHEELS=<wheels>"; exit 2; }
+	@$(WHEEL_TAGS) $(WHEELS)
+
+release-wheel-tags: ## VERSION=x.y.z — the same check on the PUBLISHED wheels
+ifndef VERSION
+	@echo "usage: make release-wheel-tags VERSION=<x.y.z>"; exit 1
+endif
+	@$(WHEEL_TAGS) --pypi doppler-dsp $(VERSION) \
+	    --release doppler-dsp/doppler v$(VERSION)
+
 # ── The binary-hygiene gates ─────────────────────────────────────────────────
 # These inspect what the build actually produced, and each one exists because
 # the property it checks is invisible in source and expensive to discover late:
@@ -3836,32 +3881,6 @@ ci-run: ## Run `make TARGET=<goals>` inside the PINNED CI image
 ci-gates: ## Run the full gate set inside the PINNED CI image (reproduce CI)
 	@$(MAKE) --no-print-directory ci-run TARGET=gates
 
-# Report what a PR's checks did. It NEVER authorizes a merge -- that is
-# `gh pr merge <n> --auto --rebase`, which evaluates the repo's required set
-# SERVER-side and cannot be got wrong by a poll loop. Arm auto-merge first;
-# use this to find out whether the PR landed or is genuinely stuck, so a
-# failure is noticed rather than waited on forever.
-#
-# It exists because every hand-rolled version of this loop fails TOWARD green,
-# silently, and all three ways have been hit for real:
-#
-#   1. `gh run list -L 1` returns the newest run of ANY workflow on the
-#      branch, so it reports the docker job finishing while the test matrix is
-#      still queued. Bind to the PR's head SHA instead.
-#   2. Right after a force-push GitHub has not created the check runs yet, so
-#      a `grep pending` finds nothing and the loop declares victory over ZERO
-#      checks. An empty check set is not a green one.
-#   3. `gh pr checks --watch` can attach to the PRIOR run after a re-push and
-#      render its old conclusions instantly, which looks like a fast pass.
-#
-# Ported from just-buildit/just-makeit (skills://merge-set says to); REPO
-# derives from `git remote get-url origin` here rather than being required.
-#
-#   make pr-watch PR=1044
-#   make pr-watch PR=1044 TIMEOUT_MIN=90 ADVISORY="codecov/patch,flaky-thing"
-pr-watch: ## Watch PR=<n>'s checks to a settled verdict (never merges)
-	@test -n "$(PR)" || { echo "usage: make pr-watch PR=<number>"; exit 2; }
-	@bash scripts/pr-watch.sh $(PR)
 
 
 # Does every image a workflow can run in trace back to the pin file? A
@@ -3936,6 +3955,15 @@ cargo-lock-check: ## Fail when Cargo.lock's doppler version lags Cargo.toml
 # it over seeded makefiles, as `issue-link-check` does.
 instrumented-sweep-check: ## Fail when an instrumented ctest leg runs the sweep validators
 	@$(UV) run python scripts/check_instrumented_sweep.py
+
+# The VM dies, it does not fail, when RAM runs out: twice in three days the
+# docs build and an xdist pytest run took it down together, each fine alone.
+# scripts/mem-guard.sh now holds every guarded command to ONE shared slice
+# ceiling -- which only helps the commands that reach it. The rule is the
+# property: a parallel pytest or a zensical command must expand to the guard.
+# A new heavy suite is covered the day it is written.
+mem-guard-check: ## Fail when a parallel pytest or a docs build runs outside the memory guard
+	@$(UV) run python scripts/check_mem_guarded.py
 
 # A design page states what IS. The convention was written down, applied once
 # by hand to this very page -- async-dsss-receiver.md was split at 3686 lines,
@@ -4130,8 +4158,8 @@ test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
 # the macOS build job, where there is no nats-server to start). It
 # self-skips without either.
 test-examples-python: ## Run the Python example gate (requires pyext)
-	$(LEAK_CHECK) -- uv run pytest -m "examples and not examples_serial" \
-	    -q -n auto \
+	$(MEM_GUARD_CMD) $(LEAK_CHECK) -- uv run pytest \
+	    -m "examples and not examples_serial" -q -n auto \
 	    $(PYTEST_ARGS) src/doppler/tests/test_examples.py \
 	    src/doppler/tests/test_c_example_pairs.py
 	@# Exit 5 is pytest's "no tests collected", which is what an EMPTY

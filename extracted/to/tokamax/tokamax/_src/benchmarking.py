@@ -95,6 +95,16 @@ class BenchmarkData:
     return ret
 
 
+def _safe_reset_jax_profiler_state() -> None:
+  """Safely resets the internal JAX profiler state if accessible."""
+  # TODO: Remove once JAX provides a public API to reset or query active
+  # profiler sessions.
+  try:
+    jax._src.profiler._profile_state.reset()  # pylint: disable=protected-access
+  except Exception:  # pylint: disable=broad-exception-caught
+    pass
+
+
 class XprofProfileSession(contextlib.AbstractContextManager):
   """XProf context manager for profiling XLA Ops.
 
@@ -137,7 +147,7 @@ class XprofProfileSession(contextlib.AbstractContextManager):
 
     self._profile = None
     self._xprof_session = None
-    self._hermetic = hermetic
+    self._hermetic: bool = hermetic
     self.xprof_url: str | None = None
     self._jax_profiler_mode = use_jax_profiler
     if xprof_session is None or profile_data is None:
@@ -219,9 +229,29 @@ class XprofProfileSession(contextlib.AbstractContextManager):
         self._profiler_wallclock_start_time = time.perf_counter()
         self._profiler_wallclock_time = None
 
-        jax.profiler.start_trace(
-            self._profile_tempdir, profiler_options=self._profiler_options
-        )
+        try:
+          jax.profiler.start_trace(
+              self._profile_tempdir, profiler_options=self._profiler_options
+          )
+        except RuntimeError as e:
+          if 'already been started' not in str(e):
+            raise
+          logger.warning(
+              'JAX profiler session is already running; stopping stale trace'
+              ' and retrying.',
+              exc_info=True,
+          )
+          try:
+            jax.profiler.stop_trace()
+          except Exception:  # pylint: disable=broad-exception-caught
+            logger.warning(
+                'Failed to stop stale JAX profiler trace.', exc_info=True
+            )
+            _safe_reset_jax_profiler_state()
+          self._profiler_wallclock_start_time = time.perf_counter()
+          jax.profiler.start_trace(
+              self._profile_tempdir, profiler_options=self._profiler_options
+          )
         logger.info('Writing JAX profiler trace to: %s', self._profile_tempdir)
       except Exception as e:
         raise RuntimeError('Unable to start jax profiling session.') from e
@@ -233,10 +263,17 @@ class XprofProfileSession(contextlib.AbstractContextManager):
         # get profiling wallclock time right before the profiling starts
         self._profiler_wallclock_start_time = time.perf_counter()
         self._profiler_wallclock_time = None
-        self._xprof_session.start_session(
+
+        fast_kwargs = dict(
             enable_python_tracer=False,
             host_trace_level=0,
             perf_counters=False,
+        )
+        # If not hermetic, users will generally want as much profiling data in
+        # the resulting XProf session as possible.
+        session_kwargs = fast_kwargs if self._hermetic else {}
+        self._xprof_session.start_session(
+            **session_kwargs,
             **self._xprof_session_kwargs,
         )
       except Exception as e:
@@ -247,7 +284,25 @@ class XprofProfileSession(contextlib.AbstractContextManager):
     del exc_type, exc_tb
 
     if self._jax_profiler_mode:
-      jax.profiler.stop_trace()
+      try:
+        jax.profiler.stop_trace()
+      except Exception:  # pylint: disable=broad-exception-caught
+        logger.warning('Failed to stop JAX profiler trace.', exc_info=True)
+        _safe_reset_jax_profiler_state()
+        if exc_value is None:
+          raise
+
+      if exc_value is not None:
+        if (
+            not self._retain_artifacts
+            or WORKLOAD_ARTIFACTS_DIR_VARNAME not in os.environ
+        ) and (
+            self._profile_tempdir is not None and self._profile_tempdir.exists()
+        ):
+          shutil.rmtree(self._profile_tempdir, ignore_errors=True)
+        self._profile_tempdir = None
+        return
+
       # get profiling wallclock time right after the profiling ends
       end_time = time.perf_counter()
       assert (start_time := self._profiler_wallclock_start_time) is not None

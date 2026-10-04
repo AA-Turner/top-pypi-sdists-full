@@ -20,6 +20,10 @@ from tokamax._src.autotuning import arg_spec
 from tokamax._src.ops.ragged_dot import base
 
 
+QArray = base.QArray
+AsQArray = base.AsQArray
+
+
 SPEC_SHAPES = {
     'compute_bound': (
         8,
@@ -118,18 +122,17 @@ def _make_maxtext_gmm_v2_spec(
   """Make a GMM v2 spec based on MaxText shapes."""
   lhs = jax.ShapeDtypeStruct((m, k), jnp.bfloat16)
   if quantized:
-    rhs = jax.ShapeDtypeStruct((num_groups, k, n), jnp.float8_e4m3fn)
-    rhs_scale = jax.ShapeDtypeStruct(
-        (num_groups, k // block_size, 1, n), jnp.bfloat16
-    )
     args = dict(
-        lhs=lhs,
-        rhs=rhs,
+        lhs=AsQArray(lhs, jnp.float8_e4m3fn),  # pyrefly: ignore[bad-argument-type]
+        rhs=QArray(
+            qvalue=jax.ShapeDtypeStruct((num_groups, k, n), jnp.float8_e4m3fn),  # pyrefly: ignore[bad-argument-type]
+            scale=jax.ShapeDtypeStruct(  # pyrefly: ignore[bad-argument-type]
+                (num_groups, k // block_size, n), jnp.bfloat16
+            ),
+        ),
         group_sizes=base.GroupSizes(
             jax.ShapeDtypeStruct((num_groups,), dtype=jnp.int32), m
         ),
-        rhs_scale=rhs_scale,
-        maybe_quantize_lhs=True,
         preferred_element_type=jnp.bfloat16,
     )
   else:
@@ -156,25 +159,30 @@ def _make_ullm_gmm_v2_spec(
     m: int,
     k: int,
     n: int,
+    weight_dtype: jnp.dtype,
+    block_size: int,
     fuse_act: str | None = None,
     num_groups: int = 64,
     project: str = 'ullm',
     tags: tuple[arg_spec.Tag, ...] = ('primary', 'forward_only'),
 ) -> arg_spec.ArgSpec:
   """Make a ULLM MoE GMM v2 spec."""
-  lhs = jax.ShapeDtypeStruct((m, k), jnp.bfloat16)
-  rhs = jax.ShapeDtypeStruct((num_groups, k, n), jnp.float8_e4m3fn)
-  rhs_scale = jax.ShapeDtypeStruct((num_groups, 1, 1, n), jnp.bfloat16)
+  num_q_blocks = k // block_size
   group_sizes = base.GroupSizes(
       jax.ShapeDtypeStruct((num_groups,), dtype=jnp.int32),
       tuple([m // num_groups] * num_groups),
   )
   args = dict(
-      lhs=lhs,
-      rhs=rhs,
+      lhs=AsQArray(
+          jax.ShapeDtypeStruct((m, k), jnp.bfloat16), jnp.float8_e4m3fn  # pyrefly: ignore[bad-argument-type]
+      ),
+      rhs=QArray(
+          qvalue=jax.ShapeDtypeStruct((num_groups, k, n), weight_dtype),  # pyrefly: ignore[bad-argument-type]
+          scale=jax.ShapeDtypeStruct(  # pyrefly: ignore[bad-argument-type]
+              (num_groups, num_q_blocks, n), jnp.bfloat16
+          ),
+      ),
       group_sizes=group_sizes,
-      rhs_scale=rhs_scale,
-      maybe_quantize_lhs=True,
       zero_initialize=False,
       fuse_gateup_activation=fuse_act,
       preferred_element_type=jnp.bfloat16,
@@ -248,32 +256,76 @@ ARG_SPECS = (
         quantized=True,
     ),
     _make_ullm_gmm_v2_spec(
-        'gmm_v2_ullm_prefill_gate_up',
+        'gmm_v2_ullm_fp8_prefill_gate_up',
         m=81920,
         k=4096,
         n=2 * 1024,
         fuse_act='silu',
+        weight_dtype=jnp.float8_e4m3fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=4096,
     ),
     _make_ullm_gmm_v2_spec(
-        'gmm_v2_ullm_prefill_down',
+        'gmm_v2_ullm_fp8_prefill_down',
         m=81920,
         k=1024,
         n=4096,
         fuse_act=None,
+        weight_dtype=jnp.float8_e4m3fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=1024,
     ),
     _make_ullm_gmm_v2_spec(
-        'gmm_v2_ullm_decode_gate_up',
+        'gmm_v2_ullm_fp8_decode_gate_up',
         m=1280,
         k=4096,
         n=2 * 1024,
         fuse_act='silu',
+        weight_dtype=jnp.float8_e4m3fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=4096,
     ),
     _make_ullm_gmm_v2_spec(
-        'gmm_v2_ullm_decode_down',
+        'gmm_v2_ullm_fp8_decode_down',
         m=1280,
         k=1024,
         n=4096,
         fuse_act=None,
+        weight_dtype=jnp.float8_e4m3fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=1024,
+    ),
+    _make_ullm_gmm_v2_spec(
+        'gmm_v2_ullm_fp4_prefill_gate_up',
+        m=81920,
+        k=4096,
+        n=2 * 1024,
+        fuse_act='silu',
+        weight_dtype=jnp.float4_e2m1fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=64,
+    ),
+    _make_ullm_gmm_v2_spec(
+        'gmm_v2_ullm_fp4_prefill_down',
+        m=81920,
+        k=1024,
+        n=4096,
+        fuse_act=None,
+        weight_dtype=jnp.float4_e2m1fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=64,
+    ),
+    _make_ullm_gmm_v2_spec(
+        'gmm_v2_ullm_fp4_decode_gate_up',
+        m=1280,
+        k=4096,
+        n=2 * 1024,
+        fuse_act='silu',
+        weight_dtype=jnp.float4_e2m1fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=64,
+    ),
+    _make_ullm_gmm_v2_spec(
+        'gmm_v2_ullm_fp4_decode_down',
+        m=1280,
+        k=1024,
+        n=4096,
+        fuse_act=None,
+        weight_dtype=jnp.float4_e2m1fn,  # pyrefly: ignore[bad-argument-type]
+        block_size=64,
     ),
 )
 

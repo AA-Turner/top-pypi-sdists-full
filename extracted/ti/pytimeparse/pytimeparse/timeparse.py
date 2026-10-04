@@ -33,7 +33,7 @@ kinds of time expressions.
 
 import re
 
-SIGN        = r'(?P<sign>[+|-])?'
+SIGN        = r'(?P<sign>[+-])?'
 #YEARS      = r'(?P<years>\d+)\s*(?:ys?|yrs?.?|years?)'
 #MONTHS     = r'(?P<months>\d+)\s*(?:mos?.?|mths?.?|months?)'
 WEEKS       = r'(?P<weeks>[\d.]+)\s*(?:w|wks?|weeks?)'
@@ -45,7 +45,7 @@ SEPARATORS  = r'[,/]'
 SECCLOCK    = r':(?P<secs>\d{2}(?:\.\d+)?)'
 MINCLOCK    = r'(?P<mins>\d{1,2}):(?P<secs>\d{2}(?:\.\d+)?)'
 HOURCLOCK   = r'(?P<hours>\d+):(?P<mins>\d{2}):(?P<secs>\d{2}(?:\.\d+)?)'
-DAYCLOCK    = (r'(?P<days>\d+):(?P<hours>\d{2}):'
+DAYCLOCK    = (r'(?P<days>\d+)[:-](?P<hours>\d{2}):'
                r'(?P<mins>\d{2}):(?P<secs>\d{2}(?:\.\d+)?)')
 
 OPT         = lambda x: r'(?:{x})?'.format(x=x, SEPARATORS=SEPARATORS)
@@ -101,11 +101,12 @@ def _interpret_as_minutes(sval, mdict):
     >>> pprint.pprint(_interpret_as_minutes('1:24', {'secs': '24', 'mins': '1'}))
     {'hours': '1', 'mins': '24'}
     """
-    if (    sval.count(':') == 1 
+    if (    sval.count(':') == 1
         and '.' not in sval
         and (('hours' not in mdict) or (mdict['hours'] is None))
         and (('days' not in mdict) or (mdict['days'] is None))
         and (('weeks' not in mdict) or (mdict['weeks'] is None))
+        and (('mins' in mdict and mdict['mins'] is not None))
         #and (('months' not in mdict) or (mdict['months'] is None))
         #and (('years' not in mdict) or (mdict['years'] is None))
         ):   
@@ -162,20 +163,25 @@ def timeparse(sval, granularity='seconds'):
             mdict = match.groupdict()
             if granularity == 'minutes':
                 mdict = _interpret_as_minutes(sval, mdict)
-            # if all of the fields are integer numbers
-            if all(v.isdigit() for v in list(mdict.values()) if v):
-                return sign * sum([MULTIPLIERS[k] * int(v, 10) for (k, v) in
-                            list(mdict.items()) if v is not None])
-            # if SECS is an integer number
-            elif ('secs' not in mdict or
-                  mdict['secs'] is None or
-                  mdict['secs'].isdigit()):
-                # we will return an integer
-                return (
-                    sign * int(sum([MULTIPLIERS[k] * float(v) for (k, v) in
-                             list(mdict.items()) if k != 'secs' and v is not None])) +
-                    (int(mdict['secs'], 10) if mdict['secs'] else 0))
-            else:
-                # SECS is a float, we will return a float
-                return sign * sum([MULTIPLIERS[k] * float(v) for (k, v) in
-                            list(mdict.items()) if v is not None])
+            try:
+                # if all of the fields are integer numbers
+                if all(v.isdigit() for v in list(mdict.values()) if v):
+                    return sign * sum([MULTIPLIERS[k] * int(v, 10) for (k, v) in
+                                list(mdict.items()) if v is not None])
+                # if SECS is an integer number
+                elif ('secs' not in mdict or
+                      mdict['secs'] is None or
+                      mdict['secs'].isdigit()):
+                    # we will return an integer
+                    return sign * (
+                        int(sum([MULTIPLIERS[k] * float(v) for (k, v) in
+                                 list(mdict.items()) if k != 'secs' and v is not None])) +
+                        (int(mdict['secs'], 10) if mdict['secs'] else 0))
+                else:
+                    # SECS is a float, we will return a float
+                    return sign * sum([MULTIPLIERS[k] * float(v) for (k, v) in
+                                list(mdict.items()) if v is not None])
+            except ValueError:
+                # Malformed number string (e.g. '1.2.3', '.') — skip to
+                # the next time format pattern per documented behavior.
+                pass

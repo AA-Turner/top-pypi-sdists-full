@@ -169,14 +169,14 @@ def build_wide(blocks, lookup, country, admin_1, product, season_name="Main"):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--csv", default=r"C:\Users\ritvik\Downloads\tabela1612.csv")
-    p.add_argument("--lookup", default=r"D:\Users\ritvik\projects\GEO\config\brazil_mt\assets\mt_municipality_lookup.csv")
+    p.add_argument("--lookup", default=r"D:\Users\ritvik\projects\GEO\config\production\brazil_mt\assets\mt_municipality_lookup.csv")
     p.add_argument("--code-prefix", default="51",
                    help="IBGE state code prefix (51 = MT); pass '' for all-Brazil")
     p.add_argument("--product-label", default="Soja (em grão)", help="SIDRA product column")
     p.add_argument("--product", default="Soybean", help="geocif crop display name")
     p.add_argument("--country", default="Brazil")
     p.add_argument("--admin-1", default="Mato Grosso")
-    p.add_argument("--out", default=r"D:\Users\ritvik\projects\GEO\config\brazil_mt\assets\adm_crop_production_BR_MT_municipality_wide.csv")
+    p.add_argument("--out", default=r"D:\Users\ritvik\projects\GEO\config\production\brazil_mt\assets\adm_crop_production_BR_MT_municipality_wide.csv")
     a = p.parse_args(argv)
 
     blocks = parse_sidra_blocks(a.csv, a.product_label, code_prefix=a.code_prefix)

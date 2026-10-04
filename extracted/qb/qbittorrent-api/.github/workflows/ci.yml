@@ -26,7 +26,7 @@ concurrency:
 
 env:
   LATEST_PYTHON_VER: 3.14
-  LATEST_QBT_VER: v5.2.3
+  LATEST_QBT_VER: v5.2.4
   QBITTORRENTAPI_HOST: localhost:8080
   QBITTORRENTAPI_USERNAME: admin
   QBITTORRENTAPI_PASSWORD: adminadmin
@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: ${{ env.LATEST_PYTHON_VER }}
           enable-cache: true
@@ -82,40 +82,9 @@ jobs:
           fetch-depth: 0  # Fetch all refs so setuptools_scm can generate the correct version number
 
       - name: Build & Upload Package
-        uses: hynek/build-and-inspect-python-package@v2.18.0
+        uses: hynek/build-and-inspect-python-package@v3.0.1
         with:
           attest-build-provenance-github: ${{ inputs.attest }}
-
-  Tests-qBittorrent:
-    name: Release Test ${{ needs.verify.outputs.python-latest-version }} - ${{ matrix.QBT_VER }}
-    needs: [ verify, package ]
-    strategy:
-      matrix:
-        QBT_VER:
-          - v5.1.4
-          - v5.0.5
-          - v4.6.7
-          - v4.4.4
-          - v4.3.9
-          - v4.3.5
-          - v4.3.4.1
-          - v4.3.3
-          - v4.3.2
-          - v4.3.1
-          - v4.3.0.1
-          - v4.2.5
-          - v4.2.0
-          - v4.1.6
-          - v4.1.0
-    uses: ./.github/workflows/test.yml
-    secrets: inherit
-    with:
-      python-version: ${{ needs.verify.outputs.python-latest-version }}
-      qbittorrent-version: ${{ matrix.QBT_VER }}
-      qbittorrent-host: ${{ needs.verify.outputs.qbittorrent-host }}
-      qbittorrent-username: ${{ needs.verify.outputs.qbittorrent-username }}
-      qbittorrent-password: ${{ needs.verify.outputs.qbittorrent-password }}
-      is-qbt-dev: false
 
   Tests-qBittorrent-dev:
     name: Release Test ${{ needs.verify.outputs.python-latest-version }} - ${{ matrix.QBT_VER }}
@@ -150,6 +119,38 @@ jobs:
       qbittorrent-password: ${{ needs.verify.outputs.qbittorrent-password }}
       is-qbt-dev: false
 
+  Tests-qBittorrent:
+    name: Release Test ${{ needs.verify.outputs.python-latest-version }} - ${{ matrix.QBT_VER }}
+    needs: [ verify, package ]
+    strategy:
+      matrix:
+        QBT_VER:
+          - v5.3.0rc1
+          - v5.1.4
+          - v5.0.5
+          - v4.6.7
+          - v4.4.4
+          - v4.3.9
+          - v4.3.5
+          - v4.3.4.1
+          - v4.3.3
+          - v4.3.2
+          - v4.3.1
+          - v4.3.0.1
+          - v4.2.5
+          - v4.2.0
+          - v4.1.6
+          - v4.1.0
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+    with:
+      python-version: ${{ needs.verify.outputs.python-latest-version }}
+      qbittorrent-version: ${{ matrix.QBT_VER }}
+      qbittorrent-host: ${{ needs.verify.outputs.qbittorrent-host }}
+      qbittorrent-username: ${{ needs.verify.outputs.qbittorrent-username }}
+      qbittorrent-password: ${{ needs.verify.outputs.qbittorrent-password }}
+      is-qbt-dev: false
+
   coverage:
     name: Combine & Check Coverage
     runs-on: ubuntu-latest
@@ -160,7 +161,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 
@@ -192,7 +193,7 @@ jobs:
 
       - name: Upload Coverage to Codecov
         if: contains(fromJson('["push", "pull_request"]'), github.event_name)
-        uses: codecov/codecov-action@v7.0.0
+        uses: codecov/codecov-action@v7.1.1
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -212,7 +213,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: ${{ env.LATEST_PYTHON_VER }}
           enable-cache: true

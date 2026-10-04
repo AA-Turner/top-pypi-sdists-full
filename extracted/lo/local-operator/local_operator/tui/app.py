@@ -283,6 +283,7 @@ from local_operator.tui.network_cli import (
     QUICK_TIMEOUT_S,
     NetworkRun,
     created_session_id,
+    gesture_call_timeout,
     run_network,
     tui_spelling,
 )
@@ -406,9 +407,12 @@ from local_operator.tui.widgets.projects_send import (
     refusal_notice,
     sent_line,
 )
+from local_operator.tui.widgets.projects_start import StartTarget, start_targets
 from local_operator.tui.widgets.projects_view import (
     ProjectsView,
+    ProjectsViewAttachmentCopied,
     ProjectsViewAttachmentOpened,
+    ProjectsViewAttachmentPreviewRequested,
     ProjectsViewComposeChanged,
     ProjectsViewDismissed,
     ProjectsViewFormSubmitted,
@@ -416,6 +420,7 @@ from local_operator.tui.widgets.projects_view import (
     ProjectsViewMilestoneToggled,
     ProjectsViewRefreshRequested,
     ProjectsViewSendRequested,
+    ProjectsViewStartRequested,
 )
 from local_operator.tui.widgets.reasoning import DEFAULT_REASONING, ReasoningBlock
 from local_operator.tui.widgets.session_picker import (
@@ -2920,6 +2925,26 @@ CREDENTIAL_PLACEHOLDER = "Type or paste the secret… — masked; Enter chips it
 #: same channel bang-mode, the aside and the credential arm share — see
 #: ``_composer_placeholder_for``, the one owner of that swap.
 ASK_ANSWER_PLACEHOLDER = "Answer the question above… — Enter sends it to the ask"
+
+#: How often the ask surfaces re-derive their countdown while a row is present.
+#:
+#: ``expiry_text`` reads ``expires_at`` against the client clock AT PAINT TIME
+#: (§5's copy contract) — and every paint used to be driven by a frontend
+#: snapshot, so a surface the user had left open froze its own "expires in 42m"
+#: until the next wire event: a deadline could pass while the row still named a
+#: minute that no longer existed. This interval is what re-derives the copy
+#: without an event, at the fine end of the 30-60 s band the audit set.
+#:
+#: One timer repaints EVERY row from one ``now`` rather than a timer per row,
+#: and the period is coarse relative to the shortest thing the row says: the
+#: words are minute-granular above a minute (where the freeze was visible) and
+#: second-granular below it, so a sub-minute row can trail by up to one period
+#: before it reads "expiring". That is the deliberate trade: the state that
+#: matters there arrives within a tick, and a finer clock would repaint every
+#: open surface for a word that changes nothing the user does in that half
+#: minute. The timeout ITSELF is the queue's, off in the runtime — this timer
+#: is a repaint, never a second authority on when an ask dies.
+ASK_COUNTDOWN_TICK_S = 30.0
 
 #: Shown where ``/credential``'s argument rows would be while a capture is
 #: armed. The rows are suppressed there (see ``_credential_choices``), and a
@@ -5548,6 +5573,11 @@ class OperatorApp(App[None]):
         self._ask_card: AskPickerScreen | None = None
         #: The queue list widget while it is mounted, else None.
         self._ask_list: AskQueueList | None = None
+        #: The interval that keeps a painted countdown honest while rows exist,
+        #: else None. Started and stopped by `_sync_ask_tick` — the ONE clock
+        #: this surface has, and only ever armed while there is something to
+        #: repaint (see that method for why a timer is needed at all).
+        self._ask_tick: Timer | None = None
         #: Whether the mounted CARD was opened out of the list. Escaping such a
         #: card hands the user back to the list they were choosing in rather
         #: than all the way out to the minimized bar (UX round 1, U6). Cleared
@@ -25544,9 +25574,13 @@ class OperatorApp(App[None]):
     #   reads the app-level slot and answers "a card is owed" for a source with
     #   no gate at all.
     #
-    # * No timer, no clock and no notification here. The countdown is derived
-    #   from ``expires_at`` at paint time (§5's copy contract) and the timeout
-    #   itself is the queue's, off in the runtime.
+    # * ONE timer, and only while rows exist — ``_sync_ask_tick``. The countdown
+    #   is still derived from ``expires_at`` at paint time (§5's copy contract)
+    #   and the timeout is still the queue's, off in the runtime, so the timer
+    #   is not a second authority on when an ask dies: it exists because a
+    #   derivation that only runs on a frontend snapshot FREEZES when the wire
+    #   goes quiet, which is how "expires in 42m" outlived its own deadline on
+    #   a surface the user was looking at.
 
     def _sync_ask_surface(self, rows: list[AskRow]) -> None:
         """Reconcile the bar, the card and the drafts with the wire's asks.
@@ -25589,8 +25623,10 @@ class OperatorApp(App[None]):
             # surface for a feature its runtime does not have.
             self._ask_rows = []
             self._ask_bar.set_state(count=0, expanded=False, present=False)
+            self._sync_ask_tick()
             return
         self._ask_rows = list(rows)
+        self._sync_ask_tick()
         self._paint_ask_bar()
         if self._ask_list is not None:
             # The OPEN LIST follows the wire while it is up, which it did not
@@ -25623,9 +25659,7 @@ class OperatorApp(App[None]):
             # Nothing left to answer at all: a list of zero rows is dead chrome
             # holding the composer hostage.
             self._collapse_asks()
-        self._sync_sidebar_asks(
-            len([row for row in self._open_ask_rows() if row.status == STATUS_OPEN])
-        )
+        self._sync_sidebar_asks(len(self._open_ask_rows()))
 
     @staticmethod
     def _ask_now_ms() -> int:
@@ -25647,10 +25681,14 @@ class OperatorApp(App[None]):
         had to be made: a late answer is an ANSWER (the agent was told, one
         deadline too late), so offering it an answer box can only be refused —
         and the bar counted it as an owed question for as long as it stayed in
-        this list. ``ask_rows`` drops it for the same reason; both gates read
-        the same two statuses.
+        this list.
+
+        The rule is ``AskRow.answerable``, which reads the fold's own
+        ``OUTSTANDING_STATUSES`` — the same set the wire's tally and the index
+        use, so a timed-out-but-answerable ask can never be counted by one
+        surface and dropped by another.
         """
-        return [row for row in self._ask_rows if row.status in (STATUS_OPEN, STATUS_TIMED_OUT)]
+        return [row for row in self._ask_rows if row.answerable]
 
     @staticmethod
     def _ask_head_text(rows: list[AskRow]) -> str:
@@ -25823,6 +25861,56 @@ class OperatorApp(App[None]):
             present=bool(answerable),
             timed_out=len(answerable) - len(waiting),
         )
+
+    def _sync_ask_tick(self) -> None:
+        """Run the countdown clock for exactly as long as a row is present.
+
+        THE ONE CLOCK THESE SURFACES HAVE. ``expiry_text`` is derived at paint
+        time from the row's own deadline, so nothing else in the app has to be
+        told the clock moved — but a derivation that only ever runs on a
+        frontend snapshot freezes when the wire goes quiet, which is how an
+        open list kept saying "expires in 42m" for a deadline that had already
+        passed. This interval is the missing event. One timer repaints every row
+        from one ``now`` (not a timer per row), and it is armed on the ROWS
+        being present rather than on the list being mounted: the list can be
+        mounted and unmounted between two snapshots, so following the mount
+        would need a second call site for no gain — the tick is a no-op
+        whenever nothing paints a deadline (see ``_on_ask_tick``).
+
+        Stopped, never merely paused, when the last row leaves: a session with
+        no asks, or a build with the flag off, must carry no clock at all.
+        Idempotent, and guarded on ``is_running`` the way ``ToolCard``'s clock
+        is — a card built but not mounted (which every unit test holding one
+        directly is) has no loop to schedule against, and ``set_interval``
+        raises out of a lifecycle method there.
+        """
+        from local_operator.asks import policy
+
+        if policy.enabled() and self._ask_rows:
+            if self._ask_tick is None and self.is_running:
+                self._ask_tick = self.set_interval(ASK_COUNTDOWN_TICK_S, self._on_ask_tick)
+            return
+        if self._ask_tick is not None:
+            self._ask_tick.stop()
+            self._ask_tick = None
+
+    def _on_ask_tick(self) -> None:
+        """Repaint the countdown-bearing surface from the current clock.
+
+        Only the LIST paints a deadline (``expiry_text``), so only the list is
+        repainted: the bar's copy is derived from the counts and the head
+        question, and no clock can change any of them, so a bar repaint here
+        could only ever be a no-op refresh. The rows are NOT rebuilt — the
+        clock moved and nothing else did — which is also why the highlight
+        cannot be re-derived from under the user.
+
+        A row inside its last minute therefore trails by up to one period
+        before it reads ``expiring``: that is ``ASK_COUNTDOWN_TICK_S``'s
+        documented trade, not an oversight — the alternative is repainting
+        every open surface every second for a word nothing acts on.
+        """
+        if self._ask_list is not None:
+            self._ask_list.set_now(self._ask_now_ms())
 
     def _sync_ask_composer(self, *, restore_draft: bool = True) -> None:
         """Apply the composer's mode: placeholder, draft and focus in one place."""
@@ -26030,6 +26118,22 @@ class OperatorApp(App[None]):
                     outcome = {"ok": False, "error": "the answer could not be delivered"}
                 self._handle_ask_outcome(outcome, toast=False)
             self._ask_drafts.pop(ask_id, None)
+            # ONE QUEUE COSTS ONE COLLAPSE, not one per answer. The card was
+            # opened OUT of the list, so finishing it hands the user back to
+            # that same list at the NEXT outstanding ask — the row that slides
+            # into the place the answered one leaves — instead of collapsing to
+            # the bar and making them re-expand (and re-hunt) for every ask
+            # left. Nothing outstanding still collapses: a list of rows nobody
+            # owes an answer to is dead chrome, and the answered ask's own row
+            # is excluded from the walk because the wire has not dropped it
+            # yet. This mirrors the partial-map route below, which already
+            # returns to the list at the row the user came from.
+            if self._ask_from_list:
+                following = self._next_outstanding_ask(ask_id)
+                if following is not None:
+                    self._clear_ask_surface()
+                    self._mount_ask_list(highlight=following.ask_id)
+                    return
         elif self._ask_from_list and self._ask_list is None:
             # A PARTIAL map means the user Escaped mid-walk (§5.0/D5: a
             # back-out is never an answer). If they picked this ask out of the
@@ -26042,10 +26146,37 @@ class OperatorApp(App[None]):
             else:  # pragma: no cover - the fold emptied under the card
                 self._collapse_asks()
             return
-        # A submit collapses too: §5.0's "answering one collapses the surface
-        # (TUI, which returns to work)". The card is already settled, so the
-        # collapse only has to take it down and give the composer back.
+        # A submit from a CARD THAT WAS NOT PICKED OUT OF THE LIST still
+        # collapses: there was no list to return to, and a single ask's card
+        # answers §5.0's "returns to work" case — the composer comes back and
+        # the conversation is theirs again. (The list route above is the
+        # multiple-ask case, where "work" is the next answer.)
         self._collapse_asks()
+
+    def _next_outstanding_ask(self, ask_id: str) -> AskRow | None:
+        """The ask to hand the user after ``ask_id`` settles, or None.
+
+        The list is a PLACE, so "next" is positional: the rows AFTER the
+        answered one come first, and when it was the last of them the walk falls
+        back to the last outstanding row BEFORE it — the row that moves up into
+        the space the answered one leaves is the row the user was about to
+        reach.
+
+        ``answerable`` is the same predicate the bar, the list and the fold
+        count with, so a row the user owes nothing on (timed out and dismissed,
+        late, declined) is never handed over.
+
+        ``ask_id`` is guaranteed present in ``self._ask_rows``: the only caller
+        is the submit branch of ``_on_queue_ask_settle``, which found that very
+        row in the list to decide the answer complete, and nothing between the
+        two awaits. ``ids.index`` is therefore the honest lookup — a fallback
+        for a missing row would be a branch no caller can reach.
+        """
+        rows = self._ask_rows
+        ids = [row.ask_id for row in rows]
+        at = ids.index(ask_id)
+        candidates = [*rows[at + 1 :], *reversed(rows[:at])]
+        return next((row for row in candidates if row.answerable), None)
 
     def _submit_ask_answer(self, text: str) -> None:
         """Route a composer submission into the expanded queued ask.
@@ -31452,7 +31583,7 @@ class OperatorApp(App[None]):
         )
 
     def _cmd_move_session(self, request: "MoveTo", notice: NoticeFn) -> None:
-        """``/move [<id>] --to <peer|local> [--keep]`` — move a SESSION between devices.
+        """``/move [<id>] --to <peer|local> [--keep] [--queue]`` — move a SESSION.
 
         THE CLI OWNS THE PROTOCOL (``lop sessions move … --json``, slice M's
         frozen ``session_move`` contract) and this surface renders it: the phase
@@ -31470,6 +31601,13 @@ class OperatorApp(App[None]):
         that was never going to happen. On ``committed`` the moved session is
         reopened where it now lives: attached-remote for ``--to <peer>``, local
         for ``--to local``.
+
+        ``--queue`` IS THE TWO GUARDS' OWN REMEDY (design §5.4): a turn in
+        flight and a viewer parked elsewhere are exactly the blockers the queued
+        move waits out — the merged queue path records the intent durably and
+        announces attached clients at the safe point instead of refusing — so a
+        request carrying the flag must not be refused here for the conditions
+        the queue exists to wait for.
         """
         current = str(getattr(self._session, "session_id", "") or "")
         target_id = request.session_id or current
@@ -31484,7 +31622,13 @@ class OperatorApp(App[None]):
             self._system_notice("a move is already running.", "warning")
             return
         leaving = target_id == current
-        if leaving and self._turn_is_live():
+        # ``--queue`` STANDS BOTH GUARDS BELOW DOWN (§5.4): they exist to avoid a
+        # leave-then-refuse dead end on exactly the two blockers the queue was
+        # built to wait out — a turn in flight, and an attached viewer — and the
+        # merged queue path converts both into a durable intent
+        # (``mobility._source_prepare``'s enqueue branch). A queued request
+        # refused here would be answered with the wait it asked to schedule.
+        if leaving and self._turn_is_live() and not request.queue:
             self._system_notice(
                 f"Could not move {target_id}: a turn is still running. Nothing changed. "
                 "esc first, or wait for it to finish.",
@@ -31497,7 +31641,7 @@ class OperatorApp(App[None]):
         # terminal" — this one. Refused here in words that say which terminal,
         # before anything moves; the relay-side backstop covers every other holder.
         held = self._sidebar_sources.get(target_id)
-        if not leaving and held is not None and not held.retired:
+        if not leaving and held is not None and not held.retired and not request.queue:
             self._system_notice(
                 f"Could not move {target_id}: this terminal is still holding it open in the "
                 "sidebar. Open it and run /move --to from inside it, or wait a moment for "
@@ -31519,7 +31663,11 @@ class OperatorApp(App[None]):
                     # `_retire_unused_runtime`).
                     await self._leave_for_move()
                 result = await asyncio.to_thread(
-                    run_session_move, target_id, request.to, keep=request.keep
+                    run_session_move,
+                    target_id,
+                    request.to,
+                    keep=request.keep,
+                    queue=request.queue,
                 )
             finally:
                 self._move_in_flight = False
@@ -31593,6 +31741,12 @@ class OperatorApp(App[None]):
                 tail = " Nothing changed."
             message = str(result.get("message") or "the move was refused")
             text = f"Could not move {session_id}: {message}.{tail}".replace("..", ".")
+            if str(result.get("code") or "") == "viewed_elsewhere":
+                # THE BLOCKER A WAIT CANNOT CLEAR (``mobility``'s taxonomy split,
+                # design §5.4): seen in another window or app, the queue is the
+                # route that works — the producer's own sentence says "queue the
+                # move", and this line carries the spelling THIS surface runs.
+                text += f" To queue it from here: /move {session_id} --to {request.to} --queue."
             if reached in MOVE_PHASE_ORDER:
                 # A PARTIAL MOVE KEEPS ITS PHASE ROW: which step it reached is
                 # the fact the user needs to know what state the two devices are in.
@@ -31613,6 +31767,70 @@ class OperatorApp(App[None]):
                 # them moves it. Reopening where it LIVES is the one answer that
                 # covers both placements the pick knows: a peer's id opens
                 # attached-remote, a local id resumes.
+                self._reopen_where_the_session_lives(session_id)
+            return
+        if isinstance(result.get("queue"), dict):
+            # THE QUEUED RECEIPT (design §5.4): a success, but nothing has moved
+            # yet — the intent is durable on the source and runs by itself at
+            # the next safe point. ONE sentence, like a pre-phase refusal (there
+            # is no move-phase row to track, and the phases below are the
+            # QUEUE's own vocabulary); the glosses speak product words, the same
+            # mapping the CLI's receipt uses, and the cancel hint is PHASE-AWARE
+            # because it is a lie once the move has started
+            # (``move_queue.cancel`` answers ``too_late`` from ``paused`` on).
+            queue_block = result["queue"]
+            phase = str(result.get("phase") or queue_block.get("phase") or "queued")
+            target = str(
+                queue_block.get("to_name")
+                or (result.get("to_device") or {}).get("name")
+                or request.to
+                or "another device"
+            )
+            notes = {
+                "queued": "waiting for a safe point",
+                "finishing": (
+                    "waiting for the current step to finish (a pending approval holds " "this up)"
+                ),
+                "paused": "the move has started",
+                "copying": "the move has started",
+                "resumed": f"it has arrived on {target}",
+            }
+            note = notes.get(phase, "")
+            head = f"Queued a move of {session_id} to {target}"
+            head += f" — {note}." if note else "."
+            if phase == "resumed":
+                text = head + " It is no longer running on this device."
+            elif phase in ("paused", "copying"):
+                text = head + (
+                    f" It can no longer be cancelled; the conversation continues on {target}."
+                )
+            else:
+                # THE CANCEL CLAUSE NAMES A PRODUCT ACTION, NEVER A TERMINAL
+                # COMMAND (design §2.9, frozen; design review round 1, D1): the
+                # composer carries no cancel verb (slice (e) scope), so a clause
+                # naming the CLI's `--cancel-queued` would hand its reader a
+                # spelling this surface refuses — it points at the product's own
+                # route instead, the register the anchor remedies already use.
+                text = (
+                    head + " Windows open on it are told first and get a moment to follow; any "
+                    "that can't will be disconnected, and the conversation continues on "
+                    f"{target}. It can still be cancelled before it starts — ask Local Operator "
+                    "to cancel the queued move."
+                )
+            if phase_notice.is_attached:
+                self._transcript_view().remove_block(phase_notice)
+            # `note`, not `info` (design review round 1, D2): these are multi-line
+            # prose receipts answering the request the user just made, and
+            # `info`'s `dim` token is #837c6d on BOTH ramps — 3.77:1 on light
+            # paper, under the 4.5:1 AA floor. `note` rides `muted` (7.18:1
+            # light, 8.62:1 dark), which is what transcript.py's docstring names
+            # for a receipt the user is actively reading.
+            self._system_notice(text, "note")
+            if left:
+                # THE QUEUED REQUEST STILL LEFT THE SESSION, and the conversation
+                # has NOT moved — reopen where it lives, the same way back every
+                # refusal after a leave owes; the safe point's announce-then-
+                # proceed path is what hands the conversation over later.
                 self._reopen_where_the_session_lives(session_id)
             return
         phase_notice.restate(self._move_phase_text(session_id, request, phases), "info")
@@ -33846,6 +34064,10 @@ class OperatorApp(App[None]):
             updated_at=_time.time(),
             own_session=self._own_session_id(),
         )
+        # The start picker's rows ride the same seed (P5b): the page never reads
+        # a registry, so the host hands them over while it is still building the
+        # first frame rather than on the keypress that opens the card.
+        page.set_start_rows(self._start_picker_rows())
 
     def _close_projects_view(self) -> bool:
         """Leave the projects mode and put the conversation back. True if open.
@@ -33943,6 +34165,41 @@ class OperatorApp(App[None]):
             updated_at=_time.time(),
             own_session=self._own_session_id(),
         )
+        view.set_start_rows(self._start_picker_rows())
+
+    def _start_picker_rows(self) -> list[StartTarget]:
+        """The start picker's rows, from the SAME catalogues the desktop pane reads.
+
+        ``team_catalogue``/``profile_catalogue`` are the desktop new-chat
+        picker's own two projections, so the TUI and the pane offer one list of
+        teams and agents rather than two that drift — and the names they carry
+        are the ADDRESSING keys ``validate_target`` resolves, which is what the
+        create body and the session's attachment sidecar both need.
+
+        Never raises: an unreadable registry degrades to an empty catalogue, and
+        the card then says so (`no teams registered`) with the plain row still
+        offered — the honest reading of an install that has none.
+        """
+        from local_operator.paths import config_dir
+
+        root = config_dir()
+        teams: list[Any] = []
+        agents: list[Any] = []
+        try:
+            from local_operator.server.utils.desktop_profiles import team_catalogue
+            from local_operator.teams import TeamRegistry
+
+            teams = team_catalogue(TeamRegistry(root))
+        except Exception:  # noqa: BLE001 — a picker is not a place to crash
+            logger.debug("projects: could not read the team catalogue", exc_info=True)
+        try:
+            from local_operator.agents import AgentRegistry
+            from local_operator.server.utils.desktop_profiles import profile_catalogue
+
+            agents = profile_catalogue(AgentRegistry(root))
+        except Exception:  # noqa: BLE001 — same
+            logger.debug("projects: could not read the agent catalogue", exc_info=True)
+        return start_targets(teams=teams, agents=agents)
 
     def on_projects_view_attachment_opened(self, message: ProjectsViewAttachmentOpened) -> None:
         """`↵` on an attachment row: hand the copied file to the OS (spec §7.4).
@@ -33995,6 +34252,121 @@ class OperatorApp(App[None]):
             # The path is repeated because this is the failure a reader can act
             # on themselves — the rule the link-opener's receipt states.
             view.show_notice(f"could not open {name} — the path is {path}")
+
+    def on_projects_view_attachment_copied(self, message: ProjectsViewAttachmentCopied) -> None:
+        """`y` on an attachment row: put the stored path on the clipboard (§7.4).
+
+        The app's OWN clipboard core (``copy_to_clipboard``, the OSC 52 write the
+        `/copy` picker uses), so the page adds no second way to reach the
+        clipboard — and the receipt names the FILE rather than echoing the path,
+        because the path is the thing the reader has just put somewhere they can
+        see it. No clipboard at all is not a case to invent here: the write is
+        the same one every other copy affordance makes.
+        """
+        message.stop()
+        view = self._projects_view
+        if view is None:
+            return
+        if not message.path:
+            view.show_notice(f"'{message.name}' has no stored path to copy")
+            return
+        self.copy_to_clipboard(message.path)
+        # The receipt names the STORED copy, because that is the name the
+        # clipboard's path ends in: a reader pasting it into a shell or a
+        # report gets `<hash>.png`, and a receipt saying only `copied the path
+        # to board.png` names a file they will not find (UX review round 1,
+        # U3).
+        view.show_notice(f"copied the stored copy's path for {message.name}")
+
+    def on_projects_view_attachment_preview_requested(
+        self, message: ProjectsViewAttachmentPreviewRequested
+    ) -> None:
+        """`space` on an image attachment: read the copy, show the pixels (§7.4).
+
+        The page cannot read a file, so this is the host half of the handshake:
+        the bytes are read off the UI loop (a worker thread, bounded — a stored
+        copy is at most 5 MB, so only a stalled mount can be slow) and then
+        handed back through ``show_attachment_preview``. The in-flight line goes
+        up first because the read is a real await, and it is CLEARED on success
+        rather than replaced: the picture is its own receipt. A read that
+        answers ``None`` states that sentence and changes nothing else — the
+        row stays exactly as it was, which is the opener's own contract.
+        """
+        message.stop()
+        view = self._projects_view
+        if view is None:
+            return
+        path = message.path
+        if not path:
+            view.attachment_preview_failed(path=path)
+            view.show_notice(f"'{message.name}' has no stored path to preview")
+            return
+        from pathlib import Path
+
+        if not Path(path).exists():
+            # Every refusal below must ALSO clear the in-flight mark the page
+            # set when it asked: a path left pending turns the next `space` on
+            # that row into a cancel (agent review round 1, M2).
+            view.attachment_preview_failed(path=path)
+            view.show_notice(
+                f"{message.name} is missing on disk — its stored copy was moved or deleted"
+            )
+            return
+        view.show_notice(f"reading {message.name}…")
+        self.run_worker(
+            self._preview_attachment(message.name, path, message.project_name),
+            group="preview-attachment",
+        )
+
+    async def _preview_attachment(self, name: str, path: str, project_name: str) -> None:
+        """The off-loop half of the preview read (spec §7.4, staged part).
+
+        ``answered`` is what the page's in-flight mark turns on: every exit
+        that does not hand a payload back must drop it, or the path stays
+        pending and the NEXT `space` on that row is read as a cancel — a lit
+        key answering the opposite of what it says. The reader's own contract
+        (``read_for_preview`` answers ``None`` rather than raising) is honoured
+        one level in: an exception is a bug in the read, not something to
+        crash the worker with, so it is logged and answered with the honest
+        sentence — and the ``finally`` covers the exits nobody planned for
+        (agent review round 2, N1).
+        """
+        from local_operator.tui.attachments import read_for_preview
+
+        answered = False
+        try:
+            try:
+                payload = await read_for_preview(path)
+            except Exception:  # noqa: BLE001 — see the docstring: answer, do not raise
+                logger.debug("attachment preview read raised", exc_info=True)
+                payload = None
+            view = self._projects_view
+            if view is None:
+                return
+            if payload is None:
+                view.attachment_preview_failed(path=path)
+                # The sentence names the FACT and nothing else: the earlier
+                # `… the path is <path>` overflowed the footer at every width and
+                # its prefix cut left a plausible-looking but invalid path, while
+                # the path row above already carries the file (design review round
+                # 1, D2).
+                view.show_notice(f"could not read {name} — the stored copy is unreadable")
+                return
+            data_b64, mime_type = payload
+            view.show_attachment_preview(
+                path=path,
+                data_b64=data_b64,
+                mime_type=mime_type,
+                project_name=project_name,
+            )
+            answered = True
+            # The picture is the receipt; the in-flight line must not outlive it.
+            view.show_notice("")
+        finally:
+            if not answered:
+                view = self._projects_view
+                if view is not None:
+                    view.attachment_preview_failed(path=path)
 
     def on_projects_view_milestone_toggled(self, message: ProjectsViewMilestoneToggled) -> None:
         """`↵` on a milestone row: flip completion through the store, re-show.
@@ -34104,6 +34476,250 @@ class OperatorApp(App[None]):
         except Exception:
             pass
 
+    def on_projects_view_start_requested(self, message: ProjectsViewStartRequested) -> None:
+        """`s` picked a row: boot a session for the project and hand off (P5b).
+
+        The whole flow runs in ONE worker, off the loop, because every step is
+        disk or process work: the create writes the session directory and its
+        attachment sidecar, the engage spawns a detached runtime, and the link
+        edits the project store. The card is told it is pending BEFORE the
+        worker's first await, so the surface says what is happening during the
+        seconds a runtime spawn takes.
+
+        FAILURE IS ANSWERED IN THE CARD, and the page never switches: a refusal
+        sentence with the rows still up leaves the reader exactly where they
+        asked, able to pick another row or close. Nothing about the page's
+        state changes on a failed start.
+        """
+        message.stop()
+        view = self._projects_view
+        if view is None:
+            return
+        view.start_pending()
+        # NOT exclusive: an exclusive worker cancels its group's other members,
+        # and the group here is the app's default one — an in-flight quick-send
+        # or engine worker is nobody's business to cancel. The card's own
+        # pending state is what refuses a second start (the sibling send
+        # handler's choice, one surface over).
+        self.run_worker(
+            self._start_project_session_worker(
+                view.start_refusal,
+                lambda: view.start_cancelled,
+                view.show_notice,
+                message.project_id,
+                message.target,
+            ),
+            exclusive=False,
+            exit_on_error=False,
+        )
+
+    async def _start_project_session_worker(
+        self,
+        refuse: Any,
+        view_cancelled: Any,
+        announce: Any,
+        project_id: str,
+        target: StartTarget,
+    ) -> None:
+        """Create → link → kick off → hand off, in that order and no other.
+
+        THE ORDER IS THE CONTRACT. The desktop create core writes the session
+        directory AND its attachment sidecar, so the team/agent the row names is
+        already in the facts the session LOADS before any runtime exists for it
+        — engaging first would boot a session that resolves its own default and
+        then belong to nobody in particular. The link follows the create because
+        it needs the id the create mints, and the appeal is made before the
+        hand-off so a refusal leaves the reader on the page they asked from.
+
+        ``announce`` is the PAGE's notice row (`show_notice`), the channel this
+        card's other outcomes already use: the transcript copy of the cancelled
+        receipt stays (it is the durable record), but the reader who just
+        escaped an impatient start is standing on the projects page, and a
+        sentence behind it is a sentence nobody reads (UX review round 2, U12).
+
+        The kickoff prompt is the spec's sentence plus the `@project:<name>`
+        reference (§7.6.3), expanded HERE through the app's own resolver: the
+        errand path bypasses the composer, so nothing downstream would expand it,
+        and the reference is what carries the project's title, status,
+        description, progress, milestones and todos into the new session as the
+        snapshot block rather than as a bare sentence.
+
+        ``view_cancelled`` answers whether the reader dismissed the card while
+        this ran; when they did, the session still stands and the hand-off does
+        not (agent review round 1, F5).
+        """
+        registry = self._project_registry()
+        project = None
+        if registry is not None:
+            try:
+                project = await asyncio.to_thread(registry.get_project, project_id)
+            except Exception:  # noqa: BLE001 — the page's own read failed
+                project = None
+        if project is None:
+            refuse("could not start a session: the project is no longer in the store")
+            return
+
+        # THE APP'S OWN ANSWER for "the directory this session works in"
+        # (agent review round 1, F7): identical to `os.getcwd()` for a local
+        # session and correct for an attached one, which is the case the fork
+        # path already opens a child in (app.py's `action_fork_aside`). It
+        # feeds BOTH the create's cwd and the `@project:` expansion, so the two
+        # cannot come from different directories.
+        cwd = self.session_cwd()
+        try:
+            session_id = await self._create_project_session(cwd, target)
+        except KeyError:
+            # The create core validates the target through the registries and
+            # answers an unknown name with a bare ``KeyError`` (its own
+            # contract, shared with the HTTP route). A bare `'ghost'` is not a
+            # sentence, so the row's own words are used instead.
+            refuse(f"could not start a session: no {target.kind} named '{target.name}'")
+            return
+        except Exception as error:  # noqa: BLE001 — every refusal is the reader's
+            refuse(f"could not start a session: {error}")
+            return
+
+        linked = True
+        link_reason = ""
+        try:
+            linked, link_reason = await asyncio.to_thread(
+                self._link_started_session, registry, project_id, session_id
+            )
+        except Exception as error:  # noqa: BLE001 — reported, never swallowed
+            linked, link_reason = False, str(error)
+
+        # ESC MEANS NO, AND THE READER'S ESC OUTRANKS EVERY REMAINING STEP
+        # (agent review round 1, F5 / UX: reproduced — `esc` on `starting
+        # session …` closed the card and the app switched into the new session
+        # anyway). The check sits BEFORE the kickoff as well as before the
+        # hand-off, because both are things done on the reader's behalf: the
+        # create is durable and the session stands — the link follows, since it
+        # costs nothing and makes the session useful — but a cancelled start
+        # sends no turn, takes nobody anywhere, and reports the id and the way
+        # in instead.
+        def cancelled() -> bool:
+            return bool(view_cancelled())
+
+        def receipt() -> None:
+            # THE PAGE GETS THE ACTION, THE TRANSCRIPT GETS THE STORY (QA round 3,
+            # Q5). The full sentence names the project as well, which makes it 81
+            # cells with a two-word name — and the page's footer is 56 cells at
+            # 60×24, where it was ellipsised mid-word (`…; /re…`): the reader who
+            # had just escaped an impatient start could see the id but not the
+            # command that opens it. So the page's copy is the ACTION, and it is
+            # short enough to survive the narrowest footer this card can be read
+            # on; the durable transcript copy keeps the project name.
+            announce(f"started {session_id} · /resume {session_id} opens it")
+            self._notice(
+                f"started {session_id} — it is linked to {project.name}; "
+                f"/resume {session_id} opens it",
+                "info",
+            )
+
+        if cancelled():
+            receipt()
+            return
+
+        try:
+            await self._kick_off_project_session(session_id, cwd, project)
+        except Exception as error:  # noqa: BLE001 — reported, never swallowed
+            # The session exists and is linked; only the first turn did not
+            # land. Say so, name the id, and do NOT switch: the reader can
+            # resume it themselves and nothing is half-created in the page.
+            refuse(
+                f"the session {session_id} was created and linked, but its first "
+                f"message did not send: {error} — /resume {session_id} opens it"
+            )
+            return
+
+        if not linked:
+            # The store's own cap/refusal, named with the route that fixes it.
+            # The session is real and engaged, so the hand-off still happens —
+            # refusing now would strand a working session the reader asked for.
+            self._notice(
+                f"started {session_id}, but it could not be linked to the project: "
+                f"{link_reason} — /project link adds it",
+                "warning",
+            )
+
+        if cancelled():
+            receipt()
+            return
+
+        # THE HAND-OFF IS THE APP'S OWN: `_resume_session` is exactly what
+        # `/resume` and the sidebar's pick use (the remote-owner guard, the
+        # attach, the full reboot) — one way to change sessions, never two. The
+        # page closes first, exactly as the `↵`-to-conversation jump does
+        # (`on_projects_view_jump_requested`): a mode that hides the transcript
+        # must be gone before the conversation it hid comes back.
+        self._close_projects_view()
+        self._resume_session(session_id, self._notice)
+
+    async def _create_project_session(self, cwd: str, target: StartTarget) -> str:
+        """Mint and materialise the session through the DESKTOP create core.
+
+        ``DesktopSessions.create`` is the callable behind
+        ``POST /v1/desktop/sessions`` — the same path the pane's new-chat uses —
+        and it is reached here rather than re-implemented because it is the code
+        that owns the invariants: the target validated through the registries,
+        the attachment sidecar written and read back before the marker is
+        published, and the directory created exclusively. A second writer of
+        those facts is how the TUI's new session and the pane's would come to
+        disagree about what "born as team X" means.
+        """
+        from local_operator.paths import config_dir
+        from local_operator.server.utils.desktop_sessions import DesktopSessions
+
+        body: dict[str, str] | None = None
+        if target.kind in ("team", "agent") and target.name:
+            body = {"kind": target.kind, "name": target.name}
+        return await DesktopSessions(config_dir()).create(cwd, target=body)
+
+    def _link_started_session(
+        self, registry: Any, project_id: str, session_id: str
+    ) -> tuple[bool, str]:
+        """Auto-link the new session to the project as a WORKING link.
+
+        Working, never coordination. The CoS exemption P4 established marks a
+        session that FILED the project without working on it — the chief of
+        staff's own create-time filing — and it exists so a filing is not read
+        as work in progress. A session this picker started exists to work on
+        the project, so it is the link the exemption is the exception TO; the
+        role list has no third value and inventing one here would be the
+        second vocabulary the store's validator exists to forbid.
+
+        Returns ``(linked, reason)``: the store's cap refusal (64 links) is a
+        sentence to show, never an exception thrown at the reader.
+        """
+        try:
+            registry.link_session(project_id, session_id, role="work")
+        except ValueError as refusal:
+            return False, str(refusal)
+        return True, ""
+
+    async def _kick_off_project_session(self, session_id: str, cwd: str, project: Any) -> None:
+        """Deliver the kickoff prompt through the runtime engagement path."""
+        from local_operator.paths import config_dir
+        from local_operator.references import expand_references
+        from local_operator.session.runtime.launch import PromptErrand, engage_runtime
+
+        name = str(getattr(project, "name", "") or "")
+        text = f"review the project details and continue @project:{name}"
+
+        async def _decline(tool_name: str, description: str) -> bool:
+            # The project block is a store read, not a file read, so the gate is
+            # never consulted for it; declining is the honest policy for a
+            # surface with no interactive approval channel (the aside's rule).
+            return False
+
+        result = await expand_references(text, cwd, request_approval=_decline)
+        await engage_runtime(
+            session_id,
+            cwd,
+            PromptErrand(result.sent),
+            config_dir=config_dir(),
+        )
+
     def on_projects_view_send_requested(self, message: ProjectsViewSendRequested) -> None:
         """Deliver one quick-send off the loop (P5a, spec §7.5.3).
 
@@ -34173,6 +34789,11 @@ class OperatorApp(App[None]):
                 session=target.session_id,
                 pid_hint="a pid",
                 session_hint="a session id",
+                # An EXACT session-id selector (the card's picker resolved it),
+                # so the role vocabulary cannot change the answer; named
+                # explicitly to keep the "every caller passes role_words"
+                # invariant the source-scan test checks.
+                role_words=(),
                 # NO `include_wedged`: that flag is the KILL SWITCH's (the
                 # resolver's own doc: "a send never wants that"), and every
                 # other send path resolves live-only. A wedged row stays
@@ -37260,6 +37881,13 @@ class OperatorApp(App[None]):
             # Same kill-switch carve-out as `_stop_target_worker`: the watched
             # session may be a composer window, and stopping it is the point.
             require_started=False,
+            # An EXACT session-id selector only, so the role vocabulary is
+            # irrelevant here: the needle cannot equal a team role word, and
+            # reading the teams tree would add loop-bound I/O to a fallback
+            # whose whole job is to be cheap when the binding is lost. Passed
+            # explicitly (rather than omitted) so the source-scan test that
+            # pins the guard on every caller stays honest.
+            role_words=(),
         )
         if record is not None and record.pid != os.getpid():
             # The RESOLVED RECORD is handed straight to the ladder. Re-entering
@@ -37281,21 +37909,36 @@ class OperatorApp(App[None]):
         worker only surfaces them.
         """
         from local_operator.mobile.peer_send import resolve_peer_target
+        from local_operator.paths import config_dir
+        from local_operator.teams import TeamRegistry, role_word_set
 
-        record, candidates, error = resolve_peer_target(
-            target=target,
-            pid=None,
-            session=None,
-            pid_hint="a pid",
-            session_hint="a session id",
-            include_wedged=True,  # a wedged agent is the one a user most needs to stop
-            # A session that has not run a turn yet is STILL stoppable, and this
-            # is the one caller that wants it resolved: the kill switch names a
-            # target in order to end it, not to message it. A composer window
-            # someone needs to stop is exactly the fresh `/new` that `send`
-            # otherwise holds out of reach; `send` keeps the default True.
-            require_started=False,
-        )
+        # OFF THE EVENT LOOP, vocabulary included. The resolver walks and
+        # parses every registry record and ``role_word_set`` walks the teams
+        # tree; this worker runs on the Textual loop, so both belong in a
+        # thread — the same reason the quick-send worker threads its resolve.
+        # Without the vocabulary a bare team role word (`/stop manager`) would
+        # take a substring hit and could end an unrelated session; the role
+        # refusal stops it (see ``peer_send.role_refusal``).
+        def _resolve() -> "tuple[Any | None, list[Any], str]":
+            return resolve_peer_target(
+                target=target,
+                pid=None,
+                session=None,
+                pid_hint="a pid",
+                session_hint="a session id",
+                # A session that has not run a turn yet is STILL stoppable, and
+                # this is the one caller that wants it resolved: the kill
+                # switch names a target in order to end it, not to message it.
+                # A composer window someone needs to stop is exactly the fresh
+                # `/new` that `send` otherwise holds out of reach; `send` keeps
+                # the default True.
+                require_started=False,
+                # A wedged agent is the one a user most needs to stop.
+                include_wedged=True,
+                role_words=role_word_set(TeamRegistry(config_dir())),
+            )
+
+        record, candidates, error = await asyncio.to_thread(_resolve)
         if candidates:
             # Each candidate in the form that RESOLVES when retyped — the
             # pid, which the resolver now honours as a bare target — with
@@ -45332,6 +45975,21 @@ class OperatorApp(App[None]):
             argv = ["doctor"] + (["--peer", rest[0]] if rest else [])
             self._dispatch_network_cli(rest[:1], argv, notice, verb="doctor")
             return
+        if verb == "approvals":
+            # THE APPROVAL CARDS (remote-onboarding §2.3; slice (e): "TUI cards
+            # for approvals"). The operator's own surface reads the
+            # device-local store and answers from here — `list` is the badge
+            # read, `show` one record, `approve`/`deny` the decision — through
+            # the CLI's own verbs, so the record, the signature gate and the
+            # audit line all live where they already live. `approve` runs the
+            # SAME presence-gated signing call every other surface runs
+            # (`approval_store.sign_decision` IS the `lop operator sign` path),
+            # so the gesture is the OS key agent's, not this terminal's.
+            # `request`/`run` are deliberately not carried (§2.3): filing and
+            # executing are the agent's path, and the helper's usage line names
+            # what this surface runs.
+            self._network_approvals(rest, notice)
+            return
         if verb == "sessions":
             # The session plane, from the composer: what `/new remote <peer>`
             # created is otherwise invisible on every surface (review round 4,
@@ -45725,6 +46383,41 @@ class OperatorApp(App[None]):
             )
             return
         self._run_network_cli(["panic", network_arg], notice)
+
+    def _network_approvals(self, rest: list[str], notice: NoticeFn) -> None:
+        """``/network approvals [list|show <id>|approve <id>|deny <id>]``.
+
+        ONE LIST, ONE STORE READER (design §2.3): these are the CLI's own verbs
+        — the badge read (`list`/`show`) and the two decisions — so the record,
+        the signature gate and the audit line all live where they already live.
+        This method decides only the argv and the budget, and `approve` gets
+        the GESTURE budget because its signing call raises the OS key agent's
+        prompt (``network_cli.gesture_call_timeout()`` derives it from the key
+        agent's own bound, so a budget that could reap the child mid-prompt
+        cannot drift in).
+
+        ``request`` AND ``run`` ARE DELIBERATELY ABSENT (§2.3): filing a card
+        names a host, a user and a credential reference — the agent's first
+        step — and ``run`` executes credentialed, long install work on another
+        machine, the agent's execution path. A composer keystroke is the wrong
+        surface for either, so an unrecognised sub-verb reads the usage line
+        rather than being passed through.
+        """
+        usage = (
+            "Use /network approvals list, /network approvals show <id>, "
+            "/network approvals approve <id>, or /network approvals deny <id>"
+        )
+        sub = rest[0].casefold() if rest else "list"
+        if sub == "list" and len(rest) <= 1:
+            self._run_network_cli(["approvals", "list"], notice, verb="approvals")
+            return
+        if sub in ("show", "approve", "deny") and len(rest) == 2:
+            timeout = gesture_call_timeout() if sub == "approve" else QUICK_TIMEOUT_S
+            self._run_network_cli(
+                ["approvals", sub, rest[1]], notice, verb="approvals", timeout=timeout
+            )
+            return
+        self._system_notice(usage, "warning")
 
     def _network_join_notice(self, rest: list[str]) -> None:
         """``/network join`` cannot run here, and says so instead of half-running.
@@ -53060,7 +53753,7 @@ def _is_viewer(session: Any) -> TypeGuard[ViewerSessionProtocol]:
 
     **Why a predicate and not ``isinstance(session, ViewerSessionProtocol)``.**
     The obvious conversion is the honest-looking one and it costs three orders
-    of magnitude (~10^3x): that protocol is ``runtime_checkable`` with 139
+    of magnitude (~10^3x): that protocol is ``runtime_checkable`` with 140
     public members, and a positive ``isinstance`` walks every one of them.
     (The figure is RECOMPUTED with ``len(typing._get_protocol_attrs(...))`` at
     the time of measurement rather than adjusted by the size of one's own

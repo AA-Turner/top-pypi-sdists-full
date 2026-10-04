@@ -21,6 +21,21 @@
 
 """Porcelain functions for Git LFS support."""
 
+__all__ = [
+    "lfs_clean",
+    "lfs_fetch",
+    "lfs_init",
+    "lfs_ls_files",
+    "lfs_migrate",
+    "lfs_pointer_check",
+    "lfs_pull",
+    "lfs_push",
+    "lfs_smudge",
+    "lfs_status",
+    "lfs_track",
+    "lfs_untrack",
+]
+
 import fnmatch
 import logging
 import os
@@ -300,7 +315,7 @@ def lfs_migrate(
       Number of migrated files
     """
     from ..lfs import LFSFilterDriver, LFSStore
-    from . import open_repo_closing
+    from . import _checked_worktree_path, open_repo_closing
 
     with open_repo_closing(repo) as r:
         config = r.get_config_stack()
@@ -319,7 +334,7 @@ def lfs_migrate(
         if everything:
             # Migrate all files above 100MB
             for path, entry in index.items():
-                full_path = os.path.join(r.path, path.decode())
+                full_path = _checked_worktree_path(r, path)
                 if os.path.exists(full_path):
                     size = os.path.getsize(full_path)
                     if size > 100 * 1024 * 1024:  # 100MB
@@ -349,8 +364,9 @@ def lfs_migrate(
 
         # Migrate files
         for path_str in files_to_migrate:
-            full_path = os.path.join(r.path, path_str)
-            if not os.path.exists(full_path):
+            full_path = _checked_worktree_path(r, path_str.encode())
+            # Never rewrite a file through a symlink.
+            if os.path.islink(full_path) or not os.path.exists(full_path):
                 continue
 
             # Read file content
@@ -532,7 +548,7 @@ def lfs_pull(
       Number of objects fetched
     """
     from ..lfs import LFSPointer, LFSStore
-    from . import open_repo_closing
+    from . import _checked_worktree_path, open_repo_closing
 
     with open_repo_closing(repo) as r:
         # First do a fetch for HEAD
@@ -544,8 +560,9 @@ def lfs_pull(
         index = r.open_index(config=config)
 
         for path, entry in index.items():
-            full_path = os.path.join(r.path, path.decode())
-            if os.path.exists(full_path):
+            full_path = _checked_worktree_path(r, path)
+            # Never rewrite a file through a symlink.
+            if os.path.exists(full_path) and not os.path.islink(full_path):
                 with open(full_path, "rb") as f:
                     content = f.read()
 

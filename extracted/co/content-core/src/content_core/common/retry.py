@@ -18,9 +18,11 @@ Usage:
         ...
 """
 
+import re
 from typing import Callable, Optional
 
 import aiohttp
+import youtube_transcript_api as yta  # type: ignore
 from tenacity import (
     RetryError,
     retry,
@@ -29,7 +31,15 @@ from tenacity import (
     wait_random_exponential,
 )
 
-from content_core.common.exceptions import NoTranscriptFound, NotFoundError
+from content_core.common.exceptions import (
+    ConfigurationError,
+    FileOperationError,
+    InvalidInputError,
+    NetworkError,
+    NoTranscriptFound,
+    NotFoundError,
+    UnsupportedTypeException,
+)
 from content_core.logging import logger
 
 # Default retry configurations per operation type
@@ -61,6 +71,10 @@ def get_retry_config(operation_type: str) -> dict:
 NON_RETRYABLE_EXCEPTIONS = (
     NoTranscriptFound,
     NotFoundError,
+    ConfigurationError,
+    UnsupportedTypeException,
+    InvalidInputError,
+    FileOperationError,
     ValueError,
     TypeError,
     KeyError,
@@ -79,6 +93,24 @@ def is_retryable_exception(exception: BaseException) -> bool:
         return False
 
     # Always retry network-related errors
+    if isinstance(exception, NetworkError):
+        return True
+
+    # youtube-transcript-api: a blocked request (IpBlocked is a subclass) can
+    # succeed on the next attempt through a rotating proxy; every other
+    # CouldNotRetrieveTranscript names a state of the video (unavailable,
+    # transcripts disabled, age-restricted...) that a retry will not change.
+    # YouTubeRequestFailed wraps an HTTP error: judged by its status, which the
+    # library keeps only as the leading code of ``reason`` ("429 Client Error").
+    if isinstance(exception, yta.RequestBlocked):
+        return True
+    if isinstance(exception, yta.YouTubeRequestFailed):
+        match = re.match(r"\s*(\d{3})\b", getattr(exception, "reason", "") or "")
+        if match:
+            status = int(match.group(1))
+            return status >= 500 or status == 429
+    elif isinstance(exception, yta.CouldNotRetrieveTranscript):
+        return False
     if isinstance(exception, (aiohttp.ClientError, ConnectionError, TimeoutError, OSError)):
         # But not if it's a client error (4xx) - those are usually permanent
         if isinstance(exception, aiohttp.ClientResponseError):

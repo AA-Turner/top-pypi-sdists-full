@@ -3,12 +3,11 @@
 Covers the axis that gates ALL tool / context injection:
   • ``capabilities.features`` declares ``function_calling`` on chat models and on
     no media/tts/image/video/extraction model. That is the ONLY source.
-  • config.supports_tools carries the resolved flag (default permissive).
-  • CANONICAL gate: merge_request_tools adds nothing when supports_tools is False
-    (silent — it's doing its job).
-  • FALLBACK gate: unified_client._warn_and_strip_leaked_tools strips + screams
-    when a tool reaches the provider boundary for a non-function-calling model
-    (a leak that should never happen).
+  • config.supports_tools carries the resolved flag (default permissive) — it never
+    shapes the core toolset (TOOL-SOURCES.md rule L1).
+  • THE call-time strip: unified_client._strip_tools_for_no_function_calling removes
+    the whole tool surface for a non-function-calling model and names what it removed
+    (announced by the dispatch — see test_call_time_tool_adaptation.py).
   • The SystemInstruction decoration mechanism the non-chat path relies on.
 """
 
@@ -167,72 +166,26 @@ def test_unified_config_supports_tools_defaults_permissive():
     assert cfg.supports_tools is True  # unknown/unresolved → permissive
 
 
-# ── CANONICAL gate: the merge primitive ─────────────────────────────────────
+# ── The core never reads the model (TOOL-SOURCES.md rule L1) ────────────────
 
 
-def test_merge_primitive_adds_nothing_when_no_function_calling():
+def test_merge_primitive_adds_tools_whatever_the_model():
+    """The core toolset is the same for every model: the merge primitive adds the
+    requested tools even when the model has no function calling. Removal is the
+    provider layer's job, at call time, announced."""
+    from matrx_connect import AppContext
+
+    from matrx_ai.config import UnifiedConfig
     from matrx_ai.tools.merge import merge_request_tools
     from matrx_ai.tools.specs import RegisteredToolSpec
 
-    cfg = SimpleNamespace(supports_tools=False, tools=[], custom_tools=[])
-    sentinel_ctx = object()
     specs = [RegisteredToolSpec(name="ctx_get"), RegisteredToolSpec(name="ctx_batch")]
-
-    out = merge_request_tools(cfg, sentinel_ctx, specs)
-
-    assert cfg.tools == []  # the gate added nothing
-    assert cfg.custom_tools == []
-    assert out is sentinel_ctx  # ctx returned unchanged, no client_tools touched
-
-
-def test_no_function_calling_clears_stale_routing_state_with_missing_metadata():
-    from matrx_connect import AppContext
-
-    from matrx_ai.tools.merge import merge_request_tools
-
-    cfg = SimpleNamespace(
-        supports_tools=False,
-        tools=["ctx_get"],
-        custom_tools=[{"name": "inline"}],
-        mcp_servers=["stale-mcp"],
-    )
-    ctx = AppContext(emitter=None, client_tools=["ctx_get"], metadata=None)
-
-    out = merge_request_tools(cfg, ctx, [])
-
-    assert cfg.tools == []
-    assert cfg.custom_tools == []
-    assert cfg.mcp_servers == []
-    assert out.client_tools == []
-    assert out.metadata == {}
-
-
-def test_no_function_calling_clears_capability_and_authority_metadata():
-    from matrx_connect import AppContext
-
-    from matrx_ai.tools.merge import merge_request_tools
-
-    cfg = SimpleNamespace(
-        supports_tools=False,
-        tools=[],
-        custom_tools=[],
-        mcp_servers=[],
-    )
-    stale = {
-        "client_capabilities_payloads": {"desktop-native": {}},
-        "filesystem_authority": {"namespace": "local-machine"},
-        "desktop_target_instance_id": "desktop-1",
-        "active_ui_surface": "matrx-local/desktop",
-        "active_tool_executors": ["matrx-local"],
-        "hard_excluded_tools": ["cloud_file"],
-        "unrelated": "keep",
-    }
-    ctx = AppContext(emitter=None, client_tools=["stale"], metadata=stale)
-
-    out = merge_request_tools(cfg, ctx, [])
-
-    assert out.client_tools == []
-    assert out.metadata == {"unrelated": "keep"}
+    toolsets = []
+    for supports in (True, False):
+        cfg = UnifiedConfig(model="m", messages=[], supports_tools=supports)
+        merge_request_tools(cfg, AppContext(emitter=None), specs)
+        toolsets.append(sorted(cfg.tools))
+    assert toolsets[0] == toolsets[1] == ["ctx_batch", "ctx_get"]
 
 
 def test_no_function_calling_round_trip_restores_authored_tools_and_mcp():
@@ -256,7 +209,10 @@ def test_no_function_calling_round_trip_restores_authored_tools_and_mcp():
         supports_tools=False,
     )
 
-    merge_request_tools(cfg, AppContext(emitter=None), [])
+    # The call-time strip (provider layer) filters the effective surface…
+    from matrx_ai.providers.unified_client import _strip_tools_for_no_function_calling
+
+    _strip_tools_for_no_function_calling(cfg, _caps("audio-model", output=["audio"]))
     assert cfg.tools == [] and cfg.custom_tools == [] and cfg.mcp_servers == []
     assert cfg.tool_capability_filtered is True
 
@@ -333,11 +289,12 @@ def test_unfiltered_round_trip_rehydrates_only_authored_inline_tools():
     assert [tool.name for tool in restored.custom_tools] == ["authored_inline"]
 
 
-# ── FALLBACK gate: the provider boundary ────────────────────────────────────
+# ── THE call-time strip: the provider boundary ──────────────────────────────
 
 
-def test_provider_fallback_strips_full_tool_surface_for_non_fc_model():
-    from matrx_ai.providers.unified_client import _warn_and_strip_leaked_tools
+def test_call_time_strip_removes_full_tool_surface_for_non_fc_model_and_names_it():
+    from matrx_ai.providers.tool_adaptation import NO_FUNCTION_CALLING
+    from matrx_ai.providers.unified_client import _strip_tools_for_no_function_calling
 
     cfg = SimpleNamespace(
         tools=["ctx_get"],
@@ -346,14 +303,18 @@ def test_provider_fallback_strips_full_tool_surface_for_non_fc_model():
         internal_url_context=True,
         model="some-tts",
     )
-    _warn_and_strip_leaked_tools(cfg, _caps("some-tts", output=["audio"]))
-    # The ENTIRE tool surface is stripped, not just config.tools.
+    adaptation = _strip_tools_for_no_function_calling(
+        cfg, _caps("some-tts", output=["audio"]), "openai_chat"
+    )
+    # The ENTIRE tool surface is stripped, not just config.tools — and every piece is named.
     assert cfg.tools == [] and cfg.custom_tools == []
     assert cfg.mcp_servers == [] and cfg.internal_url_context is None
+    assert adaptation is not None and adaptation.code == NO_FUNCTION_CALLING
+    assert adaptation.removed == ["ctx_get", "x", "mcp:some-mcp", "internal_url_context"]
 
 
-def test_provider_fallback_is_noop_for_chat_model():
-    from matrx_ai.providers.unified_client import _warn_and_strip_leaked_tools
+def test_call_time_strip_is_noop_for_chat_model():
+    from matrx_ai.providers.unified_client import _strip_tools_for_no_function_calling
 
     cfg = SimpleNamespace(
         tools=["ctx_get"],
@@ -362,8 +323,7 @@ def test_provider_fallback_is_noop_for_chat_model():
         internal_url_context=True,
         model="gpt",
     )
-    _warn_and_strip_leaked_tools(cfg, _caps("gpt", features=_CHAT))
-    # A function-calling model keeps its whole surface — the fallback only guards leaks.
+    assert _strip_tools_for_no_function_calling(cfg, _caps("gpt", features=_CHAT)) is None
     assert cfg.tools == ["ctx_get"] and cfg.custom_tools == [{"name": "x"}]
     assert cfg.mcp_servers == ["m"] and cfg.internal_url_context is True
 

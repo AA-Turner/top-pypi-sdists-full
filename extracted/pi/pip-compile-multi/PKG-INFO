@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pip_compile_multi
-Version: 3.3.1
+Version: 3.3.2
 Summary: Compile multiple requirements files to lock dependency versions
 Home-page: https://github.com/peterdemin/pip-compile-multi
 Author: Peter Demin
@@ -16,10 +16,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Utilities
 Requires-Python: ~=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: AUTHORS.rst
 Requires-Dist: click
@@ -29,6 +31,7 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: description
+Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
@@ -71,6 +74,11 @@ Links
 History
 =======
 
+3.3.2 (2026-10-02)
+------------------
+
+* Add support for `--python-platform` and `--python-version` when `uv` is used.
+
 3.3.1 (2025-04-19)
 ------------------
 
@@ -93,7 +101,7 @@ History
 
 * Fix ``TypeError`` is not triggered when sections is None.
   (Issue `#516`_, PR `#517`_, thanks to `Nikola Trandafilovic`_.)
-    
+
 .. _#516: https://github.com/peterdemin/pip-compile-multi/issues/516
 .. _#517: https://github.com/peterdemin/pip-compile-multi/pull/517
 .. _Nikola Trandafilovic: https://github.com/elrik

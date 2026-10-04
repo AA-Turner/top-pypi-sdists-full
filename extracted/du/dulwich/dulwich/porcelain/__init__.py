@@ -88,13 +88,16 @@ Functions should generally accept both unicode strings and bytestrings
 """
 
 __all__ = [
+    "DEFAULT_ENCODING",
     "INFINITE_DEPTH",
     "CheckoutError",
     "CountObjectsResult",
     "DivergedBranches",
     "Error",
+    "GitStatus",
     "NoneStream",
     "RemoteExists",
+    "RepoPath",
     "TimezoneFormatError",
     "TransportKwargs",
     "active_branch",
@@ -105,6 +108,7 @@ __all__ = [
     "am_quit",
     "am_skip",
     "annotate",
+    "apply_patch",
     "archive",
     "bisect_bad",
     "bisect_good",
@@ -113,6 +117,7 @@ __all__ = [
     "bisect_reset",
     "bisect_skip",
     "bisect_start",
+    "blame",
     "branch_create",
     "branch_delete",
     "branch_list",
@@ -140,6 +145,8 @@ __all__ = [
     "cone_mode_set",
     "count_objects",
     "daemon",
+    "default_bytes_err_stream",
+    "default_bytes_out_stream",
     "describe",
     "diff",
     "diff_tree",
@@ -191,6 +198,7 @@ __all__ = [
     "merge_tree",
     "merged_branches",
     "mktag",
+    "move",
     "mv",
     "no_merged_branches",
     "notes_add",
@@ -238,6 +246,7 @@ __all__ = [
     "rev_list",
     "rev_parse",
     "revert",
+    "rm",
     "set_branch_tracking",
     "shortlog",
     "show",
@@ -270,6 +279,7 @@ __all__ = [
     "tag_create",
     "tag_delete",
     "tag_list",
+    "tree_path_to_fs_path",
     "unpack_objects",
     "update_head",
     "update_ref",
@@ -301,7 +311,6 @@ import re
 import stat
 import sys
 import time
-import warnings
 from collections import namedtuple
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
@@ -329,6 +338,7 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import override
 
+from .. import _deprecated_aliases
 from .._typing import Buffer
 
 if TYPE_CHECKING:
@@ -338,6 +348,7 @@ if TYPE_CHECKING:
     from ..filter_branch import CommitData
     from ..gc import GCStats
     from ..maintenance import MaintenanceResult
+    from ..merge import MergeConflictInfo
     from ..objects import RawObjectID
 from ..archive import tar_stream
 from ..bisect import BisectState
@@ -359,20 +370,23 @@ from ..diff_tree import (
     tree_changes,
 )
 from ..errors import SendPackError
-from ..file import open_nofollow
+from ..file import FileLocked, open_nofollow
 from ..graph import can_fast_forward
 from ..ignore import IgnoreFilterManager
 from ..index import (
     ConflictedIndexEntry,
     Index,
-    IndexEntry,
+    InvalidPathError,
     _fs_to_tree_path,
+    apply_stat_refresh,
     blob_from_path_and_stat,
     build_file_from_blob,
     get_path_element_validator,
+    get_symlink_fn,
     get_unstaged_changes,
-    symlink,
+    index_entry_from_tree_entry,
     update_working_tree,
+    validate_path,
 )
 from ..object_store import BaseObjectStore, tree_lookup_path
 from ..objects import (
@@ -1904,6 +1918,7 @@ def clone(
 
     mkdir = not os.path.exists(target)
 
+    origin_url: str | bytes | None = None
     if isinstance(source, Repo):
         # For direct repo cloning, use LocalGitClient
         from ..client import GitClient, LocalGitClient
@@ -1911,6 +1926,7 @@ def clone(
         client: GitClient = LocalGitClient(config=config)
         path = source.path
     else:
+        origin_url = source
         source_str = source.decode() if isinstance(source, bytes) else source
         transport_kwargs = _filter_transport_kwargs(**kwargs)
         if ssh_command is None:
@@ -1937,6 +1953,7 @@ def clone(
         depth=depth,
         filter_spec=filter_spec_bytes,
         protocol_version=protocol_version,
+        origin_url=origin_url,
     )
 
     # Initialize and update submodules if requested
@@ -2044,7 +2061,7 @@ def add(
             if resolved_path.is_dir():
                 # Check if the directory itself is ignored
                 dir_relpath = posixpath.join(relpath, "") if relpath != "." else ""
-                if dir_relpath and ignore_manager.is_ignored(dir_relpath):
+                if dir_relpath and ignore_manager.may_prune_directory(dir_relpath):
                     ignored.add(dir_relpath)
                     continue
 
@@ -2564,14 +2581,21 @@ def show_object(
     handler(repo, obj, decode, outstream)
 
 
-def print_name_status(changes: Iterator[TreeChange]) -> Iterator[str]:
+def print_name_status(
+    changes: Iterable[TreeChange | list[TreeChange | None] | None],
+) -> Iterator[str]:
     """Print a simple status summary, listing changed files."""
     for change in changes:
         if not change:
             continue
         change_item: TreeChange
         if isinstance(change, list):
-            change_item = cast(TreeChange, change[0])
+            # Merge commits yield one entry per parent; entries are None for
+            # parents the path was unchanged against.
+            non_none = [c for c in change if c is not None]
+            if not non_none:
+                continue
+            change_item = non_none[0]
         else:
             change_item = change
         if change_item.type == CHANGE_ADD:
@@ -2620,7 +2644,9 @@ def print_name_status(changes: Iterator[TreeChange]) -> Iterator[str]:
         yield f"{kind:<8}{path1_str:<20}{path2_str:<20}"
 
 
-def print_name_only(changes: Iterator[TreeChange]) -> Iterator[str]:
+def print_name_only(
+    changes: Iterable[TreeChange | list[TreeChange | None] | None],
+) -> Iterator[str]:
     """Print only the names of changed files.
 
     Args:
@@ -2633,7 +2659,12 @@ def print_name_only(changes: Iterator[TreeChange]) -> Iterator[str]:
             continue
         change_item: TreeChange
         if isinstance(change, list):
-            change_item = cast(TreeChange, change[0])
+            # Merge commits yield one entry per parent; entries are None for
+            # parents the path was unchanged against.
+            non_none = [c for c in change if c is not None]
+            if not non_none:
+                continue
+            change_item = non_none[0]
         else:
             change_item = change
         if change_item.type == CHANGE_DELETE:
@@ -2720,6 +2751,7 @@ def log(
     stat: bool = False,
     patch: bool = False,
     follow: bool = False,
+    full_history: bool = False,
 ) -> None:
     """Write commit logs.
 
@@ -2743,6 +2775,10 @@ def log(
       stat: Show diffstat for each commit
       patch: Show patch (diff) for each commit
       follow: Follow file renames
+      full_history: When paths is set, show every commit that touched the
+        path, matching ``git log --full-history <path>``. The default
+        applies git's history simplification, so at a merge that is
+        TREESAME to some parent for the path, only that parent is followed.
     """
     import re
 
@@ -2785,6 +2821,7 @@ def log(
             since=since_ts,
             until=until_ts,
             follow=follow,
+            simplify_history=bool(paths_bytes) and not full_history,
         )
 
         count = 0
@@ -2828,21 +2865,11 @@ def log(
                 )
             if name_status:
                 outstream.writelines(
-                    [
-                        line + "\n"
-                        for line in print_name_status(
-                            cast(Iterator[TreeChange], entry.changes())
-                        )
-                    ]
+                    [line + "\n" for line in print_name_status(entry.changes())]
                 )
             if name_only:
                 outstream.writelines(
-                    [
-                        line + "\n"
-                        for line in print_name_only(
-                            cast(Iterator[TreeChange], entry.changes())
-                        )
-                    ]
+                    [line + "\n" for line in print_name_only(entry.changes())]
                 )
             if stat:
                 print_stat(r.object_store, commit, outstream)
@@ -3210,73 +3237,38 @@ def reset(
         else:
             target_commit = parse_commit(r, treeish)
 
-        # Update HEAD to point to the target commit
-        if target_commit is not None:
-            # Get the current HEAD value for set_if_equals
-            try:
-                old_head = r.refs[HEADREF]
-            except KeyError:
-                old_head = None
-
-            # Create reflog message
-            treeish_str = (
-                treeish.decode("utf-8")
-                if isinstance(treeish, bytes)
-                else str(treeish)
-                if not isinstance(treeish, Commit | Tree | Tag)
-                else target_commit.id.hex()
-            )
-            default_message = f"reset: moving to {treeish_str}".encode()
-            reflog_message = _get_reflog_message(default_message, env=env)
-
-            # Pass committer explicitly: Repo._write_reflog would otherwise
-            # resolve it via get_user_identity(), which reads os.environ.
-            r.refs.set_if_equals(
-                HEADREF,
-                old_head,
-                target_commit.id,
-                committer=_get_user_identity(
-                    _config_stack(r, env=env), kind="COMMITTER", env=env
-                ),
-                message=reflog_message,
-            )
-
         if mode == "soft":
             # Soft reset: only update HEAD, leave index and working tree unchanged
-            return
+            pass
 
         elif mode == "mixed":
             # Mixed reset: update HEAD and index, but leave working tree unchanged
             from ..object_store import iter_tree_contents
 
             # Open the index
-            index = r.open_index(config=r.get_config_stack())
+            config = r.get_config_stack()
+            index = r.open_index(config=config)
+            validate_path_element = get_path_element_validator(config)
 
             # Clear the current index
             index.clear()
 
             # Populate index from the target tree
             for entry in iter_tree_contents(r.object_store, tree.id):
-                # Create an IndexEntry from the tree entry
-                # Use zeros for filesystem-specific fields since we're not touching the working tree
                 assert (
                     entry.mode is not None
                     and entry.sha is not None
                     and entry.path is not None
                 )
-                index_entry = IndexEntry(
-                    ctime=(0, 0),
-                    mtime=(0, 0),
-                    dev=0,
-                    ino=0,
-                    mode=entry.mode,
-                    uid=0,
-                    gid=0,
-                    size=0,  # Size will be 0 since we're not reading from disk
-                    sha=entry.sha,
-                    flags=0,
+                # Like git, refuse paths that a later checkout would write
+                # outside the work tree.
+                if not validate_path(entry.path, validate_path_element):
+                    raise InvalidPathError(entry.path)
+                # Use set_verbatim so case-differing tree entries aren't
+                # folded together under core.ignorecase.
+                index.set_verbatim(
+                    entry.path, index_entry_from_tree_entry(entry.mode, entry.sha)
                 )
-                index[entry.path] = index_entry
 
             # Write the updated index
             index.write()
@@ -3314,6 +3306,38 @@ def reset(
             )
         else:
             raise Error(f"Invalid reset mode: {mode}")
+
+        # Only move HEAD once the index and working tree were updated, so
+        # that a rejected tree leaves the repository as it was.
+        if target_commit is not None:
+            # Get the current HEAD value for set_if_equals
+            try:
+                old_head = r.refs[HEADREF]
+            except KeyError:
+                old_head = None
+
+            # Create reflog message
+            treeish_str = (
+                treeish.decode("utf-8")
+                if isinstance(treeish, bytes)
+                else str(treeish)
+                if not isinstance(treeish, Commit | Tree | Tag)
+                else target_commit.id.hex()
+            )
+            default_message = f"reset: moving to {treeish_str}".encode()
+            reflog_message = _get_reflog_message(default_message, env=env)
+
+            # Pass committer explicitly: Repo._write_reflog would otherwise
+            # resolve it via get_user_identity(), which reads os.environ.
+            r.refs.set_if_equals(
+                HEADREF,
+                old_head,
+                target_commit.id,
+                committer=_get_user_identity(
+                    _config_stack(r, env=env), kind="COMMITTER", env=env
+                ),
+                message=reflog_message,
+            )
 
 
 def get_remote_repo(
@@ -3889,6 +3913,7 @@ def status(
     repo: str | os.PathLike[str] | Repo | None = None,
     ignored: bool = False,
     untracked_files: str = "normal",
+    optional_locks: bool = True,
 ) -> GitStatus:
     """Returns staged, unstaged, and untracked changes relative to the HEAD.
 
@@ -3903,6 +3928,9 @@ def status(
           contains many untracked files/directories.
         Using untracked_files="normal" provides a good balance, only showing
           directories that are entirely untracked without listing all their contents.
+      optional_locks: If False, do not perform operations that require taking
+        optional locks (such as refreshing the stat cache in the index).
+        Mirrors git's GIT_OPTIONAL_LOCKS=0 behavior.
 
     Returns: GitStatus tuple,
         staged -  dict with lists of staged paths (filesystem paths as bytes)
@@ -3933,6 +3961,14 @@ def status(
             max_stat = None
         precompose_unicode = config.get_boolean(b"core", b"precomposeunicode", False)
 
+        # Collect drifted-stat/unchanged-content entries during the walk
+        # so we can update the index stat cache without a second pass.
+        # When optional_locks=False the caller wants no index writes, so
+        # skip the extra bookkeeping entirely (matching git's
+        # GIT_OPTIONAL_LOCKS=0 behaviour).
+        refresh_stat: list[tuple[bytes, os.stat_result]] | None = (
+            [] if optional_locks else None
+        )
         unstaged_changes_tree = list(
             get_unstaged_changes(
                 index,
@@ -3941,6 +3977,7 @@ def status(
                 preload_index,
                 trust_ctime,
                 max_stat,
+                refresh_stat,
             )
         )
 
@@ -3953,6 +3990,13 @@ def status(
             precompose_unicode=precompose_unicode,
             repo=r,
         )
+
+        if refresh_stat:
+            try:
+                if apply_stat_refresh(index, refresh_stat):
+                    index.write()
+            except (OSError, FileLocked) as exc:
+                logger.debug("index stat-cache refresh skipped: %s", exc)
 
         # Convert all paths to filesystem encoding
         # Convert staged changes (dict with lists of tree paths)
@@ -4153,8 +4197,9 @@ def get_untracked_paths(
             path = os.path.join(dirpath, dirnames[i])
             ip = os.path.join(os.path.relpath(path, basepath_str), "")
 
-            # Check if directory is ignored
-            if ignore_manager.is_ignored(ip) is True:
+            # A directory excluded only by a pattern covering its contents
+            # still has to be entered, so that a negation below it is seen.
+            if ignore_manager.may_prune_directory(ip):
                 if not exclude_ignored:
                     ignored_dirs.append(
                         os.path.join(os.path.relpath(path, frompath_str), "")
@@ -4444,10 +4489,11 @@ def web_daemon(
       address: Optional address to listen on (defaults to ::)
       port: Optional port to listen on (defaults to 80)
     """
+    from wsgiref.simple_server import make_server
+
     from ..web import (
         WSGIRequestHandlerLogger,
         WSGIServerLogger,
-        make_server,
         make_wsgi_chain,
     )
 
@@ -5899,26 +5945,7 @@ def _get_worktree_update_config(
     # apply together, so defer to the shared selector rather than picking one.
     validate_path_element = get_path_element_validator(config)
 
-    if config.get_boolean(b"core", b"symlinks", True):
-
-        def symlink_wrapper(
-            source: str | bytes | os.PathLike[str],
-            target: str | bytes | os.PathLike[str],
-        ) -> None:
-            symlink(source, target)  # type: ignore[arg-type,unused-ignore]
-
-        symlink_fn = symlink_wrapper
-    else:
-
-        def symlink_fallback(
-            source: str | bytes | os.PathLike[str],
-            target: str | bytes | os.PathLike[str],
-        ) -> None:
-            mode = "w" + ("b" if isinstance(source, bytes) else "")
-            with open(target, mode) as f:
-                f.write(source)
-
-        symlink_fn = symlink_fallback
+    symlink_fn = get_symlink_fn(config)
 
     return honor_filemode, validate_path_element, symlink_fn
 
@@ -7167,6 +7194,55 @@ def write_tree(repo: RepoPath | None = None) -> bytes:
         return r.open_index(config=r.get_config_stack()).commit(r.object_store)
 
 
+def _record_merge_conflicts(
+    r: Repo,
+    conflict_info: "Mapping[bytes, MergeConflictInfo]",
+    merge_commit_id: ObjectID,
+    message: bytes | str | None,
+) -> None:
+    """Rewrite the index and merge state files for a conflicted merge.
+
+    For each conflicted path, replace the index entry with stage 1/2/3
+    entries describing the ancestor, ours, and theirs blobs. Also write
+    MERGE_HEAD and MERGE_MSG so ``git commit`` can pick up where dulwich
+    left off.
+    """
+    from ..index import ConflictedIndexEntry, IndexEntry
+
+    def entry(mode: int | None, sha: ObjectID | None) -> IndexEntry | None:
+        if mode is None or sha is None:
+            return None
+        return IndexEntry(
+            ctime=(0, 0),
+            mtime=(0, 0),
+            dev=0,
+            ino=0,
+            mode=mode,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=sha,
+        )
+
+    index = r.open_index()
+    for path, info in conflict_info.items():
+        index[path] = ConflictedIndexEntry(
+            ancestor=entry(*info.ancestor),
+            this=entry(*info.ours),
+            other=entry(*info.theirs),
+        )
+    index.write()
+
+    with open(os.path.join(r.controldir(), "MERGE_HEAD"), "wb") as f:
+        f.write(merge_commit_id + b"\n")
+    if message is None:
+        msg_bytes = f"Merge commit '{merge_commit_id.decode()[:7]}'\n".encode()
+    else:
+        msg_bytes = message.encode() if isinstance(message, str) else message
+    with open(os.path.join(r.controldir(), "MERGE_MSG"), "wb") as f:
+        f.write(msg_bytes)
+
+
 def _do_merge(
     r: Repo,
     merge_commit_id: ObjectID,
@@ -7194,7 +7270,7 @@ def _do_merge(
       if no_commit=True or there were conflicts
     """
     from ..graph import find_merge_base
-    from ..merge import recursive_merge
+    from ..merge import Merger, recursive_merge
 
     # Get HEAD commit
     try:
@@ -7243,8 +7319,15 @@ def _do_merge(
     # Perform recursive merge (handles multiple merge bases automatically)
     gitattributes = r.get_gitattributes()
     config = r.get_config()
+    merger = Merger(r.object_store, gitattributes, config)
     merged_tree, conflicts = recursive_merge(
-        r.object_store, merge_bases, head_commit, merge_commit, gitattributes, config
+        r.object_store,
+        merge_bases,
+        head_commit,
+        merge_commit,
+        gitattributes,
+        config,
+        merger=merger,
     )
 
     # Add merged tree to object store
@@ -7260,8 +7343,13 @@ def _do_merge(
         config=r.get_config_stack(),
     )
 
-    if conflicts or no_commit:
-        # Don't create a commit if there are conflicts or no_commit is True
+    if conflicts:
+        # Rewrite the index so conflicted paths carry stage 1/2/3 entries and
+        # record MERGE_HEAD/MERGE_MSG so `git commit` can finish the merge.
+        _record_merge_conflicts(r, merger.conflict_info, merge_commit_id, message)
+        return (None, conflicts)
+
+    if no_commit:
         return (None, conflicts)
 
     # Create merge commit
@@ -10138,15 +10226,6 @@ def am_quit(repo: RepoPath | None = None) -> None:
         am_quit_impl(r)
 
 
-def __getattr__(name: str) -> object:
-    if name == "get_user_identity":
-        warnings.warn(
-            "dulwich.porcelain.get_user_identity is deprecated; "
-            "use dulwich.repo.get_user_identity instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from ..repo import get_user_identity
-
-        return get_user_identity
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+__getattr__ = _deprecated_aliases(
+    __name__, {"get_user_identity": "dulwich.repo.get_user_identity"}
+)

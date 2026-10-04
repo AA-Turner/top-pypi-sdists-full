@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-ai-skills
-Version: 2.0.0
+Version: 2.1.0
 Summary: Remote skill registries and bundled-file execution for Pydantic AI Agent Skills
 Project-URL: Homepage, https://github.com/dougtrajano/pydantic-ai-skills
 Project-URL: Source, https://github.com/dougtrajano/pydantic-ai-skills
@@ -8,9 +8,12 @@ Author-email: Douglas Trajano <douglas.trajano@outlook.com>
 License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Environment :: MacOS X
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only

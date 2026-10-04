@@ -55,8 +55,9 @@ def _make_app_ctx(
     ACTIVE_TOOL_EXECUTORS_KEY the host stamps at the request edge; the
     chrome-extension default reflects a real extension request. Pass None
     to model a surface with no extension client (the refusal path)."""
-    from matrx_ai.tools.merge import ACTIVE_TOOL_EXECUTORS_KEY
     from matrx_connect import AppContext
+
+    from matrx_ai.tools.merge import ACTIVE_TOOL_EXECUTORS_KEY
 
     metadata: dict[str, Any] = {}
     if state is not None:
@@ -77,10 +78,7 @@ def _has_registry_tools() -> bool:
     registry = ToolRegistry.get_instance()
     for t in registry.list_tools():
         bindings = registry.bindings_for_tool(t.name)
-        if any(
-            b == "chrome-extension" or b.startswith("chrome-extension.")
-            for b in bindings
-        ):
+        if any(b == "chrome-extension" or b.startswith("chrome-extension.") for b in bindings):
             return True
     return False
 
@@ -189,6 +187,63 @@ class TestBrowserDomCapability:
         finally:
             _dom_mod._specs_cache = None
 
+    def test_registry_tool_contract_metadata_never_becomes_a_provider_property(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import matrx_ai.capabilities.browser_dom as dom
+        from matrx_ai.tools.models import ToolDefinition, ToolType
+        from matrx_ai.tools.registry import ToolRegistry
+        from matrx_ai.tools.specs import InlineToolSpec
+
+        tool = ToolDefinition(
+            name="records",
+            description="Manage records",
+            tool_type=ToolType.LOCAL,
+            parameters={
+                "action": {"type": "string", "required": True},
+                "args": {"type": "object", "required": True},
+                "$envelope": "args",
+                "$variants": {"read": {"record_id": {"type": "string", "required": True}}},
+            },
+        )
+
+        class Registry:
+            def get(self, name: str) -> ToolDefinition | None:
+                return tool if name == "records" else None
+
+            def resolve_executor_binding(self, name: str, active: set[str]) -> str:
+                return "surface"
+
+            def all_tools(self) -> list[ToolDefinition]:
+                return [tool]
+
+            def bindings_for_tool(self, name: str) -> list[str]:
+                return ["chrome-extension"] if name == "records" else []
+
+        monkeypatch.setattr(ToolRegistry, "get_instance", lambda: Registry())
+        spec = dom._inline_spec_from_registry("records")
+        assert isinstance(spec, InlineToolSpec)
+        assert set(spec.input_schema.properties) == {"action", "args"}
+        assert spec.input_schema.required == ["action", "args"]
+        assert "$envelope" not in str(spec.model_dump())
+        dom._specs_cache = None
+        try:
+            always_on = dom._build_auto_load_specs()
+            assert [spec.name for spec in always_on] == ["load_chrome_tools", "records"]
+        finally:
+            dom._specs_cache = None
+
+        from matrx_ai.tools.implementations.bundle_lister import _build_spec_for
+        from matrx_ai.tools.specs import RegisteredToolSpec
+
+        # A bundle member always loads REGISTERED (2026-10-03): routing to a live client is the
+        # merge primitive's binding x executor decision, and a registered name stays in the
+        # conversation's sticky toolset on later turns (an inline spec could not).
+        tool.tool_type = ToolType.EXTERNAL_HANDLER
+        category_spec = _build_spec_for("records")
+        assert isinstance(category_spec, RegisteredToolSpec)
+        assert category_spec.name == "records"
+
 
 # ---------------------------------------------------------------------------
 # Integration tests — require the registry populated from the DB.
@@ -215,7 +270,6 @@ class TestBrowserDomCapabilityWithRegistry:
         entry in tool_surface_defaults (plus load_chrome_tools as
         RegisteredToolSpec)."""
         import matrx_ai.capabilities.browser_dom as _dom_mod
-        from matrx_ai.tools.registry import ToolRegistry
         from matrx_ai.tools.specs import InlineToolSpec, RegisteredToolSpec
 
         _dom_mod._specs_cache = None
@@ -234,9 +288,7 @@ class TestBrowserDomCapabilityWithRegistry:
                 assert spec.input_schema, f"{spec.name!r} must carry an input_schema"
 
             # Verify count matches tool_surface_defaults.always_include_tools.
-            always_include = _dom_mod._read_always_include_tools(
-                "matrx-extend.browser"
-            )
+            always_include = _dom_mod._read_always_include_tools("matrx-extend.browser")
             assert len(specs) == len(always_include) + 1  # +1 for load_chrome_tools
         finally:
             _dom_mod._specs_cache = None
@@ -604,9 +656,7 @@ class TestLoadBrowserToolsExecutorGate:
         real result on an integration run) — never client_unavailable."""
         from matrx_connect.context.app_context import clear_app_context, set_app_context
 
-        token = set_app_context(
-            _make_app_ctx(active_executors=["chrome-extension.pilot"])
-        )
+        token = set_app_context(_make_app_ctx(active_executors=["chrome-extension.pilot"]))
         try:
             try:
                 result = await load_chrome_tools({"category": "reading"}, _tool_ctx())

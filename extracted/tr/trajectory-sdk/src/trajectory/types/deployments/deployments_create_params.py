@@ -9,11 +9,13 @@ class ModelEndpointConfigParam(TypedDict, total=False):
   model_path: Required[str]
   max_output_tokens_per_step: Required[int]
   max_response_chars_per_tool_call: Required[int]
+  max_context_tokens: int
   max_output_tokens: int | None
   max_turns_per_trajectory: int
   temperature_override: float | None
   disable_thinking: bool
   reasoning_effort: Literal["none", "minimal", "low", "medium", "high", "xhigh"] | None
+  tokenizer_path: str | None
 
 
 class DeploymentsCreateParams(TypedDict, total=False):

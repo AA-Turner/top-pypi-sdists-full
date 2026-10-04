@@ -72,6 +72,10 @@ class UnifiedConfigModel(BaseModel):
     tools: list = Field(default_factory=list)
     authored_tools: list | None = None
     dynamic_tools: list[str] | None = None
+    dynamic_tool_sources: dict[str, str] = Field(default_factory=dict)
+    dynamic_tools_withheld: list[str] = Field(default_factory=list)
+    agent_auto_tools_disabled: bool | None = None
+    agent_excluded_tools: list[str] | None = None
     tool_authority_filtered: bool = False
     tool_authority_exclusions: list[str] = Field(default_factory=list)
     tool_authority_filter_applied_runtime: bool = False

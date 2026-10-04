@@ -16,7 +16,7 @@ from hypothesis.internal.observability import with_observability_callback
 from jsonschema_rs import canonical
 
 import schemathesis
-from schemathesis.config import GenerationConfig
+from schemathesis.config import GenerationConfig, SchemathesisConfig
 from schemathesis.core import NOT_SET
 from schemathesis.core.errors import (
     InvalidRegexPattern,
@@ -26,7 +26,7 @@ from schemathesis.core.errors import (
 )
 from schemathesis.core.jsonschema import FANCY_REGEX_OPTIONS
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.generation.hypothesis import examples
+from schemathesis.generation.hypothesis import examples, setup
 from schemathesis.generation.hypothesis.builder import HypothesisTestConfig, HypothesisTestMode, create_test
 from schemathesis.generation.jsonschema import strategy
 from schemathesis.generation.jsonschema.context import Alphabet
@@ -1133,9 +1133,9 @@ def test_jsonify_python_specific_types_leaves_input_alone():
     assert value == {"foo": True, "bar": [None]}
 
 
-# Inside the generation buffer the floor is drawable but its minimal example is too large; past the buffer no
-# example exists at all, which is a schema error rather than a health check.
-@pytest.mark.parametrize("min_items", [20000, 100000], ids=["health-check", "schema-error"])
+# Inside the generation buffer the floor is reached by repeating one element; past the buffer no example
+# exists at all, which is a schema error.
+@pytest.mark.parametrize("min_items", [20000, 100000], ids=["drawable", "schema-error"])
 def test_large_minimum_array_size(ctx, cli, snapshot_cli, min_items):
     api = ctx.openapi.apps.success()
     schema_path = ctx.openapi.write_schema(
@@ -3648,6 +3648,26 @@ def test_canonical_array_admits_nothing(schema):
     assert built.is_empty
 
 
+HEAVY_OBJECT = {
+    "type": "object",
+    "properties": {name: {"type": "string", "minLength": 5} for name in "abcde"},
+    "required": list("abcde"),
+}
+
+
+# Every element spends several choices, so a floor well under the buffer size can still outgrow one draw.
+@pytest.mark.parametrize(
+    ("items", "min_items"),
+    [(True, 8000), (HEAVY_OBJECT, 1000), ({"type": "integer", "minimum": 3}, 16000)],
+    ids=["any", "object", "integer"],
+)
+def test_canonical_array_reaches_a_floor_past_what_one_draw_fits(items, min_items):
+    setup()
+    schema = {"type": "array", "items": items, "minItems": min_items, "maxItems": min_items + 5}
+    value = examples.generate_one(_canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator))
+    assert jsonschema_rs.Draft202012Validator(schema).is_valid(value)
+
+
 def test_canonical_array_min_contains_beyond_what_hypothesis_draws():
     # No looser strategy to filter, so this is reported against the operation. Finding that out must
     # not cost a strategy per demanded position — that would be gigabytes before the first draw.
@@ -4258,3 +4278,185 @@ def test_whole_float_never_misrepresents_a_large_integer():
     values = _positive_values(schema, ParameterLocation.BODY, "application/json", jsonschema_rs.Draft202012Validator)
 
     assert all(is_valid(value) for value in values), values
+
+
+def _body_operation(ctx, body_schema):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+    return schema["/items"]["POST"]
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    "body_schema",
+    [
+        {"type": "object", "patternProperties": {"(?<!a+)b": {"type": "integer"}}},
+        {
+            "type": "object",
+            "additionalProperties": {"type": "integer"},
+            "not": {"additionalProperties": {"type": "integer", "minimum": 0}},
+        },
+        {"type": "number", "format": "float", "minimum": 1},
+    ],
+    ids=["pattern-property-python-cannot-read", "barred-additional-properties", "float-format-inclusive-bound"],
+)
+def test_body_draws_satisfy_schema(ctx, body_schema):
+    operation = _body_operation(ctx, body_schema)
+    validator = jsonschema_rs.validator_for(body_schema, pattern_options=FANCY_REGEX_OPTIONS)
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=10, database=None, suppress_health_check=list(HealthCheck))
+    def check(case):
+        assert validator.is_valid(case.body), case.body
+
+    check()
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    "body_schema",
+    [
+        {"type": "object", "minProperties": 100000},
+        {
+            "type": "number",
+            "exclusiveMinimum": 9007199254740992,
+            "exclusiveMaximum": 9007199254740994,
+            "not": {"multipleOf": 0.5},
+        },
+    ],
+    ids=["object-wider-than-a-draw", "only-integer-in-range-is-barred"],
+)
+def test_body_nothing_can_be_drawn_for(ctx, body_schema):
+    operation = _body_operation(ctx, body_schema)
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=10, database=None, suppress_health_check=list(HealthCheck))
+    def check(case):
+        pass
+
+    with pytest.raises(Unsatisfiable):
+        check()
+
+
+def _query_operation(ctx, parameter_schema, config):
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": parameter_schema}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    return schemathesis.openapi.from_dict(raw_schema, config=SchemathesisConfig.from_dict(config))["/items"]["GET"]
+
+
+@pytest.mark.hypothesis_nested
+@pytest.mark.parametrize(
+    ("parameter_schema", "config", "expected"),
+    [
+        (
+            {"type": "string"},
+            {
+                "dictionaries": {"tokens": {"values": ["DICT"]}},
+                "operations": [{"include-name": "GET /items", "parameters": {"query.q": {"dictionary": "tokens"}}}],
+            },
+            {"DICT"},
+        ),
+        (
+            {"enum": ["a", "b"]},
+            {
+                "dictionaries": {"tokens": {"values": ["DICT"]}},
+                "generation": {"dictionaries": {"string": {"dictionary": "tokens", "probability": 1.0}}},
+            },
+            {"a", "b"},
+        ),
+    ],
+    ids=["operation-scoped-binding", "type-wide-binding-skips-untyped-parameter"],
+)
+def test_query_dictionary_binding(ctx, parameter_schema, config, expected):
+    operation = _query_operation(ctx, parameter_schema, config)
+    values = set()
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=10, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
+    def collect(case):
+        values.add(case.query["q"])
+
+    collect()
+    assert values == expected
+
+
+@pytest.mark.hypothesis_nested
+def test_body_dictionary_binding_through_recursive_reference(ctx):
+    node = {"type": "object", "properties": {"token": {"type": "string"}, "child": {"$ref": "#/components/schemas/A"}}}
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/A"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={"schemas": {"A": node}},
+    )
+    config = SchemathesisConfig.from_dict(
+        {"dictionaries": {"tokens": {"values": ["DICT"]}}, "parameters": {"body.child.token": {"dictionary": "tokens"}}}
+    )
+    operation = schemathesis.openapi.from_dict(raw_schema, config=config)["/items"]["POST"]
+    tokens = []
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=10, derandomize=True, database=None, suppress_health_check=list(HealthCheck))
+    def collect(case):
+        child = case.body.get("child") if isinstance(case.body, dict) else None
+        if isinstance(child, dict) and "token" in child:
+            tokens.append(child["token"])
+
+    collect()
+    assert tokens
+    assert set(tokens) == {"DICT"}
+
+
+@pytest.mark.hypothesis_nested
+def test_body_dictionary_binding_on_unknown_item_field_is_ignored(ctx):
+    body_schema = {
+        "type": "array",
+        "items": {"type": "object", "properties": {"x": {"type": "string"}}, "additionalProperties": False},
+    }
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": body_schema}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    config = SchemathesisConfig.from_dict(
+        {"dictionaries": {"tokens": {"values": ["DICT"]}}, "parameters": {"body.[*].missing": {"dictionary": "tokens"}}}
+    )
+    operation = schemathesis.openapi.from_dict(raw_schema, config=config)["/items"]["POST"]
+    validator = jsonschema_rs.validator_for(body_schema)
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=10, database=None, suppress_health_check=list(HealthCheck))
+    def check(case):
+        assert validator.is_valid(case.body), case.body
+
+    check()

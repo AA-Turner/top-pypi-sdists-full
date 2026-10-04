@@ -546,22 +546,15 @@ class S7Protocol:
         Returns:
             Complete S7 PDU for start upload request
         """
-        # Block address string: e.g., "0A00001P" for DB1
-        # Format: block_type (2 hex) + block_num (5 digits) + file_system (1 char)
-        block_addr = f"{block_type:02X}{block_num:05d}A".encode("ascii")
+        if not 0 <= block_type <= 0xFF:
+            raise ValueError("block_type must fit in one byte")
+        if not 0 <= block_num <= 99999:
+            raise ValueError("block_num must be between 0 and 99999")
 
-        # Parameters: function + status + reserved + upload_id + block_addr_len + block_addr
-        param_data = (
-            struct.pack(
-                ">BBBIB",
-                S7Function.START_UPLOAD,  # Function code
-                0x00,  # Status
-                0x00,  # Reserved (error code)
-                0x00000000,  # Upload ID (0 for start)
-                len(block_addr),  # Block address length
-            )
-            + block_addr
-        )
+        # TReqFunStartUploadParams: function, six reserved bytes, one-byte
+        # upload ID, then the nine-byte block address `_0TNNNNNA`.
+        block_addr = b"_0" + bytes((block_type,)) + f"{block_num:05d}".encode("ascii") + b"A"
+        param_data = bytes((S7Function.START_UPLOAD,)) + bytes(7) + bytes((len(block_addr),)) + block_addr
 
         header = struct.pack(
             ">BBHHHH",
@@ -585,13 +578,9 @@ class S7Protocol:
         Returns:
             Complete S7 PDU for upload request
         """
-        param_data = struct.pack(
-            ">BBBI",
-            S7Function.UPLOAD,  # Function code
-            0x00,  # Status
-            0x00,  # Reserved
-            upload_id,  # Upload ID
-        )
+        if not 0 <= upload_id <= 0xFF:
+            raise ValueError("upload_id must fit in one byte")
+        param_data = bytes((S7Function.UPLOAD,)) + bytes(6) + bytes((upload_id,))
 
         header = struct.pack(
             ">BBHHHH",
@@ -615,13 +604,9 @@ class S7Protocol:
         Returns:
             Complete S7 PDU for end upload request
         """
-        param_data = struct.pack(
-            ">BBBI",
-            S7Function.END_UPLOAD,  # Function code
-            0x00,  # Status
-            0x00,  # Reserved
-            upload_id,  # Upload ID
-        )
+        if not 0 <= upload_id <= 0xFF:
+            raise ValueError("upload_id must fit in one byte")
+        param_data = bytes((S7Function.END_UPLOAD,)) + bytes(6) + bytes((upload_id,))
 
         header = struct.pack(
             ">BBHHHH",
@@ -642,24 +627,42 @@ class S7Protocol:
         Returns:
             Dictionary with upload_id and block_length
         """
-        result = {"upload_id": 0, "block_length": 0}
-
         raw_params = response.get("raw_parameters", b"")
+        if len(raw_params) != 16 or raw_params[0] != S7Function.START_UPLOAD:
+            raise S7ProtocolError("Invalid start-upload response parameters")
+        try:
+            block_length = int(raw_params[11:16].decode("ascii"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise S7ProtocolError("Invalid start-upload block length") from exc
+        return {"upload_id": raw_params[7], "block_length": block_length}
 
-        if len(raw_params) >= 8:
-            # Parse: function + status + reserved + upload_id
-            result["upload_id"] = struct.unpack(">I", raw_params[4:8])[0]
-            if len(raw_params) > 8:
-                # Block length string follows
-                len_field = raw_params[8]
-                if len(raw_params) > 9 + len_field:
-                    length_str = raw_params[9 : 9 + len_field]
-                    try:
-                        result["block_length"] = int(length_str)
-                    except ValueError:
-                        pass
+    def parse_upload_fragment(
+        self,
+        response: Dict[str, Any],
+        *,
+        first_fragment: bool = False,
+        include_block_header: bool = False,
+    ) -> Tuple[bytes, bool]:
+        """Validate and decode one upload response fragment."""
+        raw_params = response.get("raw_parameters", b"")
+        if len(raw_params) != 2 or raw_params[0] != S7Function.UPLOAD or raw_params[1] not in (0, 1):
+            raise S7ProtocolError("Invalid upload response parameters")
 
-        return result
+        raw_data = response.get("raw_data", b"")
+        if len(raw_data) < 4:
+            raise S7ProtocolError("Upload response data is truncated")
+        declared_length, marker = struct.unpack(">HH", raw_data[:4])
+        if marker != 0x00FB:
+            raise S7ProtocolError("Invalid upload response data marker")
+        if declared_length != len(raw_data) - 4:
+            raise S7ProtocolError("Upload response data length mismatch")
+        payload = raw_data[4:]
+        if first_fragment and not include_block_header:
+            compact_header_size = 36
+            if len(payload) < compact_header_size:
+                raise S7ProtocolError("First upload response is missing its compact block header")
+            payload = payload[compact_header_size:]
+        return payload, raw_params[1] == 0
 
     def parse_upload_response(self, response: Dict[str, Any]) -> bytes:
         """
@@ -668,13 +671,15 @@ class S7Protocol:
         Returns:
             Block data bytes
         """
-        data_info = response.get("data", {})
-        raw_data: bytes = data_info.get("data", b"")
+        payload, _ = self.parse_upload_fragment(response)
+        return payload
 
-        # Skip the data header if present (length + unknown bytes)
-        if len(raw_data) > 2:
-            return raw_data
-        return b""
+    def check_end_upload_response(self, response: Dict[str, Any]) -> None:
+        """Require a canonical END_UPLOAD acknowledgement."""
+        if response.get("raw_parameters", b"") != bytes((S7Function.END_UPLOAD,)):
+            raise S7ProtocolError("Invalid end-upload response")
+        if response.get("raw_data", b""):
+            raise S7ProtocolError("End-upload response must not contain data")
 
     def build_download_request(self, block_type: int, block_num: int, block_data: bytes) -> bytes:
         """
@@ -688,26 +693,20 @@ class S7Protocol:
         Returns:
             Complete S7 PDU for request download
         """
-        # Block address string
-        block_addr = f"{block_type:02X}{block_num:05d}P".encode("ascii")
+        if not 0 <= block_type <= 0xFF or not 0 <= block_num <= 99999:
+            raise ValueError("Invalid block type or number")
+        if len(block_data) > 999999:
+            raise ValueError("Block is too large for the download request")
+        if len(block_data) >= 36 and block_data[2] == 1 and block_data[4] == 5:
+            mc7_size = struct.unpack(">H", block_data[34:36])[0]
+        else:
+            mc7_size = len(block_data) - 36 if len(block_data) >= 36 else len(block_data)
+        if mc7_size > 999999:
+            raise ValueError("MC7 size is too large for the download request")
 
-        # Block length as string
-        length_str = f"{len(block_data):06d}".encode("ascii")
-
-        # Parameters
-        param_data = (
-            struct.pack(
-                ">BBBBB",
-                S7Function.REQUEST_DOWNLOAD,  # Function code
-                0x00,  # Status
-                0x00,  # Reserved
-                0x00,  # Reserved
-                len(block_addr),  # Block address length
-            )
-            + block_addr
-            + struct.pack(">B", len(length_str))
-            + length_str
-        )
+        block_addr = b"_0" + bytes((block_type,)) + f"{block_num:05d}".encode("ascii") + b"P"
+        sizes = b"1" + f"{len(block_data):06d}{mc7_size:06d}".encode("ascii")
+        param_data = bytes((S7Function.REQUEST_DOWNLOAD, 0, 1)) + bytes(5) + b"\x09" + block_addr + b"\x0d" + sizes
 
         header = struct.pack(
             ">BBHHHH",
@@ -720,6 +719,37 @@ class S7Protocol:
         )
 
         return header + param_data
+
+    @staticmethod
+    def parse_download_service_request(pdu: bytes, function: int, block_num: int) -> int:
+        """Validate a PLC request for a download slice or completion acknowledgement."""
+        if len(pdu) != 28 or pdu[0:2] != bytes((0x32, S7PDUType.REQUEST)):
+            raise S7ProtocolError("Invalid PLC download request header")
+        sequence, param_len, data_len = struct.unpack(">HHH", pdu[4:10])
+        if param_len != 18 or data_len != 0:
+            raise S7ProtocolError("Invalid PLC download request lengths")
+        params = pdu[10:]
+        expected_address = b"_0" + bytes((0x41,)) + f"{block_num:05d}".encode("ascii") + b"P"
+        if params[0] != function or params[8] != 9 or params[9:] != expected_address:
+            raise S7ProtocolError("Unexpected PLC download request")
+        return int(sequence)
+
+    @staticmethod
+    def build_download_fragment_response(sequence: int, is_last: bool, data: bytes) -> bytes:
+        """Reply to a PLC DOWNLOAD_BLOCK request with one bounded fragment."""
+        if not 0 <= sequence <= 0xFFFF or len(data) > 0xFFFF:
+            raise ValueError("Invalid download response sequence or payload length")
+        parameters = bytes((S7Function.DOWNLOAD_BLOCK, 0 if is_last else 1))
+        payload = struct.pack(">HH", len(data), 0x00FB) + data
+        header = struct.pack(">BBHHHHH", 0x32, S7PDUType.ACK_DATA, 0, sequence, 2, len(payload), 0)
+        return header + parameters + payload
+
+    @staticmethod
+    def build_download_ended_response(sequence: int) -> bytes:
+        """Acknowledge the PLC's DOWNLOAD_ENDED request."""
+        if not 0 <= sequence <= 0xFFFF:
+            raise ValueError("Invalid download response sequence")
+        return struct.pack(">BBHHHHH", 0x32, S7PDUType.ACK_DATA, 0, sequence, 1, 0, 0) + bytes((S7Function.DOWNLOAD_ENDED,))
 
     def build_delete_block_request(self, block_type: int, block_num: int) -> bytes:
         """
@@ -845,16 +875,7 @@ class S7Protocol:
         )
 
         # Data section: block type (0x30 prefix + type per Snap7 C format)
-        data_section = struct.pack(
-            ">BBHBBBB",
-            0x0A,  # Return value (request)
-            0x00,  # Transport size
-            0x0004,  # Length (4 bytes)
-            0x30,  # Block type indicator
-            block_type,  # Block type code
-            0x0A,  # Trailing bytes per Snap7 C
-            0x00,
-        )
+        data_section = struct.pack(">BBHBB", 0xFF, 0x09, 2, 0x30, block_type)
 
         # S7 header for USER_DATA
         header = struct.pack(
@@ -894,6 +915,8 @@ class S7Protocol:
 
         if not raw_data:
             return result
+        if len(raw_data) % 4 != 0:
+            raise S7ProtocolError("Block-count response length is not a multiple of four")
 
         # Parse block entries (4 bytes each: 0x30 | type | count_hi | count_lo)
         # Block type codes
@@ -913,8 +936,9 @@ class S7Protocol:
             block_type = raw_data[offset + 1]
             count = struct.unpack(">H", raw_data[offset + 2 : offset + 4])[0]
 
-            if indicator == 0x30 and block_type in type_to_name:
-                result[type_to_name[block_type]] = count
+            if indicator != 0x30 or block_type not in type_to_name:
+                raise S7ProtocolError("Invalid block-count response entry")
+            result[type_to_name[block_type]] = count
 
             offset += 4
 
@@ -937,6 +961,8 @@ class S7Protocol:
 
         if not raw_data:
             return result
+        if len(raw_data) % 4 != 0:
+            raise S7ProtocolError("Block-list response length is not a multiple of four")
 
         # Parse block entries (4 bytes each per TDataFunGetBotItem:
         # BlockNum(2) + Unknown(1) + BlockLang(1))
@@ -976,15 +1002,7 @@ class S7Protocol:
         # Block number is 5-digit zero-padded ASCII (e.g., 1 -> "00001")
         block_num_ascii = f"{block_num:05d}".encode("ascii")
         data_payload = struct.pack(">BB", 0x30, block_type) + b"A" + block_num_ascii
-        data_section = (
-            struct.pack(
-                ">BBH",
-                0x0A,  # Return value (request)
-                0x00,  # Transport size
-                len(data_payload),  # Length
-            )
-            + data_payload
-        )
+        data_section = struct.pack(">BBH", 0xFF, 0x09, len(data_payload)) + data_payload
 
         # S7 header for USER_DATA
         header = struct.pack(
@@ -1030,8 +1048,8 @@ class S7Protocol:
         data_info = response.get("data", {})
         raw_data = data_info.get("data", b"")
 
-        if len(raw_data) < 78:
-            return result
+        if len(raw_data) != 78:
+            raise S7ProtocolError("Block-info response must contain exactly 78 bytes")
 
         # Parse block info structure per TResDataBlockInfo layout
         result["block_type"] = raw_data[1]
@@ -1257,17 +1275,20 @@ class S7Protocol:
         def to_bcd(value: int) -> int:
             return ((value // 10) << 4) | (value % 10)
 
-        year = dt.year % 100  # Only last 2 digits
+        year = dt.year % 100
+        millisecond = dt.microsecond // 1000
         bcd_time = struct.pack(
-            ">BBBBBBBB",
-            0x00,  # Reserved
-            to_bcd(year),  # Year (BCD)
+            ">BBBBBBBBBB",
+            0x00,
+            0x19,  # Siemens date/time prefix
+            to_bcd(year),
             to_bcd(dt.month),  # Month (BCD)
             to_bcd(dt.day),  # Day (BCD)
             to_bcd(dt.hour),  # Hour (BCD)
             to_bcd(dt.minute),  # Minute (BCD)
             to_bcd(dt.second),  # Second (BCD)
-            (dt.weekday() + 1) & 0x0F,  # Day of week (1=Monday)
+            to_bcd(millisecond // 10),
+            ((millisecond % 10) << 4) | ((dt.weekday() + 1) & 0x0F),
         )
 
         # Parameter section for USER_DATA clock request
@@ -1284,15 +1305,7 @@ class S7Protocol:
         )
 
         # Data section with BCD time
-        data_section = (
-            struct.pack(
-                ">BBH",
-                0x0A,  # Return value (request)
-                0x00,  # Transport size
-                len(bcd_time),  # Length
-            )
-            + bcd_time
-        )
+        data_section = struct.pack(">BBH", 0xFF, 0x09, len(bcd_time)) + bcd_time
 
         # S7 header for USER_DATA
         header = struct.pack(
@@ -1322,9 +1335,8 @@ class S7Protocol:
         data_info = response.get("data", {})
         raw_data = data_info.get("data", b"")
 
-        if len(raw_data) < 8:
-            # Return current time if no valid data
-            return dt_class.now().replace(microsecond=0)
+        if len(raw_data) != 8:
+            raise S7ProtocolError("Clock response must contain exactly eight bytes")
 
         # Parse BCD time
         def from_bcd(value: int) -> int:
@@ -1343,8 +1355,8 @@ class S7Protocol:
 
         try:
             return dt_class(full_year, month, day, hour, minute, second)
-        except ValueError:
-            return dt_class.now().replace(microsecond=0)
+        except ValueError as exc:
+            raise S7ProtocolError("Clock response contains an invalid BCD timestamp") from exc
 
     # ========================================================================
     # Session Password PDU Builders (Security / Function Group 5)
@@ -1354,8 +1366,8 @@ class S7Protocol:
     def encode_password(password: str) -> bytes:
         """Encode an S7 session password into the 8-byte wire format.
 
-        The encoding pads or truncates the password to 8 characters, XORs each
-        byte with ``0x55``, then rotates each byte left by 3 bits.
+        Snap7 pads with spaces, XORs with ``0x55``, and chains each byte
+        from the encoded byte two positions earlier.
 
         Args:
             password: Plaintext password (max 8 characters).
@@ -1363,12 +1375,13 @@ class S7Protocol:
         Returns:
             8-byte encoded password block.
         """
-        # Pad/truncate to exactly 8 bytes
-        raw = password.encode("ascii")[:8].ljust(8, b"\x00")
+        raw = password.encode("ascii")
+        if not 1 <= len(raw) <= 8:
+            raise ValueError("Session password must contain between one and eight ASCII characters")
+        raw = raw.ljust(8, b" ")
         encoded = bytearray(8)
         for i in range(8):
-            xored = raw[i] ^ 0x55
-            encoded[i] = ((xored << 3) | (xored >> 5)) & 0xFF
+            encoded[i] = raw[i] ^ 0x55 ^ (encoded[i - 2] if i >= 2 else 0)
         return bytes(encoded)
 
     def build_set_session_password_request(self, encoded_password: bytes) -> bytes:
@@ -1396,15 +1409,9 @@ class S7Protocol:
         )
 
         # Data section: encoded password
-        data_section = (
-            struct.pack(
-                ">BBH",
-                0x0A,  # Return value (request)
-                0x00,  # Transport size
-                len(encoded_password),  # Length
-            )
-            + encoded_password
-        )
+        if len(encoded_password) != 8:
+            raise ValueError("Encoded session password must contain eight bytes")
+        data_section = struct.pack(">BBH", 0xFF, 0x09, 8) + encoded_password
 
         header = struct.pack(
             ">BBHHHH",
@@ -1457,7 +1464,12 @@ class S7Protocol:
 
         return header + param_data + data_section
 
-    def check_userdata_response(self, response: Dict[str, Any]) -> None:
+    def check_userdata_response(
+        self,
+        response: Dict[str, Any],
+        expected_group: int | None = None,
+        expected_subfunction: int | None = None,
+    ) -> None:
         """Check a USERDATA response for errors.
 
         Verifies both the parameter-level error code and the data section
@@ -1475,6 +1487,12 @@ class S7Protocol:
             if param_error != 0:
                 error_msg = get_protocol_error_message(param_error)
                 raise S7ProtocolError(f"USERDATA request failed: {error_msg} (0x{param_error:04x})")
+            if expected_group is not None and params.get("group") != expected_group:
+                raise S7ProtocolError("Unexpected USERDATA response function group")
+            if expected_subfunction is not None and params.get("subfunction") != expected_subfunction:
+                raise S7ProtocolError("Unexpected USERDATA response subfunction")
+        else:
+            raise S7ProtocolError("Missing USERDATA response parameters")
 
         data_info = response.get("data", {})
         if isinstance(data_info, dict):
@@ -1482,6 +1500,8 @@ class S7Protocol:
             if return_code != 0xFF:
                 desc = get_return_code_description(return_code)
                 raise S7ProtocolError(f"USERDATA request failed: {desc} (0x{return_code:02x})")
+        else:
+            raise S7ProtocolError("Missing USERDATA response data")
 
     def build_cpu_state_request(self) -> bytes:
         """
@@ -1583,6 +1603,7 @@ class S7Protocol:
                 raise S7ProtocolError("Parameter section extends beyond PDU")
 
             param_data = pdu[offset : offset + param_len]
+            response["raw_parameters"] = param_data
             response["parameters"] = self._parse_parameters(param_data)
             offset += param_len
 
@@ -1592,16 +1613,27 @@ class S7Protocol:
                 raise S7ProtocolError("Data section extends beyond PDU")
 
             data_section = pdu[offset : offset + data_len]
-            if (response.get("parameters") or {}).get("function_code") == S7Function.WRITE_AREA:
+            function_code = (response.get("parameters") or {}).get("function_code")
+            if function_code == S7Function.WRITE_AREA:
                 # WRITE data is an array of acknowledgement codes, not a READ item header.
                 response["data"] = {"return_code": data_section[0]}
+            elif function_code == S7Function.UPLOAD:
+                response["data"] = {"data": data_section}
             else:
-                # Other functions (notably block upload) do not carry READ item headers.
+                parameters = response.get("parameters") or {}
+                validate_item_length = function_code != S7Function.READ_AREA or parameters.get("item_count") == 1
                 response["data"] = self._parse_data_section(
                     data_section,
-                    validate_length=(response.get("parameters") or {}).get("function_code") == S7Function.READ_AREA,
+                    validate_length=validate_item_length,
                 )
             response["raw_data"] = data_section
+            offset += data_len
+
+        if offset != len(pdu):
+            raise S7ProtocolError("S7 response contains trailing bytes")
+
+        if pdu_type == S7PDUType.USERDATA:
+            self.check_userdata_response(response)
 
         return response
 
@@ -1612,7 +1644,9 @@ class S7Protocol:
 
         # Detect USERDATA response parameters:
         # byte 0 = 0x00 (reserved), len >= 12, byte 2 = 0x12, byte 4 = 0x12 (method=response)
-        if param_data[0] == 0x00 and len(param_data) >= 12 and param_data[2] == 0x12 and param_data[4] == 0x12:
+        if param_data[0] == 0x00 and len(param_data) >= 5 and param_data[2] == 0x12 and param_data[4] == 0x12:
+            if len(param_data) != 12:
+                raise S7ProtocolError("USERDATA response parameters must contain exactly 12 bytes")
             return self._parse_userdata_response_params(param_data)
 
         function_code = param_data[0]
@@ -1718,7 +1752,9 @@ class S7Protocol:
                 byte_length = data_length // 8
 
             if validate_length and 4 + byte_length > len(data_section):
-                raise S7ProtocolError("Read data item is truncated")
+                raise S7ProtocolError("Data item is truncated")
+            if validate_length and 4 + byte_length < len(data_section):
+                raise S7ProtocolError("Data item contains trailing bytes")
             actual_data = data_section[4 : 4 + byte_length]
 
             return {"return_code": return_code, "transport_size": transport_size, "data_length": data_length, "data": actual_data}

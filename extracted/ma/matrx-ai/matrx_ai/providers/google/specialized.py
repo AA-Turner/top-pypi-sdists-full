@@ -127,6 +127,30 @@ class _ReportedSession:
             await self._session.send_client_content(**kwargs)
 
 
+def _translate_session_settings(
+    profile: ResolvedCallProfile, settings: dict[str, Any]
+) -> dict[str, Any]:
+    """Canonical Live session settings -> the cells' translated value per canonical key.
+
+    Runs ``translate_session_settings`` (the shared outbound pass), then reads
+    each key back under its rule's provider key. A key the cells dropped comes
+    back absent, so the SDK config omits it rather than sending a raw value.
+    """
+    from matrx_ai.catalog.controls import flatten_dotted
+    from matrx_ai.providers.outbound_params import translate_session_settings
+
+    controls = profile.controls
+    params = translate_session_settings(settings, controls, model=profile.provider_model_id)
+    flat = {**params, **flatten_dotted(params)}
+    out: dict[str, Any] = {}
+    for key in settings:
+        rule = controls.rules.get(key)
+        wire_key = (getattr(rule, "provider_key", None) if rule is not None else None) or key
+        if wire_key in flat:
+            out[key] = flat[wire_key]
+    return out
+
+
 class GoogleLiveSession:
     """Thin async session around ``BidiGenerateContent``.
 
@@ -143,14 +167,28 @@ class GoogleLiveSession:
 
     async def __aenter__(self) -> GoogleLiveSession:
         vad = types.AutomaticActivityDetection(**self.options.vad_config)
+        # The session settings go through the translation cells like every
+        # other seam (thinking level, turn coverage, response modalities); this
+        # class only shapes the translated values into the SDK config.
+        translated = _translate_session_settings(
+            self.profile,
+            {
+                "thinking_level": self.options.thinking_level,
+                "turn_coverage": self.options.turn_coverage,
+                "response_modalities": self.options.response_modalities,
+            },
+        )
+        thinking_level = translated.get("thinking_level")
         config = types.LiveConnectConfig(
-            response_modalities=self.options.response_modalities,
-            thinking_config=types.ThinkingConfig(
-                thinking_level=self.options.thinking_level.upper()
+            response_modalities=translated.get("response_modalities"),
+            thinking_config=(
+                types.ThinkingConfig(thinking_level=str(thinking_level).upper())
+                if thinking_level is not None
+                else None
             ),
             realtime_input_config=types.RealtimeInputConfig(
                 automatic_activity_detection=vad,
-                turn_coverage=self.options.turn_coverage,
+                turn_coverage=translated.get("turn_coverage"),
             ),
             session_resumption=types.SessionResumptionConfig(handle=self.options.session_handle),
             history_config=types.HistoryConfig(
@@ -275,7 +313,11 @@ class GoogleMusicSession:
             await self._require_session().set_weighted_prompts(weighted)
 
     async def set_config(self, config: dict[str, Any]) -> None:
-        generation_config = types.LiveMusicGenerationConfig(**config)
+        # Music settings (bpm, density, guidance, temperature…) go through the
+        # cells like every session seam; a key the cells drop is not sent.
+        generation_config = types.LiveMusicGenerationConfig(
+            **_translate_session_settings(self.profile, dict(config))
+        )
         async with _provider_failures(self.profile, _MUSIC_ROUTE):
             await self._require_session().set_music_generation_config(generation_config)
 
@@ -343,9 +385,7 @@ def embedding_contents(
         if isinstance(value, str):
             contents.append(value)
         else:
-            contents.append(
-                types.Content(role="user", parts=[part.to_google() for part in value])
-            )
+            contents.append(types.Content(role="user", parts=[part.to_google() for part in value]))
     return contents
 
 
@@ -368,10 +408,13 @@ class GoogleEmbeddingRuntime:
         task_type: str | None = None,
         title: str | None = None,
     ) -> GoogleEmbeddingResult:
-        if output_dimensionality is not None and not 128 <= output_dimensionality <= 3072:
-            raise ValueError("output_dimensionality must be between 128 and 3072")
+        # The width goes through the ``dimensions`` cell (range, product
+        # default) like every other seam — never a hand-written range check.
+        translated = _translate_session_settings(
+            self.profile, {"dimensions": output_dimensionality}
+        )
         config = types.EmbedContentConfig(
-            output_dimensionality=output_dimensionality,
+            output_dimensionality=translated.get("dimensions"),
             task_type=task_type,
             title=title,
         )

@@ -172,7 +172,7 @@ class TestOff:
         omitted = _map(
             {"reasoning_effort": {**rule, "off": {"omit": True, "why": "treat as unset"}}}
         ).outbound({"reasoning_effort": "none"})[0]
-        assert omitted == {"reasoning_effort": "high"}  # == wire(unset)
+        assert omitted == {}  # == wire(unset): nothing
 
 
 # ── from_number / to_number ──────────────────────────────────────────────────
@@ -262,11 +262,19 @@ class TestProcessorTablesAreRuleData:
     def test_together_effort_map_from_processor_config(self):
         rule = {
             "processor": "together_reasoning",
-            "processor_config": {"effort_map": {"medium": "medium"}, "default_effort": "low"},
+            "processor_config": {
+                "effort_map": {"medium": "medium"},
+                "set_effort_fallback": "low",
+                "default_effort": "high",
+            },
         }
         controls = _map({"reasoning_effort": rule})
         assert controls.outbound({"reasoning_effort": "medium"})[0] == {"reasoning_effort": "medium"}
         assert controls.outbound({"reasoning_effort": "xhigh"})[0] == {"reasoning_effort": "low"}
+        # NOT SET: only the cell-DECLARED default rides; undeclared, nothing.
+        assert controls.outbound({})[0] == {"reasoning_effort": "high"}
+        bare = _map({"reasoning_effort": {"processor": "together_reasoning"}})
+        assert bare.outbound({})[0] == {}
 
     def test_media_aspect_table_from_processor_config(self):
         rule = {
@@ -390,3 +398,20 @@ def test_processors_module_holds_no_translation_table_literals():
                 ):
                     offenders.append(f"numeric threshold {comparator.value} at line {node.lineno}")
     assert offenders == [], offenders
+
+
+def test_google_legacy_hidden_thoughts_keep_an_explicit_budget():
+    """Hiding thoughts is visibility, not depth (live 2026-10-03: reasoning_summary=never
+    converted to include_thoughts=False replaced a caller's budget 5000 with -1)."""
+    from matrx_ai.catalog.controls import CompiledControlsMap
+    from matrx_ai.catalog.models import ControlRule
+
+    compiled = CompiledControlsMap(rules={"reasoning_effort": ControlRule.model_validate({
+        "processor": "google_thinking",
+        "processor_config": {"mode": "legacy",
+                             "consumes": ["thinking_budget", "thinking_level", "include_thoughts"]},
+    })})
+    out, _ = compiled.outbound({"include_thoughts": False, "thinking_budget": 5000})
+    assert out["thinking_config"] == {"include_thoughts": False, "thinking_budget": 5000}
+    out, _ = compiled.outbound({"include_thoughts": False})
+    assert out["thinking_config"] == {"include_thoughts": False, "thinking_budget": -1}

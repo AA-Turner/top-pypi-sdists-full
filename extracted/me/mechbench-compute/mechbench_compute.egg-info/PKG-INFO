@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mechbench-compute
-Version: 0.187.0
+Version: 0.190.0
 Summary: Composable mechanistic-interpretability primitives: hook-aware forward, interventions, activation cache, logit lens, probes, and geometry.
 Author-email: Benji Smith <benji@shaxpir.com>
 License: MIT

@@ -944,3 +944,52 @@ def envelope_for_block(
         source_text,
         discriminator_for_block(block_type, language),
     )
+
+
+def envelope_for_artifact_content(
+    data: dict[str, Any] | None,
+    *,
+    on_contract_failure: Callable[[BlockEnvelopeContractFailure], None] | None = None,
+) -> dict[str, Any] | None:
+    """The kind an ``<artifact>``'s CONTENT declares, enveloped — or None.
+
+    ``artifact`` is classified above as framing whose content "is typed separately". Nothing
+    typed it: an agent that wrapped a valid ``{"__kind": "flashcard_set", ...}`` body in
+    ``<artifact type="flashcards">`` rendered a deck and stored nothing, because the store reads
+    only ``__ir`` envelopes and the framing never gets one (found 2026-10-02: General Chat,
+    "Make 4 flashcards on the Krebs cycle"). This is that separate typing: the body is handed to
+    the SAME ``kind`` path a bare ``__kind`` JSON block takes, so the same registration lookup,
+    schema validation and loud contract failures apply. Content that is not a JSON object
+    leading with ``__kind`` is ordinary artifact content and gets no envelope.
+    """
+    if not isinstance(data, dict):
+        return None
+    content = data.get("content")
+    if not isinstance(content, str):
+        return None
+    body = content.strip()
+    if body.startswith("```"):
+        first_newline = body.find("\n")
+        if first_newline == -1 or not body.endswith("```"):
+            return None
+        body = body[first_newline + 1 : -3].strip()
+    if not body.startswith("{"):
+        return None
+    try:
+        value = json.loads(body)
+    except ValueError:
+        return None
+    if not isinstance(value, dict):
+        return None
+    slug = value.get(KIND_KEY)
+    if not isinstance(slug, str) or not slug:
+        return None
+    from matrx_ai.processing.blocks.block_detector import KIND_BLOCK_TYPE
+
+    return envelope_for_block(
+        KIND_BLOCK_TYPE,
+        value,
+        source_text=body,
+        language="json",
+        on_contract_failure=on_contract_failure,
+    )

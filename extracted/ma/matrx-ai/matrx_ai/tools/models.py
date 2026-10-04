@@ -1405,6 +1405,20 @@ _FORWARDED_CONSTRAINT_KEYS: tuple[str, ...] = (
 )
 
 
+def _marks_required(param: dict[str, Any]) -> bool:
+    """True when a parameter's per-property ``required`` flag says it is required.
+
+    The internal notation overloads ``required``: on a scalar it is the BOOL
+    flag, on an object-typed property it is that object's NESTED required LIST.
+    Reading it truthily made every object parameter with a nested required list
+    required at the ROOT — the frontend's optional ``item`` on
+    ``apply_surface_write`` (``{resource_type, resource_id}`` required inside)
+    refused every call that left it out (2026-10-03). Only ``True`` marks the
+    parameter itself.
+    """
+    return param.get("required") is True
+
+
 class ToolDefinition(BaseModel):
     name: str = Field(description="Unique tool identifier")
     tool_id: str | None = Field(default=None, description="Database UUID for this tool")
@@ -1824,7 +1838,7 @@ class ToolDefinition(BaseModel):
                 if "default" in param:
                     prop["default"] = param["default"]
                 properties[key] = prop
-                if param.get("required", False):
+                if _marks_required(param):
                     required.append(key)
                 continue
             # In JSON Schema, an omitted ``type`` means any JSON value. DB-backed
@@ -1846,7 +1860,7 @@ class ToolDefinition(BaseModel):
                 # a property with NO type constraint is the spec-correct way
                 # to say "any value" (draft 2020-12).
                 properties[key] = {"description": param.get("description", "")}
-                if param.get("required", False):
+                if _marks_required(param):
                     required.append(key)
                 continue
             prop: dict[str, Any] = {
@@ -1878,7 +1892,7 @@ class ToolDefinition(BaseModel):
                 prop["additionalProperties"] = False
 
             properties[key] = prop
-            if param.get("required", False):
+            if _marks_required(param):
                 required.append(key)
 
         # Merge the schema-level required list (tool.definition rows carry
@@ -1979,6 +1993,15 @@ class ToolDefinition(BaseModel):
     # Provider format converters
     # ------------------------------------------------------------------
 
+    def to_inline_input_schema(self) -> dict[str, Any]:
+        """Project registry parameters through the provider schema for an inline tool."""
+        schema = self._build_json_schema()
+        return {
+            "type": schema["type"],
+            "properties": schema["properties"],
+            "required": schema["required"],
+        }
+
     def to_mcp_format(self) -> dict[str, Any]:
         return {
             "name": self.name,
@@ -2036,7 +2059,7 @@ class ToolDefinition(BaseModel):
             if key.startswith("$"):
                 continue  # internal meta ($variants, …) — not a tool parameter
             properties[key] = _normalize_google_schema(param, missing_items=missing_items, path=key)
-            if isinstance(param, dict) and param.get("required", False):
+            if isinstance(param, dict) and _marks_required(param):
                 required.append(key)
 
         if missing_items:

@@ -42,6 +42,7 @@ from typing import Any, Literal
 
 from matrx_utils import vcprint
 
+from matrx_ai.persistence.liveness import bounded_section
 from matrx_ai.persistence.postgres_text import sanitize_postgres_text
 from matrx_ai.persistence.registry import get_model
 
@@ -253,6 +254,141 @@ _inflight_commits: int = 0  # process-wide count of fired-but-unfinished bg comm
 # wedged DB still stops the request loudly.
 _COMMIT_SLOT_WAIT_SECONDS: float = 30.0
 _COMMIT_SLOT_POLL_SECONDS: float = 0.01
+
+# EVERY Session flush the Coordinator awaits is bounded by
+# _COMMIT_HARD_DEADLINE_SECONDS — the background commit AND the synchronous
+# current-cache flush inside finalize / drain_and_confirm / seal / flush. The
+# synchronous one used to be a bare ``await session.flush()``: during the
+# 2026-10-03 DB outage a final commit sat in it for 7+ minutes (pool acquire /
+# black-holed socket) and the conversation stayed locked until a restart.
+#
+# The bound uses asyncio.wait, never asyncio.wait_for: wait_for waits for the
+# cancelled flush to FINISH cancelling, and a flush stuck in asyncpg cleanup on a
+# dead connection never does — the "bounded" wait then hangs exactly as long as
+# the DB. asyncio.wait returns at the deadline no matter what the flush does.
+# After cancelling, the flush gets _CANCEL_SETTLE_SECONDS to land its rollback;
+# the ops are then captured to system_write_failure, itself bounded by
+# _CAPTURE_DEADLINE_SECONDS (a capture that cannot land screams the payload). CAPS.
+_CANCEL_SETTLE_SECONDS: float = 2.0
+_CAPTURE_DEADLINE_SECONDS: float = 20.0
+
+# The declared budget of ONE synchronous commit point (finalize, the degrade
+# drain, the pre-turn accountability check), handed to the run's liveness
+# tracker (matrx_ai.persistence.liveness). It is the sum of the bounds the point
+# can legitimately spend; a point still open past it means the bounds themselves
+# failed — the lease heartbeat then stops renewing and fails the run. CAPS.
+_SYNC_POINT_BUDGET_SECONDS: float = (
+    _DRAIN_TIMEOUT_SECONDS * 2  # in-flight commits + late one-shots
+    + _COMMIT_HARD_DEADLINE_SECONDS
+    + _CANCEL_SETTLE_SECONDS
+    + _CAPTURE_DEADLINE_SECONDS
+)
+
+
+async def _bounded_session_flush(
+    session: Any, *, reason: str, database: str | None
+) -> tuple[Any | None, bool]:
+    """Flush ``session`` within the hard deadline — returns ``(report, timed_out)``.
+
+    Never hangs past ``_COMMIT_HARD_DEADLINE_SECONDS + _CANCEL_SETTLE_SECONDS +
+    _CAPTURE_DEADLINE_SECONDS`` whatever the database does. On timeout the flush
+    is cancelled (its transaction rolls back) and its ops are captured to
+    ``system_write_failure`` on a fresh connection — never lost silently."""
+    flush_task = asyncio.ensure_future(session.flush(reason=reason))
+    done, _ = await asyncio.wait({flush_task}, timeout=_COMMIT_HARD_DEADLINE_SECONDS)
+    if flush_task in done:
+        return flush_task.result(), False
+
+    flush_task.cancel()
+    await asyncio.wait({flush_task}, timeout=_CANCEL_SETTLE_SECONDS)
+    if flush_task.done() and not flush_task.cancelled() and flush_task.exception() is None:
+        late = flush_task.result()
+        if getattr(late, "error", None) is None:
+            return late, False  # it landed at the wire — nothing to capture
+    if not flush_task.done():
+        # Still wedged in its own cleanup. Observe it whenever it ends so it is
+        # never an unretrieved exception; it no longer holds anything we wait on.
+        flush_task.add_done_callback(
+            lambda t: t.cancelled() or t.exception()  # type: ignore[func-returns-value]
+        )
+
+    ops = list(getattr(session, "_ops", []) or [])
+    if ops:
+        from matrx_orm.session.fallback import record_failures
+
+        cause = TimeoutError(
+            f"commit hard-deadline {_COMMIT_HARD_DEADLINE_SECONDS:.0f}s exceeded ({reason})"
+        )
+        capture = asyncio.ensure_future(
+            record_failures(
+                ops, cause, session_id=getattr(session, "id", ""), database=database
+            )
+        )
+        cdone, _ = await asyncio.wait({capture}, timeout=_CAPTURE_DEADLINE_SECONDS)
+        if capture not in cdone or capture.cancelled() or capture.exception() is not None:
+            if capture not in cdone:
+                capture.cancel()
+            capture.add_done_callback(lambda t: t.cancelled() or t.exception())  # type: ignore[func-returns-value]
+            logger.error(
+                "coordinator_hard_deadline_capture_failed reason=%s ops=%d — the ops "
+                "could not reach system_write_failure either (DB unreachable)",
+                reason,
+                len(ops),
+            )
+            _scream_lost_ops(ops, reason=reason, cause=cause)
+    return None, True
+
+
+async def _bounded_one_shot(write: Any, *, name: str) -> Any:
+    """Run one late one-shot write within ``_COMMIT_HARD_DEADLINE_SECONDS``.
+
+    ``asyncio.wait`` (never ``wait_for``) so a write wedged in its own cancel
+    cleanup cannot stretch the bound. Raises ``TimeoutError`` on expiry."""
+    task = asyncio.ensure_future(write)
+    done, _ = await asyncio.wait({task}, timeout=_COMMIT_HARD_DEADLINE_SECONDS)
+    if task in done:
+        return task.result()
+    task.cancel()
+    await asyncio.wait({task}, timeout=_CANCEL_SETTLE_SECONDS)
+    if not task.done():
+        task.add_done_callback(lambda t: t.cancelled() or t.exception())  # type: ignore[func-returns-value]
+    elif not task.cancelled() and task.exception() is None:
+        return task.result()  # it landed while being cancelled
+    raise TimeoutError(
+        f"late one-shot write {name} exceeded its "
+        f"{_COMMIT_HARD_DEADLINE_SECONDS:.0f}s hard deadline"
+    )
+
+
+def _timed_out_session_report(reason: str, *, ops_queued: int) -> Any:
+    """A Session-shaped report for a flush the hard deadline cut off."""
+    from matrx_orm.session.session import FlushReport as SessionFlushReport
+
+    now = datetime.now(UTC)
+    return SessionFlushReport(
+        session_id="",
+        reason=reason,
+        ops_queued=ops_queued,
+        ops_lost=ops_queued,
+        started_at=now,
+        finished_at=now,
+        error=f"commit hard-deadline {_COMMIT_HARD_DEADLINE_SECONDS:.0f}s exceeded",
+    )
+
+
+def _scream_lost_ops(ops: list[Any], *, reason: str, cause: BaseException) -> None:
+    """Last resort when neither the table nor system_write_failure is reachable:
+    put every op's identity in the process log, where log shipping keeps it."""
+    for op in ops:
+        logger.critical(
+            "LOST_WRITE reason=%s cause=%s table=%s op=%s pk=%s payload=%r",
+            reason,
+            cause,
+            getattr(getattr(op, "model_cls", None), "__name__", "?"),
+            getattr(op, "op_type", "?"),
+            getattr(op, "pk_value", "?"),
+            getattr(op, "payload", None),
+        )
 
 
 def _try_reserve_commit_slot() -> bool:
@@ -626,7 +762,7 @@ class Coordinator:
                     # draining later operations so one bad write cannot strand
                     # the rest of the late-write lane.
                     pass
-            try:
+            async def _write() -> bool:
                 async with _coordinator_session(database=database) as s:
                     if op_type == "insert":
                         merged = dict(payload)
@@ -641,7 +777,16 @@ class Coordinator:
                             "one_shot_unknown_op_type",
                             extra={"table": table, "op_type": op_type},
                         )
-                        return
+                        return False
+                return True
+
+            try:
+                # BOUNDED like every other Coordinator flush: a late write on a
+                # wedged DB must not hold its pool connection indefinitely. On
+                # expiry it is cancelled (its transaction rolls back) and the
+                # TimeoutError takes the capture path below.
+                if not await _bounded_one_shot(_write(), name=f"{table}:{op_type}"):
+                    return
                 vcprint(
                     f"[Coordinator] late one-shot {op_type} on {table} "
                     f"({pk_value[:8] if isinstance(pk_value, str) else pk_value}…) "
@@ -900,7 +1045,13 @@ class Coordinator:
                 self._phase = CoordinatorPhase.FLUSHED
                 return empty_report
 
-            session_report = await self._session.flush(reason=reason)
+            session_report, timed_out = await _bounded_session_flush(
+                self._session, reason=reason, database=self._database
+            )
+            if timed_out:
+                session_report = _timed_out_session_report(
+                    reason, ops_queued=ops_queued_before
+                )
 
             translated = FlushReport(
                 reason=reason,  # type: ignore[arg-type]
@@ -1069,35 +1220,15 @@ class Coordinator:
         cid, rid, database = self._conversation_id, self._request_id, self._database
 
         async def _runner() -> Any:
-            try:
-                # HARD DEADLINE on the background commit so it releases its pool
-                # connection at a known bound even if the DB is wedged. Without
-                # this an orphaned overdue commit holds a connection ~indefinitely
-                # → pool exhaustion → service-wide hang.
-                rep = await asyncio.wait_for(
-                    session.flush(reason=reason),
-                    timeout=_COMMIT_HARD_DEADLINE_SECONDS,
-                )
-            except TimeoutError:
-                # Blew the deadline → wait_for cancelled the flush (its transaction
-                # rolled back + released the connection). CancelledError bypassed
-                # Session.flush's record_failures, so capture the ops HERE on a
-                # FRESH connection — never lose them — then surface a barrier fail.
-                try:
-                    from matrx_orm.session.fallback import record_failures
-
-                    ops = list(getattr(session, "_ops", []) or [])
-                    if ops:
-                        await record_failures(
-                            ops,
-                            TimeoutError(
-                                f"commit hard-deadline {_COMMIT_HARD_DEADLINE_SECONDS:.0f}s"
-                            ),
-                            session_id=getattr(session, "id", ""),
-                            database=database,
-                        )
-                except Exception as cap_exc:  # noqa: BLE001 — last resort
-                    logger.error("hard_deadline_capture_failed: %s", cap_exc)
+            # HARD DEADLINE on the background commit so it releases its pool
+            # connection at a known bound even if the DB is wedged. Without
+            # this an orphaned overdue commit holds a connection ~indefinitely
+            # → pool exhaustion → service-wide hang. On expiry the helper has
+            # already captured the ops to system_write_failure.
+            rep, timed_out = await _bounded_session_flush(
+                session, reason=reason, database=database
+            )
+            if timed_out:
                 raise PersistenceBarrierError(
                     reason=f"{reason}_hard_deadline",
                     report=FlushReport(
@@ -1181,6 +1312,22 @@ class Coordinator:
         async with self._lock:
             pending, self._pending_commits = self._pending_commits, []
         err: PersistenceBarrierError | None = None
+        with bounded_section(
+            "coordinator.check_pending", grace_seconds * len(pending)
+        ):
+            err = await self._await_pending(pending, grace_seconds=grace_seconds)
+        if err is not None:
+            await self._apply_verdict(err.report, errored=True)
+            vcprint(
+                f"[Coordinator] ACCOUNTABILITY CHECK FAILED: {err}",
+                color="red",
+            )
+            raise err
+
+    async def _await_pending(
+        self, pending: list[_PendingCommit], *, grace_seconds: float
+    ) -> PersistenceBarrierError | None:
+        err: PersistenceBarrierError | None = None
         for pc in pending:
             try:
                 await asyncio.wait_for(asyncio.shield(pc.task), timeout=grace_seconds)
@@ -1213,13 +1360,7 @@ class Coordinator:
                     conversation_id=self._conversation_id,
                     request_id=self._request_id,
                 )
-        if err is not None:
-            await self._apply_verdict(err.report, errored=True)
-            vcprint(
-                f"[Coordinator] ACCOUNTABILITY CHECK FAILED: {err}",
-                color="red",
-            )
-            raise err
+        return err
 
     async def _apply_verdict(self, report: FlushReport, *, errored: bool) -> None:
         """Record the persistence verdict atomically and MONOTONICALLY. ERRORED
@@ -1258,10 +1399,13 @@ class Coordinator:
                 request_id=self._request_id,
             )
         # _flush_current_and_drain locks only its synchronous snapshot internally.
-        report, failures = await self._flush_current_and_drain(
-            reason=reason,
-            timeout=_DRAIN_TIMEOUT_SECONDS,
-        )
+        # Declared to the run's liveness tracker: a finalize open past its budget
+        # means the bounds failed, and the lease heartbeat stops renewing.
+        with bounded_section(f"coordinator.finalize:{reason}", _SYNC_POINT_BUDGET_SECONDS):
+            report, failures = await self._flush_current_and_drain(
+                reason=reason,
+                timeout=_DRAIN_TIMEOUT_SECONDS,
+            )
         await self._apply_verdict(report, errored=bool(failures))
         if failures:
             vcprint(
@@ -1308,7 +1452,15 @@ class Coordinator:
 
         if had_ops:
             try:
-                await residual.flush(reason="seal")
+                _srep, _timed_out = await _bounded_session_flush(
+                    residual, reason="seal", database=self._database
+                )
+                if _timed_out:
+                    vcprint(
+                        "[Coordinator] seal() residual flush blew its hard deadline; "
+                        "ops captured to system_write_failure.",
+                        color="red",
+                    )
             except Exception as exc:  # noqa: BLE001 — best-effort terminal flush
                 vcprint(
                     f"[Coordinator] seal() residual flush failed: "
@@ -1336,10 +1488,11 @@ class Coordinator:
         to system_write_failure by the Session fallback). Returns failure
         descriptions for the caller to surface. See CLAUDE.md."""
         # _flush_current_and_drain locks only its synchronous snapshot internally.
-        report, failures = await self._flush_current_and_drain(
-            reason=reason,
-            timeout=_DRAIN_TIMEOUT_SECONDS,
-        )
+        with bounded_section(f"coordinator.drain:{reason}", _SYNC_POINT_BUDGET_SECONDS):
+            report, failures = await self._flush_current_and_drain(
+                reason=reason,
+                timeout=_DRAIN_TIMEOUT_SECONDS,
+            )
         await self._apply_verdict(report, errored=bool(failures))
         if failures:
             vcprint(
@@ -1461,8 +1614,20 @@ class Coordinator:
                 report.ops_lost += pc.ops
 
         # 2) Flush the captured current cache.
+        # BOUNDED: this was a bare await — the 2026-10-03 7-minute final-commit
+        # wedge. On expiry the ops are already captured to system_write_failure.
+        srep = None
         if current_session is not None:
-            srep = await current_session.flush(reason=reason)
+            current_ops = current_session.ops_count
+            srep, timed_out = await _bounded_session_flush(
+                current_session, reason=reason, database=self._database
+            )
+            if timed_out:
+                failures.append(
+                    f"current:hard_deadline>{_COMMIT_HARD_DEADLINE_SECONDS:.0f}s"
+                )
+                report.ops_lost += current_ops
+        if srep is not None:
             report.ops_queued = srep.ops_queued
             report.ops_after_coalesce = srep.ops_after_coalesce
             report.tiers = srep.tiers

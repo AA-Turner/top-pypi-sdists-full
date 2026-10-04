@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
 
@@ -12,6 +13,8 @@ from hypothesis import strategies as st
 import schemathesis
 from schemathesis.core import NOT_SET
 from schemathesis.core.parameters import ParameterLocation
+from schemathesis.engine import events
+from schemathesis.engine.run import PhaseName
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.hypothesis._response_matching import find_matching_in_responses
 from schemathesis.generation.hypothesis.builder import generate_example_cases
@@ -31,7 +34,7 @@ from schemathesis.specs.openapi.examples import (
 )
 from schemathesis.specs.openapi.extra_data_source import OpenApiExtraDataSource, ParameterRequirement
 from schemathesis.transport.wsgi import WSGI_TRANSPORT
-from test.utils import assert_requests_call, to_float32
+from test.utils import EventStream, assert_requests_call, to_float32
 
 if TYPE_CHECKING:
     from schemathesis.schemas import APIOperation
@@ -2080,13 +2083,13 @@ paths:
 
 
 def test_yaml_example_with_binary_tag(tmp_path):
-    # `!!binary` loads as bytes, which no validator can be built over; the declared example still comes through.
+    # `!!binary` keeps its base64 text, so the declared example can be sent as JSON.
     spec = tmp_path / "api.yaml"
     spec.write_text(SPEC_WITH_BINARY_EXAMPLE)
     schema = schemathesis.openapi.from_path(str(spec))
     operation = schema["/items"]["POST"]
     cases = generate_example_cases(test=lambda: None, operation=operation, fill_missing=False)
-    assert [case.body for case in cases] == [{"blob": b"abc"}]
+    assert [case.body for case in cases] == [{"blob": "YWJj"}]
 
 
 def test_schema_level_body_example_dropped_when_the_rest_cannot_be_drawn(ctx):
@@ -5471,3 +5474,176 @@ def test_examples_with_the_same_name_are_paired_in_fuzzing(ctx):
     from_examples = {pair for pair in seen if pair[0] in ("US", "EU") and pair[1] in ("USD", "EUR")}
     assert from_examples
     assert from_examples <= {("US", "USD"), ("EU", "EUR")}, f"Mismatched pairs: {from_examples}"
+
+
+def examples_phase_cases(ctx, app_runner, paths, **kwargs):
+    raw_schema = ctx.openapi.build_schema(paths, **kwargs)
+    app = ctx.openapi.make_permissive_flask_app(raw_schema)
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema.config.update(base_url=app_runner.openapi_url(app, path=""))
+    stream = EventStream(schema, phases=[PhaseName.EXAMPLES]).execute()
+    return [
+        {"query": node.value.query, "headers": node.value.headers, "body": node.value.body}
+        for event in stream.find_all(events.ScenarioFinished)
+        for node in event.recorder.cases.values()
+    ]
+
+
+def test_examples_phase_drops_invalid_named_parameter_example(ctx, app_runner):
+    assert examples_phase_cases(
+        ctx,
+        app_runner,
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "limit",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "integer"},
+                            "examples": {"bad": {"value": "many"}, "good": {"value": 5}},
+                        },
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    ) == [{"query": {"limit": 5}, "headers": {}, "body": NOT_SET}]
+
+
+# Members with a map-shaped `examples` or a list-shaped `properties` contribute no examples.
+def test_examples_phase_ignores_wrongly_typed_all_of_keywords(ctx, app_runner):
+    assert examples_phase_cases(
+        ctx,
+        app_runner,
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "allOf": [
+                                        {"type": "object", "properties": {"a": {"type": "string", "example": "x"}}},
+                                        {"examples": {"named": {"a": "y"}}, "properties": []},
+                                    ]
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    ) == [{"query": {}, "headers": {}, "body": {"a": "x"}}]
+
+
+def test_examples_phase_branch_overriding_parent_property(ctx, app_runner):
+    assert examples_phase_cases(
+        ctx,
+        app_runner,
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"kind": {"type": "string", "example": "parent"}},
+                                    "oneOf": [
+                                        {"properties": {"kind": {"type": "string", "example": "branch"}}},
+                                    ],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    ) == [{"query": {}, "headers": {}, "body": {"kind": "parent"}}]
+
+
+def test_examples_phase_array_items_with_boolean_branch(ctx, app_runner):
+    assert examples_phase_cases(
+        ctx,
+        app_runner,
+        {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {"anyOf": [True, {"type": "integer", "example": 1}]},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    ) == [{"query": {}, "headers": {}, "body": [1]}]
+
+
+def test_examples_phase_ignores_scalar_examples_container(ctx, app_runner):
+    assert examples_phase_cases(
+        ctx,
+        app_runner,
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "example": "given",
+                            "examples": "oops",
+                        },
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    ) == [{"query": {"q": "given"}, "headers": {}, "body": NOT_SET}]
+
+
+# A YAML loader turns unquoted dates into `date` objects before the schema reaches Schemathesis.
+def test_examples_phase_drops_incomplete_body_example_with_non_json_value(ctx, app_runner):
+    assert (
+        examples_phase_cases(
+            ctx,
+            app_runner,
+            {
+                "/items": {
+                    "post": {
+                        "requestBody": {
+                            "required": True,
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "properties": {"name": {"type": "string"}, "day": {}},
+                                        "required": ["name"],
+                                        "example": {"day": datetime.date(2024, 1, 1)},
+                                    }
+                                }
+                            },
+                        },
+                        "responses": {"200": {"description": "OK"}},
+                    }
+                }
+            },
+        )
+        == []
+    )

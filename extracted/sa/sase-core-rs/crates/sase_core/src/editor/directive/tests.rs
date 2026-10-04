@@ -1232,3 +1232,56 @@ fn clause_candidates_cover_roles_conflicts_and_self_references() {
     assert_eq!(at_end("%model(medium, c"), ["coder="]);
     assert_eq!(at_end("%model(opus, coder="), ["opus"]);
 }
+
+#[test]
+fn macros_enabled_alias_canonicalizes_to_legacy() {
+    assert_eq!(
+        canonical_directive_name("macros_enabled"),
+        Some("xprompts_enabled")
+    );
+    assert_eq!(
+        directive_metadata("macros_enabled").map(|metadata| metadata.name),
+        Some("xprompts_enabled")
+    );
+    // Emitted metadata stays on the legacy spelling: no emitted name or
+    // alias may equal the hidden input-only alias.
+    for contract in [
+        directive_contract(),
+        directive_contract_with_flags(&[]),
+        directive_contract_with_flags(&["typed_launch_units".to_string()]),
+        directive_contract_with_flags(&["queue_capacity_budget".to_string()]),
+    ] {
+        assert!(contract
+            .iter()
+            .any(|entry| entry.name == "xprompts_enabled"));
+        assert!(!contract.iter().any(|entry| entry.name == "macros_enabled"));
+        assert!(!contract
+            .iter()
+            .any(|entry| entry.alias.as_deref() == Some("macros_enabled")));
+        let entry = contract
+            .iter()
+            .find(|entry| entry.name == "xprompts_enabled")
+            .expect("legacy contract entry");
+        assert_eq!(entry.alias, None);
+    }
+}
+
+#[test]
+fn hidden_macros_enabled_alias_stays_out_of_name_completion() {
+    let m_list = build_directive_completion_candidates("%m");
+    let m_names: Vec<&str> = m_list
+        .candidates
+        .iter()
+        .map(|candidate| candidate.name.as_str())
+        .collect();
+    assert_eq!(m_names, ["model"]);
+    for token in ["%ma", "%mac", "%macr", "%macros", "%macros_"] {
+        let list = build_directive_completion_candidates(token);
+        let names: Vec<&str> = list
+            .candidates
+            .iter()
+            .map(|candidate| candidate.name.as_str())
+            .collect();
+        assert!(!names.contains(&"xprompts_enabled"), "{token}");
+    }
+}

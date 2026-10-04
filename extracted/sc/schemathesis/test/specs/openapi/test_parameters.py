@@ -66,6 +66,29 @@ def test_(case):
     testdir.run_and_assert(passed=1)
 
 
+def test_cookie_names_are_case_sensitive(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "get": {
+                    "parameters": [
+                        {"name": "sid", "in": "cookie", "required": True, "schema": {"enum": ["lower"]}},
+                        {"name": "SID", "in": "cookie", "required": True, "schema": {"enum": ["upper"]}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @given(case=schema["/x"]["GET"].as_strategy())
+    @settings(max_examples=1)
+    def test(case):
+        assert case.cookies == {"sid": "lower", "SID": "upper"}
+
+    test()
+
+
 def test_body(testdir):
     # When parameter is specified for "body"
     testdir.make_test(
@@ -602,6 +625,59 @@ def test_missing_content_and_schema(ctx, location):
         match=f"Can not generate data for {location} parameter `X-Foo`! "
         "It should have either `schema` or `content` keywords defined",
     ):
+        test()
+
+
+@pytest.mark.parametrize(
+    ("version", "location"),
+    [("3.0.2", "query"), ("3.2.0", "querystring")],
+    ids=["openapi-3.0-query", "openapi-3.2-querystring"],
+)
+def test_empty_parameter_content(ctx, version, location):
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "get": {
+                    "parameters": [{"name": "q", "in": location, "required": True, "content": {}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version=version,
+    )
+
+    @given(case=schema["/x"]["GET"].as_strategy())
+    @settings(max_examples=1)
+    def test(case):
+        pass
+
+    with pytest.raises(
+        InvalidSchema,
+        match=f"Can not generate data for {location} parameter `q`! Its `content` must contain exactly one entry",
+    ):
+        test()
+
+
+def test_non_object_parameter_media_type(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/x": {
+                "get": {
+                    "parameters": [
+                        {"name": "a", "in": "query", "required": True, "content": {"application/json": "oops"}}
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    @given(case=schema["/x"]["GET"].as_strategy())
+    @settings(max_examples=1)
+    def test(case):
+        pass
+
+    with pytest.raises(InvalidSchema, match="Media type `application/json` for query parameter `a` must be an object"):
         test()
 
 

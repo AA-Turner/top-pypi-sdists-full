@@ -14,6 +14,7 @@ optimization algorithms in skfolio should inherit from.
 
 from __future__ import annotations
 
+import numbers
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -113,12 +114,13 @@ class BaseOptimization(skb.BaseEstimator, ABC):
     `__init__` (no `*args` or `**kwargs`), following scikit-learn conventions.
     """
 
-    weights_: FloatArray
+    weights_: FloatArray | None
     n_features_in_: int
     feature_names_in_: StrArray
     fallback_: BaseOptimization | Literal["previous_weights"] | None
     fallback_chain_: list[tuple[str, str]] | None
-    error_: str | list[str] | None
+    error_: str | list[str | None] | None
+    _fit_in_progress: bool
 
     def __init__(
         self,
@@ -148,10 +150,18 @@ class BaseOptimization(skb.BaseEstimator, ABC):
             **fit_params: Any,
         ) -> BaseOptimization:
             """Run `original_fit` and try the fallback chain if it fails."""
+            # Both subclass and parent fit methods are wrapped. Calls to
+            # super().fit() skip the parent's fallback handling so the outermost
+            # wrapper runs the fallback chain once, using the original inputs.
+            if getattr(self, "_fit_in_progress", False):
+                original_fit(self, X, y, **fit_params)
+                return self
+
             self.fallback_ = None
             self.fallback_chain_ = None
             self.error_ = None
 
+            self._fit_in_progress = True
             try:
                 original_fit(self, X, y, **fit_params)
             except Exception as primary_error:
@@ -172,10 +182,12 @@ class BaseOptimization(skb.BaseEstimator, ABC):
                         stacklevel=2,
                     )
                     self.weights_ = None
+            finally:
+                del self._fit_in_progress
             return self
 
-        _wrapped_fit._fallback_wrapped = True
-        cls.fit = _wrapped_fit
+        _wrapped_fit._fallback_wrapped = True  # ty: ignore[unresolved-attribute]
+        cls.fit = _wrapped_fit  # ty: ignore[invalid-assignment]
 
     def _run_fallback_chain(
         self,
@@ -342,7 +354,7 @@ class BaseOptimization(skb.BaseEstimator, ABC):
         check_is_fitted(self, "weights_")
 
         if self.portfolio_params is None:
-            ptf_kwargs = {}
+            ptf_kwargs: dict[str, Any] = {}
         else:
             ptf_kwargs = self.portfolio_params.copy()
 
@@ -377,7 +389,9 @@ class BaseOptimization(skb.BaseEstimator, ABC):
         # If weights are None and raise_on_failure is False, we return a FailedPortfolio
         if self.weights_ is None:
             return FailedPortfolio(
-                name=name, optimization_error=self.error_, **ptf_kwargs
+                name=name,
+                optimization_error=self.error_,  # ty: ignore[invalid-argument-type]
+                **ptf_kwargs,
             )
 
         if not isinstance(X, ReturnDistribution):
@@ -587,7 +601,7 @@ class BaseOptimization(skb.BaseEstimator, ABC):
         """
         if value is None:
             return fill_value
-        if np.isscalar(value):
+        if isinstance(value, numbers.Real):
             return float(value)
         return input_to_array(
             items=value,
@@ -622,8 +636,8 @@ class BaseOptimization(skb.BaseEstimator, ABC):
             fill_value=0,
             name=_PREVIOUS_WEIGHTS,
         )
-        if np.isscalar(previous_weights):
-            previous_weights = np.full(n_assets, float(previous_weights))
+        if not isinstance(previous_weights, np.ndarray):
+            previous_weights = np.full(n_assets, previous_weights, dtype=float)
         return previous_weights
 
 

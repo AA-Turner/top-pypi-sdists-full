@@ -3,7 +3,7 @@ still allows the model to say.
 
 Arman, 2026-09-27: the shape we hold is modified by each provider's translator,
 and a provider rejecting our request is OUR translator's bug. The corollary the
-adversarial review (``common-docs/projects/checks-run-in-the-app/
+adversarial review (``common-docs/systems/architecture/observability/projects/checks-run-in-the-app/
 SCHEMA-TRANSLATION-VERIFY.md``) found broken is the other half of it: a
 compromise the boundary makes must be (a) as small as the provider forces,
 (b) announced through the findings channel with the agent and the schema named,

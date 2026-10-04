@@ -333,6 +333,17 @@ def _unions(p: dict[str, Any]) -> int:
     )
 
 
+@pytest.fixture(autouse=True)
+def _no_gate_findings_cross_tests():
+    """A gate finding held for a call that never reached the dispatch seam belongs to THAT
+    test; without this a later test's ``open_gate_findings`` flushes it into its fixture."""
+    from matrx_ai.providers.structured_output_findings import _GATE_PENDING
+
+    token = _GATE_PENDING.set(None)
+    yield
+    _GATE_PENDING.reset(token)
+
+
 @pytest.fixture
 def findings(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
     recorded: list[tuple[str, dict[str, Any]]] = []
@@ -378,12 +389,15 @@ def test_ladder_last_rung_restores_the_tools(findings) -> None:
 
 
 def test_ladder_sheds_tools_only_when_the_schema_alone_fits(findings) -> None:
-    result, sent, _ = _run_ladder(
+    result, sent, emitter = _run_ladder(
         lambda p: bool((p.get("output_config") or {}).get("format")) and not p.get("tools"),
     )
     assert result == "served"
     assert not sent[-1].get("tools") and sent[-1]["output_config"]["format"]
     assert [k for k, _ in findings] == ["structured_output.tools_shed"]
+    # The shed is a tool removal: announced through THE call-time adaptation, on this
+    # call's emitter (TOOL-SOURCES.md L2), naming every tool it removed.
+    assert emitter.warnings == ["tools_removed_grammar_budget"]
 
 
 def test_translation_findings_are_flushed_with_the_schema_named(findings) -> None:

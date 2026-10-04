@@ -6,7 +6,7 @@ from typing import Generator, Union
 
 from cli_helpers.tabular_output import TabularOutputFormatter
 
-from mycli.packages.sql_utils import extract_tables_from_complete_statements
+from mycli.packages.utils.sql_utils import extract_tables_from_complete_statements
 
 supported_formats = (
     "sql-insert",
@@ -24,7 +24,7 @@ def escape_for_sql_statement(value: Union[bytes, str]) -> str:
     if isinstance(value, bytes):
         return f"0x{value.hex()}"
     else:
-        return formatter.mycli.sqlexecute.conn.escape(value)
+        return formatter.mycli.sql_execute.conn.escape(value)
 
 
 def adapter(data: list[str], headers: list[str], table_format: Union[str, None] = None, **kwargs) -> Generator[str, None, None]:

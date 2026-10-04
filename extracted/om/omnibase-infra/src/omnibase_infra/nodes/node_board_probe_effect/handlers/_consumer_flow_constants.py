@@ -28,6 +28,7 @@ def _contract_topic(name: str) -> str:
 
 # ---- the subject, as the readback named it ---------------------------------
 EXPOSURE_TOPIC: Final[str] = "onex.snapshot.projection.consumer-flow.v1"
+CURSOR_FIELD: Final[str] = "projection_cursor"
 DEFAULT_BASE_URL: Final[str] = "http://host.docker.internal:3002"
 LIVE_WINDOW_MINUTES: Final[int] = 10
 LIVE_WINDOW_SQL: Final[str] = (
@@ -64,6 +65,10 @@ BOOT_CONTAINERS: Final[tuple[str, ...]] = (
     "omnimarket-projection-api",
 )
 BROKER_CONTAINER: Final[str] = "omnibase-infra-redpanda"
+# The broker's internal listener. Every rpk call pins it: an offset-range consume
+# otherwise dials the external advertised listener, whose tailnet name does not
+# resolve inside the container while the tailnet is down (C28 run 37140168388).
+BROKER_INTERNAL_ADDRESS: Final[str] = "redpanda:9092"
 PG_CONTAINER: Final[str] = "omnibase-infra-postgres"
 ANALYTICS_DB: Final[str] = "omnidash_analytics"
 

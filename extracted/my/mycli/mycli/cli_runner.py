@@ -14,10 +14,10 @@ __lazy_modules__ = [
     'mycli.main_modes.completions',
     'mycli.main_modes.execute',
     'mycli.main_modes.list_dsn',
-    'mycli.packages.cli_utils',
-    'mycli.packages.special.dsn_aliases',
-    'mycli.password_sources',
-    'mycli.vault',
+    'mycli.packages.special_commands.dsn_aliases',
+    'mycli.packages.utils.cli_utils',
+    'mycli.packages.credentials.password_sources',
+    'mycli.packages.integrations.vault.vault_credentials',
 ]
 
 import os
@@ -35,16 +35,16 @@ from mycli.main_modes.checkup import main_checkup
 from mycli.main_modes.completions import main_completions
 from mycli.main_modes.execute import main_execute_from_cli
 from mycli.main_modes.list_dsn import main_list_dsn
-from mycli.packages.cli_utils import is_valid_connection_scheme
-from mycli.packages.special.dsn_aliases import INVALID_DSN_ALIAS_ERROR, is_valid_dsn_alias
-from mycli.password_sources import PasswordCandidates
-from mycli.vault import (
+from mycli.packages.credentials.password_sources import PasswordCandidates
+from mycli.packages.integrations.vault.vault_credentials import (
     DEFAULT_VAULT_EXECUTABLE,
     DEFAULT_VAULT_PASSWORD_FIELD,
     DEFAULT_VAULT_USERNAME_FIELD,
     VaultError,
     get_field_from_vault,
 )
+from mycli.packages.special_commands.dsn_aliases import INVALID_DSN_ALIAS_ERROR, is_valid_dsn_alias
+from mycli.packages.utils.cli_utils import is_valid_connection_scheme
 
 if TYPE_CHECKING:
     from mycli.main import CliArgs

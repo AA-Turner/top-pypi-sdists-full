@@ -1223,6 +1223,200 @@ def test_a_relaunch_past_the_ceiling_also_blocks():
     assert plan.reconciles[0].outcome == "exhausted"
 
 
+# ── #3577: a merge-stage exit must not be charged to the fix-round budget ───
+#
+# vimcode#1703/PR#1714, 2026-10-04 UTC: a drive died with "merge attempted 3
+# times without landing" while Review/Test were already green on its SHA.
+# The #2972 ceiling (4 work legs against a budget of 3) still fired,
+# permanently blocking the row with #3454's "Stopped — remove+add is the
+# only way" wording — and the daemon's own auto-drain merged the PR four
+# minutes later anyway. Both halves of that verdict were wrong: a
+# merge-stage death spends no new work/fix leg, so the WORK budget was never
+# the real constraint, and "nothing more will fire" was false in practice.
+
+
+def test_a_merge_stage_exit_with_a_clear_gate_is_exempt_from_the_ceiling():
+    """Work legs are AT the ceiling, but `own_reason` names a merge-gate
+    block and the board's merge-plan reading is already `PLAN_READY`
+    (review approved, test passed, nothing left but merge mechanics) — the
+    #2972 ceiling must not fire. The entry falls through to the ordinary
+    attempts-based `retry` instead, with no `(#2972)` marker, so it stays
+    reachable by `_reconcile_blocked`'s gate sweep rather than stranded
+    behind a permanent stop."""
+    key = entry_key(REPO, 1650)
+    own_reason = (
+        f"drive exited for {key} (exit_code=1): merge attempted 3 times "
+        "without landing."
+    )
+    facts = IssueFacts(
+        known=True,
+        issue_state="open",
+        work_leg_count=4,
+        merge_gate_status="READY",
+    )
+    view = BoardView(issues={key: facts})
+    plan = plan_tick(
+        [_dead_running_entry(max_fix_rounds=2, attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+        exit_reasons={key: own_reason},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "retry"
+    assert own_reason in reconcile.reason
+    assert "fix-round ceiling" not in reconcile.reason
+    assert "(#2972)" not in reconcile.reason
+    assert len(plan.blocked) == 0
+
+
+def test_a_merge_stage_exit_still_blocks_the_ceiling_without_a_clear_gate():
+    """Same work-leg count, same merge-gate-block reason text — but the
+    board does NOT (yet) show `PLAN_READY`, e.g. the latest leg's Review
+    came back `request-changes` or Test is still `failing`. The #2972
+    ceiling must still fire: this entry DOES need a new work/fix leg, which
+    is exactly the budget it has run out of."""
+    key = entry_key(REPO, 1650)
+    own_reason = (
+        f"drive exited for {key} (exit_code=1): merge attempted 3 times "
+        "without landing."
+    )
+    facts = IssueFacts(
+        known=True,
+        issue_state="open",
+        work_leg_count=4,
+        merge_gate_status="BLOCKED",
+    )
+    view = BoardView(issues={key: facts})
+    plan = plan_tick(
+        [_dead_running_entry(max_fix_rounds=2, attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+        exit_reasons={key: own_reason},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "exhausted"
+    assert "fix-round ceiling" in reconcile.reason
+    assert "(#2972)" in reconcile.reason
+    assert len(plan.blocked) == 1
+
+
+def test_the_daemon_host_shape_never_exempts_the_ceiling_without_a_live_override():
+    """Review finding (fix round 1): on the daemon host `facts.
+    merge_gate_status` is ALWAYS `""` — `BoardFetcher._fetch_local()` never
+    populates `merge_plan` at all — so the ORIGINAL #3577 patch's exemption
+    (gated solely on `facts.merge_gate_status == PLAN_READY`) could never
+    fire there, even for the exact vimcode#1703/PR#1714 shape it was written
+    to close. This pins that gap: the SAME work-leg count and merge-gate
+    death as test_a_merge_stage_exit_with_a_clear_gate_is_exempt_from_the_
+    ceiling above, but with `merge_gate_status=""` (the daemon-host reading)
+    and NO `live_running_merge_gate` override — the ceiling still fires."""
+    key = entry_key(REPO, 1650)
+    own_reason = (
+        f"drive exited for {key} (exit_code=1): merge attempted 3 times "
+        "without landing."
+    )
+    facts = IssueFacts(
+        known=True,
+        issue_state="open",
+        work_leg_count=4,
+        merge_gate_status="",
+    )
+    view = BoardView(issues={key: facts})
+    plan = plan_tick(
+        [_dead_running_entry(max_fix_rounds=2, attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+        exit_reasons={key: own_reason},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "exhausted"
+    assert "fix-round ceiling" in reconcile.reason
+    assert "(#2972)" in reconcile.reason
+    assert len(plan.blocked) == 1
+
+
+def test_a_live_running_merge_gate_override_exempts_the_ceiling_on_the_daemon_host_shape():
+    """The actual fix (#3577 fix round 1): with the SAME daemon-host shape
+    as test_the_daemon_host_shape_never_exempts_the_ceiling_without_a_live_
+    override (``merge_gate_status=""``), a `live_running_merge_gate`
+    override confirming `PLAN_READY` for this entry — exactly what
+    `coord.commands.drive_queue._fetch_live_running_merge_gate`'s bounded,
+    THIS-tick `entry_gate_status` re-derivation would hand `plan_tick` in
+    production — IS enough to exempt the ceiling. This is the evidence the
+    exemption is actually reachable on the one host `coord drive-queue
+    tick` ever runs on, not just in a test that hands `IssueFacts` a
+    pre-populated `merge_plan` reading no production caller ever builds."""
+    key = entry_key(REPO, 1650)
+    own_reason = (
+        f"drive exited for {key} (exit_code=1): merge attempted 3 times "
+        "without landing."
+    )
+    facts = IssueFacts(
+        known=True,
+        issue_state="open",
+        work_leg_count=4,
+        merge_gate_status="",
+    )
+    view = BoardView(issues={key: facts})
+    plan = plan_tick(
+        [_dead_running_entry(max_fix_rounds=2, attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+        exit_reasons={key: own_reason},
+        live_running_merge_gate={key: False},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "retry"
+    assert own_reason in reconcile.reason
+    assert "fix-round ceiling" not in reconcile.reason
+    assert "(#2972)" not in reconcile.reason
+    assert len(plan.blocked) == 0
+
+
+def test_a_live_running_merge_gate_override_confirming_still_blocked_keeps_the_ceiling():
+    """The inverse: a `live_running_merge_gate` override confirming the
+    gate is STILL shut (``True``) must not be mistaken for an exemption —
+    only a confirmed-`False` (PLAN_READY) reading exempts the ceiling. Also
+    pins that the live override's reason surfaces in the ceiling's own
+    message for operator visibility."""
+    key = entry_key(REPO, 1650)
+    own_reason = (
+        f"drive exited for {key} (exit_code=1): merge attempted 3 times "
+        "without landing."
+    )
+    facts = IssueFacts(
+        known=True,
+        issue_state="open",
+        work_leg_count=4,
+        merge_gate_status="",
+    )
+    view = BoardView(issues={key: facts})
+    plan = plan_tick(
+        [_dead_running_entry(max_fix_rounds=2, attempts=0)],
+        view,
+        capacity=1,
+        now=NOW,
+        fix_round_config_default=None,
+        exit_reasons={key: own_reason},
+        live_running_merge_gate={key: True},
+        live_running_merge_gate_reason={key: "review not approved"},
+    )
+    reconcile = plan.reconciles[0]
+    assert reconcile.outcome == "exhausted"
+    assert "fix-round ceiling" in reconcile.reason
+    assert "(#2972)" in reconcile.reason
+    assert "review not approved" in reconcile.reason
+    assert len(plan.blocked) == 1
+
+
 def test_the_fix_round_ceiling_reads_pipeline_max_fix_rounds_when_the_entry_has_no_override():
     """`fix_round_config_default` (the shell's `pipeline.max_fix_rounds`
     read) resolves the SAME way `effective_max_fix_rounds` always has — an
@@ -5041,6 +5235,157 @@ def test_a_blocked_entry_that_has_hit_the_resume_ceiling_stays_blocked_and_says_
     assert "resumes" not in reconcile.updates  # ceiling hit: not bumped again
     assert str(MAX_BLOCKED_RESUMES) in reconcile.reason
     assert plan.launch is None
+
+
+# ── #3536: stagger a mass gate-clear resume ─────────────────────────────────
+#
+# The 2026-10-02 incident: #3386's baseline-red latch cleared for a whole
+# repo's worth of `blocked` rows at once (about a dozen). Pre-#3536,
+# `_reconcile_blocked` hands back `resumed` for EVERY one of them on the
+# SAME tick — each then driving its own live `gh` re-checks on the very next
+# poll, which is exactly the synchronized-poll pattern that trips GitHub's
+# secondary rate limit fleet-wide. These pin the fix: only
+# `max_resumes_per_tick_per_repo` confirmed-clear resumes release per repo
+# per tick; the rest stay `blocked`, untouched, and get first refusal next
+# tick.
+
+
+def test_a_mass_gate_clear_releases_only_the_stagger_cap_this_tick():
+    entries = [
+        _blocked_entry(301, position=1, resumes=0),
+        _blocked_entry(302, position=2, resumes=0),
+        _blocked_entry(303, position=3, resumes=0),
+    ]
+    live_gate = {entry_key(REPO, i): False for i in (301, 302, 303)}
+    plan = plan_tick(entries, board(), capacity=3, live_blocked_gate=live_gate)
+
+    by_key = {r.key: r for r in plan.reconciles}
+    resumed = [k for k, r in by_key.items() if r.outcome == "resumed"]
+    staggered = [k for k, r in by_key.items() if r.outcome == "resume_staggered"]
+    # Default cap is 2 — the two earliest-positioned rows win this tick's
+    # slots; the third is staggered.
+    assert sorted(resumed) == sorted([entry_key(REPO, 301), entry_key(REPO, 302)])
+    assert staggered == [entry_key(REPO, 303)]
+
+    staggered_reconcile = by_key[entry_key(REPO, 303)]
+    assert "state" not in staggered_reconcile.updates  # stays blocked
+    assert "resumes" not in staggered_reconcile.updates  # budget not spent
+    assert "#3536" in staggered_reconcile.reason
+
+
+def test_a_staggered_entry_resumes_once_its_turn_comes_on_a_later_tick():
+    """The row staggered above gets first refusal on the very next tick,
+    once the two ahead of it have already moved off `blocked` (persisted by
+    the caller as `waiting`, mirroring `plan.reconciles[*].updates["state"]`
+    from the prior tick)."""
+    entries = [
+        entry(301, position=1, state=STATE_WAITING),
+        entry(302, position=2, state=STATE_WAITING),
+        _blocked_entry(303, position=3, resumes=0),
+    ]
+    plan = plan_tick(
+        entries, board(), capacity=3,
+        live_blocked_gate={entry_key(REPO, 303): False},
+    )
+    reconcile = next(r for r in plan.reconciles if r.key == entry_key(REPO, 303))
+    assert reconcile.outcome == "resumed"
+    assert reconcile.updates["state"] == STATE_WAITING
+
+
+def test_max_resumes_per_tick_per_repo_none_disables_the_stagger():
+    """``None`` is an explicit opt-out back to pre-#3536, unstaggered
+    behaviour — every pre-#3536 test fixture (a single blocked entry) never
+    exercised this cap at all, so disabling it must reproduce the old
+    "everything confirmed clear resumes immediately" outcome exactly."""
+    entries = [
+        _blocked_entry(301, position=1, resumes=0),
+        _blocked_entry(302, position=2, resumes=0),
+        _blocked_entry(303, position=3, resumes=0),
+    ]
+    live_gate = {entry_key(REPO, i): False for i in (301, 302, 303)}
+    plan = plan_tick(
+        entries, board(), capacity=3, live_blocked_gate=live_gate,
+        max_resumes_per_tick_per_repo=None,
+    )
+    outcomes = {r.key: r.outcome for r in plan.reconciles}
+    assert all(o == "resumed" for o in outcomes.values())
+
+
+def test_the_stagger_cap_is_scoped_per_repo():
+    """Two repos each clearing their own two-row backlog in the same tick
+    both release in full — the cap bounds one repo's burst, not the whole
+    fleet's aggregate (that's `github_throttle`'s token bucket's job, not
+    this queue's)."""
+    entries = [
+        _blocked_entry(301, position=1, resumes=0),
+        _blocked_entry(302, position=2, resumes=0),
+        entry(
+            401, position=3, repo="otherrepo", state=STATE_BLOCKED,
+            attempts=DEFAULT_MAX_ATTEMPTS, resumes=0,
+            last_reason="drive session died without landing the work — giving up",
+        ),
+        entry(
+            402, position=4, repo="otherrepo", state=STATE_BLOCKED,
+            attempts=DEFAULT_MAX_ATTEMPTS, resumes=0,
+            last_reason="drive session died without landing the work — giving up",
+        ),
+    ]
+    live_gate = {
+        entry_key(REPO, 301): False,
+        entry_key(REPO, 302): False,
+        entry_key("otherrepo", 401): False,
+        entry_key("otherrepo", 402): False,
+    }
+    plan = plan_tick(entries, board(), capacity=4, live_blocked_gate=live_gate)
+    outcomes = {r.key: r.outcome for r in plan.reconciles}
+    assert outcomes[entry_key(REPO, 301)] == "resumed"
+    assert outcomes[entry_key(REPO, 302)] == "resumed"
+    assert outcomes[entry_key("otherrepo", 401)] == "resumed"
+    assert outcomes[entry_key("otherrepo", 402)] == "resumed"
+
+
+def test_a_mass_after_prereq_cascade_is_also_staggered():
+    """#3536 review follow-up: the stagger cap above was initially scoped
+    to `_reconcile_blocked`'s own gate-clear path only, excluding
+    `_reconcile_blocked_after`'s `after=` prereq-chain resume (#2362) on
+    the theory that a `waiting`-side cascade "is not the shape that trips
+    a rate limit the same way." But issue #3536's own ask #1 explicitly
+    names the #2362 path alongside #2230/#3386, and the underlying danger
+    is identical: one dep (1650) landing clears the SAME unsatisfiable
+    verdict for every row chained `--after` it, all on the SAME tick, each
+    then driving its own live `gh` re-checks on the very next poll. This
+    pins the fix: the `after=` cascade now counts against the SAME
+    per-repo stagger cap as a merge-gate latch clear."""
+    dep_key = entry_key(REPO, 1650)
+    entries = [entry(1650, position=0, state=STATE_DONE)] + [
+        entry(
+            1654 + i,
+            position=1 + i,
+            after=(dep_key,),
+            state=STATE_BLOCKED,
+            attempts=2,
+            resumes=0,
+            last_reason=f"pre-req {dep_key} is queued but blocked — it will never satisfy",
+        )
+        for i in range(3)
+    ]
+    plan = plan_tick(entries, board(merged=(1650,)), capacity=4)
+
+    by_key = {r.key: r for r in plan.reconciles}
+    resumed = [k for k, r in by_key.items() if r.outcome == "resumed"]
+    staggered = [k for k, r in by_key.items() if r.outcome == "resume_staggered"]
+    # Default cap is 2 — the two earliest-positioned rows win this tick's
+    # slots; the third is staggered exactly like a #2230 gate-clear mass
+    # resume would be.
+    assert sorted(resumed) == sorted(
+        [entry_key(REPO, 1654), entry_key(REPO, 1655)]
+    )
+    assert staggered == [entry_key(REPO, 1656)]
+
+    staggered_reconcile = by_key[entry_key(REPO, 1656)]
+    assert "state" not in staggered_reconcile.updates  # stays blocked
+    assert "resumes" not in staggered_reconcile.updates  # budget not spent
+    assert "#3536" in staggered_reconcile.reason
 
 
 # ── #2935: a never-dispatched after=-blocked entry must never reach the ────

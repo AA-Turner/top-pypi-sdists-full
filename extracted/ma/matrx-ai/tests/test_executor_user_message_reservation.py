@@ -314,11 +314,13 @@ async def test_user_message_reservation_carries_real_content(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_user_reservation_falls_back_to_pending_when_no_user_message(monkeypatch):
-    """Edge case: no user message in config.messages (e.g. an internal call
-    with messages=[]) — the reservation must still queue, but with the
-    legacy empty/pending shape so any later code path that DID add a user
-    message can finalize the row via the UPDATE."""
+async def test_no_user_reservation_when_there_is_no_user_message(monkeypatch):
+    """No user message in config.messages (an empty first turn, an internal
+    call with messages=[]) reserves NO user row. It used to queue an empty
+    'pending' placeholder at trigger_position 0 — the same key as the assistant
+    reservation, which overwrote it — so the failed-request close never saw it
+    and it stayed 'pending' with content [] forever (live: conversation
+    93ea4aed, 2026-10-03)."""
 
     captured_creates: list[dict[str, Any]] = []
 
@@ -369,12 +371,10 @@ async def test_user_reservation_falls_back_to_pending_when_no_user_message(monke
         )
 
     user_reservations = [c for c in captured_creates if c.get("role") == "user"]
-    assert len(user_reservations) == 1
-    user_call = user_reservations[0]
-
-    # Empty content + pending status — there was nothing to write yet.
-    assert user_call.get("content") in ([], None)
-    assert user_call.get("status") == "pending"
+    assert user_reservations == [], "an empty turn must not leave a pending user row"
+    # Every reserved row is reachable from the reservation map (none orphaned).
+    reserved_ids = set(state.reserved_message_ids.values())
+    assert {c["id"] for c in captured_creates} <= reserved_ids
 
 
 @pytest.mark.asyncio

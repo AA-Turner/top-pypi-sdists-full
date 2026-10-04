@@ -36,6 +36,7 @@ from .._generated.models import Authorship as Authorship  # re-export: probe.Aut
 from .._generated.models import SourceReadContractEnum
 from ..models import (
     ArtifactVersionCreate,
+    CitationDirection,
     EdgeCreate,
     ExecutionRecordCreate,
     ExperimentVersionMint,
@@ -756,6 +757,17 @@ def _same_id(got: object, want: str) -> bool:
 #: The in-process exporter's interval for a client built with a token in code,
 #: which the detached worker cannot hold (#2041 re-review).
 _CODE_TOKEN_EXPORT_INTERVAL_S = 2.0
+
+
+def _citation_direction(value: object) -> str:
+    """``reference`` or ``citer``, checked before the request so a typo fails
+    naming the vocabulary rather than as the server's 422."""
+    raw = getattr(value, "value", value)
+    try:
+        return CitationDirection(str(raw).strip()).value
+    except ValueError:
+        allowed = ", ".join(d.value for d in CitationDirection)
+        raise ValueError(f"citation direction must be one of {allowed}; got {raw!r}") from None
 
 
 class Client:
@@ -2950,7 +2962,7 @@ class Client:
         """Create a project. Raises ``ConflictError`` if the slug is taken.
 
         ``kind`` is REQUIRED and declares what the project is for:
-        ``training`` (weights move), ``inference`` (frozen weights — sweeps,
+        ``training`` (weights move), ``evaluation`` (frozen weights — sweeps,
         evals), ``research`` (papers, design, theory) or ``general``. It
         structures the dashboard page; it never gates data. Machine paths with
         no intent-holder pass ``"general"``.
@@ -7232,7 +7244,9 @@ class Client:
         ``provenance`` is REQUIRED on a paper edge and optional on a run or
         artifact edge, where it is stored and shown: ``observed_call`` (a tool
         was watched making it), ``human`` or ``inferred``. ``provider_citation``
-        is paper-only and refused elsewhere.
+        (you found the paper in a reference list) is paper-only and refused
+        elsewhere; the literature fact "A's bibliography names B" is a
+        ``cites`` link (:meth:`paper_citations`), not an edge.
         """
         model = EdgeCreate(
             source_type=source_type,
@@ -7668,8 +7682,12 @@ class Client:
         default anywhere in the stack: a provenance the client picked would be a
         claim nobody made. Use ``observed_call`` when a tool call handed you the
         parent (``find_papers(mode="similar", expand="references")`` already knew
-        it), ``provider_citation`` for a reference list, ``human`` when a person
-        said so, ``inferred`` when a model concluded it after the fact.
+        it), ``provider_citation`` when you found it in a reference list,
+        ``human`` when a person said so, ``inferred`` when a model concluded it
+        after the fact. Every one of them records YOUR path through the
+        literature; whether one paper's bibliography names another is a
+        ``cites`` link the server reads on its own (:meth:`paper_citations`,
+        :meth:`citation_graph`), never something this edge asserts.
 
         Answer at ADD TIME. Two turns later this is a guess.
         """
@@ -7769,6 +7787,119 @@ class Client:
 
     def remove_paper(self, paper_id: str) -> None:
         self.transport.delete(f"/v1/papers/{paper_id}")
+
+    # -- citation links (citation graph, Track C) --------------------------
+    #
+    # `cites` is a fact about the LITERATURE: "paper A's reference list names
+    # work B", proven only by an id printed in the bibliography entry or
+    # deposited by the publisher -- never a title match or a provider's guess.
+    # It is not `discovered_via` (`add_paper(lineage=...)`), which records YOUR
+    # path through the literature. The server reads both views from its own
+    # tables; nothing here calls a provider. A team the server has not switched
+    # on reads `state: "disabled"` with no nodes or links.
+
+    def citation_graph(
+        self,
+        project_id: str,
+        *,
+        suggested: int | None = None,
+        directions: Iterable[str] | str | None = None,
+        min_links: int | None = None,
+        include_discovery: bool | None = None,
+        include_unresolved: bool | None = None,
+    ) -> dict:
+        """GET /v1/projects/{id}/citation-graph -- the project's papers, the
+        works they cite or are cited by, and the ``cites`` edges among them.
+
+        Returns the ``CitationGraphOut`` shape (``probe.models``): ``state``
+        (``ok`` | ``partial`` | ``pending`` | ``disabled``), ``nodes`` (each
+        ``primary`` is one of the project's papers with its fetch status;
+        each ``suggested`` is a work the papers link to that the project has
+        not recorded), ``edges`` (``cites``, each with the bibliography entries
+        that prove it) and ``completeness`` (what was cut, counted).
+
+        Every argument left ``None`` takes the server's default:
+        ``suggested`` -- how many suggested works to return, ranked by how many
+        of THIS project's papers link to each (50, max 200, 0 for none; never
+        padded). ``directions`` -- ``reference`` (what the papers cite),
+        ``citer`` (who cites them), or both (default). ``min_links`` -- a
+        suggested work needs at least this many linking papers (1).
+        ``include_discovery`` -- also return the ``discovered_via`` edges
+        among the papers, verbatim and never relabelled ``cites`` (False).
+        ``include_unresolved`` -- also return each paper's bibliography entries
+        that printed no id (False).
+        """
+        params: dict[str, Any] = {}
+        if suggested is not None:
+            params["suggested"] = suggested
+        if directions is not None:
+            chosen = directions.split(",") if isinstance(directions, str) else list(directions)
+            params["directions"] = ",".join(
+                _citation_direction(d) for d in chosen if str(d).strip()
+            )
+        if min_links is not None:
+            params["min_links"] = min_links
+        if include_discovery is not None:
+            params["include_discovery"] = include_discovery
+        if include_unresolved is not None:
+            params["include_unresolved"] = include_unresolved
+        return self.transport.get(
+            f"/v1/projects/{project_id}/citation-graph", params=params or None
+        )
+
+    def paper_citations(
+        self,
+        paper_id: str,
+        *,
+        direction: str | None = None,
+        include_unresolved: bool | None = None,
+        limit: int | None = None,
+    ) -> dict:
+        """GET /v1/papers/{id}/citations -- every citation link row of one
+        paper with its proof, and how each fetch ended.
+
+        Returns the ``PaperCitationsOut`` shape (``probe.models``): ``state``,
+        ``keys`` (the paper's own ids the rows were read for), ``sync`` (the
+        per-direction status and counts), ``reference_lists`` (one entry per
+        bibliography read: source, owner key, exact url, status, counts),
+        ``links`` and ``truncated``. Each link names the bibliography that
+        proves it (``list_source``, ``list_owner_key``, ``list_url``,
+        ``ordinal``) and HOW (``resolution``: ``printed_id`` in the entry,
+        ``publisher_id`` deposited by the publisher, or ``unresolved`` -- an
+        entry with no id, kept as text and never an edge).
+
+        ``direction`` -- ``reference`` or ``citer``; both when ``None``.
+        ``include_unresolved`` -- the server default is True here: this is the
+        view that explains why a reference did not become an edge.
+        ``limit`` -- at most this many rows (server default 500, max 2000).
+        """
+        params: dict[str, Any] = {}
+        if direction is not None:
+            params["direction"] = _citation_direction(direction)
+        if include_unresolved is not None:
+            params["include_unresolved"] = include_unresolved
+        if limit is not None:
+            params["limit"] = limit
+        return self.transport.get(f"/v1/papers/{paper_id}/citations", params=params or None)
+
+    def refresh_paper_citations(self, paper_id: str) -> dict:
+        """POST /v1/papers/{id}/citations/refresh -- re-read this paper's
+        bibliographies and re-nominate its citers now. Answers 202
+        (``{"status": "queued"}``); the job runs on the server.
+
+        Needs write access to the paper's project. Refused, never queued:
+        429 (``RosError`` with ``status == 429`` and ``retry_after`` set) while
+        a refresh for the paper is already queued or within an hour of its
+        last fetch -- the lists are third-party documents and asking twice
+        cannot make them newer; 409 (``ConflictError``) with ``detail.code ==
+        "citations_disabled"`` when the team's citation links are not switched
+        on, or ``detail.code == "generation_paused"`` when the team's page
+        generation is paused. A plain non-idempotent POST: an
+        answer from the server (a 429 included) is never retried, and nothing
+        is queued offline -- a refresh is a request to act now. Only a connect
+        failure that never reached the server is retried, as for every request.
+        """
+        return self.transport.post(f"/v1/papers/{paper_id}/citations/refresh")
 
     def list_project_code_sources(self, project_id: str) -> list[dict]:
         """The project's attached repositories (repo/branch/directory rows)."""

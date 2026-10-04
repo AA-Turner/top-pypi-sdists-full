@@ -36,7 +36,8 @@ use crate::commands::project::edit::ProjectEdit;
 use crate::commands::project::lock::{LockEvent, LockMode, LockOperation, LockResult};
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
-    ProjectEnvironmentPolicy, ProjectInterpreter, UniversalState, WorkspacePython,
+    ProjectEnvironmentPolicy, ProjectEnvironmentTarget, ProjectInterpreter, ProjectPythonRequest,
+    UniversalState,
 };
 use crate::commands::{ExitStatus, UvError};
 use crate::printer::Printer;
@@ -210,7 +211,7 @@ pub(crate) async fn upgrade(
         }
 
         let groups = DependencyGroupsWithDefaults::none();
-        let workspace_python = WorkspacePython::from_request(
+        let project_python = ProjectPythonRequest::from_request(
             None,
             Some(project.workspace()),
             &groups,
@@ -219,9 +220,8 @@ pub(crate) async fn upgrade(
         )
         .await?;
         match ProjectInterpreter::discover(
-            project.workspace(),
-            &groups,
-            workspace_python,
+            ProjectEnvironmentTarget::from(project.workspace()),
+            project_python,
             &client_builder,
             python_preference,
             python_arch,
@@ -370,7 +370,7 @@ pub(crate) async fn upgrade(
         interpreter
     } else {
         let groups = DependencyGroupsWithDefaults::none();
-        let workspace_python = WorkspacePython::from_request(
+        let project_python = ProjectPythonRequest::from_request(
             None,
             Some(project.workspace()),
             &groups,
@@ -379,9 +379,8 @@ pub(crate) async fn upgrade(
         )
         .await?;
         ProjectInterpreter::discover(
-            project.workspace(),
-            &groups,
-            workspace_python,
+            ProjectEnvironmentTarget::from(project.workspace()),
+            project_python,
             &client_builder,
             python_preference,
             python_arch,

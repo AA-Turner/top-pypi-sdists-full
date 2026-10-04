@@ -626,7 +626,9 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # `track-work`.
     # 36 / 0000e2602370: daemon v2 -- in `daemon` the agent only instruments its
     # runs; the daemon records everything else, containers included.
-    assert (agent_rules.POINTER_VERSION, digest) == (36, "0000e2602370"), (
+    # 37 / ade24764057a: Track E -- the kind list says `evaluation` where it
+    # said `inference` (the server bridges the old word; the CLI still takes it).
+    assert (agent_rules.POINTER_VERSION, digest) == (37, "ade24764057a"), (
         "POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

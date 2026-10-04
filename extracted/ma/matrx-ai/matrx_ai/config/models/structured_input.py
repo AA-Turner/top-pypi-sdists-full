@@ -147,6 +147,11 @@ class WorkbookInputContentModel(StructuredInputBaseModel):
     _editable_tools: frozenset[str] = PrivateAttr(default=frozenset({"workbook"}))
 
 
+class RemarksInputContentModel(StructuredInputBaseModel):
+    type: Literal["input_remarks"] = "input_remarks"
+    items: list[dict[str, Any]] = Field(default_factory=list)
+
+
 # Wire discriminator -> twin, mirroring STRUCTURED_INPUT_TYPE_MAP exactly. The
 # reconciliation test asserts the two maps stay in lockstep; a new registered
 # input type with no twin fails there rather than silently missing one.
@@ -165,4 +170,5 @@ STRUCTURED_INPUT_MODEL_MAP: dict[str, type[StructuredInputBaseModel]] = {
     "input_transcript_session": TranscriptSessionInputContentModel,
     "input_workbook": WorkbookInputContentModel,
     "input_document": DocumentInputContentModel,
+    "input_remarks": RemarksInputContentModel,
 }

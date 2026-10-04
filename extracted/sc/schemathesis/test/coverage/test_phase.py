@@ -6,7 +6,7 @@ from unittest.mock import ANY
 
 import jsonschema_rs
 import pytest
-from flask import jsonify, request
+from flask import Flask, jsonify, request
 from hypothesis import strategies as st
 from requests import Request
 
@@ -670,6 +670,62 @@ def test_default_wrong_type_is_not_used(ctx):
         },
         positive=True,
     )
+
+
+BINARY_KEYWORDS_SCHEMA = """
+openapi: 3.0.2
+info: {title: t, version: "1"}
+paths:
+  /query:
+    get:
+      parameters:
+        - {name: day, in: query, required: true, schema: {type: string, format: date, default: !!binary enp6}}
+      responses: {"200": {description: OK}}
+  /header:
+    get:
+      parameters:
+        - {name: X-Count, in: header, required: true, schema: {type: integer, default: !!binary eA==}}
+      responses: {"200": {description: OK}}
+  /form:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [value]
+              properties: {value: {type: string, default: !!binary enp6}}
+      responses: {"200": {description: OK}}
+  /json:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties: {value: {type: string, example: !!binary enp6, enum: [!!binary enp6, valid]}}
+      responses: {"200": {description: OK}}
+"""
+
+
+def test_yaml_binary_keyword_values_do_not_break_coverage(ctx, tmp_path, app_runner):
+    path = tmp_path / "openapi.yaml"
+    path.write_text(BINARY_KEYWORDS_SCHEMA)
+    app = Flask(__name__)
+    app.add_url_rule("/<path:anything>", "any", lambda anything: ("", 200), methods=["GET", "POST"])
+    schema = schemathesis.openapi.from_path(path)
+    schema.config.update(base_url=app_runner.openapi_url(app, path=""))
+    schema.config.checks.update(included_check_names=["not_a_server_error"])
+    schema.config.phases.update(phases=["coverage"])
+    errors = [
+        event.value
+        for event in schemathesis.engine.from_schema(schema).execute()
+        if isinstance(event, schemathesis.engine.events.NonFatalError)
+    ]
+    assert errors == []
 
 
 @pytest.mark.parametrize(
@@ -3445,6 +3501,7 @@ def test_positive_body_generated_for_object_with_metadata_and_unsatisfiable_opti
         case.body
         for case in iter_cases(operation, GenerationMode.POSITIVE)
         if case.meta.phase.data.parameter_location == ParameterLocation.BODY
+        and case.meta.phase.data.scenario != CoverageScenario.MISSING_PARAMETER
     ]
     assert positive_bodies, "Expected at least one positive body case"
     assert all(isinstance(body, dict) for body in positive_bodies), (
@@ -3613,6 +3670,12 @@ def test_positive_number_near_boundary_respects_multiple_of(ctx):
     assert_bodies(operation, GenerationMode.POSITIVE, valid=True)
 
 
+def test_positive_number_multiple_above_large_minimum(ctx):
+    schema = {"type": "number", "multipleOf": 1.1, "minimum": 7e16}
+    operation = body_operation(ctx, schema)
+    assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=collect_cases)
+
+
 def test_positive_number_boundary_respects_exclusive_bounds(ctx):
     # Boolean `exclusiveMinimum: true` + `exclusiveMaximum: true` combined with `minimum: 0`
     # / `maximum: 1` (legacy OpenAPI 3.0 form). The boundary generator's `+= 1` / `-= 1`
@@ -3658,6 +3721,159 @@ def test_additional_properties_anyof_positive(ctx):
     with_array = [c for c in cases if isinstance(c.body, dict) and any(isinstance(v, list) for v in c.body.values())]
     assert len(with_string) > 0, f"Should generate objects with string values. Got bodies: {[c.body for c in cases]}"
     assert len(with_array) > 0, f"Should generate objects with array values. Got bodies: {[c.body for c in cases]}"
+
+
+def coverage_phase_cases(ctx, app_runner, raw_schema, mode):
+    app = ctx.openapi.make_permissive_flask_app(raw_schema)
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    schema.config.update(base_url=app_runner.openapi_url(app, path=""))
+    schema.config.phases.update(phases=["coverage"])
+    schema.config.generation.update(modes=[mode])
+    schema.config.checks.update(included_check_names=["not_a_server_error"])
+    cases = []
+    with ctx.restore_hooks():
+
+        @schemathesis.hook
+        def before_call(context, case, **kwargs):
+            cases.append(case)
+
+        for _ in schemathesis.engine.from_schema(schema).execute():
+            pass
+    return cases
+
+
+def described_bodies(cases):
+    return [
+        (case.meta.phase.data.description, case.body)
+        for case in cases
+        if case.meta.phase.data.parameter_location == ParameterLocation.BODY
+        and case.meta.phase.data.scenario != CoverageScenario.MISSING_PARAMETER
+    ]
+
+
+def test_additional_property_values_shared_by_two_types_emitted_once(ctx, app_runner):
+    raw_schema = build_schema(ctx, body={"type": "object", "additionalProperties": {"type": ["integer", "number"]}})
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
+    assert described_bodies(cases) == [
+        ("Object with additional property: Valid number", {"x-schemathesis-additional": 0}),
+        ("Valid object", {}),
+    ]
+
+
+def test_negative_body_for_any_of_with_only_a_false_branch(ctx, app_runner):
+    raw_schema = build_schema(ctx, body={"anyOf": [False]}, version="3.1.0")
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
+    assert described_bodies(cases) == [
+        ("Value is not allowed", {}),
+        ("Value is not allowed", [None, None]),
+        ("Value is not allowed", 0),
+        ("Value is not allowed", ""),
+        ("Value is not allowed", False),
+        ("Value is not allowed", True),
+        ("Value is not allowed", None),
+    ]
+
+
+def test_no_item_negatives_when_items_admit_everything(ctx, app_runner):
+    raw_schema = build_schema(ctx, body={"type": "array", "items": True, "maxItems": 1}, version="3.1.0")
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
+    assert described_bodies(cases) == [
+        ("Array with more items than allowed by maxItems", [None, None]),
+        ("Incorrect type", {}),
+        ("Incorrect type", "AAA"),
+        ("Incorrect type", None),
+        ("Incorrect type", False),
+        ("Incorrect type", 0),
+    ]
+
+
+def test_positive_multipart_value_for_binary_one_of_branch(ctx, app_runner):
+    raw_schema = build_schema(
+        ctx,
+        body={
+            "type": "object",
+            "properties": {"f": {"oneOf": [{"type": "string", "format": "binary"}, {"type": "integer"}]}},
+            "required": ["f"],
+        },
+        media_type="multipart/form-data",
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
+    assert [(description, type(body["f"]).__name__) for description, body in described_bodies(cases)] == [
+        ("Object with valid 'f' value: Valid string", "Binary"),
+        ("Valid object", "int"),
+    ]
+
+
+def test_query_enum_intersection_with_binary_entry(ctx, app_runner):
+    # YAML `!!binary` values load as bytes.
+    raw_schema = build_schema(
+        ctx,
+        parameters=[
+            {
+                "name": "q",
+                "in": "query",
+                "required": True,
+                "schema": {"allOf": [{"enum": [b"a", "x"]}, {"enum": ["x", "y"]}]},
+            }
+        ],
+        method="get",
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
+    assert [case.query for case in cases] == [{"q": "x"}]
+
+
+def test_query_binary_default_is_the_positive_value(ctx, app_runner):
+    # YAML `!!binary` values load as bytes.
+    raw_schema = build_schema(
+        ctx,
+        parameters=[{"name": "q", "in": "query", "required": True, "schema": {"type": "string", "default": b"zz"}}],
+        method="get",
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
+    assert [case.query for case in cases] == [{"q": b"zz"}]
+
+
+def test_positive_string_example_not_repeated_as_near_boundary_length(ctx, app_runner):
+    raw_schema = build_schema(ctx, body={"type": "string", "pattern": "^a+$", "maxLength": 3, "example": "aa"})
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.POSITIVE)
+    assert described_bodies(cases) == [("Maximum length string", "aaa"), ("Example value", "aa")]
+
+
+def test_negative_min_properties_on_string_body_not_repeated(ctx, app_runner):
+    raw_schema = build_schema(ctx, body={"type": "string", "minProperties": 1})
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
+    assert described_bodies(cases) == [
+        ("Incorrect type", {}),
+        ("Incorrect type", [None, None]),
+        ("Incorrect type", None),
+        ("Incorrect type", False),
+        ("Incorrect type", 0),
+    ]
+
+
+def test_no_short_header_value_when_pattern_needs_non_latin_characters(ctx, app_runner):
+    raw_schema = build_schema(
+        ctx,
+        parameters=[
+            {
+                "name": "X-Key",
+                "in": "header",
+                "required": True,
+                "schema": {"type": "string", "pattern": "^€+$", "minLength": 3},
+            }
+        ],
+        method="get",
+    )
+    cases = coverage_phase_cases(ctx, app_runner, raw_schema, GenerationMode.NEGATIVE)
+    assert [case.meta.phase.data.description for case in cases if case.meta.phase.data.parameter == "X-Key"] == [
+        "Missing `X-Key` at header",
+        "Value not matching the '^€+$' pattern",
+        "Incorrect type",
+        "Incorrect type",
+        "Incorrect type",
+        "Incorrect type",
+        "Incorrect type",
+    ]
 
 
 def test_max_properties_negative(ctx):

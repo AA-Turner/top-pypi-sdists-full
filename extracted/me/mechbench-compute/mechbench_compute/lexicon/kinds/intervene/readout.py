@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mechbench_compute.lexicon._base import Kind
+from mechbench_compute.lexicon._base import Kind, Notable
 from mechbench_compute.lexicon.values import COORDS, F, ID
 
 KIND = Kind(
@@ -18,8 +18,11 @@ KIND = Kind(
             "sweep": "The sweep as run: each axis (`strength`, and any of `layers`, `heads`, `positions`, `neurons`) and the values it took, `strength` including the 0 of an added control.",
             "readout": "`decision` or `capture`.",
             "layer": "For a steer sweep: the injection layer.",
-            "direction": "For a steer sweep: the axis and values, norm and counts of the direction built."},
+            "direction": "For a steer sweep: the axis and values, norm and counts of the direction built.",
+            "softcap": "For a decision readout on a model whose final logits pass through a softcap, `c·tanh(x/c)`, the cap `c`; each tracked answer then also carries `logit`, `precap_logit` and `saturated`."},
     renderer={"primitive": "table", "field_map": {"rows": "items"}},
     doc="A decision readout carries `entropy_bits`, `top` and `tracked`; a capture readout carries `position` and `captures`, "
         "and a capture readout wires into another intervention's `source`.",
+    notable=Notable("tracked.*.p", ("id", "factor", "cell"), "total-variation", 0.1,
+                    "at factor {factor} on {id} '{name}' {change}", control={"factor": 0}),
 )

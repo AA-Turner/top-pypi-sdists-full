@@ -269,6 +269,161 @@ def test_dynamic_body(merge_body, ctx):
     )
 
 
+def _linked_body_api(link_body, extension) -> FastAPI:
+    link = {"operationId": "updateItem", "parameters": {"id": "$response.body#/id"}, "requestBody": link_body}
+    if extension is not None:
+        link["x-schemathesis"] = extension
+    spec = {
+        "openapi": "3.0.2",
+        "info": {"title": "Items", "version": "1"},
+        "paths": {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {"application/json": {"schema": {"type": "object"}}},
+                            "links": {"UpdateItem": link},
+                        }
+                    },
+                }
+            },
+            "/items/{id}": {
+                "put": {
+                    "operationId": "updateItem",
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "requestBody": {"required": True, "content": {"application/json": {"schema": {}}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        },
+    }
+    app = FastAPI(openapi_url=None)
+
+    @app.get("/openapi.json")
+    def openapi():
+        return spec
+
+    @app.post("/items", status_code=201)
+    def create_item():
+        return {"id": "item-1"}
+
+    @app.put("/items/{id}")
+    def update_item(id: str):
+        return {}
+
+    return app
+
+
+@pytest.mark.parametrize(
+    ("link_body", "extension", "expected"),
+    [
+        ("$response.body#/id", {"merge_body": False}, "item-1"),
+        ("$response.body#/id", None, "item-1"),
+        (["$response.body#/id"], None, ["item-1"]),
+    ],
+    ids=["replace-scalar", "merge-scalar", "merge-list"],
+)
+def test_non_object_link_body_is_sent_as_is(link_body, extension, expected):
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app=_linked_body_api(link_body, extension))
+    schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+    bodies = []
+
+    class Workflow(schema.as_state_machine()):
+        def validate_response(self, response, case, additional_checks=None, **kwargs):
+            if case.operation.label == "PUT /items/{id}":
+                bodies.append(case.body)
+
+    Workflow.run(
+        settings=settings(
+            max_examples=10,
+            deadline=None,
+            database=None,
+            suppress_health_check=list(HealthCheck),
+            phases=[Phase.generate],
+        )
+    )
+    assert expected in bodies
+
+
+def test_inferred_body_link_picks_from_every_listed_resource():
+    project = {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}
+    spec = {
+        "openapi": "3.0.2",
+        "info": {"title": "Projects", "version": "1"},
+        "paths": {
+            "/projects": {
+                "get": {
+                    "operationId": "listProjects",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "array", "items": {"$ref": "#/components/schemas/Project"}}
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/tasks": {
+                "post": {
+                    "operationId": "createTask",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"project_id": {"type": "string"}},
+                                    "required": ["project_id"],
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"201": {"description": "Created"}},
+                }
+            },
+        },
+        "components": {"schemas": {"Project": project}},
+    }
+    app = FastAPI(openapi_url=None)
+
+    @app.get("/openapi.json")
+    def openapi():
+        return spec
+
+    @app.get("/projects")
+    def list_projects():
+        return [{"id": "first"}, {"id": "second"}]
+
+    @app.post("/tasks", status_code=201)
+    def create_task():
+        return {}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app=app)
+    schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+    project_ids = set()
+
+    class Workflow(schema.as_state_machine()):
+        def validate_response(self, response, case, additional_checks=None, **kwargs):
+            if case.operation.label == "POST /tasks":
+                project_ids.add(case.body["project_id"])
+
+    Workflow.run(
+        settings=settings(
+            max_examples=10,
+            deadline=None,
+            database=None,
+            suppress_health_check=list(HealthCheck),
+            phases=[Phase.generate],
+        )
+    )
+    assert {"first", "second"} <= project_ids
+
+
 def test_custom_config_in_test_case(ctx):
     api = ctx.openapi.apps.stateful_users()
     schema = schemathesis.openapi.from_wsgi("/openapi.json", app=api.wsgi_app)
@@ -745,3 +900,34 @@ def test_linked_steps_keep_negative_share_of_scenario_starts(ctx, response_facto
 
     test()
     assert 0 < modes[GenerationMode.NEGATIVE] / modes.total() < 0.45, modes
+
+
+def test_test_case_runs_in_process(ctx):
+    api = ctx.openapi.apps.users_crud()
+    schema = schemathesis.openapi.from_url(api.schema_url)
+    schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+    test_case = schema.as_state_machine().TestCase
+
+    class QuickTestCase(test_case):
+        settings = settings(test_case.settings, max_examples=2, stateful_step_count=2, database=None)
+
+    QuickTestCase().runTest()
+    assert {request.method for request in api.requests} >= {"POST"}
+
+
+def test_rule_names_stay_unique_when_operation_labels_normalize_alike(ctx):
+    links = {"Next": {"operationId": "next", "parameters": {}}}
+    schema = ctx.openapi.load_schema(
+        {
+            path: {"get": {"responses": {"200": {"description": "OK", "links": links}}}}
+            for path in ("/users", "/users/", "/users-", "/users_")
+        }
+        | {"/next": {"get": {"operationId": "next", "responses": {"200": {"description": "OK"}}}}}
+    )
+    state_machine = schema.as_state_machine()
+    assert sorted(name for name in vars(state_machine) if name.startswith("RANDOM__GET_users")) == [
+        "RANDOM__GET_users",
+        "RANDOM__GET_users_",
+        "RANDOM__GET_users__2",
+        "RANDOM__GET_users__3",
+    ]

@@ -96,6 +96,47 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
+# Rust Matrix stacks parse with serde_json, which refuses deeper nesting.
+_MAX_DECRYPTED_NESTING = 128
+
+
+def _nesting_exceeds(value: Any, limit: int) -> bool:
+    """Return whether containers in a JSON tree nest deeper than limit, without recursion."""
+    stack = [(value, 1)]
+    while stack:
+        item, depth = stack.pop()
+        if isinstance(item, dict):
+            children = list(item.values())
+        elif isinstance(item, list):
+            children = item
+        else:
+            continue
+        if depth > limit:
+            return True
+        stack.extend((child, depth + 1) for child in children)
+    return False
+
+
+def _parse_decrypted_json(plaintext: str) -> Any:
+    """Parse a decrypted payload as strict JSON.
+
+    The sender controls the plaintext, and Python's parser also accepts
+    unpaired surrogate escapes and NaN or Infinity. Those values cannot be
+    written back as UTF-8 JSON, so reject them here instead of handing every
+    later consumer an event it cannot store or forward. Nesting is capped well
+    below interpreter recursion limits for the same reason.
+    """
+    nested_too_deeply = "payload is nested too deeply"
+    try:
+        parsed = json.loads(plaintext)
+    except RecursionError as error:
+        raise ValueError(nested_too_deeply) from error
+    if _nesting_exceeds(parsed, _MAX_DECRYPTED_NESTING):
+        raise ValueError(nested_too_deeply)
+    json.dumps(parsed, ensure_ascii=False, allow_nan=False).encode()
+    return parsed
+
+
 class KeyShareError(Exception):
     pass
 
@@ -1498,8 +1539,8 @@ class Olm:
                     verified = True
 
         try:
-            parsed_dict: dict[Any, Any] = json.loads(plaintext)
-        except JSONDecodeError as e:
+            parsed_dict: dict[Any, Any] = _parse_decrypted_json(plaintext)
+        except ValueError as e:
             raise EncryptionError(f"Error parsing payload: {str(e)}")
 
         bad = validate_or_badevent(parsed_dict, Schemas.room_megolm_decrypted)
@@ -1629,8 +1670,8 @@ class Olm:
 
         # The plaintext should be valid json, let's parse it and verify it.
         try:
-            parsed_payload = json.loads(plaintext)
-        except JSONDecodeError as e:
+            parsed_payload = _parse_decrypted_json(plaintext)
+        except ValueError as e:
             # Failed parsing the payload, return early.
             logger.error(f"Failed to parse Olm message payload: {str(e)}")
             return None

@@ -34,6 +34,7 @@ a pointer in to the corresponding packfile.
 """
 
 __all__ = [
+    "DEFAULT_DELTA_BASE_CACHE_LIMIT",
     "DEFAULT_PACK_DELTA_WINDOW_SIZE",
     "DEFAULT_PACK_INDEX_VERSION",
     "DELTA_TYPES",
@@ -41,9 +42,12 @@ __all__ = [
     "PACK_SPOOL_FILE_MAX_SIZE",
     "REF_DELTA",
     "DeltaChainIterator",
+    "DeltaCycle",
     "FilePackIndex",
+    "HashWriter",
     "MemoryPackIndex",
     "ObjectContainer",
+    "OldUnpackedObject",
     "Pack",
     "PackChunkGenerator",
     "PackData",
@@ -59,6 +63,8 @@ __all__ = [
     "PackStreamCopier",
     "PackStreamReader",
     "PackedObjectContainer",
+    "ProgressFn",
+    "ResolveExtRefFn",
     "SHA1Reader",
     "SHA1Writer",
     "UnpackedObject",
@@ -70,12 +76,14 @@ __all__ = [
     "chunks_length",
     "compute_buffer_sha",
     "compute_file_sha",
+    "create_delta",
     "deltas_from_sorted_objects",
     "deltify_pack_objects",
     "extend_pack",
     "find_reusable_deltas",
     "full_unpacked_object",
     "generate_unpacked_objects",
+    "has_mmap",
     "iter_sha1",
     "load_pack_index",
     "load_pack_index_file",
@@ -99,6 +107,9 @@ __all__ = [
     "write_pack_from_container",
     "write_pack_header",
     "write_pack_index",
+    "write_pack_index_v1",
+    "write_pack_index_v2",
+    "write_pack_index_v3",
     "write_pack_object",
     "write_pack_objects",
 ]
@@ -949,6 +960,20 @@ class PackIndex:
         else:
             raise KeyError(index)
 
+    def object_sha_at_position(self, pos: int) -> RawObjectID:
+        """Return the name of the object at the given position in the index.
+
+        Positions count objects in the sorted order of the index, starting at
+        zero; this is how pack bitmaps refer to objects.
+
+        Args:
+          pos: Position of the object in the sorted index
+        Returns: Binary object name
+        Raises:
+          IndexError: If pos is out of range
+        """
+        raise NotImplementedError(self.object_sha_at_position)
+
     def _object_offset(self, sha: bytes) -> int:
         """See object_offset.
 
@@ -1037,6 +1062,12 @@ class MemoryPackIndex(PackIndex):
     def object_sha1(self, index: int) -> bytes:
         """Return the SHA1 for the object at the given offset."""
         return self._by_offset[index]
+
+    def object_sha_at_position(self, pos: int) -> RawObjectID:
+        """Return the name of the object at the given position in the index."""
+        if not 0 <= pos < len(self._entries):
+            raise IndexError(pos)
+        return RawObjectID(self._entries[pos][0])
 
     def _itersha(self) -> Iterator[bytes]:
         """Iterate over all SHA1s in the index."""
@@ -1193,6 +1224,12 @@ class FilePackIndex(PackIndex):
         """
         for i in range(len(self)):
             yield self._unpack_entry(i)
+
+    def object_sha_at_position(self, pos: int) -> RawObjectID:
+        """Return the name of the object at the given position in the index."""
+        if not 0 <= pos < len(self):
+            raise IndexError(pos)
+        return RawObjectID(self._unpack_name(pos))
 
     def _read_fan_out_table(self, start_offset: int) -> list[int]:
         """Read the fan-out table from the index.

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import pytest
 
+from matrx_ai.catalog import translation_defaults as D
 from matrx_ai.catalog.controls import CompiledControlsMap, validate_rules_against_settings
 from matrx_ai.catalog.equivalence import nearest_equivalent
 from matrx_ai.catalog.models import CatalogSetting, ControlRule
@@ -429,4 +430,7 @@ class TestThinkingAndDefaultsStayUnderTheModelMaximum:
             }
         ).with_output_maximum(50000)
         out, _ = compiled.outbound({"thinking_budget": 9_999_999})
-        assert out["thinking_config"]["thinking_budget"] == 50000
+        # The BUDGET ceiling bounds it — never the output maximum (NET lane,
+        # live da318b6f: 2.5 Pro's output max 64,000 sent as a budget, refused).
+        # Undeclared, the field's own range applies; a cell declares the model's.
+        assert out["thinking_config"]["thinking_budget"] == D.GOOGLE_THINKING_BUDGET_FIELD_MAX

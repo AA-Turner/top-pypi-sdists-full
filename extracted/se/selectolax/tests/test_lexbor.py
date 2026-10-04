@@ -9,12 +9,19 @@ from selectolax.lexbor import (
     LexborDocumentOptions,
     LexborHTMLParser,
     SelectolaxError,
-    parse_fragment,
 )
 
 
 def clean_doc(text: str) -> str:
     return f"{cleandoc(text)}\n"
+
+
+def _top_level_nodes(parser):
+    """The fragment's top-level nodes, reached the way the library reaches them."""
+    node = parser.root
+    while node is not None:
+        yield node
+        node = node.next
 
 
 def test_reads_inner_html():
@@ -135,7 +142,7 @@ def test_node_cloning():
 
 def test_double_unwrap_does_not_segfault():
     html = """<div><div><div></div></div></div>"""
-    outer_div = parse_fragment(html)[0]
+    outer_div = LexborHTMLParser(html, is_fragment=True).root
     some_set = set()
 
     inner_div = outer_div.child
@@ -204,6 +211,88 @@ def test_text_lexbor_on_empty_strings():
     assert parser.root.text_lexbor() == ""
 
 
+@pytest.mark.parametrize(
+    "html",
+    [
+        "hello",
+        "a<span>s</span>",
+        "lead<span>x</span>tail",
+        "<div>a</div><span>s</span>",
+        "<div><i>x</i>y</div>",
+        "a<b>c</b>d",
+        "<!--k--><b>c</b>",
+        "only text",
+        "<div>one</div><div>two</div>",
+    ],
+)
+def test_text_lexbor_covers_whole_fragment(html):
+    """``text_lexbor()`` must widen like ``text()`` does on a fragment root."""
+    parser = LexborHTMLParser(html, is_fragment=True)
+    root = parser.root
+    assert root.text_lexbor() == parser.text()
+    assert root.text_lexbor() == root.text()
+
+
+def test_text_lexbor_on_a_text_node_reports_only_itself():
+    """Widening must not make a text node report its siblings too."""
+    parser = LexborHTMLParser("<div>hi</div><p>yo</p>")
+    for tag, expected in (("div", "hi"), ("p", "yo")):
+        text_node = parser.css_first(tag).first_child
+        assert text_node.is_text_node
+        assert text_node.text_lexbor() == expected
+
+
+def test_merge_text_nodes_merges_top_level_runs_of_a_fragment():
+    parser = LexborHTMLParser("<div>1</div><p><i>a</i></p>", is_fragment=True)
+
+    # Unwrapping the <p> lifts its <i> to the top level, then two text nodes get
+    # inserted in front of it, forming a run of adjacent text nodes that lives
+    # beside the fragment root rather than inside it.
+    parser.root.next.unwrap()
+    node = parser.root.next
+    node.insert_before("X")
+    node.insert_before("Y")
+
+    top_level = [(n.tag, n.text_content) for n in _top_level_nodes(parser)]
+    assert top_level == [("div", None), ("-text", "X"), ("-text", "Y"), ("i", None)]
+
+    parser.merge_text_nodes()
+    assert [(n.tag, n.text_content) for n in _top_level_nodes(parser)] == [
+        ("div", None),
+        ("-text", "XY"),
+        ("i", None),
+    ]
+
+
+def test_merge_text_nodes_on_a_non_root_node_stays_scoped():
+    parser = LexborHTMLParser("<div>1</div><p><i>a</i></p>", is_fragment=True)
+    parser.root.next.unwrap()
+    node = parser.root.next
+    node.insert_before("X")
+    node.insert_before("Y")
+
+    node.merge_text_nodes()
+
+    assert [(n.tag, n.text_content) for n in _top_level_nodes(parser)] == [
+        ("div", None),
+        ("-text", "X"),
+        ("-text", "Y"),
+        ("i", None),
+    ]
+
+
+def test_merge_text_nodes_on_a_detached_fragment_root_is_a_safe_noop():
+    parser = LexborHTMLParser("<div>a<span>s</span></div><p>b</p>", is_fragment=True)
+    root = parser.root
+    root.decompose()
+
+    root.merge_text_nodes()
+
+    assert root.text() == ""
+    assert root.text_lexbor() == ""
+    assert parser.html == "<p>b</p>"
+
+
 def test_attrs_reject_non_element_nodes():
     parser = LexborHTMLParser("<div>hello<!--comment--></div>")
     div = parser.css_first("div")
@@ -222,12 +311,385 @@ def test_attrs_reject_non_element_nodes():
         _ = comment_node.attrs
 
 
+def test_id_of_non_element_nodes_returns_none():
+    parser = LexborHTMLParser("<!DOCTYPE html><div id='real'>text<!--note--></div>")
+    div = parser.css_first("div")
+
+    text_node = div.first_child
+    comment_node = div.last_child
+    document_node = parser.root.parent
+    doctype_node = parser.root.prev
+
+    assert text_node is not None and text_node.is_text_node
+    assert comment_node is not None and comment_node.is_comment_node
+    assert document_node is not None and document_node.is_document_node
+
+    assert text_node.id is None
+    assert comment_node.id is None
+    assert document_node.id is None
+    assert doctype_node.id is None
+
+    assert div.id == "real"
+
+
+def test_id_of_element_nodes():
+    parser = LexborHTMLParser(
+        "<div id='a'><span id='b'>x</span></div><i id=''></i><p></p>"
+    )
+    assert parser.css_first("div").id == "a"
+    assert parser.css_first("span").id == "b"
+    assert parser.css_first("i").id == ""
+    assert parser.css_first("p").id is None
+
+
+def test_inner_html_setter_rejects_non_element_nodes():
+    """Regression test: lexbor grafts children onto any node type.
+
+    Assigning ``inner_html`` on a text or comment node used to attach element
+    children to it, leaving the node with a type that no longer matches its
+    contents. Every accessor then disagreed: ``.html`` included the injected
+    markup, ``.text(deep=True)`` counted it as text, but ``.text_content``,
+    ``.text(deep=False)`` and ``.text_lexbor()`` ignored it.
+    """
+    parser = LexborHTMLParser("<div>hello<p>world</p><!--note--></div>")
+    div = parser.css_first("div")
+    non_elements = [
+        node for node in div.iter(include_text=True) if not node.is_element_node
+    ]
+    assert [node.tag for node in non_elements] == ["-text", "-comment"]
+
+    before = parser.html
+    for node in non_elements:
+        with pytest.raises(TypeError, match="element nodes"):
+            node.inner_html = "<b>injected</b>"
+
+    assert parser.html == before
+
+
+def test_inner_html_setter_rejects_document_node():
+    parser = LexborHTMLParser("<div>hi</div>")
+    document = parser.css_first("div").parent.parent.parent
+    assert document is not None
+    assert document.is_document_node
+
+    before = parser.html
+    with pytest.raises(TypeError, match="element nodes"):
+        document.inner_html = "<b>injected</b>"
+
+    assert parser.html == before
+
+
+def test_tag_of_document_node_is_document():
+    doctypes = [
+        "<!DOCTYPE html>",
+        "<!DOCTYPE svg>",
+        '<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "x.dtd">',
+    ]
+    for doctype in [*doctypes, None]:
+        html = f"{doctype or ''}<div>hi</div>"
+        document = LexborHTMLParser(html).root.parent
+        assert document is not None
+        assert document.is_document_node
+        assert document.tag == "-document"
+        assert repr(document) == "<LexborNode -document>"
+
+
+def test_tag_of_non_element_nodes():
+    parser = LexborHTMLParser("<!DOCTYPE html><div>text<!--comment--></div>")
+    div = parser.css_first("div")
+
+    assert div.tag == "div"
+    assert div.first_child.tag == "-text"
+    assert div.last_child.tag == "-comment"
+    assert parser.root.prev.tag == "-doctype"
+    assert parser.root.parent.tag == "-document"
+
+
+def test_sets_inner_html_on_html_keeps_head_and_body_in_sync():
+    """Regression test: parser.head/parser.body used to dangle.
+
+    ``lxb_html_element_inner_html_set`` replaces the children of ``<html>``
+    directly, bypassing the insertion modes that normally populate the
+    document's cached head/body pointers. Those pointers then referenced
+    destroyed nodes while ``parser.html`` walked the live tree, so the two
+    disagreed about the same document.
+    """
+    parser = LexborHTMLParser(
+        "<html><head><title>Title</title></head><body><div>hi</div></body></html>"
+    )
+    parser.root.inner_html = "<main>new</main>"
+
+    assert parser.html == "<html><head></head><body><main>new</main></body></html>"
+    assert parser.head is not None
+    assert parser.body is not None
+    assert parser.head.tag == "head"
+    assert parser.body.tag == "body"
+    assert parser.head.html == "<head></head>"
+    assert parser.body.html == "<body><main>new</main></body>"
+    assert parser.body.text() == "new"
+
+
+def test_head_and_body_survive_allocations_after_inner_html():
+    """Regression test: the stale pointers aliased recycled memory.
+
+    Destroyed lexbor blocks go back onto a size-keyed free list
+    (``lexbor_mraw_free``), so the next same-size allocation is handed the very
+    same address. Before the fix, ``parser.body`` ended up pointing at an
+    unrelated live ``<span>`` created after the assignment.
+    """
+    parser = LexborHTMLParser(
+        "<html><head><title>Title</title></head><body><div>hi</div></body></html>"
+    )
+    parser.root.inner_html = "<main>new</main>"
+
+    head, body = parser.head, parser.body
+    assert head is not None
+    assert body is not None
+
+    for _ in range(50):
+        allocated = parser.create_node("span")
+        assert allocated.mem_id != head.mem_id
+        assert allocated.mem_id != body.mem_id
+
+    assert parser.head.tag == "head"
+    assert parser.body.tag == "body"
+    assert parser.body.text() == "new"
+
+
+@pytest.mark.parametrize("target", ["head", "body"])
+def test_sets_inner_html_on_head_or_body_keeps_pointers_valid(target: str):
+    """Only ``<html>`` loses its head/body children, so only it needs a refresh."""
+    parser = LexborHTMLParser(
+        "<html><head><title>Title</title></head><body><div>hi</div></body></html>"
+    )
+    node = parser.css_first(target)
+    assert node is not None
+    node.inner_html = "<meta charset='utf-8'>"
+
+    head, body = parser.head, parser.body
+    assert head is not None
+    assert body is not None
+    assert head.tag == "head"
+    assert body.tag == "body"
+
+    if target == "head":
+        assert head.html == '<head><meta charset="utf-8"></head>'
+        assert body.html == "<body><div>hi</div></body>"
+    else:
+        assert head.html == "<head><title>Title</title></head>"
+        assert body.html == '<body><meta charset="utf-8"></body>'
+
+
+def test_sets_inner_html_on_nested_element_keeps_head_and_body():
+    parser = LexborHTMLParser(
+        "<html><head><title>Title</title></head><body><div>hi</div></body></html>"
+    )
+    parser.css_first("div").inner_html = "<span>new</span>"
+
+    assert parser.head is not None
+    assert parser.body is not None
+    assert parser.head.html == "<head><title>Title</title></head>"
+    assert parser.body.html == "<body><div><span>new</span></div></body>"
+
+
+def test_sets_inner_html_on_fragment_root_leaves_head_and_body_absent():
+    parser = LexborHTMLParser("<div>hi</div>", is_fragment=True)
+    assert parser.head is None
+    assert parser.body is None
+
+    parser.root.inner_html = "<span>new</span>"
+
+    assert parser.head is None
+    assert parser.body is None
+
+
+_HEAD_BODY_HTML = (
+    "<html><head><title>Title</title></head><body><div>hi</div></body></html>"
+)
+_EMPTY_HEAD_BODY_HTML = "<html><head></head><body></body></html>"
+
+# Every operation that can unlink <head>/<body> from the document.
+_HEAD_BODY_DETACHING_OPS = [
+    "unwrap",
+    "unwrap_empty",
+    "decompose",
+    "decompose_shallow",
+    "remove",
+    "replace_with",
+    "strip_tags",
+    "unwrap_tags",
+    "parser_strip_tags",
+]
+
+
+@pytest.mark.parametrize("target", ["head", "body"])
+@pytest.mark.parametrize("operation", _HEAD_BODY_DETACHING_OPS)
+def test_head_and_body_are_cleared_once_detached(target: str, operation: str):
+    """Regression test: ``parser.head`` / ``parser.body`` returned a stale node.
+
+    Lexbor writes ``document->head`` and ``document->body`` from the parser's
+    insertion modes and never clears them again, and
+    ``lxb_html_document_head_element_noi`` returns that cache verbatim. So
+    unlinking either element left the cache pointing at a node that was no
+    longer part of the document, and ``parser.body`` happily handed out a
+    detached ``<body></body>`` after ``parser.body.unwrap()``.
+    """
+    # ``unwrap(delete_empty=True)`` only removes a childless node, so that one
+    # case needs an empty <head>/<body>.
+    parser = LexborHTMLParser(
+        _EMPTY_HEAD_BODY_HTML if operation == "unwrap_empty" else _HEAD_BODY_HTML
+    )
+    node = parser.css_first(target)
+    assert node is not None
+
+    if operation == "unwrap":
+        node.unwrap()
+    elif operation == "unwrap_empty":
+        node.unwrap(delete_empty=True)
+    elif operation == "decompose":
+        node.decompose()
+    elif operation == "decompose_shallow":
+        node.decompose(recursive=False)
+    elif operation == "remove":
+        node.remove()
+    elif operation == "replace_with":
+        node.replace_with("<div>replacement</div>")
+    elif operation == "strip_tags":
+        node.strip_tags([target])
+    elif operation == "unwrap_tags":
+        node.unwrap_tags([target])
+    elif operation == "parser_strip_tags":
+        parser.strip_tags([target])
+    else:  # pragma: no cover - guards against an unhandled new case
+        raise AssertionError(f"unhandled operation {operation!r}")
+
+    assert node.parent is None
+    assert getattr(parser, target) is None
+
+
+def test_unwrapping_html_keeps_head_and_body():
+    """Removing ``<html>`` must not orphan the elements it still contains.
+
+    ``unwrap()`` promotes ``<head>``/``<body>`` to children of the document
+    rather than destroying them, so the caches stay valid and both elements
+    must still be reported. Only detaching ``<head>``/``<body>`` themselves
+    clears them.
+    """
+    parser = LexborHTMLParser(_HEAD_BODY_HTML)
+    parser.css_first("html").unwrap()
+
+    head, body = parser.head, parser.body
+    assert head is not None
+    assert body is not None
+    assert head.tag == "head"
+    assert body.tag == "body"
+    assert head.parent is not None
+    assert head.parent.tag == "-document"
+    assert body.parent is not None
+    assert body.parent.tag == "-document"
+    assert head.html == "<head><title>Title</title></head>"
+    assert body.html == "<body><div>hi</div></body>"
+
+
+def test_detaching_body_leaves_head_reported():
+    """Clearing one must not disturb the other."""
+    parser = LexborHTMLParser(_HEAD_BODY_HTML)
+    head_before = parser.head
+    assert head_before is not None
+
+    parser.body.unwrap()
+
+    assert parser.body is None
+    head_after = parser.head
+    assert head_after is not None
+    assert head_after.mem_id == head_before.mem_id
+    assert head_after.html == "<head><title>Title</title></head>"
+    assert parser.html == "<html><head><title>Title</title></head><div>hi</div></html>"
+
+
 def test_text_does_not_duplicate_fragment_root_text_node():
     parser = LexborHTMLParser("hello", is_fragment=True)
     root = parser.root
     assert root is not None
     assert root.is_text_node
     assert root.text(deep=True) == "hello"
+
+
+@pytest.mark.parametrize(
+    "html, expected_text, expected_deep_false",
+    [
+        ("hello", "hello", "hello"),
+        ("a<span>s</span>", "as", "a"),
+        ("lead<span>x</span>tail", "leadxtail", "leadtail"),
+        ("a<b>c</b>d", "acd", "ad"),
+        ("a<!--k--><b>c</b>", "ac", "a"),
+    ],
+)
+def test_fragment_root_text_node_covers_whole_fragment(
+    html, expected_text, expected_deep_false
+):
+    """A fragment that starts with text must not lose its siblings.
+
+    The root is widened to the wrapper so the walk covers every top-level node,
+    which means the root's own data is reached by the walk. It must therefore
+    not also be added on the side, or it would be duplicated.
+    """
+    parser = LexborHTMLParser(html, is_fragment=True)
+    root = parser.root
+    assert root.is_text_node
+
+    assert root.text() == expected_text
+    assert root.text(deep=True) == expected_text
+    assert root.text(deep=False) == expected_deep_false
+    assert parser.text() == expected_text
+
+
+@pytest.mark.parametrize(
+    "html, query, expected_count",
+    [
+        ("a<span>s</span><b>b</b>", "span", 1),
+        ("a<span>s</span><b>b</b>", "b", 1),
+        ("a<span>s</span><b>b</b>", "i", 0),
+        ("lead<span>x</span>tail<b>c</b>", "b", 1),
+    ],
+)
+def test_fragment_root_text_node_css_covers_whole_fragment(html, query, expected_count):
+    """Tree walks from a text-node fragment root reach every top-level node."""
+    parser = LexborHTMLParser(html, is_fragment=True)
+    root = parser.root
+    assert root.is_text_node
+
+    assert len(root.css(query)) == expected_count
+    assert len(root.select(query).matches) == expected_count
+    assert root.css_matches(query) is (expected_count > 0)
+    assert root.any_css_matches((query,)) is (expected_count > 0)
+    assert (root.css_first(query) is not None) is (expected_count > 0)
+
+
+def test_fragment_root_text_node_iter_covers_whole_fragment():
+    parser = LexborHTMLParser("a<span>s</span><b>b</b>", is_fragment=True)
+    root = parser.root
+    assert root.is_text_node
+
+    assert [node.tag for node in root.iter()] == ["span", "b"]
+    assert [node.tag for node in root.iter(include_text=True)] == [
+        "-text",
+        "span",
+        "b",
+    ]
+
+
+def test_text_node_fragment_root_text_node_owns_its_own_data():
+    """A text node that is not a fragment root only reports itself."""
+    parser = LexborHTMLParser("<div>hi</div><p>yo</p>")
+    for tag in ("div", "p"):
+        text_node = parser.css_first(tag).first_child
+        assert text_node.is_text_node
+        assert text_node.text() == text_node.text_content
+        assert text_node.text(deep=True) == text_node.text_content
+        assert text_node.text(deep=False) == text_node.text_content
+    assert parser.css_first("div").first_child.text_content == "hi"
+    assert parser.css_first("p").first_child.text_content == "yo"
 
 
 def test_iter_includes_text_nodes_when_requested():
@@ -341,7 +803,9 @@ def test_is_empty_text_node_property():
 
 def test_comment_content_property() -> None:
     parser = LexborHTMLParser("<div><span><!-- hello --></span><title>X</title></div>")
-    text_node = parser.css_first("span").first_child
+    span = parser.css_first("span")
+    assert span is not None
+    text_node = span.first_child
     assert text_node is not None
     assert text_node.is_comment_node
     assert text_node.comment_content == "hello"
@@ -559,6 +1023,38 @@ def test_attributes_modification():
         assert False, "Should have raised KeyError"
     except KeyError:
         pass
+
+
+def test_attrs_setitem_rejects_non_str_values():
+    parser = LexborHTMLParser('<div id="a"></div>')
+    div = parser.root.css_first("div")
+    attrs = div.attrs
+
+    for value in (5, 0, 1.5, b"bytes", b"", [1], (), {"a": 1}, True, object()):
+        with pytest.raises(TypeError, match="Expected str or unicode"):
+            attrs["x"] = value
+
+    assert "x" not in attrs
+    assert div.html == '<div id="a"></div>'
+
+    attrs["x"] = "value"
+    assert attrs["x"] == "value"
+    attrs["x"] = ""
+    assert attrs["x"] == ""
+    attrs["x"] = "ünïcödé 中文"
+    assert attrs["x"] == "ünïcödé 中文"
+    attrs["x"] = None
+    assert attrs["x"] is None
+    assert div.html == '<div id="a" x=""></div>'
+
+
+def test_attrs_setitem_rejects_non_str_keys():
+    parser = LexborHTMLParser('<div id="a"></div>')
+    attrs = parser.root.css_first("div").attrs
+
+    with pytest.raises(TypeError, match="expected str"):
+        attrs[b"id"] = "b"
+    assert attrs["id"] == "a"
 
 
 def test_node_insert_operations_with_different_types():
@@ -782,6 +1278,58 @@ def test_selector_attribute_longer_than_edge_cases():
     selector = root.select("a")
     result = selector.attribute_longer_than("href", 0)
     assert len(result.matches) == 1
+
+
+_LENGTH_FILTER_STATES_HTML = (
+    "<div>"
+    "<a href=''>empty value</a>"
+    "<a href>valueless</a>"
+    "<a>absent</a>"
+    "<a href='long-value'>long</a>"
+    "</div>"
+)
+
+
+def test_attribute_longer_than_agrees_with_any_variant():
+    """Regression test: the two filters disagreed on empty attribute values."""
+    root = LexborHTMLParser(_LENGTH_FILTER_STATES_HTML).root
+    assert root is not None
+
+    kept = root.select("a").attribute_longer_than("href", -1).matches
+    assert [node.text() for node in kept] == ["empty value", "long"]
+
+    for length in (-1, 0, 4, 11, 200):
+        matches = root.select("a").attribute_longer_than("href", length).matches
+        assert bool(matches) is (
+            root.select("a").any_attribute_longer_than("href", length)
+        ), f"the two filters disagree at length={length}"
+
+
+def test_attribute_longer_than_agrees_with_any_variant_with_start():
+    """Regression test: the same asymmetry was reachable through ``start``."""
+    html = (
+        "<div>"
+        "<a href='http://'>empty tail</a>"
+        "<a href='http://long-tail-here'>long tail</a>"
+        "<a href=''>empty value</a>"
+        "<a>absent</a>"
+        "</div>"
+    )
+    root = LexborHTMLParser(html).root
+    assert root is not None
+
+    kept = root.select("a").attribute_longer_than("href", -1, "http://").matches
+    assert [node.text() for node in kept] == [
+        "empty tail",
+        "long tail",
+        "empty value",
+    ]
+
+    for length in (-1, 0, 5, 100):
+        matches = root.select("a").attribute_longer_than("href", length, "http://")
+        assert bool(matches.matches) is (
+            root.select("a").any_attribute_longer_than("href", length, "http://")
+        ), f"the two filters disagree at length={length}, start='http://'"
 
 
 def test_node_replace_with_empty():

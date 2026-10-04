@@ -36,7 +36,6 @@ class Evals(APIResource):
   def create(
     self,
     *,
-    bench_id: str,
     base_model_slug: Literal[
       "thinkingmachines/Inkling-Small",
       "Qwen/Qwen3.5-4B",
@@ -48,6 +47,7 @@ class Evals(APIResource):
       "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
       "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
       "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+      "nvidia/NVIDIA-Nemotron-3.5-Super-120B-A12B-BF16",
       "openai/gpt-5.6-sol",
       "openai/gpt-5.6-luna",
       "anthropic/claude-opus-5.5",
@@ -61,6 +61,10 @@ class Evals(APIResource):
       "moonshotai/kimi-k3",
     ],
     idempotency_key: str | None | Omit = omit,
+    bench_id: str | None | Omit = omit,
+    agent_name: str | None | Omit = omit,
+    benchmark_name: str | None | Omit = omit,
+    bypass_ownership: bool | Omit = omit,
     agent_id: str | None | Omit = omit,
     options: RunOptionsParam | None | Omit = omit,
     parent_checkpoint_id: str | None | Omit = omit,
@@ -77,6 +81,11 @@ class Evals(APIResource):
 
       idempotency_key: Optional; reuse this key when retrying a submission. The API generates one when
         omitted.
+
+      benchmark_name: Resolve the latest version and run its benchmark ID.
+
+      bypass_ownership: Allow a supplied agent to differ from the benchmark owner within the same
+        organization; run attribution uses the benchmark owner.
 
       options: Run settings; omission, null, and an empty object preserve defaults.
 
@@ -96,8 +105,11 @@ class Evals(APIResource):
       cast_to=StartEvalResponse,
       body=maybe_transform(
         {
-          "bench_id": bench_id,
           "base_model_slug": base_model_slug,
+          "bench_id": bench_id,
+          "agent_name": agent_name,
+          "benchmark_name": benchmark_name,
+          "bypass_ownership": bypass_ownership,
           "agent_id": agent_id,
           "options": options,
           "parent_checkpoint_id": parent_checkpoint_id,
@@ -131,6 +143,7 @@ class Evals(APIResource):
       "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16",
       "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16",
       "nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16",
+      "nvidia/NVIDIA-Nemotron-3.5-Super-120B-A12B-BF16",
       "openai/gpt-5.6-sol",
       "openai/gpt-5.6-luna",
       "anthropic/claude-opus-5.5",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pytz
-Version: 2026.4
+Version: 2026.5
 Summary: World timezone definitions, modern and historical
 Home-page: http://pythonhosted.org/pytz
 Download-URL: https://pypi.org/project/pytz/
@@ -38,6 +38,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE.txt
 

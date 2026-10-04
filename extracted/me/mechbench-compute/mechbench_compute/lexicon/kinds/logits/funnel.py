@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mechbench_compute.lexicon._base import Kind
+from mechbench_compute.lexicon._base import Kind, Notable
 from mechbench_compute.lexicon.values import COORDS, F, ID
 
 KIND = Kind(
@@ -11,8 +11,11 @@ KIND = Kind(
     required=("id", "layer", "entropy_bits", "top"),
     key=("id", "layer"),
     header={"name": "A label for the collection.", "description": "Free text beside the name.",
-            "layers": "The layers read, in order.", "top_k": "How many tokens `top` holds."},
+            "layers": "The layers read, in order.", "top_k": "How many tokens `top` holds.",
+            "softcap": "On a model whose final logits pass through a softcap, `c·tanh(x/c)`, the cap `c`; each tracked answer then also carries `logit`, `precap_logit` and `saturated`."},
     renderer={"primitive": "table", "field_map": {"rows": "top"}},
     collection_renderer={"primitive": "series", "field_map": {"rows": "items", "x": "layer", "y": "entropy_bits", "label": "id"}},
     doc="Read a record's items in layer order and you see the funnel: entropy falling, one token taking over.",
+    notable=Notable("entropy_bits", ("id", "layer"), "difference", 0.5,
+                    "at layer {layer} of {id} the entropy {change} bits"),
 )

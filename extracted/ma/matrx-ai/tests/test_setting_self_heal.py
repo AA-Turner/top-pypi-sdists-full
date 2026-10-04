@@ -168,6 +168,7 @@ async def _run(
                 "max_output_tokens": getattr(config, "max_output_tokens", None),
                 "temperature": getattr(config, "temperature", None),
                 "reasoning_effort": getattr(config, "reasoning_effort", None),
+                "stop_sequences": getattr(config, "stop_sequences", None),
             }
         )
         if emitter is not None and stream_on_call == len(sent):
@@ -369,15 +370,17 @@ async def test_a_rejection_after_output_streamed_is_not_retried_and_the_record_s
     assert config.max_output_tokens == 32000  # nothing was changed
 
 
-async def test_an_opaque_rejection_is_left_to_the_routine(captured) -> None:
+async def test_an_opaque_rejection_answers_through_the_safe_minimum(captured) -> None:
+    """NET (2026-10-04): an opaque rejection no longer ends the request — the
+    safe minimum (optional settings left out) is sent once and answers."""
     exc = _gemini_opaque()
     profile = make_profile(model_name="gemini-3-pro", wire_format="google_chat", vendor="google")
     config = UnifiedConfig(model="gemini-3-pro", messages=[], temperature=0.2)
     sent, result = await _run(profile, config, [exc, _OK], emitter=_Emitter())
-    assert result is exc
-    _assert_not_retried(sent)
+    assert result is _OK
+    assert [c["temperature"] for c in sent] == [0.2, None]
     payload = _setting_rows(captured)[0]["payload"]
-    assert payload["self_healed"] is False and payload["not_retried_reason"] == "opaque_rejection"
+    assert payload["self_healed"] is True and payload["repair"]["action"] == "safe_minimum"
 
 
 async def test_no_person_facing_stream_still_heals(captured) -> None:
@@ -493,6 +496,9 @@ async def test_planted_refusal_on_an_unknown_set_turns_the_guard_red(monkeypatch
         return plan
 
     monkeypatch.setattr(setting_rejection, "_plan", refusing)
+    # The NET's safe minimum is an independent second layer that would still
+    # answer; plant its absence too so this guard judges the planner alone.
+    monkeypatch.setattr(setting_rejection, "plan_safe_minimum", lambda *a, **k: None)
     config = UnifiedConfig(model="gpt-5.5", messages=[], reasoning_effort="xhigh")
     sent, result = await _run(_openai_profile(), config, [_effort_refused_without_a_list(), _OK], emitter=_Emitter())
     assert isinstance(result, Exception)
@@ -531,3 +537,324 @@ async def test_suppression_ends_with_its_block(captured) -> None:
     sent, result = await _run(_groq_profile(), config, [_groq_max_completion_tokens(), _OK])
     assert result is _OK
     assert len(sent) == 2
+
+
+# ── list-valued settings: stop sequences (FIXV1, live 2026-10-04) ───────────
+
+_STOPS = [f"END-{i}" for i in range(10)]
+
+
+def _groq_stop_max_items() -> Exception:
+    """Real Groq refusal, conversation fdf78037… (ops.system_error 61f93bac…)."""
+    import groq
+
+    body = {
+        "error": {
+            "message": (
+                "'stop' : one of the following must be satisfied[('stop' : value must be a string) "
+                "OR ('stop' : maximum number of items is 4)]"
+            ),
+            "type": "invalid_request_error",
+        }
+    }
+    return _stainless(groq, "BadRequestError", 400, body)
+
+
+def _groq_stop_profile() -> Any:
+    return make_profile(
+        model_name=_GROQ_MODEL,
+        wire_format="groq_chat",
+        vendor="groq",
+        rules={"stop_sequences": {"provider_key": "stop"}},
+    )
+
+
+def _anthropic_stop_profile() -> Any:
+    return make_profile(
+        model_name="claude-haiku-4-5",
+        wire_format="anthropic_chat",
+        vendor="anthropic",
+        rules={"stop_sequences": {}},
+    )
+
+
+async def test_groq_too_many_stop_sequences_heals_to_the_stated_count(captured) -> None:
+    emitter = _Emitter()
+    config = UnifiedConfig(model=_GROQ_MODEL, messages=[], stop_sequences=list(_STOPS))
+    sent, result = await _run(_groq_stop_profile(), config, [_groq_stop_max_items(), _OK], emitter=emitter)
+
+    assert result is _OK, result
+    assert [c["stop_sequences"] for c in sent] == [_STOPS, _STOPS[:4]]
+    assert emitter.warnings[0].user_message == "Stop sequences shortened to fit this model."
+    rows = _setting_rows(captured)
+    assert len(rows) == 1, captured
+    payload = rows[0]["payload"]
+    assert rows[0]["error_type"] == "groq.invalid_setting"
+    assert payload["fingerprint"], payload
+    assert payload["canonical_key"] == "stop_sequences"
+    assert payload["provider_limit"] == 4
+    assert payload["self_healed"] is True
+    assert payload["repair"]["action"] == "clamped"
+
+
+async def test_anthropic_whitespace_stop_sequence_is_removed_and_resent(captured) -> None:
+    emitter = _Emitter()
+    config = UnifiedConfig(model="claude-haiku-4-5", messages=[], stop_sequences=["   ", "END"])
+    exc = _anthropic("stop_sequences: each stop sequence must contain non-whitespace")
+    sent, result = await _run(_anthropic_stop_profile(), config, [exc, _OK], emitter=emitter)
+
+    assert result is _OK, result
+    assert [c["stop_sequences"] for c in sent] == [["   ", "END"], ["END"]]
+    payload = _setting_rows(captured)[0]["payload"]
+    assert payload["fingerprint"] and payload["self_healed"] is True
+    assert payload["canonical_key"] == "stop_sequences"
+
+
+async def test_anthropic_only_whitespace_stop_sequences_are_left_out(captured) -> None:
+    config = UnifiedConfig(model="claude-haiku-4-5", messages=[], stop_sequences=["   "])
+    exc = _anthropic("stop_sequences: each stop sequence must contain non-whitespace")
+    sent, result = await _run(_anthropic_stop_profile(), config, [exc, _OK], emitter=_Emitter())
+
+    assert result is _OK, result
+    assert sent[0]["stop_sequences"] == ["   "]
+    assert not sent[1]["stop_sequences"]
+
+
+# ── NET: the universal safety net (settings-translation lane NET, 2026-10-04) ─
+#
+# Breaks named: a settings rejection nobody catalogued returns no answer and
+# lands untyped (`provider_request_failed`, no fingerprint) — the three live
+# cases from the V2 verifier (Groq temperature 5, xAI `stop`, Gemini 2.5 Pro
+# budget) and any NEW one. The net must answer through the safe minimum, file
+# a typed fingerprinted record with suspects, never loop, and never touch
+# billing / auth / content / schema errors.
+
+
+class _GrpcInvalidArgument(Exception):
+    """xai_sdk's refusal shape: a gRPC RpcError (code() / details())."""
+
+    class _Code:
+        name = "INVALID_ARGUMENT"
+
+    def __init__(self, details: str) -> None:
+        super().__init__(details)
+        self._details = details
+
+    def code(self) -> Any:
+        return self._Code()
+
+    def details(self) -> str:
+        return self._details
+
+
+def _groq_unrecognised(message: str) -> Exception:
+    import groq
+
+    return _stainless(groq, "BadRequestError", 400, {"error": {"message": message, "type": "invalid_request_error"}})
+
+
+def _gemini_400(message: str) -> Exception:
+    from google.genai.errors import ClientError
+
+    return ClientError(400, {"error": {"code": 400, "message": message, "status": "INVALID_ARGUMENT"}})
+
+
+def _rich_groq_config() -> Any:
+    return UnifiedConfig(
+        model=_GROQ_MODEL,
+        messages=[],
+        temperature=0.7,
+        top_p=0.9,
+        stop_sequences=["END"],
+        reasoning_effort="high",
+        max_output_tokens=4000,
+    )
+
+
+def _assert_answer_warning_record(result: Any, emitter: _Emitter, captured: list[dict[str, Any]]) -> dict[str, Any]:
+    assert result is _OK, f"no answer: {result!r}"
+    assert len(emitter.warnings) == 1, emitter.warnings
+    assert emitter.warnings[0].code == "setting_repaired"
+    assert len(emitter.warnings[0].user_message) <= setting_rejection.REPAIR_WARNING_BUDGET
+    rows = _setting_rows(captured)
+    assert len(rows) == 1, captured
+    payload = rows[0]["payload"]
+    assert rows[0]["error_type"].endswith(".invalid_setting")
+    assert payload["self_healed"] is True
+    assert isinstance(payload["fingerprint"], str) and len(payload["fingerprint"]) == 32
+    return payload
+
+
+async def test_live_groq_temperature_5_answers(captured) -> None:
+    """Live 5b6be2fb / a492b11f: "'temperature' : number must be at most 2"."""
+    emitter = _Emitter()
+    config = UnifiedConfig(model=_GROQ_MODEL, messages=[], temperature=5)
+    profile = make_profile(model_name=_GROQ_MODEL, wire_format="groq_chat", vendor="groq", rules={"temperature": {}})
+    sent, result = await _run(
+        profile, config, [_groq_unrecognised("'temperature' : number must be at most 2"), _OK], emitter=emitter
+    )
+    payload = _assert_answer_warning_record(result, emitter, captured)
+    assert [c["temperature"] for c in sent] == [5, 2]
+    assert payload["repair"]["action"] == "clamped" and payload["provider_param"] == "temperature"
+
+
+async def test_live_xai_stop_on_reasoning_model_answers(captured) -> None:
+    """Live b7a467eb / acf62bb1: xAI refuses `stop` on grok-4.20-0309-reasoning."""
+    emitter = _Emitter()
+    model = "grok-4.20-0309-reasoning"
+    config = UnifiedConfig(model=model, messages=[], stop_sequences=["zz"])
+    profile = make_profile(model_name=model, wire_format="xai_chat", vendor="xai", rules={"stop_sequences": {"provider_key": "stop"}})
+    exc = _GrpcInvalidArgument(f"Model {model} does not support parameter stop.")
+    sent, result = await _run(profile, config, [exc, _OK], emitter=emitter)
+    payload = _assert_answer_warning_record(result, emitter, captured)
+    assert sent[1]["stop_sequences"] in (None, [])
+    assert payload["provider"] == "xai"
+
+
+async def test_live_gemini_budget_range_answers(captured) -> None:
+    """Live da318b6f / 3e8f93b6: the budget is clamped to Google's stated ceiling."""
+    emitter = _Emitter()
+    config = UnifiedConfig(model="gemini-2.5-pro", messages=[], thinking_budget=64000)
+    profile = make_profile(model_name="gemini-2.5-pro", wire_format="google_chat", vendor="google")
+    exc = _gemini_400("The thinking budget 64000 is invalid. Please choose a value between 128 and 32768.")
+    sent, result = await _run(profile, config, [exc, _OK], emitter=emitter)
+    payload = _assert_answer_warning_record(result, emitter, captured)
+    assert config.thinking_budget == 32768
+    assert payload["repair"]["to"] == 32768
+
+
+async def test_a_planted_unknown_400_answers_through_the_safe_minimum(captured) -> None:
+    emitter = _Emitter()
+    config = _rich_groq_config()
+    exc = _groq_unrecognised("`frobnication_window` is not compatible with nucleus settings on this deployment")
+    sent, result = await _run(_groq_profile(), config, [exc, _OK], emitter=emitter)
+    payload = _assert_answer_warning_record(result, emitter, captured)
+    assert len(sent) == 2
+    assert sent[1] == {"max_output_tokens": 4000, "temperature": None, "reasoning_effort": None, "stop_sequences": []}
+    assert payload["recognizer"] == "safety_net" and payload["shape"] == "unrecognized"
+    assert payload["repair"]["action"] == "safe_minimum"
+    assert set(payload["repair"]["canonical_keys"]) == {"temperature", "top_p", "stop_sequences", "reasoning_effort"}
+    assert payload["suspect_params"], "the fixer needs suspects"
+    assert emitter.warnings[0].user_message.startswith(("4 settings left out", "Left out:"))
+
+
+async def test_safe_minimum_failing_too_is_the_honest_error_and_no_third_call(captured) -> None:
+    first = _groq_unrecognised("`frobnication_window` is not compatible with nucleus settings on this deployment")
+    second = _groq_unrecognised("the deployment is in maintenance; try later")
+    sent, result = await _run(_groq_profile(), _rich_groq_config(), [first, second, _OK], emitter=_Emitter())
+    assert result is second
+    _assert_at_most_one_repair(sent)
+    payload = _setting_rows(captured)[0]["payload"]
+    assert payload["self_healed"] is False and payload["retry"]["kind"] == "safe_minimum"
+
+
+async def test_an_unknown_400_after_streaming_is_typed_but_not_retried(captured) -> None:
+    emitter = _Emitter()
+    exc = _groq_unrecognised("`frobnication_window` is not compatible with nucleus settings on this deployment")
+    sent, result = await _run(_groq_profile(), _rich_groq_config(), [exc, _OK], emitter=emitter, stream_on_call=1)
+    assert result is exc
+    _assert_not_retried(sent)
+    payload = _setting_rows(captured)[0]["payload"]
+    assert payload["not_retried_reason"] == "output_already_streamed"
+    assert payload["fingerprint"]
+
+
+@pytest.mark.parametrize(
+    "exc_factory",
+    [
+        pytest.param(lambda: _anthropic("messages: at least one message is required"), id="content"),
+        pytest.param(
+            lambda: _openai({"message": "Invalid schema for response_format 'x'", "type": "invalid_request_error", "param": "response_format"}),
+            id="schema",
+        ),
+        pytest.param(
+            lambda: _openai({"message": "Your input image may contain content that is not allowed by our safety system.", "type": "invalid_request_error"}),
+            id="safety",
+        ),
+        pytest.param(
+            lambda: _anthropic("Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."),
+            id="billing",
+        ),
+        pytest.param(
+            lambda: _stainless(__import__("openai"), "AuthenticationError", 401, {"error": {"message": "Incorrect API key provided", "type": "invalid_request_error"}}),
+            id="auth",
+        ),
+    ],
+)
+async def test_the_net_never_retries_non_settings_errors(exc_factory, captured) -> None:
+    exc = exc_factory()
+    config = UnifiedConfig(model="claude-opus-5-5", messages=[], temperature=0.4, top_p=0.9)
+    sent, result = await _run(_anthropic_profile(), config, [exc, _OK], emitter=_Emitter())
+    assert result is exc
+    _assert_not_retried(sent)
+    assert _setting_rows(captured) == []
+
+
+def test_unrecognised_prints_tell_two_refusals_apart_and_stay_stable() -> None:
+    from matrx_ai.providers.errors import classify_provider_error
+
+    def print_of(message: str) -> str:
+        info = setting_rejection.net_candidate(classify_provider_error("groq", _groq_unrecognised(message)))
+        assert info is not None
+        return setting_rejection.build_record(info, model=_GROQ_MODEL, wire_payload={"temperature": 0.7})["fingerprint"]
+
+    a = print_of("`frobnication_window` is not compatible with nucleus 3")
+    assert a == print_of("`frobnication_window` is not compatible with nucleus 7")  # numbers blanked
+    assert a != print_of("`glimmer` is out of band for this deployment")
+
+
+async def test_planted_net_removed_turns_the_guard_red(monkeypatch, captured) -> None:
+    """Without the net an unknown 400 is the person's error again — the guard sees it."""
+    monkeypatch.setattr(setting_rejection, "net_candidate", lambda info: None)
+    exc = _groq_unrecognised("`frobnication_window` is not compatible with nucleus settings on this deployment")
+    sent, result = await _run(_groq_profile(), _rich_groq_config(), [exc, _OK], emitter=_Emitter())
+    with pytest.raises(AssertionError, match="no answer"):
+        _assert_answer_warning_record(result, _Emitter(), captured)
+
+
+async def test_planted_safe_minimum_loop_turns_the_guard_red(monkeypatch, captured) -> None:
+    """A seam that forgot the safe minimum was spent would call again and again."""
+    real = uc._SettingsSelfHeal._handle
+
+    async def forgetful(self: Any, exc: BaseException, *, streamed_before: int | None) -> bool:
+        self.safe_min = None
+        self.repairs_used = 0
+        self.config.temperature = 0.7  # something to leave out again
+        return await real(self, exc, streamed_before=streamed_before)
+
+    monkeypatch.setattr(uc._SettingsSelfHeal, "_handle", forgetful)
+    rej = lambda: _groq_unrecognised("`frobnication_window` is not compatible with nucleus settings")  # noqa: E731
+    sent, _ = await _run(_groq_profile(), _rich_groq_config(), [rej(), rej(), rej(), _OK], emitter=_Emitter())
+    with pytest.raises(AssertionError, match="looped"):
+        _assert_at_most_one_repair(sent)
+
+
+async def test_cerebras_validation_range_refusal_heals(captured) -> None:
+    """Live 2026-10-04 probe: Cerebras answers a range refusal as code wrong_api_format."""
+    import cerebras.cloud.sdk as cerebras_sdk
+
+    body = {
+        "message": "temperature: Input should be less than or equal to 2",
+        "type": "invalid_request_error",
+        "param": "validation_error",
+        "code": "wrong_api_format",
+    }
+    exc = _stainless(cerebras_sdk, "BadRequestError", 400, body)
+    profile = make_profile(model_name="gpt-oss-120b", wire_format="cerebras_chat", vendor="cerebras", rules={"temperature": {}})
+    config = UnifiedConfig(model="gpt-oss-120b", messages=[], temperature=3)
+    sent, result = await _run(profile, config, [exc, _OK], emitter=_Emitter())
+    assert result is _OK
+    assert [c["temperature"] for c in sent] == [3, 2]
+
+
+async def test_together_model_range_refusal_heals(captured) -> None:
+    """Live 2026-10-04 probe: Kimi-K3 on Together takes temperature in [0, 1]."""
+    import together
+
+    body = {"error": {"type": "Bad Request", "code": "invalid_temperature", "message": "temperature must be within [0, 1], got 2", "param": None}}
+    exc = _stainless(together, "BadRequestError", 400, body)
+    profile = make_profile(model_name="moonshotai/Kimi-K3", wire_format="together_chat", vendor="together", rules={"temperature": {}})
+    config = UnifiedConfig(model="moonshotai/Kimi-K3", messages=[], temperature=2)
+    sent, result = await _run(profile, config, [exc, _OK], emitter=_Emitter())
+    assert result is _OK
+    assert [c["temperature"] for c in sent] == [2, 1]

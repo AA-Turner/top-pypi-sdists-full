@@ -2,7 +2,7 @@
 AUTHOR'S — and a check never cries wolf.
 
 Re-verification 2 of the structured-output schema translation
-(``common-docs/projects/checks-run-in-the-app/SCHEMA-TRANSLATION-VERIFY.md``,
+(``common-docs/systems/ai/ai-models/STATE.md``,
 "Re-verification 2 (full sweep)") measured, in production and against the real
 providers:
 

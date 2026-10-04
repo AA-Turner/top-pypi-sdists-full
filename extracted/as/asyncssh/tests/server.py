@@ -140,6 +140,11 @@ class ServerTestCase(AsyncTestCase):
             skey_ecdsa, 'name', principals=['127.0.0.1', 'localhost'])
         skey_ecdsa_cert.write_certificate('skey_ecdsa-cert.pub')
 
+        skey_cross_cert = skey.generate_host_certificate(
+            skey_ecdsa, 'name', principals=['127.0.0.1', 'localhost'])
+        skey_ecdsa.write_private_key('skey_cross')
+        skey_cross_cert.write_certificate('skey_cross-cert.pub')
+
         exp_cert = skey.generate_host_certificate(skey, 'name',
                                                   valid_after='-2d',
                                                   valid_before='-1d')
@@ -282,7 +287,7 @@ class ServerTestCase(AsyncTestCase):
 
                 async with asyncssh.connect_agent() as agent:
                     await agent.add_keys([ckey_ecdsa, (ckey, ckey_cert)])
-        else: # pragma: no cover
+        else: # pragma: cover only win32
             cls._agent_pid = None
 
         with open('ssh-keysign', 'wb'):

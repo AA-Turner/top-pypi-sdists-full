@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 from unittest.mock import MagicMock, patch
 
@@ -782,44 +783,101 @@ class TestLaneDriverDependencyPrereqs:
         import in THIS process no matter what's installed — the probe must
         check the real Windows-side bridge venv
         (`coord.win_native_bridge.ensure_windows_win_native_venv` bootstraps)
-        instead of this interpreter's own `find_spec`."""
+        instead of this interpreter's own `find_spec`.
+
+        #3565 (filed as a duplicate of #3550, whose own fix landed on
+        `main` mislabeled under #3550's number): the bridge venv's
+        `python.exe` is Windows-path-shaped
+        (`C:\\...`) — Linux `exec` can't resolve that directly, so the
+        probe must translate `argv[0]` WSL-ward (`wslpath -u`, via
+        `_windows_exec_argv`) before actually exec'ing it. The scripted
+        `run` below answers the `wslpath` call and the real exec call
+        differently, so this also asserts the exec'd path is the
+        `/mnt/c/...` form, never the raw `C:\\...` one."""
         import coord.win_native_bridge as win_native_bridge
 
         comtypes_prereq = next(
             p for p in prereqs.CAPABILITY_PREREQS if p.tool == "comtypes"
         )
+        windows_python = win_native_bridge.windows_venv_python(
+            win_native_bridge.DEFAULT_WINDOWS_VENV_DIR
+        )
+        wsl_python = "/mnt/c/ProgramData/coord-win-native-venv/Scripts/python.exe"
+
+        def fake_run(argv: list[str], **_kwargs: object) -> MagicMock:
+            if argv[0] == "wslpath":
+                assert argv == ["wslpath", "-u", windows_python]
+                return MagicMock(returncode=0, stdout=f"{wsl_python}\n", stderr="")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
         with (
             patch.object(win_native_bridge, "is_wsl_host", return_value=True),
             patch(
-                "coord.prereqs.subprocess.run",
-                return_value=MagicMock(returncode=0),
+                "coord.prereqs.subprocess.run", side_effect=fake_run,
             ) as mock_run,
         ):
             probe = comtypes_prereq.custom_probe(comtypes_prereq, 5.0)
         assert probe.found is True
         assert probe.ok is True
-        # Checks the BRIDGE venv's python, never this process's own.
-        argv = mock_run.call_args[0][0]
-        assert argv[0] == win_native_bridge.windows_venv_python(
-            win_native_bridge.DEFAULT_WINDOWS_VENV_DIR
-        )
+        # The actual exec call (the last one) used the WSL-translated path,
+        # never the raw Windows-path-shaped one.
+        exec_argv = mock_run.call_args_list[-1][0][0]
+        assert exec_argv[0] == wsl_python
+        assert exec_argv[0] != windows_python
 
     def test_comtypes_probe_on_wsl_is_unmet_when_bridge_venv_missing(self) -> None:
+        """Translation succeeds (the host's `wslpath` works fine), but the
+        bridge venv itself was never bootstrapped — the real exec of the
+        translated path is what fails here, same `found=False` degrade as
+        every other prereq miss."""
         import coord.win_native_bridge as win_native_bridge
 
         comtypes_prereq = next(
             p for p in prereqs.CAPABILITY_PREREQS if p.tool == "comtypes"
         )
+
+        def fake_run(argv: list[str], **_kwargs: object) -> MagicMock:
+            if argv[0] == "wslpath":
+                return MagicMock(
+                    returncode=0,
+                    stdout="/mnt/c/ProgramData/coord-win-native-venv/Scripts/python.exe\n",
+                    stderr="",
+                )
+            raise FileNotFoundError("no such venv")
+
         with (
             patch.object(win_native_bridge, "is_wsl_host", return_value=True),
-            patch(
-                "coord.prereqs.subprocess.run",
-                side_effect=FileNotFoundError("no such venv"),
-            ),
+            patch("coord.prereqs.subprocess.run", side_effect=fake_run),
         ):
             probe = comtypes_prereq.custom_probe(comtypes_prereq, 5.0)
         assert probe.found is False
         assert probe.ok is False
+
+    def test_comtypes_probe_wsl_path_translation_failure_is_unmet(self) -> None:
+        """#3565 regression (duplicate of #3550): if `wslpath` itself isn't
+        runnable (missing, times out, or exits non-zero), `_windows_exec_argv` raises
+        `WinNativeBridgeError` — the probe must degrade that to
+        `found=False` exactly like an `OSError`/`TimeoutExpired`, never let
+        it bubble up and take down the whole `/health` sweep. The real
+        exec must never even be attempted once translation fails."""
+        import coord.win_native_bridge as win_native_bridge
+
+        comtypes_prereq = next(
+            p for p in prereqs.CAPABILITY_PREREQS if p.tool == "comtypes"
+        )
+
+        with (
+            patch.object(win_native_bridge, "is_wsl_host", return_value=True),
+            patch(
+                "coord.prereqs.subprocess.run",
+                side_effect=FileNotFoundError("wslpath: command not found"),
+            ) as mock_run,
+        ):
+            probe = comtypes_prereq.custom_probe(comtypes_prereq, 5.0)
+        assert probe.found is False
+        assert probe.ok is False
+        # Never got past the (failed) translation to attempt the real exec.
+        assert mock_run.call_count == 1
 
     def test_comtypes_probe_on_non_wsl_falls_back_to_find_spec(self) -> None:
         """Native Windows (or any non-WSL host, including every other test
@@ -878,6 +936,119 @@ class TestLaneDriverDependencyPrereqs:
         assert "xdotool not found" in reasons
         assert "xwd not found" in reasons
         assert "pyte not found" in reasons
+
+
+class TestMacOSTrustPrereqs:
+    """#3566: `pyobjc` being importable (`TestLaneDriverDependencyPrereqs`
+    above) says nothing about whether this identity actually holds
+    Accessibility/Screen-Recording TRUST — the live bugbash incident this
+    issue reports happened with the binding fully installed. These two
+    prereqs ask the trust question itself via a scripted fake standing in
+    for the real `AXIsProcessTrusted()`/`CGPreflightScreenCaptureAccess()`
+    subprocess call (see `_run_macos_trust_probe`'s module comment for why
+    it's a subprocess, not an in-process import)."""
+
+    @staticmethod
+    def _prereq(tool: str) -> prereqs.Prereq:
+        return next(p for p in prereqs.CAPABILITY_PREREQS if p.tool == tool)
+
+    def test_macos_capability_is_backed_by_both_trust_probes(self) -> None:
+        tools = {p.tool for p in prereqs.CAPABILITY_PREREQS if p.capability == "macos"}
+        assert {"macos-accessibility-trust", "macos-screen-recording"} <= tools
+
+    def test_accessibility_trust_met_when_subprocess_exits_zero(self) -> None:
+        prereq = self._prereq("macos-accessibility-trust")
+        with patch(
+            "coord.prereqs.subprocess.run",
+            return_value=MagicMock(returncode=0, stdout="", stderr=""),
+        ):
+            probe = prereq.custom_probe(prereq, 5.0)
+        assert probe.found is True
+        assert probe.ok is True
+
+    def test_accessibility_trust_unmet_when_subprocess_exits_nonzero(self) -> None:
+        """#2096: the gate must be able to FAIL — a denied grant must read
+        as unmet, not silently pass because the subprocess ran without
+        raising."""
+        prereq = self._prereq("macos-accessibility-trust")
+        with patch(
+            "coord.prereqs.subprocess.run",
+            return_value=MagicMock(returncode=1, stdout="", stderr=""),
+        ):
+            probe = prereq.custom_probe(prereq, 5.0)
+        assert probe.found is False
+        assert probe.ok is False
+        assert "Accessibility" in probe.what_breaks
+
+    def test_screen_recording_met_when_subprocess_exits_zero(self) -> None:
+        prereq = self._prereq("macos-screen-recording")
+        with patch(
+            "coord.prereqs.subprocess.run",
+            return_value=MagicMock(returncode=0, stdout="", stderr=""),
+        ):
+            probe = prereq.custom_probe(prereq, 5.0)
+        assert probe.found is True
+        assert probe.ok is True
+
+    def test_screen_recording_unmet_when_subprocess_exits_nonzero(self) -> None:
+        prereq = self._prereq("macos-screen-recording")
+        with patch(
+            "coord.prereqs.subprocess.run",
+            return_value=MagicMock(returncode=1, stdout="", stderr=""),
+        ):
+            probe = prereq.custom_probe(prereq, 5.0)
+        assert probe.found is False
+        assert probe.ok is False
+        assert "Screen Recording" in probe.what_breaks
+
+    def test_missing_pyobjc_names_the_real_cause_not_a_denied_grant(self) -> None:
+        """A `ModuleNotFoundError` from the trust-check subprocess (pyobjc
+        not installed in `sys.executable`) must not be reported as "trust
+        denied" — the remedy is completely different (install the extra,
+        not change a TCC setting)."""
+        prereq = self._prereq("macos-accessibility-trust")
+        with patch(
+            "coord.prereqs.subprocess.run",
+            return_value=MagicMock(
+                returncode=1, stdout="",
+                stderr="ModuleNotFoundError: No module named 'ApplicationServices'",
+            ),
+        ):
+            probe = prereq.custom_probe(prereq, 5.0)
+        assert probe.found is False
+        assert "pyobjc" in probe.what_breaks
+        assert "Accessibility to it" not in probe.what_breaks
+
+    def test_hung_subprocess_degrades_to_unmet_not_a_crash(self) -> None:
+        prereq = self._prereq("macos-accessibility-trust")
+        with patch(
+            "coord.prereqs.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(cmd="python3", timeout=5.0),
+        ):
+            probe = prereq.custom_probe(prereq, 5.0)
+        assert probe.found is False
+        assert probe.ok is False
+
+    def test_trust_probed_via_a_fresh_subprocess_not_this_interpreter(self) -> None:
+        """#3566's whole point: the long-lived `/health` process's own TCC
+        identity is not the question — a worker's identity is. The probe
+        must shell out (so it can be a *different* process each time, and
+        is injectable in tests) rather than importing `ApplicationServices`
+        in this interpreter."""
+        prereq = self._prereq("macos-accessibility-trust")
+        captured: dict = {}
+
+        def fake_run(argv, **kwargs):
+            captured["argv"] = argv
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("coord.prereqs.subprocess.run", side_effect=fake_run):
+            prereq.custom_probe(prereq, 5.0)
+        assert captured["argv"][0] == sys.executable
+        assert "AXIsProcessTrusted" in captured["argv"][-1]
+
+    def test_all_capability_names_includes_macos(self) -> None:
+        assert "macos" in prereqs.ALL_CAPABILITY_NAMES
 
 
 class TestAzureCapabilityManifest:

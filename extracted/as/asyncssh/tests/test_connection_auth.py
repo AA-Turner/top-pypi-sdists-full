@@ -462,13 +462,11 @@ class _TestNullAuth(ServerTestCase):
 class _TestGSSAuth(ServerTestCase):
     """Unit tests for GSS authentication"""
 
-    @unittest.skipIf(sys.platform == 'win32', 'skip GSS store test on Windows')
     @classmethod
     async def start_server(cls):
         """Start an SSH server which supports GSS authentication"""
 
-        return await cls.create_server(_AsyncGSSServer, gss_host='1',
-                                       gss_store='a')
+        return await cls.create_server(_AsyncGSSServer, gss_host='1')
 
     @asynctest
     async def test_get_server_auth_methods(self):
@@ -493,15 +491,6 @@ class _TestGSSAuth(ServerTestCase):
 
         async with self.connect(kex_algs=['ecdh-sha2-nistp256'],
                                 username='user', gss_host='1'):
-            pass
-
-    @unittest.skipIf(sys.platform == 'win32', 'skip GSS store test on Windows')
-    @asynctest
-    async def test_gss_mic_auth_store(self):
-        """Test GSS MIC authentication with GSS store set"""
-
-        async with self.connect(kex_algs=['ecdh-sha2-nistp256'],
-                                username='user', gss_host='1', gss_store='a'):
             pass
 
     @asynctest
@@ -574,6 +563,58 @@ class _TestGSSAuth(ServerTestCase):
                                 username='user', gss_host='1',
                                 disable_trivial_auth=True):
             pass
+
+    @unittest.skipUnless(sys.platform == 'win32',
+                         'GSS client with store should fail on Windows')
+    @asynctest
+    async def test_gss_client_store_unavailable(self): # pragma: cover only win32
+        """Test GSS client store being unavailable on Windows"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='user', gss_host='1', gss_store='a')
+
+
+@unittest.skipUnless(gss_available, 'GSS not available')
+@unittest.skipIf(sys.platform == 'win32', 'skip GSS store test on Windows')
+@patch_gss
+class _TestGSSAuthStore(ServerTestCase):
+    """Unit tests for GSS authentication with custom store"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server which supports a GSS store"""
+
+        return await cls.create_server(_AsyncGSSServer, gss_host='1',
+                                       gss_store='a')
+
+    @asynctest
+    async def test_gss_mic_auth_store(self):
+        """Test GSS MIC authentication with GSS store set"""
+
+        async with self.connect(username='user', gss_host='1', gss_store='a'):
+            pass
+
+
+@unittest.skipUnless(gss_available, 'GSS not available')
+@unittest.skipUnless(sys.platform == 'win32',
+                     'GSS server with store should fail on Windows')
+@patch_gss
+class _TestGSSAuthStoreWindows(ServerTestCase):
+    """Unit tests for GSS server with store on windows"""
+
+    @classmethod
+    async def start_server(cls): # pragma: cover only win32
+        """Start an SSH server which supports a GSS store"""
+
+        return await cls.create_server(_AsyncGSSServer, gss_host='1',
+                                       gss_store='a')
+
+    @asynctest
+    async def test_gss_mic_auth_store(self): # pragma: cover only win32
+        """Test GSS MIC authentication with GSS store set"""
+
+        with self.assertRaises(asyncssh.PermissionDenied):
+            await self.connect(username='user', gss_host='1')
 
 
 @unittest.skipUnless(gss_available, 'GSS not available')

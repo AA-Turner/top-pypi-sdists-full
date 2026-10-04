@@ -62,7 +62,7 @@ def calculate_roles_for_user(
     roles_managed = roles_current.subset(managed_only=True)
     roles_persistent = roles_managed.union(roles_reserved)
     if roles_calculated == roles_current.difference(roles_persistent):
-        return roles_calculated, False
+        return roles_calculated.union(roles_persistent), False
     return roles_calculated.union(roles_persistent), True
 
 

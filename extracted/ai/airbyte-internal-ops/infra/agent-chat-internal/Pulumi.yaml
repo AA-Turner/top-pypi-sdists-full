@@ -10,7 +10,7 @@ description: |
   - The agui-server runtime service account (images, publisher identity, and secret IAM are bootstrap-owned)
   - Cloud Run services for agui-server and agui-playground
   - External HTTPS load balancer with managed certificate and IAP
-  - DNS A record for chat.internal.airbyte.ai in the internal.airbyte.ai Cloud DNS zone
+  - DNS A records for chat.internal.airbyte.ai and preview.chat.internal.airbyte.ai in the internal.airbyte.ai Cloud DNS zone
 
 config:
   gcp:project:

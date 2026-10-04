@@ -28,6 +28,7 @@ inline int _ds_pid() { return _getpid(); }
 #else
 #include <climits>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
 inline pid_t _ds_pid() { return getpid(); }
@@ -51,7 +52,7 @@ class DiskStorage
         gen.seed(seq);
     }
 
-    // LRU mmap handle cache: path_string → shared_ptr<MemoryMappedFile>.
+    // LRU cache of loaded values: path_string → mapped or read file.
     // The user-facing path (set/get/del) calls into DiskStorage under the
     // store's _mtx, but the background checkpoint thread also calls
     // remove() lock-free during eviction (see _Store::_bg_evict). So this
@@ -60,7 +61,7 @@ class DiskStorage
     std::size_t _mmap_cache_capacity;
     std::list<std::string> _lru_order;
     std::unordered_map<std::string,
-        std::pair<std::shared_ptr<MemoryMappedFile>,
+        std::pair<std::shared_ptr<IMemoryView>,
                   std::list<std::string>::iterator>> _mmap_cache;
 
     void _evict_lru_locked()
@@ -80,7 +81,7 @@ class DiskStorage
         }
     }
 
-    std::shared_ptr<MemoryMappedFile> _cache_get_locked(const std::string& key)
+    std::shared_ptr<IMemoryView> _cache_get_locked(const std::string& key)
     {
         auto it = _mmap_cache.find(key);
         if (it == _mmap_cache.end()) return nullptr;
@@ -89,7 +90,7 @@ class DiskStorage
         return it->second.first;
     }
 
-    void _cache_put_locked(const std::string& key, std::shared_ptr<MemoryMappedFile> mmf)
+    void _cache_put_locked(const std::string& key, std::shared_ptr<IMemoryView> mmf)
     {
         if (_mmap_cache_capacity == 0) return;
         _cache_evict_locked(key); // remove old entry if exists
@@ -193,17 +194,28 @@ class DiskStorage
     // truncating when the file is already there, so a duplicate blob name can
     // never silently overwrite another value's file. Uses raw fds because
     // std::ofstream has no portable create-exclusive mode pre-C++23.
+    [[nodiscard]] static int _open_exclusive(const std::filesystem::path& file_path)
+    {
+#ifdef _WIN32
+        return ::_open(file_path.string().c_str(), _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY,
+                       _S_IREAD | _S_IWRITE);
+#else
+        return ::open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
+#endif
+    }
+
     [[nodiscard]] inline bool _write_exclusive(
         const std::filesystem::path& file_path, const Payload auto& value)
     {
-        std::filesystem::create_directories(file_path.parent_path());
-#ifdef _WIN32
-        int fd = ::_open(file_path.string().c_str(),
-                         _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY,
-                         _S_IREAD | _S_IWRITE);
-#else
-        int fd = ::open(file_path.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
-#endif
+        // The directories almost always exist: create them only when the open
+        // says they don't. macOS's libc++ create_directories() calls mkdir()
+        // before checking, and a failing mkdir costs ~20 us on APFS.
+        int fd = _open_exclusive(file_path);
+        if (fd < 0 && errno == ENOENT)
+        {
+            std::filesystem::create_directories(file_path.parent_path());
+            fd = _open_exclusive(file_path);
+        }
         if (fd < 0)
         {
             if (errno == EEXIST)
@@ -225,6 +237,110 @@ class DiskStorage
             _throw_write_error(err, file_path);
         }
         return true;
+    }
+
+    [[nodiscard]] static int _open_read(const std::filesystem::path& file_path)
+    {
+#ifdef _WIN32
+        return ::_wopen(file_path.c_str(), _O_RDONLY | _O_BINARY);
+#else
+        return ::open(file_path.c_str(), O_RDONLY | O_CLOEXEC);
+#endif
+    }
+
+    [[nodiscard]] static std::int64_t _fd_size(int fd)
+    {
+#ifdef _WIN32
+        return ::_filelengthi64(fd);
+#else
+        struct stat st;
+        return ::fstat(fd, &st) == 0 ? static_cast<std::int64_t>(st.st_size) : -1;
+#endif
+    }
+
+    // Returns 0 or the errno of the failed read; a file shorter than `size` is EIO.
+    [[nodiscard]] static int _read_fd(int fd, char* dest, std::size_t size)
+    {
+        while (size > 0)
+        {
+#ifdef _WIN32
+            auto n = ::_read(fd, dest,
+                static_cast<unsigned int>(std::min(size, std::size_t { 1u << 30 })));
+#else
+            auto n = ::read(fd, dest, size);
+            if (n < 0 && errno == EINTR)
+                continue;
+#endif
+            if (n <= 0)
+                return n < 0 ? errno : EIO;
+            dest += n;
+            size -= static_cast<std::size_t>(n);
+        }
+        return 0;
+    }
+
+    static void _close_fd(int fd)
+    {
+#ifdef _WIN32
+        ::_close(fd);
+#else
+        ::close(fd);
+#endif
+    }
+
+    // Values up to this size are read into memory, bigger ones are mapped.
+    // A mapping costs mmap, page faults on first access, and an munmap that
+    // interrupts every CPU the process ran on (TLB shootdown) when the LRU
+    // drops it. But a read copy lands in heap memory, and when malloc has to
+    // take fresh pages from the kernel each 4 KB page faults and is zeroed,
+    // while a mapping faults in page-cache pages 64 KB at a time. With fresh
+    // heap pages read() wins up to 16 KB and loses from ~24 KB (btrfs and
+    // tmpfs, Linux 7.2): 20 KB keeps it never slower than a mapping.
+    static constexpr std::int64_t _read_threshold = 20 * 1024;
+
+    [[nodiscard]] static std::shared_ptr<IMemoryView> _read(int fd, std::size_t size)
+    {
+        auto view = std::make_shared<HeapMemoryView>(size);
+        if (_read_fd(fd, view->mutable_data(), size) != 0)
+            return nullptr;
+        return view;
+    }
+
+    [[nodiscard]] static std::shared_ptr<IMemoryView> _map(
+        [[maybe_unused]] int fd, [[maybe_unused]] const std::filesystem::path& file_path,
+        std::size_t size)
+    {
+#ifdef _WIN32
+        return std::make_shared<MemoryMappedFile>(file_path.string());
+#else
+        return std::make_shared<FdMappedFile>(fd, size);
+#endif
+    }
+
+    // One open + fstat replaces the exists()/exists()/file_size() path
+    // lookups the mapped-file constructor does. nullptr when the file is
+    // missing, empty, or unreadable.
+    [[nodiscard]] static std::shared_ptr<IMemoryView> _open_view(const std::filesystem::path& file_path)
+    {
+        int fd = _open_read(file_path);
+        if (fd < 0)
+            return nullptr;
+        auto size = _fd_size(fd);
+        std::shared_ptr<IMemoryView> view;
+        try
+        {
+            if (size > _read_threshold)
+                view = _map(fd, file_path, static_cast<std::size_t>(size));
+            else if (size > 0)
+                view = _read(fd, static_cast<std::size_t>(size));
+        }
+        catch (...)
+        {
+            _close_fd(fd);
+            throw;
+        }
+        _close_fd(fd);
+        return view;
     }
 
 public:
@@ -313,18 +429,17 @@ public:
             {
                 std::lock_guard lk { _cache_mutex };
                 if (auto cached = _cache_get_locked(key))
-                    return Buffer(std::static_pointer_cast<IMemoryView>(cached));
+                    return Buffer(std::move(cached));
             }
 
-            if (!std::filesystem::exists(file_path))
+            auto view = _open_view(file_path);
+            if (!view)
                 return std::nullopt;
-
-            auto mmf = std::make_shared<MemoryMappedFile>(key);
             {
                 std::lock_guard lk { _cache_mutex };
-                _cache_put_locked(key, mmf);
+                _cache_put_locked(key, view);
             }
-            return Buffer(std::static_pointer_cast<IMemoryView>(mmf));
+            return Buffer(std::move(view));
         }
         catch (const std::exception& e)
         {

@@ -68,6 +68,24 @@ def get_unstaged_changes(repo):
     return list(_get_unstaged_changes(index, repo.path, filter_callback, False))
 
 
+class DeprecatedReexportTests(TestCase):
+    def test_refs_aliases(self) -> None:
+        from dulwich import refs, repo
+
+        for name in (
+            "LOCAL_TAG_PREFIX",
+            "SYMREF",
+            "check_ref_format",
+            "read_packed_refs",
+            "read_packed_refs_with_peeled",
+            "write_packed_refs",
+        ):
+            with self.subTest(name):
+                with self.assertWarns(DeprecationWarning):
+                    obj = getattr(repo, name)
+                self.assertIs(getattr(refs, name), obj)
+
+
 class CreateRepositoryTests(TestCase):
     def assertFileContentsEqual(self, expected, repo, path) -> None:
         f = repo.get_named_file(path)
@@ -402,6 +420,27 @@ class RepositoryRootTests(TestCase):
             attrs = r.get_gitattributes()
         self.assertEqual(len(attrs), 1)
         self.assertEqual(attrs.match_path(b"file.txt"), {b"text": True})
+
+    @skipIf(sys.platform == "win32", "requires symlink support")
+    def test_get_gitattributes_worktree_symlink(self) -> None:
+        # The work tree .gitattributes name comes from the tree, so following
+        # a symlink there would read attributes from outside the work tree.
+        tmp_dir = self.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+        outside = os.path.join(tmp_dir, "outside")
+        with open(outside, "wb") as f:
+            f.write(b"*.txt text\n")
+        r = Repo.init(os.path.join(tmp_dir, "repo"), mkdir=True)
+        self.addCleanup(r.close)
+        link = os.path.join(r.path, ".gitattributes")
+        os.symlink(outside, link)
+
+        with self.assertLogs("dulwich.repo", "WARNING") as cm:
+            self.assertEqual({}, r.get_gitattributes().match_path(b"file.txt"))
+        self.assertEqual(
+            [f"WARNING:dulwich.repo:Ignoring {link}: it is a symbolic link"],
+            cm.output,
+        )
 
     def test_contains_missing(self) -> None:
         r = self.open_repo("a.git")

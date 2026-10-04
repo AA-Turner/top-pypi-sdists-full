@@ -56,6 +56,9 @@ const / declared drop / supported:false and before to_default / value_map:
                  (equivalence.nearest_accepted; Adjustment mapped/computed)
     to_number    a scale value becomes a number through the rule's table
     drop         {"drop": true, "why"}: a declared drop (expected, silent)
+    max_items    a LIST keeps its first N items (declared clamp)
+    drop_items_matching  a LIST loses every string item the regex fully matches;
+                 emptied = omitted (declared)
 For a processor rule, off / accepts act on the canonical value BEFORE the
 processor runs; the processor reads from_number / to_number itself (its rule
 is on ``ProcessorContext.rule``). A rule carrying none of them behaves exactly
@@ -70,6 +73,7 @@ silent — nothing of the user's was changed.
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from matrx_utils import vcprint
@@ -94,6 +98,20 @@ from matrx_ai.catalog.processors import ProcessorContext, get_processor, has_pro
 OUTPUT_CEILING_KEY = "max_output_tokens"
 
 
+# LIST settings whose blank (whitespace-only) items are never meaningful on any api.
+BLANK_ITEM_LIST_KEYS: frozenset[str] = frozenset({"stop_sequences"})
+# Below this output cap a reasoning model spends the whole cap thinking; its effort yields.
+VISIBLE_OUTPUT_RESERVE_TOKENS = 1024
+
+
+def _get_dotted(source: dict[str, Any], dotted_key: str) -> Any:
+    node: Any = source
+    for part in dotted_key.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
 class UnmappedValueError(ValueError):
     """on_unmapped="error" fired: a value_map miss this rule declares fatal."""
 
@@ -107,6 +125,40 @@ def _is_accepted(value: Any, accepts: list[Any]) -> bool:
         elif accepted == value:
             return True
     return False
+
+
+# Context keys a condition may name, and the value a seam that passes none means.
+_CONTEXT_DEFAULTS: dict[str, Any] = {"operation": "generate"}
+
+
+def _context_matches(condition: dict[str, Any], context: dict[str, Any] | None) -> bool:
+    """K6 ``context`` (C7b): every pair must hold in the outbound context. A key
+    the seam did not pass takes its declared default (operation -> "generate");
+    a key with no default and no value never matches."""
+    given = context or {}
+    for name, wanted in condition.items():
+        actual = given.get(name, _CONTEXT_DEFAULTS.get(name))
+        if actual is None or actual != wanted:
+            return False
+    return True
+
+
+def _without(canonical: dict[str, Any], keys: set[str]) -> dict[str, Any]:
+    """``canonical`` minus ``keys`` — and minus their ``_converted`` markers."""
+    out = {k: v for k, v in canonical.items() if k not in keys}
+    converted = out.get("_converted")
+    if isinstance(converted, dict) and keys & set(converted):
+        remaining = {k: v for k, v in converted.items() if k not in keys}
+        if remaining:
+            out["_converted"] = remaining
+        else:
+            out.pop("_converted")
+    return out
+
+
+def _set_explicit(canonical: dict[str, Any], key: str, value: Any) -> dict[str, Any]:
+    """``canonical[key] = value`` as a value the caller set (no ``_converted`` mark)."""
+    return {**_without(canonical, {key}), key: value}
 
 
 # ── dotted-path helpers (shared with the parity validator) ───────────────────
@@ -633,6 +685,74 @@ class CompiledControlsMap(BaseModel):
             return False
         return True
 
+    # ── OFF through the keys a processor consumes (settings-translation C7b) ──
+    def _is_visibility_key(self, key: str) -> bool:
+        """Hide-the-thoughts keys: never depth (``ai.setting.family`` when loaded)."""
+        family = self.families.family_of.get(key) if self.families is not None else None
+        if family is not None:
+            return family == "visibility"
+        return key in D.VISIBILITY_OFF_KEYS
+
+    def _owning_processor(self, key: str) -> ControlRule | None:
+        for rule in self.rules.values():
+            if (
+                rule.processor is not None
+                and rule.supported is not False
+                and not rule.drop
+                and key in rule.processor_config.get("consumes", [])
+            ):
+                return rule
+        return None
+
+    def off_rule_for(self, key: str) -> ControlRule | None:
+        """The rule whose ``off`` decides an OFF arriving on ``key``: its own rule
+        when that declares ``off``; else, for a DEPTH key a processor consumes,
+        the processor rule (the owner cell); else its own rule. The engine
+        (``outbound`` pass 2) and the T3 guard read the same answer."""
+        own = self.rules.get(key)
+        if own is not None and own.off is not None:
+            return own
+        if not self._is_visibility_key(key):
+            owner = self._owning_processor(key)
+            if owner is not None:
+                return owner
+        return own
+
+    def _off_signal(
+        self, key: str, rule: ControlRule, canonical: dict[str, Any]
+    ) -> tuple[str | None, ControlRule | None]:
+        """Which key carries a DEPTH off into this processor rule, and the rule
+        whose ``off`` decides it. The owner key set by the caller wins (an off
+        there is the owner's own off; any other value beats a consumed sibling).
+        Then the consumed depth keys (thinking_budget <= 0, thinking_level none),
+        then an owner value CONVERTED from a number into off."""
+        incoming = canonical.get(key)
+        converted = key in (canonical.get("_converted") or {})
+        if incoming is not None and not converted:
+            return (key, rule) if D.is_off_value(key, incoming) else (None, None)
+        for consumed in rule.processor_config.get("consumes", []):
+            if self._is_visibility_key(consumed):
+                continue
+            if D.is_off_value(consumed, canonical.get(consumed)):
+                own = self.rules.get(consumed)
+                return consumed, (own if own is not None and own.off is not None else rule)
+        if converted and D.is_off_value(key, incoming):
+            return key, rule
+        return None, None
+
+    def _depth_requested(self, key: str, rule: ControlRule, canonical: dict[str, Any]) -> bool:
+        """Did this request ask for any thinking depth (the owner key, or a
+        consumed depth key such as thinking_budget / thinking_level)?"""
+        value = canonical.get(key)
+        if value is not None and not D.is_unset_posture(value):
+            return True
+        return any(
+            canonical.get(consumed) is not None
+            for consumed in rule.processor_config.get("consumes", [])
+            if not self._is_visibility_key(consumed)
+            and (consumed in D.OFF_AT_OR_BELOW or consumed in D.OFF_VALUES)
+        )
+
     def _floor_value(self, key: str, rule: ControlRule) -> Any:
         """K6 ``off: {"floor": true}`` — the lowest value this rule accepts
         (``accepts``, else ``ui_values``, else the non-null value_map keys),
@@ -780,10 +900,21 @@ class CompiledControlsMap(BaseModel):
         # the wire, and every Opus 5 call died with "temperature is deprecated
         # for this model". An unsupported processor rule drops its key AND the
         # keys it consumes, with Adjustments, and never runs.
+        # K6 ``context`` (C7b): a rule that applies only on one operation is a
+        # DECLARED drop everywhere else — its key (and, for a processor, the
+        # keys it consumes) never reach the wire, and its default never lands.
+        context_dropped = {
+            key: rule
+            for key, rule in self.rules.items()
+            if rule.context is not None and not _context_matches(rule.context, context)
+        }
         processor_rules = [
             (rule.processor_config.get("order", 100), key, rule)
             for key, rule in self.rules.items()
-            if rule.processor is not None and rule.supported is not False and not rule.drop
+            if rule.processor is not None
+            and rule.supported is not False
+            and not rule.drop
+            and key not in context_dropped
         ]
         processor_owned: set[str] = set()
         for _, key, rule in processor_rules:
@@ -794,6 +925,13 @@ class CompiledControlsMap(BaseModel):
         # key + consumed keys drop like supported:false — expected, with the why.
         declared_drop_why: dict[str, str] = {}
         for key, rule in self.rules.items():
+            if key in context_dropped:
+                condition = ", ".join(f"{k}={v!r}" for k, v in (rule.context or {}).items())
+                why = f"applies only when {condition}" + (f" — {rule.why}" if rule.why else "")
+                for dropped_key in [key, *rule.processor_config.get("consumes", [])]:
+                    if dropped_key not in processor_owned:
+                        declared_drop_why[dropped_key] = why
+                continue
             if rule.processor is not None and (rule.supported is False or rule.drop):
                 unsupported_processor_keys.add(key)
                 unsupported_processor_keys.update(rule.processor_config.get("consumes", []))
@@ -1171,11 +1309,63 @@ class CompiledControlsMap(BaseModel):
                     )
                     sent = clamped
 
+            # A blank stop sequence ends every model's answer before it starts (live
+            # V3: Groq/Cerebras ``stop: [""]`` -> no answer) or is refused outright
+            # (Anthropic, Together). It is never a meaningful request on ANY api, so
+            # the engine removes blank items itself — no cell has to remember it.
+            item_drop = rule.drop_items_matching
+            if item_drop is None and key in BLANK_ITEM_LIST_KEYS:
+                item_drop = r"\s*"
+            if isinstance(sent, list | tuple) and (
+                rule.max_items is not None or item_drop is not None
+            ):
+                items = list(sent)
+                if item_drop is not None:
+                    import re
+
+                    pattern = re.compile(item_drop)
+                    items = [
+                        item
+                        for item in items
+                        if not (isinstance(item, str) and pattern.fullmatch(item))
+                    ]
+                if rule.max_items is not None and len(items) > rule.max_items:
+                    items = items[: rule.max_items]
+                if items != list(sent):
+                    if not items:
+                        adjustments.append(
+                            Adjustment(
+                                key=key,
+                                action="omitted",
+                                canonical_value=list(sent),
+                                sent_value=None,
+                                reason=(
+                                    f"'{key}': no item this api/offering accepts "
+                                    f"(drop_items_matching) — omitted"
+                                ),
+                            )
+                        )
+                        eliminated.add(key)
+                        continue
+                    adjustments.append(
+                        Adjustment(
+                            key=key,
+                            action="clamped",
+                            canonical_value=list(sent),
+                            sent_value=items,
+                            reason=(
+                                f"'{key}': {len(sent)} item(s) reduced to {len(items)} "
+                                f"(max_items / drop_items_matching) for this api/offering"
+                            ),
+                        )
+                    )
+                sent = items
+
             expand_dotted(out, rule.provider_key or key, sent)
 
         # const — always send the fixed provider value; wins over any incoming value.
         for key, rule in self.rules.items():
-            if rule.const is None or key in processor_owned or rule.drop:
+            if rule.const is None or key in processor_owned or rule.drop or key in context_dropped:
                 continue
             incoming = canonical.get(key)
             if incoming is not None and incoming != rule.const:
@@ -1202,6 +1392,7 @@ class CompiledControlsMap(BaseModel):
                 or rule.default is None
                 or rule.const is not None
                 or rule.processor is not None
+                or key in context_dropped
             ):
                 continue
             value_was_set = canonical.get(key) is not None and key not in off_omitted
@@ -1242,83 +1433,144 @@ class CompiledControlsMap(BaseModel):
             # clamped BEFORE the processor reads it, so DB rules can carry the
             # provider's real numeric range for processor-owned keys (e.g.
             # anthropic temperature max 1.0). Reported as an Adjustment.
-            if rule.clamp is not None:
-                incoming = canonical.get(key)
+            # A key the processor CONSUMES skips pass 1, so its OWN cell's clamp
+            # (a scalar rule — e.g. anthropic top_p 0..1) acts here too.
+            clamp_rules = [(key, rule)]
+            for consumed in rule.processor_config.get("consumes", []):
+                consumed_rule = self.rules.get(consumed)
+                if consumed_rule is not None and consumed_rule.processor is None:
+                    clamp_rules.append((consumed, consumed_rule))
+            for clamp_key, clamp_rule in clamp_rules:
+                if clamp_rule.clamp is None:
+                    continue
+                incoming = canonical.get(clamp_key)
                 if isinstance(incoming, int | float) and not isinstance(incoming, bool):
                     clamped: float = incoming
-                    if rule.clamp.min is not None and clamped < rule.clamp.min:
-                        clamped = rule.clamp.min
-                    if rule.clamp.max is not None and clamped > rule.clamp.max:
-                        clamped = rule.clamp.max
+                    if clamp_rule.clamp.min is not None and clamped < clamp_rule.clamp.min:
+                        clamped = clamp_rule.clamp.min
+                    if clamp_rule.clamp.max is not None and clamped > clamp_rule.clamp.max:
+                        clamped = clamp_rule.clamp.max
                     if isinstance(incoming, int) and float(clamped).is_integer():
                         clamped = int(clamped)
                     if clamped != incoming:
                         adjustments.append(
                             Adjustment(
-                                key=key,
+                                key=clamp_key,
                                 action="clamped",
                                 canonical_value=incoming,
                                 sent_value=clamped,
                                 reason=(
-                                    f"'{key}'={incoming!r} clamped to {clamped!r} "
+                                    f"'{clamp_key}'={incoming!r} clamped to {clamped!r} "
                                     f"before processor {rule.processor!r}"
                                 ),
                             )
                         )
-                        canonical = {**canonical, key: clamped}
+                        canonical = {**canonical, clamp_key: clamped}
             # K6 off / accepts act on the canonical value BEFORE the processor
             # (from_number / to_number are read by the processor off ctx.rule).
-            off_send: tuple[bool, Any] = (False, None)
-            incoming = canonical.get(key)
-            converted = key in (canonical.get("_converted") or {})
-            if rule.off is not None and not converted and D.is_off_value(key, incoming):
-                if rule.off.omit:
+            #
+            # C7b: an off reaches this rule from ANY depth key it consumes
+            # (thinking_budget <= 0, thinking_level "none") and from a number
+            # converted into off — not only from the owner key. The deciding
+            # rule's ``off`` (``off_rule_for``) decides it exactly as for the
+            # owner: send / floor / omit-with-why. With no ``off`` declared the
+            # processor's own off path runs, and is voiced below if it puts
+            # nothing on the wire.
+            off_send: tuple[bool, str, Any] = (False, "", None)
+            undeclared_off: tuple[str, set[str]] | None = None
+            source, deciding = self._off_signal(key, rule, canonical)
+            if source is not None and deciding is not None:
+                deciding_key = key if deciding is rule else source
+                incoming = canonical.get(source)
+                # The off key itself, and an owner value converted from it.
+                spent = {source}
+                if key in (canonical.get("_converted") or {}):
+                    spent.add(key)
+                via = "" if source == key else f" (it reached '{key}' through '{source}')"
+                if deciding.off is None:
+                    if source != key:
+                        owner_off = next(iter(D.OFF_VALUES.get(key, ())), None)
+                        if owner_off is not None:
+                            canonical = _set_explicit(canonical, key, owner_off)
+                    undeclared_off = (source, spent)
+                elif deciding.off.omit:
                     adjustments.append(
                         Adjustment(
-                            key=key,
+                            key=source,
                             action="omitted",
                             canonical_value=incoming,
                             sent_value=None,
                             expected=True,
-                            reason=f"'{key}'={incoming!r} is off; declared omitted here: {rule.off.why}",
+                            reason=(
+                                f"'{source}'={incoming!r} is off; declared omitted here"
+                                f"{via}: {deciding.off.why}"
+                            ),
                         )
                     )
-                    canonical = {k: v for k, v in canonical.items() if k != key}
-                elif "send" in rule.off.model_fields_set:
+                    canonical = _without(canonical, spent)
+                elif "send" in deciding.off.model_fields_set:
                     adjustments.append(
                         Adjustment(
-                            key=key,
+                            key=source,
                             action="mapped",
                             canonical_value=incoming,
-                            sent_value=rule.off.send,
-                            reason=f"'{key}'={incoming!r} is off; declared off sends {rule.off.send!r}",
+                            sent_value=deciding.off.send,
+                            reason=(
+                                f"'{source}'={incoming!r} is off; declared off sends "
+                                f"{deciding.off.send!r}{via}"
+                            ),
                         )
                     )
-                    canonical = {k: v for k, v in canonical.items() if k != key}
-                    off_send = (True, rule.off.send)
+                    canonical = _without(canonical, spent)
+                    off_send = (True, deciding.provider_key or deciding_key, deciding.off.send)
                 else:
-                    floor = self._floor_value(key, rule)
+                    floor = self._floor_value(deciding_key, deciding)
                     adjustments.append(
                         Adjustment(
-                            key=key,
+                            key=source,
                             action="mapped" if floor is not None else "dropped",
                             canonical_value=incoming,
                             sent_value=floor,
                             expected=floor is not None,
                             provenance="declared" if floor is not None else "computed",
                             reason=(
-                                f"'{key}'={incoming!r} is off; declared off=floor sends the "
-                                f"lowest accepted value {floor!r}"
+                                f"'{source}'={incoming!r} is off; declared off=floor sends the "
+                                f"lowest accepted value {floor!r}{via}"
                                 if floor is not None
-                                else f"'{key}'={incoming!r} is off=floor with no accepted value — dropped"
+                                else f"'{source}'={incoming!r} is off=floor with no accepted value — dropped"
                             ),
                         )
                     )
-                    canonical = (
-                        {**canonical, key: floor}
-                        if floor is not None
-                        else {k: v for k, v in canonical.items() if k != key}
+                    canonical = _without(canonical, spent)
+                    if floor is not None:
+                        canonical = _set_explicit(canonical, deciding_key, floor)
+            # Visibility (hide the thoughts) is never depth. A consumed visibility
+            # key whose cell declares off.omit ("nothing to hide when the model is
+            # not asked to think") is honoured only when no depth was asked for —
+            # with a depth, the processor hides the thoughts it produces.
+            for consumed in rule.processor_config.get("consumes", []):
+                own = self.rules.get(consumed)
+                if (
+                    own is None
+                    or own.off is None
+                    or not own.off.omit
+                    or not self._is_visibility_key(consumed)
+                    or not D.is_off_value(consumed, canonical.get(consumed))
+                    or self._depth_requested(key, rule, canonical)
+                ):
+                    continue
+                adjustments.append(
+                    Adjustment(
+                        key=consumed,
+                        action="omitted",
+                        canonical_value=canonical.get(consumed),
+                        sent_value=None,
+                        expected=True,
+                        reason=f"'{consumed}' is off; declared omitted here: {own.off.why}",
                     )
+                )
+                canonical = _without(canonical, {consumed})
+            converted = key in (canonical.get("_converted") or {})
             incoming = canonical.get(key)
             if (
                 rule.accepts is not None
@@ -1351,35 +1603,116 @@ class CompiledControlsMap(BaseModel):
                     else {k: v for k, v in canonical.items() if k != key}
                 )
             fn = get_processor(rule.processor)  # loud UnknownProcessorError on a bad name
-            ctx = ProcessorContext(
-                key=key,
-                config=rule.processor_config,
-                adjustments=adjustments,
-                extra=dict(context or {}),
-                # The per-MODEL truth a processor's per-FAMILY maps cannot
-                # carry: what this offering actually accepts, and the canonical
-                # order to reconcile against. See
-                # ProcessorContext.reconcile_supported.
-                # K6: ``accepts`` (capability) when declared, else ui_values —
-                # the pre-C5 contract, unchanged for rules without accepts.
-                supported_values=frozenset(
-                    str(v)
-                    for v in (rule.accepts if rule.accepts is not None else (rule.ui_values or ()))
-                ),
-                value_order=tuple(
-                    str(v) for v in self.value_orders.get(key, ()) if isinstance(v, str)
-                ),
-                output_maximum=(int(ceiling) if ceiling is not None else None),
-                rule=rule,
-                accepts=frozenset(str(v) for v in (rule.accepts or ())),
-            )
-            result = fn(canonical, out, ctx)
+
+            def _ctx(sink: list[Adjustment], rule: ControlRule = rule, key: str = key) -> ProcessorContext:
+                return ProcessorContext(
+                    key=key,
+                    config=rule.processor_config,
+                    adjustments=sink,
+                    extra=dict(context or {}),
+                    # The per-MODEL truth a processor's per-FAMILY maps cannot
+                    # carry: what this offering actually accepts, and the canonical
+                    # order to reconcile against. See
+                    # ProcessorContext.reconcile_supported.
+                    # K6: ``accepts`` (capability) when declared, else ui_values —
+                    # the pre-C5 contract, unchanged for rules without accepts.
+                    supported_values=frozenset(
+                        str(v)
+                        for v in (rule.accepts if rule.accepts is not None else (rule.ui_values or ()))
+                    ),
+                    value_order=tuple(
+                        str(v) for v in self.value_orders.get(key, ()) if isinstance(v, str)
+                    ),
+                    output_maximum=(int(ceiling) if ceiling is not None else None),
+                    rule=rule,
+                    accepts=frozenset(str(v) for v in (rule.accepts or ())),
+                )
+
+            before = copy.deepcopy(out) if undeclared_off is not None else None
+            result = fn(canonical, out, _ctx(adjustments))
             if result is not None:
                 out = result
             if off_send[0]:
-                expand_dotted(out, rule.provider_key or key, off_send[1])
+                expand_dotted(out, off_send[1], off_send[2])
+            if undeclared_off is not None and before is not None:
+                # Never "send nothing" silently: an off whose cell declares no
+                # ``off`` and whose processor path puts exactly what UNSET puts
+                # on the wire is voiced (computed, unexpected) — declare it.
+                off_key, spent = undeclared_off
+                unset_params = fn(_without(canonical, spent | {key}), before, _ctx([]))
+                if unset_params is not None and unset_params == out:
+                    adjustments.append(
+                        Adjustment(
+                            key=off_key,
+                            action="dropped",
+                            canonical_value=canonical.get(off_key, "off"),
+                            sent_value=None,
+                            expected=False,
+                            provenance="computed",
+                            reason=(
+                                f"'{off_key}' is off, but this cell declares no off and the "
+                                f"'{rule.processor}' processor puts exactly what 'not set' puts "
+                                "on the wire — the model's default runs. Declare off.send / "
+                                "off.floor, or off.omit with why."
+                            ),
+                        )
+                    )
+                    vcprint(
+                        f"'{off_key}' is off but reached the provider exactly like 'not set' "
+                        f"(processor '{rule.processor}', no off declared on its cell).",
+                        title="⚠️ AI CATALOG OFF REACHED NOTHING",
+                        color="yellow",
+                    )
 
+        self._reserve_visible_output(canonical, out, adjustments)
         return out, self.stamp_cells(adjustments)
+
+    def _reserve_visible_output(
+        self, canonical: dict[str, Any], out: dict[str, Any], adjustments: list[Adjustment]
+    ) -> None:
+        """Chair rulings R-a / R-b (2026-10-04): an explicit output cap is honoured and an
+        empty answer is a failure — so when the cap the wire carries is too small for
+        reasoning AND an answer, the REASONING yields (its declared off / floor), never
+        the cap. Live V3: gpt-5 ``max_output_tokens`` 0/1 -> 16 at default/max effort
+        spent all 16 on reasoning and answered nothing. Scalar-rule effort only; the
+        Anthropic processor fits its own budget under the cap. Silent: a conversion."""
+        if canonical.get("max_output_tokens") is None:
+            return
+        cap_rule = self.rules.get("max_output_tokens")
+        effort_rule = self.rules.get("reasoning_effort")
+        if cap_rule is None or effort_rule is None or effort_rule.processor or effort_rule.drop:
+            return
+        if effort_rule.off is None or effort_rule.off.omit:
+            return
+        sent_cap = _get_dotted(out, cap_rule.provider_key or "max_output_tokens")
+        if not isinstance(sent_cap, int) or sent_cap >= VISIBLE_OUTPUT_RESERVE_TOKENS:
+            return
+        if effort_rule.off.send is not None:
+            lowest = effort_rule.off.send
+        else:
+            floor = self._floor_value("reasoning_effort", effort_rule)
+            lowest = (effort_rule.value_map or {}).get(floor, floor) if floor is not None else None
+        if lowest is None:
+            return
+        wire_key = effort_rule.provider_key or "reasoning_effort"
+        before = _get_dotted(out, wire_key)
+        if before == lowest:
+            return
+        expand_dotted(out, wire_key, lowest)
+        adjustments.append(
+            Adjustment(
+                key="reasoning_effort",
+                action="clamped",
+                canonical_value=canonical.get("reasoning_effort", before),
+                sent_value=lowest,
+                provenance="computed",
+                law="R-a",
+                reason=(
+                    f"output cap {sent_cap} leaves no room for reasoning and an answer; "
+                    f"reasoning lowered to {lowest!r} so the answer fits"
+                ),
+            )
+        )
 
     def stamp_cells(self, adjustments: list[Adjustment]) -> list[Adjustment]:
         """K9: stamp each Adjustment with the cell that decided its key.

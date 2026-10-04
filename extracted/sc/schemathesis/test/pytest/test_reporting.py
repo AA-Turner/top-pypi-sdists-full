@@ -681,3 +681,122 @@ TestCase = schema.as_state_machine().TestCase
     assert len(interactions) >= 1
     assert "request" in interactions[0]
     assert "response" in interactions[0]
+
+
+def test_junit_report_for_lazy_schema_without_calls(testdir):
+    report_path = str(testdir.tmpdir.join("report.xml"))
+    testdir.make_test(
+        f"""
+schema.config.reports.update(junit_path=r"{report_path}")
+lazy_schema = schemathesis.pytest.from_fixture("simple_schema")
+
+@lazy_schema.parametrize()
+def test_api(case):
+    pass
+""",
+    )
+    testdir.runpytest().assert_outcomes(passed=1)
+
+    assert _junit_outcomes(report_path) == {}
+
+
+def test_junit_report_only_for_schema_that_configures_it(testdir, ctx):
+    report_path = str(testdir.tmpdir.join("report.xml"))
+    api = ctx.openapi.apps.success()
+    testdir.make_test(
+        f"""
+schema.config.update(base_url="{api.base_url}/api")
+schema.config.reports.update(junit_path=r"{report_path}")
+other = schemathesis.openapi.from_dict({{**raw_schema, "info": {{"title": "Other", "version": "1.0"}}}})
+
+@schema.parametrize()
+@settings(max_examples=1)
+def test_with_report(case):
+    case.call()
+
+@other.parametrize()
+def test_without_report(case):
+    raise AssertionError("not reported")
+""",
+        paths={"/success": {"get": {"responses": {"200": {"description": "OK"}}}}},
+        schema_name="simple_openapi.yaml",
+    )
+    testdir.runpytest("-p", "no:randomly").assert_outcomes(passed=2, failed=2)
+
+    assert _junit_outcomes(report_path) == {"GET /success": ("passed", ""), "GET /users": ("passed", "")}
+
+
+@pytest.mark.parametrize("xdist", [False, True], ids=["in-process", "xdist"])
+def test_junit_report_only_for_schema_that_configures_it_with_identical_content(testdir, ctx, xdist):
+    report_path = str(testdir.tmpdir.join("report.xml"))
+    api = ctx.openapi.apps.success()
+    testdir.make_test(
+        f"""
+schema.config.update(base_url="{api.base_url}/api")
+schema.config.reports.update(junit_path=r"{report_path}")
+other = schemathesis.openapi.from_dict(raw_schema)
+
+@schema.parametrize()
+@settings(max_examples=1)
+def test_with_report(case):
+    case.call()
+
+@other.parametrize()
+def test_without_report(case):
+    raise AssertionError("not reported")
+""",
+        paths={"/success": {"get": {"responses": {"200": {"description": "OK"}}}}},
+    )
+    args = ("-n", "1") if xdist else ()
+    testdir.runpytest("-p", "no:randomly", *args).assert_outcomes(passed=2, failed=2)
+
+    assert _junit_outcomes(report_path) == {"GET /success": ("passed", ""), "GET /users": ("passed", "")}
+
+
+@pytest.mark.parametrize("xdist", [False, True], ids=["in-process", "xdist"])
+def test_junit_reports_for_schemas_with_identical_content(testdir, ctx, xdist):
+    first_report_path = str(testdir.tmpdir.join("first.xml"))
+    second_report_path = str(testdir.tmpdir.join("second.xml"))
+    api = ctx.openapi.apps.success()
+    testdir.make_test(
+        f"""
+schema.config.update(base_url="{api.base_url}/api")
+schema.config.reports.update(junit_path=r"{first_report_path}")
+other = schemathesis.openapi.from_dict(raw_schema)
+other.config.update(base_url="{api.base_url}/api")
+other.config.reports.update(junit_path=r"{second_report_path}")
+
+@schema.include(path="/success").parametrize()
+@settings(max_examples=1)
+def test_first_report(case):
+    case.call()
+
+@other.include(path="/users").parametrize()
+@settings(max_examples=1)
+def test_second_report(case):
+    case.call()
+""",
+        paths={"/success": {"get": {"responses": {"200": {"description": "OK"}}}}},
+    )
+    args = ("-n", "1") if xdist else ()
+    testdir.runpytest("-p", "no:randomly", *args).assert_outcomes(passed=2)
+
+    assert _junit_outcomes(first_report_path) == {"GET /success": ("passed", "")}
+    assert _junit_outcomes(second_report_path) == {"GET /users": ("passed", "")}
+
+
+def test_stateful_test_via_xdist_without_reports(ctx, testdir):
+    api = ctx.openapi.apps.users_crud()
+    testdir.makepyfile(
+        f"""
+import schemathesis
+
+schema = schemathesis.openapi.from_url("{api.schema_url}")
+schema.config.update(base_url="{api.base_url}")
+
+TestCase = schema.as_state_machine().TestCase
+"""
+    )
+    result = testdir.runpytest("-n", "1")
+    result.assert_outcomes(failed=1)
+    result.stdout.fnmatch_lines(["*Undocumented HTTP status code*"])

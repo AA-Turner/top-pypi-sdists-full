@@ -374,6 +374,20 @@ async def test_list_blocks(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_upload_collects_all_fragments(client: AsyncClient) -> None:
+    expected = bytearray(i % 251 for i in range(600))
+    await client.db_write(1, 0, expected)
+    assert await client.upload(1) == expected
+
+
+@pytest.mark.asyncio
+async def test_download_collects_all_fragments(client: AsyncClient) -> None:
+    expected = bytearray(i % 251 for i in range(600))
+    assert await client.download(expected, block_num=1) == 0
+    assert await client.db_read(1, 0, 600) == expected
+
+
+@pytest.mark.asyncio
 async def test_get_cpu_state(client: AsyncClient) -> None:
     state = await client.get_cpu_state()
     assert isinstance(state, str)

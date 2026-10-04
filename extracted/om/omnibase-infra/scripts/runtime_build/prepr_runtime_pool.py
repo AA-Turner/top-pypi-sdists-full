@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import concurrent.futures
 import datetime as dt
 import gzip
 import hashlib
@@ -97,6 +98,7 @@ EXIT_LEASE_REFUSED = 4
 EXIT_USAGE = 5
 
 PHASES = ("snap-pre", "clone", "build", "probe", "tests", "teardown", "snap-post")
+NO_FOCUSED_TESTS_MARKER = "no-focused-tests: the PR changes no test files"
 
 # Prepended to every remote command: a non-login ssh shell on a Docker Desktop
 # Mac has no docker on PATH, and a bare `docker ps` there reads zero containers
@@ -471,13 +473,22 @@ def survey(
     now: dt.datetime,
     me: str | None = None,
 ) -> list[HostState]:
-    states = []
-    for host in cfg.hosts:
-        if host.status == "excluded":
-            states.append(HostState(host, "EXCLUDED"))
-            continue
-        rc, out = transport.run(host, _probe_command(cfg, host), timeout=30)
-        states.append(parse_probe(host, rc, out))
+    states: list[HostState] = []
+    max_workers = max(1, sum(host.status != "excluded" for host in cfg.hosts))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            i: executor.submit(
+                transport.run, host, _probe_command(cfg, host), timeout=30
+            )
+            for i, host in enumerate(cfg.hosts)
+            if host.status != "excluded"
+        }
+        for i, host in enumerate(cfg.hosts):
+            if host.status == "excluded":
+                states.append(HostState(host, "EXCLUDED"))
+                continue
+            rc, out = futures[i].result()
+            states.append(parse_probe(host, rc, out))
     return assess(states, cfg, holds, now, me)
 
 
@@ -855,6 +866,11 @@ def judge(
     inherited_tests = [i for i in all_failed if dev_rc.get(i) == "1"]
     pr_tests = [i for i in all_failed if dev_rc.get(i) != "1"]
     focused_ok = bool(rcs)
+    if not rcs and any(
+        line.startswith(NO_FOCUSED_TESTS_MARKER) for line in tests.splitlines()
+    ):
+        focused_ok = True
+        notes.append("focused tests: n/a, the PR changes no test files")
     for repo, rc in rcs:
         if rc == "0":
             continue

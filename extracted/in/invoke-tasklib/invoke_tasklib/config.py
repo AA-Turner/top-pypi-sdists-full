@@ -88,6 +88,23 @@ def get_config(c: Context) -> TasklibConfig:
 
     Raises:
         ValueError: If ``tasklib.package.name`` is not set.
+
+    Example usage:
+
+    ```pycon
+    >>> from invoke.config import Config
+    >>> from invoke.context import Context
+    >>> from invoke_tasklib.config import get_config
+    >>> c = Context(config=Config(overrides={"tasklib": {"package": {"name": "mypkg"}}}))
+    >>> cfg = get_config(c)
+    >>> cfg["package"]
+    {'name': 'mypkg', 'python_version': '3.14'}
+    >>> cfg["paths"]["src"]
+    'src/mypkg'
+    >>> cfg["groups"]
+    {'install': 'dev', 'update': 'dev,docs'}
+
+    ```
     """
     user = dict(c.config.get("tasklib", {}))
     package = {**DEFAULT_PACKAGE, **user.get("package", {})}
@@ -110,15 +127,17 @@ def get_config(c: Context) -> TasklibConfig:
         paths["benchmarks"] = f"{paths['tests']}/benchmarks"
 
     return {
-        "package": PackageConfig(name=package["name"], python_version=package["python_version"]),
+        "package": PackageConfig(
+            name=package["name"], python_version=str(package["python_version"])
+        ),
         "paths": PathsConfig(
-            src=paths["src"],
-            tests=paths["tests"],
-            unit_tests=paths["unit_tests"],
-            integration_tests=paths["integration_tests"],
-            functional_tests=paths["functional_tests"],
-            benchmarks=paths["benchmarks"],
-            docs_config=paths["docs_config"],
+            src=str(paths["src"]),
+            tests=str(paths["tests"]),
+            unit_tests=str(paths["unit_tests"]),
+            integration_tests=str(paths["integration_tests"]),
+            functional_tests=str(paths["functional_tests"]),
+            benchmarks=str(paths["benchmarks"]),
+            docs_config=str(paths["docs_config"]),
         ),
         "groups": GroupsConfig(install=groups["install"], update=groups["update"]),
     }

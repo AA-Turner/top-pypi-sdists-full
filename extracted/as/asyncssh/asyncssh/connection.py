@@ -1,4 +1,4 @@
-# Copyright (c) 2013-2025 by Ron Frederick <ronf@timeheart.net> and others.
+# Copyright (c) 2013-2026 by Ron Frederick <ronf@timeheart.net> and others.
 #
 # This program and the accompanying materials are made available under
 # the terms of the Eclipse Public License v2.0 which accompanies this
@@ -38,9 +38,9 @@ from functools import partial
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, AnyStr, Awaitable, Callable, Dict
-from typing import Generic, List, Mapping, Optional, Sequence, Set, Tuple
-from typing import Type, TypeVar, Union, cast
-from typing_extensions import Protocol, Self
+from typing import Generic, List, Mapping, Optional, Protocol, Sequence
+from typing import Set, Tuple, Type, TypeVar, Union, cast
+from typing_extensions import Self
 
 from .agent import SSHAgentClient, SSHAgentListener
 
@@ -258,6 +258,9 @@ _MAX_VERSION_LINE_LEN = 255
 
 # Max allowed username length
 _MAX_USERNAME_LEN = 1024
+
+# Max receive packet length (including framing and padding)
+_DEFAULT_RECV_PKTLEN = 256*1024     # 256 KiB
 
 # Default rekey parameters
 _DEFAULT_REKEY_BYTES = 1 << 30      # 1 GiB
@@ -1012,6 +1015,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         self._channels: Dict[int, SSHChannel] = {}
         self._next_recv_chan = 0
+        self._max_recv_pktlen = _DEFAULT_RECV_PKTLEN
 
         self._global_request_queue: List[_GlobalRequest] = []
         self._global_request_waiters: \
@@ -1057,6 +1061,12 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         return False
 
     @property
+    def auth(self) -> Optional[Auth]:
+        """The current authentication session for this connection"""
+
+        return self._auth
+
+    @property
     def logger(self) -> SSHLogger:
         """A logger associated with this connection"""
 
@@ -1066,6 +1076,11 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         """Decode UTF-8 bytes, honoring utf8_decode_errors setting"""
 
         return msg_bytes.decode('utf-8', self._utf8_decode_errors)
+
+    def _update_recv_pktlen(self, max_pktsize: int) -> None:
+        """Update max receive packet len based on per-channel max_pktsize"""
+
+        self._max_recv_pktlen = max(self._max_recv_pktlen, max_pktsize + 1024)
 
     def _cleanup(self, exc: Optional[Exception]) -> None:
         """Clean up this connection"""
@@ -1292,6 +1307,9 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         if self._trusted_ca_keys is not None:
             if cert.signing_key in self._revoked_host_keys:
                 raise ValueError('Host CA key is revoked')
+
+            if cert.key in self._revoked_host_keys:
+                raise ValueError('Host key is revoked')
 
             if not self._owner: # pragma: no cover
                 raise ValueError('Connection closed')
@@ -1623,6 +1641,10 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             pktlen = self._packet[:4]
 
         self._pktlen = int.from_bytes(pktlen, 'big')
+
+        if self._pktlen > self._max_recv_pktlen:
+            raise ProtocolError('Max packet size exceeded')
+
         self._recv_handler = self._recv_packet
         return True
 
@@ -2487,7 +2509,7 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         self.logger.debug1('Completed key exchange')
 
     def _process_userauth_request(self, _pkttype: int, _pktid: int,
-                                  packet: SSHPacket) -> None:
+                                  packet: SSHPacket) -> MaybeAwait[None]:
         """Process a user authentication request"""
 
         username_bytes = packet.get_string()
@@ -2513,6 +2535,11 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             if self._auth_final:
                 raise ProtocolError('Unexpected userauth request')
         else:
+            if self._auth:
+                auth = self._auth
+                self._auth = None
+                auth.cancel()
+
             if username != self._username:
                 self.logger.info('Beginning auth for user %s', username)
 
@@ -2521,7 +2548,15 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             else:
                 begin_auth = False
 
-            self.create_task(self._finish_userauth(begin_auth, method, packet))
+            # pylint: disable=attribute-defined-outside-init
+            # pylint: disable=protected-access
+            conn = cast(SSHServerConnection, self)
+            conn._key_options = {}
+            conn._cert_options = None
+
+            return self._finish_userauth(begin_auth, method, packet)
+
+        return None
 
     async def _finish_userauth(self, begin_auth: bool, method: bytes,
                                packet: SSHPacket) -> None:
@@ -2547,11 +2582,11 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         if not self._owner: # pragma: no cover
             return
 
-        if self._auth:
+        if self._auth: # pragma: no cover
             self._auth.cancel()
 
         self._auth = lookup_server_auth(cast(SSHServerConnection, self),
-                                             self._username, method, packet)
+                                        self._username, method, packet)
 
     def _process_userauth_failure(self, _pkttype: int, _pktid: int,
                                   packet: SSHPacket) -> None:
@@ -2720,13 +2755,13 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         send_window = packet.get_uint32()
         send_pktsize = packet.get_uint32()
 
-        #if send_pktsize == 0:
-        #    raise ProtocolError('Invalid maximum packet size')
-
         # Work around an off-by-one error in dropbear introduced in
         # https://github.com/mkj/dropbear/commit/49263b5
         if b'dropbear' in self._client_version and self._compressor:
             send_pktsize -= 1
+
+        if send_pktsize <= 0:
+            raise ProtocolError('Invalid maximum packet size')
 
         try:
             chantype = chantype_bytes.decode('ascii')
@@ -2760,13 +2795,13 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
         send_window = packet.get_uint32()
         send_pktsize = packet.get_uint32()
 
-        #if send_pktsize == 0:
-        #    raise ProtocolError('Invalid maximum packet size')
-
         # Work around an off-by-one error in dropbear introduced in
         # https://github.com/mkj/dropbear/commit/49263b5
         if b'dropbear' in self._server_version and self._compressor:
             send_pktsize -= 1
+
+        if send_pktsize <= 0:
+            raise ProtocolError('Invalid maximum packet size')
 
         chan = self._channels.get(recv_chan)
         if chan:
@@ -3056,6 +3091,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         """
 
+        self._update_recv_pktlen(max_pktsize)
+
         return SSHTCPChannel(self, self._loop, encoding,
                              errors, window, max_pktsize)
 
@@ -3091,6 +3128,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         """
 
+        self._update_recv_pktlen(max_pktsize)
+
         return SSHUNIXChannel(self, self._loop, encoding,
                               errors, window, max_pktsize)
 
@@ -3116,6 +3155,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
 
         """
 
+        self._update_recv_pktlen(max_pktsize)
+
         return SSHTunTapChannel(self, self._loop, None, 'strict',
                                 window, max_pktsize)
 
@@ -3124,6 +3165,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             max_pktsize: int = _DEFAULT_MAX_PKTSIZE) -> SSHX11Channel:
         """Create an SSH X11 channel to use in X11 forwarding"""
 
+        self._update_recv_pktlen(max_pktsize)
+
         return SSHX11Channel(self, self._loop, None, 'strict',
                              window, max_pktsize)
 
@@ -3131,6 +3174,8 @@ class SSHConnection(SSHPacketHandler, asyncio.Protocol):
             self, window: int = _DEFAULT_WINDOW,
             max_pktsize: int = _DEFAULT_MAX_PKTSIZE) -> SSHAgentChannel:
         """Create an SSH agent channel to use in agent forwarding"""
+
+        self._update_recv_pktlen(max_pktsize)
 
         return SSHAgentChannel(self, self._loop, None, 'strict',
                                window, max_pktsize)
@@ -4409,6 +4454,8 @@ class SSHClientConnection(SSHConnection):
         errors: str
         window: int
         max_pktsize: int
+
+        self._update_recv_pktlen(max_pktsize)
 
         chan = SSHClientChannel(self, self._loop, self._utf8_decode_errors,
                                 encoding, errors, window, max_pktsize)
@@ -6993,13 +7040,17 @@ class SSHServerConnection(SSHConnection):
 
         """
 
+        if not max_pktsize:
+            max_pktsize = self._max_pktsize
+
+        self._update_recv_pktlen(max_pktsize)
+
         return SSHServerChannel(self, self._loop, self._allow_pty,
                                 self._line_editor, self._line_echo,
                                 self._line_history, self._max_line_length,
                                 self._encoding if encoding == '' else encoding,
                                 self._errors if errors == '' else errors,
-                                window or self._window,
-                                max_pktsize or self._max_pktsize)
+                                window or self._window, max_pktsize)
 
     async def create_connection(
             self, session_factory: SSHTCPSessionFactory[AnyStr],
@@ -7630,7 +7681,7 @@ class SSHClientConnectionOptions(SSHConnectionOptions):
        :param x509_purposes: (optional)
            A list of purposes allowed in the ExtendedKeyUsage of a
            certificate used for X.509 server certificate authentication,
-           defulting to 'secureShellServer'. If this argument is explicitly
+           defaulting to 'secureShellServer'. If this argument is explicitly
            set to `None`, the server certificate's ExtendedKeyUsage will
            not be checked.
        :param username: (optional)
@@ -7878,7 +7929,7 @@ class SSHClientConnectionOptions(SSHConnectionOptions):
            the system resolver's search domains when no matches are found
            in canonical_domains, defaulting to `True`.
        :param canonicalize_max_dots: (optional)
-           Tha maximum number of dots which can appear in a hostname
+           The maximum number of dots which can appear in a hostname
            before hostname canonicalization is disabled, defaulting
            to 1. Hostnames with more than this number of dots are
            treated as already being fully qualified and passed as-is
@@ -8522,7 +8573,7 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
        :param x509_purposes: (optional)
            A list of purposes allowed in the ExtendedKeyUsage of a
            certificate used for X.509 client certificate authentication,
-           defulting to 'secureShellClient'. If this argument is explicitly
+           defaulting to 'secureShellClient'. If this argument is explicitly
            set to `None`, the client certificate's ExtendedKeyUsage will
            not be checked.
        :param host_based_auth: (optional)
@@ -8712,7 +8763,7 @@ class SSHServerConnectionOptions(SSHConnectionOptions):
            the system resolver's search domains when no matches are found
            in canonical_domains, defaulting to `True`.
        :param canonicalize_max_dots: (optional)
-           Tha maximum number of dots which can appear in a hostname
+           The maximum number of dots which can appear in a hostname
            before hostname canonicalization is disabled, defaulting
            to 1. Hostnames with more than this number of dots are
            treated as already being fully qualified and passed as-is

@@ -1,6 +1,6 @@
 """The Block Ledger's host-neutral half: what a block IS, and how one becomes a row.
 
-A BLOCK IS A FINDING (`common-docs/projects/acquisition-frontier/IDEAS-WIDE.md` §C1 rule 2):
+A BLOCK IS A FINDING (`common-docs/systems/knowledge/ingestion/STATE.md` §C1 rule 2):
 the moment an ingest path fails — a paywall, a login, a rate limit, a format, a CAPTCHA, a
 missing API — that failure is the deliverable, not an inconvenience.
 

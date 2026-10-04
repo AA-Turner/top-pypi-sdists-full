@@ -1,13 +1,18 @@
 """Tests for the v2 extraction orchestrator routing logic."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+import os
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from content_core.common.exceptions import (
     ConfigurationError,
+    FileOperationError,
     InvalidInputError,
+    NetworkError,
+    NotFoundError,
     UnsupportedTypeException,
 )
 from content_core.common.messages import DOCLING_MISSING_MESSAGE
@@ -146,6 +151,66 @@ async def test_url_pdf_downloads_and_calls_extract_pdf():
         mock_extract_file.assert_awaited_once()
         # source_type should be overridden to "url"
         assert result.source_type == "url"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        (
+            aiohttp.ClientResponseError(
+                request_info=MagicMock(), history=(), status=404, message="Not Found"
+            ),
+            NotFoundError,
+        ),
+        (aiohttp.ClientConnectionError("Cannot connect to host"), NetworkError),
+    ],
+)
+async def test_url_download_failure_raises_typed(error, expected):
+    """A failed remote-file download raises typed, never untyped aiohttp."""
+    with patch(
+        "content_core.extraction.detect_remote_mime",
+        new_callable=AsyncMock,
+        return_value="application/pdf",
+    ), patch(
+        "content_core.extraction._fetch_remote_file",
+        new_callable=AsyncMock,
+        side_effect=error,
+    ):
+        with pytest.raises(expected) as exc_info:
+            await extract_content(url="https://example.com/doc.pdf")
+    assert exc_info.value.__cause__ is error
+
+
+@pytest.mark.asyncio
+async def test_url_download_save_failure_raises_file_operation_error(tmp_path):
+    """A temp file that cannot be written is typed and cleaned up."""
+    created = []
+    real_mkstemp = __import__("tempfile").mkstemp
+
+    def mkstemp(*args, **kwargs):
+        fd, path = real_mkstemp(dir=tmp_path, *args, **kwargs)
+        created.append(path)
+        return fd, path
+
+    def failing_fdopen(fd, *args, **kwargs):
+        os.close(fd)
+        raise OSError("disk full")
+
+    with patch(
+        "content_core.extraction.detect_remote_mime",
+        new_callable=AsyncMock,
+        return_value="application/pdf",
+    ), patch(
+        "content_core.extraction._fetch_remote_file",
+        new_callable=AsyncMock,
+        return_value=("application/pdf", b"%PDF"),
+    ), patch("content_core.extraction.tempfile.mkstemp", side_effect=mkstemp), patch(
+        "content_core.extraction.os.fdopen", side_effect=failing_fdopen
+    ):
+        with pytest.raises(FileOperationError, match="disk full"):
+            await extract_content(url="https://example.com/doc.pdf")
+    assert created and not any(os.path.exists(p) for p in created)
 
 
 # ---------------------------------------------------------------------------
@@ -581,3 +646,53 @@ def test_configuration_error_is_exported_from_package():
 
     assert content_core.ConfigurationError is ConfigurationError
     assert "ConfigurationError" in content_core.__all__
+
+
+# ---------------------------------------------------------------------------
+# 17. OpenDocument MIME types route to the office processor
+# ---------------------------------------------------------------------------
+ODF_MIMES = [
+    "application/vnd.oasis.opendocument.text",
+    "application/vnd.oasis.opendocument.spreadsheet",
+    "application/vnd.oasis.opendocument.presentation",
+]
+
+
+@pytest.mark.parametrize("engine", ["simple", "auto"])
+@pytest.mark.parametrize("mime", ODF_MIMES)
+def test_route_for_mime_odf_is_office(mime, engine):
+    assert _route_for_mime(mime, ContentCoreConfig(document_engine=engine)) == "office"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mime", ODF_MIMES)
+async def test_check_file_support_odf_supported(mime):
+    cfg = ContentCoreConfig(document_engine="simple")
+    with patch(
+        "content_core.content.identification.get_file_type",
+        new_callable=AsyncMock,
+        return_value=mime,
+    ):
+        result = await check_file_support("/tmp/test.odf", config=cfg)
+    assert result.supported is True
+    assert result.processor == "office"
+    assert result.identified_type == mime
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mime", ODF_MIMES)
+async def test_file_odf_calls_extract_office(mime):
+    expected = _make_output(identified_type=mime)
+    cfg = ContentCoreConfig(document_engine="simple")
+    with patch(
+        "content_core.content.identification.get_file_type",
+        new_callable=AsyncMock,
+        return_value=mime,
+    ), patch(
+        "content_core.extraction.extract_office",
+        new_callable=AsyncMock,
+        return_value=expected,
+    ) as mock:
+        result = await extract_content(file_path="/tmp/test.odf", config=cfg)
+        mock.assert_awaited_once_with("/tmp/test.odf", mime, cfg)
+        assert result is expected

@@ -1,4 +1,4 @@
-# Copyright (c) 2015-2025 by Ron Frederick <ronf@timeheart.net> and others.
+# Copyright (c) 2015-2026 by Ron Frederick <ronf@timeheart.net> and others.
 #
 # This program and the accompanying materials are made available under
 # the terms of the Eclipse Public License v2.0 which accompanies this
@@ -35,9 +35,10 @@ import sys
 import time
 from types import TracebackType
 from typing import TYPE_CHECKING, AnyStr, AsyncIterator, Awaitable, Callable
-from typing import Dict, Generic, IO, Iterable, List, Mapping, Optional
-from typing import Sequence, Set, Tuple, Type, TypeVar, Union, cast, overload
-from typing_extensions import Literal, Protocol, Self
+from typing import Dict, Generic, IO, Iterable, List, Literal, Mapping
+from typing import Optional, Protocol, Sequence, Set, Tuple, Type, TypeVar
+from typing import Union, cast, overload
+from typing_extensions import Self
 
 from . import constants
 from .constants import DEFAULT_LANG
@@ -116,7 +117,7 @@ from .version import __author__, __version__
 
 _pywin32_available = False
 
-if sys.platform == 'win32': # pragma: no cover
+if sys.platform == 'win32': # pragma: cover only win32
     try:
         import msvcrt
         import pywintypes
@@ -140,10 +141,12 @@ if TYPE_CHECKING:
 else:
     _RequestWaiter = asyncio.Future
 
-if sys.platform == 'win32': # pragma: no cover
+if sys.platform == 'win32': # pragma: cover only win32
     _LocalPath = str
+    _LocalSep: _LocalPath = os.sep
 else:
     _LocalPath = bytes
+    _LocalSep = os.sep.encode('utf-8')
 
 _SFTPExtensions = Sequence[Tuple[bytes, bytes]]
 _SFTPFileObj = IO[bytes]
@@ -570,7 +573,7 @@ def _from_local_path(path: _SFTPPath) -> bytes:
 
     path = os.fsencode(path)
 
-    if sys.platform == 'win32': # pragma: no cover
+    if sys.platform == 'win32': # pragma: cover only win32
         path = path.replace(b'\\', b'/')
 
         if path[:1] != b'/' and path[1:2] == b':':
@@ -582,7 +585,7 @@ def _from_local_path(path: _SFTPPath) -> bytes:
 def _to_local_path(path: bytes) -> _LocalPath:
     """Convert SFTP path to local path"""
 
-    if sys.platform == 'win32': # pragma: no cover
+    if sys.platform == 'win32': # pragma: cover only win32
         path = os.fsdecode(path)
 
         if path[:1] == '/' and path[2:3] == ':':
@@ -599,8 +602,13 @@ def _setstat(path: Union[int, _SFTPPath], attrs: 'SFTPAttrs', *,
              follow_symlinks: bool = True) -> None:
     """Utility function to set file attributes"""
 
+    errors = []
+
     if attrs.size is not None:
-        os.truncate(path, attrs.size)
+        if follow_symlinks:
+            os.truncate(path, attrs.size)
+        else:
+            errors.append('size')
 
     uid = _lookup_uid(attrs.owner) if attrs.uid is None else attrs.uid
     gid = _lookup_gid(attrs.group) if attrs.gid is None else attrs.gid
@@ -624,27 +632,29 @@ def _setstat(path: Union[int, _SFTPPath], attrs: 'SFTPAttrs', *,
     if uid is not None and gid is not None:
         try:
             os.chown(path, uid, gid, follow_symlinks=follow_symlinks)
-        except NotImplementedError: # pragma: no cover
-            pass
-        except AttributeError: # pragma: no cover
-            raise NotImplementedError from None
+        except (AttributeError, NotImplementedError):
+            errors.append('uid/gid')
 
     if attrs.permissions is not None:
         try:
             os.chmod(path, stat.S_IMODE(attrs.permissions),
                      follow_symlinks=follow_symlinks)
-        except NotImplementedError: # pragma: no cover
-            pass
+        except NotImplementedError:
+            errors.append('permissions')
 
     if atime_ns is not None and mtime_ns is not None:
         try:
             os.utime(path, ns=(atime_ns, mtime_ns),
                      follow_symlinks=follow_symlinks)
-        except NotImplementedError: # pragma: no cover
-            pass
+        except NotImplementedError:
+            errors.append('times')
+
+    if errors:
+        raise SFTPOpUnsupported(f'setting {", ".join(errors)} '
+                                'without following symlinks')
 
 
-if sys.platform == 'win32' and _pywin32_available: # pragma: no cover
+if sys.platform == 'win32' and _pywin32_available: # pragma: cover only win32
     async def _request_ranges(file_obj: _SFTPFileObj, offset: int,
                               length: int) -> AsyncIterator[Tuple[int, int]]:
         """Return file ranges containing data on Windows"""
@@ -766,6 +776,7 @@ class _SFTPParallelIO(Generic[_T]):
                 for task in self._pending:
                     task.cancel()
 
+                await asyncio.gather(*self._pending, return_exceptions=True)
                 raise exceptions[0]
 
             self._start_tasks()
@@ -1995,7 +2006,7 @@ class SFTPAttrs(Record):
         mode = result.st_mode
         filetype = _stat_mode_to_filetype(mode)
 
-        if sys.platform == 'win32': # pragma: no cover
+        if sys.platform == 'win32': # pragma: cover only win32
             uid = 0
             gid = 0
             owner = ''
@@ -2010,7 +2021,7 @@ class SFTPAttrs(Record):
         mtime, mtime_ns = _nsec_to_tuple(result.st_mtime_ns)
         ctime, ctime_ns = _nsec_to_tuple(result.st_ctime_ns)
 
-        if sys.platform == 'win32': # pragma: no cover
+        if sys.platform == 'win32': # pragma: cover only win32
             crtime, crtime_ns = ctime, ctime_ns
         elif hasattr(result, 'st_birthtime'): # pragma: no cover
             crtime, crtime_ns = _float_sec_to_tuple(result.st_birthtime)
@@ -2368,6 +2379,9 @@ class SFTPGlob:
             if filename in (b'.', b'..'):
                 continue
 
+            if b'/' in filename or b'\\' in filename:
+                raise SFTPBadMessage('Invalid filename')
+
             if not pattern or fnmatch(filename, pattern):
                 newpath = posixpath.join(path, filename)
                 attrs = entry.attrs
@@ -2553,13 +2567,12 @@ class SFTPHandler(SSHPacketLogger):
 
         if not self._writer:
             raise SFTPNoConnection('Connection not open')
+        elif self._writer.channel.is_closing():
+            return
 
         payload = Byte(pkttype) + b''.join(args)
 
-        try:
-            self._writer.write(UInt32(len(payload)) + payload)
-        except ConnectionError as exc:
-            raise SFTPConnectionLost(str(exc)) from None
+        self._writer.write(UInt32(len(payload)) + payload)
 
         self.log_sent_packet(pkttype, pktid, payload)
 
@@ -2570,6 +2583,9 @@ class SFTPHandler(SSHPacketLogger):
 
         pktlen = await self._reader.readexactly(4)
         pktlen = int.from_bytes(pktlen, 'big')
+
+        if pktlen > MAX_SFTP_PACKET_LEN:
+            raise SFTPBadMessage('Max packet size exceeded')
 
         packet = await self._reader.readexactly(pktlen)
         return SSHPacket(packet)
@@ -3349,7 +3365,7 @@ class SFTPClientFile:
 
     @property
     def handle(self) -> bytes:
-        """Return handle or raise an error if clsoed"""
+        """Return handle or raise an error if closed"""
 
         if self._handle is None:
             raise ValueError('I/O operation on closed file')
@@ -3443,8 +3459,7 @@ class SFTPClientFile:
                 size = (await self._end()) - offset
 
             try:
-                if self.read_len and size > \
-                        min(self.read_len, self._handler.limits.max_read_len):
+                if self.read_len and size:
                     data = await _SFTPFileReader(
                         self.read_len, self._max_requests, self._handler,
                         self._handle, offset, size).run()
@@ -3564,7 +3579,7 @@ class SFTPClientFile:
 
         datalen = len(data_bytes)
 
-        if self.write_len and datalen > self.write_len:
+        if self.write_len and datalen:
             await _SFTPFileWriter(
                 self.write_len, self._max_requests, self._handler,
                 self._handle, offset, data_bytes).run()
@@ -3945,7 +3960,8 @@ class SFTPClient:
             return FILEXFER_TYPE_UNKNOWN
 
     async def _copy(self, srcfs: _SFTPFSProtocol, dstfs: _SFTPFSProtocol,
-                    srcpath: bytes, dstpath: bytes, srcattrs: SFTPAttrs,
+                    srcpath: bytes, dstpath: bytes, dstroot: bytes,
+                    srcattrs: SFTPAttrs,
                     preserve: bool, recurse: bool, follow_symlinks: bool,
                     sparse: bool, block_size: int, max_requests: int,
                     progress_handler: SFTPProgressHandler,
@@ -3980,10 +3996,13 @@ class SFTPClient:
                     if filename in (b'.', b'..'):
                         continue
 
+                    if b'/' in filename or b'\\' in filename:
+                        raise SFTPBadMessage('Invalid filename')
+
                     srcfile = posixpath.join(srcpath, filename)
                     dstfile = posixpath.join(dstpath, filename)
 
-                    await self._copy(srcfs, dstfs, srcfile, dstfile,
+                    await self._copy(srcfs, dstfs, srcfile, dstfile, dstroot,
                                      srcname.attrs, preserve, recurse,
                                      follow_symlinks, sparse, block_size,
                                      max_requests, progress_handler,
@@ -3994,6 +4013,27 @@ class SFTPClient:
 
             elif filetype == FILEXFER_TYPE_SYMLINK:
                 targetpath = await srcfs.readlink(srcpath)
+
+                # For local downloads, a symlink created inside the download
+                # tree must not point outside that tree, rooted at dstroot.
+
+                if isinstance(dstfs, LocalFS):
+                    local_target = _to_local_path(targetpath)
+
+                    if os.path.isabs(local_target):
+                        raise SFTPBadMessage('Symlink target is '
+                                             'an absolute path')
+
+                    parent = os.path.realpath(os.path.dirname(
+                        _to_local_path(dstpath)))
+                    resolved = os.path.normpath(os.path.join(
+                        parent, local_target))
+                    root = os.path.realpath(_to_local_path(dstroot))
+
+                    if not (resolved == root or
+                            resolved.startswith(root + _LocalSep)):
+                        raise SFTPBadMessage('Symlink target is outside '
+                                             'download directory')
 
                 self.logger.info('  Copying symlink %s to %s', srcpath, dstpath)
                 self.logger.info('    Target path: %s', targetpath)
@@ -4078,6 +4118,9 @@ class SFTPClient:
 
         if dstpath:
             dstpath = dstfs.encode(dstpath)
+            dstroot = dstpath
+        else:
+            dstroot = b''
 
         dstpath: Optional[bytes]
 
@@ -4101,9 +4144,9 @@ class SFTPClient:
             else:
                 dstfile = dstpath
 
-            await self._copy(srcfs, dstfs, srcfile, dstfile, srcname.attrs,
-                             preserve, recurse, follow_symlinks, sparse,
-                             block_size, max_requests, progress_handler,
+            await self._copy(srcfs, dstfs, srcfile, dstfile, dstroot,
+                             srcname.attrs, preserve, recurse, follow_symlinks,
+                             sparse, block_size, max_requests, progress_handler,
                              error_handler, remote_only)
 
     async def get(self, remotepaths: _SFTPPaths,
@@ -4644,7 +4687,7 @@ class SFTPClient:
                The file attributes to use when creating the directory or
                any intermediate directories
            :param exist_ok: (optional)
-               Whether or not to raise an error if thet target directory
+               Whether or not to raise an error if the target directory
                already exists
            :type path: :class:`PurePath <pathlib.PurePath>`, `str`, or `bytes`
            :type attrs: :class:`SFTPAttrs`
@@ -4742,6 +4785,9 @@ class SFTPClient:
 
                         if filename in (b'.', b'..'):
                             continue
+
+                        if b'/' in filename or b'\\' in filename:
+                            raise SFTPBadMessage('Invalid filename')
 
                         filename = posixpath.join(path, filename)
 
@@ -5569,7 +5615,10 @@ class SFTPClient:
         except SFTPEOFError:
             pass
         finally:
-            await self._handler.close(handle)
+            try:
+                await self._handler.close(handle)
+            except SFTPError:
+                pass
 
     async def readdir(self, path: _SFTPPath = '.') -> Sequence[SFTPName]:
         """Read the contents of a remote directory
@@ -6955,12 +7004,8 @@ class SFTPServerHandler(SFTPHandler):
         sent_extensions: Iterable[bytes] = \
             (String(name) + String(data) for name, data in extensions)
 
-        try:
-            self.send_packet(FXP_VERSION, None, UInt32(self._version),
-                             *sent_extensions)
-        except SFTPError as exc:
-            await self._cleanup(exc)
-            return
+        self.send_packet(FXP_VERSION, None, UInt32(self._version),
+                         *sent_extensions)
 
         if self._version == 3:
             # Check if the client has a buggy SYMLINK implementation
@@ -7201,8 +7246,11 @@ class SFTPServer:
         """
 
         if self._chroot:
+            if sys.platform == 'win32': # pragma: cover only win32
+                path = path.replace(b'\\', b'/')
+
             normpath = posixpath.normpath(posixpath.join(b'/', path))
-            return posixpath.join(self._chroot, normpath[1:])
+            return posixpath.join(self._chroot, normpath.lstrip(b'/'))
         else:
             return path
 
@@ -7306,7 +7354,7 @@ class SFTPServer:
         if pflags & FXF_EXCL:
             flags |= os.O_EXCL
 
-        if sys.platform == 'win32': # pragma: no cover
+        if sys.platform == 'win32': # pragma: cover only win32
             flags |= os.O_BINARY # pylint: disable=no-member
 
         perms = 0o666 if attrs.permissions is None else attrs.permissions
@@ -7407,7 +7455,7 @@ class SFTPServer:
                 desired_access & ACE4_WRITE_DATA:
             mode += '+'
 
-        if sys.platform == 'win32': # pragma: no cover
+        if sys.platform == 'win32': # pragma: cover only win32
             open_flags |= os.O_BINARY # pylint: disable=no-member
 
         perms = 0o666 if attrs.permissions is None else attrs.permissions
@@ -7586,7 +7634,7 @@ class SFTPServer:
         file_obj = cast(_SFTPFileObj, file_obj)
         file_obj.flush()
 
-        if sys.platform == 'win32': # pragma: no cover
+        if sys.platform == 'win32': # pragma: cover only win32
             _setstat(file_obj.name, attrs)
         else:
             _setstat(file_obj.fileno(), attrs)
@@ -7639,7 +7687,7 @@ class SFTPServer:
                 for entry in entries:
                     filename = entry.name
 
-                    if sys.platform == 'win32': # pragma: no cover
+                    if sys.platform == 'win32': # pragma: cover only win32
                         filename = os.fsencode(filename)
 
                     attrs = SFTPAttrs.from_local(
@@ -7777,7 +7825,7 @@ class SFTPServer:
         path = os.readlink(_to_local_path(self.map_path(path)))
 
         if sys.platform == 'win32' and \
-                path.startswith('\\\\?\\'): # pragma: no cover
+                path.startswith('\\\\?\\'): # pragma: cover only win32
             path = path[4:]
 
         if self._chroot:
@@ -8040,7 +8088,7 @@ class LocalFS:
             for entry in entries:
                 filename = entry.name
 
-                if sys.platform == 'win32': # pragma: no cover
+                if sys.platform == 'win32': # pragma: cover only win32
                     filename = os.fsencode(filename)
 
                 attrs = SFTPAttrs.from_local(entry.stat(follow_symlinks=False))
@@ -8057,7 +8105,7 @@ class LocalFS:
         path = os.readlink(_to_local_path(path))
 
         if sys.platform == 'win32' and \
-                path.startswith('\\\\?\\'): # pragma: no cover
+                path.startswith('\\\\?\\'): # pragma: cover only win32
             path = path[4:]
 
         return _from_local_path(path)

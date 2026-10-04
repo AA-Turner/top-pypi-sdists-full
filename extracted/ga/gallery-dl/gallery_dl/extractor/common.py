@@ -1082,10 +1082,13 @@ class Dispatch():
         pass
 
     def _dispatch_extractors(self, extractor_data, default=(), alt=None):
-        extractors = {
-            data[0].subcategory: data
-            for data in extractor_data
-        }
+        if isinstance(extractor_data, dict):
+            extractors = extractor_data
+        else:
+            extractors = {
+                data[0].subcategory: data
+                for data in extractor_data
+            }
 
         include = self.config("include", default) or ()
         if include == "all":

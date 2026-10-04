@@ -37,10 +37,11 @@ sys.path.insert(0, str(AGENT_ROOT / "src"))
 from probe import doctrine  # noqa: E402
 
 
-#: 0151 narrowed the offered vocabulary to four. Written out rather than
-#: imported from the backend: the agent tree ships on its own release train
-#: and must not silently follow a backend edit it has not been rebuilt for.
-_KIND_VOCABULARY = {"training", "inference", "research", "general", "experiment"}
+#: 0151 narrowed the offered vocabulary to four; Track E (2026-10-04) renamed
+#: `inference` to `evaluation`. Written out rather than imported from the
+#: backend: the agent tree ships on its own release train and must not silently
+#: follow a backend edit it has not been rebuilt for.
+_KIND_VOCABULARY = {"training", "evaluation", "research", "general", "experiment"}
 
 
 def _skill_text(name: str) -> str:
@@ -301,7 +302,7 @@ def test_subprojects_are_taught_where_a_new_project_gets_registered() -> None:
     """
     register = " ".join(POINTER().split())
     assert "SUBPROJECT of it (`project create --parent`), never a new top-level sibling" in register
-    assert "(training|inference|research|general|experiment)" in register
+    assert "(training|evaluation|research|general|experiment)" in register
 
     skill = " ".join(_skill_text("track-work").split())
     assert "A phase of a bigger effort is a SUBPROJECT of it, never a new top-level sibling" in skill
@@ -326,12 +327,15 @@ def test_kind_vocabulary_is_identical_across_the_agent_tree() -> None:
 
     assert {k.value for k in CliProjectKind} == _KIND_VOCABULARY
     assert {k.value for k in GeneratedProjectKind} == _KIND_VOCABULARY
-    assert "(training|inference|research|general|experiment)" in " ".join(POINTER().split())
+    assert "(training|evaluation|research|general|experiment)" in " ".join(POINTER().split())
 
     skill = " ".join(_skill_text("track-work").split())
     for kind in _KIND_VOCABULARY:
         assert f"| `{kind}` |" in skill, kind
-    for retired in ("evaluation", "survey", "engineering"):
+    # `inference` is the old spelling of `evaluation`: the CLI still accepts
+    # it, but nothing the agents read may teach it.
+    for retired in ("inference", "survey", "engineering"):
         assert f"--kind {retired}" not in skill, retired
+        assert f"| `{retired}` |" not in skill, retired
 
 

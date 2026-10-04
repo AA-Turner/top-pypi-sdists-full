@@ -33,6 +33,21 @@ from matrx_ai.providers.resolved_capabilities import (
     ResolvedModelCapabilities,
     StructuredOutputMode,
 )
+from matrx_ai.providers.tool_adaptation import (
+    NO_FUNCTION_CALLING,
+    SCHEMA_CONFLICT,
+    SEARCH_JSON_MODE,
+    SEARCH_UNSUPPORTED,
+    WEB_SEARCH_TRANSLATED,
+    WEB_TOOL,
+    ToolAdaptation,
+    announce_tool_adaptations,
+    apply_wire_additions,
+    authored_tool_flags,
+    restore_tool_flags,
+    strip_fetch_instructions,
+    tool_surface_names,
+)
 
 # ============================================================================
 # UNIFIED CLIENT
@@ -275,7 +290,7 @@ def _downgrade_response_format(
 
 def _warn_and_strip_unsupported_search(
     config: Any, caps: ResolvedModelCapabilities, wire_format: str
-) -> None:
+) -> ToolAdaptation | None:
     """Drop provider-native search flags a model can't honour, loudly.
 
     Both flags map 1:1 onto a member of the model's declared
@@ -289,9 +304,10 @@ def _warn_and_strip_unsupported_search(
       gpt-4.1-nano-2025-04-14"), so it is dropped here rather than left for the API.
 
     Both strip in place and emit a loud yellow banner so a caller knows their
-    request was adjusted, never silently ignored. Mirrors the response_format
-    downgrade pattern above.
+    request was adjusted, never silently ignored. Returns the removal for the
+    announcement (``tool_adaptation``), or None when nothing was dropped.
     """
+    dropped: list[str] = []
     if getattr(config, "internal_x_search", None) and "x_search" not in caps.native_capabilities:
         vcprint(
             data={
@@ -308,6 +324,7 @@ def _warn_and_strip_unsupported_search(
             verbose=True,
         )
         config.internal_x_search = None
+        dropped.append("internal_x_search")
 
     if getattr(config, "internal_web_search", None) and not caps.supports_web_search:
         vcprint(
@@ -326,11 +343,89 @@ def _warn_and_strip_unsupported_search(
             verbose=True,
         )
         config.internal_web_search = None
+        dropped.append("internal_web_search")
+
+    if not dropped:
+        return None
+    return ToolAdaptation(
+        code=SEARCH_UNSUPPORTED,
+        model=caps.model_name,
+        wire_format=wire_format,
+        removed=dropped,
+        reason="This model does not host the provider's built-in search, so it was dropped.",
+    )
+
+
+def _web_tool_withheld(config: Any) -> str | None:
+    """Why our ``web`` tool may not stand in for built-in search on this run, or None.
+
+    A removal always wins (TOOL-SOURCES.md rule U): the host's hard exclusions, the agent's
+    forbidden list, and the person's removals (``state_tool_exclusions`` on the context).
+    """
+    from matrx_connect.context.app_context import try_get_app_context
+
+    from matrx_ai.tools.merge import hard_excluded_tool_names
+
+    ctx = try_get_app_context()
+    if WEB_TOOL in hard_excluded_tool_names(ctx):
+        return "the platform does not allow the web tool here"
+    if WEB_TOOL in set(getattr(config, "agent_excluded_tools", None) or ()):
+        return "the agent excludes the web tool"
+    metadata = getattr(ctx, "metadata", None) if ctx is not None else None
+    removed = (metadata or {}).get("state_tool_exclusions") if isinstance(metadata, dict) else None
+    if WEB_TOOL in set(removed or ()):
+        return "the web tool was removed for this conversation"
+    return None
+
+
+def _translate_web_search_to_web_tool(
+    config: Any, caps: ResolvedModelCapabilities, wire_format: str
+) -> ToolAdaptation | None:
+    """The request is never denied (TOOL-SOURCES.md L2): built-in web search the model does
+    not host becomes OUR ``web`` tool, when the model can call tools and nothing excludes it.
+
+    Nothing is added to the LIVE config: the translation is a WIRE addition
+    (``ToolAdaptation.added``, applied by ``apply_wire_additions`` to the provider copy), and
+    the authored flag is restored after the wire copy is built (``restore_tool_flags``) — so
+    the next call on a model that hosts search sends native search again, and no ``web``
+    is ever persisted with the conversation. Tool dispatch reads the model's tool calls,
+    never ``config.tools``, so a ``web`` call still executes. ``adapt_tools_for_call``
+    settles the claim after the later gates: if they removed the tools, it becomes a drop.
+    """
+    if not getattr(config, "internal_web_search", None) or caps.supports_web_search:
+        return None
+    if not caps.supports_function_calling:
+        return None  # no equivalent this model can use — dropped + announced below
+    withheld = _web_tool_withheld(config)
+    if withheld is not None:
+        config.internal_web_search = None
+        return ToolAdaptation(
+            code=SEARCH_UNSUPPORTED,
+            model=caps.model_name,
+            wire_format=wire_format,
+            removed=["internal_web_search"],
+            reason=(
+                f"This model has no built-in web search and {withheld}, so web search was "
+                "dropped."
+            ),
+        )
+    config.internal_web_search = None
+    return ToolAdaptation(
+        code=WEB_SEARCH_TRANSLATED,
+        model=caps.model_name,
+        wire_format=wire_format,
+        removed=["internal_web_search"],
+        added=[] if WEB_TOOL in (getattr(config, "tools", None) or []) else [WEB_TOOL],
+        reason=(
+            "This model has no built-in web search, so the request's web search runs through "
+            "the platform's web tool."
+        ),
+    )
 
 
 def _resolve_web_search_json_mode_conflict(
     config: Any, caps: ResolvedModelCapabilities, wire_format: str
-) -> None:
+) -> ToolAdaptation | None:
     """Drop hosted web search when it collides with OpenAI JSON mode, loudly.
 
     OpenAI rejects a request that pairs the hosted web-search tool with legacy
@@ -346,12 +441,12 @@ def _resolve_web_search_json_mode_conflict(
     adjustment is never silent. Mirrors the patterns above.
     """
     if wire_format != _WEB_SEARCH_JSON_MODE_CONFLICT_WIRE_FORMAT:
-        return
+        return None
     if not getattr(config, "internal_web_search", None):
-        return
+        return None
     rf = getattr(config, "response_format", None)
     if not isinstance(rf, dict) or rf.get("type") != "json_object":
-        return
+        return None
 
     vcprint(
         data={
@@ -372,11 +467,21 @@ def _resolve_web_search_json_mode_conflict(
         verbose=True,
     )
     config.internal_web_search = None
+    return ToolAdaptation(
+        code=SEARCH_JSON_MODE,
+        model=caps.model_name,
+        wire_format=wire_format,
+        removed=["internal_web_search"],
+        reason=(
+            "OpenAI refuses its hosted web search together with JSON mode; the JSON "
+            "contract was kept and web search dropped."
+        ),
+    )
 
 
 def _resolve_tool_structured_output_conflict(
     config: Any, caps: ResolvedModelCapabilities, wire_format: str
-) -> None:
+) -> ToolAdaptation | None:
     """Drop the request's tools so the output contract survives, and RECORD it.
 
     🚨 The second place a capability is genuinely thrown away above every
@@ -387,18 +492,20 @@ def _resolve_tool_structured_output_conflict(
     rows while the shed happened on every such request.
     """
     if wire_format not in _TOOL_STRUCTURED_OUTPUT_CONFLICT_WIRE_FORMATS:
-        return
+        return None
     rf = getattr(config, "response_format", None)
     if not isinstance(rf, dict) or rf.get("type") not in ("json_object", "json_schema"):
-        return
+        return None
 
     registered = list(getattr(config, "tools", None) or [])
     inline = list(getattr(config, "custom_tools", None) or [])
     mcp_servers = list(getattr(config, "mcp_servers", None) or [])
     if not (registered or inline or mcp_servers):
-        return
+        return None
 
     from matrx_ai.tools.merge import filter_tool_surface_for_unsupported_model
+
+    removed = tool_surface_names(config)
 
     filter_tool_surface_for_unsupported_model(config)
     vcprint(
@@ -446,61 +553,51 @@ def _resolve_tool_structured_output_conflict(
         },
         was_recovered=None,  # the outcome is written by the dispatch seam (R11)
     )
+    return ToolAdaptation(
+        code=SCHEMA_CONFLICT,
+        model=caps.model_name,
+        wire_format=wire_format,
+        removed=removed,
+        reason=(
+            f"{wire_format} refuses tools combined with structured output "
+            f"({rf['type']}); the output contract was kept and the tools dropped."
+        ),
+    )
 
 
-def _warn_and_strip_leaked_tools(config: Any, caps: ResolvedModelCapabilities) -> None:
-    """FALLBACK guard — tools must NEVER reach a non-function-calling model.
+def _strip_tools_for_no_function_calling(
+    config: Any, caps: ResolvedModelCapabilities, wire_format: str | None = None
+) -> ToolAdaptation | None:
+    """THE no-function-calling strip — the one place a model's lack of tools removes them.
 
-    This is NOT the canonical place tools are gated. Tools are gated canonically
-    at request-prep: ``config.supports_tools`` (resolved from the capability seam)
-    drives ``apply_unified_tools`` / ``merge_request_tools`` /
-    ``apply_context_objects``, which simply never add tools for a model with no
-    function calling. That is those gates doing their job, silently.
-
-    This function is the final structural check at the provider boundary. If tools
-    are STILL on the config here for a model that declares no function calling, a
-    canonical gate was bypassed — a regression. So unlike the canonical "CAPABILITY
-    ADJUSTMENT" notices above, this one screams "LEAK": it must be impossible to
-    miss so the regression is caught instantly, before it 400s production. We strip
-    (so the in-flight request survives) AND shout.
+    A model's only tool fact is ``supports_function_calling`` (TOOL-SOURCES.md rule L).
+    The core computes the same toolset for every model (L1); here, at call time (L2),
+    a model that does not accept tools has its whole tool surface removed — registered,
+    inline, MCP servers and URL context — and the removal is returned so the dispatch
+    announces it (``tool_adaptation.NO_FUNCTION_CALLING``). Provider-hosted search is
+    not function calling and is judged by ``_warn_and_strip_unsupported_search``.
     """
     if caps.supports_function_calling:
-        return  # canonical case — this model supports tools; nothing to guard
-
-    # The full tool surface a non-function-calling model must never carry. Tools
-    # 400 a chat-style request; mcp_servers + internal_url_context are latent
-    # (un-wired today) but would leak the same way the moment they're consumed.
-    stripped: list[str] = []
-    if getattr(config, "tools", None):
-        stripped.append(f"{len(config.tools)} registered")
-    if getattr(config, "custom_tools", None):
-        stripped.append(f"{len(config.custom_tools)} inline")
-    if getattr(config, "mcp_servers", None):
-        stripped.append(f"{len(config.mcp_servers)} mcp_server(s)")
+        return None
+    removed = tool_surface_names(config)
     if getattr(config, "internal_url_context", None):
-        stripped.append("internal_url_context")
-    if not stripped:
-        return  # the canonical gates did their job — no leak, no noise
-    vcprint(
-        data={
-            "model": caps.model_name,
-            "stripped": stripped,
-        },
-        title=(
-            f"🚨 CAPABILITY LEAK [{caps.model_name}]: tool surface ({', '.join(stripped)}) "
-            "reached the provider boundary for a model with NO function calling. A "
-            "canonical injection gate (config.supports_tools → apply_unified_tools / "
-            "merge_request_tools / apply_context_objects) was BYPASSED — this is a "
-            "regression that should never happen. Stripping now so the request does "
-            "not 400, but the upstream gate must be fixed."
-        ),
-        color="yellow",
-        verbose=True,
-    )
+        removed.append("internal_url_context")
+    # The context-tool instructions in the per-turn channel go with the tools: this model
+    # cannot fetch, and the context receipt already says those values did not reach it.
+    strip_fetch_instructions(getattr(config, "messages", None))
+    if not removed:
+        return None
     from matrx_ai.tools.merge import filter_tool_surface_for_unsupported_model
 
     filter_tool_surface_for_unsupported_model(config)
     config.internal_url_context = None
+    return ToolAdaptation(
+        code=NO_FUNCTION_CALLING,
+        model=caps.model_name,
+        wire_format=wire_format,
+        removed=removed,
+        reason="This model does not accept tools (no function calling), so every tool was removed.",
+    )
 
 
 def _strip_chat_decorations_if_non_fc(config: Any, caps: ResolvedModelCapabilities) -> None:
@@ -605,7 +702,7 @@ def _apply_tts_aliases_for_non_native(
 
 def apply_capability_gates(
     config: Any, caps: ResolvedModelCapabilities, wire_format: str
-) -> None:
+) -> list[ToolAdaptation]:
     """THE capability gates — ONE ordered block, called by every path that turns a
     ``UnifiedConfig`` into a provider payload.
 
@@ -613,36 +710,24 @@ def apply_capability_gates(
     translator; a provider rejecting our request is OUR translator's bug.* These
     gates are that modification for the CROSS-FIELD rules a translator cannot see
     on its own (what the model declares it can do), so a payload that skips them
-    is a 400 we shipped ourselves.
+    is a 400 we shipped ourselves. Both the live dispatch and ``translate_request``
+    (the BATCH lane's build-only chokepoint) call this function; NEVER copy the block.
 
-    Until 2026-09-27 this block existed only inline in ``_execute_dispatch``, so
-    ``translate_request`` — the build-only chokepoint the BATCH lane sends through
-    (``matrx_ai.agents.batch_render.render_agent_provider_request`` →
-    ``aidream.services.mandates.batch_lane`` → ``matrx_batch``) — applied NONE of
-    them. A batch request therefore carried a raw ``json_schema`` to a model whose
-    ``structured_output_mode`` is not ``SCHEMA``, tools to a model with no function
-    calling, and web search beside JSON mode: each a provider refusal of a paid,
-    deferred, un-retryable batch item. Both paths now call this function; NEVER
-    copy the block.
-
-    Order is load-bearing and is the order the live path established:
+    Order is load-bearing:
 
     1. ``_downgrade_response_format`` — json_schema → json_object → text per the
        model's declared ``structured_output_mode``.
-    2. ``_warn_and_strip_unsupported_search`` — hosted search flags the model does
-       not host.
-    3. ``_resolve_web_search_json_mode_conflict`` — needs the FINAL response_format
-       from (1).
-    4. ``_resolve_tool_structured_output_conflict`` — Cerebras/Groq reject the pair.
-    5. ``_strip_chat_decorations_if_non_fc`` — no date/tools-list/guidelines system
+    2. ``_strip_chat_decorations_if_non_fc`` — no date/tools-list/guidelines system
        decoration for a non-chat model.
-    6. ``_apply_tts_aliases_for_non_native`` — pronunciation for non-native TTS.
-    7. ``_warn_and_strip_leaked_tools`` — the LAST structural check: tools must
-       never reach a non-function-calling model.
+    3. ``_apply_tts_aliases_for_non_native`` — pronunciation for non-native TTS.
+    4. :func:`adapt_tools_for_call` — THE call-time tool adaptation (TOOL-SOURCES.md
+       rule L2): every model/provider limit that removes a tool, after (1) so it sees
+       the FINAL response_format.
 
-    Every step mutates ``config`` in place and announces itself (Law 4). The caller
-    that wants the declared contract preserved for post-validation must read it
-    BEFORE calling this (``batch_lane.render_mandate_request`` does exactly that).
+    Returns the tool removals made; the async caller announces them with
+    ``tool_adaptation.announce_tool_adaptations`` (one stream warning each + the
+    request snapshot). The caller that wants the declared contract preserved for
+    post-validation must read it BEFORE calling this (``batch_lane.render_mandate_request``).
     """
     from matrx_ai.providers.structured_output_findings import open_gate_findings
 
@@ -650,12 +735,72 @@ def apply_capability_gates(
     # the dispatch seam's flush (R11).
     open_gate_findings()
     _downgrade_response_format(config, caps, wire_format)
-    _warn_and_strip_unsupported_search(config, caps, wire_format)
-    _resolve_web_search_json_mode_conflict(config, caps, wire_format)
-    _resolve_tool_structured_output_conflict(config, caps, wire_format)
     _strip_chat_decorations_if_non_fc(config, caps)
     _apply_tts_aliases_for_non_native(config, caps, wire_format)
-    _warn_and_strip_leaked_tools(config, caps)
+    return adapt_tools_for_call(config, caps, wire_format)
+
+
+def simulate_capability_gates(
+    config: Any, caps: ResolvedModelCapabilities, wire_format: str
+) -> tuple[Any, list[ToolAdaptation]]:
+    """The SAME ``apply_capability_gates`` a real call runs, on a copy, recording nothing.
+
+    For the prompt preview (dry run): it shows what the model will receive and every
+    adaptation, and writes no finding (no call happens).
+    """
+    from copy import copy as shallow
+
+    from matrx_ai.providers.structured_output_findings import simulating_gates
+
+    probe = shallow(config)
+    probe.messages = _wire_message_list(getattr(config, "messages", None))
+    si = getattr(config, "system_instruction", None)
+    if si is not None and not isinstance(si, str):
+        probe.system_instruction = shallow(si)
+    with simulating_gates():
+        adaptations = apply_capability_gates(probe, caps, wire_format)
+    apply_wire_additions(probe, adaptations)
+    return probe, adaptations
+
+
+def adapt_tools_for_call(
+    config: Any, caps: ResolvedModelCapabilities, wire_format: str
+) -> list[ToolAdaptation]:
+    """THE call-time tool adaptation — the only place a model/provider limit removes a tool.
+
+    The core (aidream ``apply_unified_tools`` + the context injectors) computes the same
+    toolset for every model and never reads the model (TOOL-SOURCES.md rule L1). Here, at
+    the provider boundary, each limit removes what the model/provider cannot take — in
+    order: hosted search the model does not host; OpenAI web search beside JSON mode;
+    tools beside structured output on endpoints that refuse the pair; and, last, every tool
+    for a model with no function calling. Each removal is returned for announcement. The
+    one limit that is only known from the provider's answer — Anthropic's grammar budget —
+    is shed in ``anthropic_api._retry_over_grammar_budget`` and announced the same way.
+    """
+    translation = _translate_web_search_to_web_tool(config, caps, wire_format)
+    later = [
+        _warn_and_strip_unsupported_search(config, caps, wire_format),
+        _resolve_web_search_json_mode_conflict(config, caps, wire_format),
+        _resolve_tool_structured_output_conflict(config, caps, wire_format),
+        _strip_tools_for_no_function_calling(config, caps, wire_format),
+    ]
+    later = [step for step in later if step is not None]
+    if translation is not None and translation.code == WEB_SEARCH_TRANSLATED and any(
+        step.code in (SCHEMA_CONFLICT, NO_FUNCTION_CALLING) for step in later
+    ):
+        # A later limit took the tools off this call: the person hears ONE true thing —
+        # web search was dropped — never "translated" followed by "tools off".
+        translation = ToolAdaptation(
+            code=SEARCH_UNSUPPORTED,
+            model=caps.model_name,
+            wire_format=wire_format,
+            removed=["internal_web_search"],
+            reason=(
+                "This model has no built-in web search and this call cannot carry tools, so "
+                "web search was dropped."
+            ),
+        )
+    return [translation, *later] if translation is not None else later
 
 
 # ---------------------------------------------------------------------------
@@ -937,6 +1082,8 @@ class _SettingsSelfHeal:
         self.first_info: Any = None
         self.first_ctx: dict[str, Any] = {}
         self.repair: Any = None
+        #: NET: the safe-minimum retry (a SafeMinimum) when no specific repair existed.
+        self.safe_min: Any = None
 
     def _failure_context(self) -> dict[str, Any]:
         """What the FAILED attempt sent, captured before a retry overwrites it."""
@@ -987,6 +1134,9 @@ class _SettingsSelfHeal:
         )
 
     async def succeeded(self) -> None:
+        if self.safe_min is not None and self.first_exc is not None:
+            await self._safe_minimum_succeeded()
+            return
         if self.repair is None or self.first_exc is None:
             return
         from matrx_ai.providers.outbound_params import send_client_warning
@@ -1018,6 +1168,33 @@ class _SettingsSelfHeal:
             self.first_ctx,
         )
 
+    async def _safe_minimum_succeeded(self) -> None:
+        from matrx_ai.providers.outbound_params import send_client_warning
+        from matrx_ai.providers.setting_rejection import SELF_HEALED_KEY, safe_minimum_warning
+
+        send_client_warning(
+            safe_minimum_warning(
+                self.safe_min, provider=self.provider, model=getattr(self.profile, "model_name", None)
+            ),
+            name="setting_repaired_warning",
+        )
+        vcprint(
+            f"[dispatch] {self.provider} refused the request; the safe-minimum retry answered "
+            f"(left out: {', '.join(self.safe_min.canonical_keys)})",
+            color="yellow",
+        )
+        await self._file(
+            self.first_exc,
+            self.first_info,
+            {
+                SELF_HEALED_KEY: True,
+                "repair": self.safe_min.as_record(),
+                "retry": {"outcome": "succeeded", "kind": "safe_minimum"},
+                "request_snapshot_id": None,
+            },
+            self.first_ctx,
+        )
+
     async def handle_failure(self, exc: BaseException, *, streamed_before: int | None) -> bool:
         """True when the call should be sent again (repair applied). Never raises."""
         try:
@@ -1037,8 +1214,46 @@ class _SettingsSelfHeal:
             plan_setting_repair,
         )
 
+        from matrx_ai.providers.setting_rejection import (
+            apply_safe_minimum,
+            config_as_sent_before_safe_minimum,
+            net_candidate,
+            plan_safe_minimum,
+        )
+
         info = classify_for_report(exc, self.provider)
         is_setting = info is not None and info.error_type == SETTING_REJECTION_ERROR_TYPE
+
+        if self.safe_min is not None:
+            # The safe-minimum retry failed too: that is a real provider problem,
+            # not settings. The first rejection's record says so; THIS failure
+            # propagates with its own honest classification. Never a third call.
+            await self._file(
+                self.first_exc,  # type: ignore[arg-type]
+                self.first_info,
+                {
+                    SELF_HEALED_KEY: False,
+                    "repair": self.safe_min.as_record(),
+                    "retry": {
+                        "outcome": "rejected_again" if is_setting else "failed",
+                        "kind": "safe_minimum",
+                        "error_type": getattr(info, "error_type", None),
+                    },
+                },
+                self.first_ctx,
+            )
+            return False
+
+        if not is_setting and self.repair is None:
+            # THE NET: an unrecognised 400/422 is a settings candidate — typed,
+            # fingerprinted and filed for the fixer, never a bare request failure.
+            candidate = net_candidate(info)
+            if candidate is not None:
+                try:
+                    exc.error_info = candidate  # type: ignore[attr-defined]
+                except Exception:  # noqa: BLE001
+                    pass
+                info, is_setting = candidate, True
 
         if self.repair is not None:
             # The repaired call failed too. The FIRST rejection's record says so,
@@ -1074,6 +1289,8 @@ class _SettingsSelfHeal:
             reason = "repair_budget_spent"
         elif streamed_before is not None and streamed_after is not None and streamed_after > streamed_before:
             reason = "output_already_streamed"
+        # A probe, a spent budget or streamed text: no retry of any kind.
+        hard_stop = reason is not None
         plan = None
         if reason is None:
             plan = plan_setting_repair(
@@ -1086,6 +1303,29 @@ class _SettingsSelfHeal:
                 reason = plan.reason
             elif not apply_setting_repair(self.config, plan.repair):
                 reason = "config_cannot_express_repair"
+        if reason is not None and not hard_stop:
+            # No specific repair (unrecognised, opaque, no stated limit…): the
+            # SAFE MINIMUM — every optional setting the person set, left out once.
+            safe = plan_safe_minimum(
+                self.config,
+                provider_message=str(
+                    ((getattr(info, "details", None) or {}).get("setting_rejection") or {}).get("provider_message")
+                    or getattr(info, "message", "")
+                ),
+            )
+            if safe is None:
+                reason = f"{reason}; no_optional_settings_to_leave_out"
+            else:
+                failure_ctx = self._failure_context()
+                failure_ctx["config"] = config_as_sent_before_safe_minimum(self.config, safe)
+                if apply_safe_minimum(self.config, safe):
+                    self.repairs_used += 1
+                    self.safe_min = safe
+                    self.first_exc = exc
+                    self.first_info = info
+                    self.first_ctx = failure_ctx
+                    return True
+                reason = f"{reason}; config_cannot_express_safe_minimum"
         if reason is not None:
             await self._file(
                 exc, info, {SELF_HEALED_KEY: False, "not_retried_reason": reason}, self._failure_context()
@@ -1536,7 +1776,9 @@ class UnifiedAIClient:
 
         bind_declared_output_contract(getattr(config, "response_format", None))
 
-        apply_capability_gates(config, caps, wire_format)
+        authored_flags = authored_tool_flags(config)
+        tool_adaptations = apply_capability_gates(config, caps, wire_format)
+        await announce_tool_adaptations(tool_adaptations)
 
         # Resolve server-generated media refs added by tool results mid-loop.
         # Images additionally receive the target model's vision variant;
@@ -1570,6 +1812,9 @@ class UnifiedAIClient:
         # canonical model on the request so retry, persistence, and a later
         # conversation turn re-enter the catalog with a resolvable reference.
         wire_config = _build_provider_wire_config(config, profile)
+        apply_wire_additions(wire_config, tool_adaptations)
+        # The wire carries the adapted flags; the live config keeps what was authored.
+        restore_tool_flags(config, authored_flags)
         # MESSAGE FLAGS (prefill / cache_boundary / example) — the capability
         # gate for the translator instructions an author set on messages. Raises
         # MessageFlagRefusal BEFORE the paid call when the org mode is refuse.
@@ -1662,15 +1907,16 @@ class UnifiedAIClient:
         active_pools = _ACTIVE_DISPATCH_POOLS.get()
         if holder in active_pools:
             return await dispatch()
-        # THE GUEST AI ALLOWANCE — before the admission slot, before any spend.
-        # A signed-out visitor's free AI actions are counted here, once per
-        # carried request_id, because every paid call passes this seam; a
-        # used-up guest is refused with GuestAIAllowanceUsedError (a caller
-        # refusal: never retried, rerouted or filed as a provider failure).
-        # Signed-in callers return immediately. See providers/guest_ai_allowance.py.
-        from matrx_ai.providers.guest_ai_allowance import admit_guest_ai_action
+        # THE USAGE GATE — before the admission slot, before any spend, and
+        # from MEMORY only (the host's synchronous verdict; never a database
+        # read). A person whose cached state is over, with enforcement on, is
+        # refused with UsageLimitReachedError (a caller refusal: never retried,
+        # rerouted or filed as a provider failure) — only at the request's FIRST
+        # paid call, so a running request is never stopped. Guests are people
+        # here too (the guest plan's windows). See providers/usage_gate.py.
+        from matrx_ai.providers.usage_gate import admit_paid_call
 
-        await admit_guest_ai_action()
+        await admit_paid_call()
         provider = str(getattr(profile, "vendor", "unknown"))
         attempt = 0
         # THE SETTINGS SELF-HEAL (settings-translation R2) — one attempt kind of
@@ -2176,8 +2422,12 @@ class UnifiedAIClient:
         # applied none of them, so a batch item could carry a raw ``json_schema`` to
         # a model whose ``structured_output_mode`` is not ``SCHEMA`` (a 400 on a
         # paid, deferred item nobody was watching).
-        apply_capability_gates(config, profile.capabilities, profile.wire_format)
+        authored_flags = authored_tool_flags(config)
+        adaptations = apply_capability_gates(config, profile.capabilities, profile.wire_format)
+        await announce_tool_adaptations(adaptations)
         wire_config = _build_provider_wire_config(config, profile)
+        apply_wire_additions(wire_config, adaptations)
+        restore_tool_flags(config, authored_flags)
 
         # Every chat translator is DB-driven (B4): build_request takes the
         # resolved profile — params from profile.controls, structural branches

@@ -29,7 +29,14 @@ import pytest
 
 from doppler.dsss import BurstDemod
 from doppler.snr import snr_data_aided_db
-from doppler.wfm import Composer, Segment, Synth, cli
+from doppler.wfm import (
+    STAGE_CRC16,
+    Composer,
+    FrameDesc,
+    Segment,
+    Synth,
+    cli,
+)
 
 ACQ_SF, REPS, DATA_SF, SPC = 128, 4, 25, 4
 FS = 1e6 * SPC
@@ -67,6 +74,42 @@ def _codes():
     return acq, dat, pay
 
 
+def _rx_frame(pay):
+    """The description the receiver is handed: ``[sync | payload | CRC-16]``.
+
+    The receiver reads its sync word (field 0) and the frame's length from
+    it; the payload bits only fill the layout, so the transmitter's own are
+    reused and both ends hold one description.
+    """
+    from doppler.wfm import Frame
+
+    frame = Frame(sync=SYNC, payload=pay, crc="crc16")
+    assert frame.nbits == FRAME
+    return frame
+
+
+def _data_desc() -> FrameDesc:
+    """``[sync | data:PAYLOAD | CRC-16]``: the frame a burst spreads. The
+    preamble stays on the source -- it is sent unspread, outside this."""
+    d = FrameDesc()
+    d.add_field("sync", SYNC)
+    d.add_data("payload", PAYLOAD)
+    d.add_derived("crc", 16)
+    d.add_stage_over(STAGE_CRC16, "payload", "crc")
+    return d
+
+
+#: The same description as a scene's "frame" key.
+_FRAME_JSON = {
+    "fields": [
+        {"name": "sync", "spec": "".join(map(str, SYNC))},
+        {"name": "payload", "spec": f"data:{PAYLOAD}"},
+        {"name": "crc", "bits": 16, "derived_by": 1},
+    ],
+    "stages": [{"kind": "crc16", "first_field": 1, "n_fields": 2}],
+}
+
+
 def _seg_kwargs(seed: int, off: int, acq, dat, pay) -> dict:
     return {
         "type": "dsss",
@@ -78,7 +121,7 @@ def _seg_kwargs(seed: int, off: int, acq, dat, pay) -> dict:
         "acq_code": acq.tobytes(),
         "acq_reps": REPS,
         "data_code": dat.tobytes(),
-        "sync": SYNC.tobytes(),
+        "frame": _data_desc(),  # sync | data | CRC-16, over `data` below
         "data": pay.tobytes(),  # one burst: the data source, whole
         "off_samples": off,
     }
@@ -88,8 +131,9 @@ def _scene_json(kwargs_list) -> dict:
     segments = []
     for kw in kwargs_list:
         d = dict(kw)
-        for key in ("acq_code", "data_code", "sync", "data"):
+        for key in ("acq_code", "data_code", "data"):
             d[key] = "".join(str(b) for b in d[key])
+        d["frame"] = _FRAME_JSON
         # A scene carries the preamble's repetitions in its Field, *REPS.
         d["acq_code"] += f"*{d.pop('acq_reps')}"
         segments.append(d)
@@ -103,11 +147,16 @@ def _scene_json(kwargs_list) -> dict:
 
 def test_intrinsic_on_time():
     """A dsss segment's on-time is its bursts, one per frame of its data --
-    here one -- so num_samples is derived and any caller-supplied value
-    ignored. The record leaves it out: a replay derives it again from the
-    data, and a recorded count beside a finite source is refused."""
+    here one -- so num_samples is derived, and a count given beside it is
+    refused rather than dropped (doppler#1729). The record leaves it out: a
+    replay derives it again from the data."""
     acq, dat, pay = _codes()
-    seg = Segment(**_seg_kwargs(1, 500, acq, dat, pay), num_samples=17)
+    with pytest.raises(ValueError, match="num_samples is derived"):
+        Composer(
+            [Segment(**_seg_kwargs(1, 500, acq, dat, pay), num_samples=17)]
+        )
+    seg = Segment(**_seg_kwargs(1, 500, acq, dat, pay))
+    assert seg.num_samples == 0  # the default: derive it
     comp = Composer([seg])
     x = comp.compose()
     assert len(x) == BURST_LEN + 500
@@ -175,6 +224,8 @@ def test_cli_bare_flags_match_kwargs(tmp_path):
             "".join(map(str, dat)),
             "--sync",
             "".join(map(str, SYNC)),
+            "--crc",
+            "crc16",  # the CLI's flags build the same description
             "--data",
             "".join(map(str, pay)),
             "--output",
@@ -193,8 +244,7 @@ def test_esno_calibration():
     symbols recovers the target Es/N0."""
     acq, dat, pay = _codes()
     kw = _seg_kwargs(11, 0, acq, dat, pay)
-    kw["crc"] = "none"
-    kw.pop("sync")
+    del kw["frame"]  # the payload alone: no sync, no CRC
     noisy = Composer([Segment(**kw)]).compose()
     clean = Composer([Segment(**{**kw, "snr": 100.0})]).compose()
     noise_power = float(np.mean(np.abs(noisy - clean) ** 2))
@@ -243,9 +293,8 @@ def test_five_bursts_decode_through_burst_demod():
 
     n_valid = 0
     for _k, s in enumerate(starts):
-        bd = BurstDemod(dat, spc=SPC, chip_rate=FS / SPC, frame_syms=FRAME)
+        bd = BurstDemod(dat, _rx_frame(pay), spc=SPC, chip_rate=FS / SPC)
         bd.set_preamble(acq, REPS)
-        bd.set_sync(SYNC)
         bd.set_prior(0.0, 0)
         bits = bd.demod(x[s : s + BURST_LEN])
         if _frame_ok(bits, pay):
@@ -315,8 +364,7 @@ def _burst(acq, dat, pay, stage=None):
     kw = _seg_kwargs(1, 0, acq, dat, pay)
     kw["snr"] = 99.0  # the stage is the only thing that may move a sample
     kw["data"] = np.asarray(d.bits()).tobytes()
-    del kw["sync"]
-    kw["crc"] = "none"
+    del kw["frame"]  # the stages' own description rides in `data`
     return np.asarray(Composer([Segment(**kw)]).compose())
 
 
@@ -382,7 +430,7 @@ def test_a_record_carries_the_stages_and_replays_them():
     }
     seg = _scene_json([_seg_kwargs(1, 0, acq, dat, pay)])["segments"][0]
     seg["snr"] = 99.0
-    del seg["sync"], seg["data"]
+    del seg["data"]  # the frame carries it
     seg["frame"] = frame
 
     c = Composer.from_json(json.dumps({**_scene_json([]), "segments": [seg]}))
@@ -458,9 +506,8 @@ def test_repeats_burst_train_decodes():
 
     n_valid = 0
     for s in starts:
-        bd = BurstDemod(dat, spc=SPC, chip_rate=FS / SPC, frame_syms=FRAME)
+        bd = BurstDemod(dat, _rx_frame(pay), spc=SPC, chip_rate=FS / SPC)
         bd.set_preamble(acq, REPS)
-        bd.set_sync(SYNC)
         bd.set_prior(0.0, 0)
         bits = bd.demod(x[s : s + BURST_LEN])
         if _frame_ok(bits, pay):
@@ -504,9 +551,8 @@ def test_gap_noise_default_floor_and_decode():
 
     n_valid = 0
     for s in starts:
-        bd = BurstDemod(dat, spc=SPC, chip_rate=FS / SPC, frame_syms=FRAME)
+        bd = BurstDemod(dat, _rx_frame(pay), spc=SPC, chip_rate=FS / SPC)
         bd.set_preamble(acq, REPS)
-        bd.set_sync(SYNC)
         bd.set_prior(0.0, 0)
         bits = bd.demod(x[s : s + BURST_LEN])
         if _frame_ok(bits, pay):

@@ -191,6 +191,21 @@ jobs:
             exit 1
           fi
 
+  # the pinned secp256k1-zkp commit is close to upstream's master and
+  # signed by a recognized signer: zkp-pin.yml, the check
+  # vendored-vectors.yml runs as a sentinel. A pull request that moves the
+  # gitlink to a commit of any fork of the network passes every required
+  # check (issue #1086), so the publish jobs wait for this one. Unlike
+  # zkp-pin-tag it runs on a rehearsal too, whose upload it also withholds.
+  # A publish job runs only where this job's result is `success`; a rerun
+  # of the failed job releases it
+  zkp-pin:
+    name: Check the pinned secp256k1-zkp commit
+    uses: ./.github/workflows/zkp-pin.yml # zizmor: ignore[self-repository]
+    with:
+      # see the lint job above
+      concurrency-suffix: "-release"
+
   # walks the public API of the release before this one against the one
   # being cut and reports what broke: a removed object, a changed
   # parameter kind or default, a narrowed type. It runs here rather than
@@ -212,13 +227,67 @@ jobs:
     with:
       package: btclib_secp256k1
 
-  # reuse the whole build/test pipeline: every artifact the release ships
-  # is built and tested here, by the very matrices that run on a push
+  # `uv audit` over what the wheel declares, before anything is published:
+  # btclib-org/.github's reusable-audit.yml, called at @main so that the uv
+  # version, the flags and what it refuses are written once. An
+  # advisory or an unreachable service fails it, and the publish jobs
+  # below name it in `needs:` and in their `if:`, `always()` there being
+  # what would otherwise let them run past a red one. The callee asks only
+  # for the `contents: read` this workflow grants, as the calls above do.
+  # github-release does not name it: it runs only after publish-pypi
+  # succeeds
+  audit:
+    uses: btclib-org/.github/.github/workflows/reusable-audit.yml@main
+
+  # the sdist, the bill of materials and their signature:
+  # btclib-org/.github's reusable-build.yml, called at @main (section 10 of
+  # its README.md). It builds the sdist and the bill of materials, uploads
+  # them as `sdist` and `sbom`, and signs them before any publish job
+  # waits for its environment's approval, from a workflow this tree's own
+  # steps cannot alter (SLSA Build L3). It uploads the bundle as
+  # `attestation` for github-release. The wheels are not built here, so
+  # that statement does not cover them: test.yml's matrix builds them, and
+  # their provenance is the PEP 740 attestation the publish jobs upload.
+  #
+  # python is the interpreter .python-version pins: under setup-python the
+  # callee's `uv run` reads that file with downloads off, and
+  # RELEASING.md's rebuild normalizes the sdist with it, so another value
+  # fails the build or the rebuild. tests/interpreters_test.py holds the
+  # two equal. dist-artifact is `sdist`, the name the publish jobs and
+  # github-release download, and test.yml uploads no `sdist` or `sbom` of
+  # its own on this path, so the names do not collide. The version-suffix
+  # output is empty on the tag path, where version-check skips the step
+  # that writes it: a release ships the version the tree declares
+  build:
+    name: Build and sign the sdist
+    needs: version-check
+    # a called workflow's own permissions: block can only downgrade what
+    # this job grants (btclib-org/.github#912), so every scope the callee
+    # declares is named here: contents: read at its workflow level, the
+    # two writes on its attest job
+    permissions:
+      contents: read
+      id-token: write # the OIDC token the callee's attest job mints
+      attestations: write # the build provenance attestation it writes
+    uses: btclib-org/.github/.github/workflows/reusable-build.yml@main
+    with:
+      python: "3.15"
+      version-suffix: ${{ needs.version-check.outputs.version-suffix }}
+      submodules: true
+      setup-python: true
+      sdist-only: true
+      dist-artifact: sdist
+      build-constraints: build-constraints.txt
+
+  # reuse the whole build/test pipeline: every wheel the release ships is
+  # built and tested here, by the very matrices that run on a push, and
+  # the sdist the build job signed is checked and installed here
   test:
     name: Run the test workflow
     # a minute of checking, ahead of an hour of building: a tag that does
-    # not match the tree is worth discovering before the matrices start
-    needs: version-check
+    # not match the tree is worth discovering before the matrices start.
+    # build, because the sdist jobs over there download its upload
+    needs: [version-check, build]
     uses: ./.github/workflows/test.yml # zizmor: ignore[self-repository]
     # a called workflow's jobs are capped at what the caller grants here.
     # A scope a job over there declares and this list leaves off is not
@@ -247,6 +316,10 @@ jobs:
       # a skipped step's output is the empty string: a release ships the
       # version the tree declares
       version-suffix: ${{ needs.version-check.outputs.version-suffix }}
+      # the sdist the jobs over there check is the one the build job signed
+      use-signed-dist: true
+      # and refuses it unless its digest is the one the build job printed
+      digests: ${{ needs.build.outputs.digests }}
       # see the lint job above
       concurrency-suffix: "-release"
 
@@ -271,14 +344,14 @@ jobs:
     #
     # public-api stays in `needs` for the ordering -- its own comment
     # says why the reading is worth having before the upload -- and not
-    # for its result: it exits 1 on any break in the public surface since
-    # the last tag, which is what a cycle with breaking changes produces
-    # by design, and a bare `needs` refuses to start this job when any
-    # listed job failed or was skipped. `always()` is what opts back in,
-    # and the `.result` checks beside it are what keep every other listed
-    # job the gate it is. Section 12 of the organization standard has the
-    # rule; github-release's comment below is this tree's own measurement
-    # of the same refusal, behind a skipped job rather than a failed one.
+    # for its result: it exits 1 on a break in the public surface that
+    # RELEASE_NOTES.md does not name, and a bare `needs` refuses to start
+    # this job when any listed job failed or was skipped. `always()` is
+    # what opts back in, and the `.result` checks beside it are what keep
+    # every other listed job the gate it is. Section 12 of the
+    # organization standard has the rule; github-release's comment below
+    # is this tree's own measurement of the same refusal, behind a skipped
+    # job rather than a failed one.
     # submodule-pin-release is checked for its result unlike public-api: before
     # this job split out of version-check, a mismatched pin failed that
     # job outright, which skipped `test` (a bare `needs: version-check`)
@@ -291,9 +364,13 @@ jobs:
       && needs.docs.result == 'success' && needs.ubuntu.result == 'success'
       && needs.macos.result == 'success' && needs.windows.result == 'success'
       && needs.submodule-pin-release.result == 'success'
+      && needs.audit.result == 'success'
+      && needs.zkp-pin.result == 'success'
     needs:
       [
+        build,
         public-api,
+        audit,
         test,
         lint,
         docs,
@@ -301,6 +378,7 @@ jobs:
         macos,
         windows,
         submodule-pin-release,
+        zkp-pin,
       ]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -327,6 +405,18 @@ jobs:
       - name: Show distributions
         run: ls -l dist
 
+      # a job that ran after the build could have uploaded another artifact
+      # named `sdist`: the sdist published is the file the build job printed
+      # the digest of, or nothing. The wheels come from test.yml's own jobs,
+      # which print no digest
+      - name: Check the sdist is the one the build job built
+        shell: bash
+        env:
+          DIGESTS: ${{ needs.build.outputs.digests }}
+        run: |
+          sha256sum -b dist/*.tar.gz | sed 's/ \*dist\//  dist\//' \
+            | diff - <(printf '%s\n' "$DIGESTS" | grep -F '  dist/')
+
       # generates PEP 740 attestations by default
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
@@ -347,10 +437,14 @@ jobs:
       && needs.docs.result == 'success' && needs.ubuntu.result == 'success'
       && needs.macos.result == 'success' && needs.windows.result == 'success'
       && needs.submodule-pin-release.result == 'success'
+      && needs.audit.result == 'success'
       && needs.zkp-pin-tag.result == 'success'
+      && needs.zkp-pin.result == 'success'
     needs:
       [
+        build,
         public-api,
+        audit,
         test,
         lint,
         docs,
@@ -359,6 +453,7 @@ jobs:
         windows,
         submodule-pin-release,
         zkp-pin-tag,
+        zkp-pin,
       ]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -385,91 +480,48 @@ jobs:
       - name: Show distributions
         run: ls -l dist
 
+      # a job that ran after the build could have uploaded another artifact
+      # named `sdist`: the sdist published is the file the build job printed
+      # the digest of, or nothing. The wheels come from test.yml's own jobs,
+      # which print no digest
+      - name: Check the sdist is the one the build job built
+        shell: bash
+        env:
+          DIGESTS: ${{ needs.build.outputs.digests }}
+        run: |
+          sha256sum -b dist/*.tar.gz | sed 's/ \*dist\//  dist\//' \
+            | diff - <(printf '%s\n' "$DIGESTS" | grep -F '  dist/')
+
       # generates PEP 740 attestations by default
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
 
-  # the sdist reaches users by two routes and only one of them carries
-  # provenance: the publish job above attaches a PEP 740 attestation to
-  # the copy on the index, where the copy github-release attaches below
-  # carries none. The downloads, the attest step and the bundle upload
-  # are btclib-org/.github's: reusable-attest.yml, called at @main so a
-  # fix there reaches this tree in one landing (section 10 of its
-  # README.md). dist-artifact is sdist, not dist: this tree builds its
-  # wheels one artifact per image and uploads the sdist alone under that
-  # name, which is what the release carries (issue btclib-org/.github#35)
-  attest:
-    # after a publish rather than after the build, so that a run reaching
-    # here is one the environment approval already let through: without
-    # that, a dispatch from any branch would sign whatever that branch
-    # built. Not in the build matrix for the stronger form of the same
-    # reason -- those jobs compile the vendored library and run the build
-    # backend, and a token minted there is minted beside everything a
-    # build resolves
-    needs: [publish-pypi, publish-testpypi]
-    # always(), the other publish job being skipped rather than run, and a
-    # skipped job is one `needs` treats as failed
-    if: >-
-      always() && (needs.publish-pypi.result == 'success' ||
-      needs.publish-testpypi.result == 'success')
-    # a called workflow's own permissions: block can only downgrade, not
-    # restore, what this calling job grants, so every scope the callee
-    # asks for is named here too, or the run fails before any job starts
-    # (a startup_failure, measured in btclib-org/.github#912)
-    permissions:
-      # the callee's workflow-level declaration rather than its job's,
-      # and its header asks a caller for it in as many words -- "A
-      # caller's calling job therefore carries permissions: contents:
-      # read, id-token: write, attestations: write" -- because what a run
-      # does where a called workflow's top-level declaration falls
-      # outside the caller's list is not measured
-      contents: read
-      id-token: write # the short-lived Sigstore signing certificate
-      attestations: write # persists the attestation against the repository
-    uses: btclib-org/.github/.github/workflows/reusable-attest.yml@main
-    with:
-      dist-artifact: sdist
-
   # only after PyPI has accepted the upload: a GitHub release announces
   # what can already be installed, and the download url in pyproject.toml
   # points at the page this creates.
-  # Both jobs above in `needs`, and not attest alone: attest runs in a
+  # Both jobs above in `needs`, and not build alone: build runs in a
   # rehearsal too, so naming it by itself would make this job cut a
   # release from a dispatch, where publish-pypi is skipped and a skipped
-  # need is what keeps this to the tag.
-  # `always()` is required here too, and an explicit `if` without it is
-  # not enough to say so -- measured the hard way, twice. The first fix
-  # added the two `.result` checks below and reasoned that was the whole
-  # story: the implicit default asks a bigger question than this job has
-  # reason to ask, so asking only about its own direct needs should have
-  # been enough. v0.8.0.2 shipped with exactly that and was skipped all
-  # the same, `publish-pypi` and `attest` both green. What actually
-  # happens is structural, not a property of which question the `if`
-  # asks: a job with a skipped job anywhere in its ancestry is
-  # force-skipped regardless of its own condition, unless that condition
-  # starts with `always()` (or `success()`/`failure()`) -- and that
-  # override does not clear the taint for whoever depends on *it*.
-  # attest's `always()` keeps attest itself from being skipped when
-  # publish-testpypi is; github-release, needing attest, still sits
-  # behind that same skipped ancestor and is force-skipped in turn unless
-  # it also opts out on its own. Every job that crosses a skip has to say
-  # `always()` for itself; the first fix said it for neither of the two
-  # that needed it and the second still said it for only one.
-  # v0.8.0, v0.8.0.1 and v0.8.0.2 all published clean and none produced a
-  # GitHub release: recreated by hand from the run's own `sdist` and
-  # `attestation` artifacts each time, which `gh run rerun --failed` does
-  # not reach either way -- that flag reruns `failure`, and a structural
-  # skip is neither a failure nor within its blast radius.
+  # need is what keeps this to the tag. build earns its place in the list
+  # by producing the bundle attached here.
+  # `always()` is required here too. A job is skipped whatever its own
+  # condition asks where a job anywhere in its ancestry was skipped or
+  # failed, unless that condition starts with a status function, and
+  # public-api, a need of publish-pypi, fails by design on a break
+  # RELEASE_NOTES.md does not name. v0.8.0 to v0.8.0.2 published and cut
+  # no GitHub release for want of it. RELEASING.md has that record, and the
+  # release by hand that recovers a skip, which `gh run rerun --failed`
+  # does not reach.
   # The checkout, the downloads and the release creation are
   # btclib-org/.github's: reusable-github-release.yml, called at @main so
   # a fix there reaches this tree in one landing (section 10 of its
-  # README.md). dist-artifact is sdist, the same value attest above takes
+  # README.md). dist-artifact is sdist, the same value build above takes
   # and for the same reason (issue btclib-org/.github#35)
   github-release:
-    needs: [publish-pypi, attest]
+    needs: [publish-pypi, build]
     if: >-
       always() && needs.publish-pypi.result == 'success' &&
-      needs.attest.result == 'success'
+      needs.build.result == 'success'
     # a called workflow's own permissions: block can only downgrade, not
     # restore, what this calling job grants, so every scope the callee's
     # job asks for is named here too, or the run fails before any job
@@ -479,6 +531,8 @@ jobs:
     uses: btclib-org/.github/.github/workflows/reusable-github-release.yml@main
     with:
       dist-artifact: sdist
+      # refuses the files unless their digests are the ones the build job printed
+      digests: ${{ needs.build.outputs.digests }}
 
   # the sentinel on what users can install, run at the one moment its answer
   # changes -- and a call rather than a workflow_run trigger, which zizmor

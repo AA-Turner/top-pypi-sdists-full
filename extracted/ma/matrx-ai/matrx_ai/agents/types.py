@@ -69,3 +69,12 @@ class AgentConfig:
     # an explicit empty SkillConfig() means "no opinions, default tiers apply."
     # See ``matrx_ai.skills.models.SkillConfig``.
     skill_config: "SkillConfig | None" = None
+
+    def __post_init__(self) -> None:
+        # THE AGENT'S TOOL POLICY TRAVELS ON ITS CONFIG. Every run built from a definition —
+        # turn 1, a responder turn, a programmatic child, a mandate-held thread — carries the
+        # switch and the forbidden list on ``config``, where the host's tool funnel reads them
+        # when its caller passes none (common-docs agent-tools/TOOL-SOURCES.md, rule R).
+        if self.config is not None:
+            self.config.agent_auto_tools_disabled = bool(self.auto_tools_disabled)
+            self.config.agent_excluded_tools = list(self.excluded_tools or [])

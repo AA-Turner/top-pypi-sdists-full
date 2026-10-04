@@ -653,7 +653,7 @@ def _gateway_log_files() -> list:
         "CLAWMETRY_OPENCLAW_DIR", os.path.expanduser("~/.openclaw")
     )
     candidates = [
-        "/tmp/openclaw",
+        "/tmp/openclaw",  # nosec B108 - read-only discovery candidate: the gateway's own log dir, probed for existence and read, never written
         os.path.join(openclaw_dir, "logs"),
     ]
 
@@ -1064,7 +1064,7 @@ def _openshell_sandbox_logs(name: str, count: int = 20) -> list:
                 try:
                     _exec_res = _sp.run(
                         ["openshell", "sandbox", "exec", "-n", name, "--",
-                         "tail", "-n", str(count), "/tmp/gateway.log"],
+                         "tail", "-n", str(count), "/tmp/gateway.log"],  # nosec B108 - path inside the sandbox container, read via openshell exec; not a host path
                         capture_output=True, text=True, timeout=10,
                     )
                     for _exec_line in (_exec_res.stdout or "").splitlines():
@@ -1250,7 +1250,7 @@ def _openshell_sandbox_logs_tail(name: str):
                 elif not _gw_log_override:
                     gw_proc = _sp.Popen(
                         ["openshell", "sandbox", "exec", "-n", name, "--",
-                         "tail", "-n", "200", "-f", "/tmp/gateway.log"],
+                         "tail", "-n", "200", "-f", "/tmp/gateway.log"],  # nosec B108 - path inside the sandbox container, read via openshell exec; not a host path
                         stdout=_sp.PIPE, stderr=_sp.DEVNULL, text=True, bufsize=1,
                     )
             except Exception:
@@ -1484,7 +1484,7 @@ def _sandbox_inference_configs() -> list:
                     # the managed proxy.  A missing or empty file means the
                     # sandbox may run unrouted/unguarded even when supervision
                     # is otherwise feasible.
-                    _proxy_env = "/tmp/nemoclaw-proxy-env.sh"
+                    _proxy_env = "/tmp/nemoclaw-proxy-env.sh"  # nosec B108 - dcode owns this path; isfile/getsize probe only, never created or written here
                     _proxy_env_present = os.path.isfile(_proxy_env)
                     _proxy_env_nonempty = (
                         _proxy_env_present
@@ -2645,6 +2645,35 @@ def _workshop_approval_config() -> dict:
 class OpenClawAdapter(AgentAdapter):
     name = "openclaw"
     display_name = "OpenClaw"
+
+    def __init__(self, sessions_dir: Optional[str] = None,
+                 state_db: Optional[str] = None) -> None:
+        # Replay-mapper overrides (#4816). The daemon and the registry build
+        # the adapter with no arguments and resolve both lazily; tests point
+        # them at fixtures.
+        self._replay_sessions_dir = sessions_dir
+        self._replay_state_db = state_db
+
+    def iter_replay_events(self, session_id: str, limit: int = 5000):
+        """Yield canonical replay events for one session (#4816, #4813).
+
+        Shape: ``clawmetry.replay_schema.ReplayEvent`` dicts, oldest first,
+        from the session transcript (legacy ``agents/main/sessions`` or the
+        2026.9.x SQLite mirror) plus the read-only state database: the
+        ``exec_approvals_config`` row becomes the leading ``mode.changed``,
+        ``operator_approvals`` rows become ``approval.requested`` and
+        ``approval.decided``, ``subagent_runs`` rows become ``agent.spawn``.
+        The transcript ``parentId`` is a chain, so no event carries it as
+        ``parent_span_id``. Span ids are namespaced ``openclaw:<sid>:...``.
+        Never raises; an unknown session yields nothing. The mapping lives
+        in ``clawmetry/adapters/openclaw_replay.py``.
+        """
+        from .openclaw_replay import iter_replay_events as _iter
+        yield from _iter(
+            session_id, limit=limit,
+            sessions_dir=self._replay_sessions_dir,
+            state_db=self._replay_state_db,
+        )
 
     def detect(self) -> DetectResult:
         try:

@@ -59,6 +59,10 @@ DB_REQUIREMENTS = {
         {"key": "AiModelAlias", "table": "ai.model_alias"},
         {"key": "AiOffering", "table": "ai.offering"},
         {"key": "AiSetting", "table": "ai.setting"},
+        # settings translation — the per-cell store and the ONE merge (CONTRACTS K2/K3/K5).
+        {"key": "AiSettingProfile", "table": "ai.setting_profile"},
+        {"key": "AiTranslationCell", "table": "ai.translation_cell"},
+        {"key": "AiOfferingRulesCompiled", "view": "ai.offering_rules_compiled"},
         # skill.render_definition — the canonical block table (content_blocks retired).
         {"key": "RenderDefinition", "table": "skill.render_definition"},
         # platform — the judge accuracy ledger (matrx_ai.evaluators.judge).

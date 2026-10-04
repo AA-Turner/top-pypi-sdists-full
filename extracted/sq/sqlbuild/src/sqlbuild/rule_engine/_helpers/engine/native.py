@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import inspect
 import json
-from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import asdict, replace
+from concurrent.futures import Executor, Future, ThreadPoolExecutor
+from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -54,6 +54,13 @@ from sqlbuild.sql_values.models import SqlValue
 from sqlbuild.sql_values.types import SqlValueKind
 
 
+@dataclass(frozen=True)
+class _PreparedNativeRequest:
+    identity: str | None
+    reused: str | None
+    request_text: str | None
+
+
 def evaluate_native(
     *,
     project: CompiledProject,
@@ -64,63 +71,53 @@ def evaluate_native(
     initial_findings: tuple[Finding, ...] = (),
     defer_suppressions: bool = False,
     verify_determinism: bool = False,
+    custom_payloads: list[dict[str, object]] | None = None,
+    custom_outcome: Future[CustomRulesOutcome] | None = None,
 ) -> RulesResult:
     """Evaluate built-in rules natively while custom rules run incrementally beside them."""
 
-    custom_payloads: list[dict[str, object]] = _custom_rule_payloads(
-        catalogue=catalogue, project_dir=project_dir
+    payloads: list[dict[str, object]] = (
+        custom_rule_payloads(catalogue=catalogue, project_dir=project_dir)
+        if custom_payloads is None
+        else custom_payloads
     )
-    custom_rules: tuple[Rule, ...] = _selected_custom_rules(
-        config=config, catalogue=catalogue, custom_payloads=custom_payloads
-    )
-    request: dict[str, object] = {
-        "version": RULES_NATIVE_API_VERSION,
-        "project_dir": str(project_dir.resolve()),
-        "dialect": dialect,
-        "config": _config_payload(config),
-        "models": _model_payloads(
-            project=project,
-            dialect=dialect,
-            include_type_proof=any(
-                _rule_selected(config=config, code=code) for code in TYPE_PROOF_RULE_CODES
-            ),
-        ),
-        "sql_tests": _sql_test_payloads(project),
-        "sql_scenarios": _sql_scenario_payloads(project),
-        "public_enums": [
-            _enum_payload(declaration) for declaration in project.public_enums.values()
-        ],
-        "public_constants": [
-            _constant_payload(declaration) for declaration in project.public_constants.values()
-        ],
-        "scope_index": scope_metadata_projection(index=project.scope_index),
-        "initial_findings": [_finding_payload(finding) for finding in initial_findings],
-        "defer_suppressions": True,
-        "custom_rules": custom_payloads,
-    }
-    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="sqlbuild-custom-rules") as pool:
-        custom_future: Future[CustomRulesOutcome] | None = (
-            pool.submit(
-                evaluate_custom_rules_cached,
+    prepared: _PreparedNativeRequest = _prepare_native_request(
+        request_json=_serialise_native_request(
+            _native_request(
                 project=project,
                 config=config,
-                project_dir=project_dir.resolve(),
-                rules=custom_rules,
+                project_dir=project_dir,
+                dialect=dialect,
+                initial_findings=initial_findings,
+                custom_payloads=payloads,
+            )
+        ),
+        project_dir=project_dir,
+        cache_enabled=config.cache.enabled,
+    )
+    with ThreadPoolExecutor(max_workers=1, thread_name_prefix="sqlbuild-custom-rules") as pool:
+        custom_future: Future[CustomRulesOutcome] | None = (
+            custom_outcome
+            if custom_payloads is not None
+            else start_custom_rules(
+                executor=pool,
+                project=project,
+                config=config,
+                project_dir=project_dir,
+                catalogue=catalogue,
+                custom_payloads=payloads,
                 dialect=dialect,
                 verify_determinism=verify_determinism,
             )
-            if custom_rules
-            else None
         )
+        reused: bool = prepared.reused is not None
         try:
-            response_json: str
-            reused: bool
-            response_json, reused = _evaluate_request(
-                request=request, project_dir=project_dir, cache_enabled=config.cache.enabled
+            response: object = orjson.loads(
+                _evaluate_request(prepared=prepared, project_dir=project_dir)
             )
-            response: object = orjson.loads(response_json)
         except (ValueError, TypeError) as error:
             raise RulesError(str(error)) from error
+        del prepared
         custom: CustomRulesOutcome = (
             CustomRulesOutcome(findings=(), cache_hits=0, cache_misses=0, custom_ms=0)
             if custom_future is None
@@ -157,6 +154,75 @@ def evaluate_native(
     )
 
 
+def _native_request(
+    *,
+    project: CompiledProject,
+    config: RulesConfig,
+    project_dir: Path,
+    dialect: str,
+    initial_findings: tuple[Finding, ...],
+    custom_payloads: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "version": RULES_NATIVE_API_VERSION,
+        "project_dir": str(project_dir.resolve()),
+        "dialect": dialect,
+        "config": _config_payload(config),
+        "models": _model_payloads(
+            project=project,
+            dialect=dialect,
+            include_type_proof=any(
+                _rule_selected(config=config, code=code) for code in TYPE_PROOF_RULE_CODES
+            ),
+        ),
+        "sql_tests": _sql_test_payloads(project),
+        "sql_scenarios": _sql_scenario_payloads(project),
+        "public_enums": [
+            _enum_payload(declaration) for declaration in project.public_enums.values()
+        ],
+        "public_constants": [
+            _constant_payload(declaration) for declaration in project.public_constants.values()
+        ],
+        "scope_index": scope_metadata_projection(index=project.scope_index),
+        "initial_findings": [_finding_payload(finding) for finding in initial_findings],
+        "defer_suppressions": True,
+        "custom_rules": custom_payloads,
+    }
+
+
+def start_custom_rules(
+    *,
+    executor: Executor,
+    project: CompiledProject,
+    config: RulesConfig,
+    project_dir: Path,
+    catalogue: tuple[Rule, ...],
+    custom_payloads: list[dict[str, object]],
+    dialect: str,
+    verify_determinism: bool = False,
+) -> Future[CustomRulesOutcome] | None:
+    """Submit selected custom rules, reusing the implementation fingerprints of their payloads."""
+
+    custom_rules: tuple[Rule, ...] = _selected_custom_rules(
+        config=config, catalogue=catalogue, custom_payloads=custom_payloads
+    )
+    if not custom_rules:
+        return None
+    return executor.submit(
+        evaluate_custom_rules_cached,
+        project=project,
+        config=config,
+        project_dir=project_dir.resolve(),
+        rules=custom_rules,
+        dialect=dialect,
+        verify_determinism=verify_determinism,
+        implementation_fingerprints={
+            str(payload["code"]): str(payload["implementation_fingerprint"])
+            for payload in custom_payloads
+        },
+    )
+
+
 def _selected_custom_rules(
     *,
     config: RulesConfig,
@@ -171,19 +237,42 @@ def _selected_custom_rules(
     return tuple(rule for rule in catalogue if rule.custom and rule.code in selected)
 
 
-def _evaluate_request(
-    *, request: dict[str, object], project_dir: Path, cache_enabled: bool
-) -> tuple[str, bool]:
-    request_json: bytes = orjson.dumps(request, option=orjson.OPT_SORT_KEYS, default=str)
-    if not cache_enabled:
-        return _native.evaluate_json(request_json.decode()), False
-    identity: str = native_request_identity(request_json)
-    reused: str | None = read_native_response(project_dir=project_dir, identity=identity)
-    if reused is not None:
-        return reused, True
-    response: str = _native.evaluate_json(request_json.decode())
-    write_native_response(project_dir=project_dir, identity=identity, response=response)
-    return response, False
+def _serialise_native_request(request: dict[str, object]) -> bytes:
+    """Encode the native request, reporting values the encoder rejects as rules errors."""
+
+    try:
+        return orjson.dumps(request, option=orjson.OPT_SORT_KEYS, default=str)
+    except orjson.JSONEncodeError as error:
+        raise RulesError(str(error)) from error
+
+
+def _prepare_native_request(
+    *, request_json: bytes, project_dir: Path, cache_enabled: bool
+) -> _PreparedNativeRequest:
+    """Resolve the memo and decode once; the caller's bytes die when this returns."""
+
+    identity: str | None = native_request_identity(request_json) if cache_enabled else None
+    reused: str | None = (
+        read_native_response(project_dir=project_dir, identity=identity)
+        if identity is not None
+        else None
+    )
+    return _PreparedNativeRequest(
+        identity=identity,
+        reused=reused,
+        request_text=request_json.decode() if reused is None else None,
+    )
+
+
+def _evaluate_request(*, prepared: _PreparedNativeRequest, project_dir: Path) -> str:
+    if prepared.reused is not None:
+        return prepared.reused
+    response: str = _native.evaluate_json(cast(str, prepared.request_text))
+    if prepared.identity is not None:
+        write_native_response(
+            project_dir=project_dir, identity=prepared.identity, response=response
+        )
+    return response
 
 
 def finalize_native_findings(
@@ -261,13 +350,21 @@ def native_catalogue() -> tuple[dict[str, object], ...]:
 
 
 def native_selected_codes(
-    *, config: RulesConfig, catalogue: tuple[Rule, ...], project_dir: Path
+    *,
+    config: RulesConfig,
+    catalogue: tuple[Rule, ...],
+    project_dir: Path,
+    custom_payloads: list[dict[str, object]] | None = None,
 ) -> tuple[str, ...]:
     """Resolve the active ruleset through the native Fensu adapter."""
 
     return _selected_codes(
         config=config,
-        custom_payloads=_custom_rule_payloads(catalogue=catalogue, project_dir=project_dir),
+        custom_payloads=(
+            custom_rule_payloads(catalogue=catalogue, project_dir=project_dir)
+            if custom_payloads is None
+            else custom_payloads
+        ),
     )
 
 
@@ -572,9 +669,11 @@ def _typed_value_payload(value: SqlValue) -> object:
     }
 
 
-def _custom_rule_payloads(
+def custom_rule_payloads(
     *, catalogue: tuple[Rule, ...], project_dir: Path
 ) -> list[dict[str, object]]:
+    """Describe every catalogued custom rule for native selection and evaluation."""
+
     closures: dict[str, tuple[Path, ...]] = {}
     return [
         _custom_rule_payload(

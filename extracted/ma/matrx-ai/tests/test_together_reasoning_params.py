@@ -35,8 +35,11 @@ def _request(**kwargs):
     return TogetherTranslator().to_together(_cfg(**kwargs), _profile())
 
 
-def test_unset_defaults_to_high_not_max():
-    assert _request()["reasoning_effort"] == "high"
+def test_unset_sends_nothing():
+    """NOT SET sends nothing unless a cell declares default_effort (V2 verifier:
+    live 6f26a08b sent an undeclared "high"; omission probed live 2026-10-04)."""
+    assert "reasoning_effort" not in _request()
+    assert "reasoning" not in _request()
 
 
 def test_medium_snaps_to_high_not_max():
@@ -63,8 +66,9 @@ def test_disable_reasoning_true_disables():
     assert req["reasoning"] == {"enabled": False}
 
 
-def test_auto_and_low_snap_to_high():
-    for effort in ("auto", "low", "minimal"):
+def test_auto_is_unset_and_low_snaps_to_high():
+    assert "reasoning_effort" not in _request(reasoning_effort="auto")
+    for effort in ("low", "minimal"):
         assert _request(reasoning_effort=effort)["reasoning_effort"] == "high", effort
 
 

@@ -24,6 +24,8 @@ class HarnessDiagnostic(BaseModel):
 
   exit_code: int | None = None
 
+  exception_messages: list[str] = []
+
 
 class TrajectoryRolloutStatus(BaseModel):
   rollout_id: str

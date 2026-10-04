@@ -37,7 +37,7 @@ def test_the_two_maps_are_in_lockstep():
     """A new registered input type with no twin fails HERE, rather than
     silently missing one — the same reconciliation that caught the union."""
     assert set(STRUCTURED_INPUT_MODEL_MAP) == set(STRUCTURED_INPUT_TYPE_MAP)
-    assert len(STRUCTURED_INPUT_MODEL_MAP) == 14
+    assert len(STRUCTURED_INPUT_MODEL_MAP) == 15
 
 
 @pytest.mark.parametrize("wire", WIRE_TYPES)
@@ -149,10 +149,10 @@ def test_private_attr_is_absent_from_the_schema_and_the_dump():
 # ── coverage, stated rather than implied ──────────────────────────────────────
 
 
-def test_nine_of_the_fourteen_have_never_been_persisted():
+def test_ten_of_the_fifteen_have_never_been_persisted():
     """Recorded so a green suite is not mistaken for production evidence."""
     never_stored = set(STRUCTURED_INPUT_TYPE_MAP) - set(STORED)
-    assert len(never_stored) == 9
+    assert len(never_stored) == 10
     assert sum(STORED.values()) == 30
 
 

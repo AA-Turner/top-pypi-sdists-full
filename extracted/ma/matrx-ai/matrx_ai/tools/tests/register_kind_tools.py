@@ -80,10 +80,10 @@ TOOLS = [
         "name": "kind_update_schema",
         "args": KindUpdateSchemaArgs,
         "description": (
-            "Replace a kind's JSON Schema. The kind version bumps automatically and every "
-            "example is re-validated by the DB trigger; the result reports STRANDED examples "
-            "(now-failing or pinned to an older kind version) so schema evolution never "
-            "silently breaks the example set. Fix stranded examples before activating the kind."
+            "Replace a kind's JSON Schema. The kind version bumps and the DB re-validates every "
+            "example; the result lists stranded examples (now failing, or pinned to an older kind "
+            "version). Fix them before activating the kind. Refused when the shape duplicates "
+            "another kind's."
         ),
         "icon": "Shapes",
         "annotations": [{"type": "destructiveHint", "value": True}],
@@ -104,9 +104,9 @@ TOOLS = [
         "args": KindCreateSkillArgs,
         "description": (
             "Create the render_block agent skill (skill_id kind_<slug>) that teaches platform "
-            "agents to emit this kind as __kind JSON, following the shipped kind_* skill house "
-            "format (shape, real example, field table, JSON syntax rules). body overrides the "
-            "generated body; extra_guidance appends domain rules. Requires a canonical example."
+            "agents to emit this kind as __kind JSON in the house format (shape, real example, "
+            "field table, JSON syntax rules). Needs a canonical example unless body is passed; "
+            "fails if kind_<slug> already exists in the kind's organization."
         ),
         "icon": "GraduationCap",
         "annotations": [{"type": "destructiveHint", "value": False}],
@@ -115,9 +115,9 @@ TOOLS = [
         "name": "kind_create_content_block",
         "args": KindCreateContentBlockArgs,
         "description": (
-            "Create the reusable prompt content block (block_id kind-<slug>) users drop into "
-            "agent prompts to make an agent emit this kind. template overrides the generated "
-            "one. Requires a canonical example unless template is provided."
+            "Create the reusable render block (block_id kind-<slug>) users drop into agent "
+            "prompts to make an agent emit this kind. template overrides the generated one, "
+            "which needs a canonical example."
         ),
         "icon": "Blocks",
         "annotations": [{"type": "destructiveHint", "value": False}],
@@ -232,9 +232,8 @@ TOOLS = [
         "name": "kindcomp_get_code",
         "args": KindcompGetCodeArgs,
         "description": (
-            "Read the full source of a kind component. sections picks component_source and/or "
-            "props_transform (default both). Output: one metadata object with a sections map; "
-            "reference those section names in kindcomp_patch_code."
+            "Read a kind component's source: metadata plus sections {name: code}. Use those "
+            "section names in kindcomp_patch_code / kindcomp_update_code."
         ),
         "icon": "Code",
         "annotations": [{"type": "readOnlyHint", "value": True}],

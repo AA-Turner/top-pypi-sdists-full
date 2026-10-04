@@ -235,6 +235,7 @@ class TypeModel:
 @dataclass
 class SimpleExtensions:
     urn: str
+    description: str | None = None
     dependencies: dict[str, str] | None = None
     metadata: dict[str, Any] | None = None
     types: list[TypeModel] | None = None

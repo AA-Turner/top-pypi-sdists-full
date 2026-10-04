@@ -1,0 +1,1282 @@
+# type: ignore
+
+from pathlib import Path
+import re
+from types import SimpleNamespace
+from unittest.mock import Mock
+
+from prompt_toolkit.document import Document
+import pytest
+
+from mycli.packages.completion import sql_completer
+from mycli.packages.completion.sql_completer import Fuzziness, SQLCompleter
+from mycli.packages.dataframes.completion import PolarsCompletion
+
+
+def collect_matches(
+    orig_text: str,
+    collection: list[str],
+    *,
+    start_only: bool = False,
+    fuzzy: bool = True,
+    casing: str | None = None,
+    text_before_cursor: str = '',
+) -> list[tuple[str, int]]:
+    completer = SQLCompleter()
+    return list(
+        completer.find_matches(
+            orig_text,
+            collection,
+            start_only=start_only,
+            fuzzy=fuzzy,
+            casing=casing,
+            text_before_cursor=text_before_cursor,
+        )
+    )
+
+
+def make_completer(**kwargs) -> SQLCompleter:
+    comp = SQLCompleter(**kwargs)
+    comp.keywords = list(comp.keywords)
+    comp.functions = list(comp.functions)
+    return comp
+
+
+def test_invalid_completion_tiebreaker_falls_back_to_frecency() -> None:
+    completer = make_completer(completion_tiebreaker='unknown')
+
+    assert completer.completion_tiebreaker == 'frecency'
+    assert completer.completion_config_errors == ['Invalid completion_tiebreaker; using frecency.']
+
+
+def test_extend_builtin_functions_ignores_generator() -> None:
+    completer = make_completer()
+    original_functions = completer.functions.copy()
+
+    completer.extend_functions((item for item in [('test', 'custom_function')]), builtin=True)
+
+    assert completer.functions == original_functions
+
+
+def test_polars_completions_preserve_display_and_replacement(monkeypatch: pytest.MonkeyPatch) -> None:
+    candidate = PolarsCompletion(text='select(', display='select', display_meta='DataFrame method', start_position=-3)
+    transform = Mock(return_value=[candidate])
+    monkeypatch.setattr(sql_completer, 'complete_polars_transform', transform)
+    completer = make_completer()
+    text = 'SELECT 1 .| df.sel'
+
+    result = list(completer.get_completions(Document(text), None))
+
+    transform.assert_called_once_with(text)
+    assert len(result) == 1
+    assert result[0].text == 'select('
+    assert result[0].start_position == -3
+    assert result[0].display_text == 'select'
+    assert result[0].display_meta_text == 'DataFrame method'
+
+
+def test_get_completions_can_override_smart_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    completer = make_completer(smart_completion=True)
+    matches = Mock(return_value=[('select', Fuzziness.PERFECT)])
+    monkeypatch.setattr(completer, 'find_matches', matches)
+    suggestions = Mock(side_effect=AssertionError('smart completion must not run'))
+    monkeypatch.setattr(sql_completer, 'suggest_type', suggestions)
+
+    result = list(completer.get_completions(Document('sel'), None, smart_completion=False))
+
+    assert [(item.text, item.start_position) for item in result] == [('select', -3)]
+    assert matches.call_args.kwargs['start_only'] is True
+    assert matches.call_args.kwargs['fuzzy'] is False
+    suggestions.assert_not_called()
+    assert completer.smart_completion is True
+
+
+@pytest.mark.parametrize('suggestion_type', ['favoritequery', 'favoritequery_template_key'])
+@pytest.mark.parametrize('instance_exists', [False, True])
+def test_favorite_completions_without_registry_methods(
+    monkeypatch: pytest.MonkeyPatch, suggestion_type: str, instance_exists: bool
+) -> None:
+    if instance_exists:
+        monkeypatch.setattr(sql_completer.FavoriteQueries, 'instance', SimpleNamespace(), raising=False)
+    else:
+        monkeypatch.delattr(sql_completer.FavoriteQueries, 'instance', raising=False)
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': suggestion_type}])
+
+    assert list(make_completer().get_completions(Document('/f '), None)) == []
+
+
+def test_dsn_completions_without_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delattr(sql_completer.DsnAliases, 'instance', raising=False)
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'dsn_alias'}])
+
+    assert list(make_completer().get_completions(Document('/dsn delete '), None)) == []
+
+
+def test_unknown_suggestion_type_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'unknown'}])
+
+    assert list(make_completer().get_completions(Document(''), None)) == []
+
+
+def test_enum_without_metadata_preserves_other_suggestions(monkeypatch: pytest.MonkeyPatch) -> None:
+    completer = make_completer()
+    completer.keywords = ['select']
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_type',
+        lambda *args: [{'type': 'enum_value', 'tables': [], 'column': 'status'}, {'type': 'keyword'}],
+    )
+
+    assert [item.text for item in completer.get_completions(Document(''), None)] == ['SELECT']
+
+
+def test_quoted_enum_completion_rejects_nonempty_unclosed_suffix() -> None:
+    completer = make_completer()
+    prefix = "SELECT * FROM orders WHERE status = 'pen"
+    document = Document(prefix + 'ding', cursor_position=len(prefix))
+
+    assert list(completer.get_completions(document, None)) == []
+
+
+@pytest.mark.parametrize(
+    ('item', 'expected'),
+    [
+        ('users', '`users`'),
+        ('`already`', '`already`'),
+        ('*', '*'),
+    ],
+)
+def test_maybe_quote_identifier(item: str, expected: str) -> None:
+    completer = SQLCompleter()
+    assert completer.maybe_quote_identifier(item) == expected
+
+
+def test_quote_collection_if_needed_quotes_when_text_starts_with_backtick() -> None:
+    completer = SQLCompleter()
+    quoted = completer.quote_collection_if_needed('`us', ['users', '*'], '')
+
+    assert quoted == ['`users`', '*']
+
+
+def test_quote_collection_if_needed_quotes_when_cursor_is_inside_backticks() -> None:
+    completer = SQLCompleter()
+    quoted = completer.quote_collection_if_needed('us', ['users', '`uuid`'], 'select `us')
+
+    assert quoted == ['`users`', '`uuid`']
+
+
+def test_quote_collection_if_needed_leaves_collection_unchanged_when_not_quoted() -> None:
+    collection = ['users', '*']
+    completer = SQLCompleter()
+    quoted = completer.quote_collection_if_needed('us', collection, 'select us')
+
+    assert quoted is collection
+
+
+@pytest.mark.parametrize(
+    ('text_parts', 'item_parts', 'expected'),
+    [
+        (['us', 'de', 'fu'], ['user', 'defined', 'function'], True),
+        (['us', 'fu'], ['user', 'defined', 'function'], True),
+        (['us', 'zz'], ['user', 'defined', 'function'], False),
+        ([], ['user', 'defined', 'function'], True),
+        (['us'], [], False),
+    ],
+)
+def test_word_parts_match(
+    text_parts: list[str],
+    item_parts: list[str],
+    expected: bool,
+) -> None:
+    completer = SQLCompleter()
+    assert completer.word_parts_match(text_parts, item_parts) is expected
+
+
+@pytest.mark.parametrize(
+    ('item', 'pattern', 'under_words_text', 'case_words_text', 'expected'),
+    [
+        ('foo_select_bar', re.compile('(s.{0,3}?e.{0,3}?l)'), ['sel'], ['sel'], Fuzziness.REGEX),
+        ('user_defined_function', re.compile('(z.{0,3}?z)'), ['us', 'de', 'fu'], ['us_de_fu'], Fuzziness.UNDER_WORDS),
+        ('TimeZoneTransitionType', re.compile('(Ti.{0,3}?Zx)'), ['TiZoTrTy'], ['Ti', 'Zo', 'Tr', 'Ty'], Fuzziness.CAMEL_CASE),
+        ('orders', re.compile('(z.{0,3}?z)'), ['zz'], ['zz'], None),
+    ],
+)
+def test_find_fuzzy_match(
+    item: str,
+    pattern: re.Pattern[str],
+    under_words_text: list[str],
+    case_words_text: list[str],
+    expected: int | None,
+) -> None:
+    completer = SQLCompleter()
+    assert completer.find_fuzzy_match(item, pattern, under_words_text, case_words_text) == expected
+
+
+def test_find_fuzzy_matches_collects_item_level_matches(monkeypatch) -> None:
+    monkeypatch.setattr(
+        SQLCompleter,
+        'find_fuzzy_match',
+        lambda self, item, pattern, under_words_text, case_words_text: {
+            'orders': Fuzziness.REGEX,
+            'order_items': Fuzziness.UNDER_WORDS,
+            'other': None,
+        }[item],
+    )
+    monkeypatch.setattr(sql_completer.rapidfuzz.process, 'extract', lambda *args, **kwargs: [])
+    completer = SQLCompleter()
+    matches = completer.find_fuzzy_matches('OrIt', 'orit', ['orders', 'order_items', 'other'])
+
+    assert matches == [
+        ('orders', Fuzziness.REGEX),
+        ('order_items', Fuzziness.UNDER_WORDS),
+    ]
+
+
+@pytest.mark.parametrize(
+    ('distance', 'candidate', 'accepted'),
+    [(0, 'zab', True), (0, 'axb', False), (1, 'axb', True), (1, 'axxb', False), (5, 'axxxxxb', True), (5, 'axxxxxxb', False)],
+)
+def test_find_fuzzy_matches_uses_regex_match_distance(distance: int, candidate: str, accepted: bool) -> None:
+    completer = SQLCompleter(regex_match_distance=distance)
+
+    matches = completer.find_fuzzy_matches('ab', 'ab', [candidate])
+
+    assert matches == ([(candidate, Fuzziness.REGEX)] if accepted else [])
+
+
+def test_find_fuzzy_matches_skips_rapidfuzz_for_short_text(monkeypatch) -> None:
+    monkeypatch.setattr(SQLCompleter, 'find_fuzzy_match', lambda *args, **kwargs: None)
+
+    def fail_extract(*args, **kwargs):
+        raise AssertionError('rapidfuzz should not be called')
+
+    monkeypatch.setattr(sql_completer.rapidfuzz.process, 'extract', fail_extract)
+    completer = SQLCompleter(completion_match_order=('rapidfuzz',))
+    matches = completer.find_fuzzy_matches('sel', 'sel', ['SELECT'])
+
+    assert matches == []
+
+
+@pytest.mark.parametrize(
+    ('minimum', 'text', 'should_run'),
+    [(2, 's', False), (2, 'se', True), (6, 'selec', False), (6, 'select', True), (0, '', True)],
+)
+def test_find_fuzzy_matches_uses_configured_minimum(monkeypatch: pytest.MonkeyPatch, minimum: int, text: str, should_run: bool) -> None:
+    calls: list[str] = []
+
+    def extract(query: str, *args: object, **kwargs: object) -> list[tuple[str, int, int]]:
+        calls.append(query)
+        return [('SELECT', 100, 0)]
+
+    monkeypatch.setattr(sql_completer.rapidfuzz.process, 'extract', extract)
+    completer = SQLCompleter(rapidfuzz_min_length=minimum, completion_match_order=('rapidfuzz',))
+
+    matches = completer.find_fuzzy_matches(text, text, ['SELECT'])
+
+    assert calls == ([text] if should_run else [])
+    assert (('SELECT', Fuzziness.RAPIDFUZZ) in matches) == should_run
+
+
+@pytest.mark.parametrize(('coverage', 'accepted'), [(0.0, True), (0.5, True), (0.75, True), (0.76, False), (1.0, False)])
+def test_find_fuzzy_matches_filters_candidate_length(monkeypatch: pytest.MonkeyPatch, coverage: float, accepted: bool) -> None:
+    monkeypatch.setattr(SQLCompleter, 'find_fuzzy_match', lambda *args: None)
+    monkeypatch.setattr(sql_completer.rapidfuzz.process, 'extract', lambda *args, **kwargs: [('abc', 90, 0)])
+    completer = SQLCompleter(rapidfuzz_length_coverage=coverage)
+
+    matches = completer.find_fuzzy_matches('abcd', 'abcd', ['abc'])
+
+    assert matches == ([('abc', Fuzziness.RAPIDFUZZ)] if accepted else [])
+
+
+@pytest.mark.parametrize(('cutoff', 'accepted'), [(0.0, True), (75.0, True), (75.1, False), (100.0, False)])
+def test_find_fuzzy_matches_applies_score_cutoff(cutoff: float, accepted: bool) -> None:
+    completer = SQLCompleter(rapidfuzz_score_cutoff=cutoff)
+
+    matches = completer.find_fuzzy_matches('abcd', 'abcd', ['abce'])
+
+    assert matches == ([('abce', Fuzziness.RAPIDFUZZ)] if accepted else [])
+
+
+def test_find_fuzzy_matches_appends_rapidfuzz_results_and_skips_duplicates(monkeypatch) -> None:
+    monkeypatch.setattr(
+        SQLCompleter,
+        'find_fuzzy_match',
+        lambda self, item, pattern, under_words_text, case_words_text: Fuzziness.REGEX if item == 'alphabet' else None,
+    )
+    monkeypatch.setattr(
+        sql_completer.rapidfuzz.process,
+        'extract',
+        lambda *args, **kwargs: [('abc', 99, 0), ('alphabet', 95, 1), ('alphanumeric', 90, 2)],
+    )
+    completer = SQLCompleter()
+    matches = completer.find_fuzzy_matches('alpahet', 'alpahet', ['abc', 'alphabet', 'alphanumeric'])
+
+    assert matches == [
+        ('alphabet', Fuzziness.REGEX),
+        ('alphanumeric', Fuzziness.RAPIDFUZZ),
+    ]
+
+
+@pytest.mark.parametrize('existing_fuzziness', [Fuzziness.PERFECT, Fuzziness.CAMEL_CASE, Fuzziness.RAPIDFUZZ])
+def test_find_fuzzy_matches_skips_rapidfuzz_duplicates_for_remaining_fuzziness_types(
+    monkeypatch,
+    existing_fuzziness: Fuzziness,
+) -> None:
+    monkeypatch.setattr(
+        SQLCompleter,
+        'find_fuzzy_match',
+        lambda self, item, pattern, under_words_text, case_words_text: existing_fuzziness if item == 'alphabet' else None,
+    )
+    monkeypatch.setattr(
+        sql_completer.rapidfuzz.process,
+        'extract',
+        lambda *args, **kwargs: [('alphabet', 95, 0)],
+    )
+    completer = SQLCompleter()
+
+    matches = completer.find_fuzzy_matches('alpahet', 'alpahet', ['alphabet'])
+
+    assert matches == [('alphabet', existing_fuzziness)]
+
+
+@pytest.mark.parametrize(
+    ('text', 'collection', 'start_only', 'expected'),
+    [
+        ('ord', ['orders', 'user_orders'], True, [('orders', Fuzziness.PERFECT)]),
+        ('name', ['table_name', 'name_table'], False, [('table_name', Fuzziness.PERFECT), ('name_table', Fuzziness.PERFECT)]),
+        ('', ['orders', 'users'], True, [('orders', Fuzziness.PERFECT), ('users', Fuzziness.PERFECT)]),
+    ],
+)
+def test_find_perfect_matches(
+    text: str,
+    collection: list[str],
+    start_only: bool,
+    expected: list[tuple[str, int]],
+) -> None:
+    completer = SQLCompleter()
+    assert completer.find_perfect_matches(text, collection, start_only) == expected
+
+
+@pytest.mark.parametrize(
+    ('casing', 'last', 'expected'),
+    [
+        (None, 'Sel', None),
+        ('upper', 'sel', 'upper'),
+        ('lower', 'SEL', 'lower'),
+        ('auto', 'sel', 'lower'),
+        ('auto', 'SEl', 'lower'),
+        ('auto', 'SEL', 'upper'),
+        ('auto', '', 'upper'),
+    ],
+)
+def test_resolve_casing(casing: str | None, last: str, expected: str | None) -> None:
+    completer = SQLCompleter()
+    assert completer.resolve_casing(casing, last) == expected
+
+
+@pytest.mark.parametrize(
+    ('completions', 'casing', 'expected'),
+    [
+        ([('Select', Fuzziness.REGEX)], None, [('Select', Fuzziness.REGEX)]),
+        ([('Select', Fuzziness.REGEX)], 'upper', [('SELECT', Fuzziness.REGEX)]),
+        ([('Select', Fuzziness.REGEX)], 'lower', [('select', Fuzziness.REGEX)]),
+        (
+            [('Select', Fuzziness.REGEX), ('From', Fuzziness.PERFECT)],
+            'upper',
+            [('SELECT', Fuzziness.REGEX), ('FROM', Fuzziness.PERFECT)],
+        ),
+    ],
+)
+def test_apply_casing(
+    completions: list[tuple[str, int]],
+    casing: str | None,
+    expected: list[tuple[str, int]],
+) -> None:
+    completer = SQLCompleter()
+    assert list(completer.apply_casing(completions, casing)) == expected
+
+
+def test_find_matches_uses_last_word_for_prefix_matching() -> None:
+    matches = collect_matches(
+        'select ord',
+        ['orders', 'user_orders'],
+        start_only=True,
+        fuzzy=False,
+    )
+
+    assert matches == [('orders', Fuzziness.PERFECT)]
+
+
+def test_find_matches_supports_substring_matching() -> None:
+    matches = collect_matches(
+        'name',
+        ['table_name', 'name_table'],
+        start_only=False,
+        fuzzy=False,
+    )
+
+    assert matches == [
+        ('table_name', Fuzziness.PERFECT),
+        ('name_table', Fuzziness.PERFECT),
+    ]
+
+
+def test_find_matches_quotes_identifiers_when_text_starts_with_backtick() -> None:
+    matches = collect_matches('`us', ['users'])
+
+    assert matches == [('`users`', Fuzziness.PERFECT)]
+
+
+def test_find_matches_quotes_identifiers_when_cursor_is_inside_backticks() -> None:
+    matches = collect_matches(
+        'uu',
+        ['users', '`uuid`'],
+        text_before_cursor='select `uu',
+    )
+
+    assert matches == [('`uuid`', Fuzziness.PERFECT)]
+
+
+def test_find_matches_preserves_asterisk_inside_backticks() -> None:
+    matches = collect_matches(
+        '*',
+        ['*'],
+        text_before_cursor='select `*',
+    )
+
+    assert matches == [('*', Fuzziness.PERFECT)]
+
+
+def test_find_matches_finds_regex_matches() -> None:
+    matches = collect_matches('sel', ['SELECT', 'foo_select_bar'])
+
+    assert matches == [
+        ('SELECT', Fuzziness.PERFECT),
+        ('foo_select_bar', Fuzziness.REGEX),
+    ]
+
+
+def test_find_matches_finds_under_word_matches() -> None:
+    matches = collect_matches('us_de_fu', ['user_defined_function'])
+
+    assert matches == [('user_defined_function', Fuzziness.UNDER_WORDS)]
+
+
+def test_find_matches_finds_camel_case_matches(monkeypatch) -> None:
+    monkeypatch.setattr(sql_completer.rapidfuzz.process, 'extract', lambda *args, **kwargs: [])
+
+    matches = collect_matches('TiZoTrTy', ['TimeZoneTransitionType'])
+
+    assert matches == [('TimeZoneTransitionType', Fuzziness.CAMEL_CASE)]
+
+
+def test_find_matches_finds_rapidfuzz_matches() -> None:
+    matches = collect_matches('sleect', ['SELECT'])
+
+    assert matches == [('SELECT', Fuzziness.RAPIDFUZZ)]
+
+
+def test_find_matches_skips_rapidfuzz_for_short_text(monkeypatch) -> None:
+    def fail_extract(*args, **kwargs):
+        raise AssertionError('rapidfuzz should not be called')
+
+    monkeypatch.setattr(sql_completer.rapidfuzz.process, 'extract', fail_extract)
+
+    matches = collect_matches('sel', ['SELECT'])
+
+    assert matches == [('SELECT', Fuzziness.PERFECT)]
+
+
+def test_find_matches_filters_short_rapidfuzz_candidates(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sql_completer.rapidfuzz.process,
+        'extract',
+        lambda *args, **kwargs: [('abc', 99, 0), ('alphabet', 95, 1)],
+    )
+
+    matches = collect_matches('alpahet', ['abc', 'alphabet'])
+
+    assert matches == [('alphabet', Fuzziness.RAPIDFUZZ)]
+
+
+@pytest.mark.parametrize(
+    ('orig_text', 'collection', 'casing', 'expected'),
+    [
+        ('sel', ['SELECT'], 'auto', [('select', Fuzziness.PERFECT)]),
+        ('SEL', ['select'], 'auto', [('SELECT', Fuzziness.PERFECT)]),
+        ('sel', ['select'], 'upper', [('SELECT', Fuzziness.PERFECT)]),
+        ('SEL', ['SELECT'], 'lower', [('select', Fuzziness.PERFECT)]),
+    ],
+)
+def test_find_matches_applies_casing(
+    orig_text: str,
+    collection: list[str],
+    casing: str,
+    expected: list[tuple[str, int]],
+) -> None:
+    matches = collect_matches(orig_text, collection, casing=casing)
+
+    assert matches == expected
+
+
+def test_init_invalid_keyword_casing_defaults_to_auto() -> None:
+    completer = SQLCompleter(keyword_casing='invalid')
+
+    assert completer.keyword_casing == 'auto'
+
+
+def test_init_configures_indexed_column_suffix() -> None:
+    completer = SQLCompleter(indexed_column_suffix=' [indexed]')
+
+    assert completer.indexed_column_suffix == ' [indexed]'
+
+
+def test_init_configures_frecency_sorting() -> None:
+    def provider() -> dict[str, float]:
+        return {'orders': 1.0}
+
+    completer = SQLCompleter(frecency_provider=provider)
+
+    assert completer.frecency_provider is provider
+
+
+@pytest.mark.parametrize('smart', [True, False])
+@pytest.mark.parametrize('text', ['', 'a'])
+@pytest.mark.parametrize(
+    ('tiebreaker', 'expected'),
+    [('frecency', ['azure', 'a', 'Alpha']), ('length', ['a', 'azure', 'Alpha']), ('lexicographic', ['a', 'Alpha', 'azure'])],
+)
+def test_completion_tiebreaker_orders_candidates(
+    monkeypatch: pytest.MonkeyPatch, smart: bool, text: str, tiebreaker: str, expected: list[str]
+) -> None:
+    def history() -> dict[str, float]:
+        if tiebreaker != 'frecency':
+            pytest.fail('Alternative tie-breakers must not read history.')
+        return {'azure': 20.0}
+
+    completer = make_completer(smart_completion=smart, completion_tiebreaker=tiebreaker, frecency_provider=history)
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'keyword'}])
+    monkeypatch.setattr(
+        completer, 'find_matches', lambda *args, **kwargs: [('azure', Fuzziness.REGEX), ('a', Fuzziness.REGEX), ('Alpha', Fuzziness.REGEX)]
+    )
+
+    assert [c.text for c in completer.get_completions(Document(text), None)] == expected
+
+
+@pytest.mark.parametrize('smart', [True, False])
+@pytest.mark.parametrize('tiebreaker', ['length', 'lexicographic'])
+def test_equal_tiebreaker_keys_preserve_order(monkeypatch: pytest.MonkeyPatch, smart: bool, tiebreaker: str) -> None:
+    completer = make_completer(smart_completion=smart, completion_tiebreaker=tiebreaker)
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'keyword'}])
+    monkeypatch.setattr(completer, 'find_matches', lambda *args, **kwargs: [('foo', Fuzziness.REGEX), ('FOO', Fuzziness.REGEX)])
+
+    assert [c.text for c in completer.get_completions(Document('f'), None)] == ['foo', 'FOO']
+
+
+def test_frecency_without_history_preserves_shorter_prefix_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    completer = make_completer()
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'keyword'}])
+    monkeypatch.setattr(completer, 'find_matches', lambda *args, **kwargs: [('alphabet', Fuzziness.REGEX), ('ant', Fuzziness.REGEX)])
+
+    assert [c.text for c in completer.get_completions(Document('a'), None)] == ['ant', 'alphabet']
+
+
+@pytest.mark.parametrize('order', [(), ('',), ('invalid',), ('regex', 'REGEX')])
+def test_completion_match_order_defaults_and_validation(order: tuple[str, ...]) -> None:
+    completer = SQLCompleter(completion_match_order=order)
+
+    assert completer.completion_match_order == tuple(category.name.lower() for category in Fuzziness)
+    assert bool(completer.completion_config_errors) == (order in [('invalid',), ('regex', 'REGEX')])
+
+
+def test_completion_match_order_normalizes_partial_list() -> None:
+    completer = SQLCompleter(completion_match_order=(' CAMEL_CASE ', 'under_words'))
+
+    assert completer.completion_match_order == ('camel_case', 'under_words')
+
+
+@pytest.mark.parametrize(
+    ('method', 'text', 'candidate'),
+    [
+        ('perfect', 'sel', 'select'),
+        ('regex', 'slt', 'select'),
+        ('under_words', 'us_de_fu', 'user_defined_function'),
+        ('camel_case', 'TiZoTrTy', 'TimeZoneTransitionType'),
+        ('rapidfuzz', 'abcd', 'abce'),
+    ],
+)
+def test_only_enabled_method_contributes_candidates(method: str, text: str, candidate: str) -> None:
+    enabled = SQLCompleter(completion_match_order=(method,))
+    disabled = SQLCompleter(completion_match_order=('slash_words',))
+
+    assert enabled.find_fuzzy_matches(text, text.lower(), [candidate]) == [(candidate, Fuzziness[method.upper()])]
+    assert disabled.find_fuzzy_matches(text, text.lower(), [candidate]) == []
+
+
+def test_perfect_only_does_not_run_fuzzy_matchers(monkeypatch: pytest.MonkeyPatch) -> None:
+    completer = SQLCompleter(completion_match_order=('perfect',))
+    monkeypatch.setattr(sql_completer.re, 'compile', pytest.fail)
+    monkeypatch.setattr(sql_completer.re, 'split', pytest.fail)
+    monkeypatch.setattr(completer, 'word_parts_match', pytest.fail)
+    monkeypatch.setattr(sql_completer.rapidfuzz.process, 'extract', pytest.fail)
+
+    assert completer.find_fuzzy_matches('sele', 'sele', ['select', 'user_select']) == [('select', Fuzziness.PERFECT)]
+
+
+@pytest.mark.parametrize('order', [('perfect', 'regex'), ('regex', 'perfect')])
+def test_enabled_prefix_methods_follow_configured_priority(order: tuple[str, ...]) -> None:
+    completer = SQLCompleter(completion_match_order=order)
+
+    assert list(completer.find_matches('sel', ['select'])) == [('select', Fuzziness[order[0].upper()])]
+
+
+@pytest.mark.parametrize('smart', [True, False])
+@pytest.mark.parametrize(('order', 'expected'), [(('perfect',), ['select']), (('slash_words',), [])])
+def test_sql_completion_with_restricted_methods(
+    monkeypatch: pytest.MonkeyPatch, smart: bool, order: tuple[str, ...], expected: list[str]
+) -> None:
+    completer = make_completer(smart_completion=smart, completion_match_order=order)
+    completer.keywords = ['select', 'user_select']
+    completer.all_completions = {'select', 'user_select'}
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'keyword'}])
+
+    assert [c.text for c in completer.get_completions(Document('sel'), None)] == expected
+
+
+def test_nonfuzzy_completion_requires_perfect() -> None:
+    completer = SQLCompleter(completion_match_order=('regex',))
+
+    assert list(completer.find_matches('sel', ['select'], fuzzy=False)) == []
+
+
+@pytest.mark.parametrize('smart', [True, False])
+@pytest.mark.parametrize(('name', 'prefix'), [('order items', 'ord'), ('select', 'SEL')])
+@pytest.mark.parametrize('quote', ['', '`'])
+def test_perfect_only_completes_quoted_table_names(smart: bool, name: str, prefix: str, quote: str) -> None:
+    completer = SQLCompleter(smart_completion=smart, completion_match_order=('perfect',))
+    completer.extend_schemata('test')
+    completer.set_dbname('test')
+    completer.extend_relations([(name,)], kind='tables')
+    token = quote + prefix
+
+    matches = list(completer.get_completions(Document(f'SELECT * FROM {token}'), None))
+
+    assert any(c.text == f'`{name}`' and c.start_position == -len(token) for c in matches)
+
+
+@pytest.mark.parametrize(('name', 'prefix'), [('order total', 'ord'), ('from', 'fro')])
+def test_perfect_only_completes_quoted_column_names(name: str, prefix: str) -> None:
+    completer = SQLCompleter(completion_match_order=('perfect',))
+    completer.extend_schemata('test')
+    completer.set_dbname('test')
+    completer.extend_relations([('orders',)], kind='tables')
+    completer.extend_columns([('orders', name)], kind='tables')
+
+    matches = list(completer.get_completions(Document(f'SELECT * FROM orders WHERE {prefix}'), None))
+
+    assert any(c.text == f'`{name}`' and c.start_position == -len(prefix) for c in matches)
+
+
+@pytest.mark.parametrize('fuzzy', [True, False])
+def test_perfect_only_does_not_match_inside_quoted_names(fuzzy: bool) -> None:
+    completer = SQLCompleter(completion_match_order=('perfect',))
+
+    assert list(completer.find_matches('der', ['`order items`'], fuzzy=fuzzy, start_only=True)) == []
+
+
+@pytest.mark.parametrize(('word', 'order'), [('./fi', ('perfect',)), ('fi', ('slash_words',))])
+def test_disabled_file_methods_do_not_access_filesystem(monkeypatch: pytest.MonkeyPatch, word: str, order: tuple[str, ...]) -> None:
+    completer = SQLCompleter(completion_match_order=order)
+    monkeypatch.setattr(sql_completer, 'suggest_path_by_prefix', pytest.fail)
+    monkeypatch.setattr(sql_completer, 'suggest_path', pytest.fail)
+
+    assert list(completer.find_files(word)) == []
+
+
+@pytest.mark.parametrize(('word', 'method'), [('./fi', 'slash_words'), ('fi', 'perfect')])
+def test_enabled_file_method_completes_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, word: str, method: str) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'file.sql').touch()
+    completer = SQLCompleter(completion_match_order=(method,))
+
+    assert list(completer.find_files(word)) == [('./file.sql' if '/' in word else 'file.sql', Fuzziness[method.upper()])]
+
+
+@pytest.mark.parametrize('preferred', ['regex', 'under_words', 'camel_case'])
+def test_overlapping_matches_use_configured_priority(preferred: str) -> None:
+    completer = SQLCompleter(completion_match_order=(preferred, 'perfect'))
+
+    matches = list(completer.find_matches('al', ['alphabet']))
+
+    assert matches == [('alphabet', Fuzziness[preferred.upper()])]
+
+
+def test_rapidfuzz_can_replace_an_overlapping_category(monkeypatch: pytest.MonkeyPatch) -> None:
+    completer = SQLCompleter(completion_match_order=('rapidfuzz', 'regex'))
+    monkeypatch.setattr(
+        sql_completer.rapidfuzz.process,
+        'extract',
+        lambda *args, **kwargs: [('alphabet', 100, 0)],
+    )
+
+    assert list(completer.find_matches('alph', ['alphabet'])) == [('alphabet', Fuzziness.RAPIDFUZZ)]
+
+
+@pytest.mark.parametrize('tiebreaker', ['frecency', 'length', 'lexicographic'])
+def test_prefix_priority_precedes_frecency(monkeypatch: pytest.MonkeyPatch, tiebreaker: str) -> None:
+    completer = make_completer(
+        completion_match_order=('rapidfuzz', 'regex'), frecency_provider=lambda: {'alpha': 100.0}, completion_tiebreaker=tiebreaker
+    )
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'keyword'}])
+    monkeypatch.setattr(completer, 'find_matches', lambda *args, **kwargs: [('alpha', Fuzziness.RAPIDFUZZ), ('prefix', Fuzziness.REGEX)])
+
+    assert [c.text for c in completer.get_completions(Document('pre'), None)] == ['prefix', 'alpha']
+
+
+def test_custom_match_priority_sorts_candidates(monkeypatch: pytest.MonkeyPatch) -> None:
+    completer = make_completer(completion_match_order=('under_words', 'regex'))
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'keyword'}])
+    monkeypatch.setattr(completer, 'find_matches', lambda *args, **kwargs: [('alpha', Fuzziness.REGEX), ('bravo', Fuzziness.UNDER_WORDS)])
+
+    assert [c.text for c in completer.get_completions(Document('x'), None)] == ['bravo', 'alpha']
+
+
+@pytest.mark.parametrize('tiebreaker', ['frecency', 'length', 'lexicographic'])
+def test_completion_type_precedes_frecency_for_empty_input(monkeypatch: pytest.MonkeyPatch, tiebreaker: str) -> None:
+    completer = make_completer(frecency_provider=lambda: {'popular': 10.0}, completion_tiebreaker=tiebreaker)
+    completer.keywords = ['popular']
+    completer.functions = ['other']
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda *args: [{'type': 'function', 'schema': None}, {'type': 'keyword'}])
+
+    assert [c.text for c in completer.get_completions(Document(''), None)] == ['OTHER', 'POPULAR']
+
+
+def test_special_command_completion_displays_snippet(monkeypatch) -> None:
+    completer = make_completer()
+    favorite = sql_completer.SPECIAL_COMMANDS['/favorite']
+    assert favorite.completion_snippet == 'manage favorite queries'
+    completer.extend_special_commands({'/favorite': favorite.completion_snippet})
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda text, before: [{'type': 'special'}])
+
+    result = list(completer.get_completions(Document(text='/fav'), None))
+
+    assert len(result) == 1
+    assert result[0].text == '/favorite'
+    assert result[0].display_meta_text == 'manage favorite queries'
+
+
+def test_sql_keyword_completion_does_not_display_special_command_snippet(monkeypatch) -> None:
+    completer = make_completer()
+    completer.keywords = ['exit']
+    completer.extend_special_commands({'exit': 'Exit.'})
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda text, before: [{'type': 'keyword'}])
+
+    result = list(completer.get_completions(Document(text='SELECT exi'), None))
+
+    assert len(result) == 1
+    assert result[0].text == 'exit'
+    assert result[0].display_meta_text == ''
+
+
+def test_get_completions_uses_frecency_before_prefix_length(monkeypatch) -> None:
+    completer = make_completer(frecency_provider=lambda: {'alphabet': 10.0})
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda text, before: [{'type': 'column', 'tables': []}])
+    monkeypatch.setattr(completer, 'populate_scoped_cols', lambda tables: ['ant', 'alphabet'])
+    monkeypatch.setattr(completer, 'populate_scoped_indexed_columns', lambda tables: [])
+
+    result = [completion.text for completion in completer.get_completions(Document(text='SELECT a'), None)]
+
+    assert result == ['alphabet', 'ant']
+
+
+@pytest.mark.parametrize('tiebreaker', ['frecency', 'length', 'lexicographic'])
+def test_get_completions_preserves_stronger_fuzzy_match(monkeypatch, tiebreaker: str) -> None:
+    completer = make_completer(frecency_provider=lambda: {'far': 100.0}, completion_tiebreaker=tiebreaker)
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda text, before: [{'type': 'column', 'tables': []}])
+    monkeypatch.setattr(completer, 'populate_scoped_cols', lambda tables: ['foo', 'far'])
+    monkeypatch.setattr(completer, 'populate_scoped_indexed_columns', lambda tables: [])
+    monkeypatch.setattr(
+        completer,
+        'find_matches',
+        lambda *args, **kwargs: iter([('far', Fuzziness.RAPIDFUZZ), ('foo', Fuzziness.PERFECT)]),
+    )
+
+    result = [completion.text for completion in completer.get_completions(Document(text='SELECT x'), None)]
+
+    assert result == ['foo', 'far']
+
+
+def test_naive_completions_use_live_frecency_provider() -> None:
+    frecency = {'bravo': 2.0}
+    completer = make_completer(smart_completion=False, frecency_provider=lambda: frecency)
+    completer.all_completions = {'alpha', 'bravo'}
+
+    first = [completion.text for completion in completer.get_completions(Document(text=''), None)]
+    frecency = {'alpha': 3.0}
+    second = [completion.text for completion in completer.get_completions(Document(text=''), None)]
+
+    assert first == ['bravo', 'alpha']
+    assert second == ['alpha', 'bravo']
+
+
+@pytest.mark.parametrize('tiebreaker', ['frecency', 'length', 'lexicographic'])
+def test_file_completions_preserve_rigid_ordering(monkeypatch, tiebreaker: str) -> None:
+    completer = make_completer(frecency_provider=lambda: {'alpha': 100.0}, completion_tiebreaker=tiebreaker)
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda text, before: [{'type': 'file_name'}])
+    monkeypatch.setattr(completer, 'find_files', lambda word: iter([('zeta', 0), ('alpha', 0)]))
+
+    result = [completion.text for completion in completer.get_completions(Document(text='/source '), None)]
+
+    assert result == ['zeta', 'alpha']
+
+
+def test_output_file_completions_include_all_file_types(monkeypatch) -> None:
+    completer = make_completer()
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_type',
+        lambda text, before: [{'type': 'file_name', 'all_files': True}],
+    )
+    find_files = Mock(return_value=iter([('report.csv', 0)]))
+    monkeypatch.setattr(completer, 'find_files', find_files)
+
+    result = [completion.text for completion in completer.get_completions(Document(text='/tee rep'), None)]
+
+    assert result == ['report.csv']
+    find_files.assert_called_once_with('rep', sql_only=False)
+
+
+def test_extend_metadata_helpers_and_logging(caplog) -> None:
+    completer = make_completer()
+    completer.set_dbname('missing')
+
+    completer.extend_keywords(['ZZZ'])
+    assert 'ZZZ' in completer.keywords
+    assert 'ZZZ' in completer.all_completions
+
+    completer.extend_keywords(['ONLY_THIS'], replace=True)
+    assert completer.keywords == ['ONLY_THIS']
+    assert 'ONLY_THIS' in completer.all_completions
+
+    completer.extend_show_items([('FULL TABLES',), ('STATUS',)])
+    completer.extend_change_items([('MASTER TO',)])
+    completer.extend_users([('app_user',)])
+    assert completer.show_items == ['FULL TABLES', 'STATUS']
+    assert 'MASTER TO' in completer.change_items
+    assert 'app_user' in completer.users
+
+    completer.extend_schemata(None)
+    assert '' not in completer.dbmetadata['tables']
+
+    with caplog.at_level('ERROR', logger='mycli.packages.completion.sql_completer'):
+        completer.extend_relations([('orders',)], kind='tables')
+    assert "listed in unrecognized schema 'missing'" in caplog.text
+
+    completer.extend_schemata('test')
+    completer.set_dbname('test')
+    completer.extend_relations([('select',)], kind='tables')
+
+    caplog.clear()
+    with caplog.at_level('ERROR', logger='mycli.packages.completion.sql_completer'):
+        completer.extend_columns([('missing', 'id'), ('select', 'from')], kind='tables')
+    assert "relname 'missing' was not found in db 'test'" in caplog.text
+    assert completer.dbmetadata['tables']['test']['`select`'] == ['*', '`from`']
+
+    completer.extend_indexed_columns([('select', 'from'), ('select', 'from'), ('orders', 'created at')])
+    assert completer.dbmetadata['indexed_columns']['test'] == {
+        '`select`': {'`from`'},
+        'orders': {'`created at`'},
+    }
+
+    completer.set_dbname('enumdb')
+    completer.extend_enum_values([('order status', 'select', ['pending'])])
+    assert completer.dbmetadata['enum_values']['enumdb']['`order status`']['`select`'] == ['pending']
+
+
+def test_extend_functions_procedures_character_sets_and_collations() -> None:
+    completer = make_completer()
+    completer.extend_schemata('test')
+    completer.set_dbname('test')
+
+    completer.extend_functions(['BUILTIN_X'], builtin=True)
+    assert 'BUILTIN_X' in completer.functions
+
+    def broken_functions():
+        raise RuntimeError('boom')
+        yield ('ignored', 'ignored')
+
+    completer.extend_functions(broken_functions())
+    completer.extend_functions(iter([('quoted func', 'meta')]))
+    assert '`quoted func`' in completer.dbmetadata['functions']['test']
+
+    completer.extend_procedures(iter([(), (None,), ('proc_demo',)]))
+    assert 'proc_demo' in completer.dbmetadata['procedures']['test']
+
+    completer.extend_character_sets(iter([(), (None,), ('utf8mb4',)]))
+    completer.extend_collations(iter([(), (None,), ('utf8mb4_unicode_ci',)]))
+    assert completer.character_sets == ['utf8mb4']
+    assert completer.collations == ['utf8mb4_unicode_ci']
+
+
+def test_extend_procedures_initializes_schema_metadata_when_missing() -> None:
+    completer = make_completer()
+    completer.set_dbname('procdb')
+
+    completer.extend_procedures(iter([('proc_demo',)]))
+
+    assert completer.dbmetadata['procedures']['procdb']['proc_demo'] is None
+
+
+def test_get_completions_drop_unique_columns(monkeypatch) -> None:
+    completer = make_completer()
+    completer.extend_schemata('test')
+    completer.set_dbname('test')
+    completer.dbmetadata['tables']['test'] = {
+        't1': ['*', 'id', 'name'],
+        't2': ['*', 'id', 'email'],
+    }
+
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_type',
+        lambda text, before: [{'type': 'column', 'tables': [(None, 't1', None), (None, 't2', None)], 'drop_unique': True}],
+    )
+
+    result = [c.text for c in completer.get_completions(Document(text='SELECT ', cursor_position=7), None)]
+
+    assert result == ['id']
+
+
+@pytest.mark.parametrize(
+    ('suggestion', 'setup', 'text', 'expected'),
+    [
+        ({'type': 'procedure', 'schema': 'test'}, lambda c, m: c.extend_procedures(iter([('proc_demo',)])), 'CALL pro', 'proc_demo'),
+        ({'type': 'show'}, lambda c, m: c.extend_show_items([('TABLE STATUS',)]), 'SHOW tab', 'table status'),
+        ({'type': 'change'}, lambda c, m: c.extend_change_items([('MASTER TO',)]), 'CHANGE ma', 'MASTER TO'),
+        ({'type': 'user'}, lambda c, m: c.extend_users([('app_user',)]), 'GRANT app', 'app_user'),
+        (
+            {'type': 'favoritequery'},
+            lambda c, m: m.setattr(
+                sql_completer.FavoriteQueries, 'instance', SimpleNamespace(list=lambda: ['daily_report']), raising=False
+            ),
+            '\\f dai',
+            'daily_report',
+        ),
+        ({'type': 'table_format'}, lambda c, m: None, 'fmt c', 'csv'),
+    ],
+)
+def test_get_completions_branch_specific_suggestions(monkeypatch, suggestion, setup, text, expected) -> None:
+    completer = make_completer(supported_formats=('csv', 'tsv'))
+    completer.extend_schemata('test')
+    completer.set_dbname('test')
+    setup(completer, monkeypatch)
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda full_text, before: [suggestion])
+
+    result = [c.text for c in completer.get_completions(Document(text=text, cursor_position=len(text)), None)]
+
+    assert expected in result
+
+
+def test_get_completions_favorite_query_template_keys(monkeypatch) -> None:
+    queries = {
+        'report': "select {{ kv.user }}, {{ kv.start_date }}, {{ kv['start-date'] }}, {{ range(2) }}, {{ kv.range }}",
+    }
+    monkeypatch.setattr(
+        sql_completer.FavoriteQueries,
+        'instance',
+        SimpleNamespace(list=lambda: list(queries), get=queries.get),
+        raising=False,
+    )
+    completer = make_completer()
+
+    blank_text = '/f report '
+    blank = list(completer.get_completions(Document(text=blank_text, cursor_position=len(blank_text)), None))
+    option_prefix_text = '/f report --'
+    option_prefix = list(completer.get_completions(Document(text=option_prefix_text, cursor_position=len(option_prefix_text)), None))
+    partial_text = '/f report --u'
+    partial = list(completer.get_completions(Document(text=partial_text, cursor_position=len(partial_text)), None))
+    dashed_text = '/f report --start-'
+    dashed = list(completer.get_completions(Document(text=dashed_text, cursor_position=len(dashed_text)), None))
+    used_text = '/f report --user=henry '
+    used = list(completer.get_completions(Document(text=used_text, cursor_position=len(used_text)), None))
+    used_dashed_text = '/f report --start-date=2026-08-03 '
+    used_dashed = list(completer.get_completions(Document(text=used_dashed_text, cursor_position=len(used_dashed_text)), None))
+
+    assert [completion.text for completion in blank] == ['--range=', '--start-date=', '--start_date=', '--user=']
+    assert {completion.text for completion in option_prefix} == {'--range=', '--start-date=', '--start_date=', '--user='}
+    assert {completion.start_position for completion in option_prefix} == {-2}
+    assert [(completion.text, completion.start_position) for completion in partial] == [('--user=', -3)]
+    assert [(completion.text, completion.start_position) for completion in dashed] == [('--start-date=', -8)]
+    assert [completion.text for completion in used] == ['--range=', '--start-date=', '--start_date=']
+    assert [completion.text for completion in used_dashed] == ['--range=', '--start_date=', '--user=']
+
+
+@pytest.mark.parametrize('query', [None, '{{ invalid'])
+def test_get_completions_favorite_query_template_keys_fail_quietly(monkeypatch, query) -> None:
+    monkeypatch.setattr(
+        sql_completer.FavoriteQueries,
+        'instance',
+        SimpleNamespace(list=lambda: ['report'], get=lambda name: query),
+        raising=False,
+    )
+    completer = make_completer()
+    text = '/f report '
+
+    assert list(completer.get_completions(Document(text=text, cursor_position=len(text)), None)) == []
+
+
+def test_get_completions_llm_branch_with_and_without_current_word(monkeypatch) -> None:
+    tokens_seen: list[list[str]] = []
+
+    def fake_get_completions(tokens: list[str]) -> list[str]:
+        tokens_seen.append(tokens)
+        return ['chat', 'explain']
+
+    monkeypatch.setattr(sql_completer, 'suggest_type', lambda full_text, before: [{'type': 'llm'}])
+    monkeypatch.setattr(sql_completer.llm, 'get_completions', fake_get_completions)
+
+    completer = make_completer()
+
+    blank_word = [c.text for c in completer.get_completions(Document(text='\\llm ', cursor_position=5), None)]
+    partial_text = '\\llm ask ch'
+    partial_word = [c.text for c in completer.get_completions(Document(text=partial_text, cursor_position=len(partial_text)), None)]
+
+    assert tokens_seen == [[], ['ask']]
+    assert 'chat' in blank_word
+    assert 'chat' in partial_word
+    assert 'explain' in blank_word
+    assert 'explain' not in partial_word
+
+
+def test_get_completions_special_subcommand_branch(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_type',
+        lambda full_text, before: [{'type': 'special_subcommand', 'subcommands': ['help', 'list', 'show', 'save', 'delete']}],
+    )
+    completer = make_completer()
+
+    result = [completion.text for completion in completer.get_completions(Document(text='/dsn s', cursor_position=6), None)]
+
+    assert result == ['show', 'save']
+
+
+@pytest.mark.parametrize(
+    ('prefix', 'expected'),
+    (
+        ('warnings', ['main.show_warnings']),
+        ('main.sh', ['main.show_warnings', 'main.less_chatty']),
+        ('', ['colors.sql.keyword', 'main.less_chatty', 'main.show_warnings']),
+    ),
+)
+def test_get_completions_config_property_branch(monkeypatch, prefix: str, expected: list[str]) -> None:
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_type',
+        lambda full_text, before: [{'type': 'config_property', 'prefix': prefix}],
+    )
+    completer = make_completer(
+        config_property_names=['main.show_warnings', 'colors.sql.keyword', 'main.less_chatty'],
+    )
+    text = f'/config get {prefix}'
+
+    result = list(completer.get_completions(Document(text=text, cursor_position=len(text)), None))
+
+    assert [completion.text for completion in result] == expected
+    assert {completion.start_position for completion in result} == {-len(prefix)}
+
+
+def test_get_completions_dsn_alias_branch(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_type',
+        lambda full_text, before: [{'type': 'dsn_alias'}],
+    )
+    monkeypatch.setattr(
+        sql_completer.DsnAliases,
+        'instance',
+        SimpleNamespace(list=lambda: ['prod', 'staging']),
+        raising=False,
+    )
+    completer = make_completer()
+
+    result = [completion.text for completion in completer.get_completions(Document(text='/dsn delete pro', cursor_position=15), None)]
+
+    assert result == ['prod']
+
+
+def test_get_completions_dsn_alias_branch_without_aliases(monkeypatch) -> None:
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_type',
+        lambda full_text, before: [{'type': 'dsn_alias'}],
+    )
+    monkeypatch.setattr(
+        sql_completer.DsnAliases,
+        'instance',
+        SimpleNamespace(list=list),
+        raising=False,
+    )
+    completer = make_completer()
+
+    result = list(completer.get_completions(Document(text='/dsn delete ', cursor_position=12), None))
+
+    assert result == []
+
+
+def test_find_files_populate_scoped_cols_and_enum_helpers(monkeypatch) -> None:
+    completer = make_completer()
+    completer.extend_schemata('test')
+    completer.set_dbname('test')
+    completer.dbmetadata['tables']['test']['`select`'] = ['id']
+    completer.dbmetadata['views']['test']['orders_view'] = ['view_id']
+    completer.extend_enum_values([('orders', 'status', ['pending', 'shipped'])])
+
+    monkeypatch.setattr(sql_completer, 'parse_path', lambda word: ('/tmp', 'fi', 0))
+    monkeypatch.setattr(
+        sql_completer,
+        'suggest_path',
+        lambda word, *, sql_only: ['file.sql', 'folder/'],
+    )
+    monkeypatch.setattr(sql_completer, 'complete_path', lambda name, last_path: name if name == 'file.sql' else None)
+
+    assert list(completer.find_files('fi')) == [('file.sql', Fuzziness.PERFECT)]
+    assert completer.populate_scoped_cols([(None, 'select', None), (None, 'orders_view', None), (None, 'missing', None)]) == [
+        'id',
+        'view_id',
+    ]
+    assert completer.populate_enum_values([(None, 'orders', 'o')], 'status', parent='other') == []
+    assert completer.populate_enum_values([(None, 'orders', 'o')], 'status', parent='o') == ['pending', 'shipped']
+    assert completer._quote_sql_string("O'Reilly") == "'O''Reilly'"
+
+
+@pytest.mark.parametrize(
+    ('name', 'expected'),
+    [
+        ('`quoted`', 'quoted'),
+        ('plain', 'plain'),
+        (None, ''),
+    ],
+)
+def test_strip_backticks(name: str | None, expected: str) -> None:
+    assert SQLCompleter._strip_backticks(name) == expected
+
+
+@pytest.mark.parametrize(
+    ('parent', 'schema', 'relname', 'alias', 'expected'),
+    [
+        ('o', None, 'orders', 'o', True),
+        ('orders', None, 'orders', None, True),
+        ('test.orders', 'test', 'orders', None, True),
+        ('other', 'test', 'orders', 'o', False),
+    ],
+)
+def test_matches_parent(parent: str, schema: str | None, relname: str, alias: str | None, expected: bool) -> None:
+    assert SQLCompleter._matches_parent(parent, schema, relname, alias) is expected
+
+
+def test_populate_scoped_indexed_columns_uses_current_schema() -> None:
+    completer = SQLCompleter()
+    completer.set_dbname('test')
+    completer.dbmetadata['indexed_columns']['test'] = {
+        'users': {'id'},
+        'orders': {'created_at'},
+    }
+
+    assert completer.populate_scoped_indexed_columns([]) == {'id', 'created_at'}
+
+
+def test_populate_scoped_indexed_columns_uses_explicit_schema_and_escaped_table() -> None:
+    completer = SQLCompleter()
+    completer.set_dbname('test')
+    completer.dbmetadata['indexed_columns']['analytics'] = {
+        '`order details`': {'`created at`'},
+    }
+
+    assert completer.populate_scoped_indexed_columns([('analytics', 'order details', None)]) == {'`created at`'}
+
+
+def test_copy_other_schemas_from_preserves_non_current_metadata() -> None:
+    source = SQLCompleter()
+    source.load_schema_metadata(
+        schema='other',
+        table_columns={'users': ['*', 'id', 'email']},
+        indexed_columns={'users': {'id'}},
+        foreign_keys={'tables': {}, 'relations': []},
+        enum_values={},
+        functions={'fn_foo': None},
+        procedures={},
+    )
+    # Also populate the source's "current" schema; it should NOT be copied.
+    source.load_schema_metadata(
+        schema='current',
+        table_columns={'stale_current': ['*']},
+        indexed_columns={'stale_current': {'id'}},
+        foreign_keys={'tables': {}, 'relations': []},
+        enum_values={},
+        functions={},
+        procedures={},
+    )
+
+    dest = SQLCompleter()
+    dest.set_dbname('current')
+    dest.extend_schemata('current')
+
+    dest.copy_other_schemas_from(source, exclude='current')
+
+    assert 'other' in dest.dbmetadata['tables']
+    assert dest.dbmetadata['tables']['other'] == {'users': ['*', 'id', 'email']}
+    assert dest.dbmetadata['indexed_columns']['other'] == {'users': {'id'}}
+    assert dest.dbmetadata['functions']['other'] == {'fn_foo': None}
+    # The excluded schema is not overwritten with stale source data.
+    assert dest.dbmetadata['tables']['current'] == {}
+    # Completion lookups pick up the copied names.
+    assert 'users' in dest.all_completions
+    assert 'email' in dest.all_completions
+    assert 'fn_foo' in dest.all_completions
+
+
+def test_copy_other_schemas_from_does_not_overwrite_existing_dest() -> None:
+    source = SQLCompleter()
+    source.load_schema_metadata(
+        schema='shared',
+        table_columns={'from_source': ['*']},
+        indexed_columns={'from_source': {'id'}},
+        foreign_keys={'tables': {}, 'relations': []},
+        enum_values={},
+        functions={},
+        procedures={},
+    )
+
+    dest = SQLCompleter()
+    dest.set_dbname('current')
+    dest.dbmetadata['tables']['shared'] = {'from_dest': ['*']}
+
+    dest.copy_other_schemas_from(source, exclude='current')
+
+    # Destination's existing data wins over source when a conflict exists.
+    assert dest.dbmetadata['tables']['shared'] == {'from_dest': ['*']}
+
+
+def test_load_schema_metadata_ignores_empty_schema() -> None:
+    completer = SQLCompleter()
+
+    completer.load_schema_metadata(
+        schema='',
+        table_columns={'users': ['*', 'id']},
+        indexed_columns={'users': {'id'}},
+        foreign_keys={'tables': {'users': []}, 'relations': [('users', 'id')]},
+        enum_values={'users': {'status': ['pending']}},
+        functions={'fn_users': None},
+        procedures={'proc_users': None},
+    )
+
+    assert completer.dbmetadata['tables'] == {}
+    assert completer.dbmetadata['views'] == {}
+    assert completer.dbmetadata['functions'] == {}
+    assert completer.dbmetadata['procedures'] == {}
+    assert completer.dbmetadata['enum_values'] == {}
+    assert completer.dbmetadata['foreign_keys'] == {}
+    assert completer.dbmetadata['indexed_columns'] == {}
+    assert 'users' not in completer.all_completions
+    assert 'fn_users' not in completer.all_completions

@@ -68,7 +68,7 @@ def test_discovery_queues_registry_references(monkeypatch) -> None:
     )
     queued: dict[str, object] = {}
 
-    def queue_tool_changes(*, add, remove):
+    def queue_tool_changes(*, add, remove=None):
         queued["add"] = add
         queued["remove"] = remove
 
@@ -81,7 +81,8 @@ def test_discovery_queues_registry_references(monkeypatch) -> None:
     assert result.success is True
     assert [spec.kind for spec in queued["add"]] == ["registered"]
     assert [spec.name for spec in queued["add"]] == ["local_system"]
-    assert queued["remove"] == ["load_desktop_tools"]
+    # The loader stays (TOOL-SOURCES.md, bundles): it never queues its own removal.
+    assert not queued["remove"]
 
 
 @pytest.mark.asyncio
@@ -170,7 +171,7 @@ async def test_surface_defaults_survive_desktop_discovery_and_dynamic_drain(
     assert result.output.skipped_policy == ["local_shell"]
     assert result.output.tools_queued == ["local_file", "local_system"]
     assert result.output.queued_count == 2
-    assert config.tools == ["local_file", "local_system"]
+    assert config.tools == ["load_desktop_tools", "local_file", "local_system"]
     assert config.custom_tools == []
     assert app_ctx.client_tools == ["local_file", "local_system"]
 

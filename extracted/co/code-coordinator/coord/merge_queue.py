@@ -63,6 +63,7 @@ from coord.state import (
     comment_on_issue,
     dismiss_drive_escalation,
     record_uat_verdict,
+    upsert_issue_comment,
 )
 from coord.uat_checks import UatCheckResult, evaluate_uat_checks
 
@@ -2216,6 +2217,57 @@ def is_ci_pending_reason(reason: str | None) -> bool:
     string (not a live ``CheckRun`` list) use this instead of re-deriving it.
     """
     return (reason or "").startswith(CI_PENDING_PREFIX)
+
+
+# #3536: floor/cap for `ci_pending_poll_interval_s`'s exponential growth.
+# `CI_PENDING_POLL_BASE_S` matches the fastest fixed poll cadence #2809's own
+# incident narrative already named (15s); `CI_PENDING_POLL_CAP_S` keeps a
+# long-pending entry from ever waiting so long that a genuinely-resolved
+# check goes unnoticed for minutes at a stretch.
+CI_PENDING_POLL_BASE_S = 15.0
+CI_PENDING_POLL_CAP_S = 300.0
+
+
+def ci_pending_poll_interval_s(
+    consecutive_pending_polls: int,
+    *,
+    base: float = CI_PENDING_POLL_BASE_S,
+    cap: float = CI_PENDING_POLL_CAP_S,
+) -> float:
+    """How long a caller should wait before re-checking CI again, given how
+    many CONSECUTIVE times in a row it has already observed this entry as
+    ``checks_pending`` (#3536).
+
+    Doubles *base* once per consecutive pending observation, capped at
+    *cap*: ``ci_pending_poll_interval_s(0)`` is *base* itself (the very
+    first pending read — no reason yet to slow down),
+    ``ci_pending_poll_interval_s(1)`` is ``2 * base``, and so on, never
+    exceeding *cap* once the doubling would.
+
+    #2814's fix made every poll re-issue a real, attempt-exempt ``coord
+    merge --only`` re-check for as long as an entry sits CI-pending — the
+    only thing that refreshes a standalone drive's cached ``error`` (see
+    :func:`coord.drive._decide_merge`'s module comment on the four
+    CI-outcome siblings `is_ci_pending_reason` is one of). That is correct
+    for a single entry in isolation, but #3536's incident shows it does not
+    scale: several sibling entries on the same host parked on CI-pending at
+    once all re-check on the SAME fixed interval, serializing through the
+    host-wide merge lock and adding `gh` calls that only grow GitHub's
+    secondary-limit exposure the longer CI genuinely stays pending — exactly
+    when the fleet can least afford more traffic.
+
+    This is the pure interval policy a caller tracking a per-entry pending
+    streak (a persisted counter alongside the existing
+    ``ci_infra_reruns``/``ci_flaky_reruns``/``ci_unreadable_reruns``) can use
+    to space those re-checks out the longer CI stays pending, instead of
+    polling on the same fixed cadence indefinitely. Deliberately pure (no
+    clock read, no persistence, no `gh` call) so the growth policy itself is
+    cheaply unit-testable independent of wherever a caller decides to track
+    the streak and the wall-clock moment it last actually checked.
+    """
+    consecutive_pending_polls = max(0, int(consecutive_pending_polls))
+    interval = base * (2.0 ** consecutive_pending_polls)
+    return min(interval, cap)
 
 
 # #2347: the reason string prefix for a `checks_failed` block whose failing
@@ -7292,6 +7344,228 @@ def _maybe_push_status(
     return None
 
 
+# ── Verification note (#2109) ───────────────────────────────────────────────
+#
+# Today the richest, only POST-fix account of a merged change lives solely in
+# the worker's own commit message — reachable only via `git show`, not from
+# the issue, the PR, or the TUI (see #2109's own issue body for the vimcode
+# evidence). This posts a `<!-- coord:event=verification -->` comment on the
+# issue the instant a merge lands, assembled entirely from facts the
+# coordinator already holds (board state, the diff) — never worker-authored
+# prose, which would just reintroduce self-reporting.
+
+
+def _latest_review_assignment_for_entry(
+    entry: "QueuedMerge", board,
+) -> Assignment | None:
+    """The most-recently-dispatched verdict-bearing review :class:`Assignment`
+    covering *entry*'s work chain — the same walk :func:`_latest_review_verdict`
+    does, returning the Assignment itself (not just its verdict string) so a
+    caller can also read its ``machine_name``.
+    """
+    if board is None:
+        return None
+    pool = list(getattr(board, "completed", []) or []) + list(getattr(board, "active", []) or [])
+    branch_work_ids = _chain_work_ids(entry, pool)
+    if not branch_work_ids:
+        return None
+    reviews = [
+        a for a in pool
+        if getattr(a, "type", None) == "review"
+        and getattr(a, "review_of_assignment_id", None) in branch_work_ids
+        and getattr(a, "review_verdict", None) is not None
+    ]
+    if not reviews:
+        return None
+    return max(reviews, key=lambda a: getattr(a, "dispatched_at", None) or 0.0)
+
+
+def _latest_smoke_assignment_for_entry(
+    entry: "QueuedMerge", board,
+) -> Assignment | None:
+    """The most-recently-dispatched Test-stage (``type="smoke"``) child
+    :class:`Assignment` for the work assignment behind *entry*.
+
+    ``Assignment.test_state`` (the verdict) lives on the WORK row; the
+    machine that actually produced it lives on this child row — mirrors
+    :func:`_latest_review_assignment_for_entry`'s split for the same reason.
+    """
+    if board is None:
+        return None
+    work = _work_assignment_for_entry(entry, board)
+    if work is None:
+        return None
+    pool = list(getattr(board, "completed", []) or []) + list(getattr(board, "active", []) or [])
+    smokes = [
+        a for a in pool
+        if getattr(a, "type", None) == "smoke"
+        and getattr(a, "review_of_assignment_id", None) == getattr(work, "assignment_id", None)
+    ]
+    if not smokes:
+        return None
+    return max(smokes, key=lambda a: getattr(a, "dispatched_at", None) or 0.0)
+
+
+def _changed_test_files(
+    entry: "QueuedMerge", gh_ops: "GhOps", *, touched: list[str] | None = None,
+) -> list[str]:
+    """Test files touched by the branch that just merged, derived straight
+    from the diff (``gh_ops.get_compare_files``) — never from worker prose.
+
+    Heuristic file-PATH match only (no AST / ``#[test]`` parse): any
+    touched path under a ``test(s)/`` directory, or matching the common
+    ``test_*`` / ``*_test.*`` / ``*.test.*`` / ``*_spec.*`` / ``*.spec.*``
+    naming conventions. Best-effort — a lookup failure (or a stub ``GhOps``
+    that doesn't support ``get_compare_files`` returning falsy) yields an
+    empty list, never raises.
+
+    *touched*, when supplied, is an already-fetched ``get_compare_files``
+    result for this exact ``(target_branch, branch)`` pair — passed in by
+    ``_build_verification_comment`` so the two callers don't make the same
+    ``gh api compare`` round trip twice per merge (#2109 review, #2096: one
+    question, one answer). ``None`` (the default) fetches it here, unchanged
+    from this function's original standalone behaviour.
+    """
+    if touched is None:
+        try:
+            touched = gh_ops.get_compare_files(
+                entry.repo_github, entry.target_branch, entry.branch,
+            )
+        except Exception:  # noqa: BLE001 — best-effort, see docstring
+            touched = None
+    if not touched:
+        return []
+    out = []
+    for path in touched:
+        lower = f"/{path.lower()}"
+        base = lower.rsplit("/", 1)[-1]
+        if (
+            "/test/" in lower or "/tests/" in lower
+            or base.startswith("test_") or "_test." in base
+            or ".test." in base or "_spec." in base or ".spec." in base
+        ):
+            out.append(path)
+    return out
+
+
+def _matched_smoke_capabilities(touched_files: list[str], config) -> list[str]:
+    """Which ``smoke_tests.capability_rules`` capabilities *touched_files*
+    matches — via :func:`coord.smoke.match_rules`, the SAME matcher
+    Test-stage routing itself uses, so the #2109 harness-limits caveat below
+    can never silently disagree with what actually got routed (#2096, one
+    question one answer). Returns ``[]`` when *config* is ``None`` or
+    declares no capability rules.
+    """
+    from coord.smoke import match_rules  # noqa: PLC0415
+
+    smoke_cfg = getattr(config, "smoke_tests", None) if config is not None else None
+    rules = getattr(smoke_cfg, "capability_rules", None) or []
+    return match_rules(touched_files, rules)
+
+
+def _build_verification_comment(
+    entry: "QueuedMerge", board, gh_ops: "GhOps", config,
+) -> str:
+    """Assemble the #2109 merge-time verification note for *entry* — every
+    field a fact already on the board or in the diff, never worker prose.
+    """
+    from coord.comments import extract_repro_section, format_verification, harness_limits_caveat  # noqa: PLC0415
+
+    try:
+        touched = gh_ops.get_compare_files(
+            entry.repo_github, entry.target_branch, entry.branch,
+        ) or []
+    except Exception:  # noqa: BLE001 — best-effort
+        touched = []
+
+    # #2109 review: `entry.target_branch_head_sha` is captured BEFORE the
+    # merge (at the gating/staleness check, so `has_smoke_verdict` can tell
+    # whether the target moved since the test verdict was recorded) — it is
+    # by construction the PARENT commit, never the commit this merge just
+    # produced. Reusing it here would silently mislabel the verification
+    # note's headline "Merge commit" field with a stale pre-merge SHA (and,
+    # in a batch sharing one target branch, the same stale SHA across every
+    # entry in the group). This function is only ever called from
+    # `_maybe_post_verification`, strictly after `gh_ops.merge_pr(...)` has
+    # already succeeded, so a fresh fetch here is a genuinely different
+    # question from the pre-merge one above — not a redundant repeat of it —
+    # and is the only way to report the SHA the merge actually produced.
+    try:
+        merge_sha = gh_ops.get_branch_sha(entry.repo_github, entry.target_branch)
+    except Exception:  # noqa: BLE001 — best-effort
+        merge_sha = None
+
+    test_files = _changed_test_files(entry, gh_ops, touched=touched)
+
+    work = _work_assignment_for_entry(entry, board)
+    test_verdict = getattr(work, "test_state", None) if work is not None else None
+    smoke = _latest_smoke_assignment_for_entry(entry, board)
+    test_machine = getattr(smoke, "machine_name", None) if smoke is not None else None
+
+    review = _latest_review_assignment_for_entry(entry, board)
+    review_verdict = getattr(review, "review_verdict", None) if review is not None else None
+    review_machine = getattr(review, "machine_name", None) if review is not None else None
+
+    caveat = harness_limits_caveat(_matched_smoke_capabilities(touched, config))
+
+    get_issue = getattr(gh_ops, "get_issue", None)
+    repro: str | None = None
+    if get_issue is not None:
+        try:
+            issue_data = get_issue(entry.repo_github, entry.issue_number) or {}
+            repro = extract_repro_section(issue_data.get("body"))
+        except Exception:  # noqa: BLE001 — best-effort
+            repro = None
+
+    return format_verification(
+        assignment_id=entry.assignment_id,
+        repo_name=entry.repo_name,
+        issue_number=entry.issue_number,
+        branch=entry.branch,
+        merge_sha=merge_sha,
+        pr_number=entry.pr_number,
+        test_files=test_files,
+        test_verdict=test_verdict,
+        test_machine=test_machine,
+        review_verdict=review_verdict,
+        review_machine=review_machine,
+        harness_caveat=caveat,
+        repro=repro,
+    )
+
+
+def _maybe_post_verification(
+    entry: "QueuedMerge", board, gh_ops: "GhOps", config,
+) -> "MergeEvent | None":
+    """Post (or update in place) the #2109 verification note on *entry*'s
+    issue, right after a successful merge.
+
+    Scoped to ``CLOSES_ISSUE_TYPES`` entries — the same scope the close/
+    comment decision just above already uses, since a ``mock-author``/
+    ``test-author`` row has no single "did this fix the bug" question for a
+    verification note to answer. Best-effort, same posture as every other
+    post-merge hook in this block (:func:`_maybe_clear_expected_red`,
+    :func:`_maybe_push_design_round`, :func:`_maybe_push_status`): a failure
+    here is reported as an event and never undoes the merge that already
+    happened.
+    """
+    if entry.assignment_type not in CLOSES_ISSUE_TYPES:
+        return None
+    try:
+        body = _build_verification_comment(entry, board, gh_ops, config)
+    except Exception as e:  # noqa: BLE001 — best-effort, see docstring
+        return MergeEvent(entry, "verification_note_failed", str(e))
+    try:
+        upsert_issue_comment(
+            entry.repo_name, entry.issue_number, body, repo_github=entry.repo_github,
+        )
+    except Exception as e:  # noqa: BLE001 — best-effort, see docstring
+        return MergeEvent(entry, "verification_note_failed", str(e))
+    return MergeEvent(
+        entry, "verification_note_posted", f"posted/updated on issue #{entry.issue_number}",
+    )
+
+
 def process(
     items: list[QueuedMerge],
     gh_ops: GhOps,
@@ -8909,6 +9183,15 @@ def process(
                     status_event = MergeEvent(entry, "status_push_failed", str(e))
                 if status_event is not None:
                     events.append(status_event)
+                # #2109: the verification note — same best-effort posture as
+                # every hook above, posted last so it can read the freshest
+                # board/diff state this merge produced.
+                try:
+                    verification_event = _maybe_post_verification(entry, board, gh_ops, config)
+                except Exception as e:  # noqa: BLE001 — bookkeeping, never undoes a real merge
+                    verification_event = MergeEvent(entry, "verification_note_failed", str(e))
+                if verification_event is not None:
+                    events.append(verification_event)
                 continue
             entry.state = CONFLICT
             entry.error = msg

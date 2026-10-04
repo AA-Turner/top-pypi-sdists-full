@@ -5,7 +5,7 @@ checkpoint per the frozen S3 contract.
 Pure library: it runs against a scratch profile directory, an injected object store,
 and an injected key-wrap provider (local KMS stand-in or real AWS KMS) — no worker,
 no Browser Manager, no ``browser.*`` schema, no AWS account. See the contract at
-``common-docs/projects/persistent-cloud-browser/contracts/S3-checkpoint-format.md``.
+``common-docs/systems/architecture/persistent-cloud-browser/FEATURE.md``.
 """
 
 from __future__ import annotations

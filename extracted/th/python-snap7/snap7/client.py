@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 from collections.abc import Sequence
+from contextvars import ContextVar
 from typing import List, Any, Optional, Tuple, Union, Callable, cast
 from datetime import datetime
 from ctypes import (
@@ -21,10 +22,10 @@ from ctypes import (
 )
 
 from .connection import ISOTCPConnection
-from .s7protocol import S7Protocol, get_return_code_description
+from .s7protocol import S7Protocol, S7UserDataGroup, S7UserDataSubfunction, get_return_code_description
 from .datatypes import S7DataTypes, S7WordLen
 from .error import S7Error, S7ConnectionError, S7ProtocolError, S7StalePacketError, S7TimeoutError
-from .client_base import ClientMixin
+from .client_base import ClientMixin, _instrumented
 from .log import PLCLoggerAdapter, OperationLogger
 from .optimizer import ReadItem, ReadPacket, sort_items, merge_items, packetize, extract_results
 from .rate_limiter import RateLimitAlgorithm, RateLimitBehavior, RequestRateLimiter
@@ -300,6 +301,7 @@ class Client(ClientMixin):
         rate_limit_burst: int | None = None,
         on_disconnect: Optional[Callable[[], None]] = None,
         on_reconnect: Optional[Callable[[], None]] = None,
+        on_operation: Optional[Callable[[str, float, bool], None]] = None,
         **kwargs: Any,
     ):
         """
@@ -319,6 +321,8 @@ class Client(ClientMixin):
             rate_limit_burst: Token bucket capacity. Defaults to one second of requests.
             on_disconnect: Optional callback invoked when connection is lost.
             on_reconnect: Optional callback invoked after successful reconnection.
+            on_operation: Optional callback invoked after each PLC operation with its
+                name, duration in seconds, and whether it raised.
             **kwargs: Ignored. Kept for backwards compatibility.
         """
         self.connection: Optional[ISOTCPConnection] = None
@@ -376,6 +380,8 @@ class Client(ClientMixin):
         self._max_delay = max_delay
         self._on_disconnect = on_disconnect
         self._on_reconnect = on_reconnect
+        self._on_operation = on_operation
+        self._operation_depth: ContextVar[int] = ContextVar("snap7_client_operation_depth", default=0)
         self._rate_limiter = RequestRateLimiter(
             max_requests_per_second,
             algorithm=rate_limit_algorithm,
@@ -994,6 +1000,7 @@ class Client(ClientMixin):
                 f"Try passing the actual DB size explicitly: client.db_fill({db_number}, {filler}, size=<actual_size>)"
             )
 
+    @_instrumented("read_area")
     def read_area(self, area: Area, db_number: int, start: int, size: int, word_len: Optional[WordLen] = None) -> bytearray:
         """
         Read data from memory area.
@@ -1062,6 +1069,7 @@ class Client(ClientMixin):
         self._exec_time = int((time.time() - start_time) * 1000)
         return result
 
+    @_instrumented("write_area")
     def write_area(self, area: Area, db_number: int, start: int, data: bytearray, word_len: Optional[WordLen] = None) -> int:
         """
         Write data to memory area.
@@ -1128,6 +1136,7 @@ class Client(ClientMixin):
         self._exec_time = int((time.time() - start_time) * 1000)
         return 0
 
+    @_instrumented("read_multi_vars")
     def read_multi_vars(self, items: Union[List[dict[str, Any]], "Array[S7DataItem]"]) -> Tuple[int, Any]:
         """Read multiple variables in a single request.
 
@@ -1383,6 +1392,7 @@ class Client(ClientMixin):
                 for blk, buf in zip(packet.blocks, block_data_list):
                     blk.buffer = buf
 
+    @_instrumented("write_multi_vars")
     def write_multi_vars(self, items: Union[List[dict[str, Any]], List[S7DataItem]]) -> int:
         """
         Write multiple variables in a single request.
@@ -1453,6 +1463,7 @@ class Client(ClientMixin):
         # Build and send list blocks request
         request = self.protocol.build_list_blocks_request()
         response = self._send_receive(request)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.BLOCK_INFO, S7UserDataSubfunction.LIST_ALL)
 
         # Check for errors in data section
         data_info = response.get("data", {})
@@ -1498,6 +1509,7 @@ class Client(ClientMixin):
         # Build and send list blocks of type request
         request = self.protocol.build_list_blocks_of_type_request(type_code)
         response = self._send_receive(request)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.BLOCK_INFO, S7UserDataSubfunction.LIST_BLOCKS_OF_TYPE)
 
         # Check for errors in data section
         data_info = response.get("data", {})
@@ -1526,6 +1538,7 @@ class Client(ClientMixin):
 
             response_data = conn.receive_data()
             response = self.protocol.parse_response(response_data)
+            self.protocol.check_userdata_response(response, S7UserDataGroup.BLOCK_INFO, S7UserDataSubfunction.LIST_BLOCKS_OF_TYPE)
 
             # Check for errors
             data_info = response.get("data", {})
@@ -1596,6 +1609,7 @@ class Client(ClientMixin):
         # Build and send get block info request
         request = self.protocol.build_get_block_info_request(type_code, db_number)
         response = self._send_receive(request)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.BLOCK_INFO, S7UserDataSubfunction.BLOCK_INFO)
 
         # Check for errors in data section
         data_info = response.get("data", {})
@@ -1606,6 +1620,7 @@ class Client(ClientMixin):
 
         return self.protocol.parse_get_block_info(response)
 
+    @_instrumented("upload")
     def upload(self, block_num: int) -> bytearray:
         """
         Upload block from PLC.
@@ -1630,22 +1645,29 @@ class Client(ClientMixin):
 
         # Parse upload ID from response
         upload_info = self.protocol.parse_start_upload_response(response)
-        upload_id = upload_info.get("upload_id", 1)
+        upload_id = upload_info["upload_id"]
 
-        # Step 2: Upload (get data)
-        request = self.protocol.build_upload_request(upload_id)
-        response = self._send_receive(request)
-
-        # Extract block data
-        block_data = self.protocol.parse_upload_response(response)
+        # Step 2: Upload all fragments.
+        block_data = bytearray()
+        for fragment_index in range(1000):
+            request = self.protocol.build_upload_request(upload_id)
+            response = self._send_receive(request)
+            fragment, is_last = self.protocol.parse_upload_fragment(response, first_fragment=fragment_index == 0)
+            block_data.extend(fragment)
+            if is_last:
+                break
+        else:
+            raise S7ProtocolError("Upload response exceeded fragment limit")
 
         # Step 3: End upload
         request = self.protocol.build_end_upload_request(upload_id)
         response = self._send_receive(request)
+        self.protocol.check_end_upload_response(response)
 
         logger.info(f"Uploaded {len(block_data)} bytes from block {block_num}")
-        return bytearray(block_data)
+        return block_data
 
+    @_instrumented("download")
     def download(self, data: bytearray, block_num: int = -1) -> int:
         """
         Download block to PLC.
@@ -1674,54 +1696,31 @@ class Client(ClientMixin):
             else:
                 block_num = 1  # Default
 
-        # Step 1: Request download
-        request = self.protocol.build_download_request(block_type, block_num, bytes(data))
-        self._send_receive(request)
+        with self._reconnect_lock:
+            request = self.protocol.build_download_request(block_type, block_num, bytes(data))
+            response = self._send_receive(request)
+            if response.get("raw_parameters") != bytes((0x1A,)):
+                raise S7ProtocolError("Invalid request-download acknowledgement")
 
-        # Step 2: Download block (send data)
-        # Build a simple download block PDU
-        param_data = struct.pack(
-            ">BBB",
-            0x1B,  # S7Function.DOWNLOAD_BLOCK
-            0x01,  # Status: last packet
-            0x00,  # Reserved
-        )
+            offset = 0
+            max_slice = self.pdu_length - 18
+            if max_slice <= 0:
+                raise S7ProtocolError("Negotiated PDU is too small for download")
+            for _ in range(1000):
+                request_data = conn.receive_data()
+                sequence = self.protocol.parse_download_service_request(request_data, 0x1B, block_num)
+                fragment = bytes(data[offset : offset + max_slice])
+                offset += len(fragment)
+                is_last = offset == len(data)
+                self._send_data(conn, self.protocol.build_download_fragment_response(sequence, is_last, fragment))
+                if is_last:
+                    break
+            else:
+                raise S7ProtocolError("Download exceeded fragment limit")
 
-        # Data section: data to write
-        data_section = struct.pack(">HH", len(data), 0x00FB) + bytes(data)
-
-        header = struct.pack(
-            ">BBHHHH",
-            0x32,  # Protocol ID
-            0x01,  # PDU type REQUEST
-            0x0000,  # Reserved
-            self.protocol._next_sequence(),  # Sequence
-            len(param_data),  # Parameter length
-            len(data_section),  # Data length
-        )
-
-        self._send_data(conn, header + param_data + data_section)
-
-        response_data = conn.receive_data()
-        self.protocol.parse_response(response_data)
-
-        # Step 3: Download ended
-        param_data = struct.pack(">B", 0x1C)  # S7Function.DOWNLOAD_ENDED
-
-        header = struct.pack(
-            ">BBHHHH",
-            0x32,  # Protocol ID
-            0x01,  # PDU type REQUEST
-            0x0000,  # Reserved
-            self.protocol._next_sequence(),  # Sequence
-            len(param_data),  # Parameter length
-            0x0000,  # Data length
-        )
-
-        self._send_data(conn, header + param_data)
-
-        response_data = conn.receive_data()
-        self.protocol.parse_response(response_data)
+            request_data = conn.receive_data()
+            sequence = self.protocol.parse_download_service_request(request_data, 0x1C, block_num)
+            self._send_data(conn, self.protocol.build_download_ended_response(sequence))
 
         logger.info(f"Downloaded {len(data)} bytes to block {block_num}")
         return 0
@@ -1798,39 +1797,29 @@ class Client(ClientMixin):
 
         # Parse upload ID from response
         upload_info = self.protocol.parse_start_upload_response(response)
-        upload_id = upload_info.get("upload_id", 1)
+        upload_id = upload_info["upload_id"]
 
-        # Step 2: Upload (get data)
-        request = self.protocol.build_upload_request(upload_id)
-        response = self._send_receive(request)
-
-        # Extract block data
-        block_data = self.protocol.parse_upload_response(response)
+        # Step 2: Upload all fragments.
+        block_data = bytearray()
+        for fragment_index in range(1000):
+            request = self.protocol.build_upload_request(upload_id)
+            response = self._send_receive(request)
+            fragment, is_last = self.protocol.parse_upload_fragment(
+                response, first_fragment=fragment_index == 0, include_block_header=True
+            )
+            block_data.extend(fragment)
+            if is_last:
+                break
+        else:
+            raise S7ProtocolError("Upload response exceeded fragment limit")
 
         # Step 3: End upload
         request = self.protocol.build_end_upload_request(upload_id)
         response = self._send_receive(request)
+        self.protocol.check_end_upload_response(response)
 
-        # Build full block with MC7 header
-        # S7 block structure: MC7 header + data + footer
-        block_header = struct.pack(
-            ">BBHBBBBHH",
-            0x70,  # Block type marker
-            block_type.value,  # Block type
-            block_num,  # Block number
-            0x00,  # Language
-            0x00,  # Properties
-            0x00,  # Reserved
-            0x00,  # Reserved
-            len(block_data) + 14,  # Block length (header + data + footer)
-            len(block_data),  # MC7 code length
-        )
-
-        block_footer = b"\x00" * 4  # Footer
-
-        full_block = bytearray(block_header + block_data + block_footer)
-        logger.info(f"Full upload of block {block_type.name} {block_num}: {len(full_block)} bytes")
-        return full_block, len(full_block)
+        logger.info(f"Full upload of block {block_type.name} {block_num}: {len(block_data)} bytes")
+        return block_data, len(block_data)
 
     def plc_stop(self) -> int:
         """Stop PLC CPU.
@@ -1880,6 +1869,7 @@ class Client(ClientMixin):
         # Build and send get clock request
         request = self.protocol.build_get_clock_request()
         response = self._send_receive(request)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.TIME, S7UserDataSubfunction.GET_CLOCK)
 
         # Parse clock response
         return self.protocol.parse_get_clock_response(response)
@@ -1901,7 +1891,8 @@ class Client(ClientMixin):
 
         # Build and send set clock request
         request = self.protocol.build_set_clock_request(dt)
-        self._send_receive(request)
+        response = self._send_receive(request)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.TIME, S7UserDataSubfunction.SET_CLOCK)
 
         logger.info(f"Set PLC datetime to {dt}")
         return 0
@@ -2102,7 +2093,7 @@ class Client(ClientMixin):
             return self.protocol.build_set_session_password_request(encoded)
 
         response = self._send_receive_with_reconnect(build_request)
-        self.protocol.check_userdata_response(response)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.SECURITY, S7UserDataSubfunction.SET_SESSION_PASSWORD)
         logger.info("Session password set successfully")
         return 0
 
@@ -2125,7 +2116,7 @@ class Client(ClientMixin):
             return self.protocol.build_clear_session_password_request()
 
         response = self._send_receive_with_reconnect(build_request)
-        self.protocol.check_userdata_response(response)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.SECURITY, S7UserDataSubfunction.CLEAR_SESSION_PASSWORD)
         logger.info("Session password cleared successfully")
         return 0
 
@@ -2151,6 +2142,7 @@ class Client(ClientMixin):
         # Build and send read SZL request
         request = self.protocol.build_read_szl_request(ssl_id, index)
         response = self._send_receive(request)
+        self.protocol.check_userdata_response(response, S7UserDataGroup.SZL, S7UserDataSubfunction.READ_SZL)
 
         # Check for errors in data section (for USERDATA - return_code != 0xFF means error)
         data_info = response.get("data", {})
@@ -2180,6 +2172,7 @@ class Client(ClientMixin):
 
             response_data = conn.receive_data()
             response = self.protocol.parse_response(response_data)
+            self.protocol.check_userdata_response(response, S7UserDataGroup.SZL, S7UserDataSubfunction.READ_SZL)
 
             # Check for errors
             data_info = response.get("data", {})

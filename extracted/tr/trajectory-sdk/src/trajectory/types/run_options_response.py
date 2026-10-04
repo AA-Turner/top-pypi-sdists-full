@@ -9,13 +9,15 @@ from trajectory.types.base_model_slug import BaseModelSlug
 
 
 class RunOptionMetadata(BaseModel):
-  type: Literal["integer", "number", "boolean"]
+  type: Literal["integer", "number", "boolean", "string"]
 
   min: float | None = None
 
   max: float | None = None
 
-  default: bool | float | None
+  default: bool | float | str | None
+
+  choices: list[str] | None = None
 
   default_kind: Literal["fixed", "computed"]
 
@@ -23,6 +25,9 @@ class RunOptionMetadata(BaseModel):
 
 
 TrainingOptionKey: TypeAlias = Literal[
+  "algorithm",
+  "train_on_truncation",
+  "train_on_ungraded",
   "disable_thinking",
   "reject_all_fail",
   "reject_all_pass",

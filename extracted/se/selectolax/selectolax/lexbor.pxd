@@ -31,6 +31,10 @@ cdef extern from "lexbor/core/core.h" nogil:
 
     lexbor_str_t* lexbor_str_create()
     lxb_char_t * lexbor_str_data_noi(lexbor_str_t *str)
+    size_t lexbor_str_length_noi(lexbor_str_t *str)
+    lxb_char_t * lexbor_str_append(lexbor_str_t *str, lexbor_mraw_t *mraw,
+                                   const lxb_char_t *data, size_t length)
+    void * lexbor_mraw_free(lexbor_mraw_t *mraw, void *data)
 
 cdef extern from "lexbor/core/lexbor.h" nogil:
     ctypedef void *(*lexbor_memory_malloc_f)(size_t size) nogil
@@ -289,8 +293,8 @@ cdef class LexborNode:
     cdef inline LexborNode _get_node(self)
 
 
-cdef bint is_empty_text_node(lxb_dom_node_t *node)
-cdef inline bint _is_whitespace_only(const lxb_char_t *buffer, size_t buffer_length) nogil
+cdef bint is_empty_text_node(lxb_dom_node_t *node) noexcept
+cdef bint _is_whitespace_only(const lxb_char_t *buffer, size_t buffer_length) noexcept nogil
 
 
 cdef class LexborCSSSelector:
@@ -299,6 +303,7 @@ cdef class LexborCSSSelector:
     cdef lxb_css_selectors_t * css_selectors
     cdef public list results
     cdef public LexborNode current_node
+    cdef size_t _wrapper_to_skip
     cdef int _create_css_parser(self) except -1
     cpdef list find(self, str query, LexborNode node)
     cpdef list find_first(self, str query, LexborNode node)
@@ -308,29 +313,43 @@ cdef class LexborCSSSelector:
 cdef class LexborHTMLParser:
     cdef lxb_html_document_t *document
     cdef lxb_dom_node_t *_fragment_wrapper
-    cdef lxb_dom_node_t *_fragment_root
     cdef bint _is_fragment
     cdef lxb_tag_id_t _fragment_tag_id
     cdef lxb_ns_id_t _fragment_namespace_id
     cdef public bytes raw_html
     cdef LexborCSSSelector _selector
     cdef inline void _new_html_document(self)
-    cdef inline lxb_status_t _parse_html_document(self, char *html, size_t html_len) nogil
-    cdef inline lxb_status_t _parse_html_fragment(self, char *html, size_t html_len) nogil
+    cdef inline lxb_dom_node_t* _fragment_root_node(self)
+    cdef inline lxb_dom_node_t* _tag_search_root(self)
+    cdef inline lxb_status_t _parse_html_document(self, char *html, size_t html_len) noexcept nogil
+    cdef inline lxb_status_t _parse_html_fragment(self, char *html, size_t html_len) noexcept nogil
     cdef int _parse_html(self, char *html, size_t html_len) except -1
+    cdef inline void _mark_mutated(self) noexcept
+    cdef unsigned long _mutation_count
     cdef object cached_script_texts
     cdef object cached_script_srcs
 
     @staticmethod
     cdef LexborHTMLParser from_document(lxb_html_document_t * document, bytes raw_html)
 
+cdef extern from "lexbor/html/encoding.h" nogil:
+    ctypedef struct lxb_html_encoding_t:
+        pass
+
+    lxb_html_encoding_t *lxb_html_encoding_create()
+    lxb_html_encoding_t *lxb_html_encoding_destroy(lxb_html_encoding_t *em, bint self_destroy)
+    const lxb_char_t *lxb_html_encoding_prescan(
+        lxb_html_encoding_t *em,
+        const lxb_char_t *data,
+        const lxb_char_t *end,
+        size_t *out_length
+    )
+
 cdef extern from "lexbor/dom/dom.h" nogil:
     ctypedef enum lexbor_action_t:
         LEXBOR_ACTION_OK    = 0x00
         LEXBOR_ACTION_STOP  = 0x01
         LEXBOR_ACTION_NEXT  = 0x02
-
-    ctypedef lexbor_action_t (*lxb_dom_node_simple_walker_f)(lxb_dom_node_t *node, void *ctx)
 
     ctypedef struct lxb_dom_character_data_t:
         lxb_dom_node_t node
@@ -365,17 +384,24 @@ cdef extern from "lexbor/dom/dom.h" nogil:
     void * lxb_dom_document_destroy_text_noi(lxb_dom_document_t *document, lxb_char_t *text)
     lxb_dom_node_t * lxb_dom_document_root(lxb_dom_document_t *document)
     lxb_dom_element_t * lxb_dom_interface_element(lxb_dom_node_t *node)
-    lxb_char_t * lxb_dom_element_qualified_name(lxb_dom_element_t *element, size_t *len)
+    const lxb_char_t * lxb_dom_element_qualified_name(const lxb_dom_element_t *element, size_t *len)
     lxb_dom_node_t * lxb_dom_node_destroy(lxb_dom_node_t *node)
     lxb_dom_node_t * lxb_dom_node_destroy_deep(lxb_dom_node_t *root)
     lxb_dom_attr_t * lxb_dom_element_first_attribute_noi(lxb_dom_element_t *element)
 
     const lxb_char_t * lxb_dom_attr_local_name_noi(lxb_dom_attr_t *attr, size_t *len)
+    # Returns the qualified name (``xlink:href``) when the attribute carries a
+    # namespace prefix, and falls back to the local name otherwise. This is the
+    # spelling that iteration reports and that ``attrs[key]`` addresses, so
+    # reporting it is what keeps iteration, lookup and removal in agreement.
+    const lxb_char_t * lxb_dom_attr_qualified_name(lxb_dom_attr_t *attr, size_t *len)
     const lxb_char_t * lxb_dom_attr_value_noi(lxb_dom_attr_t *attr, size_t *len)
+    lxb_dom_attr_t * lxb_dom_attr_interface_destroy(lxb_dom_attr_t *attr)
 
     lxb_dom_attr_t * lxb_dom_element_set_attribute(lxb_dom_element_t *element,
                                                    const lxb_char_t *qualified_name, size_t qn_len,
                                                    const lxb_char_t *value, size_t value_len)
+    lxb_status_t lxb_dom_element_attr_remove(lxb_dom_element_t *element, lxb_dom_attr_t *attr)
     lxb_status_t lxb_dom_element_remove_attribute(lxb_dom_element_t *element,
                                                   const lxb_char_t *qualified_name, size_t qn_len)
     lxb_dom_attr_t * lxb_dom_element_attr_by_name(lxb_dom_element_t *element,
@@ -388,8 +414,15 @@ cdef extern from "lexbor/dom/dom.h" nogil:
     void lxb_dom_node_insert_before(lxb_dom_node_t *to, lxb_dom_node_t *node)
     void lxb_dom_node_insert_after(lxb_dom_node_t *to, lxb_dom_node_t *node)
     lxb_dom_text_t * lxb_dom_document_create_text_node(lxb_dom_document_t *document, const lxb_char_t *data, size_t len)
-    void lxb_dom_node_simple_walk(lxb_dom_node_t *root, lxb_dom_node_simple_walker_f walker_cb, void *ctx)
     lxb_dom_node_t* lxb_dom_node_clone(lxb_dom_node_t *node, bint deep)
+
+
+# ``lxb_dom_node_simple_walk`` invokes the callback for every node in the
+# subtree, and selectolax's callback appends to a Python list, so it requires
+# the GIL. These are therefore declared as GIL-requiring rather than ``nogil``.
+cdef extern from "lexbor/dom/dom.h":
+    ctypedef lexbor_action_t (*lxb_dom_node_simple_walker_f)(lxb_dom_node_t *node, void *ctx)
+    void lxb_dom_node_simple_walk(lxb_dom_node_t *root, lxb_dom_node_simple_walker_f walker_cb, void *ctx)
 
 
 cdef extern from "lexbor/dom/interfaces/element.h" nogil:
@@ -662,7 +695,6 @@ cdef extern from "lexbor/selectors/selectors.h" nogil:
     ctypedef struct lxb_selectors_t
     ctypedef struct lxb_css_selector_list_t
     ctypedef struct lxb_css_selector_specificity_t
-    ctypedef lxb_status_t (*lxb_selectors_cb_f)(lxb_dom_node_t *node, lxb_css_selector_specificity_t *spec, void *ctx)
     ctypedef enum lxb_selectors_opt_t:
         LXB_SELECTORS_OPT_DEFAULT = 0x00
         LXB_SELECTORS_OPT_MATCH_ROOT = 1 << 1
@@ -678,5 +710,12 @@ cdef extern from "lexbor/selectors/selectors.h" nogil:
     lxb_selectors_t * lxb_selectors_create()
     lxb_status_t lxb_selectors_init(lxb_selectors_t *selectors)
     lxb_selectors_t * lxb_selectors_destroy(lxb_selectors_t *selectors, bint self_destroy)
+
+
+# ``lxb_selectors_find`` invokes the callback for every matched node, and
+# selectolax's callbacks append to Python lists, so they require the GIL.
+# These are therefore declared as GIL-requiring rather than ``nogil``.
+cdef extern from "lexbor/selectors/selectors.h":
+    ctypedef lxb_status_t (*lxb_selectors_cb_f)(lxb_dom_node_t *node, lxb_css_selector_specificity_t *spec, void *ctx)
     lxb_status_t lxb_selectors_find(lxb_selectors_t *selectors, lxb_dom_node_t *root,
                                     lxb_css_selector_list_t *list, lxb_selectors_cb_f cb, void *ctx)

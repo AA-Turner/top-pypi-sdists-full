@@ -1,4 +1,4 @@
 
 # THIS FILE IS GENERATED FROM RISKFOLIO-LIB SETUP.PY
-version = '7.3.0'
+version = '7.4.0'
     

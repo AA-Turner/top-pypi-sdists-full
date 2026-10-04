@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.206.1"
+  version: "1.211.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -9839,8 +9839,8 @@ components:
         clicks: { type: integer, example: 0, description: 'Link clicks where the platform reports them. Always 0 on Facebook Page stories: Meta exposes no link-click metric for stories.' }
         views: { type: integer, example: 0 }
         follows: { type: [integer, "null"], example: 0, description: 'Instagram feed posts and stories only: organic accounts that started following from this post. Null on Instagram Reels and non-Reels video, where Meta does not expose this metric for the media. 0 for other platforms.' }
-        igReelsAvgWatchTime: { type: integer, example: 0, description: 'Instagram Reels only: average watch time per play, in milliseconds. 0 for non-Reels media and other platforms.' }
-        igReelsVideoViewTotalTime: { type: integer, example: 0, description: 'Instagram Reels only: total watch time including replays, in milliseconds. 0 for non-Reels media and other platforms.' }
+        igReelsAvgWatchTime: { type: integer, example: 0, description: 'Average watch time per play, in milliseconds, for Instagram Reels, Facebook Reels and TikTok videos (business accounts). On Facebook it includes replays within a play, so it can exceed the Reel length. 0 for other media and platforms, including regular Facebook videos.' }
+        igReelsVideoViewTotalTime: { type: integer, example: 0, description: 'Total watch time including replays, in milliseconds, for Instagram Reels, Facebook Reels and TikTok videos (business accounts). 0 for other media and platforms, including regular Facebook videos.' }
         reelsSkipRate: { type: number, example: 48.8, description: 'Instagram Reels only: percentage (0-100) of initial views that skipped the reel within its first 3 seconds, as reported by Meta. Meta labels the metric estimated and in development, so it can move between syncs. 0 for non-Reels media and other platforms. When a post is published to several accounts, the aggregate is weighted by views.' }
         completionRate: { type: number, example: 0, description: 'TikTok accounts connected through the TikTok for Business app only: share of viewers who watched the video to the end, 0 to 1, as TikTok reports it (T+24-48h, only for posts active in the last 7 days). 0 for other platforms. When a post is published to several accounts, the aggregate is weighted by views.' }
         profileViews: { type: integer, example: 0, description: 'TikTok accounts connected through the TikTok for Business app only: profile views from users who reached the profile through this post (T+24-48h). 0 for other platforms.' }
@@ -10075,8 +10075,8 @@ components:
             clicks: { type: integer }
             views: { type: integer }
             follows: { type: integer, description: 'Follows attributed to this post (Instagram)' }
-            igReelsAvgWatchTime: { type: integer, description: 'Instagram Reels average watch time, in milliseconds' }
-            igReelsVideoViewTotalTime: { type: integer, description: 'Instagram Reels total watch time, in milliseconds' }
+            igReelsAvgWatchTime: { type: integer, description: 'Average watch time per play, in milliseconds (Instagram Reels, Facebook Reels, TikTok business videos)' }
+            igReelsVideoViewTotalTime: { type: integer, description: 'Total watch time including replays, in milliseconds (Instagram Reels, Facebook Reels, TikTok business videos)' }
             reposts: { type: integer }
             reelsSkipRate: { type: number, description: 'Instagram Reels skip rate, 0 to 1' }
             completionRate: { type: number, description: 'TikTok business lane: share of viewers who watched to the end, 0 to 1' }
@@ -11382,7 +11382,7 @@ components:
         languages: { type: array, items: { type: string }, description: "Language codes restricting the audience by language. Applied on Meta, Google, TikTok, LinkedIn, X and Pinterest; rejected with 400 on OpenAI. A code the platform cannot target returns 400 listing the ones it can. On Meta, ISO 639-1 codes (e.g. ['en']); a bare code targets all regional variants (\"en\" = all English), or use a region-qualified code (\"en_GB\", \"pt_BR\") for a specific one. Unknown codes are rejected." }
         interests:
           type: array
-          description: "Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. Rejected with 400 on Google (use Demand Gen audience userInterests there) and OpenAI."
+          description: "Interest entities from /v1/ads/targeting/search?dimension=interest. Each carries the platform's opaque id. On Google, applied as ad-group interest criteria (affinity and in-market categories) on Display and Search ad groups the request creates; rejected with 400 on Performance Max, on Demand Gen (use the Demand Gen audience `userInterests` there), when attaching to an existing ad group (`adSetId`), and on OpenAI. On Google, interests are create-only."
           items:
             type: object
             required: [id]
@@ -20882,7 +20882,7 @@ paths:
 
         `accountId` is required, because a post URL or id alone cannot be resolved to an account, and the account must be connected to Zernio (we use its token to read the platform). Supported for every platform with a listing API (Instagram, Facebook, TikTok, YouTube, X, Threads, Pinterest, Reddit, Bluesky, Google Business Profile, and LinkedIn organization accounts).
 
-        LinkedIn personal profiles: LinkedIn has no listing API for personal profiles, so a `url` is REQUIRED and imports that single post. Pass any LinkedIn post URL (`linkedin.com/posts/…`, `linkedin.com/feed/update/urn:li:activity:…`) or a `urn:li:share:…` / `urn:li:ugcPost:…` URN. Works for posts published outside Zernio and before the account was connected, any age; the post must be authored by the connected member. Imported posts return full analytics (impressions, reach, reactions, comments, reshares, saves) and keep refreshing on the background analytics cycle, but carry no content/media (LinkedIn does not expose them for personal profiles).
+        LinkedIn personal profiles: LinkedIn has no listing API for personal profiles, so a `url` is REQUIRED and imports that single post. Pass any LinkedIn post URL (`linkedin.com/posts/…`, `linkedin.com/feed/update/urn:li:activity:…`) or a `urn:li:share:…` / `urn:li:ugcPost:…` URN. Works for posts published outside Zernio and before the account was connected, any age; the post must be authored by the connected member. Imported posts return full analytics (impressions, reach, reactions, comments, reshares, saves) and keep refreshing on the background analytics cycle, but carry no content/media (LinkedIn does not expose them for personal profiles). `publishedAt` comes from the post id: an activity URL (`linkedin.com/feed/update/urn:li:activity:…`) carries the publication time, while a `urn:li:share:…` / `urn:li:ugcPost:…` URN only carries the creation time, which is earlier for a post scheduled in another tool. Pass the activity URL for the exact publication date; importing it again for a post already imported by its URN corrects `publishedAt` on the same record. Right after an import, the per-post `GET /v1/analytics?postId=` read can show zeros for a few minutes while the metrics are ingested; this endpoint's response carries the fetched values immediately.
 
         `url` accepts any format the platform uses (e.g. `instagram.com/p/…`, `instagram.com/reel/…`, `youtu.be/…`, `youtube.com/shorts/…`, `tiktok.com/@user/video/…`, `vm.tiktok.com` short links, `pinterest.com/pin/…` on any regional domain, and `pin.it` short links). Pass `postId` (the platform media/video/pin id) as an alternative locator.
 
@@ -36766,7 +36766,8 @@ paths:
         '403':
           description: 'Inbox addon required, or the connected account is not permitted to comment on this post on the platform (code platform_api_error, type platform_error)'
         '409': { $ref: '#/components/responses/IdempotencyKeyInFlight' }
-        '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
+        '422':
+          description: 'Idempotency-Key reused with a different request, or the platform rejected the comment (for example a locked thread, a deleted parent or a post too old for comments; code platform_api_error)'
         '429': { $ref: '#/components/responses/RateLimited' }
         '502':
           description: 'Upstream platform error (code platform_api_error, type platform_error)'
@@ -53122,6 +53123,19 @@ paths:
                     LOWEST_COST_WITH_MIN_ROAS is rejected with 422 (OpenAI has no ROAS-based
                     bidding). Other platforms (linkedin, pinterest, google, twitter) return 501
                     Not Implemented when bidStrategy is set.
+                smartTargeting:
+                  type: object
+                  description: |
+                    TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is
+                    TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`.
+                    When on, TikTok may deliver beyond the selected audiences or interests. Available on
+                    Video views, Traffic, Lead generation, App install, Web conversion and Community interaction.
+                    Only the flags you send are written; an unwritten flag reads back null in
+                    `nativeSettings`, so send `false` explicitly to be able to verify it is off.
+                    Applied with TikTok's adgroup/update; read it back with GET /v1/ads/ad-sets?adSetId=...&live=true.
+                  properties:
+                    audience: { type: boolean, description: "TikTok smart_audience_enabled." }
+                    interestsBehaviors: { type: boolean, description: "TikTok smart_interest_behavior_enabled." }
                 bidAmount:
                   type: number
                   description: |
@@ -60493,6 +60507,19 @@ paths:
                   maxItems: 5
                   items: { type: string }
                   description: 'Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM); the post keeps its own text as one of the options. Works for Facebook posts and Instagram media. Under a conversions or traffic goal Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`); engagement boosts need none.'
+                smartTargeting:
+                  type: object
+                  description: |
+                    TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is
+                    TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`.
+                    When on, TikTok may deliver beyond the selected audiences or interests. Available on
+                    Video views, Traffic, Lead generation, App install, Web conversion and Community interaction.
+                    Only the flags you send are written; an unwritten flag reads back null in
+                    `nativeSettings`, so send `false` explicitly to be able to verify it is off.
+                    Not available with smartPlus or when attaching to an existing ad set (adSetId).
+                  properties:
+                    audience: { type: boolean, description: "TikTok smart_audience_enabled." }
+                    interestsBehaviors: { type: boolean, description: "TikTok smart_interest_behavior_enabled." }
                 optimizationGoal:
                   type: string
                   description: |
@@ -60961,6 +60988,19 @@ paths:
 
                     **OpenAI Ads**
                     - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 400. Pick the event with `promotedObject.customEventType` (see AdPromotedObject); without it the most recently created optimizable event is used.
+                smartTargeting:
+                  type: object
+                  description: |
+                    TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is
+                    TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`.
+                    When on, TikTok may deliver beyond the selected audiences or interests. Available on
+                    Video views, Traffic, Lead generation, App install, Web conversion and Community interaction.
+                    Only the flags you send are written; an unwritten flag reads back null in
+                    `nativeSettings`, so send `false` explicitly to be able to verify it is off.
+                    Not available with smartPlus or when attaching to an existing ad set (adSetId).
+                  properties:
+                    audience: { type: boolean, description: "TikTok smart_audience_enabled." }
+                    interestsBehaviors: { type: boolean, description: "TikTok smart_interest_behavior_enabled." }
                 optimizationGoal: { type: string, description: "Meta, or TikTok with goal video_views (ENGAGED_VIEW, the 6-second default, or ENGAGED_VIEW_FIFTEEN; both bill per view). Meta: Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations." }
                 billingEvent: { type: string, description: "Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal." }
                 buyingType: { type: string, enum: [AUCTION, RESERVED], default: AUCTION, description: "Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative)." }
@@ -61010,7 +61050,7 @@ paths:
                     Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore
                     this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
                 currency: { type: string, minLength: 3, maxLength: 3, description: "ISO 4217 currency code matching the ad account's currency (e.g. `USD`). Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is)." }
-                headline: { type: string, description: "Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative; use `creatives[].headline`). Ignored for TikTok and X. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title." }
+                headline: { type: string, description: "Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative; use `creatives[].headline`). Ignored for TikTok. On X, the website card title (needs imageUrl and linkUrl, max 70). Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title." }
                 longHeadline: { type: string, maxLength: 90, description: "Google Display only. Defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided." }
                 body: { type: string, description: "Required on legacy + attach shapes. For X this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). On OpenAI Ads this is the chat card's body text. Max: Google=90, Pinterest=500, OpenAI=100." }
                 description: { type: string, maxLength: 255, description: "Meta only (facebook/instagram). Link description: the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use `descriptions` (array) instead." }
@@ -61052,7 +61092,7 @@ paths:
                 callToAction: { type: string, enum: [LEARN_MORE, SHOP_NOW, SIGN_UP, BOOK_TRAVEL, CONTACT_US, DOWNLOAD, GET_OFFER, GET_QUOTE, SUBSCRIBE, WATCH_MORE, ADD_TO_CART, APPLY_NOW, BOOK_NOW, BUY_TICKETS, DONATE, DONATE_NOW, GET_DIRECTIONS, GET_SHOWTIMES, LISTEN_NOW, ORDER_NOW, PLAY_GAME, REQUEST_TIME, SEE_MENU, START_ORDER, INSTALL_MOBILE_APP, USE_APP, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, BUY_NOW], description: "Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X." }
                 linkUrl: { type: string, format: uri, description: "Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url)." }
                 leadGenFormId: { type: string, description: "Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). `placementAssets`, `dynamicCreative` and `carouselCards` (Meta multi-card Instant-Form lead ad; `linkUrl` and per-card `linkUrl` are optional and forwarded as real destinations when sent, falling back to Meta's lead-form link when omitted) ARE supported on Meta instant-form lead ads." }
-                imageUrl: { type: string, format: uri, description: "Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Rejected with 400 on X (an X ad is a post from body + linkUrl; promote a post that carries the image with POST /v1/ads/boost), as are headline, description, video and callToAction. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format)." }
+                imageUrl: { type: string, format: uri, description: "Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). On X, imageUrl + headline + linkUrl together build a website card (image, title and destination under the post; the URL is not added to the post text); sending only some of them is a 400. description, video and callToAction are rejected with 400 on X (promote a post that carries a video with POST /v1/ads/boost). For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format)." }
                 images:
                   type: object
                   description: "Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display."
@@ -61176,6 +61216,17 @@ paths:
                     authored are cleaned up; the pre-existing parent is left
                     untouched and is never (re)activated. Mutually exclusive
                     with `adSetId` and `creatives[]`.
+                phoneNumber:
+                  type: string
+                  pattern: '^\+[1-9]\d{6,14}$'
+                  description: |
+                    Meta attach shape only (`adSetId`). The phone number (E.164, e.g. `+4712345678`)
+                    for an ad added to a "website and phone call" ad set (destination_type
+                    `WEBSITE_AND_PHONE_CALL`), sent as the creative's call configuration. Optional:
+                    when omitted, the number on the ad set's existing ads is reused, and if none of
+                    them carries one the request is a 400. Rejected with 400 on any other ad set,
+                    with `existingCreativeId`, without `adSetId`, or on other platforms (a new call
+                    campaign is `POST /v1/ads/call`).
                 existingCreativeId:
                   type: string
                   description: |
@@ -62896,7 +62947,8 @@ paths:
         TikTok geo searches return every matching level in one list (`type` is
         `country`, `region`, `city`, `district`, or `metro` for DMA areas), and
         `geoType` is not applied. Results are scoped to the advertiser's targetable
-        markets. A `country` result's id is its ISO 3166-1 alpha-2 code, for
+        markets (pass `adAccountId` when the connection holds several advertisers). A
+        two-letter `q` also matches a country by ISO code (`q=GB` returns the United Kingdom first). A `country` result's id is its ISO 3166-1 alpha-2 code, for
         `targeting.countries`; every other id is TikTok's numeric location id,
         usable in `regions`/`cities`/`metros` keys on `POST /v1/ads/create`.
 
@@ -62962,6 +63014,7 @@ paths:
         - { name: dimension, in: query, required: false, schema: { type: string, enum: [geo, interest, behavior, income, language, workPosition, workEmployer, workIndustry, industry, jobFunction, seniority, companySize], default: interest }, description: "What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities (`behavior` is Meta only), `income` resolves the normalized income tiers, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias." }
         - { name: geoType, in: query, required: false, schema: { type: string, enum: [all, country, country_group, region, city, subcity, neighborhood, place, zip, metro_area, geo_market], default: city }, description: "Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`." }
         - { name: countryCode, in: query, required: false, schema: { type: string, minLength: 2, maxLength: 2 }, description: "ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "TikTok only: the advertiser to search as, when the connection holds several. Each TikTok advertiser has its own targetable regions and catalogs. Defaults to the connection's first advertiser; an advertiser the connection does not hold returns 400." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Maximum results to return." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }

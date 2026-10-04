@@ -45,7 +45,7 @@ def test_it_describes_every_twin_including_registry_exported_ones():
         assert name in defs, name
 
     structured = [n for n in defs if n.endswith("InputContentModel")]
-    assert len(structured) == 14, f"expected 14 structured inputs, found {len(structured)}"
+    assert len(structured) == 15, f"expected 15 structured inputs, found {len(structured)}"
 
 
 def test_the_document_is_self_contained():

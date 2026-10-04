@@ -8,7 +8,6 @@ use polyglot_sql::{Dialect, Expression};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::compiler::_helpers::sql_tests::cte_slices::SliceDialect;
 use crate::compiler::_helpers::sql_tests::cte_sql::{
@@ -19,9 +18,10 @@ use crate::compiler::_helpers::sql_tests::helper_scope::{
     ScopeGraph, helper_scope_ctes, merged_scoped_ctes,
 };
 use crate::compiler::_helpers::sql_tests::markers::{
-    in_protected_range, marker_names, protected_ranges, replace_callable_markers,
+    ProtectedRanges, marker_names, marker_names_in, replace_callable_markers,
     replace_dbt_ref_markers, replace_named_markers,
 };
+use crate::compiler::_helpers::sql_tests::relation_markers::relation_marker_calls;
 use crate::compiler::_helpers::sql_tests::rendering::{
     AssertionStep, ChainStep, RenderRequest, render_comparison_sql, render_dialect,
     rendered_chain_steps,
@@ -49,7 +49,7 @@ const ASSERT_PREFIX: &str = "__assert__";
 const REF_FUNCTION: &str = "__ref";
 const SOURCE_FUNCTION: &str = "__source";
 const SEED_FUNCTION: &str = "__seed";
-const DBT_REF_FUNCTION: &str = "__dbt_ref";
+pub(crate) const DBT_REF_FUNCTION: &str = "__dbt_ref";
 const UDF_FUNCTION: &str = "__udf";
 const TABLE_FUNCTION: &str = "__table_fn";
 
@@ -1304,13 +1304,9 @@ fn analysis_template(
                 return None;
             }
             let expression = statements.remove(0);
-            let value = match serde_json::to_value(&expression) {
-                Ok(value) => value,
-                Err(_) => return None,
-            };
             Some(AnalysisTemplate {
                 existing_cte_names: top_level_cte_names(&expression),
-                marker_calls: relation_marker_calls(&value),
+                marker_calls: relation_marker_calls(&expression),
             })
         })
     })
@@ -1484,73 +1480,6 @@ fn resolve_function_calls(
     Ok(result)
 }
 
-fn relation_marker_calls(value: &Value) -> Vec<(String, String)> {
-    fn marker(expression: &Value) -> Option<(String, String)> {
-        let object = expression.as_object()?;
-        if let Some(alias) = object.get("alias") {
-            return marker(alias.get("this")?);
-        }
-        let function = object.get("function")?.as_object()?;
-        let function_name = function.get("name")?.as_str()?.to_ascii_lowercase();
-        let args = function.get("args")?.as_array()?;
-        let arg_name = |arg: &Value| {
-            arg.get("column")?
-                .get("name")?
-                .get("name")?
-                .as_str()
-                .map(str::to_string)
-        };
-        let referenced_name = if function_name == DBT_REF_FUNCTION {
-            match args.as_slice() {
-                [first] => arg_name(first)?,
-                [first, second] => format!("{}__{}", arg_name(first)?, arg_name(second)?),
-                _ => return None,
-            }
-        } else {
-            let [first] = args.as_slice() else {
-                return None;
-            };
-            arg_name(first)?
-        };
-        Some((function_name, referenced_name))
-    }
-
-    fn walk(value: &Value, calls: &mut Vec<(String, String)>) {
-        match value {
-            Value::Object(object) => {
-                if let Some(expressions) = object
-                    .get("from")
-                    .and_then(|from| from.get("expressions"))
-                    .and_then(Value::as_array)
-                {
-                    calls.extend(expressions.iter().filter_map(marker));
-                }
-                if let Some(joins) = object.get("joins").and_then(Value::as_array) {
-                    calls.extend(
-                        joins
-                            .iter()
-                            .filter_map(|join| join.get("this"))
-                            .filter_map(marker),
-                    );
-                }
-                for child in object.values() {
-                    walk(child, calls);
-                }
-            }
-            Value::Array(values) => {
-                for child in values {
-                    walk(child, calls);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    let mut calls: Vec<(String, String)> = Vec::new();
-    walk(value, &mut calls);
-    calls
-}
-
 fn top_level_cte_names(expression: &Expression) -> HashSet<String> {
     let Expression::Select(select) = expression else {
         return HashSet::new();
@@ -1620,7 +1549,8 @@ fn unresolved_reference_warnings(request: UnresolvedReferenceRequest<'_>) -> Vec
             });
         }
     };
-    for name in marker_names(&patterns.reference, &patterns.lexical, sql) {
+    let mut protected = ProtectedRanges::new(&patterns.lexical, sql);
+    for name in marker_names_in(&patterns.reference, &mut protected) {
         let message = format!(
             "test '{test_name}': model '{model_name}' references __ref('{name}') which has no mock and is not in the expected chain"
         );
@@ -1630,19 +1560,18 @@ fn unresolved_reference_warnings(request: UnresolvedReferenceRequest<'_>) -> Vec
         (&patterns.source, SOURCE_FUNCTION),
         (&patterns.seed, SEED_FUNCTION),
     ] {
-        for name in marker_names(pattern, &patterns.lexical, sql) {
+        for name in marker_names_in(pattern, &mut protected) {
             let message = format!(
                 "test '{test_name}': model '{model_name}' references {function_name}('{name}') which has no mock"
             );
             warn(function_name, name, message);
         }
     }
-    let protected = protected_ranges(&patterns.lexical, sql);
     for captures in patterns.dbt_reference.captures_iter(sql) {
         let Some(full) = captures.get(0) else {
             continue;
         };
-        if in_protected_range(full.start(), &protected) {
+        if protected.contains(full.start()) {
             continue;
         }
         let Some(first) = captures.get(1).map(|value| value.as_str()) else {

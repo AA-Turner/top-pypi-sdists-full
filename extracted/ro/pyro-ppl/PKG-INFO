@@ -1,17 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyro-ppl
-Version: 1.9.1
+Version: 1.9.2
 Summary: A Python library for probabilistic modeling and inference
-Home-page: http://pyro.ai
 Author: Uber AI Labs
-License: Apache 2.0
+License-Expression: Apache-2.0
 Project-URL: Documentation, https://docs.pyro.ai
+Project-URL: Homepage, http://pyro.ai
 Project-URL: Source, https://github.com/pyro-ppl/pyro
-Keywords: machine learning statistics probabilistic programming bayesian modeling pytorch
+Keywords: bayesian,machine learning,modeling,probabilistic programming,pytorch,statistics
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Education
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python :: 3.8
@@ -32,69 +31,37 @@ Requires-Dist: ipywidgets; extra == "extras"
 Requires-Dist: graphviz>=0.8; extra == "extras"
 Requires-Dist: matplotlib>=1.3; extra == "extras"
 Requires-Dist: torchvision>=0.15.0; extra == "extras"
-Requires-Dist: visdom<0.2.2,>=0.1.4; extra == "extras"
 Requires-Dist: pandas; extra == "extras"
 Requires-Dist: pillow>=8.3.1; extra == "extras"
 Requires-Dist: scikit-learn; extra == "extras"
 Requires-Dist: seaborn>=0.11.0; extra == "extras"
 Requires-Dist: wget; extra == "extras"
 Requires-Dist: scipy>=1.1; extra == "extras"
-Provides-Extra: test
-Requires-Dist: notebook; extra == "test"
-Requires-Dist: ipywidgets; extra == "test"
-Requires-Dist: graphviz>=0.8; extra == "test"
-Requires-Dist: matplotlib>=1.3; extra == "test"
-Requires-Dist: torchvision>=0.15.0; extra == "test"
-Requires-Dist: visdom<0.2.2,>=0.1.4; extra == "test"
-Requires-Dist: pandas; extra == "test"
-Requires-Dist: pillow>=8.3.1; extra == "test"
-Requires-Dist: scikit-learn; extra == "test"
-Requires-Dist: seaborn>=0.11.0; extra == "test"
-Requires-Dist: wget; extra == "test"
-Requires-Dist: scipy>=1.1; extra == "test"
-Requires-Dist: black>=21.4b0; extra == "test"
-Requires-Dist: nbval; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: pytest>=5.0; extra == "test"
-Requires-Dist: ruff; extra == "test"
-Provides-Extra: profile
-Requires-Dist: prettytable; extra == "profile"
-Requires-Dist: pytest-benchmark; extra == "profile"
-Requires-Dist: snakeviz; extra == "profile"
-Provides-Extra: dev
-Requires-Dist: notebook; extra == "dev"
-Requires-Dist: ipywidgets; extra == "dev"
-Requires-Dist: graphviz>=0.8; extra == "dev"
-Requires-Dist: matplotlib>=1.3; extra == "dev"
-Requires-Dist: torchvision>=0.15.0; extra == "dev"
-Requires-Dist: visdom<0.2.2,>=0.1.4; extra == "dev"
-Requires-Dist: pandas; extra == "dev"
-Requires-Dist: pillow>=8.3.1; extra == "dev"
-Requires-Dist: scikit-learn; extra == "dev"
-Requires-Dist: seaborn>=0.11.0; extra == "dev"
-Requires-Dist: wget; extra == "dev"
-Requires-Dist: scipy>=1.1; extra == "dev"
-Requires-Dist: black>=21.4b0; extra == "dev"
-Requires-Dist: mypy>=0.812; extra == "dev"
-Requires-Dist: nbformat; extra == "dev"
-Requires-Dist: nbsphinx>=0.3.2; extra == "dev"
-Requires-Dist: nbstripout; extra == "dev"
-Requires-Dist: nbval; extra == "dev"
-Requires-Dist: ninja; extra == "dev"
-Requires-Dist: pypandoc; extra == "dev"
-Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pytest>=5.0; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: sphinx_rtd_theme; extra == "dev"
-Requires-Dist: yapf; extra == "dev"
 Provides-Extra: horovod
 Requires-Dist: horovod[pytorch]>=0.19; extra == "horovod"
 Provides-Extra: lightning
 Requires-Dist: lightning; extra == "lightning"
 Provides-Extra: funsor
-Requires-Dist: funsor[torch]==0.4.4; extra == "funsor"
+Requires-Dist: funsor[torch]==0.4.8; python_version >= "3.10" and extra == "funsor"
+Dynamic: license-file
+
+<!--
+Copyright Contributors to the Pyro project.
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
+<div align="center">
+  <a href="http://pyro.ai"> <img width="220px" height="220px" src="docs/source/_static/img/pyro_logo_with_text.png"></a>
+</div>
+
+-----------------------------------------
+
+[![Build Status](https://github.com/pyro-ppl/pyro/workflows/CI/badge.svg)](https://github.com/pyro-ppl/pyro/actions)
+[![Coverage Status](https://coveralls.io/repos/github/pyro-ppl/pyro/badge.svg?branch=dev)](https://coveralls.io/github/pyro-ppl/pyro?branch=dev)
+[![Latest Version](https://badge.fury.io/py/pyro-ppl.svg)](https://pypi.python.org/pypi/pyro-ppl)
+[![Documentation Status](https://readthedocs.org/projects/pyro-ppl/badge/?version=dev)](http://pyro-ppl.readthedocs.io/en/stable/?badge=dev)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/3056/badge)](https://bestpractices.coreinfrastructure.org/projects/3056)
 
 [Getting Started](http://pyro.ai/examples) |
 [Documentation](http://docs.pyro.ai/) |

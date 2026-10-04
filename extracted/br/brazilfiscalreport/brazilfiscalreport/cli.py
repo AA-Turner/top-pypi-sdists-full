@@ -23,7 +23,7 @@ def get_default_issuer():
         "nome": "EMPRESA LTDA",
         "end": "AV. TEST, 100",
         "bairro": "TEST",
-        "cep": "88888-88",
+        "cep": "88888-888",
         "cidade": "SÃO PAULO",
         "uf": "SP",
         "fone": "(11) 1234-5678",

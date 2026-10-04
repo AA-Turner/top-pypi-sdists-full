@@ -23,15 +23,20 @@
 #include "SciQLopPlots/SciQLopPlot.hpp"
 #include "SciQLopPlots/Profiling.hpp"
 #include "SciQLopPlots/SciQLopTheme.hpp"
+#include "SciQLopPlots/ThreadGuard.hpp"
+
+#include <QFontMetrics>
 #include "SciQLopPlots/Inspector/Model/Model.hpp"
 #include "SciQLopPlots/Items/SciQLopPlotItem.hpp"
 #include "SciQLopPlots/constants.hpp"
 #include <layoutelements/layoutelement-legend-group.h>
+#include <plottables/plottable-intervals.h>
 #include <plottables/plottable-multigraph.h>
 #include <theme.h>
 
 #include <QFileInfo>
 #include <QSignalBlocker>
+#include <algorithm>
 #include <cmath>
 #include <cpp_utils/containers/algorithms.hpp>
 #include <limits>
@@ -178,6 +183,13 @@ SciQLopHistogram2DFunction* SciQLopPlot::add_histogram2d(GetDataPyCallable&& cal
     _ensure_colorscale_is_visible(hist);
     _register_plottable_wrapper(hist);
     return hist;
+}
+
+SciQLopTimeline* SciQLopPlot::add_timeline(QCPLaneLayout* layout)
+{
+    auto* timeline = new SciQLopTimeline(this, layout, this->m_axes[1]);
+    _register_plottable_wrapper(timeline);
+    return timeline;
 }
 
 SciQLopColorMapFunction* SciQLopPlot::add_color_map(GetDataPyCallable&& callable,
@@ -515,6 +527,12 @@ bool SciQLopPlot::_update_mouse_cursor(QMouseEvent* event)
         this->setCursor(sciItem->cursor(event));
         return true;
     }
+    if (auto* intervals = qobject_cast<QCPIntervals*>(plottableAt(event->pos(), false)))
+        if (const auto shape = intervals->cursorAt(event->pos()))
+        {
+            this->setCursor(*shape);
+            return true;
+        }
     this->setCursor(Qt::ArrowCursor);
     return false;
 }
@@ -793,6 +811,11 @@ SciQLopPlot::~SciQLopPlot()
         if (m_theme->qcp_theme())
             disconnect(m_theme->qcp_theme(), nullptr, this, nullptr);
     }
+    // Deleting a timeline changes the lane layout; reacting to it here would report a natural
+    // height to a container that may itself be mid-destruction.
+    if (m_lane_layout)
+        disconnect(m_lane_layout, nullptr, this, nullptr);
+    disconnect(m_impl, &QCustomPlot::afterLayout, this, &SciQLopPlot::_update_timeline_geometry);
     m_curve_scale->quiesce();
     while (plottables().size() > 0)
     {
@@ -824,6 +847,108 @@ SciQLopHistogram2DFunction* SciQLopPlot::add_histogram2d(GetDataPyCallable&& cal
         _connect_callable_sync(hist, nullptr);
     }
     return hist;
+}
+
+QCPLaneLayout* SciQLopPlot::lane_layout()
+{
+    if (!m_lane_layout)
+        m_lane_layout = new QCPLaneLayout(this);
+    return m_lane_layout;
+}
+
+SciQLopTimeline* SciQLopPlot::add_timeline(int lane_height)
+{
+    SciQLopPlots::require_owner_thread(this, "SciQLopPlot::add_timeline");
+    // The first timeline on a plot sets the shared lane height; later ones join it.
+    if (!m_lane_layout)
+        lane_layout()->setLaneHeight(lane_height);
+    return m_impl->add_timeline(lane_layout());
+}
+
+void SciQLopPlot::configure_as_timeline(int lane_height)
+{
+    auto* layout = lane_layout();
+    layout->setLaneHeight(lane_height);
+    layout->setPlacement(QCPLaneLayout::plLanes);
+    m_impl->axisRect()->setRangeDrag(Qt::Horizontal);
+    m_impl->axisRect()->setRangeZoom(Qt::Horizontal);
+    // Minimum: the hint (the lanes' natural height) is the least it needs; it may grow.
+    auto policy = sizePolicy();
+    policy.setVerticalPolicy(QSizePolicy::Minimum);
+    setSizePolicy(policy);
+    connect(layout, &QCPLaneLayout::changed, this, &SciQLopPlot::_update_timeline_geometry);
+    connect(m_impl, &QCustomPlot::afterLayout, this, &SciQLopPlot::_update_timeline_geometry);
+    connect(this, &SciQLopPlotInterface::graph_list_changed, this,
+            &SciQLopPlot::_move_graphs_to_right_axis);
+    _update_timeline_geometry();
+}
+
+//! On a timeline plot the left axis holds lanes; any other plottable goes to the right axis.
+void SciQLopPlot::_move_graphs_to_right_axis()
+{
+    for (auto* p : plottables())
+        if (!qobject_cast<SciQLopTimeline*>(p) && p->y_axis() == y_axis())
+        {
+            p->set_y_axis(y2_axis());
+            y2_axis()->set_visible(true);
+        }
+}
+
+//! Room above the first lane for half a lane-name label: an outside tick label the widget border
+//! would clip is not drawn at all, so without it the top lane loses its name.
+static int timeline_top_margin(const QCPAxis* axis, int lane_height)
+{
+    const int label_height = QFontMetrics(axis->tickLabelFont()).height();
+    return std::max(0, (label_height - lane_height + 1) / 2 + 1);
+}
+
+void SciQLopPlot::_update_timeline_geometry()
+{
+    // An export lays the plot out at the export size (toPixmap sets a temporary viewport);
+    // measuring that layout would resize the live widget in the middle of the export.
+    if (m_impl->viewport() != m_impl->rect())
+        return;
+    auto* layout = lane_layout();
+    const int top = timeline_top_margin(m_impl->yAxis, layout->laneHeight());
+    if (m_impl->plotLayout()->margins().top() != top)
+        m_impl->plotLayout()->setMargins(QMargins(0, top, 0, 0));
+    // The y axis counts rows: a lane with stacked overlaps spans several.
+    m_impl->yAxis->setRangeReversed(true);
+    m_impl->yAxis->setRange(0, std::max(1, layout->totalRows()));
+    QMap<double, QString> labels;
+    for (int lane : layout->displayLanes())
+        labels[layout->laneCentreRow(lane)] = layout->laneNames()[lane];
+    if (y_axis()->tick_labels() != labels)
+        y_axis()->set_tick_labels(labels);
+    // Before the plot's first real QCP layout pass (e.g. while it isn't shown yet),
+    // axisRect()->height() is still 0: computing "overhead" from that would latch
+    // a bogus fixed height. afterLayout() re-runs this once there's a real rect to
+    // measure, so it's safe to just wait for that.
+    if (m_impl->axisRect()->height() <= 0)
+        return;
+    const int overhead = height() - m_impl->axisRect()->height();
+    // Right after the plot is inserted in a panel it can be 0 px tall while its axis rect
+    // still has the previous layout's height: wait for the next layout to measure.
+    if (overhead < 0)
+        return;
+    const int natural = layout->totalHeight() + overhead;
+    // The natural height is a floor, not a fixed size: a taller plot spreads its lanes
+    // (QCPLaneLayout gives each an equal share of the axis rect in a lanes plot).
+    if (layout->visibleLaneCount() > 0 && natural != m_timeline_natural_height)
+    {
+        const int previous = std::exchange(m_timeline_natural_height, natural);
+        setMinimumHeight(natural);
+        updateGeometry();
+        emit natural_height_changed(previous, natural);
+    }
+}
+
+QSize SciQLopPlot::sizeHint() const
+{
+    const QSize hint = SciQLopPlotInterface::sizeHint();
+    if (m_timeline_natural_height > 0)
+        return { hint.width(), m_timeline_natural_height };
+    return hint;
 }
 
 SciQLopWaterfallGraph* SciQLopPlot::add_waterfall(const QString& name, const QStringList& labels,

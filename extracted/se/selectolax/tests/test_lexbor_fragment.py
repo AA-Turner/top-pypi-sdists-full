@@ -285,12 +285,224 @@ def test_fragment_strip_tags():
     assert parser.html == "<div><p>Hello</p></div>"
 
 
+def test_fragment_tags_covers_whole_fragment():
+    # Lexbor never links a fragment's wrapper element into the document's child
+    # list, so a lookup rooted at the document used to return nothing at all.
+    html = "<div><p>a</p></div><div><p>b</p></div><span>c</span>"
+    parser = LexborHTMLParser(html, is_fragment=True)
+
+    assert [node.html for node in parser.tags("div")] == [
+        "<div><p>a</p></div>",
+        "<div><p>b</p></div>",
+    ]
+    assert [node.html for node in parser.tags("p")] == ["<p>a</p>", "<p>b</p>"]
+    assert len(parser.tags("*")) == 5
+    assert parser.tags("table") == []
+    assert parser.tags("html") == []  # the wrapper is not part of the fragment
+
+
+def test_fragment_tags_follows_mutations():
+    parser = LexborHTMLParser("<div><b>a</b></div><u>b</u>", is_fragment=True)
+    assert len(parser.tags("b")) == 1
+
+    parser.root.unwrap()
+    assert len(parser.tags("b")) == 1
+
+    parser.css_first("b").decompose()
+    assert parser.tags("b") == []
+
+
+def test_parser_strip_tags_covers_whole_fragment():
+    # Same root cause as tags(): the collection was rooted at the document, so
+    # strip_tags() silently removed nothing from a fragment.
+    parser = LexborHTMLParser(
+        "<script>a</script><div><script>b</script><p>c</p></div>", is_fragment=True
+    )
+    parser.strip_tags(["script"], recursive=True)
+
+    assert parser.html == "<div><p>c</p></div>"
+
+    parser.strip_tags(["div"])
+    assert parser.html == "" and parser.root is None
+
+
 def test_fragment_decompose():
     html = "<div><script>alert('test')</script><p>Hello</p></div>"
     parser = LexborHTMLParser(html, is_fragment=True)
     script = parser.root.css_first("script")
     script.decompose()
     assert parser.html == "<div><p>Hello</p></div>"
+
+
+def test_fragment_root_follows_unwrap():
+    parser = LexborHTMLParser("<div><span>a</span></div><p>b</p>", is_fragment=True)
+    parser.root.unwrap()
+
+    # Unwrapping the first top-level node used to leave the parser pointing at
+    # the detached <div>, hiding every sibling behind it.
+    assert parser.html == "<span>a</span><p>b</p>"
+    assert parser.root.tag == "span"
+    assert parser.root.parent is not None
+    assert parser.text() == "ab"
+    assert len(parser.css("span")) == 1
+    assert len(parser.css("p")) == 1
+
+
+def test_fragment_root_follows_decompose():
+    parser = LexborHTMLParser("<div><span>a</span></div><p>b</p>", is_fragment=True)
+    parser.root.decompose()
+
+    assert parser.html == "<p>b</p>"
+    assert parser.root.tag == "p"
+    assert parser.text() == "b"
+
+
+def test_fragment_root_follows_replace_with():
+    parser = LexborHTMLParser("<div><span>a</span></div><p>b</p>", is_fragment=True)
+    parser.root.replace_with("X")
+
+    assert parser.html == "X<p>b</p>"
+    assert parser.root.is_text_node
+
+
+def test_fragment_root_follows_strip_tags():
+    parser = LexborHTMLParser("<div><i>a</i></div><p><i>b</i></p>", is_fragment=True)
+    parser.root.strip_tags(["div"])
+
+    assert parser.html == "<p><i>b</i></p>"
+    assert parser.root.tag == "p"
+
+
+def test_fragment_root_follows_insert_before():
+    parser = LexborHTMLParser("<div>a</div><p>b</p>", is_fragment=True)
+    replacement = LexborHTMLParser("<span>x</span>", is_fragment=True)
+    parser.root.insert_before(replacement.root)
+
+    # A node inserted in front of the root used to be dropped from the
+    # serialization, which starts at the root and walks its siblings.
+    assert parser.html == "<span>x</span><div>a</div><p>b</p>"
+    assert parser.root.tag == "span"
+
+
+def test_fragment_root_tracks_until_fragment_is_empty():
+    parser = LexborHTMLParser("<a>1</a><b>2</b>", is_fragment=True)
+
+    parser.root.unwrap()
+    assert parser.root.is_text_node
+    assert parser.html == "1<b>2</b>"
+
+    # Unwrapping a text node is a no-op, so the root stays where it is.
+    parser.root.unwrap()
+    assert parser.html == "1<b>2</b>"
+
+
+def test_fragment_root_is_none_once_emptied():
+    parser = LexborHTMLParser("<div>a</div>", is_fragment=True)
+    parser.root.decompose()
+
+    assert parser.root is None
+    assert parser.html == ""
+
+
+def test_fragment_root_survives_repeated_unwrap_of_every_top_level_node():
+    parser = LexborHTMLParser("<a>1</a><b>2</b><c>3</c>", is_fragment=True)
+
+    # Unwrapping an element lifts its text out in front of it, so the root
+    # walks the text nodes first and only then the remaining elements.
+    for expected_root in ("-text", "b", "-text", "c", "-text"):
+        parser.root.unwrap(delete_empty=True)
+        assert parser.root.tag == expected_root
+
+    parser.root.unwrap(delete_empty=True)
+    assert parser.root is None
+    assert parser.html == ""
+
+
+def test_attached_fragment_root_still_covers_every_top_level_node():
+    """Tree walks from an attached fragment root must widen to its siblings."""
+    parser = LexborHTMLParser("<div>a</div><p>b</p><i>c</i>", is_fragment=True)
+    root = parser.root
+    assert root.tag == "div"
+
+    assert root.text() == "abc"
+    assert len(root.css("p")) == 1
+    assert root.css_matches("i") is True
+    assert [node.tag for node in root.iter()] == ["div", "p", "i"]
+    assert len(root.select("i").matches) == 1
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda node: node.unwrap(), id="unwrap"),
+        pytest.param(lambda node: node.decompose(), id="decompose"),
+        pytest.param(lambda node: node.remove(), id="remove"),
+        pytest.param(lambda node: node.replace_with("X"), id="replace_with"),
+        pytest.param(lambda node: node.strip_tags(["div"]), id="strip_tags"),
+        pytest.param(
+            lambda node: node.decompose(recursive=False), id="decompose_shallow"
+        ),
+    ],
+)
+def test_detached_fragment_root_does_not_crash(mutate):
+    """Every tree walk from a detached fragment root must stay in bounds.
+
+    Tree walks start at ``_get_node()``, which used to hand back ``None`` once
+    the root lost its parent, and the callers dereferenced it unconditionally.
+    """
+    parser = LexborHTMLParser("<div>a<span>s</span></div><p>b</p>", is_fragment=True)
+    root = parser.root
+    mutate(root)
+
+    # The detached node stands in for itself: only its own subtree is walked.
+    assert root.text() in ("", "a" + "s")
+    assert root.css("span") is not None
+    assert root.css_first("span") is None or root.css_first("span").tag == "span"
+    assert isinstance(root.css_matches("div"), bool)
+    assert isinstance(root.any_css_matches(("div", "span")), bool)
+    assert isinstance(list(root.iter()), list)
+    assert isinstance(list(root.iter(include_text=True)), list)
+    assert isinstance(root.select("span").matches, list)
+    assert root.text_content is None or isinstance(root.text_content, str)
+
+
+def test_detached_fragment_root_reports_its_own_subtree():
+    parser = LexborHTMLParser("<div>a<span>s</span></div>", is_fragment=True)
+    root = parser.root
+    root.unwrap()
+
+    # unwrap() lifts the children out of the root, leaving it empty and
+    # detached; the fragment itself keeps them.
+    assert root.text() == ""
+    assert root.css("span") == []
+    assert list(root.iter()) == []
+    assert root.parent is None
+    assert parser.html == "a<span>s</span>"
+
+
+def test_detached_fragment_root_can_be_decomposed_repeatedly():
+    parser = LexborHTMLParser("<div>a</div>", is_fragment=True)
+    root = parser.root
+
+    root.decompose()
+    root.decompose()
+    root.unwrap()
+
+    assert root.text() == ""
+    # Match-root is on, so a walk from a detached node still matches the node
+    # itself -- just nothing below it.
+    assert [node.tag for node in root.css("div")] == ["div"]
+    assert root.css("span") == []
+
+
+def test_detached_non_fragment_node_tree_walks_are_unaffected():
+    parser = LexborHTMLParser("<div><p>a</p></div><div>b</div>")
+    div = parser.css_first("div")
+    div.decompose()
+
+    assert div.text() == ""
+    assert div.css("p") == []
+    assert div.parent is None
 
 
 @pytest.mark.parametrize(
@@ -559,4 +771,364 @@ def test_fragment_iter_multiple_nodes():
 def test_fragment_empty_html():
     html = ""
     tree = LexborHTMLParser(html, is_fragment=True)
+    assert tree.html == ""
+
+
+def test_empty_fragment_has_no_root():
+    tree = LexborHTMLParser("", is_fragment=True)
+    assert tree.root is None
+    assert tree.body is None
+    assert tree.head is None
+
+
+def test_empty_fragment_css_returns_empty_list():
+    tree = LexborHTMLParser("", is_fragment=True)
+    assert tree.css("div") == []
+    assert tree.css("div, span") == []
+    # the selector is not even compiled, but must still raise nothing
+    assert tree.css("!!! invalid") == []
+
+
+def test_empty_fragment_css_first_returns_default():
+    tree = LexborHTMLParser("", is_fragment=True)
+    assert tree.css_first("div") is None
+    assert tree.css_first("div", default="fallback") == "fallback"
+    assert tree.css_first("div", default=0) == 0
+    assert tree.css_first("div", strict=True) is None
+    assert tree.css_first("div", "fallback", True) == "fallback"
+
+
+@pytest.mark.parametrize(
+    "method, args",
+    [
+        ("css_matches", ("div",)),
+        ("any_css_matches", (("div", "span"),)),
+        ("scripts_contain", ("needle",)),
+        ("script_srcs_contain", (("needle",),)),
+    ],
+)
+def test_empty_fragment_match_helpers_return_false(method, args):
+    tree = LexborHTMLParser("", is_fragment=True)
+    assert getattr(tree, method)(*args) is False
+
+
+def test_empty_fragment_mutating_methods_are_noops():
+    tree = LexborHTMLParser("", is_fragment=True)
+    assert tree.merge_text_nodes() is None
+    assert tree.unwrap_tags(["div", "span"]) is None
+    assert tree.unwrap_tags(["div"], delete_empty=True) is None
+    assert tree.html == ""
+
+
+def test_empty_fragment_inner_html_getter_returns_empty_string():
+    tree = LexborHTMLParser("", is_fragment=True)
+    assert tree.inner_html == ""
+
+
+def test_empty_fragment_inner_html_setter_is_noop():
+    tree = LexborHTMLParser("", is_fragment=True)
+    tree.inner_html = "<p>ignored</p>"
+    assert tree.inner_html == ""
+    assert tree.html == ""
+    assert tree.root is None
+
+
+def test_empty_fragment_methods_agree_with_empty_document():
+    """Every root-deref helper must behave the same for a rootless fragment."""
+    empty_fragment = LexborHTMLParser("", is_fragment=True)
+
+    assert empty_fragment.css("div") == []
+    assert empty_fragment.css_first("div") is None
+    assert empty_fragment.css_matches("div") is False
+    assert empty_fragment.any_css_matches(("div",)) is False
+    assert empty_fragment.scripts_contain("x") is False
+    assert empty_fragment.script_srcs_contain(("x",)) is False
+    assert empty_fragment.merge_text_nodes() is None
+    assert empty_fragment.inner_html == ""
+    assert empty_fragment.tags("div") == []
+    assert empty_fragment.text() == ""
+    assert empty_fragment.select() is None
+
+
+def test_non_empty_fragment_queries_still_work():
+    """The root guard must not shadow normal results."""
+    tree = LexborHTMLParser(
+        "<div><p>a</p><script src='x.js'>y</script></div>", is_fragment=True
+    )
+    assert tree.root is not None
+    assert len(tree.css("div")) == 1
+    assert tree.css_first("p").text() == "a"
+    assert tree.css_matches("p") is True
+    assert tree.css_matches("table") is False
+    assert tree.any_css_matches(("table", "p")) is True
+    assert tree.scripts_contain("y") is True
+    assert tree.script_srcs_contain(("x.js",)) is True
+    assert tree.inner_html == '<p>a</p><script src="x.js">y</script>'
+
+
+def test_full_document_queries_still_work():
+    """A full document always has a root, so behaviour must be unchanged."""
+    tree = LexborHTMLParser("<div><p>hi</p></div>")
+    assert tree.root is not None
+    assert len(tree.css("p")) == 1
+    assert tree.css_first("p").text() == "hi"
+    assert tree.css_first("table") is None
+    assert tree.css_first("table", default="d") == "d"
+    assert tree.css_matches("p") is True
+    assert tree.any_css_matches(("p",)) is True
+    assert tree.scripts_contain("nope") is False
+    assert tree.merge_text_nodes() is None
+    assert tree.inner_html == "<head></head><body><div><p>hi</p></div></body>"
+
+
+def test_fragment_root_match_helpers_use_the_same_scope_as_css():
+    """Regression test: the match helpers searched the wrong subtree.
+
+    ``css`` evaluates a fragment root against the whole fragment, via the
+    fragment wrapper, but ``css_matches``/``any_css_matches`` were handed the
+    root element itself. They therefore missed matches that ``css`` returned
+    whenever the match sat outside the first top-level node.
+    """
+    tree = LexborHTMLParser("<div>x</div><p>sibling</p>", is_fragment=True)
+    root = tree.root
+
+    assert [node.html for node in root.css("p")] == ["<p>sibling</p>"]
+    assert root.css_matches("p") is True
+    assert root.any_css_matches(("p",)) is True
+    assert root.any_css_matches(("table", "p")) is True
+
+    # Also reachable through the parser, which delegates to the root node.
+    assert [node.html for node in tree.css("p")] == ["<p>sibling</p>"]
+    assert tree.css_matches("p") is True
+    assert tree.any_css_matches(("table", "p")) is True
+
+
+def test_fragment_root_match_helpers_still_reject_absent_selectors():
+    """Widening the scope must not turn non-matches into matches."""
+    tree = LexborHTMLParser("<div>x</div><p>sibling</p>", is_fragment=True)
+    root = tree.root
+
+    assert root.css_matches("table") is False
+    assert root.any_css_matches(("table",)) is False
+    assert root.any_css_matches(("table", "section")) is False
+    # `p` is not a child of `div`, it is a sibling of it
+    assert root.css_matches("div > p") is False
+    # the root node itself and its own subtree are still reachable
+    assert root.css_matches("div") is True
+
+
+@pytest.mark.parametrize(
+    "method, args", [("css_matches", ("p",)), ("any_css_matches", (("p",),))]
+)
+def test_match_helpers_agree_for_non_fragment_nodes(method, args):
+    """Only fragment roots change scope; ordinary nodes keep matching their subtree."""
+    tree = LexborHTMLParser('<div id="a"><p>x</p><span>s</span></div>')
+    div = tree.css_first("div")
+
+    assert getattr(div, method)(*args) is True
+    assert (
+        getattr(div, method)(
+            *(("table",) if method == "css_matches" else (("table",),))
+        )
+        is False
+    )
+
+    assert getattr(tree.root, method)(*args) is True
+    assert getattr(tree.body, method)(*args) is True
+
+
+def test_fragment_wrapper_is_never_reported_by_css():
+    """Regression test: Lexbor's internal fragment wrapper escaped every query.
+
+    A fragment's top-level nodes are reached through the ``<html>`` wrapper that
+    Lexbor builds to hold them, and ``MATCH_ROOT`` makes the search root a
+    candidate for every query. The wrapper therefore showed up in results --
+    ``css('html')`` answered with it and ``css('*')`` listed it as if it were
+    part of the fragment.
+    """
+    tree = LexborHTMLParser("<div>a</div><p>b</p>", is_fragment=True)
+
+    assert tree.css("html") == []
+    assert tree.css_first("html") is None
+    assert tree.css_first("html", default="fallback") == "fallback"
+    assert tree.css("html, body, head") == []
+    assert [node.tag for node in tree.css("*")] == ["div", "p"]
+    assert [node.html for node in tree.css("*")] == [
+        "<div>a</div>",
+        "<p>b</p>",
+    ]
+    # The same must hold for a query rooted at the node rather than the parser.
+    assert tree.root.css("html") == []
+    assert [node.tag for node in tree.root.css("*")] == ["div", "p"]
+    # ...and through the selector wrapper, which roots the search itself.
+    assert tree.select("html").matches == []
+
+
+def test_fragment_wrapper_does_not_count_as_a_match():
+    """The wrapper must not make a selector report a match on the fragment."""
+    tree = LexborHTMLParser("<div>a</div>", is_fragment=True)
+
+    assert tree.css_matches("html") is False
+    assert tree.css_matches("body") is False
+    assert tree.any_css_matches(("html",)) is False
+    assert tree.any_css_matches(("table", "html")) is False
+    # A real node in the same query still matches.
+    assert tree.any_css_matches(("html", "div")) is True
+    assert tree.root.css_matches("html") is False
+    assert tree.root.any_css_matches(("html",)) is False
+
+
+def test_fragment_wrapper_cannot_be_reached_and_destroyed():
+    """Regression test: acting on the leaked wrapper discarded the fragment.
+
+    The wrapper owns the whole fragment, so it was returned first by ``css('*')``
+    and decomposing the first match removed nodes the caller had never selected.
+    Selecting one node must now affect only that node's subtree.
+    """
+    tree = LexborHTMLParser("<div><b>gone</b></div><p>kept</p>", is_fragment=True)
+
+    first = tree.css_first("*")
+    assert first is not None and first.html == "<div><b>gone</b></div>"
+
+    first.decompose()
+
+    assert tree.root is not None
+    assert tree.root.html == "<p>kept</p>"
+    assert tree.html == "<p>kept</p>"
+
+
+def test_full_document_still_reports_its_html_element():
+    """Only a fragment's wrapper is internal; a real ``<html>`` still matches."""
+    tree = LexborHTMLParser("<div>x</div>")
+
+    assert [node.html for node in tree.css("html")] == [
+        "<html><head></head><body><div>x</div></body></html>"
+    ]
+    assert [node.tag for node in tree.css("*")] == ["html", "head", "body", "div"]
+    assert tree.css_matches("html") is True
+    assert tree.any_css_matches(("html",)) is True
+    assert [node.tag for node in tree.select("html").matches] == ["html"]
+
+
+def test_fragment_script_lookups_cover_every_top_level_node():
+    """Regression test: scripts outside the first top-level node were missed.
+
+    The lookup is rooted at the fragment's scope, so a script nested in a later
+    top-level node has to be found too.
+    """
+    tree = LexborHTMLParser(
+        "<script>first</script><div><script>second</script></div>", is_fragment=True
+    )
+
+    assert tree.scripts_contain("first") is True
+    assert tree.scripts_contain("second") is True
+    assert tree.scripts_contain("third") is False
+
+    sources = LexborHTMLParser(
+        '<script src="/a.js"></script><div><script src="/b.js"></script></div>',
+        is_fragment=True,
+    )
+
+    assert sources.script_srcs_contain(("/b.js",)) is True
+    assert sources.script_srcs_contain(("/a.js",)) is True
+    assert sources.script_srcs_contain(("/c.js",)) is False
+
+
+def test_fragment_script_lookups_stay_scoped_to_the_node_they_are_called_on():
+    tree = LexborHTMLParser(
+        "<div><script>inside</script></div><script>outside</script>",
+        is_fragment=True,
+    )
+    div = tree.css_first("div")
+
+    assert div.scripts_contain("inside") is True
+    assert div.scripts_contain("outside") is False
+    assert tree.scripts_contain("outside") is True
+
+
+def test_fragment_select_searches_the_same_scope_as_css():
+    """Regression test: ``select()`` only looked at the first top-level node."""
+    tree = LexborHTMLParser(
+        '<div>a</div><p class="t">b</p><span class="t">c</span>', is_fragment=True
+    )
+
+    assert [node.tag for node in tree.select(".t").matches] == ["p", "span"]
+    assert [node.tag for node in tree.select(".t").matches] == [
+        node.tag for node in tree.css(".t")
+    ]
+    # An unqueried selector is still rooted at the fragment root itself.
+    assert [node.tag for node in tree.select().matches] == ["div"]
+
+
+def test_fragment_traverse_covers_every_top_level_node():
+    """Regression test: ``traverse()`` stopped after the first top-level node."""
+    tree = LexborHTMLParser("<div>a</div><p>b</p><span>c</span>", is_fragment=True)
+
+    assert [node.tag for node in tree.root.traverse()] == ["div", "p", "span"]
+    assert [node.tag for node in tree.root.traverse()] == [
+        node.tag for node in tree.root.iter()
+    ]
+    assert [
+        (node.tag, node.text_content) for node in tree.root.traverse(include_text=True)
+    ] == [
+        ("div", None),
+        ("-text", "a"),
+        ("p", None),
+        ("-text", "b"),
+        ("span", None),
+        ("-text", "c"),
+    ]
+
+
+def test_fragment_traverse_covers_a_fragment_starting_with_text():
+    """Regression test: such a fragment yielded nothing at all."""
+    tree = LexborHTMLParser("one<div>two</div>three", is_fragment=True)
+
+    assert [node.tag for node in tree.root.traverse(include_text=True)] == [
+        "-text",
+        "div",
+        "-text",
+        "-text",
+    ]
+    assert [node.tag for node in tree.root.traverse()] == ["div"]
+
+
+def test_traverse_of_a_detached_fragment_root_is_unchanged():
+    """A detached root stands for itself again, so it covers only its subtree."""
+    tree = LexborHTMLParser("<div><span>a</span></div><p>b</p>", is_fragment=True)
+    root = tree.root
+    root.unwrap()
+
+    # The span was moved out of the div, which is what unwrapping does.
+    assert tree.html == "<span>a</span><p>b</p>"
+    assert [node.tag for node in root.traverse()] == ["div"]
+    assert [node.tag for node in tree.root.traverse()] == ["span", "p"]
+
+
+def test_script_lookups_on_a_detached_fragment_root_are_scoped_to_it():
+    """A detached root stands for itself again, so it no longer covers the fragment."""
+    tree = LexborHTMLParser(
+        "<div><script>inside</script></div><script>outside</script>", is_fragment=True
+    )
+    root = tree.root
+    root.unwrap()
+
+    assert root.scripts_contain("inside") is False
+    assert root.scripts_contain("outside") is False
+    assert tree.scripts_contain("inside") is True
+    assert tree.scripts_contain("outside") is True
+
+
+def test_fragment_traverse_survives_nodes_being_removed_during_iteration():
+    """A removed node must not end the walk, like it does not in ``iter()``."""
+    tree = LexborHTMLParser(
+        "<div>a</div><p>b</p><span>c</span><b>d</b>", is_fragment=True
+    )
+
+    seen = []
+    for node in tree.root.traverse():
+        seen.append(node.tag)
+        node.decompose()
+
+    assert seen == ["div", "p", "span", "b"]
     assert tree.html == ""

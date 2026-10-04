@@ -34,7 +34,7 @@ jobs:
           - dev
           - pkg_meta
         os:
-          - ubuntu-latest
+          - ubuntu-26.04
           - windows-latest
           - macos-latest
         exclude:
@@ -47,7 +47,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: false
           cache-dependency-glob: "pyproject.toml"

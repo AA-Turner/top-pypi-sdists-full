@@ -1,18 +1,27 @@
 """Utility classes and functions for configuring and setting up the content and the look of a QR code."""
 import datetime
-import decimal
+import re
 from collections import namedtuple
 from dataclasses import asdict
-from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import Optional, Any, Union, Sequence, List, Tuple
 
-import zoneinfo
 from django.utils.html import escape
 from pydantic import validate_call
 from pydantic.dataclasses import dataclass as pydantic_dataclass
-from qr_code.qrcode.constants import DEFAULT_MODULE_SIZE, SIZE_DICT, DEFAULT_ERROR_CORRECTION, DEFAULT_IMAGE_FORMAT
+from qr_code.qrcode.constants import (
+    DEFAULT_BOOST_ERROR,
+    DEFAULT_BORDER_SIZE,
+    DEFAULT_ECI,
+    DEFAULT_ENCODING,
+    DEFAULT_ERROR_CORRECTION,
+    DEFAULT_IMAGE_FORMAT,
+    DEFAULT_MODULE_SIZE,
+    DEFAULT_VERSION,
+    ERROR_CORRECTION_DICT,
+    SIZE_DICT,
+)
 
 from segno import helpers
 
@@ -26,14 +35,14 @@ class QRCodeOptions:
     def __init__(
         self,
         size: Union[int, float, str, Decimal, None] = DEFAULT_MODULE_SIZE,
-        border: int = 4,
-        version: Union[int, str, None] = None,
-        image_format: str = "svg",
+        border: int = DEFAULT_BORDER_SIZE,
+        version: Union[int, str, None] = DEFAULT_VERSION,
+        image_format: str = DEFAULT_IMAGE_FORMAT,
         error_correction: str = DEFAULT_ERROR_CORRECTION,
-        encoding: Optional[str] = "utf-8",
-        boost_error: bool = True,
+        encoding: Optional[str] = DEFAULT_ENCODING,
+        boost_error: bool = DEFAULT_BOOST_ERROR,
         micro: bool = False,
-        eci: bool = False,
+        eci: bool = DEFAULT_ECI,
         dark_color: Union[tuple, str, bool, None] = "black",
         light_color: Union[tuple, str, bool, None] = "white",
         finder_dark_color: Union[tuple, str, bool, None] = False,
@@ -146,38 +155,26 @@ class QRCodeOptions:
         :raises: TypeError in case an unknown argument is given.
         """
         self._size = size
-        self._border = int(border)
+        self._border = border
         if _can_be_cast_to_int(version):
             version = int(version)  # type: ignore
             if not 1 <= version <= 40:
                 version = None
-        elif version in ("m1", "m2", "m3", "m4", "M1", "M2", "M3", "M4"):
-            version = version.lower()  # type: ignore
+        elif isinstance(version, str) and version.lower() in ("m1", "m2", "m3", "m4"):
+            version = version.lower()
             # Set / change the micro setting otherwise Segno complains about
             # conflicting parameters
             micro = True
         else:
             version = None
         self._version = version
-        # if not isinstance(micro, bool):
-        #     micro = micro == 'True'
         self._micro = micro
-        # if not isinstance(eci, bool):
-        #     eci = eci == 'True'
         self._eci = eci
-        try:
-            error = error_correction.lower()
-            self._error_correction = error if error in ("l", "m", "q", "h") else DEFAULT_ERROR_CORRECTION
-        except AttributeError:
-            self._error_correction = DEFAULT_ERROR_CORRECTION
+        self._error_correction = ERROR_CORRECTION_DICT.get(error_correction.upper(), DEFAULT_ERROR_CORRECTION)
         self._boost_error = boost_error
-        # Handle encoding
-        self._encoding = None if encoding == "" else encoding
-        try:
-            image_format = image_format.lower()
-            self._image_format = image_format if image_format in ("svg", "png") else DEFAULT_IMAGE_FORMAT
-        except AttributeError:
-            self._image_format = DEFAULT_IMAGE_FORMAT
+        self._encoding = encoding or None
+        image_format = image_format.lower()
+        self._image_format = image_format if image_format in ("svg", "png") else DEFAULT_IMAGE_FORMAT
         self._colors = dict(
             dark_color=dark_color,
             light_color=light_color,
@@ -221,10 +218,10 @@ class QRCodeOptions:
         kw = dict(border=self.border, kind=image_format, scale=self._size_as_number())
         # Change the color mapping into the keywords Segno expects
         # (remove the "_color" suffix from the module names)
-        kw.update({k[:-6]: v for k, v in self.color_mapping().items()})
+        kw.update({k.removesuffix("_color"): v for k, v in self.color_mapping().items()})
         if image_format == "svg":
             kw["unit"] = "mm"
-            scale = decimal.Decimal(kw["scale"]) / 10
+            scale = Decimal(kw["scale"]) / 10
             kw["scale"] = scale
         return kw
 
@@ -238,22 +235,23 @@ class QRCodeOptions:
         colors = {k: v for k, v in self._colors.items() if v is not False}
         return colors
 
-    def _size_as_number(self) -> Union[int, float, str, Decimal]:
+    def _size_as_number(self) -> Union[int, float, Decimal]:
         """Returns the size as integer value.
 
         :rtype: int or float
         """
         size = self._size
+        actual_size: Union[int, float, Decimal]
         if _can_be_cast_to_int(size):
             actual_size = int(size)  # type: ignore
             if actual_size < 1:
                 actual_size = SIZE_DICT[DEFAULT_MODULE_SIZE]
         elif isinstance(size, (float, Decimal)):
-            actual_size = size  # type: ignore
+            actual_size = size
             if actual_size < Decimal("0.01"):
                 actual_size = SIZE_DICT[DEFAULT_MODULE_SIZE]
         elif isinstance(size, str):
-            actual_size = SIZE_DICT.get(size.lower(), DEFAULT_MODULE_SIZE)
+            actual_size = SIZE_DICT.get(size.lower()) or _decimal_from_str(size) or SIZE_DICT[DEFAULT_MODULE_SIZE]
         else:
             actual_size = SIZE_DICT[DEFAULT_MODULE_SIZE]
         return actual_size
@@ -293,6 +291,15 @@ class QRCodeOptions:
     @property
     def eci(self):
         return self._eci
+
+
+def _decimal_from_str(value: str) -> Optional[Decimal]:
+    """Returns the size given as a decimal number string (e.g., "2.5"), or None if it is not a valid size."""
+    try:
+        size = Decimal(value)
+    except InvalidOperation:
+        return None
+    return size if size.is_finite() and size >= Decimal("0.01") else None
 
 
 def _can_be_cast_to_int(value: Any) -> bool:
@@ -375,9 +382,9 @@ class VEvent:
             new_text = ""
             for line in text.split("\n"):
                 # Use a fast and simple variant for the common case that line is all ASCII.
-                try:
-                    line.encode("ascii")
-                except (UnicodeEncodeError, UnicodeDecodeError):
+                if line.isascii():
+                    new_text += fold_sep.join(line[i : i + limit - 1] for i in range(0, len(line), limit - 1))
+                else:
                     ret_chars = []
                     byte_count = 0
                     for char in line:
@@ -388,8 +395,6 @@ class VEvent:
                             byte_count = char_byte_len
                         ret_chars.append(char)
                     new_text += "".join(ret_chars)
-                else:
-                    new_text += fold_sep.join(line[i : i + limit - 1] for i in range(0, len(line), limit - 1))
             return new_text
 
         # Source form icalendar: https://github.com/collective/icalendar/
@@ -408,18 +413,19 @@ class VEvent:
         def is_naive_datetime(t) -> bool:
             return t.tzinfo is None or t.tzinfo.utcoffset(t) is None
 
+        def get_utc_datetime_str(t) -> str:
+            return t.astimezone(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
         def get_datetime_str(t) -> str:
             if is_naive_datetime(t):
                 return t.strftime("%Y%m%dT%H%M%S")
-            else:
-                t_utc = t.astimezone(zoneinfo.ZoneInfo("UTC"))
-                return t_utc.strftime("%Y%m%dT%H%M%SZ")
+            return get_utc_datetime_str(t)
 
         event_str = f"""BEGIN:VCALENDAR
 PRODID:Django QR Code
 VERSION:2.0
 BEGIN:VEVENT
-DTSTAMP:{(self.dtstamp or datetime.datetime.utcnow()).astimezone(zoneinfo.ZoneInfo('UTC')).strftime("%Y%m%dT%H%M%SZ")}
+DTSTAMP:{get_utc_datetime_str(self.dtstamp or datetime.datetime.now(datetime.timezone.utc))}
 UID:{self.uid}
 DTSTART:{get_datetime_str(self.start)}
 DTEND:{get_datetime_str(self.end)}
@@ -443,8 +449,11 @@ SUMMARY:{escape_char(self.summary)}"""
         if self.url:
             event_str += f"\nURL:{self.url}"
         event_str += "\nEND:VEVENT\nEND:VCALENDAR"
-        # print(event_str)
         return event_str
+
+
+# QR code options required by the EPC QR code specification.
+EPC_QR_CODE_ARGS: dict = dict(error_correction="M", boost_error=False, micro=False, encoding="utf-8")
 
 
 @pydantic_dataclass
@@ -452,8 +461,8 @@ class EpcData:
     """
     Data for representing an European Payments Council Quick Response Code (EPC QR Code) version 002.
 
-    You must always use the error correction level "M" and utilizes max. version 13 to fulfill the constraints of the
-        EPC QR Code standard.
+    You must always use the error correction level "M" (see ``EPC_QR_CODE_ARGS``) and utilizes max. version 13 to fulfill the
+        constraints of the EPC QR Code standard.
 
         .. note::
 
@@ -477,22 +486,312 @@ class EpcData:
 
     name: str
     iban: str
-    amount: Union[int, float, decimal.Decimal]
+    amount: Union[int, float, Decimal]
     text: Optional[str] = None
     reference: Optional[str] = None
     bic: Optional[str] = None
     purpose: Optional[str] = None
 
-    def make_qr_code_data(self) -> str:
+    def make_qr_code_data(self) -> bytes:
         """
         Validates the input and creates the data for an European Payments Council Quick Response Code
-        (EPC QR Code) version 002.
+        (EPC QR Code) version 002, encoded in UTF-8.
 
         This is a wrapper for :py:func:`segno.helpers._make_epc_qr_data` with no choice for encoding.
 
-        :rtype: str
+        :rtype: bytes
         """
         return helpers._make_epc_qr_data(**asdict(self), encoding=1)  # type: ignore
+
+
+# QR code options required by the Swiss QR-bill specification: error correction level "M" and byte mode in UTF-8 without ECI header (the
+# coding type of the data gives its encoding), so that the data always fits in a QR code of version 25 (see _SWISS_QR_BILL_MAX_DATA_SIZE).
+SWISS_QR_BILL_QR_CODE_ARGS: dict = dict(error_correction="M", boost_error=False, micro=False, encoding="utf-8", eci=False)
+# Maximum size of the data of a Swiss QR code, which must fit in a QR code of version 25 with error correction level "M".
+_SWISS_QR_BILL_MAX_DATA_SIZE = 997
+# IBAN of Switzerland or Liechtenstein: country code, check digits, institution identification (IID) and account number.
+_SWISS_IBAN_RE = re.compile(r"(CH|LI)[0-9]{7}[0-9A-Z]{12}")
+# A QR-IBAN is identified by an institution identification (QR-IID) in this range.
+_QR_IID_RANGE = range(30000, 32000)
+_QR_REFERENCE_RE = re.compile(r"[0-9]{1,27}")
+_CREDITOR_REFERENCE_RE = re.compile(r"RF[0-9]{2}[0-9A-Z]{1,21}")
+_QR_REFERENCE_CHECK_DIGIT_TABLE = (0, 9, 4, 6, 8, 2, 7, 1, 3, 5)
+# Unstructured message of a notification Swiss QR-bill that must not be paid, by language, the only one allowed to have an amount of 0.00.
+SWISS_QR_BILL_DO_NOT_USE_FOR_PAYMENT_MESSAGES: dict[str, str] = {
+    "de": "NICHT ZUR ZAHLUNG VERWENDEN",
+    "fr": "NE PAS UTILISER POUR LE PAIEMENT",
+    "it": "NON UTILIZZARE PER IL PAGAMENTO",
+    "en": "DO NOT USE FOR PAYMENT",
+    "rm": "BETG DUVRAR PER IL PAJAMENT",
+}
+
+
+def _normalize_identifier(value: Any) -> str:
+    """Removes the spaces of an identifier (e.g., IBAN or payment reference), which are often used for readability, and upper cases it."""
+    return str(value).replace(" ", "").upper()
+
+
+def _mod97(value: str) -> int:
+    """Returns the ISO 7064 MOD 97-10 remainder of an alphanumeric value, after converting its letters into numbers (A = 10, ..., Z = 35)."""
+    return int("".join(str(int(c, 36)) for c in value)) % 97
+
+
+def _qr_reference_check_digit(digits: str) -> str:
+    """Returns the check digit of a QR reference, computed with the recursive modulo 10 algorithm."""
+    carry = 0
+    for digit in digits:
+        carry = _QR_REFERENCE_CHECK_DIGIT_TABLE[(carry + int(digit)) % 10]
+    return str((10 - carry) % 10)
+
+
+def _check_text(field_name: str, value: Optional[str], max_length: int, required: bool = False) -> None:
+    """Checks that a text field of a Swiss QR-bill has a valid length and no line break, since line breaks separate the fields."""
+    if not value:
+        if required:
+            raise ValueError(f"The {field_name} is required.")
+        return
+    if len(value) > max_length:
+        raise ValueError(f"The {field_name} cannot have more than {max_length} characters, got {len(value)}.")
+    if "\n" in value or "\r" in value:
+        raise ValueError(f"The {field_name} cannot contain line breaks.")
+
+
+def is_qr_iban(iban: str) -> bool:
+    """
+    Tells whether the given Swiss or Liechtenstein IBAN is a QR-IBAN, which requires a QR reference (see :py:func:`make_qr_reference`).
+
+    The IBAN itself is not validated, but spaces are ignored.
+
+    :rtype: bool
+    """
+    iid = _normalize_identifier(iban)[4:9]
+    # Not only isdigit(), which accepts non-ASCII digits (e.g., superscripts) that int() rejects.
+    return iid.isascii() and iid.isdigit() and int(iid) in _QR_IID_RANGE
+
+
+def make_qr_reference(base: Union[int, str]) -> str:
+    """
+    Makes a QR reference (QRR) for a Swiss QR-bill from up to 26 digits, by padding them with leading zeros and appending the check digit
+    computed with the recursive modulo 10 algorithm.
+
+    A QR reference can only be used with a QR-IBAN, for a payment in CHF.
+
+    :param base: The digits of the reference (spaces are ignored), which cannot all be zeros.
+    :return: The 27 digits of the QR reference.
+    :rtype: str
+    """
+    digits = _normalize_identifier(base)
+    if not re.fullmatch(r"[0-9]{1,26}", digits) or not digits.strip("0"):
+        raise ValueError(f'The base of a QR reference must be made of 1 to 26 digits, which cannot all be zeros, got "{base}".')
+    digits = digits.rjust(26, "0")
+    return digits + _qr_reference_check_digit(digits)
+
+
+def make_creditor_reference(base: str) -> str:
+    """
+    Makes an ISO 11649 creditor reference (SCOR), e.g., "RF18539007547034", from up to 21 letters or digits.
+
+    Unlike a QR reference, a creditor reference can be used with a regular IBAN in a Swiss QR-bill.
+
+    :param base: The letters and digits of the reference (spaces are ignored).
+    :return: The creditor reference, starting with "RF" and its two check digits.
+    :rtype: str
+    """
+    normalized_base = _normalize_identifier(base)
+    if not re.fullmatch(r"[0-9A-Z]{1,21}", normalized_base):
+        raise ValueError(f'The base of a creditor reference must be made of 1 to 21 letters or digits, got "{base}".')
+    check_digits = 98 - _mod97(normalized_base + "RF00")
+    return f"RF{check_digits:02d}{normalized_base}"
+
+
+@pydantic_dataclass
+class SwissQrBillAddress:
+    """
+    Structured address of the creditor or of the debtor of a Swiss QR-bill (see :py:class:`SwissQrBill`).
+
+    The fields are validated according to the Swiss QR-bill specification: a ``ValueError`` is raised when a field is too long, which
+    lets you decide how to shorten it. Leading and trailing spaces are removed.
+
+    Fields meaning:
+        * name: Name of the person or company, up to 70 characters.
+        * street: Street name, up to 70 characters. Optional.
+        * building_number: Building number, up to 16 characters. Optional.
+        * postal_code: Postal code, up to 16 characters.
+        * town: Town, up to 35 characters.
+        * country: Two-letter country code (ISO 3166-1 alpha-2). Defaults to "CH".
+    """
+
+    name: str
+    postal_code: Union[int, str]
+    town: str
+    street: Optional[str] = None
+    building_number: Union[int, str, None] = None
+    country: str = "CH"
+
+    def __post_init__(self):
+        self.name = self.name.strip()
+        self.postal_code = str(self.postal_code).strip()
+        self.town = self.town.strip()
+        self.street = self.street.strip() if self.street else None
+        self.building_number = str(self.building_number).strip() if self.building_number not in (None, "") else None
+        self.country = self.country.strip().upper()
+        _check_text("name", self.name, 70, required=True)
+        _check_text("street", self.street, 70)
+        _check_text("building number", self.building_number, 16)
+        _check_text("postal code", self.postal_code, 16, required=True)
+        _check_text("town", self.town, 35, required=True)
+        if not re.fullmatch(r"[A-Z]{2}", self.country):
+            raise ValueError(f'The country must be a two-letter country code (ISO 3166-1 alpha-2), got "{self.country}".')
+
+    def _make_qr_code_data_fields(self) -> list[str]:
+        return ["S", self.name, self.street or "", str(self.building_number or ""), str(self.postal_code), self.town, self.country]
+
+
+@pydantic_dataclass
+class SwissQrBill:
+    """
+    Data for representing the Swiss QR code of a Swiss QR-bill (version 2.4 of the Swiss Implementation Guidelines for the QR-bill, which
+    is also compliant with version 2.3).
+
+    The fields are validated according to the specification, and a ``ValueError`` is raised when they are not valid (e.g., invalid IBAN,
+    wrong reference check digits, text too long, etc.). They are validated when the object is created, and again when its data is created
+    (see :py:meth:`make_qr_code_data`), since they may have been changed in the meantime. The allowed character set is not checked. The QR
+    code must be generated with the error correction level "M" and without ECI header (see ``SWISS_QR_BILL_QR_CODE_ARGS``), which is what
+    the ``qr_for_swiss_qr_bill`` and ``qr_url_for_swiss_qr_bill`` template tags do. The Swiss cross required by the specification is drawn
+    in the middle of any QR code whose data is the data of a Swiss QR code.
+
+    The type of reference is inferred from the reference and the IBAN:
+
+        * QRR: a QR reference (27 digits, see :py:func:`make_qr_reference`), which is required with a QR-IBAN and only allowed with a
+          QR-IBAN, for a payment in CHF.
+        * SCOR: an ISO 11649 creditor reference starting with "RF" (see :py:func:`make_creditor_reference`).
+        * NON: no reference.
+
+    Fields meaning:
+        * account: IBAN or QR-IBAN of the creditor, from Switzerland or Liechtenstein. Spaces are ignored.
+        * creditor: Address of the creditor.
+        * amount: Amount of the payment, between 0.01 and 999999999.99 with at most two decimal places. Leave it empty to let the
+          debtor enter the amount. An amount of 0.00 is only allowed for a notification that must not be paid, whose unstructured
+          message must be "DO NOT USE FOR PAYMENT" in one of the languages of the specification (see
+          ``SWISS_QR_BILL_DO_NOT_USE_FOR_PAYMENT_MESSAGES``).
+        * currency: Currency of the payment, either "CHF" (default) or "EUR".
+        * debtor: Address of the debtor. Optional.
+        * reference: QR reference or creditor reference. Optional, spaces are ignored.
+        * unstructured_message: Additional information for the debtor, up to 140 characters (together with the billing information).
+          Optional.
+        * billing_information: Coded billing information for automated processing, starting with "//". Optional.
+        * alternative_schemes: Parameters of up to two alternative payment schemes, up to 100 characters each. Optional.
+    """
+
+    account: str
+    creditor: SwissQrBillAddress
+    amount: Optional[Decimal] = None
+    currency: str = "CHF"
+    debtor: Optional[SwissQrBillAddress] = None
+    reference: Optional[str] = None
+    unstructured_message: Optional[str] = None
+    billing_information: Optional[str] = None
+    alternative_schemes: Tuple[str, ...] = ()
+
+    def __post_init__(self):
+        self.account = _normalize_identifier(self.account)
+        if not _SWISS_IBAN_RE.fullmatch(self.account):
+            raise ValueError(f'The account must be a Swiss or Liechtenstein IBAN made of 21 characters, got "{self.account}".')
+        if _mod97(self.account[4:] + self.account[:4]) != 1:
+            raise ValueError(f'The account "{self.account}" is not a valid IBAN (wrong check digits).')
+
+        if self.amount is not None:
+            if not Decimal("0") <= self.amount <= Decimal("999999999.99"):
+                raise ValueError(f"The amount must be between 0.00 and 999999999.99, got {self.amount}.")
+            if self.amount != self.amount.quantize(Decimal("0.01")):
+                raise ValueError(f"The amount cannot have more than two decimal places, got {self.amount}.")
+            # Turn a negative zero into zero, which would otherwise be written as "-0.00".
+            self.amount = abs(self.amount)
+            if self.amount == 0 and self.unstructured_message not in SWISS_QR_BILL_DO_NOT_USE_FOR_PAYMENT_MESSAGES.values():
+                raise ValueError(
+                    'An amount of 0.00 is only allowed for a notification that must not be paid, whose unstructured message must be "DO NOT '
+                    f'USE FOR PAYMENT" in one of the languages of the specification: {", ".join(SWISS_QR_BILL_DO_NOT_USE_FOR_PAYMENT_MESSAGES.values())}.'
+                )
+
+        self.currency = self.currency.strip().upper()
+        if self.currency not in ("CHF", "EUR"):
+            raise ValueError(f'The currency must be either "CHF" or "EUR", got "{self.currency}".')
+
+        self.reference = _normalize_identifier(self.reference) if self.reference else None
+        if self.reference:
+            if self.reference.startswith("RF"):
+                if not _CREDITOR_REFERENCE_RE.fullmatch(self.reference) or _mod97(self.reference[4:] + self.reference[:4]) != 1:
+                    raise ValueError(f'The reference "{self.reference}" is not a valid creditor reference (ISO 11649).')
+            else:
+                if not _QR_REFERENCE_RE.fullmatch(self.reference):
+                    raise ValueError(f'The reference "{self.reference}" is neither a QR reference nor a creditor reference.')
+                self.reference = self.reference.rjust(27, "0")
+                if not self.reference.strip("0"):
+                    raise ValueError("A QR reference cannot be made of zeros only.")
+                if _qr_reference_check_digit(self.reference[:-1]) != self.reference[-1]:
+                    raise ValueError(f'The reference "{self.reference}" is not a valid QR reference (wrong check digit).')
+        if is_qr_iban(self.account) and self.reference_type != "QRR":
+            raise ValueError("A QR-IBAN requires a QR reference.")
+        if not is_qr_iban(self.account) and self.reference_type == "QRR":
+            raise ValueError("A QR reference requires a QR-IBAN.")
+        if self.reference_type == "QRR" and self.currency != "CHF":
+            raise ValueError("A QR-IBAN and a QR reference can only be used for a payment in CHF.")
+
+        _check_text("unstructured message", self.unstructured_message, 140)
+        _check_text("billing information", self.billing_information, 140)
+        if self.billing_information and not self.billing_information.startswith("//"):
+            raise ValueError('The billing information must start with "//".')
+        if len(self.unstructured_message or "") + len(self.billing_information or "") > 140:
+            raise ValueError("The unstructured message and the billing information cannot have more than 140 characters altogether.")
+        if len(self.alternative_schemes) > 2:
+            raise ValueError("There cannot be more than two alternative schemes.")
+        for alternative_scheme in self.alternative_schemes:
+            _check_text("alternative scheme", alternative_scheme, 100, required=True)
+
+    @property
+    def reference_type(self) -> str:
+        """The type of reference: "QRR" (QR reference), "SCOR" (creditor reference) or "NON" (no reference)."""
+        if not self.reference:
+            return "NON"
+        return "SCOR" if self.reference.startswith("RF") else "QRR"
+
+    def make_qr_code_data(self) -> str:
+        """
+        Creates the data of the Swiss QR code of a Swiss QR-bill.
+
+        The fields are validated again, since they may have been changed since the creation of the object (a ``ValueError`` is raised when
+        they are not valid). The object itself is not changed.
+
+        :rtype: str
+        """
+        # A copy is created from the fields, which validates and normalizes them like when the object was created.
+        return SwissQrBill(**asdict(self))._make_qr_code_data()
+
+    def _make_qr_code_data(self) -> str:
+        """Creates the data of the Swiss QR code from fields that are already validated."""
+        fields = [
+            "SPC",  # QR type: Swiss Payments Code.
+            "0200",  # Version 2.
+            "1",  # Coding type: UTF-8 restricted to the Latin character set.
+            self.account,
+            *self.creditor._make_qr_code_data_fields(),
+            *[""] * 7,  # Ultimate creditor: reserved for future use.
+            f"{self.amount:.2f}" if self.amount is not None else "",
+            self.currency,
+            *(self.debtor._make_qr_code_data_fields() if self.debtor else [""] * 7),
+            self.reference_type,
+            self.reference or "",
+            self.unstructured_message or "",
+            "EPD",  # Trailer: end of payment data.
+        ]
+        # The trailing optional fields are omitted when they are empty.
+        if self.billing_information or self.alternative_schemes:
+            fields.append(self.billing_information or "")
+        fields.extend(self.alternative_schemes)
+        data = "\n".join(fields)
+        if len(data.encode("utf-8")) > _SWISS_QR_BILL_MAX_DATA_SIZE:
+            raise ValueError(f"The data of a Swiss QR code cannot exceed {_SWISS_QR_BILL_MAX_DATA_SIZE} bytes.")
+        return data
 
 
 class ContactDetail:
@@ -529,7 +828,7 @@ class ContactDetail:
         tel_av: Optional[str] = None,
         email: Optional[str] = None,
         memo: Optional[str] = None,
-        birthday: Optional[date] = None,
+        birthday: Optional[datetime.date] = None,
         address: Optional[str] = None,
         url: Optional[str] = None,
         nickname: Optional[str] = None,
@@ -561,16 +860,12 @@ class ContactDetail:
         # See this for an archive of the format specifications:
         # https://web.archive.org/web/20160304025131/https://www.nttdocomo.co.jp/english/service/developer/make/content/barcode/function/application/addressbook/index.html
         contact_text = "MECARD:"
-        for name_components_pair in (
-            ("N:%s;", (_escape_mecard_special_chars(self.last_name), _escape_mecard_special_chars(self.first_name))),
-            ("SOUND:%s;", (_escape_mecard_special_chars(self.last_name_reading), _escape_mecard_special_chars(self.first_name_reading))),
+        for template, name_components in (
+            ("N:%s;", (self.last_name, self.first_name)),
+            ("SOUND:%s;", (self.last_name_reading, self.first_name_reading)),
         ):
-            if name_components_pair[1][0] and name_components_pair[1][1]:
-                name = "%s,%s" % name_components_pair[1]
-            else:
-                name = name_components_pair[1][0] or name_components_pair[1][1] or ""
-            if name:
-                contact_text += name_components_pair[0] % name
+            if name := ",".join(filter(None, map(_escape_mecard_special_chars, name_components))):
+                contact_text += template % name
         if self.tel:
             contact_text += "TEL:%s;" % _escape_mecard_special_chars(self.tel)
         if self.tel_av:
@@ -737,7 +1032,8 @@ class VCard:
         :rtype: str
         """
         kw = asdict(self)
-        kw["zipcode"] = str(self.zipcode)
+        if self.zipcode is not None and self.zipcode != "":
+            kw["zipcode"] = str(self.zipcode)
         return helpers.make_vcard_data(**kw)
 
 
@@ -777,7 +1073,7 @@ class WifiConfig:
         if self.password:
             wifi_config += "P:%s;" % _escape_mecard_special_chars(self.password)
         if self.hidden:
-            wifi_config += "H:%s;" % str(self.hidden).lower()
+            wifi_config += "H:true;"
         wifi_config += ";"
         return wifi_config
 
@@ -805,17 +1101,15 @@ class Coordinates:
     def float_to_str(self, f):
         return f"{f:.8f}".rstrip("0")
 
+    def _coordinates_text(self) -> str:
+        coordinates = [self.latitude, self.longitude] + ([self.altitude] if self.altitude else [])
+        return ",".join(map(self.float_to_str, coordinates))
+
     def make_geolocation_text(self) -> str:
-        geo = f"geo:{self.float_to_str(self.latitude)},{self.float_to_str(self.longitude)}"
-        if self.altitude:
-            return f"{geo},{self.float_to_str(self.altitude)}"
-        return geo
+        return f"geo:{self._coordinates_text()}"
 
     def make_google_maps_text(self) -> str:
-        geo = f"https://maps.google.com/local?q={self.float_to_str(self.latitude)},{self.float_to_str(self.longitude)}"
-        if self.altitude:
-            return f"{geo},{self.float_to_str(self.altitude)}"
-        return geo
+        return f"https://maps.google.com/local?q={self._coordinates_text()}"
 
 
 def make_tel_text(phone_number: Any) -> str:

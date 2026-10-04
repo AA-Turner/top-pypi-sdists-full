@@ -22,37 +22,41 @@ Key differences between uv and pip-tools output:
 
 To use UV:
 
-- Install ``uv`` (``pip install uv``)
+- Install ``uv``: ``pip install uv`` next to ``pip-compile-multi``,
+  or system-wide, e.g. ``brew install uv``.
+  The ``uv`` package installed next to ``pip-compile-multi`` takes precedence
+  over the ``uv`` executable found on ``PATH``.
 - Pass ``--uv`` flag to ``pip-compile-multi``
   or add ``uv = True`` when using ``requirements`` command.
 """
-try:
-    import uv  #
-    del uv
-    UV_AVAILABLE = True
-except ImportError:
-    UV_AVAILABLE = False
+
+import importlib.util
+import shutil
+import sys
 
 from .base import BaseFeature, ClickOption
 
 
-class UseUV(BaseFeature):
+class UseUV(BaseFeature[bool]):
     """Use uv for dependency resolution.
 
     This feature enables using uv's fast Rust-based dependency resolver
-    instead of pip-tools. UV must be installed (pip install uv>=0.1.0)
-    before using this feature.
+    instead of pip-tools. UV must be installed, either as a Python package
+    or as an executable on PATH, before using this feature.
     """
 
-    OPTION_NAME = 'uv'
+    OPTION_NAME = "uv"
     CLICK_OPTION = ClickOption(
-        long_option='--uv/--no-uv',
+        long_option="--uv/--no-uv",
         default=False,
         is_flag=True,
-        help_text='Use uv for dependency resolution.',
+        help_text="Use uv for dependency resolution.",
     )
 
     @staticmethod
-    def is_available():
-        """Check if uv package is available"""
-        return UV_AVAILABLE
+    def executable() -> list[str] | None:
+        """Command that runs uv, or None when it is not installed."""
+        if importlib.util.find_spec("uv"):
+            return [sys.executable or "python", "-m", "uv"]
+        path = shutil.which("uv")
+        return [path] if path else None

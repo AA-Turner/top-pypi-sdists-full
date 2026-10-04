@@ -858,6 +858,47 @@ def _declaring_role_actor(role: Any) -> Iterator[None]:
         yield
 
 
+# WHICH AGENT WROTE THIS ROW — stamped at the ONE write funnel (2026-10-03).
+# chat.message.agent_id existed but only the handoff exit filled it, so a
+# rebuilt history could not tell one agent's reply from another's. Every
+# assistant/tool row now carries the agent running the request (the same
+# ``ctx.agent_id`` the conversation gate stamps onto chat.user_request). An
+# explicit ``agent_id`` in ``fields`` always wins (the handoff synthetic row
+# names the CHILD agent). A pinned-version run has no ``ctx.agent_id``; its
+# persist path resolves the version's definition and passes it explicitly.
+AGENT_AUTHORED_ROLES: frozenset[str] = frozenset({"assistant", "tool"})
+
+
+def running_agent_id() -> str | None:
+    """The agent.definition id of the agent running the current request, or
+    None when no valid one is on the AppContext."""
+    from uuid import UUID
+
+    from matrx_ai.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    value = getattr(ctx, "agent_id", None) if ctx is not None else None
+    if not value:
+        return None
+    try:
+        return str(UUID(str(value)))
+    except (ValueError, TypeError):
+        return None
+
+
+def _with_running_agent(fields: dict[str, Any]) -> dict[str, Any]:
+    if fields.get("agent_id"):
+        return fields
+    role = fields.get("role")
+    role = getattr(role, "value", role)
+    if role not in AGENT_AUTHORED_ROLES:
+        return fields
+    agent_id = running_agent_id()
+    if agent_id is None:
+        return fields
+    return {**fields, "agent_id": agent_id}
+
+
 def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str:
     # DD-187: chat.message.content is a JSON ARRAY of content blocks, never a
     # bare string. A caller that passes ``content="some text"`` (a test lane
@@ -872,6 +913,7 @@ def queue_message_create(*, id: str, conversation_id: str, **fields: Any) -> str
             '[{"type": "text", "text": ...}]), never a bare string — wrap it '
             "before calling queue_message_create."
         )
+    fields = _with_running_agent(fields)
     with _declaring_role_actor(fields.get("role")):
         return _queue_or_drop(
             "chat.message",
@@ -893,6 +935,7 @@ def queue_message_update(id: str, **fields: Any) -> str:
     # An UPDATE that names the role re-declares the row's author; one that
     # doesn't stays silent and keeps whatever the INSERT declared (coalescing
     # preserves the last DECLARED author for the row).
+    fields = _with_running_agent(fields)
     with _declaring_role_actor(fields.get("role")):
         return _queue_or_drop(
             "chat.message",

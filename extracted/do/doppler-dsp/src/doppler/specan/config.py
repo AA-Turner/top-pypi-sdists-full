@@ -9,7 +9,6 @@ Priority (highest to lowest):
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -48,7 +47,8 @@ class SpecanConfig:
     span : float
         Display bandwidth in Hz.  0 means auto (full input bandwidth).
     rbw : float
-        Resolution bandwidth in Hz.  0 means auto (span / 401).
+        Resolution bandwidth in Hz.  0 means auto (span / 100); the
+        analyzer resolves it.
     level : float
         Reference level — top of display — in dBm.
     web : bool
@@ -81,45 +81,6 @@ class SpecanConfig:
     # ----------------------------------------------------------------
     # Derived properties
     # ----------------------------------------------------------------
-
-    def effective_span(self, input_fs: float) -> float:
-        """Return the display span in Hz, defaulting to full bandwidth.
-
-        span = fs_out / 1.28, so the display window (±span/2) sits fully
-        inside the DDC passband (±0.4·fs_out = ±0.512·span).
-        """
-        if self.span > 0:
-            return self.span
-        return input_fs / 1.28
-
-    def effective_rbw(self, span: float) -> float:
-        """Return the RBW in Hz, defaulting to span / 401."""
-        if self.rbw > 0:
-            return self.rbw
-        return span / 401.0
-
-    def fft_size(self, fs_out: float, rbw: float) -> int:
-        """Return FFT size (big RBW knob).
-
-        Pick the smallest power of two N >= fs_out / rbw so that the
-        bin width fs_out/N is <= rbw.  The engine then adjusts Kaiser
-        beta (little knob) so that ENBW_bins * bin_width == rbw exactly,
-        with ENBW_bins always in [1.0, 2.0).
-        """
-        n = math.ceil(fs_out / rbw)
-        if n < 1:
-            n = 1
-        return 1 << (n - 1).bit_length()
-
-    def fs_out(self, span: float) -> float:
-        """Output sample rate from the resampler, given the span in Hz.
-
-        fs_out = 1.28 * span so the DDC passband (±0.4·fs_out = ±0.512·span)
-        comfortably contains the display window (±0.5·span).  The transition
-        and stop bands are discarded by cropping the FFT output to the central
-        2·round(nfft/2.56)+1 bins.
-        """
-        return span * 1.28
 
 
 # ------------------------------------------------------------------

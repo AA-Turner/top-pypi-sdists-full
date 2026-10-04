@@ -159,7 +159,7 @@ def main(argv=None):
     p.add_argument("--state-display", default="Mato Grosso",
                    help="ignored in ALL mode (UF_DISPLAY map is used per row)")
     p.add_argument("--country-display", default="Brazil")
-    p.add_argument("--out-dir", default=r"D:\Users\ritvik\projects\GEO\config\brazil_mt\assets")
+    p.add_argument("--out-dir", default=r"D:\Users\ritvik\projects\GEO\config\production\brazil_mt\assets")
     p.add_argument("--keep-codes", default=None,
                    help="CSV of IBGE codes (num_ID/CD_MUN column) restricting the "
                         "SHAPEFILE (not the lookup) to those municipalities")

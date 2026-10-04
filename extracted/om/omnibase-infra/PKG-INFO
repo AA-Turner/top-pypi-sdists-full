@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: omnibase_infra
-Version: 0.38.61
+Version: 0.38.65
 Summary: ONEX Infrastructure - Service integration and database infrastructure tools
 Author-email: "OmniNode.ai" <contact@omninode.ai>
 License: MIT
@@ -26,7 +26,7 @@ Requires-Dist: jsonschema<5.0.0,>=4.20.0
 Requires-Dist: mcp<3.0.0,>=1.25.0
 Requires-Dist: neo4j<7.0.0,>=5.15.0
 Requires-Dist: omnibase-compat==0.5.7
-Requires-Dist: omnibase-core<0.48.0,>=0.47.24
+Requires-Dist: omnibase-core<0.48.0,>=0.47.31
 Requires-Dist: omnibase-spi==0.23.5
 Requires-Dist: opentelemetry-api<2.0.0,>=1.27.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http<2.0.0,>=1.27.0

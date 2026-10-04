@@ -30,6 +30,7 @@
 #include "cdfpp/attribute.hpp"
 #include "cdfpp/cdf-helpers.hpp"
 #include "cdfpp/variable.hpp"
+#include "./file-layout.hpp"
 #include <cpp_utils/serde/serde.hpp>
 #include <algorithm>
 #include <optional>
@@ -135,11 +136,14 @@ struct cdf_body
     std::vector<file_attribute_ctx> file_attributes;
     nomap<std::string, variable_attribute_ctx> variable_attributes;
     std::vector<variable_ctx> variables;
+    saving::file_layout layout;
 };
 
 struct saving_context
 {
     cdf_compression_type compression = cdf_compression_type::no_compression;
+    int32_t compression_level = default_gzip_level;
+    cdf_checksum checksum = cdf_checksum::no_checksum;
     common::magic_numbers_t magic;
     std::optional<record_wrapper<cdf_CCR_t<v3x_tag>>> ccr;
     std::optional<record_wrapper<cdf_CPR_t<v3x_tag>>> cpr;

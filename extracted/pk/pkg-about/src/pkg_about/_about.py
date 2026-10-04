@@ -12,10 +12,9 @@ from typing_extensions import Self
 from pathlib import Path
 from functools import partial
 from email.utils import getaddresses, parseaddr
-if sys.version_info >= (3, 12, 6):
+if sys.version_info >= (3, 12, 6):  # pragma: no branch
     getaddresses = partial(getaddresses, strict=False)
     parseaddr    = partial(parseaddr,    strict=False)
-else: pass  # pragma: no cover
 import importlib.metadata as importlib_metadata
 import packaging.version
 import build.util
@@ -76,7 +75,8 @@ def about(package: str | None = None) -> adict:
     return pkg_metadata
 
 
-class __Sentinel: pass     # noqa: E305
+class __Sentinel:
+    pass
 __sentinel = __Sentinel()  # noqa: E305
 
 def about_from_setup(package_path: Path | str | int | None

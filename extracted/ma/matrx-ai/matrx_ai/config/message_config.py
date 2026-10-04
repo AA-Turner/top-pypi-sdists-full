@@ -61,6 +61,24 @@ TURN_CONTEXT_NOTE = (
 )
 TURN_CONTEXT_CLOSE = "</turn_context>"
 
+#: Slots whose material the model MAY speak about: each renders in its OWN
+#: ``<turn_context source="platform" slot="...">`` frame with its own note, never
+#: under ``TURN_CONTEXT_NOTE`` (which forbids quoting or naming the block). A
+#: static platform fact per slot — registered once by the slot's owner with
+#: :func:`register_turn_context_slot_note` — so every copy of a MessageList (the
+#: wire copy, the tool-round rebuild, a decision turn's suspension) renders it
+#: the same way without carrying anything extra. The Group Chat view
+#: (``room_view``) is the case: the model must be able to name and quote the
+#: other speakers in the group.
+TURN_CONTEXT_SLOT_NOTES: dict[str, str] = {}
+
+
+def register_turn_context_slot_note(slot: str, note: str) -> None:
+    """Give ``slot`` its own frame and note (idempotent; the last registration wins)."""
+    if not slot or not note:
+        raise ValueError("register_turn_context_slot_note needs a slot and a note")
+    TURN_CONTEXT_SLOT_NOTES[slot] = note
+
 # Marker embedded in a tool_result truncated by the Layer-2 absolute-ceiling pass.
 # Used to make that pass idempotent (a block already carrying it is skipped, so the
 # ceiling alarm fires once per event, not once per provider call).
@@ -138,6 +156,12 @@ class UnifiedMessage:
     # re-querying the DB. Optional because freshly-constructed in-memory
     # messages (e.g. a new user turn before persistence) don't have one yet.
     position: int | None = None
+    # The agent.definition that WROTE this row (chat.message.agent_id). Carried
+    # through ``from_cx_message`` so a rebuilt history can tell one agent's
+    # reply from another's (remarks location wording names the agent when a
+    # conversation holds replies from more than one). Never written back from
+    # here — the persist funnel stamps the column. None = unknown / user row.
+    agent_id: str | None = None
 
     @staticmethod
     def _filter_kwargs(cls_obj: Any, item: dict[str, Any]) -> dict[str, Any]:
@@ -386,6 +410,9 @@ class UnifiedMessage:
             metadata=dict(message.metadata or {}),
             user_content=user_content,
             position=getattr(message, "position", None),
+            agent_id=(
+                str(message.agent_id) if getattr(message, "agent_id", None) else None  # orm-getattr-ok: CxMessage
+            ),
         )
 
     @classmethod
@@ -1188,10 +1215,30 @@ class MessageList:
         respond to" anything, because a model told to dispose of something in
         its answer will say so out loud to the person.
         """
-        body = "\n\n".join(b for b in self._turn_context_blocks.values() if b)
-        if not body:
-            return None
-        return "\n".join((TURN_CONTEXT_OPEN, TURN_CONTEXT_NOTE, "", body, TURN_CONTEXT_CLOSE))
+        notes = TURN_CONTEXT_SLOT_NOTES
+        body = "\n\n".join(
+            b for slot, b in self._turn_context_blocks.items() if b and slot not in notes
+        )
+        frames: list[str] = []
+        if body:
+            frames.append(
+                "\n".join((TURN_CONTEXT_OPEN, TURN_CONTEXT_NOTE, "", body, TURN_CONTEXT_CLOSE))
+            )
+        # A slot with its own note gets its own frame (see TURN_CONTEXT_SLOT_NOTES).
+        for slot, block in self._turn_context_blocks.items():
+            if block and slot in notes:
+                frames.append(
+                    "\n".join(
+                        (
+                            f'<turn_context source="platform" slot="{slot}">',
+                            notes[slot],
+                            "",
+                            block,
+                            TURN_CONTEXT_CLOSE,
+                        )
+                    )
+                )
+        return "\n\n".join(frames) if frames else None
 
     def merge_metadata_into_last_user(self, updates: dict[str, Any]) -> None:
         """Shallow-merge ``updates`` into the last user message's metadata.

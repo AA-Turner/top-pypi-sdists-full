@@ -193,3 +193,59 @@ async def test_a_double_envelope_is_refused_by_the_executor(monkeypatch) -> None
     )
     assert not result.success and SEEN == []
     assert "holds another `args`" in result.error.message, result.error.message
+
+
+async def test_browser_inline_merge_delegates_flat_arguments(monkeypatch) -> None:
+    from matrx_connect.context.app_context import AppContext, clear_app_context, set_app_context
+
+    import matrx_ai.capabilities.browser_dom as browser_dom
+    from matrx_ai.config.unified_config import UnifiedConfig
+    from matrx_ai.persistence import queue_helpers
+    from matrx_ai.tools.executor import ToolExecutor
+    from matrx_ai.tools.merge import merge_request_tools
+    from matrx_ai.tools.models import ToolType
+    from matrx_ai.tools.registry import ToolRegistry
+
+    class Emitter:
+        def __init__(self) -> None:
+            self.delegated: list[dict[str, Any]] = []
+
+        async def send_tool_event(self, event: Any) -> None:
+            if event.event == "tool_delegated":
+                self.delegated.append(event.data["arguments"])
+
+        async def send_phase(self, *_a: Any, **_kw: Any) -> None: ...
+
+    monkeypatch.setattr(queue_helpers, "get_coordinator", lambda: None)
+    registry = ToolRegistry.get_instance()
+    registry.clear()
+    definition = _definition()
+    definition.tool_type = ToolType.EXTERNAL_HANDLER
+    registry.load_from_definitions([definition])
+    registry._bindings_by_tool = {TOOL: {"chrome-extension"}}
+    browser_dom._specs_cache = None
+    try:
+        spec = browser_dom._build_auto_load_specs()[1]
+        emitter = Emitter()
+        ctx = AppContext(emitter=emitter, client_tools=[])
+        config = UnifiedConfig(model="test-model", messages=[], tools=[], custom_tools=[])
+        ctx = merge_request_tools(
+            config, ctx, [spec], active_executors=frozenset({"chrome-extension"})
+        )
+        executor = ToolExecutor(registry=registry, execution_logger=_Silent())
+        token = set_app_context(ctx)
+        try:
+            _, result = await executor.execute(
+                TOOL,
+                {"action": "add_visit", "args": {"patient": "R. Ortiz", "minutes": 30}},
+                ToolContext(call_id="browser-envelope-1", tool_name=TOOL),
+                client_tools=frozenset(ctx.client_tools or []),
+            )
+        finally:
+            clear_app_context(token)
+        assert emitter.delegated == [
+            {"action": "add_visit", "patient": "R. Ortiz", "minutes": 30}
+        ], (ctx.client_tools, result.error)
+    finally:
+        browser_dom._specs_cache = None
+        registry.clear()

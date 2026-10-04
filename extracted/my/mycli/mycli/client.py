@@ -20,12 +20,9 @@ from mycli.app_state import (
     normalize_image_protocol,
     normalize_ssl_mode,
 )
-from mycli.boundary_tunnel import BoundaryTunnel
 from mycli.client_commands import ClientCommandsMixin, get_config_property_names
 from mycli.client_connection import ClientConnectionMixin
 from mycli.client_query import ClientQueryMixin
-from mycli.clistyle import style_factory_helpers, style_factory_ptoolkit
-from mycli.completion_refresher import CompletionRefresher
 from mycli.config import (
     get_mylogin_cnf_path,
     open_mylogin_cnf,
@@ -34,17 +31,20 @@ from mycli.config import (
     write_default_config,
 )
 from mycli.constants import DEFAULT_PROMPT
-from mycli.kubectl_tunnel import KubectlTunnel
 from mycli.main_modes import repl as repl_package
 from mycli.output import OutputMixin
-from mycli.packages import special
-from mycli.packages.special.dsn_aliases import DsnAliases
-from mycli.packages.special.favoritequeries import FavoriteQueries
+from mycli.packages import special_commands
+from mycli.packages.completion.completion_refresher import CompletionRefresher
+from mycli.packages.completion.schema_prefetcher import SchemaPrefetcher
+from mycli.packages.completion.sql_completer import SQLCompleter
+from mycli.packages.execution.sql_execute import SQLExecute
+from mycli.packages.integrations.boundary.boundary_tunnel import BoundaryTunnel
+from mycli.packages.integrations.kubernetes.kubectl_tunnel import KubectlTunnel
+from mycli.packages.integrations.openssh.ssh_tunnel import SshTunnel
+from mycli.packages.prompt_toolkit.style import style_factory_helpers, style_factory_prompt_toolkit
+from mycli.packages.special_commands.dsn_aliases import DsnAliases
+from mycli.packages.special_commands.favorite_queries import FavoriteQueries
 from mycli.packages.tabular_output import sql_format
-from mycli.schema_prefetcher import SchemaPrefetcher
-from mycli.sqlcompleter import SQLCompleter
-from mycli.sqlexecute import SQLExecute
-from mycli.ssh_tunnel import SshTunnel
 from mycli.types import Query
 
 sqlparse.engine.grouping.MAX_GROUPING_DEPTH = None  # type: ignore[assignment]
@@ -56,7 +56,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
     default_prompt_splitln = r'\u@\h\n(\t):\d>\_'
     max_len_prompt = 45
     prompt_lines: int
-    sqlexecute: SQLExecute | None
+    sql_execute: SQLExecute | None
     numeric_alignment: str
 
     # check XDG_CONFIG_HOME exists and not an empty string
@@ -68,7 +68,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
 
     def __init__(
         self,
-        sqlexecute: SQLExecute | None = None,
+        sql_execute: SQLExecute | None = None,
         prompt: str | None = None,
         toolbar_format: str | None = None,
         logfile: TextIOWrapper | Literal[False] | None = None,
@@ -79,7 +79,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         show_warnings: bool | None = None,
         cli_verbosity: int = 0,
     ) -> None:
-        self.sqlexecute = sqlexecute
+        self.sql_execute = sql_execute
         self.ssh_tunnel: SshTunnel | None = None
         self.kubectl_tunnel: KubectlTunnel | None = None
         self.boundary_tunnel: BoundaryTunnel | None = None
@@ -111,12 +111,12 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         self.key_bindings = c["main"]["key_bindings"]
         self.emacs_ttimeoutlen = c['keys'].as_float('emacs_ttimeoutlen')
         self.vi_ttimeoutlen = c['keys'].as_float('vi_ttimeoutlen')
-        special.set_timing_enabled(c["main"].as_bool("timing"))
-        special.set_show_favorite_query(c["main"].as_bool("show_favorite_query"))
+        special_commands.set_timing_enabled(c["main"].as_bool("timing"))
+        special_commands.set_show_favorite_query(c["main"].as_bool("show_favorite_query"))
         if show_warnings is not None:
-            special.set_show_warnings_enabled(show_warnings)
+            special_commands.set_show_warnings_enabled(show_warnings)
         else:
-            special.set_show_warnings_enabled(c['main'].as_bool('show_warnings'))
+            special_commands.set_show_warnings_enabled(c['main'].as_bool('show_warnings'))
         self.beep_after_seconds = float(c["main"]["beep_after_seconds"] or 0)
         self.default_keepalive_ticks = c['connection'].as_int('default_keepalive_ticks')
 
@@ -150,7 +150,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         if cli_verbosity:
             self.verbosity = cli_verbosity
         self.cli_style = c["colors"]
-        self.ptoolkit_style = style_factory_ptoolkit(self.syntax_style, self.cli_style)
+        self.prompt_toolkit_style = style_factory_prompt_toolkit(self.syntax_style, self.cli_style)
         self.helpers_style = style_factory_helpers(self.syntax_style, self.cli_style)
         self.helpers_warnings_style = style_factory_helpers(self.syntax_style, self.cli_style, warnings=True)
         self.wider_completion_menu = c["main"].as_bool("wider_completion_menu")
@@ -247,7 +247,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         configure_prompt_state(self, c, prompt, toolbar_format)
         self.prompt_session = None
         self.destructive_keywords = destructive_keywords_from_config(c)
-        special.set_destructive_keywords(self.destructive_keywords)
+        special_commands.set_destructive_keywords(self.destructive_keywords)
 
     def _invalidate_prompt_session(self) -> None:
         if self.prompt_session:
@@ -262,9 +262,9 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
             self.schema_prefetcher.stop()
         except Exception:
             pass
-        if self.sqlexecute is not None:
+        if self.sql_execute is not None:
             try:
-                self.sqlexecute.close()
+                self.sql_execute.close()
             except Exception:
                 pass
         if self.ssh_tunnel is not None:

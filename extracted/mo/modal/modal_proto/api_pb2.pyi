@@ -2058,6 +2058,7 @@ class AppListResponse(google.protobuf.message.Message):
         STOPPED_AT_FIELD_NUMBER: builtins.int
         N_RUNNING_TASKS_FIELD_NUMBER: builtins.int
         NAME_FIELD_NUMBER: builtins.int
+        METADATA_FIELD_NUMBER: builtins.int
         app_id: builtins.str
         description: builtins.str
         state: global___AppState.ValueType
@@ -2065,6 +2066,8 @@ class AppListResponse(google.protobuf.message.Message):
         stopped_at: builtins.float
         n_running_tasks: builtins.int
         name: builtins.str
+        @property
+        def metadata(self) -> global___AppHandleMetadata: ...
         def __init__(
             self,
             *,
@@ -2075,8 +2078,10 @@ class AppListResponse(google.protobuf.message.Message):
             stopped_at: builtins.float = ...,
             n_running_tasks: builtins.int = ...,
             name: builtins.str = ...,
+            metadata: global___AppHandleMetadata | None = ...,
         ) -> None: ...
-        def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "created_at", b"created_at", "description", b"description", "n_running_tasks", b"n_running_tasks", "name", b"name", "state", b"state", "stopped_at", b"stopped_at"]) -> None: ...
+        def HasField(self, field_name: typing_extensions.Literal["metadata", b"metadata"]) -> builtins.bool: ...
+        def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "created_at", b"created_at", "description", b"description", "metadata", b"metadata", "n_running_tasks", b"n_running_tasks", "name", b"name", "state", b"state", "stopped_at", b"stopped_at"]) -> None: ...
 
     APPS_FIELD_NUMBER: builtins.int
     @property
@@ -6122,6 +6127,7 @@ class EnvironmentListItem(google.protobuf.message.Message):
     ENVIRONMENT_TYPE_FIELD_NUMBER: builtins.int
     DEFAULT_MEMBER_ROLE_FIELD_NUMBER: builtins.int
     BLOCK_UNAUTHENTICATED_RESOURCES_FIELD_NUMBER: builtins.int
+    EFFECTIVE_ROLE_FIELD_NUMBER: builtins.int
     name: builtins.str
     webhook_suffix: builtins.str
     created_at: builtins.float
@@ -6140,6 +6146,7 @@ class EnvironmentListItem(google.protobuf.message.Message):
     environment_type: global___EnvironmentType.ValueType
     default_member_role: global___EnvironmentRole.ValueType
     block_unauthenticated_resources: builtins.bool
+    effective_role: global___EnvironmentRole.ValueType
     def __init__(
         self,
         *,
@@ -6160,15 +6167,18 @@ class EnvironmentListItem(google.protobuf.message.Message):
         environment_type: global___EnvironmentType.ValueType = ...,
         default_member_role: global___EnvironmentRole.ValueType | None = ...,
         block_unauthenticated_resources: builtins.bool | None = ...,
+        effective_role: global___EnvironmentRole.ValueType | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_block_unauthenticated_resources", b"_block_unauthenticated_resources", "_cycle_budget_dollars", b"_cycle_budget_dollars", "_default_member_role", b"_default_member_role", "_max_concurrent_gpus", b"_max_concurrent_gpus", "_max_concurrent_tasks", b"_max_concurrent_tasks", "block_unauthenticated_resources", b"block_unauthenticated_resources", "cycle_budget_dollars", b"cycle_budget_dollars", "default_member_role", b"default_member_role", "max_concurrent_gpus", b"max_concurrent_gpus", "max_concurrent_tasks", b"max_concurrent_tasks"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_block_unauthenticated_resources", b"_block_unauthenticated_resources", "_cycle_budget_dollars", b"_cycle_budget_dollars", "_default_member_role", b"_default_member_role", "_max_concurrent_gpus", b"_max_concurrent_gpus", "_max_concurrent_tasks", b"_max_concurrent_tasks", "block_unauthenticated_resources", b"block_unauthenticated_resources", "created_at", b"created_at", "current_concurrent_gpus", b"current_concurrent_gpus", "current_concurrent_tasks", b"current_concurrent_tasks", "current_cycle_usage", b"current_cycle_usage", "cycle_budget_dollars", b"cycle_budget_dollars", "default", b"default", "default_member_role", b"default_member_role", "effective_cycle_spend_limit", b"effective_cycle_spend_limit", "environment_id", b"environment_id", "environment_type", b"environment_type", "is_managed", b"is_managed", "max_concurrent_gpus", b"max_concurrent_gpus", "max_concurrent_tasks", b"max_concurrent_tasks", "name", b"name", "spend_limit_reached", b"spend_limit_reached", "webhook_suffix", b"webhook_suffix"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_block_unauthenticated_resources", b"_block_unauthenticated_resources", "_cycle_budget_dollars", b"_cycle_budget_dollars", "_default_member_role", b"_default_member_role", "_effective_role", b"_effective_role", "_max_concurrent_gpus", b"_max_concurrent_gpus", "_max_concurrent_tasks", b"_max_concurrent_tasks", "block_unauthenticated_resources", b"block_unauthenticated_resources", "cycle_budget_dollars", b"cycle_budget_dollars", "default_member_role", b"default_member_role", "effective_role", b"effective_role", "max_concurrent_gpus", b"max_concurrent_gpus", "max_concurrent_tasks", b"max_concurrent_tasks"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_block_unauthenticated_resources", b"_block_unauthenticated_resources", "_cycle_budget_dollars", b"_cycle_budget_dollars", "_default_member_role", b"_default_member_role", "_effective_role", b"_effective_role", "_max_concurrent_gpus", b"_max_concurrent_gpus", "_max_concurrent_tasks", b"_max_concurrent_tasks", "block_unauthenticated_resources", b"block_unauthenticated_resources", "created_at", b"created_at", "current_concurrent_gpus", b"current_concurrent_gpus", "current_concurrent_tasks", b"current_concurrent_tasks", "current_cycle_usage", b"current_cycle_usage", "cycle_budget_dollars", b"cycle_budget_dollars", "default", b"default", "default_member_role", b"default_member_role", "effective_cycle_spend_limit", b"effective_cycle_spend_limit", "effective_role", b"effective_role", "environment_id", b"environment_id", "environment_type", b"environment_type", "is_managed", b"is_managed", "max_concurrent_gpus", b"max_concurrent_gpus", "max_concurrent_tasks", b"max_concurrent_tasks", "name", b"name", "spend_limit_reached", b"spend_limit_reached", "webhook_suffix", b"webhook_suffix"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_block_unauthenticated_resources", b"_block_unauthenticated_resources"]) -> typing_extensions.Literal["block_unauthenticated_resources"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_cycle_budget_dollars", b"_cycle_budget_dollars"]) -> typing_extensions.Literal["cycle_budget_dollars"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_default_member_role", b"_default_member_role"]) -> typing_extensions.Literal["default_member_role"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_effective_role", b"_effective_role"]) -> typing_extensions.Literal["effective_role"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_max_concurrent_gpus", b"_max_concurrent_gpus"]) -> typing_extensions.Literal["max_concurrent_gpus"] | None: ...
     @typing.overload
@@ -8323,6 +8333,7 @@ class FunctionGetTimeRangeStatsResponse(google.protobuf.message.Message):
     CONTAINER_CREATING_AT_END_COUNT_FIELD_NUMBER: builtins.int
     CONTAINER_PERCENTILE_STATS_FIELD_NUMBER: builtins.int
     VARIANT_COUNT_FIELD_NUMBER: builtins.int
+    CONTAINER_TOTAL_COUNT_FIELD_NUMBER: builtins.int
     @property
     def since(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """Inclusive."""
@@ -8356,6 +8367,8 @@ class FunctionGetTimeRangeStatsResponse(google.protobuf.message.Message):
     """Number of direct non-version-pinned variants included in the roll-up.
     Zero when roll-up is disabled or the base Function has no variants.
     """
+    container_total_count: builtins.int
+    """Number of containers that were active (published heartbeats) in the time range."""
     def __init__(
         self,
         *,
@@ -8371,9 +8384,10 @@ class FunctionGetTimeRangeStatsResponse(google.protobuf.message.Message):
         container_creating_at_end_count: builtins.int = ...,
         container_percentile_stats: collections.abc.Mapping[builtins.str, global___StatsPercentileDistribution] | None = ...,
         variant_count: builtins.int = ...,
+        container_total_count: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["since", b"since", "until", b"until"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["container_creating_at_end_count", b"container_creating_at_end_count", "container_error_count", b"container_error_count", "container_percentile_stats", b"container_percentile_stats", "container_started_count", b"container_started_count", "input_failure_count", b"input_failure_count", "input_percentile_stats", b"input_percentile_stats", "input_running_at_end_count", b"input_running_at_end_count", "input_success_count", b"input_success_count", "input_timeout_count", b"input_timeout_count", "since", b"since", "until", b"until", "variant_count", b"variant_count"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_creating_at_end_count", b"container_creating_at_end_count", "container_error_count", b"container_error_count", "container_percentile_stats", b"container_percentile_stats", "container_started_count", b"container_started_count", "container_total_count", b"container_total_count", "input_failure_count", b"input_failure_count", "input_percentile_stats", b"input_percentile_stats", "input_running_at_end_count", b"input_running_at_end_count", "input_success_count", b"input_success_count", "input_timeout_count", b"input_timeout_count", "since", b"since", "until", b"until", "variant_count", b"variant_count"]) -> None: ...
 
 global___FunctionGetTimeRangeStatsResponse = FunctionGetTimeRangeStatsResponse
 
@@ -12211,6 +12225,7 @@ class SandboxContainerCreateV2Request(google.protobuf.message.Message):
     DEFINITION_FIELD_NUMBER: builtins.int
     EPHEMERAL_SECRETS_FIELD_NUMBER: builtins.int
     CLOUD_BUCKET_MOUNT_CREDENTIALS_FIELD_NUMBER: builtins.int
+    SECRET_SOURCES_FIELD_NUMBER: builtins.int
     sandbox_id: builtins.str
     """Sandbox the container joins; it runs inside that sandbox's task."""
     container_name: builtins.str
@@ -12224,6 +12239,9 @@ class SandboxContainerCreateV2Request(google.protobuf.message.Message):
     def ephemeral_secrets(self) -> global___StringMap: ...
     @property
     def cloud_bucket_mount_credentials(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___StringMap]: ...
+    @property
+    def secret_sources(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SecretSource]:
+        """Applied in order. Cannot be combined with ephemeral_secrets. If definition.secret_ids is set, it must match the secret_id entries here."""
     def __init__(
         self,
         *,
@@ -12232,9 +12250,10 @@ class SandboxContainerCreateV2Request(google.protobuf.message.Message):
         definition: global___Sandbox | None = ...,
         ephemeral_secrets: global___StringMap | None = ...,
         cloud_bucket_mount_credentials: collections.abc.Mapping[builtins.str, global___StringMap] | None = ...,
+        secret_sources: collections.abc.Iterable[global___SecretSource] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["cloud_bucket_mount_credentials", b"cloud_bucket_mount_credentials", "container_name", b"container_name", "definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets", "sandbox_id", b"sandbox_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cloud_bucket_mount_credentials", b"cloud_bucket_mount_credentials", "container_name", b"container_name", "definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets", "sandbox_id", b"sandbox_id", "secret_sources", b"secret_sources"]) -> None: ...
 
 global___SandboxContainerCreateV2Request = SandboxContainerCreateV2Request
 
@@ -12366,6 +12385,7 @@ class SandboxCreateV2Request(google.protobuf.message.Message):
     EPHEMERAL_SECRETS_FIELD_NUMBER: builtins.int
     TAGS_FIELD_NUMBER: builtins.int
     CLOUD_BUCKET_MOUNT_CREDENTIALS_FIELD_NUMBER: builtins.int
+    SECRET_SOURCES_FIELD_NUMBER: builtins.int
     app_id: builtins.str
     @property
     def definition(self) -> global___Sandbox: ...
@@ -12375,6 +12395,9 @@ class SandboxCreateV2Request(google.protobuf.message.Message):
     def tags(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SandboxTag]: ...
     @property
     def cloud_bucket_mount_credentials(self) -> google.protobuf.internal.containers.MessageMap[builtins.str, global___StringMap]: ...
+    @property
+    def secret_sources(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SecretSource]:
+        """Applied in order. Cannot be combined with ephemeral_secrets. If definition.secret_ids is set, it must match the secret_id entries here."""
     def __init__(
         self,
         *,
@@ -12383,9 +12406,10 @@ class SandboxCreateV2Request(google.protobuf.message.Message):
         ephemeral_secrets: global___StringMap | None = ...,
         tags: collections.abc.Iterable[global___SandboxTag] | None = ...,
         cloud_bucket_mount_credentials: collections.abc.Mapping[builtins.str, global___StringMap] | None = ...,
+        secret_sources: collections.abc.Iterable[global___SecretSource] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "cloud_bucket_mount_credentials", b"cloud_bucket_mount_credentials", "definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets", "tags", b"tags"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "cloud_bucket_mount_credentials", b"cloud_bucket_mount_credentials", "definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets", "secret_sources", b"secret_sources", "tags", b"tags"]) -> None: ...
 
 global___SandboxCreateV2Request = SandboxCreateV2Request
 
@@ -12397,6 +12421,7 @@ class SandboxCreateV2Response(google.protobuf.message.Message):
     TASK_ID_FIELD_NUMBER: builtins.int
     METADATA_FIELD_NUMBER: builtins.int
     COMMAND_ROUTER_ACCESS_FIELD_NUMBER: builtins.int
+    SANDBOX_TOKEN_FIELD_NUMBER: builtins.int
     sandbox_id: builtins.str
     @property
     def tunnels(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___TunnelData]: ...
@@ -12405,6 +12430,8 @@ class SandboxCreateV2Response(google.protobuf.message.Message):
     def metadata(self) -> global___SandboxHandleMetadata: ...
     @property
     def command_router_access(self) -> global___CommandRouterAccess: ...
+    sandbox_token: builtins.str
+    """Signed app and workspace id of the sandbox. Sent as the x-modal-sandbox-token metadata header."""
     def __init__(
         self,
         *,
@@ -12413,9 +12440,10 @@ class SandboxCreateV2Response(google.protobuf.message.Message):
         task_id: builtins.str = ...,
         metadata: global___SandboxHandleMetadata | None = ...,
         command_router_access: global___CommandRouterAccess | None = ...,
+        sandbox_token: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["command_router_access", b"command_router_access", "metadata", b"metadata"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["command_router_access", b"command_router_access", "metadata", b"metadata", "sandbox_id", b"sandbox_id", "task_id", b"task_id", "tunnels", b"tunnels"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["command_router_access", b"command_router_access", "metadata", b"metadata", "sandbox_id", b"sandbox_id", "sandbox_token", b"sandbox_token", "task_id", b"task_id", "tunnels", b"tunnels"]) -> None: ...
 
 global___SandboxCreateV2Response = SandboxCreateV2Response
 
@@ -13782,6 +13810,30 @@ class SecretMetadata(google.protobuf.message.Message):
 
 global___SecretMetadata = SecretMetadata
 
+class SecretSource(google.protobuf.message.Message):
+    """One source of environment variables for a Sandbox container or exec."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SECRET_ID_FIELD_NUMBER: builtins.int
+    ENV_FIELD_NUMBER: builtins.int
+    secret_id: builtins.str
+    """Server-side Secret, resolved on the worker."""
+    @property
+    def env(self) -> global___StringMap:
+        """Plaintext values sent directly to the worker. Must not be persisted."""
+    def __init__(
+        self,
+        *,
+        secret_id: builtins.str = ...,
+        env: global___StringMap | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["env", b"env", "secret_id", b"secret_id", "source", b"source"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["env", b"env", "secret_id", b"secret_id", "source", b"source"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["source", b"source"]) -> typing_extensions.Literal["secret_id", "env"] | None: ...
+
+global___SecretSource = SecretSource
+
 class SecretUpdateRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -13972,6 +14024,7 @@ class ServerGetTimeRangeStatsResponse(google.protobuf.message.Message):
     CONTAINER_STARTED_COUNT_FIELD_NUMBER: builtins.int
     CONTAINER_ERROR_COUNT_FIELD_NUMBER: builtins.int
     CONTAINER_CREATING_AT_END_COUNT_FIELD_NUMBER: builtins.int
+    CONTAINER_TOTAL_COUNT_FIELD_NUMBER: builtins.int
     @property
     def since(self) -> google.protobuf.timestamp_pb2.Timestamp:
         """Inclusive."""
@@ -14000,6 +14053,8 @@ class ServerGetTimeRangeStatsResponse(google.protobuf.message.Message):
     """
     container_error_count: builtins.int
     container_creating_at_end_count: builtins.int
+    container_total_count: builtins.int
+    """Number of containers that were active (published heartbeats) in the time range."""
     def __init__(
         self,
         *,
@@ -14014,9 +14069,10 @@ class ServerGetTimeRangeStatsResponse(google.protobuf.message.Message):
         container_started_count: builtins.int = ...,
         container_error_count: builtins.int = ...,
         container_creating_at_end_count: builtins.int = ...,
+        container_total_count: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["inference", b"inference", "since", b"since", "until", b"until"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["container_creating_at_end_count", b"container_creating_at_end_count", "container_error_count", b"container_error_count", "container_percentile_stats", b"container_percentile_stats", "container_started_count", b"container_started_count", "inference", b"inference", "request_count", b"request_count", "request_count_by_status_code", b"request_count_by_status_code", "request_percentile_stats", b"request_percentile_stats", "request_rate_per_second", b"request_rate_per_second", "since", b"since", "until", b"until"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_creating_at_end_count", b"container_creating_at_end_count", "container_error_count", b"container_error_count", "container_percentile_stats", b"container_percentile_stats", "container_started_count", b"container_started_count", "container_total_count", b"container_total_count", "inference", b"inference", "request_count", b"request_count", "request_count_by_status_code", b"request_count_by_status_code", "request_percentile_stats", b"request_percentile_stats", "request_rate_per_second", b"request_rate_per_second", "since", b"since", "until", b"until"]) -> None: ...
 
 global___ServerGetTimeRangeStatsResponse = ServerGetTimeRangeStatsResponse
 

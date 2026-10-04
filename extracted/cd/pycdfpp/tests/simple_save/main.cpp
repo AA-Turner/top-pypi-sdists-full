@@ -382,6 +382,49 @@ SCENARIO("Saving a lazily loaded CDF over its own file", "[CDF]")
     }
 }
 
+SCENARIO("Saving over a bigger file leaves none of its bytes", "[CDF]")
+{
+    const auto path = std::filesystem::temp_directory_path() / "cdfpp_save_over_bigger.cdf";
+    CDF bigger;
+    bigger.variables.emplace(
+        "var", Variable { "var", 0, data_t { ones<double> {}(100000), CDF_Types::CDF_DOUBLE },
+                   { 100000 } });
+    CDF smaller;
+    smaller.variables.emplace(
+        "var", Variable { "var", 0, data_t { ones<double> {}(10), CDF_Types::CDF_DOUBLE }, { 10 } });
+    REQUIRE(cdf::io::save(bigger, path.string()));
+    REQUIRE(cdf::io::save(smaller, path.string()));
+    REQUIRE(std::filesystem::file_size(path) == std::size(cdf::io::save(smaller)));
+    const auto reloaded = cdf::io::load(path.string(), true, false);
+    REQUIRE(reloaded != std::nullopt);
+    REQUIRE(*reloaded == smaller);
+    std::filesystem::remove(path);
+}
+
+SCENARIO("Saving to memory allocates the file once and at its size", "[CDF]")
+{
+    // A lot of metadata for little data: a size estimated from the values falls short.
+    CDF cdf_obj;
+    for (int v = 0; v < 300; v++)
+    {
+        const auto name = "var" + std::to_string(v);
+        cdf_obj.variables.emplace(name,
+            Variable { name, static_cast<std::size_t>(v),
+                data_t { ones<double> {}(1000), CDF_Types::CDF_DOUBLE }, { 1000 } });
+        cdf_obj.variables[name].attributes.emplace("FIELDNAM",
+            VariableAttribute { "FIELDNAM", data_t { no_init_vector<char>(200, 'x'), CDF_Types::CDF_CHAR } });
+    }
+    for (const auto checksum : { cdf_checksum::no_checksum, cdf_checksum::md5_checksum })
+        for (const auto compression :
+            { cdf_compression_type::no_compression, cdf_compression_type::gzip_compression })
+        {
+            cdf_obj.checksum = checksum;
+            cdf_obj.compression = compression;
+            const auto saved = cdf::io::save(cdf_obj);
+            REQUIRE(saved.capacity() == saved.size());
+        }
+}
+
 SCENARIO("Saving to a path that can't be written reports a failure", "[CDF]")
 {
     const auto path = std::filesystem::temp_directory_path() / "cdfpp_missing_dir" / "out.cdf";
@@ -484,6 +527,48 @@ SCENARIO("A variable saves borrowed values without owning them", "[CDF]")
             REQUIRE(owner.expired());
         }
     }
+}
+
+namespace
+{
+template <typename T>
+no_init_vector<T> counting(std::size_t size)
+{
+    no_init_vector<T> values(size);
+    for (std::size_t i = 0; i < size; i++)
+        values[i] = static_cast<T>(i % 9973);
+    return values;
+}
+}
+
+SCENARIO("Multidimensional records round-trip through every majority and byte order", "[CDF]")
+{
+    for (const auto majority : { cdf_majority::row, cdf_majority::column })
+        for (const auto encoding : { cdf_encoding::IBMPC, cdf_encoding::network })
+        {
+            CDF cdf_obj;
+            cdf_obj.majority = majority;
+            cdf_obj.encoding = encoding;
+            // 6 MB: saved in several chunks.
+            cdf_obj.variables.emplace("big", Variable { "big", 0,
+                data_t { counting<float>(3000 * 4 * 8 * 16), CDF_Types::CDF_FLOAT },
+                { 3000, 4, 8, 16 } });
+            cdf_obj.variables.emplace("odd", Variable { "odd", 1,
+                data_t { counting<double>(7 * 3 * 5), CDF_Types::CDF_DOUBLE }, { 7, 3, 5 } });
+            cdf_obj.variables.emplace("short", Variable { "short", 2,
+                data_t { counting<int16_t>(5 * 8 * 8), CDF_Types::CDF_INT2 }, { 5, 8, 8 } });
+            no_init_vector<char> text(3 * 2 * 3 * 4);
+            for (std::size_t i = 0; i < std::size(text); i++)
+                text[i] = static_cast<char>('a' + i % 26);
+            cdf_obj.variables.emplace("text", Variable { "text", 3,
+                data_t { std::move(text), CDF_Types::CDF_CHAR }, { 3, 2, 3, 4 } });
+            const auto saved = cdf::io::save(cdf_obj);
+            std::vector<char> buffer(std::cbegin(saved), std::cend(saved));
+            const auto reloaded = cdf::io::load(buffer, true, false);
+            REQUIRE(reloaded != std::nullopt);
+            for (const auto& name : { "big", "odd", "short", "text" })
+                REQUIRE(reloaded->variables[name] == cdf_obj.variables[name]);
+        }
 }
 
 SCENARIO("Values that don't match the variable's shape raise on first access", "[CDF]")

@@ -4021,8 +4021,23 @@ def test_positive_object_keeps_properties_named_like_keywords(ctx_factory, name)
             {"type": "integer", "minimum": 5, "multipleOf": 3},
         ),
         ({"type": "string", "pattern": "^[a-z]+$", "anyOf": [{"type": "null"}]}, {"not": {}}),
+        ({"allOf": [{"type": "array", "items": {"type": "string"}}], "anyOf": [{"type": "null"}]}, {"not": {}}),
+        (
+            {
+                "type": "object",
+                "properties": {"a": {"type": "string", "pattern": "^[a-z]+$", "anyOf": [{"type": "null"}]}},
+            },
+            {"type": "object", "properties": {"a": {"not": {}}}},
+        ),
     ],
-    ids=["oneOf-beside-allOf", "oneOf-beside-anyOf", "type-beside-anyOf", "pattern-beside-anyOf"],
+    ids=[
+        "oneOf-beside-allOf",
+        "oneOf-beside-anyOf",
+        "type-beside-anyOf",
+        "pattern-beside-anyOf",
+        "allOf-beside-anyOf",
+        "nested-pattern-beside-anyOf",
+    ],
 )
 def test_positive_branch_values_meet_their_siblings(pctx, schema, folded):
     assert cover_schema(pctx, schema) == cover_schema(pctx, folded)
@@ -4297,3 +4312,156 @@ def test_one_of_negative_is_not_valid_for_a_sibling_under_a_newer_draft(ctx_fact
 
     assert values
     assert [value for value in values if any(judge.is_valid(value) for judge in judges)] == []
+
+
+# A value beyond a negated large ceiling needs more elements than one draw holds.
+def test_positive_array_beyond_a_negated_large_ceiling(pctx):
+    schema = {"type": "array", "not": {"maxItems": 8000}}
+    values = cover_schema(pctx, schema)
+    assert values, schema
+    assert_conform(values, schema)
+
+
+UNIQUE_ARRAY_ITEMS = [
+    {
+        "type": "object",
+        "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
+        "required": ["id", "name"],
+    },
+    {},
+]
+
+
+# Distinct elements past what one draw holds have to come from more than one draw.
+@pytest.mark.parametrize("items", UNIQUE_ARRAY_ITEMS, ids=["object", "any"])
+def test_positive_unique_array_with_a_large_floor(ctx_factory, items):
+    schema = {"type": "array", "items": items, "uniqueItems": True, "minItems": 500}
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.POSITIVE])
+    values = cover_schema(ctx, schema)
+    assert values, schema
+    assert_conform(values, schema)
+
+
+@pytest.mark.parametrize("items", UNIQUE_ARRAY_ITEMS, ids=["object", "any"])
+def test_negative_unique_array_one_short_of_a_large_floor(ctx_factory, items):
+    schema = {"type": "array", "items": items, "uniqueItems": True, "minItems": 500}
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    without_floor = jsonschema_rs.Draft7Validator({**schema, "minItems": 0})
+    below = [
+        generated.value
+        for generated in cover_schema_iter(ctx, schema)
+        if generated.scenario == CoverageScenario.ARRAY_BELOW_MIN_ITEMS
+    ]
+    assert [(len(value), without_floor.is_valid(value)) for value in below] == [(499, True)]
+
+
+# An element drawn for one position may land at another, where `prefixItems` asks for something else.
+@pytest.mark.parametrize("unique", [True, False], ids=["unique", "repeated"])
+def test_positive_array_with_a_large_floor_keeps_prefix_items(ctx_factory, unique):
+    schema = {
+        "type": "array",
+        "prefixItems": [{"type": "string"}],
+        "items": {"type": "integer"},
+        "uniqueItems": unique,
+        "minItems": 100,
+    }
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    values = cover_schema(ctx, schema)
+    assert values, schema
+    assert [value[:2] for value in values if not validator.is_valid(value)] == []
+
+
+# Names made up to reach a large floor still answer to keywords about the whole object.
+@pytest.mark.parametrize(
+    ("extra", "satisfiable"),
+    [
+        ({"unevaluatedProperties": {"type": "integer"}}, True),
+        ({"if": {"minProperties": 100}, "then": {"additionalProperties": {"type": "integer"}}}, True),
+        ({"properties": {"a": {"type": "string"}}, "unevaluatedProperties": False}, False),
+        ({"if": {"minProperties": 100}, "then": {"maxProperties": 50}}, False),
+    ],
+    ids=["unevaluated-schema", "if-then", "unevaluated-false", "if-then-contradiction"],
+)
+def test_positive_object_with_a_large_floor_keeps_whole_object_keywords(ctx_factory, extra, satisfiable):
+    schema = {"type": "object", "minProperties": 100, **extra}
+    ctx = ctx_factory(
+        location=ParameterLocation.BODY,
+        generation_modes=[GenerationMode.POSITIVE],
+        validator_cls=jsonschema_rs.Draft202012Validator,
+    )
+    validator = jsonschema_rs.Draft202012Validator(schema)
+    values = cover_schema(ctx, schema)
+    assert (bool(values), [len(value) for value in values if not validator.is_valid(value)]) == (satisfiable, [])
+
+
+# 80 strings match the pattern, so batches of 64 fill up but no draw ever reaches a floor of 100.
+def test_unique_array_floor_past_its_item_domain_is_unsatisfiable(ctx_factory):
+    schema = {
+        "type": "array",
+        "items": {"type": "string", "pattern": "^[a-h][0-9]$"},
+        "uniqueItems": True,
+        "minItems": 100,
+    }
+    ctx = ctx_factory(location=ParameterLocation.BODY, validator_cls=jsonschema_rs.Draft202012Validator)
+    with pytest.raises(Unsatisfiable):
+        ctx._distinct_array(schema, 100)
+
+
+# A closed branch forbids the name another branch requires, so no object satisfies the `allOf`.
+def test_all_of_closed_branch_conflicting_with_required_emits_nothing(pctx):
+    schema = {
+        "allOf": [
+            {"type": "object", "properties": {"b": {"type": "null"}}, "additionalProperties": False},
+            {"type": "object", "properties": {"a": {"type": "null"}}, "required": ["a"]},
+        ]
+    }
+    assert cover_schema(pctx, schema) == []
+
+
+# Branches pin the same property to incompatible schemas; values must leave that property out.
+def test_all_of_merges_conflicting_property_schemas(ctx_factory):
+    schema = {
+        "allOf": [
+            {"type": "object", "properties": {"a": {"type": "boolean"}}},
+            {"type": "object", "properties": {"a": {"const": None}}},
+        ]
+    }
+    ctx = ctx_factory(validator_cls=jsonschema_rs.Draft202012Validator, generation_modes=[GenerationMode.POSITIVE])
+    values = cover_schema(ctx, schema)
+    assert values, schema
+    assert_conform(values, schema)
+
+
+# A `$ref` target that only admits `null` caps a unique array at one element.
+def test_positive_unique_array_bounded_by_item_domain(ctx_factory):
+    schema = {
+        "type": "array",
+        "items": {"$ref": f"#/{BUNDLE_STORAGE_KEY}/A"},
+        "minItems": 0,
+        "uniqueItems": True,
+        "maxItems": 2,
+        BUNDLE_STORAGE_KEY: {"A": {"type": "null"}},
+    }
+    ctx = ctx_factory(root_schema=schema, generation_modes=[GenerationMode.POSITIVE])
+    values = cover_schema(ctx, schema)
+    assert values, schema
+    assert_conform(values, schema)
+
+
+# A combinator beside a large floor can still narrow the elements, so the array is checked against it.
+@pytest.mark.parametrize("combinator", ["oneOf", "anyOf", "allOf"])
+def test_negative_unique_array_one_short_of_a_large_floor_beside_a_combinator(ctx_factory, combinator):
+    schema = {"type": "array", "minItems": 500, "uniqueItems": True, combinator: [{}]}
+    ctx = ctx_factory(location=ParameterLocation.BODY, generation_modes=[GenerationMode.NEGATIVE])
+    without_floor = jsonschema_rs.Draft4Validator({**schema, "minItems": 0})
+    below = [
+        generated.value
+        for generated in cover_schema_iter(ctx, schema)
+        if generated.scenario == CoverageScenario.ARRAY_BELOW_MIN_ITEMS
+    ]
+    assert [(len(value), without_floor.is_valid(value)) for value in below] == [(499, True)]

@@ -156,13 +156,12 @@ def get_anthropic_models(
     if cached_models is not None:
         return cached_models
 
-    # Hardcoded list of known Anthropic models (they don't have a models API)
+    # Static list of known Anthropic models (no API key needed for discovery)
+    from esperanto.providers.llm.anthropic import ANTHROPIC_MODELS
+
     models = [
-        Model(id="claude-opus-5", owned_by="anthropic", context_window=200000),
-        Model(id="claude-sonnet-5", owned_by="anthropic", context_window=200000),
-        Model(id="claude-opus-4-5-20251101", owned_by="anthropic", context_window=200000),
-        Model(id="claude-sonnet-4-5-20250929", owned_by="anthropic", context_window=200000),
-        Model(id="claude-haiku-4-5-20251001", owned_by="anthropic", context_window=200000),
+        Model(id=model_id, owned_by="anthropic", context_window=context_window)
+        for model_id, context_window in ANTHROPIC_MODELS
     ]
 
     # Cache results
@@ -869,15 +868,12 @@ def get_perplexity_models(
     if cached_models is not None:
         return cached_models
 
-    # Hardcoded list of known Perplexity models
+    # Static list of known Perplexity models (Perplexity has no models endpoint)
+    from esperanto.providers.llm.perplexity import PERPLEXITY_MODELS
+
     models = [
-        Model(id="llama-3.1-sonar-small-128k-online", owned_by="perplexity", context_window=127072),
-        Model(id="llama-3.1-sonar-large-128k-online", owned_by="perplexity", context_window=127072),
-        Model(id="llama-3.1-sonar-huge-128k-online", owned_by="perplexity", context_window=127072),
-        Model(id="llama-3.1-sonar-small-128k-chat", owned_by="perplexity", context_window=131072),
-        Model(id="llama-3.1-sonar-large-128k-chat", owned_by="perplexity", context_window=131072),
-        Model(id="llama-3.1-8b-instruct", owned_by="perplexity", context_window=131072),
-        Model(id="llama-3.1-70b-instruct", owned_by="perplexity", context_window=131072),
+        Model(id=model_id, owned_by="perplexity", context_window=context_window)
+        for model_id, context_window in PERPLEXITY_MODELS
     ]
 
     # Cache results

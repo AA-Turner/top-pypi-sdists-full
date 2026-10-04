@@ -17,6 +17,7 @@ classifiers = [
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
     'Programming Language :: Python :: 3.14',
+    'Programming Language :: Python :: 3.15',
     'Programming Language :: SQL',
     'Topic :: Database',
     'Topic :: Database :: Front-Ends',
@@ -89,7 +90,7 @@ dev = [
 mycli = "mycli.main:main"
 
 [tool.setuptools.package-data]
-mycli = ["myclirc", "AUTHORS", "SPONSORS", "TIPS"]
+mycli = ["myclirc", "AUTHORS.txt", "SPONSORS.txt", "TIPS.txt"]
 
 [tool.setuptools.packages.find]
 include = ["mycli*"]
@@ -118,7 +119,7 @@ ignore = [
 
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
-known-first-party = ['mycli', 'test', 'steps']
+known-first-party = ['mycli', 'mycli_test', 'steps']
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = 'all'
@@ -152,9 +153,9 @@ passenv = ['PYTEST_HOST',
            'PYTEST_CHARSET',
            'GITHUB_ACTION']
 commands = [['uv', 'pip', 'install', '-e', '.[dev,llm,dataframe]'],
-            ['coverage', 'run', '-m', 'pytest', '-v', 'test'],
+            ['coverage', 'run', '-m', 'pytest', '-v', 'mycli_test'],
             ['coverage', 'report', '-m', '--sort=Miss'],
-            ['behave', 'test/features']]
+            ['behave', 'mycli_test/features']]
 commands_post = [['rm', '-f', '--', './.myclirc']]
 allowlist_externals = ['rm', 'uv']
 

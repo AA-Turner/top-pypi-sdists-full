@@ -8,7 +8,19 @@ loop-termination (zero-findings, round cap, cost cap, lane failure), and
 iteration 1, #3487: a lane's dispatch/poll/log failure must be
 distinguishable from a genuine zero-findings pass, and the production
 explorer must reuse the shared `poll_until_terminal` poller rather than a
-third hand-rolled one)."""
+third hand-rolled one).
+
+#3569 adds: a fixed 30-minute lane timeout used to orphan a still-running
+explorer and discard its findings. `TestDispatchAndAwaitLane` now also
+covers the keep-polling/stall/cancel behaviour (a lane still producing
+output and under its cost cap keeps waiting past `--lane-timeout`; a
+genuine stall gets cancelled, never left running unattended; a cancel
+racing a just-finished explorer harvests it inline instead of discarding
+it); `TestHarvestOutcome` covers the `coord bugbash harvest` recovery path
+(`harvest_outcome`) against the SAME dedupe/file logic `run_bugbash` uses;
+`TestBugbashCli` covers the `--lane-timeout` CLI flag reaching
+`_dispatch_and_await_lane`, and the `run`/`harvest` subcommand group
+wiring via Click's `CliRunner`."""
 
 from __future__ import annotations
 
@@ -22,13 +34,16 @@ from coord.bugbash import (
     DedupeVerdict,
     ExploreOutcome,
     Finding,
+    UNAVAILABLE_FENCE,
     _pick_lane_machine,
     build_exploration_briefing,
     compose_finding_issue_title,
     dedupe_finding,
     discover_lanes,
     file_finding,
+    harvest_outcome,
     parse_findings_block,
+    parse_unavailable_report,
     run_bugbash,
 )
 
@@ -224,6 +239,53 @@ class TestParseFindingsBlock:
         assert result.protocol_error == ""
 
 
+class TestParseUnavailableReport:
+    """#3566: the lane-unavailable reporting contract — a worker that hit a
+    missing permission/session and stopped (per the briefing's hard rule)
+    rather than improvising a workaround."""
+
+    def test_fenced_report_is_extracted(self):
+        text = (
+            "I checked and Accessibility is not granted for this identity.\n\n"
+            f"```{UNAVAILABLE_FENCE}\n"
+            "AXIsProcessTrusted() is False for this worker's identity\n"
+            "```\n"
+        )
+        reason = parse_unavailable_report(text)
+        assert reason == "AXIsProcessTrusted() is False for this worker's identity"
+
+    def test_no_fence_and_no_signature_is_empty(self):
+        assert parse_unavailable_report("zero findings this round.") == ""
+
+    def test_findings_fence_alone_does_not_trigger_unavailable(self):
+        text = (
+            "```bugbash-findings\n"
+            '[{"title": "x", "expected": "e", "actual": "a", "repro": "r", '
+            '"evidence": "ev"}]\n'
+            "```"
+        )
+        assert parse_unavailable_report(text) == ""
+
+    def test_driver_session_unavailable_json_signature_is_detected_without_a_fence(self):
+        """#3566 ask #5's "or a driver session/permission failure" —
+        caught even if the worker forgot to write the fence, because the
+        native driver's own JSON verdict is right there in a tool result."""
+        text = (
+            'tool_result: [{"id": "session", "status": "unavailable", '
+            '"message": "the screen is locked"}]'
+        )
+        reason = parse_unavailable_report(text)
+        assert "unavailable" in reason or "locked" in reason
+
+    def test_ax_trust_denial_signature_is_detected(self):
+        text = "driver precheck failed: AXIsProcessTrusted() is False"
+        assert parse_unavailable_report(text) != ""
+
+    def test_empty_fence_falls_back_to_signature_scan(self):
+        text = f"```{UNAVAILABLE_FENCE}\n```\nthe screen is locked for this session"
+        assert parse_unavailable_report(text) != ""
+
+
 # ── discover_lanes ────────────────────────────────────────────────────────
 
 
@@ -232,6 +294,7 @@ class _FakeMachine:
     name: str
     repos: list
     capabilities: list = field(default_factory=list)
+    host: str = "example.local"
 
 
 @dataclass
@@ -252,16 +315,47 @@ class _FakeConfig:
     acceptance: _FakeAcceptanceConfig
 
 
+class _FakeHealthResp:
+    def __init__(self, payload: dict) -> None:
+        self._p = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return self._p
+
+
+class _FakeHealthClient:
+    """A scripted `/health` responder (#3566) — mirrors
+    `tests/test_smoke.py`'s own `_FakeClient`, kept local so
+    `coord.bugbash`'s probe cross-check can be exercised here without a real
+    network call. Default (`health={}`) fails OPEN — no `tool_versions` key,
+    same as an agent that predates the probe — so every pre-existing
+    `discover_lanes`/`_pick_lane_machine` test that doesn't care about this
+    behaves exactly as it did before this fix."""
+
+    def __init__(self, health: dict | None = None) -> None:
+        self._health = health if health is not None else {}
+        self.get_calls: list[str] = []
+
+    def get(self, url, *, timeout) -> _FakeHealthResp:
+        self.get_calls.append(url)
+        return _FakeHealthResp(self._health)
+
+
 class TestDiscoverLanes:
     def test_no_driver_returns_no_lanes(self):
         cfg = _FakeConfig(machines=[], acceptance=_FakeAcceptanceConfig(drivers={}))
-        assert discover_lanes(cfg, "vimcode") == []
+        assert discover_lanes(cfg, "vimcode", http_client=_FakeHealthClient()) == []
 
     def test_route_with_capable_machine_becomes_a_lane(self):
         machine = _FakeMachine(name="pc1", repos=["vimcode"], capabilities=["windows"])
         entry = _FakeDriverCfg(routes=[_FakeDriverCfg(kind="win-native", capability="windows")])
         cfg = _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig(drivers={"vimcode": entry}))
-        lanes = discover_lanes(cfg, "vimcode", reference_backend="win-native")
+        lanes = discover_lanes(
+            cfg, "vimcode", reference_backend="win-native", http_client=_FakeHealthClient(),
+        )
         assert len(lanes) == 1
         assert lanes[0].platform == "win-native"
         assert lanes[0].machine == "pc1"
@@ -271,24 +365,90 @@ class TestDiscoverLanes:
         machine = _FakeMachine(name="pc1", repos=["vimcode"], capabilities=[])
         entry = _FakeDriverCfg(routes=[_FakeDriverCfg(kind="win-native", capability="windows")])
         cfg = _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig(drivers={"vimcode": entry}))
-        assert discover_lanes(cfg, "vimcode") == []
+        assert discover_lanes(cfg, "vimcode", http_client=_FakeHealthClient()) == []
 
     def test_non_lane_kind_is_ignored(self):
         machine = _FakeMachine(name="pc1", repos=["vimcode"], capabilities=[])
         entry = _FakeDriverCfg(routes=[_FakeDriverCfg(kind="cli-pytest", capability="")])
         cfg = _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig(drivers={"vimcode": entry}))
-        assert discover_lanes(cfg, "vimcode") == []
+        assert discover_lanes(cfg, "vimcode", http_client=_FakeHealthClient()) == []
 
     def test_top_level_driver_without_routes(self):
         machine = _FakeMachine(name="mac1", repos=["vimcode"], capabilities=["macos"])
         entry = _FakeDriverCfg(kind="mac-native", capability="macos", routes=[])
         cfg = _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig(drivers={"vimcode": entry}))
-        lanes = discover_lanes(cfg, "vimcode")
+        lanes = discover_lanes(cfg, "vimcode", http_client=_FakeHealthClient())
         assert [l.platform for l in lanes] == ["mac-native"]
 
     def test_pick_lane_machine_requires_repo_membership(self):
         machine = _FakeMachine(name="pc1", repos=["other"], capabilities=["windows"])
-        assert _pick_lane_machine(_FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig({})), "vimcode", "windows") is None
+        assert _pick_lane_machine(
+            _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig({})),
+            "vimcode", "windows", http_client=_FakeHealthClient(),
+        ) is None
+
+    def test_declared_capability_contradicted_by_health_probe_is_skipped(self):
+        """#3566: a `macos` machine whose Accessibility-trust grant is
+        revoked must not be picked just because `coordinator.yml` still
+        claims the capability — `/health`'s own probe wins."""
+        machine = _FakeMachine(name="macmini", repos=["vimcode"], capabilities=["macos"])
+        health = {
+            "tool_versions": {
+                "macos-accessibility-trust": {
+                    "tool": "macos-accessibility-trust", "capability": "macos",
+                    "found": False, "version": None, "min_version": None,
+                    "meets_floor": None,
+                    "what_breaks": "AXIsProcessTrusted() is False — grant it",
+                },
+            },
+        }
+        assert _pick_lane_machine(
+            _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig({})),
+            "vimcode", "macos", http_client=_FakeHealthClient(health),
+        ) is None
+
+    def test_declared_capability_contradicted_by_health_probe_falls_through_to_next_machine(self):
+        """A second, genuinely-healthy machine is still picked rather than
+        the whole lane being dropped — this skips ONE bad candidate, it
+        doesn't refuse routing outright when another capable machine exists."""
+        denied = _FakeMachine(
+            name="macmini", repos=["vimcode"], capabilities=["macos"], host="macmini.local",
+        )
+        healthy = _FakeMachine(
+            name="mac2", repos=["vimcode"], capabilities=["macos"], host="mac2.local",
+        )
+        health = {
+            "tool_versions": {
+                "macos-accessibility-trust": {
+                    "tool": "macos-accessibility-trust", "capability": "macos",
+                    "found": False, "version": None, "min_version": None,
+                    "meets_floor": None, "what_breaks": "denied",
+                },
+            },
+        }
+
+        class _PerMachineClient:
+            def get(self, url, *, timeout):
+                if "macmini" in url:
+                    return _FakeHealthResp(health)
+                return _FakeHealthResp({})
+
+        assert _pick_lane_machine(
+            _FakeConfig(machines=[denied, healthy], acceptance=_FakeAcceptanceConfig({})),
+            "vimcode", "macos", http_client=_PerMachineClient(),
+        ) == "mac2"
+
+    def test_health_probe_failing_open_still_picks_the_machine(self):
+        """No `tool_versions` in `/health` (predates the probe, or a
+        connectivity hiccup) must fail OPEN — the same contract
+        `coord.smoke._capability_probe_reasons` already documents — so this
+        fix doesn't regress routing for the common case of a machine that
+        simply hasn't reported a probe for this capability yet."""
+        machine = _FakeMachine(name="macmini", repos=["vimcode"], capabilities=["macos"])
+        assert _pick_lane_machine(
+            _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig({})),
+            "vimcode", "macos", http_client=_FakeHealthClient({}),
+        ) == "macmini"
 
 
 class TestBuildExplorationBriefing:
@@ -299,6 +459,22 @@ class TestBuildExplorationBriefing:
         assert "panels" in out
         assert "menus" in out
         assert "bugbash-findings" in out
+
+    def test_includes_the_drive_only_through_the_driver_hard_rule(self):
+        """#3566 ask #4: the briefing must tell a `bugbash-explore` worker
+        to drive the app ONLY through the lane's own driver and name the
+        specific unsafe workarounds the first live incident used."""
+        lane = BugbashLane(platform="mac-native", driver_kind="mac-native", machine="macmini", capability="macos")
+        out = build_exploration_briefing(lane, reference_backend="win-native")
+        assert "HARD RULE" in out
+        for forbidden in ("osascript", "System Events", "do script", "System Settings"):
+            assert forbidden in out
+
+    def test_includes_the_unavailable_reporting_contract(self):
+        lane = BugbashLane(platform="mac-native", driver_kind="mac-native", machine="macmini", capability="macos")
+        out = build_exploration_briefing(lane, reference_backend="win-native")
+        assert UNAVAILABLE_FENCE in out
+        assert "stop" in out.lower()
 
 
 # ── filing (coord seam faked) ────────────────────────────────────────────
@@ -1023,7 +1199,18 @@ class TestDispatchAndAwaitLane:
         assert outcome.ok is False
         assert "not found" in outcome.notes
 
-    def test_poll_timeout_is_ok_false(self, monkeypatch):
+    class _FakeCancelResult:
+        def __init__(self, ok, status=None, error=None):
+            self.ok = ok
+            self.status = status
+            self.error = error
+
+    def test_poll_timeout_with_no_new_output_cancels_the_explorer(self, monkeypatch):
+        """#3569: a genuinely stalled lane (no new transcript output across
+        a full --lane-timeout window) must never be left running
+        unattended — the controller tries to cancel it, and says so in
+        `notes` (#2096: this is a post-cancel observation, not just proof
+        the request was sent)."""
         from coord.commands import bugbash as cmd_bugbash
 
         cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
@@ -1032,11 +1219,270 @@ class TestDispatchAndAwaitLane:
             "coord.commands._common.poll_until_terminal",
             lambda *a, **k: _FakePollOutcome("timeout"),
         )
+        # Same transcript length on every peek -> never "progressed".
+        monkeypatch.setattr(cmd_bugbash, "_peek_log_text", lambda machine, aid: "same log text")
+        monkeypatch.setattr(
+            "coord.network.cancel_assignment",
+            lambda *a, **k: self._FakeCancelResult(ok=True, status="cancelled"),
+        )
+
         outcome = cmd_bugbash._dispatch_and_await_lane(
             _prod_lane(), 1, repo_name="vimcode", config=cfg, reference_backend="mac-native",
+            timeout=1.0,
         )
         assert outcome.ok is False
         assert "timed out" in outcome.notes
+        assert "no new output" in outcome.notes
+        assert "cancelled the explorer" in outcome.notes
+
+    def test_poll_timeout_cancel_failure_reports_may_still_be_running(self, monkeypatch):
+        """#3569 ask #4: when the cancel attempt itself fails (agent
+        unreachable, etc.), the explorer is NOT confirmed stopped — the
+        notes must say it may still be running and point at the recovery
+        command, never silently read as "handled"."""
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("timeout"),
+        )
+        monkeypatch.setattr(cmd_bugbash, "_peek_log_text", lambda machine, aid: "same log text")
+        monkeypatch.setattr(
+            "coord.network.cancel_assignment",
+            lambda *a, **k: self._FakeCancelResult(ok=False, status=None, error="connection refused"),
+        )
+
+        outcome = cmd_bugbash._dispatch_and_await_lane(
+            _prod_lane(), 1, repo_name="vimcode", config=cfg, reference_backend="mac-native",
+            timeout=1.0,
+        )
+        assert outcome.ok is False
+        assert "may still be running" in outcome.notes
+        assert "coord bugbash harvest" in outcome.notes
+
+    def test_poll_timeout_cancel_races_a_just_finished_explorer_and_harvests_inline(self, monkeypatch):
+        """#3569's concrete instance: the explorer actually finished
+        between the controller's last poll and its cancel call. Rather
+        than discarding that result (the original bug — $6 of valid
+        findings lost), the cancel's own real post-cancel status is used to
+        harvest it right there.
+
+        `cancel_assignment()`'s `status` mirrors `AgentAssignment.status`
+        straight from the agent's idempotent `/cancel` response
+        (`AgentServer.cancel`: already-terminal assignments are returned
+        unchanged) — one of `done`/`failed`/`advisory`/`refused_policy`/
+        `refused_premise` here, never the unrelated `PollOutcome` value
+        `"completed"` (that vocabulary belongs to `poll_until_terminal`,
+        not to `/cancel`)."""
+        from coord.agent import DONE
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("timeout"),
+        )
+        monkeypatch.setattr(cmd_bugbash, "_peek_log_text", lambda machine, aid: "same log text")
+        monkeypatch.setattr(
+            "coord.network.cancel_assignment",
+            lambda *a, **k: self._FakeCancelResult(ok=False, status=DONE),
+        )
+
+        log_line = (
+            '{"type": "assistant", "message": {"content": [{"type": "text", '
+            '"text": "done.\\n```bugbash-findings\\n'
+            '[{\\"title\\": \\"Crash on install\\", \\"expected\\": \\"e\\", '
+            '\\"actual\\": \\"a\\", \\"repro\\": \\"r\\", \\"evidence\\": \\"ev\\"}]\\n'
+            '```"}]}}\n'
+            '{"type": "result", "total_cost_usd": 6.08, "num_turns": 168}'
+        )
+
+        class _Resp:
+            status_code = 200
+            text = log_line
+
+            def raise_for_status(self):
+                pass
+
+        import httpx as httpx_mod
+        monkeypatch.setattr(httpx_mod, "get", lambda *a, **k: _Resp())
+
+        outcome = cmd_bugbash._dispatch_and_await_lane(
+            _prod_lane(), 1, repo_name="vimcode", config=cfg, reference_backend="mac-native",
+            timeout=1.0,
+        )
+        assert outcome.ok is True
+        assert len(outcome.findings) == 1
+        assert outcome.findings[0].title == "Crash on install"
+        assert outcome.cost == 6.08
+        assert "harvested inline" in outcome.notes
+
+    def test_poll_timeout_keeps_waiting_while_explorer_still_progresses_under_cost_cap(self, monkeypatch):
+        """#3569's "better" option: a lane still producing new transcript
+        output and still under its own --cost-cap-per-lane is NOT a stall —
+        the controller keeps polling past `--lane-timeout` rather than
+        cancelling a still-productive explorer, and files its findings once
+        it genuinely finishes."""
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+
+        poll_calls = {"n": 0}
+
+        def fake_poll(*a, **k):
+            poll_calls["n"] += 1
+            if poll_calls["n"] < 3:
+                return _FakePollOutcome("timeout")
+            return _FakePollOutcome("completed", exit_code=0)
+
+        monkeypatch.setattr("coord.commands._common.poll_until_terminal", fake_poll)
+
+        peek_calls = {"n": 0}
+
+        def fake_peek(machine, aid):
+            peek_calls["n"] += 1
+            return "x" * peek_calls["n"]  # strictly growing -> always "progressed"
+
+        monkeypatch.setattr(cmd_bugbash, "_peek_log_text", fake_peek)
+
+        cancel_called = {"called": False}
+        monkeypatch.setattr(
+            "coord.network.cancel_assignment",
+            lambda *a, **k: cancel_called.update(called=True) or self._FakeCancelResult(ok=True, status="cancelled"),
+        )
+
+        log_line = (
+            '{"type": "assistant", "message": {"content": [{"type": "text", '
+            '"text": "done.\\n```bugbash-findings\\n[]\\n```"}]}}\n'
+            '{"type": "result", "total_cost_usd": 2.5}'
+        )
+
+        class _Resp:
+            status_code = 200
+            text = log_line
+
+            def raise_for_status(self):
+                pass
+
+        import httpx as httpx_mod
+        monkeypatch.setattr(httpx_mod, "get", lambda *a, **k: _Resp())
+
+        outcome = cmd_bugbash._dispatch_and_await_lane(
+            _prod_lane(), 1, repo_name="vimcode", config=cfg, reference_backend="mac-native",
+            timeout=1.0, cost_cap=100.0,
+        )
+        assert outcome.ok is True
+        assert outcome.findings == ()
+        assert outcome.cost == 2.5
+        # Never cancelled -- it finished on its own while still progressing.
+        assert cancel_called["called"] is False
+
+    def test_poll_timeout_cost_cap_exceeded_while_progressing_still_cancels(self, monkeypatch):
+        """Even a lane that's still producing new output must be cancelled
+        once it crosses its own --cost-cap-per-lane — the cost cap is the
+        real budget control, and "still talking" is not a license to spend
+        past it."""
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("timeout"),
+        )
+
+        peek_calls = {"n": 0}
+
+        def fake_peek(machine, aid):
+            peek_calls["n"] += 1
+            # Growing transcript (always "progressed") but a cost readout
+            # already past the cap on every check.
+            return (
+                '{"type": "result", "total_cost_usd": 999.0}\n' + ("x" * peek_calls["n"])
+            )
+
+        monkeypatch.setattr(cmd_bugbash, "_peek_log_text", fake_peek)
+        monkeypatch.setattr(
+            "coord.network.cancel_assignment",
+            lambda *a, **k: self._FakeCancelResult(ok=True, status="cancelled"),
+        )
+
+        outcome = cmd_bugbash._dispatch_and_await_lane(
+            _prod_lane(), 1, repo_name="vimcode", config=cfg, reference_backend="mac-native",
+            timeout=1.0, cost_cap=20.0,
+        )
+        assert outcome.ok is False
+        assert "per-lane cap" in outcome.notes
+        assert "cancelled the explorer" in outcome.notes
+
+    def test_poll_timeout_transient_peek_failure_is_not_treated_as_a_stall(self, monkeypatch):
+        """#3569 fix-round-1: `_peek_log_text` returning `None` (a transient
+        HTTP failure talking to the agent — a Tailscale blip, not a real
+        stall) must read as "couldn't tell if it progressed", never as "it
+        definitely didn't" — so it must NOT cancel a perfectly healthy,
+        still-productive explorer. The window that saw the `None` is
+        retried rather than counted toward the stall decision; once a real
+        peek succeeds and shows growth, the explorer is left running."""
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+
+        poll_calls = {"n": 0}
+
+        def fake_poll(*a, **k):
+            poll_calls["n"] += 1
+            if poll_calls["n"] < 3:
+                return _FakePollOutcome("timeout")
+            return _FakePollOutcome("completed", exit_code=0)
+
+        monkeypatch.setattr("coord.commands._common.poll_until_terminal", fake_poll)
+
+        peek_calls = {"n": 0}
+
+        def fake_peek(machine, aid):
+            peek_calls["n"] += 1
+            if peek_calls["n"] == 2:
+                # One transient fetch failure mid-stall-loop.
+                return None
+            return "x" * peek_calls["n"]  # otherwise strictly growing
+
+        monkeypatch.setattr(cmd_bugbash, "_peek_log_text", fake_peek)
+
+        cancel_called = {"called": False}
+        monkeypatch.setattr(
+            "coord.network.cancel_assignment",
+            lambda *a, **k: cancel_called.update(called=True) or self._FakeCancelResult(ok=True, status="cancelled"),
+        )
+
+        log_line = (
+            '{"type": "assistant", "message": {"content": [{"type": "text", '
+            '"text": "done.\\n```bugbash-findings\\n[]\\n```"}]}}\n'
+            '{"type": "result", "total_cost_usd": 2.5}'
+        )
+
+        class _Resp:
+            status_code = 200
+            text = log_line
+
+            def raise_for_status(self):
+                pass
+
+        import httpx as httpx_mod
+        monkeypatch.setattr(httpx_mod, "get", lambda *a, **k: _Resp())
+
+        outcome = cmd_bugbash._dispatch_and_await_lane(
+            _prod_lane(), 1, repo_name="vimcode", config=cfg, reference_backend="mac-native",
+            timeout=1.0, cost_cap=100.0,
+        )
+        assert outcome.ok is True
+        assert outcome.cost == 2.5
+        # The transient None peek must never trigger a cancel.
+        assert cancel_called["called"] is False
 
     def test_nonzero_exit_code_is_ok_false(self, monkeypatch):
         from coord.commands import bugbash as cmd_bugbash
@@ -1189,3 +1635,359 @@ class TestDispatchAndAwaitLane:
         assert outcome.findings == ()
         assert outcome.protocol_error != ""
         assert outcome.cost == 1.0
+
+    def test_worker_unavailable_report_sets_unavailable_not_zero_findings(self, monkeypatch):
+        """#3566 acceptance: an explorer reporting a permission failure
+        yields `ExploreOutcome.unavailable=True`, and — end to end through
+        `run_bugbash` — `unavailable_lanes=['mac-native']`, never
+        `zero_findings`."""
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("completed", exit_code=0),
+        )
+
+        log_line = (
+            '{"type": "assistant", "message": {"content": [{"type": "text", '
+            '"text": "Accessibility is not granted for this identity — '
+            "stopping per the hard rule rather than improvising a "
+            'workaround.\\n```bugbash-unavailable\\n'
+            'AXIsProcessTrusted() is False\\n```"}]}}\n'
+            '{"type": "result", "total_cost_usd": 0.42}'
+        )
+
+        class _Resp:
+            status_code = 200
+            text = log_line
+
+            def raise_for_status(self):
+                pass
+
+        import httpx as httpx_mod
+        monkeypatch.setattr(httpx_mod, "get", lambda *a, **k: _Resp())
+
+        outcome = cmd_bugbash._dispatch_and_await_lane(
+            _prod_lane(machine="pc1", platform="mac-native"), 1,
+            repo_name="vimcode", config=cfg, reference_backend="win-native",
+        )
+        assert outcome.unavailable is True
+        assert outcome.ok is True  # default — unavailable is the real signal
+        assert "AXIsProcessTrusted" in outcome.notes
+        assert outcome.findings == ()
+        assert outcome.cost == 0.42
+
+    def test_unavailable_propagates_through_run_bugbash_as_unavailable_lane(self, monkeypatch):
+        """End-to-end through the engine: a lane whose explorer reports
+        unavailable must show up in `RoundReport.unavailable_lanes`, and
+        the round must terminate `lanes_unavailable`, not `zero_findings`
+        (#3510's own engine-level contract, now reachable from the
+        production explorer)."""
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("completed", exit_code=0),
+        )
+
+        log_line = (
+            '{"type": "assistant", "message": {"content": [{"type": "text", '
+            '"text": "stopping.\\n```bugbash-unavailable\\n'
+            'the screen is locked\\n```"}]}}\n'
+            '{"type": "result", "total_cost_usd": 0.1}'
+        )
+
+        class _Resp:
+            status_code = 200
+            text = log_line
+
+            def raise_for_status(self):
+                pass
+
+        import httpx as httpx_mod
+        monkeypatch.setattr(httpx_mod, "get", lambda *a, **k: _Resp())
+
+        lane = _prod_lane(machine="pc1", platform="mac-native")
+
+        def explorer(explore_lane, round_num):
+            return cmd_bugbash._dispatch_and_await_lane(
+                explore_lane, round_num, repo_name="vimcode", config=cfg,
+                reference_backend="win-native",
+            )
+
+        config = BugbashConfig(
+            repo="vimcode", lanes=[lane], reference_backend="win-native",
+            max_rounds=1, confirm_rounds=0,
+        )
+        runner = FakeRunner()
+        report = run_bugbash(
+            config, explorer=explorer, runner=runner,
+            open_issues_fetcher=lambda r: [], closed_issues_fetcher=lambda r: [],
+        )
+        assert report.rounds[-1].unavailable_lanes.get("mac-native") is not None
+        assert report.termination_reason == "lanes_unavailable"
+
+
+# ── coord bugbash harvest (#3569: recover a late-finishing explorer) ─────
+#
+# `harvest_outcome` is the engine-level recovery path `coord bugbash
+# harvest` drives after `_dispatch_and_await_lane`'s controller stopped
+# waiting on a lane (its cancel attempt failed, or the explorer kept
+# running past --lane-timeout on purpose). It must reuse the EXACT same
+# bucketing/dedupe/file logic `run_bugbash`'s own round loop uses — these
+# tests exercise it directly against the same fakes the rest of this file
+# already uses (FakeRunner, _finding, _lane).
+
+
+class TestHarvestOutcome:
+    def test_new_finding_is_filed_and_queued(self):
+        outcome = ExploreOutcome(findings=(_finding(title="Crash on install"),), cost=6.08)
+        runner = FakeRunner(next_issue_number=500)
+        report = harvest_outcome(
+            outcome, _lane(platform="win-native", machine="pc1"), repo="vimcode",
+            runner=runner, open_issues_fetcher=lambda r: [], closed_issues_fetcher=lambda r: [],
+        )
+        assert report.new_count == 1
+        assert len(report.filings) == 1
+        assert report.filings[0].filed is True
+        assert report.filings[0].issue_number == 500
+        assert report.lane_cost.get("win-native") == 6.08
+        # `coord issue create` AND `coord drive-queue add` both actually ran.
+        assert runner.calls[0][:2] == ["issue", "create"]
+        assert runner.calls[1][:2] == ["drive-queue", "add"]
+
+    def test_dry_run_files_nothing(self):
+        outcome = ExploreOutcome(findings=(_finding(),), cost=1.0)
+        runner = FakeRunner()
+        report = harvest_outcome(
+            outcome, _lane(), repo="vimcode", runner=runner,
+            open_issues_fetcher=lambda r: [], closed_issues_fetcher=lambda r: [],
+            dry_run=True,
+        )
+        assert report.filings[0].filed is False
+        assert report.filings[0].preview_title is not None
+        assert runner.calls == []
+
+    def test_duplicate_against_open_issue_is_not_refiled(self):
+        finding = _finding(title="Extension install flow crashes on Windows")
+        outcome = ExploreOutcome(findings=(finding,), cost=0.5)
+        runner = FakeRunner()
+        open_issues = [
+            {"number": 42, "title": "[bugbash:win-native] Extension install flow crashes on Windows"},
+        ]
+        report = harvest_outcome(
+            outcome, _lane(), repo="vimcode", runner=runner,
+            open_issues_fetcher=lambda r: open_issues, closed_issues_fetcher=lambda r: [],
+        )
+        assert report.filings[0].filed is False
+        assert report.filings[0].issue_number == 42
+        assert runner.calls == []
+
+    def test_unavailable_outcome_is_bucketed_not_filed(self):
+        outcome = ExploreOutcome(unavailable=True, notes="the screen is locked", cost=0.1)
+        runner = FakeRunner()
+        report = harvest_outcome(
+            outcome, _lane(platform="mac-native"), repo="vimcode", runner=runner,
+            open_issues_fetcher=lambda r: [], closed_issues_fetcher=lambda r: [],
+        )
+        assert report.unavailable_lanes.get("mac-native") == "the screen is locked"
+        assert report.findings == []
+        assert report.filings == []
+        assert runner.calls == []
+
+    def test_protocol_error_outcome_is_bucketed_not_filed(self):
+        outcome = ExploreOutcome(ok=True, protocol_error="no fence found", cost=1.0)
+        runner = FakeRunner()
+        report = harvest_outcome(
+            outcome, _lane(), repo="vimcode", runner=runner,
+            open_issues_fetcher=lambda r: [], closed_issues_fetcher=lambda r: [],
+        )
+        assert report.protocol_error_lanes.get("win-native") == "no fence found"
+        assert report.findings == []
+        assert runner.calls == []
+
+    def test_lane_failure_outcome_ok_false_is_bucketed(self):
+        outcome = ExploreOutcome(ok=False, notes="still running on pc1")
+        runner = FakeRunner()
+        report = harvest_outcome(
+            outcome, _lane(), repo="vimcode", runner=runner,
+            open_issues_fetcher=lambda r: [], closed_issues_fetcher=lambda r: [],
+        )
+        assert report.lane_failures.get("win-native") == "still running on pc1"
+        assert report.findings == []
+        assert runner.calls == []
+
+
+# ── coord bugbash CLI (#3569: --lane-timeout, run/harvest subcommands) ───
+
+
+class TestBugbashCli:
+    """CLI-level coverage for #3569: the `--lane-timeout` flag threading
+    through to the production explorer seam, and the `run`/`harvest`
+    subcommand group wiring (`coord bugbash REPO ...` must keep working
+    exactly as before even though `harvest` is now a real second
+    subcommand)."""
+
+    def test_bare_repo_invocation_still_resolves_to_the_run_subcommand(self):
+        from click.testing import CliRunner
+        import coord.commands.bugbash as cmd_bugbash
+
+        result = CliRunner().invoke(cmd_bugbash.bugbash_cmd, ["vimcode", "--help"])
+        assert result.exit_code == 0
+        assert "Usage: bugbash run" in result.output
+        assert "--lane-timeout" in result.output
+
+    def test_harvest_is_a_real_subcommand(self):
+        from click.testing import CliRunner
+        import coord.commands.bugbash as cmd_bugbash
+
+        result = CliRunner().invoke(cmd_bugbash.bugbash_cmd, ["harvest", "--help"])
+        assert result.exit_code == 0
+        assert "Usage: bugbash harvest" in result.output
+
+    def test_lane_timeout_and_cost_cap_reach_dispatch_and_await_lane(self, monkeypatch):
+        """#3569 acceptance: `--lane-timeout` (plus `--cost-cap-per-lane`,
+        the real budget control the stall loop is bounded by) must reach
+        `_dispatch_and_await_lane`, not just be parsed and dropped."""
+        import coord.commands.bugbash as cmd_bugbash
+        from click.testing import CliRunner
+        from coord.bugbash import BugbashReport
+
+        fake_cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        fake_cfg.repo = lambda name: object()
+        monkeypatch.setattr(cmd_bugbash, "_load_config", lambda path: fake_cfg)
+        monkeypatch.setattr(
+            cmd_bugbash, "discover_lanes",
+            lambda cfg, repo, reference_backend="": [_prod_lane(machine="pc1", platform="win-native")],
+        )
+
+        captured = {}
+
+        def fake_run_bugbash(bb_config, *, explorer, runner, open_issues_fetcher, closed_issues_fetcher, confirm):
+            captured["bb_config"] = bb_config
+            captured["explorer"] = explorer
+            return BugbashReport(repo=bb_config.repo, rounds=[], termination_reason="round_cap", total_cost=0.0)
+
+        monkeypatch.setattr(cmd_bugbash, "run_bugbash", fake_run_bugbash)
+
+        dispatch_kwargs = {}
+
+        def fake_dispatch(lane, round_num, **kwargs):
+            dispatch_kwargs.update(kwargs)
+            return ExploreOutcome(ok=True)
+
+        monkeypatch.setattr(cmd_bugbash, "_dispatch_and_await_lane", fake_dispatch)
+
+        result = CliRunner().invoke(
+            cmd_bugbash.bugbash_cmd,
+            [
+                "vimcode", "--reference", "win-native",
+                "--lane-timeout", "777", "--cost-cap-per-lane", "33",
+                "--dry-run", "-y",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "explorer" in captured
+
+        # Drive the captured `explorer` closure to confirm it forwards the
+        # CLI's --lane-timeout/--cost-cap-per-lane straight through to the
+        # production seam.
+        captured["explorer"](_prod_lane(machine="pc1", platform="win-native"), 1)
+        assert dispatch_kwargs.get("timeout") == 777.0
+        assert dispatch_kwargs.get("cost_cap") == 33.0
+
+    def test_harvest_command_files_a_recovered_finding(self, monkeypatch):
+        """End-to-end `coord bugbash harvest` against faked seams: an
+        assignment that's already completed on its machine gets its
+        findings parsed and filed through the normal dedupe/file/queue
+        path — the #3569 recovery path for a lane that finished after the
+        controller stopped waiting on it."""
+        import coord.commands.bugbash as cmd_bugbash
+        from click.testing import CliRunner
+
+        class _FakeRepoCfg:
+            github = "acme/vimcode"
+
+        fake_cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        fake_cfg.repo = lambda name: _FakeRepoCfg()
+        monkeypatch.setattr(cmd_bugbash, "_load_config", lambda path: fake_cfg)
+        monkeypatch.setattr(cmd_bugbash, "discover_lanes", lambda cfg, repo, reference_backend="": [])
+
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("completed", exit_code=0),
+        )
+
+        log_line = (
+            '{"type": "assistant", "message": {"content": [{"type": "text", '
+            '"text": "done.\\n```bugbash-findings\\n'
+            '[{\\"title\\": \\"Crash on install\\", \\"expected\\": \\"e\\", '
+            '\\"actual\\": \\"a\\", \\"repro\\": \\"r\\", \\"evidence\\": \\"ev\\"}]\\n'
+            '```"}]}}\n'
+            '{"type": "result", "total_cost_usd": 6.08}'
+        )
+
+        class _Resp:
+            status_code = 200
+            text = log_line
+
+            def raise_for_status(self):
+                pass
+
+        import httpx as httpx_mod
+        monkeypatch.setattr(httpx_mod, "get", lambda *a, **k: _Resp())
+
+        fake_runner_calls = []
+
+        def fake_runner(args):
+            args = list(args)
+            fake_runner_calls.append(args)
+            if args[:2] == ["issue", "create"]:
+                return "#900 (vimcode) created\n"
+            return "queued\n"
+
+        monkeypatch.setattr(cmd_bugbash, "subprocess_coord_runner", fake_runner)
+        monkeypatch.setattr(cmd_bugbash.github_ops, "get_open_issues", lambda slug: [])
+        monkeypatch.setattr(cmd_bugbash, "_fetch_recently_closed_issues", lambda slug: [])
+
+        result = CliRunner().invoke(
+            cmd_bugbash.bugbash_cmd,
+            [
+                "harvest", "asg-late-1",
+                "--repo", "vimcode", "--machine", "pc1", "--lane", "win-native",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "filed+queued: #900" in result.output
+        assert fake_runner_calls[0][:2] == ["issue", "create"]
+        assert fake_runner_calls[1][:2] == ["drive-queue", "add"]
+
+    def test_harvest_command_reports_still_running_without_filing(self, monkeypatch):
+        """A harvest attempt against an assignment that hasn't actually
+        finished yet must say so and exit nonzero — never silently read as
+        "harvested, found nothing"."""
+        import coord.commands.bugbash as cmd_bugbash
+        from click.testing import CliRunner
+
+        fake_cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        fake_cfg.repo = lambda name: object()
+        monkeypatch.setattr(cmd_bugbash, "_load_config", lambda path: fake_cfg)
+        monkeypatch.setattr(cmd_bugbash, "discover_lanes", lambda cfg, repo, reference_backend="": [])
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("timeout"),
+        )
+
+        result = CliRunner().invoke(
+            cmd_bugbash.bugbash_cmd,
+            [
+                "harvest", "asg-still-running",
+                "--repo", "vimcode", "--machine", "pc1", "--lane", "win-native",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "still running" in result.output

@@ -1,5 +1,7 @@
 #[path = "tests/helpers.rs"]
 mod helpers;
+#[path = "tests/test_model_header_matching.rs"]
+mod model_header_matching;
 #[path = "tests/test_model_header_tokenization.rs"]
 mod model_header_tokenization;
 #[path = "tests/test_sql_interpolation.rs"]
@@ -14,8 +16,12 @@ mod sql_test_cte_slices;
 mod sql_test_expected_columns;
 #[path = "tests/test_sql_test_extraction.rs"]
 mod sql_test_extraction;
+#[path = "tests/test_sql_test_markers.rs"]
+mod sql_test_markers;
 #[path = "tests/test_sql_test_planning.rs"]
 mod sql_test_planning;
+#[path = "tests/test_sql_test_relation_markers.rs"]
+mod sql_test_relation_markers;
 #[path = "tests/test_sql_test_rendering.rs"]
 mod sql_test_rendering;
 #[path = "tests/test_types.rs"]

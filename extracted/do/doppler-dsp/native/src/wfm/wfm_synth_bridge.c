@@ -37,6 +37,30 @@ dp_wfm_source_bits_refuse_text (const char *text, uint8_t *out, size_t max_out,
   return 0;
 }
 
+size_t
+dp_wfm_source_sync_refuse_text (const char *text, uint8_t *out, size_t max_out,
+                                const char **why)
+{
+  (void)text;
+  (void)out;
+  (void)max_out;
+  if (why)
+    *why = dp_wfm_why_retired_sync;
+  return 0;
+}
+
+size_t
+dp_wfm_source_crc_refuse_text (const char *text, uint8_t *out, size_t max_out,
+                               const char **why)
+{
+  (void)text;
+  (void)out;
+  (void)max_out;
+  if (why)
+    *why = dp_wfm_why_retired_crc;
+  return 0;
+}
+
 wfm_frame_desc_t *
 dp_wfm_frame_refuse_text (const char *text, const char **why)
 {
@@ -47,13 +71,36 @@ dp_wfm_frame_refuse_text (const char *text, const char **why)
   return NULL;
 }
 
+/* The two reasons a source cannot be framed from flags, said once. */
+static const char WHY_CANNOT_FRAME[]
+    = "--acq-code/--sync/--frame frame a waveform, and this type carries no "
+      "bit stream to frame: use --type bits/bpsk/qpsk/pn, or --type dsss to "
+      "spread it";
+static const char WHY_NEEDS_DATA[]
+    = "a frame's payload is a data source: give --data FIELD or "
+      "--data-from-file PATH";
+
+static int type_can_frame (const wfm_source_t *src);
+static int has_data (const wfm_source_t *src);
+
+const char *
+dp_wfm_framing_flags_error (const wfm_source_t *src)
+{
+  if (src->type == WFM_SYNTH_DSSS)
+    return NULL; /* a burst of preamble and sync alone is a burst */
+  if (!type_can_frame (src))
+    return WHY_CANNOT_FRAME;
+  if (!has_data (src))
+    return WHY_NEEDS_DATA;
+  return NULL;
+}
+
 int
 dp_wfm_source_has_frame (const wfm_source_t *src)
 {
-  /* A carried description, a preamble or a sync word -- never `crc`; see
-     the header on why. A coded frame is always a carried description (a
-     CADU's [ASM | codeblock] has neither a preamble nor a sync word), so
-     the description is what frames it.
+  /* A carried description, a preamble or a data source. A coded frame is
+     always a carried description (a CADU's [ASM | codeblock] has no
+     preamble), so the description is what frames it.
 
      Tested on LENGTH, never on the pointer -- the same rule
      dp_wfm_frame_fixed states. A GENERATED sequence (PN, Gold) has no array
@@ -63,7 +110,7 @@ dp_wfm_source_has_frame (const wfm_source_t *src)
      be refused there rather than be silently dropped here. */
   return src
          && (src->frame != NULL || (src->acq_code.len && src->acq_reps)
-             || src->sync.len || src->data.len || src->data_from_file);
+             || src->data.len || src->data_from_file);
 }
 
 /* A data source -- `data` or `data_from_file` -- fills this source's frame
@@ -175,6 +222,16 @@ dsss_error (const wfm_source_t *src)
   return NULL;
 }
 
+const char dp_wfm_why_retired_sync[]
+    = "sync is retired: the frame-sync word is a field of the frame "
+      "description -- pass frame= (a FrameDesc with the sync word as its "
+      "first field); the CLI's --sync builds that description for you";
+
+const char dp_wfm_why_retired_crc[]
+    = "crc is retired: a CRC is a stage of the frame description -- pass "
+      "frame= (a FrameDesc with a crc16 stage); the CLI's --crc builds that "
+      "description for you";
+
 const char dp_wfm_why_retired_bits[]
     = "bits is retired: a payload is drawn from a data source -- pass data= "
       "(payload= and pattern= with it)";
@@ -186,6 +243,10 @@ dp_wfm_source_error (const wfm_source_t *src)
      otherwise trip (doppler#1718). */
   if (src->retired_bits.len)
     return dp_wfm_why_retired_bits;
+  if (src->retired_sync.len)
+    return dp_wfm_why_retired_sync;
+  if (src->retired_crc.len)
+    return dp_wfm_why_retired_crc;
   /* Two members no face takes together (the manifest's `exclusive`). The
      CLI and a scene refuse the pair by flag and key, naming their own
      spelling; this is the object face's refusal -- a Python source or a C
@@ -214,14 +275,12 @@ dp_wfm_source_error (const wfm_source_t *src)
         return w;
     }
   /* `data:LEN` is filled from a data source, so in any slot but a frame's
-     payload it is a category error: a sync word, a preamble and a spreading
-     code carry their own bits. */
-  if ((src->sync.kind == WFM_SEQ_DATA && src->sync.len)
-      || (src->acq_code.kind == WFM_SEQ_DATA && src->acq_code.len)
+     payload it is a category error: a preamble and a spreading code carry
+     their own bits. */
+  if ((src->acq_code.kind == WFM_SEQ_DATA && src->acq_code.len)
       || (src->data_code.kind == WFM_SEQ_DATA && src->data_code.len))
     return "data:LEN is only a frame's payload, drawn from a data source; "
-           "a sync word, a preamble or a spreading code carries its own "
-           "bits";
+           "a preamble or a spreading code carries its own bits";
   /* Only where a PN register is built from it: a framed bpsk is built as a
      BITS synth (dp_wfm_source_synth_type), and a tone never reads it. */
   const int t = dp_wfm_source_synth_type (src);
@@ -249,18 +308,17 @@ dp_wfm_source_frame_error (const wfm_source_t *src)
   if (!dp_wfm_source_has_frame (src))
     return NULL;
   /* One frame, said one way (docs/design/frame-description.md R). A carried
-     description IS the frame, so a sync word or an unspread preamble beside
-     it is a second spelling of part of it -- and one that would be silently
-     dropped, because the description wins. A DSSS preamble is not a frame
-     field (it is sent unspread, outside the description), so it may sit
-     beside one. */
-  if (src->frame
-      && (src->sync.len
-          || (src->type != WFM_SYNTH_DSSS && src->acq_code.len
-              && src->acq_reps)))
+     description IS the frame, so an unspread preamble beside it is a second
+     spelling of part of it -- and one that would be silently dropped,
+     because the description wins. A DSSS preamble is not a frame field (it
+     is sent unspread, outside the description), so it may sit beside one.
+     (A sync word or a CRC beside it is the retired spelling, refused by
+     name in dp_wfm_source_error.) */
+  if (src->frame && src->type != WFM_SYNTH_DSSS && src->acq_code.len
+      && src->acq_reps)
     return "a carried frame (--frame FILE, or a scene's \"frame\") is the "
-           "whole frame: put the sync word and the preamble in it as fields, "
-           "or drop it and use --acq-code/--sync/--crc for the common frame";
+           "whole frame: put the preamble in it as a field, or drop it and "
+           "use --acq-code/--sync/--crc for the common frame";
   if (src->type == WFM_SYNTH_DSSS)
     {
       /* A CONTINUOUS dsss stream has no frame at all; the CLI and the
@@ -277,17 +335,24 @@ dp_wfm_source_frame_error (const wfm_source_t *src)
       if (why)
         return why;
     }
-  else if (!type_can_frame (src))
-    return "--acq-code/--sync/--frame frame a waveform, and this type "
-           "carries no bit stream to frame: use --type bits/bpsk/qpsk/pn, or "
-           "--type dsss to spread it";
   /* The common frame's payload is its data:LEN field, filled frame by
      frame from a data source (doppler#1718). A CARRIED description is the
      whole frame and may be fixed bits throughout -- sent once, never
-     cycled -- or name a data:LEN field a data source fills. */
-  else if (!src->frame && !has_data (src))
-    return "a frame's payload is a data source: give --data FIELD or "
-           "--data-from-file PATH";
+     cycled -- or name a data:LEN field a data source fills, so it needs only
+     a type that carries bits. Without one, the flags' rule applies: the CLI
+     asks the same function before it builds a description, so the two cannot
+     disagree about when a source can be framed. */
+  else if (src->frame)
+    {
+      if (!type_can_frame (src))
+        return WHY_CANNOT_FRAME;
+    }
+  else
+    {
+      const char *no = dp_wfm_framing_flags_error (src);
+      if (no)
+        return no;
+    }
 
   /* Last, and deliberately last: does the description this source resolves to
      actually lay out? Every check above is about ONE flag's value, so it can
@@ -365,6 +430,21 @@ dp_wfm_source_frame_error (const wfm_source_t *src)
  * A carried description is copied rather than aliased so the caller may
  * reuse or free their own; the SEQUENCES it points at stay borrowed, on the
  * same terms as everywhere else here. */
+int
+dp_wfm_source_common_frame (const wfm_source_t *src, const wfm_seq_t *sync,
+                            int crc, wfm_frame_desc_t *d)
+{
+  const int spread = (src->type == WFM_SYNTH_DSSS);
+  /* The common frame's payload is `data:LEN`, its bits drawn per frame
+     from the data source; with none (a dsss burst of preamble and sync
+     only) it is empty. */
+  const wfm_seq_t dq = { .kind = WFM_SEQ_DATA, .len = common_data_len (src) };
+  const wfm_seq_t none = { 0 };
+  return dp_wfm_frame_fixed (d, spread ? NULL : &src->acq_code,
+                             spread ? 0u : src->acq_reps, sync,
+                             has_data (src) ? &dq : &none, crc);
+}
+
 static int
 source_frame (const wfm_source_t *src, wfm_frame_desc_t *d)
 {
@@ -373,15 +453,7 @@ source_frame (const wfm_source_t *src, wfm_frame_desc_t *d)
       *d = *src->frame;
       return 0;
     }
-  const int spread = (src->type == WFM_SYNTH_DSSS);
-  /* The common frame's payload is `data:LEN`, its bits drawn per frame
-     from the data source; with none (a dsss burst of preamble and sync
-     only) it is empty. */
-  const wfm_seq_t dq = { .kind = WFM_SEQ_DATA, .len = common_data_len (src) };
-  const wfm_seq_t none = { 0 };
-  return dp_wfm_frame_fixed (d, spread ? NULL : &src->acq_code,
-                             spread ? 0u : src->acq_reps, &src->sync,
-                             has_data (src) ? &dq : &none, src->crc);
+  return dp_wfm_source_common_frame (src, NULL, 0, d);
 }
 
 /* What a data source refuses before the first sample, named with its fix
@@ -649,6 +721,38 @@ data_pull_refill (void *u, uint8_t *bits, size_t n)
   return got == n ? 0 : 1;
 }
 
+/* The pull's state IS its source's: the chunk is scratch, rewritten before
+   each frame is assembled from it, and the description, the codes and the
+   pacing are config. So the synth nests the source's own blob, and a
+   source that refuses (a pipe) refuses the synth's. */
+static size_t
+data_pull_state_bytes (const void *u)
+{
+  return dp_wfm_data_state_bytes (((const data_pull_t *)u)->src);
+}
+
+static void
+data_pull_get_state (const void *u, void *blob)
+{
+  dp_wfm_data_get_state (((const data_pull_t *)u)->src, blob);
+}
+
+static int
+data_pull_set_state (void *u, const void *blob)
+{
+  return dp_wfm_data_set_state (((data_pull_t *)u)->src, blob);
+}
+
+static const char *
+data_pull_refusal (const void *u)
+{
+  return dp_wfm_data_state_refusal (((const data_pull_t *)u)->src);
+}
+
+static const wfm_synth_refill_state_t data_pull_state
+    = { data_pull_state_bytes, data_pull_get_state, data_pull_set_state,
+        data_pull_refusal };
+
 /* A pull over description `d`, owning `src` from here, success or not:
    NULL (and `src` destroyed) when `d` has no data:LEN field to fill. */
 static data_pull_t *
@@ -720,6 +824,7 @@ pull_park (dp_wfm_synth_state_t *syn, data_pull_t *p, size_t n, int modulation)
       data_pull_free (p);
       return -1;
     }
+  (void)dp_wfm_synth_set_refill_state (syn, &data_pull_state);
   syn->bit_idx = syn->n_bits;
   return 0;
 }

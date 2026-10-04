@@ -5014,6 +5014,7 @@ def register_generated_tools(mcp, _get_client):
         status: str | None = None,
         name: str | None = None,
         bid_strategy: str | None = None,
+        smart_targeting: dict[str, Any] | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
         value_rule_set_id: str | None = None,
@@ -5036,6 +5037,13 @@ def register_generated_tools(mcp, _get_client):
         LOWEST_COST_WITH_MIN_ROAS is rejected with 422 (OpenAI has no ROAS-based
         bidding). Other platforms (linkedin, pinterest, google, twitter) return 501
         Not Implemented when bidStrategy is set.
+                smart_targeting: TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is
+        TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`.
+        When on, TikTok may deliver beyond the selected audiences or interests. Available on
+        Video views, Traffic, Lead generation, App install, Web conversion and Community interaction.
+        Only the flags you send are written; an unwritten flag reads back null in
+        `nativeSettings`, so send `false` explicitly to be able to verify it is off.
+        Applied with TikTok's adgroup/update; read it back with GET /v1/ads/ad-sets?adSetId=...&live=true.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
         bidStrategy is LOWEST_COST_WITH_BID_CAP or COST_CAP. Internally converted to Meta's
         smallest-denomination integer, or (on OpenAI) to micros (× 1,000,000). Meta only:
@@ -5064,6 +5072,7 @@ def register_generated_tools(mcp, _get_client):
                 status=status,
                 name=name,
                 bid_strategy=bid_strategy,
+                smart_targeting=smart_targeting,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
                 value_rule_set_id=value_rule_set_id,
@@ -5815,6 +5824,7 @@ def register_generated_tools(mcp, _get_client):
         budget_level: str | None = None,
         attribution_spec: list[dict[str, Any]] | None = None,
         bodies: list[str] | None = None,
+        smart_targeting: dict[str, Any] | None = None,
         optimization_goal: str | None = None,
     ) -> str:
         """Boost post as ad
@@ -5961,6 +5971,13 @@ def register_generated_tools(mcp, _get_client):
                 budget_level: Meta only, same semantics as POST /v1/ads/create: campaign = Advantage campaign budget (CBO), the budget and bid strategy sit on the campaign and the ad set inherits them. Default adset. Not allowed with adSetId.
                 attribution_spec: Meta only. Ad-set attribution windows, same shape as POST /v1/ads/create. Applied on OUTCOME_SALES, OUTCOME_LEADS and OUTCOME_APP_PROMOTION campaigns (conversions, lead_conversion, lead_generation, app_promotion); other objectives keep Meta's default. Not allowed with adSetId.
                 bodies: Meta only. Extra primary-text options Meta rotates on the boosted post (asset_feed_spec.bodies with DEGREES_OF_FREEDOM); the post keeps its own text as one of the options. Works for Facebook posts and Instagram media. Under a conversions or traffic goal Meta also wants a website URL on the options, taken from `linkUrl` (send it with a `callToAction`); engagement boosts need none.
+                smart_targeting: TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is
+        TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`.
+        When on, TikTok may deliver beyond the selected audiences or interests. Available on
+        Video views, Traffic, Lead generation, App install, Web conversion and Community interaction.
+        Only the flags you send are written; an unwritten flag reads back null in
+        `nativeSettings`, so send `false` explicitly to be able to verify it is off.
+        Not available with smartPlus or when attaching to an existing ad set (adSetId).
                 optimization_goal: Meta, or TikTok with `goal: video_views`. TikTok: ENGAGED_VIEW (6-second
         Focused View, the default) or ENGAGED_VIEW_FIFTEEN (15-second views), both
         billed per view (CPV); any other value is a 400. Meta: explicit ad-set
@@ -6025,6 +6042,7 @@ def register_generated_tools(mcp, _get_client):
                 budget_level=budget_level,
                 attribution_spec=attribution_spec,
                 bodies=bodies,
+                smart_targeting=smart_targeting,
                 optimization_goal=optimization_goal,
             )
             return _format_response(response)
@@ -6291,6 +6309,7 @@ def register_generated_tools(mcp, _get_client):
         ad_name: str | None = None,
         tracking: dict[str, Any] | None = None,
         goal: str | None = None,
+        smart_targeting: dict[str, Any] | None = None,
         optimization_goal: str | None = None,
         billing_event: str | None = None,
         buying_type: str = "AUCTION",
@@ -6322,6 +6341,7 @@ def register_generated_tools(mcp, _get_client):
         creatives: list[dict[str, Any]] | None = None,
         ad_set_id: str | None = None,
         existing_campaign_id: str | None = None,
+        phone_number: str | None = None,
         existing_creative_id: str | None = None,
         business_name: str | None = None,
         board_id: str | None = None,
@@ -6426,6 +6446,13 @@ def register_generated_tools(mcp, _get_client):
 
         **OpenAI Ads**
         - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 400. Pick the event with `promotedObject.customEventType` (see AdPromotedObject); without it the most recently created optimizable event is used.
+                smart_targeting: TikTok only (a 400 elsewhere). TikTok Smart Targeting on the ad group: `audience` is
+        TikTok's `smart_audience_enabled`, `interestsBehaviors` its `smart_interest_behavior_enabled`.
+        When on, TikTok may deliver beyond the selected audiences or interests. Available on
+        Video views, Traffic, Lead generation, App install, Web conversion and Community interaction.
+        Only the flags you send are written; an unwritten flag reads back null in
+        `nativeSettings`, so send `false` explicitly to be able to verify it is off.
+        Not available with smartPlus or when attaching to an existing ad set (adSetId).
                 optimization_goal: Meta, or TikTok with goal video_views (ENGAGED_VIEW, the 6-second default, or ENGAGED_VIEW_FIFTEEN; both bill per view). Meta: Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
                 billing_event: Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal.
                 buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
@@ -6452,7 +6479,7 @@ def register_generated_tools(mcp, _get_client):
         Meta requires the budget at exactly one level, never both. Non-Meta platforms ignore
         this field. Ignored on the attach shape (`adSetId`), which inherits the existing budget.
                 currency: ISO 4217 currency code matching the ad account's currency (e.g. `USD`). Meta only. Optional: Zernio resolves it from the ad account when omitted. The value selects the minor-unit exponent Zernio converts budget/bid amounts by before calling Meta (most currencies are cents; zero-decimal currencies like JPY/KRW are sent as-is).
-                headline: Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative; use `creatives[].headline`). Ignored for TikTok and X. Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title.
+                headline: Required for Meta, Google, Pinterest, LinkedIn, and OpenAI Ads on legacy + attach shapes (skip for multi-creative; use `creatives[].headline`). Ignored for TikTok. On X, the website card title (needs imageUrl and linkUrl, max 70). Max: Meta=255, Google=30, Pinterest=100, LinkedIn=400, OpenAI=50 (min 3). On LinkedIn this is the ad's headline (the bold text on the creative); for traffic ads it's the link card title. On OpenAI Ads this is the chat card's title.
                 long_headline: Google Display only. Defaults to `headline` if omitted. On LinkedIn, reused as the optional secondary description text on traffic (link) ads; omitted if not provided.
                 body: Required on legacy + attach shapes. For X this is the tweet text (max 280 chars including a ~24-char URL when `linkUrl` is set). On LinkedIn this is the post commentary (the intro text shown above the ad). On OpenAI Ads this is the chat card's body text. Max: Google=90, Pinterest=500, OpenAI=100.
                 description: Meta only (facebook/instagram). Link description: the secondary text shown below the headline (Meta's link_data.description; on video creatives mapped to video_data.link_description). When omitted, Meta auto-pulls the destination URL's OpenGraph description. Applies on legacy, attach, and placementAssets shapes; for multi-creative use creatives[].description (this field is the shared fallback). For multi-text variations use `descriptions` (array) instead.
@@ -6477,7 +6504,7 @@ def register_generated_tools(mcp, _get_client):
                 call_to_action: Required on legacy + attach shapes for Meta. Honoured on TikTok (passes through to the Spark Ad creative's `call_to_action`) and on LinkedIn (the CTA button on the ad; defaults to LEARN_MORE when `linkUrl` is set). LinkedIn accepts: LEARN_MORE, SIGN_UP, DOWNLOAD, SUBSCRIBE, REGISTER, JOIN, ATTEND, REQUEST_DEMO, VIEW_QUOTE, APPLY, SEE_MORE, SHOP_NOW, BUY_NOW. Ignored by Google, Pinterest, and X.
                 link_url: Required on legacy + attach shapes (skip for multi-creative). On LinkedIn it's the ad's destination URL; required for `traffic` ads, optional for `engagement` / `awareness`. NOT required when `goal` is `lead_generation` (the ad opens a Lead Gen form instead of a destination). On LinkedIn, `imageUrl` + `linkUrl` publishes an ARTICLE-content creative; this is LinkedIn's article ad format, with the image as thumbnail and `longHeadline` as description. Required for OpenAI Ads (the chat card's target_url).
                 lead_gen_form_id: Lead Gen form ID to attach to the ad's creative. REQUIRED when `goal` is `lead_generation`. Create one via POST /v1/ads/lead-forms. On Meta (facebook/instagram) this is the leadgen_forms ID; the ad set's promoted_object.page_id + LEAD_GENERATION optimization + destination_type ON_AD are derived automatically from the goal. On LinkedIn this is the adForm ID; the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}` and the campaign objective is set to MAX_LEAD. Forms must be owned by the sponsoredAccount (not the organization) for the URN to resolve. Also required on every Meta ATTACH (`adSetId`) call that targets a lead ad set (the form attaches per-ad; Meta rejects a formless ad in a lead ad set). `placementAssets`, `dynamicCreative` and `carouselCards` (Meta multi-card Instant-Form lead ad; `linkUrl` and per-card `linkUrl` are optional and forwarded as real destinations when sent, falling back to Meta's lead-form link when omitted) ARE supported on Meta instant-form lead ads.
-                image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). Rejected with 400 on X (an X ad is a post from body + linkUrl; promote a post that carries the image with POST /v1/ads/boost), as are headline, description, video and callToAction. For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format).
+                image_url: Image creative for Meta/Google/Pinterest/LinkedIn on legacy + attach shapes (mutually exclusive with `video`). Required for LinkedIn ads unless `video` is set. Not required for Google Search campaigns. For TikTok, this field carries the VIDEO URL (the TikTok ads endpoint is video-only; the field retains the `imageUrl` name for cross-platform consistency). On X, imageUrl + headline + linkUrl together build a website card (image, title and destination under the post; the URL is not added to the post text); sending only some of them is a 400. description, video and callToAction are rejected with 400 on X (promote a post that carries a video with POST /v1/ads/boost). For Google Display, treated as the landscape image (alias of `images.landscape`); supply `images.square` alongside or the request is rejected. For LinkedIn the image is uploaded to LinkedIn under the authoring Company Page (see `organizationId`); recommended ratio 1.91:1 (e.g. 1200×627). Required for OpenAI Ads (uploaded as the chat card's image; OpenAI has no video ad format).
                 images: Google Display (Responsive Display Ads) only. Google RDA requires both a landscape (1.91:1) and a square (1:1) marketing image; sending only one is rejected upstream as 'Too few.' (NOT_ENOUGH_*_MARKETING_IMAGE_ASSET). Supply both URLs here. Either this field or the legacy `imageUrl` can provide the landscape, but `square` has no legacy counterpart so it must be set here for Display.
                 video: Meta (facebook, instagram) and LinkedIn. Creates a single VIDEO ad. Mutually exclusive with `imageUrl`. Supply `url` to upload a file, or `id` to reuse a video already on the ad account (list them with GET /v1/ads/videos). Works on the single-ad and attach (`adSetId`) shapes; for Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame). Supply MP4 H.264/AAC, 3s-30min, 75KB-500MB.
                 creatives: Meta-only. When present, switches to the multi-creative shape:
@@ -6558,6 +6585,13 @@ def register_generated_tools(mcp, _get_client):
         authored are cleaned up; the pre-existing parent is left
         untouched and is never (re)activated. Mutually exclusive
         with `adSetId` and `creatives[]`.
+                phone_number: Meta attach shape only (`adSetId`). The phone number (E.164, e.g. `+4712345678`)
+        for an ad added to a "website and phone call" ad set (destination_type
+        `WEBSITE_AND_PHONE_CALL`), sent as the creative's call configuration. Optional:
+        when omitted, the number on the ad set's existing ads is reused, and if none of
+        them carries one the request is a 400. Rejected with 400 on any other ad set,
+        with `existingCreativeId`, without `adSetId`, or on other platforms (a new call
+        campaign is `POST /v1/ads/call`).
                 existing_creative_id: Meta only. Reuse an EXISTING ad creative by id instead of
         building a new one from the copy/media fields (which are then
         ignored). Combine with `existingCampaignId` to build a
@@ -6900,6 +6934,7 @@ def register_generated_tools(mcp, _get_client):
                 ad_name=ad_name,
                 tracking=tracking,
                 goal=goal,
+                smart_targeting=smart_targeting,
                 optimization_goal=optimization_goal,
                 billing_event=billing_event,
                 buying_type=buying_type,
@@ -6931,6 +6966,7 @@ def register_generated_tools(mcp, _get_client):
                 creatives=creatives,
                 ad_set_id=ad_set_id,
                 existing_campaign_id=existing_campaign_id,
+                phone_number=phone_number,
                 existing_creative_id=existing_creative_id,
                 business_name=business_name,
                 board_id=board_id,
@@ -8266,6 +8302,7 @@ def register_generated_tools(mcp, _get_client):
         dimension: str = "interest",
         geo_type: str = "city",
         country_code: str | None = None,
+        ad_account_id: str | None = None,
         limit: int = 25,
     ) -> str:
         """Search targeting options
@@ -8276,6 +8313,7 @@ def register_generated_tools(mcp, _get_client):
             dimension: What to search. `geo` resolves locations (scope further with `geoType`), `interest`/`behavior` resolve audience entities (`behavior` is Meta only), `income` resolves the normalized income tiers, `language` resolves Google's targetable language_constant table (Google only), `workPosition`/`workEmployer`/`workIndustry` resolve Meta work demographics, `industry`/`jobFunction`/`seniority`/`companySize` resolve LinkedIn B2B facets (LinkedIn only). Defaults to `interest` for backward compatibility with the deprecated /v1/ads/interests alias.
             geo_type: Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`.
             country_code: ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search.
+            ad_account_id: TikTok only: the advertiser to search as, when the connection holds several. Each TikTok advertiser has its own targetable regions and catalogs. Defaults to the connection's first advertiser; an advertiser the connection does not hold returns 400.
             limit: Maximum results to return."""
         client = _get_client()
         try:
@@ -8285,6 +8323,7 @@ def register_generated_tools(mcp, _get_client):
                 dimension=dimension,
                 geo_type=geo_type,
                 country_code=country_code,
+                ad_account_id=ad_account_id,
                 limit=limit,
             )
             return _format_response(response)

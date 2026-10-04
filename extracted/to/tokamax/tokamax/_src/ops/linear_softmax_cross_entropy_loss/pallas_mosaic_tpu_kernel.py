@@ -53,7 +53,7 @@ def _calculate_fwd_vmem_bytes(
     b_block_size: int,
     h_block_size: int,
     v_block_size: int,
-    dtype: jnp.dtype = jnp.float32,
+    dtype: jnp.dtype = jnp.float32,  # pyrefly: ignore[bad-function-definition]
 ) -> int:
   """Calculates VMEM memory usage in bytes for the forward kernel."""
   dtype_bytes = jnp.dtype(dtype).itemsize
@@ -81,7 +81,7 @@ def _calculate_bwd_vmem_bytes(
     b_block_size: int,
     h_block_size: int,
     v_block_size: int,
-    dtype: jnp.dtype = jnp.float32,
+    dtype: jnp.dtype = jnp.float32,  # pyrefly: ignore[bad-function-definition]
 ) -> int:
   """Calculates VMEM memory usage in bytes for the backward kernel."""
   dtype_bytes = jnp.dtype(dtype).itemsize
@@ -122,7 +122,7 @@ def _get_heuristic_config(
     v_dim: int,
     *,
     is_bwd: bool = False,
-    dtype: jnp.dtype = jnp.float32,
+    dtype: jnp.dtype = jnp.float32,  # pyrefly: ignore[bad-function-definition]
     vmem_limit_bytes: int | None = None,
 ) -> Config:
   """Calculates heuristic config based on VMEM size, dtype, and divisibility."""
@@ -293,7 +293,7 @@ def get_heuristic_fwd_config(
     b_dim: int,
     h_dim: int,
     v_dim: int,
-    dtype: jnp.dtype = jnp.float32,
+    dtype: jnp.dtype = jnp.float32,  # pyrefly: ignore[bad-function-definition]
     vmem_limit_bytes: int | None = None,
 ) -> Config:
   """Returns heuristic config for forward pass based on VMEM size and dtype."""
@@ -311,7 +311,7 @@ def get_heuristic_bwd_config(
     b_dim: int,
     h_dim: int,
     v_dim: int,
-    dtype: jnp.dtype = jnp.float32,
+    dtype: jnp.dtype = jnp.float32,  # pyrefly: ignore[bad-function-definition]
     vmem_limit_bytes: int | None = None,
 ) -> Config:
   """Returns heuristic config for backward pass based on VMEM size and dtype."""
@@ -691,7 +691,9 @@ def linear_softmax_cross_entropy_loss_forward_pallas_kernel(
 
   @pl.kernel(
       out_type=out_type,
-      mesh=pltpu.TensorCoreMesh(axis_name="core"),
+      mesh=pltpu.create_tensorcore_mesh(axis_name="core")
+      if jax.__version_info__ < (0, 11, 0)
+      else pltpu.TensorCoreMesh(axis_name="core"),
       scratch_types=(
           pltpu.VMEM(
               (b_block_size, v_block_size), dtype=jnp.float32
@@ -874,7 +876,7 @@ def linear_softmax_cross_entropy_loss_fwd_pallas_mosaic_tpu(
     h_block_size: int = 512,
     v_block_size: int = 2048,
     reduction: Literal["sum", "mean", "none"] = "sum",
-    preferred_element_type: jnp.dtype = jnp.float32,
+    preferred_element_type: jnp.dtype = jnp.float32,  # pyrefly: ignore[bad-function-definition]
 ) -> tuple[Real[Scalar, ""] | Real[Array, "B"], Real[Array, "B"]]:
   """The pallas kernel implementation of linear softmax cross-entropy loss.
 
@@ -1007,8 +1009,12 @@ def linear_softmax_cross_entropy_loss_backward_pallas_kernel(
   )
 
   @pl.kernel(
-      out_type=out_type,
-      mesh=pltpu.TensorCoreMesh(axis_name="core"),
+      out_type=[pltpu.HBM(t.shape, t.dtype) for t in out_type]
+      if jax.__version_info__ < (0, 11, 0)
+      else out_type,
+      mesh=pltpu.create_tensorcore_mesh(axis_name="core")
+      if jax.__version_info__ < (0, 11, 0)
+      else pltpu.TensorCoreMesh(axis_name="core"),
       scratch_types=(
           pltpu.VMEM(
               (2, b_block_size, v_block_size), dtype=jnp.float32
@@ -1430,6 +1436,8 @@ def linear_softmax_cross_entropy_loss_backward_pallas_kernel(
   x_grad_blocks, w_grad = bwd_kernel(dout, x, labels, w, lse)
   x_grad = jnp.sum(x_grad_blocks, axis=0)[:b_dim, :h_dim]
   w_grad = w_grad[:h_dim, :v_dim]
+  if jax.__version_info__ < (0, 11, 0):
+    x_grad, w_grad = jax.device_put((x_grad, w_grad), jax.memory.Space.Device)
   return x_grad, w_grad
 
 
@@ -1454,7 +1462,7 @@ def linear_softmax_cross_entropy_loss_bwd_pallas_mosaic_tpu(
     h_block_size: int = 512,
     v_block_size: int = 2048,
     reduction: Literal["sum", "mean", "none"] = "sum",
-    preferred_element_type: jnp.dtype = jnp.float32,
+    preferred_element_type: jnp.dtype = jnp.float32,  # pyrefly: ignore[bad-function-definition]
 ) -> tuple[Real[Array, "B H"], Real[Array, "H V"]]:
   """Pallas kernel implementation of Linear Softmax Cross-Entropy Loss backward.
 

@@ -14,6 +14,7 @@
 typedef struct
 {
   PyObject_HEAD dp_dsss_burst_receiver_state_t *handle;
+  PyObject                                     *_frame_owner;
 } DsssBurstReceiverObject;
 
 static void
@@ -21,6 +22,7 @@ DsssBurstReceiverObj_dealloc (DsssBurstReceiverObject *self)
 {
   if (self->handle)
     dp_dsss_burst_receiver_destroy (self->handle);
+  Py_XDECREF (self->_frame_owner);
   Py_TYPE (self)->tp_free ((PyObject *)self);
 }
 
@@ -39,18 +41,16 @@ DsssBurstReceiverObj_init (DsssBurstReceiverObject *self, PyObject *args,
                            PyObject *kwds)
 {
   static char *kwlist[]
-      = { "acq_code",   "data_code",    "sync",
-          "reps",       "spc",          "chip_rate",
-          "frame_syms", "cn0_dbhz",     "doppler_uncertainty",
-          "pfa",        "pd",           "carrier_hz",
-          "max_rate",   "est_segments", NULL };
+      = { "acq_code",     "data_code", "frame",      "reps",
+          "spc",          "chip_rate", "cn0_dbhz",   "doppler_uncertainty",
+          "pfa",          "pd",        "carrier_hz", "max_rate",
+          "est_segments", NULL };
   PyObject          *acq_code_obj        = NULL;
   PyObject          *data_code_obj       = NULL;
-  PyObject          *sync_obj            = NULL;
+  PyObject          *frame_obj           = NULL;
   unsigned long long reps_raw            = 5;
   unsigned long long spc_raw             = 4;
   double             chip_rate           = 1000000.0;
-  unsigned long long frame_syms_raw      = 64;
   double             cn0_dbhz            = ACQ_CN0_NONE;
   double             doppler_uncertainty = 0.0;
   double             pfa                 = 1e-3;
@@ -59,56 +59,86 @@ DsssBurstReceiverObj_init (DsssBurstReceiverObject *self, PyObject *args,
   double             max_rate            = 0.0;
   unsigned long long est_segments_raw    = 10;
 
-  if (!PyArg_ParseTupleAndKeywords (
-          args, kwds, "OOO|KKdKddddddK", kwlist, &acq_code_obj, &data_code_obj,
-          &sync_obj, &reps_raw, &spc_raw, &chip_rate, &frame_syms_raw,
-          &cn0_dbhz, &doppler_uncertainty, &pfa, &pd, &carrier_hz, &max_rate,
-          &est_segments_raw))
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "OOO|KKdddddddK", kwlist,
+                                    &acq_code_obj, &data_code_obj, &frame_obj,
+                                    &reps_raw, &spc_raw, &chip_rate, &cn0_dbhz,
+                                    &doppler_uncertainty, &pfa, &pd,
+                                    &carrier_hz, &max_rate, &est_segments_raw))
     return -1;
+  const wfm_frame_desc_t *frame = NULL;
+  if (frame_obj == Py_None || frame_obj == NULL)
+    {
+      PyErr_SetString (PyExc_TypeError,
+                       "frame is required and cannot be None;"
+                       " pass the doppler.wfm.frame_desc capsule or an object"
+                       " exposing it as ._capsule");
+      return -1;
+    }
+  PyObject *frame_cap = frame_obj;
+  Py_INCREF (frame_cap);
+  if (!PyCapsule_CheckExact (frame_cap))
+    {
+      Py_DECREF (frame_cap);
+      frame_cap = PyObject_GetAttrString (frame_obj, "_capsule");
+      if (!frame_cap)
+        {
+          if (!PyErr_ExceptionMatches (PyExc_AttributeError))
+            return -1;
+          PyErr_Clear ();
+          PyErr_Format (PyExc_TypeError,
+                        "frame must be the doppler.wfm.frame_desc capsule"
+                        " or an object exposing it as ._capsule,"
+                        " not %s",
+                        Py_TYPE (frame_obj)->tp_name);
+          return -1;
+        }
+    }
+  frame = (const wfm_frame_desc_t *)PyCapsule_GetPointer (
+      frame_cap, "doppler.wfm.frame_desc");
+  Py_DECREF (frame_cap);
+  if (!frame)
+    return -1;
+  Py_INCREF (frame_obj);
+  Py_XSETREF (self->_frame_owner, frame_obj);
   size_t         reps         = (size_t)reps_raw;
   size_t         spc          = (size_t)spc_raw;
-  size_t         frame_syms   = (size_t)frame_syms_raw;
   size_t         est_segments = (size_t)est_segments_raw;
-  PyArrayObject *acq_code_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      acq_code_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *acq_code_arr = jm_array_arg_hint (
+      acq_code_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "acq_code",
+      "a bit field takes bits (a uint8 array); build them from text with "
+      "field_bits()");
   if (!acq_code_arr)
     {
       return -1;
     }
   size_t         acq_code_len  = (size_t)PyArray_SIZE (acq_code_arr);
-  PyArrayObject *data_code_arr = (PyArrayObject *)PyArray_FROM_OTF (
-      data_code_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  PyArrayObject *data_code_arr = jm_array_arg_hint (
+      data_code_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS, "data_code",
+      "a bit field takes bits (a uint8 array); build them from text with "
+      "field_bits()");
   if (!data_code_arr)
     {
       Py_DECREF (acq_code_arr);
       return -1;
     }
-  size_t         data_code_len = (size_t)PyArray_SIZE (data_code_arr);
-  PyArrayObject *sync_arr      = (PyArrayObject *)PyArray_FROM_OTF (
-      sync_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
-  if (!sync_arr)
-    {
-      Py_DECREF (acq_code_arr);
-      Py_DECREF (data_code_arr);
-      return -1;
-    }
-  size_t sync_len = (size_t)PyArray_SIZE (sync_arr);
-  self->handle    = dp_dsss_burst_receiver_create (
+  size_t data_code_len = (size_t)PyArray_SIZE (data_code_arr);
+  self->handle         = dp_dsss_burst_receiver_create_frame (
       (const uint8_t *)PyArray_DATA (acq_code_arr), acq_code_len,
-      (const uint8_t *)PyArray_DATA (data_code_arr), data_code_len,
-      (const uint8_t *)PyArray_DATA (sync_arr), sync_len, reps, spc, chip_rate,
-      frame_syms, cn0_dbhz, doppler_uncertainty, pfa, pd, carrier_hz, max_rate,
-      est_segments);
+      (const uint8_t *)PyArray_DATA (data_code_arr), data_code_len, frame,
+      reps, spc, chip_rate, cn0_dbhz, doppler_uncertainty, pfa, pd, carrier_hz,
+      max_rate, est_segments);
   Py_DECREF (acq_code_arr);
   Py_DECREF (data_code_arr);
-  Py_DECREF (sync_arr);
   if (!self->handle)
     {
       PyErr_SetString (PyExc_ValueError,
                        "DsssBurstReceiver: invalid parameter (need non-empty "
-                       "acq_code/data_code/sync, reps >= 1, spc >= 1, "
-                       "chip_rate > 0, frame_syms >= 1, cn0_dbhz >= 0, 0 < "
-                       "pfa < 1, 0 < pd < 1)");
+                       "acq_code/data_code, reps >= 1, spc >= 1, chip_rate > "
+                       "0, cn0_dbhz finite or NaN, 0 < pfa < 1, 0 < pd < 1) "
+                       "or a frame description whose first field is not "
+                       "known bits (empty, derived by a stage, a data field, "
+                       "covered by a stage, or named \"preamble\"), or whose "
+                       "stages emit a new stream (a convolutional code)");
       return -1;
     }
   return 0;
@@ -146,8 +176,7 @@ DsssBurstReceiverObj_push (DsssBurstReceiverObject *self, PyObject *args,
   if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &x_obj,
                                     &out_obj))
     return NULL;
-  x_arr = (PyArrayObject *)PyArray_FROM_OTF (x_obj, NPY_COMPLEX64,
-                                             NPY_ARRAY_C_CONTIGUOUS);
+  x_arr = jm_array_arg (x_obj, NPY_COMPLEX64, NPY_ARRAY_C_CONTIGUOUS, "x");
   if (!x_arr)
     return NULL;
   if (out_obj && out_obj != Py_None)
@@ -165,8 +194,9 @@ DsssBurstReceiverObj_push (DsssBurstReceiverObject *self, PyObject *args,
           Py_DECREF (x_arr);
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_UINT8,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           Py_DECREF (x_arr);
@@ -198,6 +228,15 @@ DsssBurstReceiverObj_push (DsssBurstReceiverObject *self, PyObject *args,
                                              _cap);
       Py_END_ALLOW_THREADS
       Py_DECREF (x_arr);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "DsssBurstReceiver.push: wrote %zu elements into a "
+                        "buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_UINT8,
                                                     PyArray_DATA (out_arr));
@@ -206,14 +245,30 @@ DsssBurstReceiverObj_push (DsssBurstReceiverObject *self, PyObject *args,
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)PyArray_SIZE (x_arr);
   size_t _cap  = dp_dsss_burst_receiver_push_max_out (
       self->handle, (size_t)PyArray_SIZE (x_arr));
   (void)_need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      Py_DECREF (x_arr);
+      PyErr_Format (
+          PyExc_OverflowError,
+          "DsssBurstReceiver.push: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_UINT8);
   if (!arr0)
     {
@@ -232,6 +287,15 @@ DsssBurstReceiverObj_push (DsssBurstReceiverObject *self, PyObject *args,
     n_out = dp_dsss_burst_receiver_push (self->handle, _ng0, _ng1, _d0, _cap);
   Py_END_ALLOW_THREADS
   Py_DECREF (x_arr);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "DsssBurstReceiver.push: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -292,8 +356,9 @@ DsssBurstReceiverObj_llrs (DsssBurstReceiverObject *self, PyObject *args,
                            " ndarray of the output dtype");
           return NULL;
         }
-      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
-          out_obj, NPY_FLOAT, NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      PyArrayObject *out_arr
+          = jm_array_arg (out_obj, NPY_FLOAT,
+                          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE, "out");
       if (!out_arr)
         {
           return NULL;
@@ -311,6 +376,15 @@ DsssBurstReceiverObj_llrs (DsssBurstReceiverObject *self, PyObject *args,
         }
       size_t n_out = dp_dsss_burst_receiver_llrs (
           self->handle, (size_t)n, (float *)PyArray_DATA (out_arr), _cap);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "DsssBurstReceiver.llrs: wrote %zu elements into a "
+                        "buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp  _odim  = (npy_intp)n_out;
       PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_FLOAT,
                                                     PyArray_DATA (out_arr));
@@ -319,13 +393,28 @@ DsssBurstReceiverObj_llrs (DsssBurstReceiverObject *self, PyObject *args,
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_dsss_burst_receiver_llrs_max_out (self->handle, (size_t)n);
   (void)_need;
-  npy_intp  _adim = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      PyErr_Format (
+          PyExc_OverflowError,
+          "DsssBurstReceiver.llrs: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp  _adim = (npy_intp)_adim_need;
   PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_FLOAT);
   if (!arr0)
     {
@@ -334,6 +423,15 @@ DsssBurstReceiverObj_llrs (DsssBurstReceiverObject *self, PyObject *args,
   float *_d0 = (float *)PyArray_DATA ((PyArrayObject *)arr0);
   size_t n_out
       = dp_dsss_burst_receiver_llrs (self->handle, (size_t)n, _d0, _cap);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "DsssBurstReceiver.llrs: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -491,6 +589,15 @@ DsssBurstReceiverObj_events (DsssBurstReceiverObject *self, PyObject *args,
       size_t n_out = dp_dsss_burst_receiver_events (
           self->handle, (size_t)n, (dsss_br_event_t *)PyArray_DATA (out_arr),
           _cap);
+      if ((size_t)(n_out) > (size_t)(_cap))
+        {
+          Py_DECREF (out_arr);
+          PyErr_Format (PyExc_RuntimeError,
+                        "DsssBurstReceiver.events: wrote %zu elements into a "
+                        "buffer of %zu",
+                        (size_t)(n_out), (size_t)(_cap));
+          return NULL;
+        }
       npy_intp       _odim   = (npy_intp)n_out;
       PyArray_Descr *_vdescr = DsssBurstReceiverObj_events_get_dtype ();
       if (!_vdescr)
@@ -506,14 +613,29 @@ DsssBurstReceiverObj_events (DsssBurstReceiverObject *self, PyObject *args,
           Py_DECREF (out_arr);
           return NULL;
         }
-      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      if (PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr)
+          < 0)
+        {
+          Py_DECREF (out_arr);
+          Py_DECREF (_oview);
+          return NULL;
+        }
       return _oview;
     }
   size_t _need = (size_t)n;
   size_t _cap  = dp_dsss_burst_receiver_events_max_out (self->handle);
   if (!_cap || _cap < _need)
     _cap = _need;
-  npy_intp       _adim  = (npy_intp)_cap;
+  size_t _adim_need = (size_t)(_cap);
+  if (_adim_need > (size_t)NPY_MAX_INTP)
+    {
+      PyErr_Format (
+          PyExc_OverflowError,
+          "DsssBurstReceiver.events: output of %zu elements is too large",
+          _adim_need);
+      return NULL;
+    }
+  npy_intp       _adim  = (npy_intp)_adim_need;
   PyArray_Descr *_descr = DsssBurstReceiverObj_events_get_dtype ();
   if (!_descr)
     {
@@ -529,6 +651,15 @@ DsssBurstReceiverObj_events (DsssBurstReceiverObject *self, PyObject *args,
       = (dsss_br_event_t *)PyArray_DATA ((PyArrayObject *)arr0);
   size_t n_out
       = dp_dsss_burst_receiver_events (self->handle, (size_t)n, _d0, _cap);
+  if ((size_t)(n_out) > (size_t)(_cap))
+    {
+      Py_DECREF (arr0);
+      PyErr_Format (
+          PyExc_RuntimeError,
+          "DsssBurstReceiver.events: wrote %zu elements into a buffer of %zu",
+          (size_t)(n_out), (size_t)(_cap));
+      return NULL;
+    }
   if ((size_t)n_out == _cap)
     {
       return arr0;
@@ -815,20 +946,6 @@ DsssBurstReceiver_getprop_pending (DsssBurstReceiverObject *self,
       (unsigned long long)dp_dsss_burst_receiver_get_pending (self->handle));
 }
 static PyObject *
-DsssBurstReceiver_getprop_n_bursts (DsssBurstReceiverObject *self,
-                                    void *Py_UNUSED (closure))
-{
-  if (!self->handle)
-    {
-      PyErr_SetString (PyExc_RuntimeError, "destroyed");
-      return NULL;
-    }
-  /* <<IMPLEMENT: return the computed or stored value>> */
-  return PyLong_FromUnsignedLongLong (
-      (unsigned long long)dp_dsss_burst_receiver_get_n_bursts (self->handle));
-}
-
-static PyObject *
 DsssBurstReceiver_getprop_dropped (DsssBurstReceiverObject *self,
                                    void *Py_UNUSED (closure))
 {
@@ -840,6 +957,19 @@ DsssBurstReceiver_getprop_dropped (DsssBurstReceiverObject *self,
   /* <<IMPLEMENT: return the computed or stored value>> */
   return PyLong_FromUnsignedLongLong (
       (unsigned long long)dp_dsss_burst_receiver_get_dropped (self->handle));
+}
+static PyObject *
+DsssBurstReceiver_getprop_n_bursts (DsssBurstReceiverObject *self,
+                                    void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyLong_FromUnsignedLongLong (
+      (unsigned long long)dp_dsss_burst_receiver_get_n_bursts (self->handle));
 }
 
 static PyGetSetDef DsssBurstReceiver_getset[] = {
@@ -873,11 +1003,14 @@ static PyGetSetDef DsssBurstReceiver_getset[] = {
     "here is structural.\n",
     NULL },
   { "frame_valid", (getter)DsssBurstReceiver_getprop_frame_valid, NULL,
-    "Whether the most recent window's frame passed its error detection -- "
-    "this receiver's frame ends in a CRC-16. The verdict that decides whether "
-    "the window OWNS its span: a failed window is given back to the capture "
-    "(`release`), so a decoy ahead of a real burst cannot swallow it "
-    "(doppler#1181). Per burst, read `events()['frame_valid']`.\n",
+    "Whether the most recent window's frame passed its error detection -- the "
+    "frame description's CRC stage covered it. The verdict that decides "
+    "whether the window OWNS its span: a failed window is given back to the "
+    "capture (`release`), so a decoy ahead of a real burst cannot swallow it "
+    "(doppler#1181). The verdict is the frame description's own, so a frame "
+    "whose description has no CRC stage is never valid -- its bits are still "
+    "returned, and every window is released (doppler#1769). Per burst, read "
+    "`events()['frame_valid']`.\n",
     NULL },
   { "min_gap", (getter)DsssBurstReceiver_getprop_min_gap, NULL,
     "Dead air to leave BETWEEN bursts, in samples — edge to edge.\n"
@@ -911,7 +1044,7 @@ static PyGetSetDef DsssBurstReceiver_getset[] = {
     "air\n"
     "between them (against the 3924 `min_gap` asks for) decode 2 of 7; the "
     "same\n"
-    "code with `frame_syms=2053` gives 261228-sample bursts, 21.3x the "
+    "code with a 2053-symbol frame gives 261228-sample bursts, 21.3x the "
     "reach,\n"
     "and every spacing down to zero dead air decodes 7 of 7 (doppler#1085).\n",
     NULL },
@@ -947,14 +1080,14 @@ static PyGetSetDef DsssBurstReceiver_getset[] = {
     "burst\n"
     "is neither.\n",
     NULL },
+  { "dropped", (getter)DsssBurstReceiver_getprop_dropped, NULL,
+    "Samples the capture ring refused. Each is a LOST BURST, not a statistic "
+    "-- a lifetime count that survives reset().\n",
+    NULL },
   { "n_bursts", (getter)DsssBurstReceiver_getprop_n_bursts, NULL,
     "Bursts DEMODULATED, lifetime. Distinct from the capture's own count, "
     "which is windows EMITTED: they differ by any window the demodulator "
     "refused, and that difference is the thing worth seeing.\n",
-    NULL },
-  { "dropped", (getter)DsssBurstReceiver_getprop_dropped, NULL,
-    "Samples the capture ring refused. Each is a LOST BURST, not a statistic "
-    "-- a lifetime count that survives reset().\n",
     NULL },
   { NULL }
 };
@@ -997,24 +1130,23 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "push(x, out) -> ndarray\n"
     "\n"
-    "Stream raw cf32 samples and get back the FRAME BITS of every burst\n"
-    "that completed. Samples feed the embedded BurstAcquisition and are\n"
-    "retained in a history ring; when a detection fires, the refine stage\n"
-    "correlates the whole preamble to recover the exact preamble start --\n"
-    "the one quantity acquisition structurally cannot report, since its\n"
-    "code_phase is a lag modulo one code period -- and the burst is\n"
-    "demodulated the moment its last sample has arrived. Every sample is\n"
-    "consumed and every burst that completes is returned by the call that\n"
-    "completed it, with frames concatenated: burst i occupies frame_syms\n"
-    "bits starting at i*frame_syms, and events() returns the matching record\n"
-    "for each. The bits are the frame as RECEIVED -- sync word first, every\n"
-    "symbol after it -- because this object stops at decisions: undoing the\n"
-    "frame (a CRC, an outer code, a randomiser) needs its description and is\n"
-    "`wfm.Frame.deframe`'s job. An empty return is normal, not an error: it\n"
-    "means no burst completed in this call. Accepts any block size -- the\n"
-    "history ring is a contiguous window over the stream and is never reset\n"
-    "between bursts, so a payload whose tail falls outside one call is\n"
-    "completed by a later one.\n"
+    "Stream raw cf32 samples and get back the FRAME BITS of every burst that "
+    "completed. Samples feed the embedded BurstAcquisition and are retained "
+    "in a history ring; when a detection fires, the refine stage correlates "
+    "the whole preamble to recover the exact preamble start -- the one "
+    "quantity acquisition structurally cannot report, since its code_phase is "
+    "a lag modulo one code period -- and the burst is demodulated the moment "
+    "its last sample has arrived. Every sample is consumed and every burst "
+    "that completes is returned by the call that completed it, with frames "
+    "concatenated: burst i occupies frame_syms bits starting at i*frame_syms, "
+    "and events() returns the matching record for each. The bits are the "
+    "frame as RECEIVED -- sync word first, every symbol after it -- because "
+    "this object stops at decisions: undoing the frame (a CRC, an outer code, "
+    "a randomiser) needs its description and is `wfm.Frame.deframe`'s job. An "
+    "empty return is normal, not an error: it means no burst completed in "
+    "this call. Accepts any block size -- the history ring is a contiguous "
+    "window over the stream and is never reset between bursts, so a payload "
+    "whose tail falls outside one call is completed by a later one.\n"
     "\n"
     "Retains x in the history ring and feeds the embedded acquisition. When\n"
     "a detection fires, the refine stage correlates the whole preamble to\n"
@@ -1039,9 +1171,9 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "\n"
     "Parameters\n"
     "----------\n"
-    "x : NDArray[np.complex64]\n"
+    "x : npt.NDArray[np.complex64]\n"
     "    Input samples (cf32), x_len long.\n"
-    "out : NDArray[np.uint8] | None\n"
+    "out : npt.NDArray[np.uint8] | None\n"
     "    Payload bits, caller-owned, max_out long.\n"
     "\n"
     "Returns\n"
@@ -1053,11 +1185,14 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "--------\n"
     ">>> import numpy as np\n"
     ">>> from doppler.dsss import DsssBurstReceiver\n"
+    ">>> from doppler.wfm import Frame\n"
     ">>> rng = np.random.default_rng(0)\n"
+    ">>> desc = Frame(sync=np.zeros(13, np.uint8), payload=np.zeros(3, "
+    "np.uint8),\n"
+    "...              crc=\"crc16\")     # 13 + 3 + 16 = 32 symbols a burst\n"
     ">>> rx = DsssBurstReceiver(\n"
     "...     rng.integers(0, 2, 31).astype(np.uint8),\n"
-    "...     rng.integers(0, 2, 8).astype(np.uint8),\n"
-    "...     np.zeros(13, dtype=np.uint8), reps=4, spc=4, frame_syms=32)\n"
+    "...     rng.integers(0, 2, 8).astype(np.uint8), desc, reps=4, spc=4)\n"
     ">>> bits = rx.push(np.zeros(4096, dtype=np.complex64))\n"
     ">>> bits.size            # silence carries no burst\n"
     "0\n" },
@@ -1086,16 +1221,16 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "llrs(count=1) -> ndarray\n"
     "\n"
-    "The SOFT bits of every burst the last push() returned, concatenated:\n"
-    "burst i occupies llr[i*frame_bits:(i+1)*frame_bits], in the same order\n"
-    "as push()'s payloads and events()' rows. `mpsk_soft_demap`'s convention\n"
-    "— positive means bit 0, so `L < 0` reproduces exactly the bits push()\n"
-    "returned, which is asserted rather than assumed. Spans the WHOLE frame\n"
-    "rather than the payload alone, because a code covers what its\n"
-    "description says it covers and a decoder needs the bits the code\n"
-    "protects. Scaled by the burst's own noise estimate: a Viterbi is\n"
-    "invariant to a positive scale, but LLRs from different bursts are not\n"
-    "comparable without one. Valid until the next push(), reset() or\n"
+    "The SOFT bits of every burst the last push() returned, concatenated: "
+    "burst i occupies llr[i*frame_syms:(i+1)*frame_syms], in the same order "
+    "as push()'s payloads and events()' rows. `mpsk_soft_demap`'s convention "
+    "— positive means bit 0, so `L < 0` reproduces exactly the bits push() "
+    "returned, which is asserted rather than assumed. Spans the WHOLE frame "
+    "rather than the payload alone, because a code covers what its "
+    "description says it covers and a decoder needs the bits the code "
+    "protects. Scaled by the burst's own noise estimate: a Viterbi is "
+    "invariant to a positive scale, but LLRs from different bursts are not "
+    "comparable without one. Valid until the next push(), reset() or "
     "set_state().\n"
     "\n"
     "`crealf(sym * derot)` IS the log-likelihood ratio up to a scale, and\n"
@@ -1105,7 +1240,7 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "what makes a coded burst worth coding.\n"
     "\n"
     "Concatenated the same way push()'s payloads are, one row of\n"
-    "`frame_bits` per burst: burst i starts at `i * frame_bits`, in the\n"
+    "`frame_syms` per burst: burst i starts at `i * frame_syms`, in the\n"
     "order events() reports. The convention is `mpsk_soft_demap`'s —\n"
     "positive means bit 0, so `L < 0` reproduces exactly the bits push()\n"
     "returned. Spans the WHOLE frame rather than the payload alone, because\n"
@@ -1120,7 +1255,7 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "    How many output samples to ask for. The call may return fewer; size\n"
     "    an `out=` buffer with the matching `_max_out()` when you need the\n"
     "    worst case.\n"
-    "out : NDArray[np.float32] | None\n"
+    "out : npt.NDArray[np.float32] | None\n"
     "    Receives the LLRs.\n"
     "\n"
     "Returns\n"
@@ -1132,11 +1267,14 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "--------\n"
     ">>> import numpy as np\n"
     ">>> from doppler.dsss import DsssBurstReceiver\n"
+    ">>> from doppler.wfm import Frame\n"
     ">>> rng = np.random.default_rng(0)\n"
+    ">>> desc = Frame(sync=np.zeros(13, np.uint8), payload=np.zeros(3, "
+    "np.uint8),\n"
+    "...              crc=\"crc16\")     # 13 + 3 + 16 = 32 symbols a burst\n"
     ">>> rx = DsssBurstReceiver(\n"
     "...     rng.integers(0, 2, 31).astype(np.uint8),\n"
-    "...     rng.integers(0, 2, 8).astype(np.uint8),\n"
-    "...     np.zeros(13, dtype=np.uint8), reps=4, spc=4, frame_syms=32)\n"
+    "...     rng.integers(0, 2, 8).astype(np.uint8), desc, reps=4, spc=4)\n"
     ">>> bits = rx.push(np.zeros(4096, dtype=np.complex64))\n"
     ">>> len(bits), len(rx.llrs(rx.llrs_max_out(1)))   # nothing decoded\n"
     "(0, 0)\n" },
@@ -1160,8 +1298,8 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "events(count=1) -> ndarray\n"
     "\n"
-    "The event record for each burst the last push() returned. Row i\n"
-    "describes the frame at bits[i*frame_syms ...] of that push. Valid until\n"
+    "The event record for each burst the last push() returned. Row i "
+    "describes the frame at bits[i*frame_syms ...] of that push. Valid until "
     "the next push(), reset() or set_state().\n"
     "\n"
     "Row `i` describes the payload at `out[i*frame_syms ...]` of that push.\n"
@@ -1180,7 +1318,7 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "    How many output samples to ask for. The call may return fewer; size\n"
     "    an `out=` buffer with the matching `_max_out()` when you need the\n"
     "    worst case.\n"
-    "out : NDArray[Any] | None\n"
+    "out : npt.NDArray[Any] | None\n"
     "    Records, caller-owned, max_out long.\n"
     "\n"
     "Returns\n"
@@ -1192,11 +1330,14 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "--------\n"
     ">>> import numpy as np\n"
     ">>> from doppler.dsss import DsssBurstReceiver\n"
+    ">>> from doppler.wfm import Frame\n"
     ">>> rng = np.random.default_rng(0)\n"
+    ">>> desc = Frame(sync=np.zeros(13, np.uint8), payload=np.zeros(3, "
+    "np.uint8),\n"
+    "...              crc=\"crc16\")     # 13 + 3 + 16 = 32 symbols a burst\n"
     ">>> rx = DsssBurstReceiver(\n"
     "...     rng.integers(0, 2, 31).astype(np.uint8),\n"
-    "...     rng.integers(0, 2, 8).astype(np.uint8),\n"
-    "...     np.zeros(13, dtype=np.uint8), reps=4, spc=4, frame_syms=32)\n"
+    "...     rng.integers(0, 2, 8).astype(np.uint8), desc, reps=4, spc=4)\n"
     ">>> bits = rx.push(np.zeros(4096, dtype=np.complex64))\n"
     ">>> len(rx.events()) == bits.size // 32   # one record per payload\n"
     "True\n"
@@ -1236,8 +1377,8 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     METH_VARARGS | METH_KEYWORDS,
     "configure_search_raw(doppler_bins, n_noncoh) -> None\n"
     "\n"
-    "Pin the embedded BurstAcquisition's search grid directly, bypassing\n"
-    "the auto-sizing -- the escape hatch for a caller who wants a specific\n"
+    "Pin the embedded BurstAcquisition's search grid directly, bypassing the "
+    "auto-sizing -- the escape hatch for a caller who wants a specific "
     "(doppler_bins, n_noncoh). Forwards to the engine unchanged.\n"
     "\n"
     "The escape hatch for a caller who wants a specific (doppler_bins,\n"
@@ -1262,18 +1403,21 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "--------\n"
     ">>> import numpy as np\n"
     ">>> from doppler.dsss import DsssBurstReceiver\n"
+    ">>> from doppler.wfm import Frame\n"
     ">>> rng = np.random.default_rng(0)\n"
+    ">>> desc = Frame(sync=np.zeros(13, np.uint8), payload=np.zeros(3, "
+    "np.uint8),\n"
+    "...              crc=\"crc16\")     # 13 + 3 + 16 = 32 symbols a burst\n"
     ">>> rx = DsssBurstReceiver(\n"
     "...     rng.integers(0, 2, 31).astype(np.uint8),\n"
-    "...     rng.integers(0, 2, 8).astype(np.uint8),\n"
-    "...     np.zeros(13, dtype=np.uint8), reps=4, spc=4, frame_syms=32)\n"
+    "...     rng.integers(0, 2, 8).astype(np.uint8), desc, reps=4, spc=4)\n"
     ">>> rx.configure_search_raw(doppler_bins=1, n_noncoh=1)\n" },
   { "reset", (PyCFunction)DsssBurstReceiverObj_reset, METH_NOARGS,
     "reset() -> None\n"
     "\n"
-    "Return to the searching state: resets the embedded acquisition,\n"
-    "drops the history ring's contents and clears every read-back, so a\n"
-    "fresh stream cannot inherit the previous burst's verdict. Construction\n"
+    "Return to the searching state: resets the embedded acquisition, drops "
+    "the history ring's contents and clears every read-back, so a fresh "
+    "stream cannot inherit the previous burst's verdict. Construction "
     "parameters are untouched.\n"
     "\n"
     "Resets the embedded acquisition, discards the retained look-back, and\n"
@@ -1287,11 +1431,14 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
     "--------\n"
     ">>> import numpy as np\n"
     ">>> from doppler.dsss import DsssBurstReceiver\n"
+    ">>> from doppler.wfm import Frame\n"
     ">>> rng = np.random.default_rng(0)\n"
+    ">>> desc = Frame(sync=np.zeros(13, np.uint8), payload=np.zeros(3, "
+    "np.uint8),\n"
+    "...              crc=\"crc16\")     # 13 + 3 + 16 = 32 symbols a burst\n"
     ">>> rx = DsssBurstReceiver(\n"
     "...     rng.integers(0, 2, 31).astype(np.uint8),\n"
-    "...     rng.integers(0, 2, 8).astype(np.uint8),\n"
-    "...     np.zeros(13, dtype=np.uint8), reps=4, spc=4, frame_syms=32)\n"
+    "...     rng.integers(0, 2, 8).astype(np.uint8), desc, reps=4, spc=4)\n"
     ">>> _ = rx.push(np.zeros(1024, dtype=np.complex64))\n"
     ">>> rx.reset()\n" },
   { "state_bytes", (PyCFunction)DsssBurstReceiverObj_state_bytes, METH_NOARGS,
@@ -1384,68 +1531,77 @@ static PyMethodDef DsssBurstReceiverObj_methods[] = {
 };
 
 static PyTypeObject DsssBurstReceiverObjType = {
-  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "dsss.DsssBurstReceiver",
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "doppler.dsss.DsssBurstReceiver",
   .tp_basicsize                           = sizeof (DsssBurstReceiverObject),
   .tp_dealloc = (destructor)DsssBurstReceiverObj_dealloc,
   .tp_flags   = Py_TPFLAGS_DEFAULT,
   .tp_doc
-  = "Create a burst receiver: acquisition, refine and demodulation composed\n"
-    "behind one push().\n"
+  = "The Python binding's constructor: dp_dsss_burst_receiver_create_desc\n"
+    "without the `why` out-parameter.\n"
     "\n"
     "Parameters\n"
     "----------\n"
     "acq_code : NDArray[np.uint8]\n"
-    "    Preamble PN chips (0/1), length acq_code_len.\n"
+    "    preamble code, 0/1 chips.\n"
     "data_code : NDArray[np.uint8]\n"
-    "    Payload spreading chips (0/1), data_code_len long.\n"
-    "sync : NDArray[np.uint8]\n"
-    "    Frame sync word (0/1 symbols), sync_len long.\n"
+    "    payload spreading code, 0/1 chips.\n"
+    "frame : Any\n"
+    "    The frame description the transmitter spread (a Frame or a "
+    "FrameDesc,\n"
+    "    built or not): its first field is the sync word the receiver "
+    "correlates\n"
+    "    for, and its layout is the frame's length. Copied at construction, "
+    "so\n"
+    "    it need not outlive the receiver.\n"
     "reps : int, default 5\n"
-    "    Preamble code repetitions (>= 1).\n"
+    "    preamble code repetitions.\n"
     "spc : int, default 4\n"
-    "    Samples per chip (>= 1).\n"
+    "    samples per chip.\n"
     "chip_rate : float, default 1000000.0\n"
-    "    Chip rate in Hz (> 0).\n"
-    "frame_syms : int, default 64\n"
-    "    Frame symbols per burst (>= 1) — what push() returns, bit for bit.\n"
+    "    chips per second.\n"
     "cn0_dbhz : float\n"
-    "    Carrier-to-noise density in dB-Hz sizing the acquisition search: "
-    "any\n"
-    "    finite value, or NaN (ACQ_CN0_NONE) for no design point.\n"
+    "    design C/N0 for the acquisition, dB-Hz (or NaN).\n"
     "doppler_uncertainty : float, default 0.0\n"
-    "    One-sided Doppler half-range, Hz.\n"
+    "    the Doppler span to search, cycles/sample.\n"
     "pfa : float, default 1e-3\n"
-    "    Target false-alarm probability, in (0, 1).\n"
+    "    false-alarm probability, in (0, 1).\n"
     "pd : float, default 0.9\n"
-    "    Target detection probability, in (0, 1).\n"
+    "    detection probability, in (0, 1).\n"
     "carrier_hz : float, default 0.0\n"
-    "    RF carrier (Hz) for code-Doppler; 0 = ignore.\n"
+    "    the carrier the baseband is offset by, Hz.\n"
     "max_rate : float, default 0.0\n"
-    "    Chirp-rate search half-span (cycles/sample^2).\n"
+    "    the Doppler rate expected, cycles/sample^2.\n"
     "est_segments : int, default 10\n"
-    "    Segments the feedforward estimator fits over.\n"
+    "    partials per acquisition period.\n"
     "\n"
     "Raises\n"
     "------\n"
     "ValueError\n"
     "    If construction fails. The exception message is "
     "``DsssBurstReceiver:\n"
-    "    invalid parameter (need non-empty acq_code/data_code/sync, reps >= "
-    "1,\n"
-    "    spc >= 1, chip_rate > 0, frame_syms >= 1, cn0_dbhz finite or NaN, 0 "
-    "<\n"
-    "    pfa < 1, 0 < pd < 1)``.\n"
+    "    invalid parameter (need non-empty acq_code/data_code, reps >= 1, spc "
+    ">=\n"
+    "    1, chip_rate > 0, cn0_dbhz finite or NaN, 0 < pfa < 1, 0 < pd < 1) "
+    "or a\n"
+    "    frame description whose first field is not known bits (empty, "
+    "derived\n"
+    "    by a stage, a data field, covered by a stage, or named "
+    "\"preamble\"), or\n"
+    "    whose stages emit a new stream (a convolutional code)``.\n"
     "\n"
     "Examples\n"
     "--------\n"
     ">>> import numpy as np\n"
     ">>> from doppler.dsss import DsssBurstReceiver\n"
+    ">>> from doppler.wfm import Frame\n"
     ">>> rng = np.random.default_rng(0)\n"
     ">>> acq = rng.integers(0, 2, 31).astype(np.uint8)\n"
     ">>> dat = rng.integers(0, 2, 8).astype(np.uint8)\n"
-    ">>> syn = np.zeros(13, dtype=np.uint8)\n"
-    ">>> rx = DsssBurstReceiver(acq, dat, syn, reps=4, spc=4,\n"
-    "...                        frame_syms=32)\n"
+    ">>> desc = Frame(sync=np.zeros(13, np.uint8), payload=np.zeros(3, "
+    "np.uint8),\n"
+    "...              crc=\"crc16\")     # the 32-symbol frame the burst "
+    "carries\n"
+    ">>> rx = DsssBurstReceiver(acq, dat, desc, reps=4, spc=4)\n"
     ">>> rx.n_bursts\n"
     "0\n",
   .tp_methods = DsssBurstReceiverObj_methods,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import runpy
 import sys
@@ -15,12 +16,18 @@ from bitfab.replay import ReplayResult
 from bitfab.replay_registry import (
     SIGINT_EXIT_CODE,
     ReplayRegistry,
+    check_replay_arguments,
     record_child_command_context,
+    registration_for_args,
     run_replay_cli,
 )
 
 RegistryLoader = Callable[[str], ReplayRegistry]
 ReplayRunner = Callable[..., ReplayResult]
+
+CHECK_ARGUMENTS_FLAG = "--check-arguments"
+PRINT_API_KEY_FLAG = "--print-api-key"
+API_KEY_PREFIX = "@@bitfab:api-key "
 
 USAGE = "Usage: bitfab-replay --registry <path> <pipeline> [replay options]"
 HELP = f"{USAGE}\nRun bitfab-replay --registry <path> --help to list replay options.\n{CLOUD_HINT}"
@@ -94,22 +101,53 @@ def run_replay_command(
     return runner(loader(registry_path), replay_args, stdout=stdout, stderr=stderr)
 
 
+def print_replay_api_key(
+    argv: Sequence[str],
+    *,
+    stdout: TextIO = sys.stdout,
+    loader: RegistryLoader = _load_registry,
+) -> None:
+    registry_path, replay_args = _parse_command_args(argv)
+    registration = registration_for_args(loader(registry_path), replay_args)
+    api_key = registration.client._resolve_api_key_without_raising()
+    print(f"{API_KEY_PREFIX}{json.dumps({'apiKey': api_key})}", file=stdout, flush=True)
+
+
 def run_replay_main(
     argv: Sequence[str], *, stdout: TextIO = sys.stdout, stderr: TextIO = sys.stderr
 ) -> int:
-    """Run the console entry point and return its process exit code."""
+    if argv[:1] == [CHECK_ARGUMENTS_FLAG]:
+        return _check_arguments(argv[1:], stderr)
     if is_cloud_command(argv):
         return run_cloud_command(argv)
     if any(value in ("--help", "-h") for value in argv) and "--registry" not in argv:
         print(HELP, file=stdout)
         return 0
     try:
-        run_replay_command(argv, stdout=stdout, stderr=stderr)
+        if PRINT_API_KEY_FLAG in argv:
+            print_replay_api_key(
+                [value for value in argv if value != PRINT_API_KEY_FLAG],
+                stdout=stdout,
+            )
+        else:
+            run_replay_command(argv, stdout=stdout, stderr=stderr)
     except SystemExit as error:
         return int(error.code or 0)
     except KeyboardInterrupt:
         return SIGINT_EXIT_CODE
     except Exception as error:
+        print(str(error), file=stderr)
+        return 1
+    return 0
+
+
+def _check_arguments(argv: Sequence[str], stderr: TextIO) -> int:
+    try:
+        _, replay_args = _parse_command_args(argv)
+        check_replay_arguments(replay_args)
+    except SystemExit as error:
+        return int(error.code or 0)
+    except ValueError as error:
         print(str(error), file=stderr)
         return 1
     return 0

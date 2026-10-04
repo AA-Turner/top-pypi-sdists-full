@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom-nio
-Version: 1.1.2
+Version: 1.1.4
 Summary: A Python Matrix client library, designed according to sans I/O principles.
 Author-email: Damir Jelić <poljar@termina.org.uk>, Paarth Shah <mail@shahpaarth.com>
 License: Internet Systems Consortium license

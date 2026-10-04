@@ -21,11 +21,29 @@
 
 """Tests for dulwich __init__ module."""
 
+import importlib
+import pkgutil
 import sys
 import warnings
 from unittest import mock
 
+import dulwich
+
 from . import TestCase
+
+
+class AllTests(TestCase):
+    """Tests for the __all__ declarations of the dulwich modules."""
+
+    def test_all_defined(self) -> None:
+        for info in pkgutil.walk_packages(dulwich.__path__, "dulwich."):
+            with self.subTest(info.name):
+                try:
+                    mod = importlib.import_module(info.name)
+                except ImportError as e:
+                    self.skipTest(f"unable to import {info.name}: {e}")
+                missing = [name for name in mod.__all__ if name not in vars(mod)]
+                self.assertEqual([], missing)
 
 
 class ReplaceMeDecoratorTests(TestCase):
@@ -132,3 +150,35 @@ class ReplaceMeDecoratorTests(TestCase):
                     "deprecated_func is deprecated since (0, 1, 0) and will be removed in (2, 0, 0)",
                     str(w[0].message),
                 )
+
+
+class DeprecatedAliasesTests(TestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        import dulwich
+
+        self.getattr = dulwich._deprecated_aliases(
+            "dulwich.old", {"Old": "dulwich.objects.Blob"}
+        )
+
+    def test_alias(self) -> None:
+        from dulwich.objects import Blob
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            obj = self.getattr("Old")
+        self.assertIs(Blob, obj)
+        self.assertEqual(1, len(w))
+        self.assertIs(DeprecationWarning, w[0].category)
+        self.assertEqual(
+            "dulwich.old.Old is deprecated; use dulwich.objects.Blob instead",
+            str(w[0].message),
+        )
+        self.assertEqual(__file__, w[0].filename)
+
+    def test_unknown(self) -> None:
+        with self.assertRaises(AttributeError) as cm:
+            self.getattr("Missing")
+        self.assertEqual(
+            "module 'dulwich.old' has no attribute 'Missing'", str(cm.exception)
+        )

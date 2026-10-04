@@ -55,7 +55,9 @@ fi
 echo "    image verified: ${GOT}"
 
 echo "==> [5/6] swapping the live container (rm + run)"
-ssh "${HOST}" "sudo docker rm -f matrx-seo >/dev/null 2>&1 || true; sudo docker run -d --name matrx-seo --restart unless-stopped --env-file /etc/matrx-seo.env -e 'MATRX_SEO_ALLOWED_ORIGINS=${PRODUCTION_CORS_ORIGINS}' -p 127.0.0.1:${PORT}:${PORT} 'matrx-seo:${VERSION}'"
+# Keep manual and tag-driven deploys from interleaving their rm/run swaps on
+# the one host.  The CI job acquires this same lock before it builds the image.
+ssh "${HOST}" "sudo touch /var/tmp/matrx-seo-deploy.lock && sudo chmod 666 /var/tmp/matrx-seo-deploy.lock && flock -w 900 /var/tmp/matrx-seo-deploy.lock sh -c \"sudo docker rm -f matrx-seo >/dev/null 2>&1 || true; sudo docker run -d --name matrx-seo --restart unless-stopped --env-file /etc/matrx-seo.env -e 'MATRX_SEO_ALLOWED_ORIGINS=${PRODUCTION_CORS_ORIGINS}' -p 127.0.0.1:${PORT}:${PORT} 'matrx-seo:${VERSION}'\""
 
 echo "==> [6/6] health checks"
 HEALTH=""

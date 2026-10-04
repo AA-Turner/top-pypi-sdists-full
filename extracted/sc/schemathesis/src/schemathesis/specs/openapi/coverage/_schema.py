@@ -56,6 +56,7 @@ from hypothesis.errors import InvalidArgument, Unsatisfiable
 
 from schemathesis.core import (
     INTERNAL_BUFFER_SIZE,
+    MAX_DRAWN_ARRAY_ITEMS,
     MAX_GENERATED_ITEMS,
     MAX_GENERATED_PATTERN_LENGTH,
     MAX_STRING_LENGTH,
@@ -64,7 +65,7 @@ from schemathesis.core import (
 from schemathesis.core.cache import MISSING
 from schemathesis.core.errors import InvalidSchema, RefResolutionError
 from schemathesis.core.jsonschema.resolver import Resolver, make_root_resolver, resolve_reference
-from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, get_type, to_json_type_name
+from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue, get_type, to_json_type_name
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.validation import contains_unicode_surrogate_pair, has_invalid_characters, is_latin_1_encodable
@@ -201,6 +202,14 @@ def _admitted(value: Any, schema: JsonSchema, ctx: CoverageContext, *, unjudged:
     return all(judge.is_valid(value) for judge in judges)
 
 
+def _extra_property_schema(schema: JsonSchemaObject) -> JsonSchema:
+    """What a property no other keyword names has to satisfy."""
+    # `additionalProperties` evaluates every such name, leaving nothing for `unevaluatedProperties`.
+    if "additionalProperties" in schema:
+        return schema["additionalProperties"]
+    return schema.get("unevaluatedProperties", True)
+
+
 def _is_strictly_valid(value: Any, schema: dict[str, Any], ctx: CoverageContext) -> bool:
     # Fails closed, so a value nothing can check is dropped rather than shipped as a valid positive.
     return _admitted(value, schema, ctx, unjudged=False)
@@ -240,9 +249,6 @@ NEGATIVE_MODE_MAX_ITEMS = 15
 # How many levels of one object graph may merge the same base before the walk stops unfolding it.
 # Keeps a base reused all the way down a deep document from turning every level into its own sweep.
 SHARED_BASE_REUSE_LIMIT = 3
-# Longest array still drawn element by element; a pattern-matched element spends budget per
-# character, so past this the draw stops being affordable.
-MAX_DRAWN_ARRAY_ITEMS = 64
 # Largest object still drawn whole; free values past this overrun the buffer before the floor is met.
 MAX_DRAWN_OBJECT_PROPERTIES = 64
 FLOAT_STRATEGY: st.SearchStrategy = st.floats(allow_nan=False, allow_infinity=False).map(_replace_zero_with_nonzero)
@@ -713,6 +719,23 @@ class CoverageContext:
             return NOT_SET
         return candidate
 
+    def _distinct_array(self, schema: JsonSchemaObject, length: int) -> list[JsonValue]:
+        """An array of this many distinct elements, gathered from many small draws rather than drawn whole."""
+        batch: st.SearchStrategy[list[JsonValue]] = self._strategy_for(
+            {**schema, "type": "array", "minItems": MAX_DRAWN_ARRAY_ITEMS, "maxItems": MAX_DRAWN_ARRAY_ITEMS}
+        )
+        elements: dict[object, JsonValue] = {}
+        # Draws overlap, so twice the batches the floor needs; a domain too small for it runs out before then.
+        batches: list[list[JsonValue]] = examples.generate_many(
+            batch, max_examples=2 * -(-length // MAX_DRAWN_ARRAY_ITEMS)
+        )
+        for drawn in batches:
+            for element in drawn:
+                elements.setdefault(json_identity(element), element)
+                if len(elements) == length:
+                    return list(elements.values())
+        raise Unsatisfiable
+
     def _tiled_array(self, schema: JsonSchemaObject, length: int) -> list:
         """An array of this length, repeated from a one-element draw rather than drawn whole."""
         # A one-element array rather than a bare element: drawing the element on its own skips how
@@ -729,7 +752,7 @@ class CoverageContext:
         # draw every later caller of the same schema gets.
         base = {key: value for key, value in schema.items() if key != "minProperties"}
         result = dict(self.generate_from_schema({**base, "type": "object"}))
-        additional = schema.get("additionalProperties", True)
+        additional = _extra_property_schema(schema)
         filler = self.generate_from_schema(additional if isinstance(additional, dict) else {})
         declared = schema.get("properties", {})
         for index in count():
@@ -854,6 +877,24 @@ class CoverageContext:
                     isinstance(max_length, int) and max_length < shortest
                 ):
                     raise Unsatisfiable
+        if isinstance(min_items, int) and min_items > MAX_DRAWN_ARRAY_ITEMS and "array" in get_type(schema):
+            items = schema.get("items", True)
+            max_items = schema.get("maxItems")
+            # Elements placed by position or demanded by `contains` are not interchangeable, and no length fits
+            # a ceiling under the floor.
+            if (
+                (items is True or isinstance(items, dict))
+                and "contains" not in schema
+                and (not isinstance(max_items, int) or max_items >= min_items)
+            ):
+                if schema.get("uniqueItems"):
+                    built = self._distinct_array(schema, min_items)
+                else:
+                    built = self._tiled_array(schema, min_items)
+                # Each element satisfies `items`, but not what depends on its position, on the whole array, or on a
+                # combinator beside it; an array that misses those is drawn whole below instead.
+                if _is_strictly_valid(built, schema, self):
+                    return built
         # Shortcuts read the describing keywords alone, which a combinator beside them can still narrow;
         # such a schema is built whole instead.
         if not any(key in schema for key in _FOLDED_KEYS):
@@ -970,23 +1011,16 @@ class CoverageContext:
                 # only where the ceiling leaves room for the floor.
                 max_properties = schema.get("maxProperties")
                 if (
-                    schema.get("additionalProperties", True) is not False
+                    _extra_property_schema(schema) is not False
                     and "propertyNames" not in schema
                     and "patternProperties" not in schema
                     and (not isinstance(max_properties, int) or max_properties >= min_properties)
                 ):
-                    return self._filled_object(schema, min_properties)
-            if isinstance(min_items, int) and min_items > MAX_DRAWN_ARRAY_ITEMS and "array" in get_type(schema):
-                items = schema.get("items", True)
-                max_items = schema.get("maxItems")
-                # Repeating one element cannot satisfy either of these, and no length fits a ceiling under the floor.
-                if (
-                    (items is True or isinstance(items, dict))
-                    and not schema.get("uniqueItems")
-                    and "contains" not in schema
-                    and (not isinstance(max_items, int) or max_items >= min_items)
-                ):
-                    return self._tiled_array(schema, min_items)
+                    filled = self._filled_object(schema, min_properties)
+                    # Keywords about the whole object, like `if` / `then`, can still reject the synthesized names;
+                    # such an object is drawn whole below instead.
+                    if _is_strictly_valid(filled, schema, self):
+                        return filled
             if (
                 (keys == ["items", "type"] or keys == ["items", "minItems", "type"])
                 and isinstance(schema["items"], dict)
@@ -1044,6 +1078,9 @@ class CoverageContext:
                     return self.generate_from_schema(merged)
             schema = inlined
 
+        return self.generate_from(self._strategy_for(schema))
+
+    def _strategy_for(self, schema: JsonSchema) -> st.SearchStrategy:
         if isinstance(schema, dict) and "examples" in schema:
             # Examples may contain binary data, which canonicalization rejects
             schema = {key: value for key, value in schema.items() if key != "examples"}
@@ -1069,7 +1106,7 @@ class CoverageContext:
         ):
             validator = _get_format_validator(self.session, fmt, self.validator_cls)
             strategy = strategy.filter(lambda v: not isinstance(v, str) or validator.is_valid(v))
-        return self.generate_from(strategy)
+        return strategy
 
 
 def _update_schema_pattern(
@@ -3032,6 +3069,8 @@ def _as_number(value: Fraction) -> int | float:
 
 def _spelled_multiple(candidate: Fraction, step: Fraction, *, going_up: bool) -> int | float | None:
     """The candidate where a float's JSON text spells it exactly, else the nearest multiple past it one does."""
+    integer_step = step.numerator
+    integer_candidate = (ceil(candidate / integer_step) if going_up else floor(candidate / integer_step)) * integer_step
     # Multiples of an awkward step can miss every float for a stretch; a few floats on is as far as it is worth going.
     for _ in range(8):
         number = _as_number(candidate)
@@ -3042,7 +3081,7 @@ def _spelled_multiple(candidate: Fraction, step: Fraction, *, going_up: bool) ->
         edge = _rational(nextafter(number, inf if going_up else -inf))
         quotient, remainder = divmod(edge, step)
         candidate = edge if remainder == 0 else step * (quotient + 1 if going_up else quotient)
-    return None
+    return integer_candidate
 
 
 def closest_multiple_greater_than(y: int | float, x: int | float) -> int | float | None:

@@ -2136,14 +2136,14 @@ async def ensure_user_request_exists(
                 tracker.register_existing("matrx", "user_request", request_id)
             return
 
-        # A NEW user action is about to be recorded. A signed-out guest whose
-        # free AI actions are used up is refused HERE, during route prep and
-        # before the turn is stored — raises GuestAIAllowanceUsedError (a caller
-        # refusal the prepared-stream boundary answers as HTTP 403). Read-only;
-        # the paid-call seam stays the authority that counts.
-        from matrx_ai.providers.guest_ai_allowance import precheck_guest_ai_action
+        # A NEW user action is about to be recorded. A person whose CACHED usage
+        # state is over (enforcement on) is refused HERE, during route prep and
+        # before the turn is stored — raises UsageLimitReachedError (a caller
+        # refusal the prepared-stream boundary answers as HTTP 402). Memory only,
+        # never a database read; the paid-call seam stays the authority.
+        from matrx_ai.providers.usage_gate import precheck_usage
 
-        await precheck_guest_ai_action()
+        precheck_usage()
 
         await _create_user_request(
             request_id=request_id,

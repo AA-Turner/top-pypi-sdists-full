@@ -437,7 +437,33 @@ class AnthropicChat:
                 },
                 was_recovered=True,
             )
-            if key != NARROWED:
+            if key == TOOLS_SHED:
+                # A tool removal: announced through THE call-time tool adaptation, the
+                # same typed warning + request-snapshot record as every other removal.
+                from matrx_ai.providers.tool_adaptation import (
+                    GRAMMAR_BUDGET,
+                    ToolAdaptation,
+                    announce_tool_adaptations,
+                )
+
+                await announce_tool_adaptations(
+                    [
+                        ToolAdaptation(
+                            code=GRAMMAR_BUDGET,
+                            model=matrx_model_name,
+                            wire_format="anthropic_chat",
+                            removed=[str(name) for name in gave_up],
+                            reason=(
+                                "Anthropic refused the compiled grammar (bound output schema + "
+                                f"{len(tools)} tool schemas) as over budget; the schema was kept "
+                                "and the tools dropped."
+                            ),
+                            detail={"finding": key, **response_format_identity(response_format)},
+                        )
+                    ],
+                    emitter=emitter,
+                )
+            elif key != NARROWED:
                 await emitter.send_warning(
                     WarningPayload(
                         code="anthropic_grammar_over_budget",

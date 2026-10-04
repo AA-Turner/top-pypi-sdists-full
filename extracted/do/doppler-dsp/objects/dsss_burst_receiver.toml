@@ -5,6 +5,7 @@ mutable = "false"
 no_state = "true"
 no_step = "true"
 class_name = "DsssBurstReceiver"
+create_fn = "dp_dsss_burst_receiver_create_frame"
 # Carries running state across calls -- the history ring, the embedded
 # acquisition engine, and any in-flight burst -- so it owes the triplet.
 # The composition's checkpoint boundary is BETWEEN bursts, which is what
@@ -17,7 +18,7 @@ serializable = "true"
 # as objects/dsss_receiver.toml's -- a blanket MemoryError names neither the
 # offending parameter nor its constraint.
 create_error = "ValueError"
-create_error_message = "DsssBurstReceiver: invalid parameter (need non-empty acq_code/data_code/sync, reps >= 1, spc >= 1, chip_rate > 0, frame_syms >= 1, cn0_dbhz finite or NaN, 0 < pfa < 1, 0 < pd < 1)"
+create_error_message = "DsssBurstReceiver: invalid parameter (need non-empty acq_code/data_code, reps >= 1, spc >= 1, chip_rate > 0, cn0_dbhz finite or NaN, 0 < pfa < 1, 0 < pd < 1) or a frame description whose first field is not known bits (empty, derived by a stage, a data field, covered by a stage, or named \"preamble\"), or whose stages emit a new stream (a convolutional code)"
 # Composes the three certified Burst* cores. `corr` is the refine stage's
 # primitive (docs/design/dsss-burst-receiver.md §3.4) -- the whole preamble
 # correlated as one reference, which is what names the code repetition that
@@ -39,9 +40,6 @@ depends_on = [
     { name = "acq", link = true },
     { name = "burst_demod", link = true },
     { name = "wfm_frame", link = true },
-    { name = "ccsds_tm", link = true },
-    { name = "conv", link = true },
-    { name = "rs", link = true },
     { name = "pn", link = true },
     { name = "gold", link = true },
     { name = "mpsk", link = true },
@@ -65,7 +63,7 @@ depends_on = [
 
 # ── Construction ─────────────────────────────────────────────────────────────
 # Everything the chain needs, at once. That is the point of the object: the
-# hand-wired alternative is three constructors plus set_preamble/set_sync/
+# hand-wired alternative is three constructors plus set_preamble/
 # set_prior, and the epoch arithmetic between them is what four call sites
 # got wrong three different ways (gh-1001).
 #
@@ -77,14 +75,20 @@ depends_on = [
 [[dsss_burst_receiver.init_params]]
 name = "acq_code"
 type = "uint8_t[]"
+str_hint = "a bit field takes bits (a uint8 array); build them from text with field_bits()"
 
 [[dsss_burst_receiver.init_params]]
 name = "data_code"
 type = "uint8_t[]"
+str_hint = "a bit field takes bits (a uint8 array); build them from text with field_bits()"
 
 [[dsss_burst_receiver.init_params]]
-name = "sync"
-type = "uint8_t[]"
+name = "frame"
+type = "const wfm_frame_desc_t *"
+capsule = "doppler.wfm.frame_desc"
+header = "doppler/wfm/wfm_frame.h"
+required = true
+doc = "The frame description the transmitter spread (a Frame or a FrameDesc, built or not): its first field is the sync word the receiver correlates for, and its layout is the frame's length. Copied at construction, so it need not outlive the receiver."
 
 [[dsss_burst_receiver.init_params]]
 name = "reps"
@@ -100,11 +104,6 @@ default = "4"
 name = "chip_rate"
 type = "double"
 default = "1000000.0"
-
-[[dsss_burst_receiver.init_params]]
-name = "frame_syms"
-type = "size_t"
-default = "64"
 
 [[dsss_burst_receiver.init_params]]
 name = "cn0_dbhz"
@@ -165,7 +164,7 @@ params = [{ name = "x", type = "float _Complex[]" }]
 # function of configuration (finding F5).
 [[dsss_burst_receiver.methods]]
 name = "llrs"
-doc = "The SOFT bits of every burst the last push() returned, concatenated: burst i occupies llr[i*frame_bits:(i+1)*frame_bits], in the same order as push()'s payloads and events()' rows. `mpsk_soft_demap`'s convention — positive means bit 0, so `L < 0` reproduces exactly the bits push() returned, which is asserted rather than assumed. Spans the WHOLE frame rather than the payload alone, because a code covers what its description says it covers and a decoder needs the bits the code protects. Scaled by the burst's own noise estimate: a Viterbi is invariant to a positive scale, but LLRs from different bursts are not comparable without one. Valid until the next push(), reset() or set_state()."
+doc = "The SOFT bits of every burst the last push() returned, concatenated: burst i occupies llr[i*frame_syms:(i+1)*frame_syms], in the same order as push()'s payloads and events()' rows. `mpsk_soft_demap`'s convention — positive means bit 0, so `L < 0` reproduces exactly the bits push() returned, which is asserted rather than assumed. Spans the WHOLE frame rather than the payload alone, because a code covers what its description says it covers and a decoder needs the bits the code protects. Scaled by the burst's own noise estimate: a Viterbi is invariant to a positive scale, but LLRs from different bursts are not comparable without one. Valid until the next push(), reset() or set_state()."
 arg_type = "void"
 return_type = "float"
 variable_output = true
@@ -259,7 +258,7 @@ doc = "Burst-start error the demodulator measured on the last completed burst, i
 [[dsss_burst_receiver.properties]]
 name = "frame_valid"
 type = "bool"
-doc = "Whether the most recent window's frame passed its error detection -- this receiver's frame ends in a CRC-16. The verdict that decides whether the window OWNS its span: a failed window is given back to the capture (`release`), so a decoy ahead of a real burst cannot swallow it (doppler#1181). Per burst, read `events()['frame_valid']`."
+doc = "Whether the most recent window's frame passed its error detection -- the frame description's CRC stage covered it. The verdict that decides whether the window OWNS its span: a failed window is given back to the capture (`release`), so a decoy ahead of a real burst cannot swallow it (doppler#1181). The verdict is the frame description's own, so a frame whose description has no CRC stage is never valid -- its bits are still returned, and every window is released (doppler#1769). Per burst, read `events()['frame_valid']`."
 
 # The two spans a caller must respect, and could not read (gh-1011).
 #
@@ -293,7 +292,7 @@ gap to leave**; it is derived from this reach (doppler#1172). How much the
 reach matters depends on the burst: at a 255-chip code, `reps=5`, `spc=2`
 it is 12240 samples, and 8316-sample bursts with 600 samples of dead air
 between them (against the 3924 `min_gap` asks for) decode 2 of 7; the same
-code with `frame_syms=2053` gives 261228-sample bursts, 21.3x the reach,
+code with a 2053-symbol frame gives 261228-sample bursts, 21.3x the reach,
 and every spacing down to zero dead air decodes 7 of 7 (doppler#1085)."""
 
 [[dsss_burst_receiver.properties]]

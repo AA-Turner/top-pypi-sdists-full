@@ -149,7 +149,7 @@ class MyfigurecollectionPictureExtractor(MyfigurecollectionExtractor):
             "user"  : text.remove_html(extr("<section>", "</a><span")),
             "date"  : self.parse_datetime(extr(
                 '<span title="', '"'), "%m/%d/%Y, %H:%M:%S"),
-            "url"   : extr('<a href="', '"'),
+            "url"   : extr('class="the-picture"><a href="', '"'),
             "width" : text.parse_int(extr(
                 '<a class="size', ">") and extr("", "&times;")),
             "height": text.parse_int(extr("", " ")),

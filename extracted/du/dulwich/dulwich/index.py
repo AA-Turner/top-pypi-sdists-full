@@ -34,11 +34,15 @@ __all__ = [
     "HFS_IGNORABLE_CHARS",
     "IEOT_EXTENSION",
     "INVALID_DOTNAMES",
+    "RESERVED_WINDOWS_DEVICE_NAMES",
     "REUC_EXTENSION",
     "SDIR_EXTENSION",
     "TREE_EXTENSION",
     "UNTR_EXTENSION",
+    "ConflictedIndexEntry",
     "Index",
+    "IndexChecksumReader",
+    "IndexChecksumWriter",
     "IndexEntry",
     "IndexExtension",
     "InvalidPathError",
@@ -51,6 +55,7 @@ __all__ = [
     "UnmergedEntries",
     "UnsupportedIndexFormat",
     "UntrackedExtension",
+    "apply_stat_refresh",
     "blob_from_path_and_mode",
     "blob_from_path_and_stat",
     "build_file_from_blob",
@@ -62,10 +67,17 @@ __all__ = [
     "detect_case_only_renames",
     "get_path_element_normalizer",
     "get_path_element_validator",
+    "get_symlink_fn",
     "get_unstaged_changes",
+    "index_entry_from_directory",
+    "index_entry_from_path",
     "index_entry_from_stat",
     "index_entry_from_tree_entry",
+    "iter_fresh_entries",
+    "iter_fresh_objects",
+    "locked_index",
     "make_path_normalizer",
+    "os_sep_bytes",
     "pathjoin",
     "pathsplit",
     "read_cache_entry",
@@ -75,11 +87,15 @@ __all__ = [
     "read_index_dict_with_version",
     "read_index_header",
     "read_submodule_head",
+    "refresh_index",
+    "symlink",
     "update_working_tree",
     "validate_path",
     "validate_path_element_default",
     "validate_path_element_hfs",
     "validate_path_element_ntfs",
+    "verify_leading_dirs",
+    "verify_tree_path",
     "write_cache_entry",
     "write_cache_time",
     "write_index",
@@ -107,10 +123,9 @@ from collections.abc import (
 from dataclasses import dataclass
 from enum import Enum
 from typing import (
-    IO,
     TYPE_CHECKING,
     Any,
-    BinaryIO,
+    Protocol,
 )
 
 if TYPE_CHECKING:
@@ -121,21 +136,35 @@ if TYPE_CHECKING:
     from .object_store import BaseObjectStore
     from .repo import Repo
 
+from . import _deprecated_aliases
+from .errors import ChecksumMismatch
 from .file import GitFile, SharedPerm
+from .object_format import DEFAULT_OBJECT_FORMAT, ObjectFormat
 from .object_store import iter_tree_contents
 from .objects import (
     S_IFGITLINK,
     S_ISGITLINK,
     Blob,
     ObjectID,
+    RawObjectID,
     Tree,
     TreeEntry,
     hex_to_sha,
     sha_to_hex,
 )
-from .pack import ObjectContainer, SHA1Reader, SHA1Writer
+from .pack import ObjectContainer
 
 logger = logging.getLogger(__name__)
+
+
+__getattr__ = _deprecated_aliases(
+    __name__,
+    {
+        "SHA1Reader": "dulwich.pack.SHA1Reader",
+        "SHA1Writer": "dulwich.pack.SHA1Writer",
+    },
+)
+
 
 # Type alias for recursive tree structure used in commit_tree
 TreeDict = dict[bytes, "TreeDict | tuple[int, ObjectID]"]
@@ -286,8 +315,34 @@ def _decompress_path(
     return path, new_offset
 
 
+class _IndexWritable(Protocol):
+    """The subset of a binary file that the index serializer writes to."""
+
+    def write(self, data: bytes, /) -> int:
+        """Write data, returning the number of bytes written."""
+
+    def tell(self) -> int:
+        """Return the current stream position."""
+
+    def close(self) -> None:
+        """Close the stream."""
+
+
+class _IndexReadable(Protocol):
+    """The subset of a binary file that the index parser reads from."""
+
+    def read(self, size: int = -1, /) -> bytes:
+        """Read up to size bytes."""
+
+    def tell(self) -> int:
+        """Return the current stream position."""
+
+    def seek(self, offset: int, whence: int = 0, /) -> int:
+        """Change the stream position."""
+
+
 def _decompress_path_from_stream(
-    f: BinaryIO, previous_path: bytes
+    f: _IndexReadable, previous_path: bytes
 ) -> tuple[bytes, int]:
     """Decompress a path from index version 4 compressed format, reading from stream.
 
@@ -734,7 +789,7 @@ def pathjoin(*args: bytes) -> bytes:
     return b"/".join([p for p in args if p])
 
 
-def read_cache_time(f: BinaryIO) -> tuple[int, int]:
+def read_cache_time(f: _IndexReadable) -> tuple[int, int]:
     """Read a cache time.
 
     Args:
@@ -745,7 +800,7 @@ def read_cache_time(f: BinaryIO) -> tuple[int, int]:
     return struct.unpack(">LL", f.read(8))
 
 
-def write_cache_time(f: IO[bytes], t: int | float | tuple[int, int]) -> None:
+def write_cache_time(f: _IndexWritable, t: int | float | tuple[int, int]) -> None:
     """Write a cache time.
 
     Args:
@@ -762,8 +817,108 @@ def write_cache_time(f: IO[bytes], t: int | float | tuple[int, int]) -> None:
     f.write(struct.pack(">LL", *t))
 
 
+class IndexChecksumWriter:
+    """Wrap a file, tracking the checksum of everything written to it.
+
+    The index trailer uses the repository's object format, so unlike
+    :class:`dulwich.pack.SHA1Writer` this is not tied to SHA-1.
+    """
+
+    def __init__(
+        self, f: _IndexWritable, object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT
+    ) -> None:
+        """Initialize the writer.
+
+        Args:
+          f: File-like object to wrap
+          object_format: Object format determining the checksum algorithm
+        """
+        self.f = f
+        self.object_format = object_format
+        self._hash = object_format.new_hash()
+
+    def write(self, data: bytes) -> int:
+        """Write data and update the running checksum."""
+        self._hash.update(data)
+        return self.f.write(data)
+
+    def tell(self) -> int:
+        """Return the position of the underlying file."""
+        return self.f.tell()
+
+    def write_checksum(self) -> bytes:
+        """Write the trailing checksum and return it."""
+        digest = self._hash.digest()
+        self.f.write(digest)
+        return digest
+
+    def close(self) -> None:
+        """Write the trailing checksum and close the underlying file."""
+        self.write_checksum()
+        self.f.close()
+
+
+class IndexChecksumReader:
+    """Wrap a file, tracking the checksum of everything read from it."""
+
+    def __init__(
+        self, f: _IndexReadable, object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT
+    ) -> None:
+        """Initialize the reader.
+
+        Args:
+          f: File-like object to wrap
+          object_format: Object format determining the checksum algorithm
+        """
+        self.f = f
+        self.object_format = object_format
+        self._hash = object_format.new_hash()
+
+    def read(self, size: int = -1) -> bytes:
+        """Read data and update the running checksum."""
+        data = self.f.read(size)
+        self._hash.update(data)
+        return data
+
+    def tell(self) -> int:
+        """Return the position of the underlying file."""
+        return self.f.tell()
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        """Seek the underlying file.
+
+        Bytes skipped by seeking are not folded into the checksum, so this
+        is only safe for the trailer probing done while reading extensions.
+        """
+        return self.f.seek(offset, whence)
+
+    def check_checksum(self, allow_empty: bool = False) -> None:
+        """Verify the trailing checksum.
+
+        Args:
+          allow_empty: Accept an all-zero checksum, as written when the
+            index.skipHash config option is set.
+
+        Raises:
+          ChecksumMismatch: If the stored checksum does not match.
+        """
+        length = self.object_format.oid_length
+        stored = self.f.read(length)
+        expected = self._hash.digest()
+        if stored == expected:
+            return
+        if allow_empty and (len(stored) != length or stored == b"\x00" * length):
+            return
+        raise ChecksumMismatch(
+            self._hash.hexdigest(), sha_to_hex(RawObjectID(stored)).decode("ascii")
+        )
+
+
 def read_cache_entry(
-    f: BinaryIO, version: int, previous_path: bytes = b""
+    f: _IndexReadable,
+    version: int,
+    previous_path: bytes = b"",
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> SerializedIndexEntry:
     """Read an entry from a cache file.
 
@@ -771,10 +926,12 @@ def read_cache_entry(
       f: File-like object to read from
       version: Index version
       previous_path: Previous entry's path (for version 4 compression)
+      object_format: Object format determining the object ID width
     """
     beginoffset = f.tell()
     ctime = read_cache_time(f)
     mtime = read_cache_time(f)
+    oid_length = object_format.oid_length
     (
         dev,
         ino,
@@ -784,7 +941,7 @@ def read_cache_entry(
         size,
         sha,
         flags,
-    ) = struct.unpack(">LLLLLL20sH", f.read(20 + 4 * 6 + 2))
+    ) = struct.unpack(f">LLLLLL{oid_length}sH", f.read(oid_length + 4 * 6 + 2))
     if flags & FLAG_EXTENDED:
         if version < 3:
             raise AssertionError("extended flag set in index with version < 3")
@@ -821,7 +978,11 @@ def read_cache_entry(
 
 
 def write_cache_entry(
-    f: IO[bytes], entry: SerializedIndexEntry, version: int, previous_path: bytes = b""
+    f: _IndexWritable,
+    entry: SerializedIndexEntry,
+    version: int,
+    previous_path: bytes = b"",
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> None:
     """Write an index entry to a file.
 
@@ -830,7 +991,14 @@ def write_cache_entry(
       entry: IndexEntry to write
       version: Index format version
       previous_path: Previous entry's path (for version 4 compression)
+      object_format: Object format determining the object ID width
     """
+    if len(entry.sha) != object_format.hex_length:
+        raise ValueError(
+            f"Object ID {entry.sha!r} for {entry.name!r} is not valid for "
+            f"a {object_format.name} index"
+        )
+
     beginoffset = f.tell()
     write_cache_time(f, entry.ctime)
     write_cache_time(f, entry.mtime)
@@ -849,7 +1017,7 @@ def write_cache_entry(
 
     f.write(
         struct.pack(
-            b">LLLLLL20sH",
+            f">LLLLLL{object_format.oid_length}sH",
             entry.dev & 0xFFFFFFFF,
             entry.ino & 0xFFFFFFFF,
             entry.mode,
@@ -885,7 +1053,7 @@ class UnsupportedIndexFormat(Exception):
         self.index_format_version = version
 
 
-def read_index_header(f: BinaryIO) -> tuple[int, int]:
+def read_index_header(f: _IndexReadable) -> tuple[int, int]:
     """Read an index header from a file.
 
     Returns:
@@ -900,7 +1068,7 @@ def read_index_header(f: BinaryIO) -> tuple[int, int]:
     return version, num_entries
 
 
-def write_index_extension(f: IO[bytes], extension: IndexExtension) -> None:
+def write_index_extension(f: _IndexWritable, extension: IndexExtension) -> None:
     """Write an index extension.
 
     Args:
@@ -913,18 +1081,20 @@ def write_index_extension(f: IO[bytes], extension: IndexExtension) -> None:
     f.write(data)
 
 
-def read_index(f: BinaryIO) -> Iterator[SerializedIndexEntry]:
+def read_index(
+    f: _IndexReadable, object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT
+) -> Iterator[SerializedIndexEntry]:
     """Read an index file, yielding the individual entries."""
     version, num_entries = read_index_header(f)
     previous_path = b""
     for i in range(num_entries):
-        entry = read_cache_entry(f, version, previous_path)
+        entry = read_cache_entry(f, version, previous_path, object_format)
         previous_path = entry.name
         yield entry
 
 
 def read_index_dict_with_version(
-    f: BinaryIO,
+    f: _IndexReadable, object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT
 ) -> tuple[dict[bytes, IndexEntry | ConflictedIndexEntry], int, list[IndexExtension]]:
     """Read an index file and return it as a dictionary along with the version.
 
@@ -936,7 +1106,7 @@ def read_index_dict_with_version(
     ret: dict[bytes, IndexEntry | ConflictedIndexEntry] = {}
     previous_path = b""
     for i in range(num_entries):
-        entry = read_cache_entry(f, version, previous_path)
+        entry = read_cache_entry(f, version, previous_path, object_format)
         previous_path = entry.name
         stage = entry.stage()
         if stage == Stage.NORMAL:
@@ -955,13 +1125,13 @@ def read_index_dict_with_version(
     # Read extensions
     extensions = []
     while True:
-        # Check if we're at the end (20 bytes before EOF for SHA checksum)
+        # Check if we're at the end (trailing checksum before EOF)
         current_pos = f.tell()
         f.seek(0, 2)  # EOF
         eof_pos = f.tell()
         f.seek(current_pos)
 
-        if current_pos >= eof_pos - 20:
+        if current_pos >= eof_pos - object_format.oid_length:
             break
 
         # Try to read extension signature
@@ -993,7 +1163,7 @@ def read_index_dict_with_version(
 
 
 def read_index_dict(
-    f: BinaryIO,
+    f: _IndexReadable, object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT
 ) -> dict[bytes, IndexEntry | ConflictedIndexEntry]:
     """Read an index file and return it as a dictionary.
 
@@ -1001,9 +1171,10 @@ def read_index_dict(
             path alone is not unique
     Args:
       f: File object to read fromls.
+      object_format: Object format determining the object ID width
     """
     ret: dict[bytes, IndexEntry | ConflictedIndexEntry] = {}
-    for entry in read_index(f):
+    for entry in read_index(f, object_format):
         stage = entry.stage()
         if stage == Stage.NORMAL:
             ret[entry.name] = IndexEntry.from_serialized(entry)
@@ -1021,10 +1192,11 @@ def read_index_dict(
 
 
 def write_index(
-    f: IO[bytes],
+    f: _IndexWritable,
     entries: Sequence[SerializedIndexEntry],
     version: int | None = None,
     extensions: Sequence[IndexExtension] | None = None,
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> None:
     """Write an index file.
 
@@ -1033,6 +1205,7 @@ def write_index(
       version: Version number to write
       entries: Iterable over the entries to write
       extensions: Optional list of extensions to write
+      object_format: Object format determining the object ID width
     """
     if version is None:
         version = DEFAULT_VERSION
@@ -1052,7 +1225,13 @@ def write_index(
     f.write(struct.pack(b">LL", version, len(entries)))
     previous_path = b""
     for entry in entries:
-        write_cache_entry(f, entry, version=version, previous_path=previous_path)
+        write_cache_entry(
+            f,
+            entry,
+            version=version,
+            previous_path=previous_path,
+            object_format=object_format,
+        )
         previous_path = entry.name
 
     # Write extensions
@@ -1062,10 +1241,11 @@ def write_index(
 
 
 def write_index_dict(
-    f: IO[bytes],
+    f: _IndexWritable,
     entries: Mapping[bytes, IndexEntry | ConflictedIndexEntry],
     version: int | None = None,
     extensions: Sequence[IndexExtension] | None = None,
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> None:
     """Write an index file based on the contents of a dictionary.
 
@@ -1090,7 +1270,13 @@ def write_index_dict(
         else:
             entries_list.append(value.serialize(key, Stage.NORMAL))
 
-    write_index(f, entries_list, version=version, extensions=extensions)
+    write_index(
+        f,
+        entries_list,
+        version=version,
+        extensions=extensions,
+        object_format=object_format,
+    )
 
 
 def cleanup_mode(mode: int) -> int:
@@ -1130,6 +1316,7 @@ class Index:
         *,
         shared_perm: "SharedPerm | None" = None,
         path_normalizer: Callable[[bytes], bytes] | None = None,
+        object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
     ) -> None:
         """Create an index object associated with the given filename.
 
@@ -1139,6 +1326,9 @@ class Index:
           skip_hash: Whether to skip SHA1 hash when writing (for manyfiles feature)
           version: Index format version to use (None = auto-detect from file or use default)
           shared_perm: Optional shared repository permission setting
+          object_format: Object format of the repository this index belongs to.
+            Determines the width of stored object IDs and of the trailing
+            checksum.
           path_normalizer: Optional function mapping a filesystem path to a
             canonical form (e.g. case-folded, NFC-normalized). When provided,
             lookups (``index[path]``, ``path in index``, ``del index[path]``)
@@ -1150,6 +1340,7 @@ class Index:
         self._version = version
         self._skip_hash = skip_hash
         self._shared_perm = shared_perm
+        self._object_format = object_format
         self._extensions: list[IndexExtension] = []
         self._path_normalizer = path_normalizer
         self._normalized: dict[bytes, bytes] | None = (
@@ -1187,6 +1378,11 @@ class Index:
         """
         return self._filename
 
+    @property
+    def object_format(self) -> ObjectFormat:
+        """Object format used for object IDs in this index."""
+        return self._object_format
+
     def __repr__(self) -> str:
         """Return string representation of Index."""
         return f"{self.__class__.__name__}({self._filename!r})"
@@ -1204,25 +1400,28 @@ class Index:
                     meaningful_extensions.append(ext)
 
             if self._skip_hash:
-                # When skipHash is enabled, write the index without computing SHA1
+                # When skipHash is enabled, write the index without computing
+                # the trailing checksum
                 write_index_dict(
                     f,
                     self._byname,
                     version=self._version,
                     extensions=meaningful_extensions,
+                    object_format=self._object_format,
                 )
-                # Write 20 zero bytes instead of SHA1
-                f.write(b"\x00" * 20)
+                # Write zero bytes instead of the checksum
+                f.write(b"\x00" * self._object_format.oid_length)
                 f.close()
             else:
-                sha1_writer = SHA1Writer(f)
+                checksum_writer = IndexChecksumWriter(f, self._object_format)
                 write_index_dict(
-                    sha1_writer,
+                    checksum_writer,
                     self._byname,
                     version=self._version,
                     extensions=meaningful_extensions,
+                    object_format=self._object_format,
                 )
-                sha1_writer.close()
+                checksum_writer.close()
         except:
             f.close()
             raise
@@ -1233,13 +1432,16 @@ class Index:
             return
         f = GitFile(self._filename, "rb")
         try:
-            sha1_reader = SHA1Reader(f)
-            entries, version, extensions = read_index_dict_with_version(sha1_reader)
+            checksum_reader = IndexChecksumReader(f, self._object_format)
+            entries, version, extensions = read_index_dict_with_version(
+                checksum_reader, self._object_format
+            )
             self._version = version
             self._extensions = extensions
-            self.update(entries)
+            for name, value in entries.items():
+                self.set_verbatim(name, value)
             # Extensions have already been read by read_index_dict_with_version
-            sha1_reader.check_sha(allow_empty=True)
+            checksum_reader.check_checksum(allow_empty=True)
         finally:
             f.close()
 
@@ -1311,6 +1513,23 @@ class Index:
         is_new = name not in self._byname
         self._byname[name] = value
         if is_new and self._normalized is not None:
+            assert self._path_normalizer is not None
+            self._normalized.setdefault(self._path_normalizer(name), name)
+
+    def set_verbatim(
+        self, name: bytes, value: IndexEntry | ConflictedIndexEntry
+    ) -> None:
+        """Set an entry without folding onto an existing normalized key.
+
+        Use this when populating the index from an authoritative source
+        that may legitimately hold two entries whose paths only differ by
+        case (or NFD/NFC form), such as an on-disk index or a tree from
+        the object store. ``__setitem__`` would collapse the second entry
+        onto the first via the path normalizer, losing content.
+        """
+        assert isinstance(name, bytes)
+        self._byname[name] = value
+        if self._normalized is not None:
             assert self._path_normalizer is not None
             self._normalized.setdefault(self._path_normalizer(name), name)
 
@@ -1407,7 +1626,9 @@ class Index:
         Returns:
           Root tree SHA
         """
-        return commit_tree(object_store, self.iterobjects())
+        return commit_tree(
+            object_store, self.iterobjects(), object_format=self._object_format
+        )
 
     def is_sparse(self) -> bool:
         """Check if this index contains sparse directory entries.
@@ -1589,7 +1810,7 @@ class Index:
           SHA of the subtree, or None if path doesn't exist
         """
         if not path:
-            return tree.id
+            return tree.get_id(self._object_format)
 
         parts = path.split(b"/")
         current_tree = tree
@@ -1611,19 +1832,22 @@ class Index:
                 return None
             current_tree = obj
 
-        return current_tree.id
+        return current_tree.get_id(self._object_format)
 
 
 def commit_tree(
-    object_store: ObjectContainer, blobs: Iterable[tuple[bytes, ObjectID, int]]
+    object_store: ObjectContainer,
+    blobs: Iterable[tuple[bytes, ObjectID, int]],
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> ObjectID:
     """Commit a new tree.
 
     Args:
       object_store: Object store to add trees to
       blobs: Iterable over blob path, sha, mode entries
+      object_format: Object format to name the created trees with
     Returns:
-      SHA1 of the created tree.
+      ID of the created tree.
     """
     trees: dict[bytes, TreeDict] = {b"": {}}
 
@@ -1653,7 +1877,7 @@ def commit_tree(
                 (mode, sha) = entry
             tree.add(basename, mode, sha)
         object_store.add_object(tree)
-        return tree.id
+        return ObjectID(tree.get_id(object_format))
 
     return build_tree(b"")
 
@@ -1667,7 +1891,9 @@ def commit_index(object_store: ObjectContainer, index: Index) -> ObjectID:
     Note: This function is deprecated, use index.commit() instead.
     Returns: Root tree sha.
     """
-    return commit_tree(object_store, index.iterobjects())
+    return commit_tree(
+        object_store, index.iterobjects(), object_format=index.object_format
+    )
 
 
 def changes_from_tree(
@@ -1860,6 +2086,41 @@ else:
     symlink = os.symlink
 
 
+def get_symlink_fn(
+    config: "Config",
+) -> Callable[[str | bytes | os.PathLike[str], str | bytes | os.PathLike[str]], None]:
+    """Get the function to use for creating symlinks in the working tree.
+
+    With ``core.symlinks`` set to false, symlinks are checked out as plain
+    files containing the link target, like git does.
+
+    Args:
+      config: Repository configuration
+
+    Returns:
+      Function taking the link target and the path to create
+    """
+    if config.get_boolean(b"core", b"symlinks", True):
+
+        def create_symlink(
+            source: str | bytes | os.PathLike[str],
+            target: str | bytes | os.PathLike[str],
+        ) -> None:
+            symlink(source, target)  # type: ignore[arg-type,unused-ignore]
+
+        return create_symlink
+
+    def write_link_as_file(
+        source: str | bytes | os.PathLike[str],
+        target: str | bytes | os.PathLike[str],
+    ) -> None:
+        mode = "w" + ("b" if isinstance(source, bytes) else "")
+        with open(target, mode) as f:
+            f.write(source)
+
+    return write_link_as_file
+
+
 def build_file_from_blob(
     blob: Blob,
     mode: int,
@@ -1909,8 +2170,14 @@ def build_file_from_blob(
             oldstat = None
         if oldstat is not None and oldstat.st_size == len(contents):
             with open(target_path, "rb") as f:
-                if f.read() == contents:
+                unchanged = f.read() == contents
+            if unchanged:
+                if not honor_filemode or bool(oldstat.st_mode & stat.S_IXUSR) == bool(
+                    mode & stat.S_IXUSR
+                ):
                     return oldstat
+                os.chmod(target_path, cleanup_mode(mode))
+                return os.lstat(target_path)
 
         with open(target_path, "wb") as f:
             # Write out file
@@ -2263,6 +2530,32 @@ def verify_leading_dirs(
         safe_prefix.append(part)
 
 
+def verify_tree_path(
+    tree_path: bytes,
+    validate_path_element: Callable[[bytes], bool],
+    safe_prefix: list[bytes],
+    root_path: bytes,
+) -> None:
+    """Reject a tree path that is unsafe to write below ``root_path``.
+
+    Combines ``validate_path`` and ``verify_leading_dirs``.
+
+    Args:
+      tree_path: Tree-form path (``/``-separated) about to be written.
+      validate_path_element: Function to validate a single path element.
+      safe_prefix: Mutable cache shared across calls, see
+        ``verify_leading_dirs``.
+      root_path: Filesystem path to the work-tree root.
+
+    Raises:
+      InvalidPathError: If the path has a component rejected by
+        ``validate_path_element`` or a leading component is a symlink.
+    """
+    if not validate_path(tree_path, validate_path_element):
+        raise InvalidPathError(tree_path)
+    verify_leading_dirs(tree_path, safe_prefix, root_path)
+
+
 def build_index_from_tree(
     root_path: str | bytes,
     index_path: str | bytes,
@@ -2276,6 +2569,7 @@ def build_index_from_tree(
     | None = None,
     blob_normalizer: "FilterBlobNormalizer | None" = None,
     tree_encoding: str = "utf-8",
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> None:
     """Generate and materialize index from a tree.
 
@@ -2292,11 +2586,12 @@ def build_index_from_tree(
       blob_normalizer: An optional BlobNormalizer to use for converting line
         endings when writing blobs to the working directory.
       tree_encoding: Encoding used for tree paths (default: utf-8)
+      object_format: Object format of the repository the index belongs to
 
     Note: existing index is wiped and contents are not merged
         in a working dir. Suitable only for fresh clones.
     """
-    index = Index(index_path, read=False)
+    index = Index(index_path, read=False, object_format=object_format)
     if not isinstance(root_path, bytes):
         root_path = os.fsencode(root_path)
 
@@ -2308,14 +2603,10 @@ def build_index_from_tree(
         assert (
             entry.path is not None and entry.mode is not None and entry.sha is not None
         )
-        # Validate as we go and abort on the first invalid path,
-        # leaving any files already written in place.
-        if not validate_path(entry.path, validate_path_element):
-            raise InvalidPathError(entry.path)
-        # Refuse to write an entry whose leading path resolves through a
-        # symlink materialized by an earlier entry; open(..., "wb") would
-        # otherwise follow it and write outside the work tree.
-        verify_leading_dirs(entry.path, safe_prefix, root_path)
+        # Validate as we go and abort on the first invalid path, leaving any
+        # files already written in place. This also refuses a leading path
+        # that resolves through a symlink materialized by an earlier entry.
+        verify_tree_path(entry.path, validate_path_element, safe_prefix, root_path)
         full_path = _tree_to_fs_path(root_path, entry.path, tree_encoding)
 
         if not os.path.exists(os.path.dirname(full_path)):
@@ -3126,11 +3417,7 @@ def update_working_tree(
             path = change.new.path
             # Validate as we go and abort on the first invalid path,
             # leaving any changes already applied in place.
-            if not validate_path(path, validate_path_element):
-                raise InvalidPathError(path)
-            # Refuse to write through a symlinked leading directory that
-            # would let open(..., "wb") escape the work tree.
-            verify_leading_dirs(path, [], repo_path)
+            verify_tree_path(path, validate_path_element, [], repo_path)
             full_path = _tree_to_fs_path(repo_path, path, tree_encoding)
             try:
                 modify_stat: os.stat_result | None = os.lstat(full_path)
@@ -3233,6 +3520,8 @@ def _check_entry_for_changes(
     root_path: bytes,
     filter_blob_callback: Callable[[Blob, bytes], Blob] | None = None,
     trust_ctime: bool = True,
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
+    refresh_stat: list[tuple[bytes, os.stat_result]] | None = None,
 ) -> bytes | None:
     """Check a single index entry for changes.
 
@@ -3242,6 +3531,10 @@ def _check_entry_for_changes(
       root_path: Root filesystem path
       filter_blob_callback: Optional callback to filter blobs
       trust_ctime: If True, use ctime for change detection (default: True)
+      object_format: Object format to hash the working tree blob with
+      refresh_stat: If provided, entries with drifted stat but matching
+        content have their (tree_path, stat_result) appended so the
+        caller can update the index stat cache in a single pass.
     Returns: tree_path if changed, None otherwise
     """
     if isinstance(entry, ConflictedIndexEntry):
@@ -3278,8 +3571,10 @@ def _check_entry_for_changes(
         # different from whatever file used to exist.
         return tree_path
     else:
-        if blob.id != entry.sha:
+        if blob.get_id(object_format) != entry.sha:
             return tree_path
+        if refresh_stat is not None:
+            refresh_stat.append((tree_path, st))
     return None
 
 
@@ -3290,6 +3585,7 @@ def get_unstaged_changes(
     preload_index: bool = False,
     trust_ctime: bool = True,
     max_stat: int | None = None,
+    refresh_stat: list[tuple[bytes, os.stat_result]] | None = None,
 ) -> Generator[bytes, None, None]:
     """Walk through an index and check for differences against working tree.
 
@@ -3301,6 +3597,10 @@ def get_unstaged_changes(
       trust_ctime: If True, use ctime for change detection (default: True)
       max_stat: If set, limit the number of stat operations performed.
         When the limit is reached, remaining files are assumed unchanged.
+      refresh_stat: If provided, entries whose stat has drifted but whose
+        content is unchanged are appended as ``(tree_path, stat_result)``
+        pairs so the caller can update the index stat cache without a
+        second pass.
     Returns: iterator over paths with unstaged changes
     """
     # For each entry in the index check the sha1 & ensure not staged
@@ -3328,6 +3628,12 @@ def get_unstaged_changes(
             # Use number of CPUs but cap at 8 threads to avoid overhead
             num_workers = min(multiprocessing.cpu_count(), 8)
 
+            # Per-thread refresh accumulators so appends stay lock-free,
+            # then merged into the caller's list once workers finish.
+            worker_refresh: list[list[tuple[bytes, os.stat_result]] | None] = [
+                [] if refresh_stat is not None else None for _ in entries
+            ]
+
             # Process entries in parallel
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
                 # Submit all tasks
@@ -3339,8 +3645,10 @@ def get_unstaged_changes(
                         root_path,
                         filter_blob_callback,
                         trust_ctime,
+                        index.object_format,
+                        worker_refresh[i],
                     )
-                    for tree_path, entry in entries
+                    for i, (tree_path, entry) in enumerate(entries)
                 ]
 
                 # Yield results as they complete
@@ -3349,13 +3657,24 @@ def get_unstaged_changes(
                     if result is not None:
                         yield result
 
+            if refresh_stat is not None:
+                for bucket in worker_refresh:
+                    if bucket:
+                        refresh_stat.extend(bucket)
+
     if not preload_index:
         # Serial processing
         for tree_path, entry in index.iteritems():
             if max_stat is not None and stat_count >= max_stat:
                 return
             result = _check_entry_for_changes(
-                tree_path, entry, root_path, filter_blob_callback, trust_ctime
+                tree_path,
+                entry,
+                root_path,
+                filter_blob_callback,
+                trust_ctime,
+                index.object_format,
+                refresh_stat,
             )
             stat_count += 1
             if result is not None:
@@ -3514,7 +3833,9 @@ def index_entry_from_directory(st: os.stat_result, path: bytes) -> IndexEntry | 
 
 
 def index_entry_from_path(
-    path: bytes, object_store: ObjectContainer | None = None
+    path: bytes,
+    object_store: ObjectContainer | None = None,
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> IndexEntry | None:
     """Create an index from a filesystem path.
 
@@ -3526,6 +3847,7 @@ def index_entry_from_path(
       path: Path to create an index entry for
       object_store: Optional object store to
         save new blobs in
+      object_format: Object format to name new blobs with
     Returns: An index entry; None for directories
     """
     assert isinstance(path, bytes)
@@ -3537,7 +3859,7 @@ def index_entry_from_path(
         blob = blob_from_path_and_stat(path, st)
         if object_store is not None:
             object_store.add_object(blob)
-        return index_entry_from_stat(st, blob.id)
+        return index_entry_from_stat(st, ObjectID(blob.get_id(object_format)))
 
     return None
 
@@ -3546,6 +3868,7 @@ def iter_fresh_entries(
     paths: Iterable[bytes],
     root_path: bytes,
     object_store: ObjectContainer | None = None,
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> Iterator[tuple[bytes, IndexEntry | None]]:
     """Iterate over current versions of index entries on disk.
 
@@ -3553,12 +3876,15 @@ def iter_fresh_entries(
       paths: Paths to iterate over
       root_path: Root path to access from
       object_store: Optional store to save new blobs in
+      object_format: Object format to name new blobs with
     Returns: Iterator over path, index_entry
     """
     for path in paths:
         p = _tree_to_fs_path(root_path, path)
         try:
-            entry = index_entry_from_path(p, object_store=object_store)
+            entry = index_entry_from_path(
+                p, object_store=object_store, object_format=object_format
+            )
         except (FileNotFoundError, IsADirectoryError):
             entry = None
         yield path, entry
@@ -3569,6 +3895,7 @@ def iter_fresh_objects(
     root_path: bytes,
     include_deleted: bool = False,
     object_store: ObjectContainer | None = None,
+    object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
 ) -> Iterator[tuple[bytes, ObjectID | None, int | None]]:
     """Iterate over versions of objects on disk referenced by index.
 
@@ -3578,9 +3905,12 @@ def iter_fresh_objects(
       include_deleted: Include deleted entries with sha and
         mode set to None
       object_store: Optional object store to report new items to
+      object_format: Object format to name new blobs with
     Returns: Iterator over path, sha, mode
     """
-    for path, entry in iter_fresh_entries(paths, root_path, object_store=object_store):
+    for path, entry in iter_fresh_entries(
+        paths, root_path, object_store=object_store, object_format=object_format
+    ):
         if entry is None:
             if include_deleted:
                 yield path, None, None
@@ -3597,9 +3927,34 @@ def refresh_index(index: Index, root_path: bytes) -> None:
       index: Index to update
       root_path: Root filesystem path
     """
-    for path, entry in iter_fresh_entries(index, root_path):
+    for path, entry in iter_fresh_entries(
+        index, root_path, object_format=index.object_format
+    ):
         if entry:
             index[path] = entry
+
+
+def apply_stat_refresh(
+    index: Index, refreshed: Iterable[tuple[bytes, os.stat_result]]
+) -> bool:
+    """Apply refreshed stat info collected during an index walk.
+
+    ``refreshed`` should be the list populated by passing ``refresh_stat``
+    into `get_unstaged_changes`: it contains (tree_path, stat_result)
+    pairs for entries whose on-disk stat drifted but whose content still
+    matches the index entry sha.
+
+    Returns True if any entries were updated (caller may want to write
+    the index).
+    """
+    updated = False
+    for tree_path, st in refreshed:
+        entry = index[tree_path]
+        if isinstance(entry, ConflictedIndexEntry):
+            continue
+        index[tree_path] = index_entry_from_stat(st, entry.sha, mode=entry.mode)
+        updated = True
+    return updated
 
 
 class locked_index:
@@ -3610,15 +3965,25 @@ class locked_index:
 
     _file: "_GitFile"
 
-    def __init__(self, path: bytes | str) -> None:
-        """Initialize locked_index."""
+    def __init__(
+        self,
+        path: bytes | str,
+        object_format: ObjectFormat = DEFAULT_OBJECT_FORMAT,
+    ) -> None:
+        """Initialize locked_index.
+
+        Args:
+          path: Path to the index file
+          object_format: Object format of the repository owning the index
+        """
         self._path = path
+        self._object_format = object_format
 
     def __enter__(self) -> Index:
         """Enter context manager and lock index."""
         f = GitFile(self._path, "wb")
         self._file = f
-        self._index = Index(self._path)
+        self._index = Index(self._path, object_format=self._object_format)
         return self._index
 
     def __exit__(
@@ -3632,8 +3997,8 @@ class locked_index:
             self._file.abort()
             return
         try:
-            f = SHA1Writer(self._file)
-            write_index_dict(f, self._index._byname)
+            f = IndexChecksumWriter(self._file, self._object_format)
+            write_index_dict(f, self._index._byname, object_format=self._object_format)
         except BaseException:
             self._file.abort()
         else:

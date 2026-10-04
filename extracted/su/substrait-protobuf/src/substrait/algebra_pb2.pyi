@@ -4581,6 +4581,12 @@ class Expression(google.protobuf.message.Message):
     LAMBDA_FIELD_NUMBER: builtins.int
     LAMBDA_INVOCATION_FIELD_NUMBER: builtins.int
     EXECUTION_CONTEXT_VARIABLE_FIELD_NUMBER: builtins.int
+    DETACHED_EXPRESSION_ORDINAL_FIELD_NUMBER: builtins.int
+    detached_expression_ordinal: builtins.int
+    """Encoding-only, zero-based index into detached_expressions on the
+    containing PlanRel or ExtendedExpression.
+    See https://substrait.io/serialization/binary_serialization/#bounded-expression-nesting.
+    """
     @property
     def literal(self) -> Global___Expression.Literal: ...
     @property
@@ -4626,10 +4632,11 @@ class Expression(google.protobuf.message.Message):
         dynamic_parameter: Global___DynamicParameter | None = ...,
         lambda_invocation: Global___Expression.LambdaInvocation | None = ...,
         execution_context_variable: Global___Expression.ExecutionContextVariable | None = ...,
+        detached_expression_ordinal: builtins.int = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["cast", b"cast", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["cast", b"cast", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing.Literal["rex_type", b"rex_type"]) -> typing.Literal["literal", "selection", "scalar_function", "window_function", "if_then", "switch_expression", "singular_or_list", "multi_or_list", "cast", "subquery", "nested", "dynamic_parameter", "lambda", "lambda_invocation", "execution_context_variable"] | None: ...
+    def HasField(self, field_name: typing.Literal["cast", b"cast", "detached_expression_ordinal", b"detached_expression_ordinal", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["cast", b"cast", "detached_expression_ordinal", b"detached_expression_ordinal", "dynamic_parameter", b"dynamic_parameter", "execution_context_variable", b"execution_context_variable", "if_then", b"if_then", "lambda", b"lambda", "lambda_invocation", b"lambda_invocation", "literal", b"literal", "multi_or_list", b"multi_or_list", "nested", b"nested", "rex_type", b"rex_type", "scalar_function", b"scalar_function", "selection", b"selection", "singular_or_list", b"singular_or_list", "subquery", b"subquery", "switch_expression", b"switch_expression", "window_function", b"window_function"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["rex_type", b"rex_type"]) -> typing.Literal["literal", "selection", "scalar_function", "window_function", "if_then", "switch_expression", "singular_or_list", "multi_or_list", "cast", "subquery", "nested", "dynamic_parameter", "lambda", "lambda_invocation", "execution_context_variable", "detached_expression_ordinal"] | None: ...
 
 Global___Expression: typing_extensions.TypeAlias = Expression
 

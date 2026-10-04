@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2025 by Ron Frederick <ronf@timeheart.net> and others.
+# Copyright (c) 2017-2026 by Ron Frederick <ronf@timeheart.net> and others.
 #
 # This program and the accompanying materials are made available under
 # the terms of the Eclipse Public License v2.0 which accompanies this
@@ -32,8 +32,8 @@ import string
 import sys
 from types import TracebackType
 from typing import TYPE_CHECKING, AsyncIterator, List, NoReturn, Optional
-from typing import Sequence, Tuple, Type, Union, cast
-from typing_extensions import Protocol, Self
+from typing import Protocol, Sequence, Tuple, Type, Union, cast
+from typing_extensions import Self
 
 from .constants import DEFAULT_LANG
 from .constants import FILEXFER_TYPE_REGULAR, FILEXFER_TYPE_DIRECTORY
@@ -137,7 +137,7 @@ def _parse_cd_args(args: bytes) -> Tuple[int, int, bytes]:
     try:
         permissions, size, name = args.split(None, 2)
 
-        if b'/' in name or b'\\' in name or name == b'..':
+        if b'/' in name or b'\\' in name or name in (b'.', b'..'):
             raise _scp_error(SFTPBadMessage, 'Invalid filename')
 
         return int(permissions, 8), int(size), name
@@ -169,7 +169,7 @@ async def _parse_path(path: _SCPConnPath, **kwargs) -> \
         conn, path = cast(Tuple[_SCPConn, _SCPPath], path)
     elif isinstance(path, str) and sys.platform == 'win32' and \
             path[:1] in string.ascii_letters and \
-            path[1:2] == ':': # pragma: no cover (win32)
+            path[1:2] == ':': # pragma: cover only win32
         conn = None
     elif isinstance(path, str) and ':' in path:
         conn, path = path.split(':', 1)

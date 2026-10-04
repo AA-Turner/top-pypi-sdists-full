@@ -539,7 +539,6 @@ data_scene_matches_compose (int shared)
   src[0].snr                   = shared ? 100.0 : 12.0;
   src[0].seed                  = 7;
   src[0].pn_length             = 7;
-  src[0].crc                   = 1;
   src[0].data                  = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL,
                                               .bits = bits,
                                               .len  = sizeof bits };
@@ -547,10 +546,16 @@ data_scene_matches_compose (int shared)
   src[0].fill     = (wfm_seq_t){ .kind = WFM_SEQ_LITERAL,
                                  .bits = fill,
                                  .len  = sizeof fill };
-  src[1].type     = WFM_SYNTH_NOISE;
-  src[1].snr      = 100.0;
-  src[1].seed     = 7;
-  src[1].level    = -20.0;
+  /* Each frame ends in a CRC-16 over its chunk: a frame DESCRIPTION,
+     [data:6 | crc16], since a source carries no CRC of its own. Borrowed, so
+     it lives until the scene has been serialized. */
+  wfm_frame_desc_t frame;
+  DP_REQUIRE (dp_wfm_source_common_frame (&src[0], NULL, 1, &frame) == 0);
+  src[0].frame = &frame;
+  src[1].type  = WFM_SYNTH_NOISE;
+  src[1].snr   = 100.0;
+  src[1].seed  = 7;
+  src[1].level = -20.0;
   wfm_segment_t seg
       = { .sources = src, .n_sources = shared ? 2u : 1u, .fs = 1e6 };
   char *json = dp_wfm_spec_to_json (&seg, 1, 0, 0, 0, 0.0);
@@ -709,14 +714,18 @@ main (void)
                   "reject ranged num_samples");
   free (jnum);
 
-  /* zero on-time is rejected. */
+  /* A zero on-time DERIVES it (doppler#1729): a plain segment's is
+   * WFM_NUM_SAMPLES_PLAIN, so the plan prepares at that length rather than
+   * refusing an empty segment. */
   wfm_segment_t zseg = {
     .sources = &plain_solo, .n_sources = 1, .fs = 1e6, .num_samples = 0
   };
   char *jzero = dp_wfm_spec_to_json (&zseg, 1, 0, 0, 0, 0.0);
   DP_REQUIRE_MSG (jzero, "zero-num-samples json");
-  DP_REQUIRE_MSG (dp_wfm_plan_prepare (jzero) == NULL,
-                  "reject num_samples == 0");
+  wfm_plan_t *pzero = dp_wfm_plan_prepare (jzero);
+  DP_REQUIRE_MSG (pzero && dp_wfm_plan_len (pzero) == WFM_NUM_SAMPLES_PLAIN,
+                  "num_samples == 0 derives the plain on-time");
+  dp_wfm_plan_destroy (pzero);
   free (jzero);
 
   /* two noise sources in one segment, or a non-trailing noise source, are

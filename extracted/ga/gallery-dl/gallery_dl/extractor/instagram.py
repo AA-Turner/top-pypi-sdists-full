@@ -52,6 +52,8 @@ class InstagramExtractor(Extractor):
 
         self.api = InstagramAPI(self)
 
+        self._highlight_covers = \
+            True if self.config("covers") else False
         self._static_video = \
             True if self.config("static-videos", True) else False
         self._warn_video = \
@@ -230,6 +232,17 @@ class InstagramExtractor(Extractor):
                 data["highlight_title"] = title
             if not post.get("seen"):
                 post["seen"] = post.get("latest_reel_media")
+            if self._highlight_covers and (cover := post.get("cover_media")):
+                if img := (cover.get("full_image_version") or
+                           cover.get("cropped_image_version")):
+                    img = img.copy()
+                    img.setdefault("width", 0)
+                    img.setdefault("height", 0)
+                    items.insert(0, {
+                        "pk": f"{reel_id}_cover",
+                        "code": reel_id,
+                        "taken_at": post["seen"],
+                        "image_versions2": {"candidates": (img,)}})
 
         else:  # regular image/video post
             data = {

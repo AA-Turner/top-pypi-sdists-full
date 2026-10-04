@@ -117,6 +117,31 @@ fn prepare_lint_sql(
     .map_err(value_error)
 }
 
+/// Prepare many bodies in one detached call; `false` marks a body to prepare again individually.
+#[pyfunction]
+fn prepare_lint_sql_batch(
+    py: Python<'_>,
+    requests: Vec<LintPreparationRequest>,
+) -> PyResult<Vec<(bool, Option<crate::sql_lint::types::PreparedSql>)>> {
+    py.compiler_detach(|| {
+        Ok(requests
+            .iter()
+            .map(|request| {
+                crate::bindings::_helpers::panics::catch_compiler_panic(|| {
+                    crate::sql_lint::main::preparation::prepare(
+                        &request.expanded,
+                        &request.before_expansion,
+                        &request.prior_sites,
+                        &request.dialect,
+                    )
+                })
+                .map_or((false, None), |prepared| (true, prepared))
+            })
+            .collect())
+    })
+    .map_err(value_error)
+}
+
 #[pyfunction]
 fn lint_backtick_identifiers(dialect: &str) -> PyResult<bool> {
     compiler_guard(|| {
@@ -352,6 +377,19 @@ fn parse_model_headers(py: Python<'_>, headers: Vec<String>) -> PyResult<Vec<Par
 }
 
 #[pyfunction]
+fn match_model_headers(
+    py: Python<'_>,
+    contents: Vec<String>,
+) -> PyResult<Vec<Option<(usize, usize, usize)>>> {
+    py.compiler_detach(|| {
+        Ok(crate::compiler::main::model_header_matching::match_batch(
+            &contents,
+        ))
+    })
+    .map_err(value_error)
+}
+
+#[pyfunction]
 fn tokenize_model_header(header: &str) -> PyResult<Vec<(u8, String, usize)>> {
     compiler_guard(|| {
         crate::compiler::main::model_header_tokenizing::tokenize_one(header).map_err(value_error)
@@ -431,6 +469,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(run_custom_host_json, module)?)?;
     module.add_function(wrap_pyfunction!(lint_sql_json, module)?)?;
     module.add_function(wrap_pyfunction!(prepare_lint_sql, module)?)?;
+    module.add_function(wrap_pyfunction!(prepare_lint_sql_batch, module)?)?;
     module.add(
         "NativeCompilerError",
         module
@@ -466,6 +505,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(extract_sql_tests_json, module)?)?;
+    module.add_function(wrap_pyfunction!(match_model_headers, module)?)?;
     module.add_function(wrap_pyfunction!(parse_model_headers, module)?)?;
     module.add_function(wrap_pyfunction!(tokenize_model_header, module)?)?;
     module.add_function(wrap_pyfunction!(substitute_static_project_vars, module)?)?;

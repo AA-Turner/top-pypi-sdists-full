@@ -130,6 +130,88 @@ def _parse_assertion_evidence_item(
     return cast(AssertionLabelEvidence, item)
 
 
+class ScenarioSource(TypedDict):
+    spanId: str
+    sourceField: Literal["input", "output"]
+    text: str
+
+
+ScenarioTrigger = TypedDict(
+    "ScenarioTrigger",
+    {
+        "inputId": int | None,
+        "inputType": str,
+        "channel": str,
+        "from": str,
+        "to": str | None,
+        "cc": str | None,
+        "subject": str | None,
+        "type": str,
+        "eventTime": str,
+        "eventTimeSource": Literal["message date", "run start"],
+        "source": Literal["request", "run instructions"],
+        "content": str,
+        "contentPassages": list[str],
+        "contentIsWholeMessage": bool,
+        "sources": list[ScenarioSource],
+    },
+)
+
+
+ScenarioDataOrigin = TypedDict(
+    "ScenarioDataOrigin",
+    {
+        "section": str,
+        "channel": str | None,
+        "from": str | None,
+        "to": str | None,
+        "cc": str | None,
+        "subject": str | None,
+        "sentAtText": str | None,
+    },
+)
+
+
+class ScenarioHistoryEntry(TypedDict):
+    role: Literal["thread start", "fact"]
+    kind: str
+    quote: str
+    summary: str | None
+    origin: ScenarioDataOrigin | None
+    sentAt: str | None
+    weekday: str | None
+    sincePrevious: str | None
+    source: NotRequired[ScenarioSource | None]
+
+
+class ScenarioData(TypedDict):
+    hasHistory: bool
+    topic: str
+    history: list[ScenarioHistoryEntry]
+    missing: list[str]
+
+
+class ScenarioDataAppend(TypedDict, total=False):
+    history: list[ScenarioHistoryEntry]
+    missing: list[str]
+
+
+class Scenario(TypedDict):
+    id: str
+    createdAt: str
+    updatedAt: str
+    organizationId: str
+    traceFunctionId: str
+    sourceTraceId: str
+    extractor: Literal["noah"]
+    name: str
+    description: str
+    trigger: ScenarioTrigger
+    data: ScenarioData
+    triggerSummary: str
+    dataSummary: str
+
+
 AssertionGenerationStatus = Literal["running", "completed", "failed"]
 
 
@@ -232,6 +314,38 @@ def _generation_timed_out(
 
 def _trace_assertions_path(trace_id: str, suffix: str = "") -> str:
     return f"/api/sdk/traces/{quote(trace_id, safe='')}/assertions{suffix}"
+
+
+def _trace_scenario_path(trace_id: str) -> str:
+    return f"/api/sdk/traces/{quote(trace_id, safe='')}/scenario"
+
+
+def _scenario_payload(
+    name: str | None,
+    description: str | None,
+    trigger: ScenarioTrigger | None,
+    data: ScenarioData | None,
+    append_data: ScenarioDataAppend | None,
+) -> dict[str, Any]:
+    if data is not None and append_data is not None:
+        raise ValueError(
+            "Pass data to replace the scenario's data or append_data to add to it, "
+            "not both."
+        )
+    fields: dict[str, Any] = {
+        "name": name,
+        "description": description,
+        "trigger": trigger,
+        "data": data,
+        "appendData": append_data,
+    }
+    payload = {key: value for key, value in fields.items() if value is not None}
+    if not payload:
+        raise ValueError(
+            "save_scenario needs at least one of name, description, trigger, "
+            "data, or append_data."
+        )
+    return payload
 
 
 class TracesClient:
@@ -363,3 +477,21 @@ class TracesClient:
             {"assertionIds": assertion_ids},
         )
         return result["archived"]
+
+    def get_scenario(self, trace_id: str) -> Scenario:
+        result = self._http_client.get(_trace_scenario_path(trace_id))
+        return result["scenario"]
+
+    def save_scenario(
+        self,
+        trace_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        trigger: ScenarioTrigger | None = None,
+        data: ScenarioData | None = None,
+        append_data: ScenarioDataAppend | None = None,
+    ) -> Scenario:
+        payload = _scenario_payload(name, description, trigger, data, append_data)
+        result = self._http_client.request(_trace_scenario_path(trace_id), payload)
+        return result["scenario"]

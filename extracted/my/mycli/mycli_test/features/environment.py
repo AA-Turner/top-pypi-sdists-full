@@ -1,0 +1,139 @@
+# type: ignore
+
+import os
+import shutil
+import sys
+import tempfile
+
+import db_utils
+import fixture_utils
+import pexpect
+
+from mycli.constants import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_USER
+from steps.wrappers import run_cli, wait_prompt
+
+fd, TEST_LOG_FILE = tempfile.mkstemp(prefix='mycli-behave-', suffix='.test.log')
+os.close(fd)
+
+SELF_CONNECTING_FEATURES = ("test/features/connection.feature",)
+
+
+def get_db_name_from_context(context):
+    return context.config.userdata.get("my_test_db", None) or "mycli_behave_tests"
+
+
+def before_all(context):
+    """Set env parameters."""
+    os.environ["LINES"] = "100"
+    os.environ["COLUMNS"] = "100"
+    os.environ["VISUAL"] = "ex"
+    os.environ["EDITOR"] = "ex"
+    os.environ["LC_ALL"] = "en_US.UTF-8"
+    os.environ["PROMPT_TOOLKIT_NO_CPR"] = "1"
+    os.environ["MYCLI_HISTFILE"] = os.devnull
+
+    # test_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    # login_path_file = os.path.join(test_dir, "mylogin.cnf")
+    #    os.environ['MYSQL_TEST_LOGIN_FILE'] = login_path_file
+
+    context.package_root = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    context.exit_sent = False
+
+    vi = "_".join([str(x) for x in sys.version_info[:3]])
+    db_name = get_db_name_from_context(context)
+    db_name_full = f"{db_name}_{vi}"
+
+    # Store get params from config/environment variables
+    context.conf = {
+        "host": context.config.userdata.get("my_test_host", os.getenv("PYTEST_HOST", DEFAULT_HOST)),
+        "port": context.config.userdata.get("my_test_port", int(os.getenv("PYTEST_PORT", DEFAULT_PORT))),
+        "user": context.config.userdata.get("my_test_user", os.getenv("PYTEST_USER", DEFAULT_USER)),
+        "pass": context.config.userdata.get("my_test_pass", os.getenv("PYTEST_PASSWORD", None)),
+        "cli_command": context.config.userdata.get("my_cli_command", None)
+        or sys.executable + ' -c "import coverage ; coverage.process_startup(); import mycli.main; mycli.main.click_entrypoint()"',
+        "dbname": db_name,
+        "dbname_tmp": db_name_full + "_tmp",
+        "vi": vi,
+        "pager_boundary": "---boundary---",
+    }
+
+    # todo: this line has no effect, and the pager is controlled from mycli_test/myclirc
+    os.environ['PAGER'] = (
+        f'{sys.executable} {os.path.join(context.package_root, "test/features/wrappager.py")} {context.conf["pager_boundary"]}'
+    )
+    source_myclirc = os.path.join(context.package_root, 'mycli_test', 'myclirc')
+    fd, context.myclirc_copy = tempfile.mkstemp(prefix='mycli-behave-', suffix='.myclirc')
+    os.close(fd)
+    shutil.copyfile(source_myclirc, context.myclirc_copy)
+    context.conf['myclirc'] = context.myclirc_copy
+
+    context.cn = db_utils.create_db(
+        context.conf["host"], context.conf["port"], context.conf["user"], context.conf["pass"], context.conf["dbname"]
+    )
+
+    context.fixture_data = fixture_utils.read_fixture_files()
+
+
+def after_all(context):
+    """Unset env parameters."""
+    db_utils.close_cn(context.cn)
+    db_utils.drop_db(context.conf["host"], context.conf["port"], context.conf["user"], context.conf["pass"], context.conf["dbname"])
+    try:
+        if os.path.exists(context.conf["defaults-file"]):
+            os.remove(context.conf["defaults-file"])
+    except Exception:
+        pass
+    try:
+        os.remove(context.myclirc_copy)
+    except FileNotFoundError:
+        pass
+
+    # Restore env vars.
+    # for k, v in context.pgenv.items():
+    #    if k in os.environ and v is None:
+    #        del os.environ[k]
+    #    elif v:
+    #        os.environ[k] = v
+
+
+def before_step(context, _):
+    context.atprompt = False
+
+
+def before_scenario(context, arg):
+    # Skip scenarios marked skip_py312 when running on Python 3.12
+    if sys.version_info[:2] == (3, 12) and "skip_py312" in arg.tags:
+        arg.skip("Skipped on Python 3.12")
+    # Skip flaky editor test in CI
+    if os.getenv('GITHUB_ACTION') and 'skip_ci' in arg.tags:
+        arg.skip('Skipped in CI')
+    with open(TEST_LOG_FILE, "w") as f:
+        f.write("")
+    if arg.location.filename not in SELF_CONNECTING_FEATURES:
+        run_cli(context)
+        wait_prompt(context)
+
+
+def after_scenario(context, _):
+    """Cleans up after each test complete."""
+    with open(TEST_LOG_FILE) as f:
+        for line in f:
+            if "error" in line.lower():
+                raise RuntimeError(f"Error in log file: {line}")
+
+    if hasattr(context, "cli") and not context.exit_sent:
+        # Quit nicely.
+        if not context.atprompt:
+            user = context.conf["user"]
+            host = context.conf["host"]
+            dbname = context.currentdb
+            context.cli.expect_exact(f"{user}@{host}:{dbname}>", timeout=5)
+        context.cli.sendcontrol("c")
+        context.cli.sendcontrol("d")
+        context.cli.expect_exact(pexpect.EOF, timeout=5)
+
+
+# TODO: uncomment to debug a failure
+# def after_step(context, step):
+#     if step.status == "failed":
+#         import ipdb; ipdb.set_trace()

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 OpenCCU-Loom authors.
+# Copyright (C) 2026 SukramJ.
 
 """
 High-level :class:`LoomClient` — facade over transport + store + bus.
@@ -81,15 +81,8 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from openccu_loom_client.config import LoomConfig
-    from openccu_loom_client.wire.rest import (
-        Channel,
-        DataPointSummary,
-        DeviceChannel,
-        DeviceSummary,
-        Health,
-        Info,
-        Readiness,
-    )
+    from openccu_loom_client.daemon_info import Info
+    from openccu_loom_client.wire.rest import Channel, DataPointSummary, DeviceChannel, DeviceSummary, Health, Readiness
 
 _LOGGER: Final = logging.getLogger(__name__)
 

@@ -106,6 +106,11 @@ class ToolRegistry:
     _instance: ToolRegistry | None = None
 
     def __init__(self) -> None:
+        # True when the last database load FAILED (the fetch raised and the registry holds
+        # only what it had, or nothing). Readers that cache derived state (the host's
+        # surface manifests) must not cache while this is set: a half-loaded registry is
+        # not a catalog that lacks those tools (2026-10-02 clone incident).
+        self.load_failed: bool = False
         # Canonical name → ToolDefinition.
         self._tools: dict[str, ToolDefinition] = {}
         # Tool UUID → canonical name (for UUID-form lookups at the edge).
@@ -160,7 +165,8 @@ class ToolRegistry:
             await self._load_executors_from_source(source)
             return loaded
         rows = await self._fetch_tools_async()
-        loaded = self._load_rows(rows)
+        self.load_failed = rows is None
+        loaded = self._load_rows(rows or [])
         await self._load_bindings_async()
         await self._load_executors_async()
         return loaded
@@ -175,6 +181,15 @@ class ToolRegistry:
         """
         replacement = type(self)()
         loaded = await replacement.load_from_database()
+        if replacement.load_failed and self._tools:
+            # A failed reload never replaces a coherent snapshot with an empty one.
+            vcprint(
+                "[ToolRegistry] reload FAILED — keeping the previous snapshot "
+                f"({len(self._tools)} tools) instead of swapping in an empty registry.",
+                color="red",
+            )
+            return len(self._tools)
+        self.load_failed = replacement.load_failed
         self._tools = replacement._tools
         self._tools_by_id = replacement._tools_by_id
         self._bindings_by_tool = replacement._bindings_by_tool
@@ -211,7 +226,8 @@ class ToolRegistry:
                 "load_from_database() / initialize_tool_system() instead."
             )
         rows = self._fetch_tools_via_orm_sync()
-        loaded = self._load_rows(rows)
+        self.load_failed = rows is None
+        loaded = self._load_rows(rows or [])
         self._load_bindings_sync()
         self._load_executors_sync()
         return loaded
@@ -826,7 +842,11 @@ class ToolRegistry:
         Returns ``"surface"`` (client delegation) when the tool has a binding
         to one of this request's active CLIENT executors, ``"server"`` otherwise.
 
-        A code-declared server tool is always server-owned.  Its declaration is
+        One exception comes first: a binding to a client executor the REQUEST
+        itself declared (``_REQUEST_DECLARED_CLIENT_EXECUTORS``, e.g. the widget
+        handle) delegates even a server-declared tool.
+
+        Otherwise a code-declared server tool is always server-owned.  Its declaration is
         the runtime's source of truth for the callable and its owning executor;
         an accidental additional client binding must not turn a native tool
         into an unanswered client delegation.  For tools without a server
@@ -850,6 +870,16 @@ class ToolRegistry:
         # has no dispatcher/result path (the masterwork ``rulebook`` incident).
         # Client-only tools deliberately have no @tool declaration, so their
         # normal surface routing remains unchanged.
+        bindings = self._bindings_by_tool.get(tool_name)
+        if not bindings:
+            return "server"
+
+        # A client executor that only the REQUEST turns on (never a surface) answers
+        # even a server-declared tool: the client said, on this request, that it holds
+        # the state the tool edits (the widget handle — the widget is client state).
+        if bindings & _REQUEST_DECLARED_CLIENT_EXECUTORS & set(active_executors):
+            return "surface"
+
         try:
             from matrx_ai.tools.declared import get_effective_declared
 
@@ -859,10 +889,6 @@ class ToolRegistry:
         if declared is not None and declared.executor and not _is_client_executor(
             declared.executor
         ):
-            return "server"
-
-        bindings = self._bindings_by_tool.get(tool_name)
-        if not bindings:
             return "server"
 
         # Client executors take priority. We treat any executor that begins
@@ -882,7 +908,7 @@ class ToolRegistry:
     # ------------------------------------------------------------------
 
     @staticmethod
-    async def _fetch_tools_async() -> list[dict[str, Any]]:
+    async def _fetch_tools_async() -> list[dict[str, Any]] | None:
         try:
             items = await get_tool_def_manager().filter_items(is_active=True, deleted_at__isnull=True)
             # ORM serialization recursively walks arbitrary tool JSON schemas.
@@ -899,10 +925,10 @@ class ToolRegistry:
                 "[ToolRegistry] Failed to fetch tools from database. No tools will be available.",
                 color="red",
             )
-            return []
+            return None
 
     @staticmethod
-    def _fetch_tools_via_orm_sync() -> list[dict[str, Any]]:
+    def _fetch_tools_via_orm_sync() -> list[dict[str, Any]] | None:
         try:
             items = get_tool_def_manager().filter_items_sync(is_active=True, deleted_at__isnull=True)
             return [item.to_dict() if hasattr(item, "to_dict") else item for item in items]
@@ -915,7 +941,7 @@ class ToolRegistry:
                 "[ToolRegistry] Failed to fetch tools from database (sync). No tools will be available.",
                 color="red",
             )
-            return []
+            return None
 
     async def _load_bindings_async(self) -> None:
         """Populate ``self._bindings_by_tool`` from ``tool.binding``.
@@ -1416,6 +1442,13 @@ _CLIENT_EXECUTOR_ROOTS: frozenset[str] = frozenset(
         "matrx-user",
     }
 )
+
+
+#: Client executors a request turns on by its own explicit declaration (a client
+#: capability), never by its surface. A binding to one of these, live on the request,
+#: delegates even a server-declared tool — the server copy is the fallback for a request
+#: without the client state. Each entry needs a capability that turns it on.
+_REQUEST_DECLARED_CLIENT_EXECUTORS: frozenset[str] = frozenset({"matrx-user.widget-handle"})
 
 
 def _is_client_executor(executor_name: str) -> bool:

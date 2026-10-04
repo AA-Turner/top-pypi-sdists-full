@@ -31,6 +31,7 @@ from pydantic.json_schema import JsonSchemaValue
 from pydantic_core import core_schema
 
 from matrx_ai.config.citations import NormalizedCitation
+from matrx_ai.config.remarks import RemarkItem
 from matrx_ai.db.content_types.data_ref import DataRef
 from matrx_ai.decisions.kinds import DecisionAnswer, DecisionQuestion, DecisionUsage
 from matrx_ai.media.image_reference_roles import ImageReferenceRole
@@ -682,6 +683,29 @@ class ContextInputPart(_MessagePartBase):
 
 
 # ---------------------------------------------------------------------------
+# RemarksInputPart
+# Stored as: { "type": "input_remarks",
+#              "items": [ {kind, target?, quote?, body?, diff?, answers?, title?,
+#                          comment_id?, metadata?} ] }
+#
+# The person's remarks on earlier output (comments on a passage, a choice in a
+# decision block, an edit as a diff, questionnaire answers, a shape
+# interaction), riding with their NEXT message. Structured here; the model reads
+# the markdown-native projection in ``matrx_ai.config.remarks``. The wire string
+# is ``matrx_ai.config.remarks.REMARKS_PART_TYPE`` (a test pins this Literal).
+# ---------------------------------------------------------------------------
+
+
+class RemarksInputPart(_MessagePartBase):
+    type: Literal["input_remarks"] = "input_remarks"
+    items: list[RemarkItem] = Field(min_length=1)
+    convert_to_text: bool = True
+    optional_context: bool = False
+    keep_fresh: bool = False
+    editable: bool | None = None
+
+
+# ---------------------------------------------------------------------------
 # DecisionQuestionsPart
 # Stored as: { "type": "decision_questions", "__kind": "decision_questions",
 #              "questions": [ {name, type, instructions, criteria, ...} ] }
@@ -814,6 +838,7 @@ MessagePart = (
     | ListInputPart
     | DataInputPart
     | ContextInputPart
+    | RemarksInputPart
     | DecisionQuestionsPart
     | DecisionAnswersPart
     | SpeechScriptPart
@@ -944,6 +969,7 @@ _UserInputPartModel = (
     | ListInputPart
     | DataInputPart
     | ContextInputPart
+    | RemarksInputPart
     | DecisionQuestionsPart
     | DecisionAnswersPart
     | SpeechScriptPart
@@ -1058,6 +1084,7 @@ MESSAGE_PART_REGISTRY: dict[str, type[_MessagePartBase]] = {
     "input_list": ListInputPart,
     "input_data": DataInputPart,
     "input_context": ContextInputPart,
+    "input_remarks": RemarksInputPart,
     "decision_questions": DecisionQuestionsPart,
     "decision_answers": DecisionAnswersPart,
     "speech_script": SpeechScriptPart,
@@ -1092,6 +1119,7 @@ MESSAGE_PART_MODELS: list[type[_MessagePartBase]] = [
     ListInputPart,
     DataInputPart,
     ContextInputPart,
+    RemarksInputPart,
     DecisionQuestionsPart,
     DecisionAnswersPart,
     SpeechScriptPart,

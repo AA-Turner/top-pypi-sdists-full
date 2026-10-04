@@ -137,9 +137,9 @@ def main(argv=None):
     p.add_argument("--season-name", default="Main")
     p.add_argument("--country", default="Brazil")
     p.add_argument("--lookup",
-                   default=r"D:\Users\ritvik\projects\GEO\config\brazil_admin2\assets\brazil_municipality_lookup.csv")
+                   default=r"D:\Users\ritvik\projects\GEO\config\production\brazil_admin2\assets\brazil_municipality_lookup.csv")
     p.add_argument("--out",
-                   default=r"D:\Users\ritvik\projects\GEO\config\brazil_admin2\assets\adm_crop_production_BR_municipality_maize_wide.csv")
+                   default=r"D:\Users\ritvik\projects\GEO\config\production\brazil_admin2\assets\adm_crop_production_BR_municipality_maize_wide.csv")
     a = p.parse_args(argv)
     build(range(a.start_year, a.end_year + 1), a.product, a.lookup, Path(a.out),
           a.country, a.product_label, a.season_name)

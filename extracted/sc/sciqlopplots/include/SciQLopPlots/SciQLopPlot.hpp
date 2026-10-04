@@ -24,6 +24,7 @@
 #include "SciQLopPlots/Items/SciQLopCrosshair.hpp"
 #include "SciQLopPlots/Plotables/SciQLopColorMap.hpp"
 #include "SciQLopPlots/Plotables/SciQLopHistogram2D.hpp"
+#include "SciQLopPlots/Plotables/SciQLopTimeline.hpp"
 #include "SciQLopPlots/Plotables/SciQLopWaterfallGraph.hpp"
 #include "SciQLopPlots/Plotables/SciQLopCurve.hpp"
 #include "SciQLopPlots/Plotables/SciQLopLineGraph.hpp"
@@ -107,6 +108,8 @@ public:
                                                  bool y_bins_log = false);
     SciQLopHistogram2DRemote* add_remote_histogram2d(const QString& name, int x_bins = 100,
                                                       int y_bins = 100);
+
+    SciQLopTimeline* add_timeline(QCPLaneLayout* layout);
 
     inline void set_scroll_factor(double factor) noexcept { m_scroll_factor = factor; }
 
@@ -263,6 +266,7 @@ protected:
     int m_color_palette_index = 0;
     bool m_auto_scale = false;
     bool m_equal_aspect_ratio = false;
+    QPointer<QCPLaneLayout> m_lane_layout;
 
 
     void _configure_color_map(SciQLopColorMapInterface* cmap, bool y_log_scale, bool z_log_scale);
@@ -392,6 +396,15 @@ public:
                                                  const QString& name, int x_bins = 100,
                                                  int y_bins = 100, bool x_bins_log = false,
                                                  bool y_bins_log = false);
+
+    SciQLopTimeline* add_timeline(int lane_height = 22);
+#ifndef BINDINGS_H
+    QCPLaneLayout* lane_layout();
+#endif
+
+    //! Puts the plot into "lanes" mode for panel.add_timeline(): horizontal-only
+    //! drag/zoom, lane names as y tick labels, fixed height tracking the layout.
+    void configure_as_timeline(int lane_height = 22);
 
     SciQLopWaterfallGraph* add_waterfall(const QString& name,
                                          const QStringList& labels = {},
@@ -526,8 +539,20 @@ public:
     bool save_bmp(const QString& filename, int width = 0, int height = 0,
                   double scale = 1.0) override;
 
+    //! A timeline plot asks for its lanes' natural height; other plots keep QFrame's hint.
+    QSize sizeHint() const override;
+
+#ifndef BINDINGS_H
+Q_SIGNALS:
+    //! A timeline plot's natural height changed; \a previous is 0 the first time.
+    void natural_height_changed(int previous, int natural);
+#endif
+
 private:
     Q_SLOT void _enforce_equal_aspect();
+    Q_SLOT void _update_timeline_geometry();
+    Q_SLOT void _move_graphs_to_right_axis();
+    int m_timeline_natural_height = 0;
 };
 
 inline QList<SciQLopPlot*> only_sciqlopplots(const QList<SciQLopPlotInterface*>& plots)

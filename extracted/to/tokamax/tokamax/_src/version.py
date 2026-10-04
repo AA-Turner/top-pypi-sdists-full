@@ -17,10 +17,10 @@
 
 from typing import Final
 
-TOKAMAX_VERSION: Final[str] = "0.0.14"
+TOKAMAX_VERSION: Final[str] = "0.0.15"
 
 # Stamped at build time by the release workflow; empty in a source checkout.
-TOKAMAX_GIT_REVISION: Final[str] = "87188961149792a4f79f7c913d7bbbf529a2338a"
+TOKAMAX_GIT_REVISION: Final[str] = "a669f05d61d7c20f1397451abdd6afc8fb7937e3"
 
 
 def _version_as_tuple(version_str: str) -> tuple[int, int, int]:

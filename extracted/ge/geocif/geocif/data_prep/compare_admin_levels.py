@@ -194,7 +194,7 @@ def check_national_vs_br_row(sidra_csv, wide_csv, product_label, product):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    base = r"D:\Users\ritvik\projects\GEO\config\brazil_mt\assets"
+    base = r"D:\Users\ritvik\projects\GEO\config\production\brazil_mt\assets"
     p.add_argument("--admin1-xlsx", default=r"Z:\cmongp1\GEO\inputs\metadata\production_statistics\soybean_1.xlsx")
     p.add_argument("--admin2-csv", default=base + r"\adm_crop_production_BR_MT_municipality_wide.csv")
     p.add_argument("--country", default="Brazil")

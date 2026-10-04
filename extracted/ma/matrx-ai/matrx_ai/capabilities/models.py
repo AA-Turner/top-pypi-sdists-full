@@ -152,6 +152,12 @@ class UserOverrides(BaseModel):
     The big boss: overrides both the agent and the surface. ``auto`` = "just do
     it", ``ask`` = "always confirm", ``off`` = "suppress". None ⇒ defer to surface
     /agent. Resolved by the host — see aidream output_directives/policy.py."""
+    auto_tools: bool | None = None
+    """The person's auto tool injection switch for this conversation. ``True`` = allow
+    automatic tools even when the agent definition turned them off; ``False`` = none even
+    when the agent allows them; ``None`` = defer to the agent. The user always wins
+    (common-docs agent-tools/TOOL-SOURCES.md, rule A). Never stamped onto the agent's own
+    policy: it is the person's, sent by the client on every turn."""
 
 
 class CapabilityResolutionError(ValueError):

@@ -14,7 +14,9 @@ import numpy as np
 import pytest
 
 from doppler.wfm import (
+    STAGE_CRC16,
     Composer,
+    FrameDesc,
     Plan,
     PlanFromBlob,
     PlanFromFile,
@@ -196,6 +198,11 @@ def test_accepts_bundled_dsss_source_with_owned_arrays() -> None:
     dat = rng.integers(0, 2, 13, dtype=np.uint8)
     pay = rng.integers(0, 2, 40, dtype=np.uint8)
     sync = np.array([1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1], dtype=np.uint8)
+    frame = FrameDesc()
+    frame.add_field("sync", sync)
+    frame.add_data("payload", len(pay))
+    frame.add_derived("crc", 16)
+    frame.add_stage_over(STAGE_CRC16, "payload", "crc")
 
     def _seg(snr: float) -> Segment:
         return Segment(
@@ -208,7 +215,7 @@ def test_accepts_bundled_dsss_source_with_owned_arrays() -> None:
             acq_code=acq,
             acq_reps=4,
             data_code=dat,
-            sync=sync,
+            frame=frame,
             data=pay,
         )
 
@@ -614,6 +621,10 @@ def _data_scene(snr: float) -> Composer:
     """One bpsk source whose payload is drawn from a 40-bit data source,
     16 bits a frame with a CRC: its length is the frames', derived."""
     bits = np.array([1, 0, 1, 1, 0, 0, 1, 0] * 5, np.uint8)
+    desc = FrameDesc()
+    desc.add_data("payload", 16)
+    desc.add_derived("crc", 16)
+    desc.add_stage_over(STAGE_CRC16, "payload", "crc")
     return Composer(
         [
             Segment(
@@ -623,7 +634,7 @@ def _data_scene(snr: float) -> Composer:
                 snr=snr,
                 seed=11,
                 data=bits,
-                data_len=16,
+                frame=desc,
                 fill=np.array([0, 1], np.uint8),
             )
         ]

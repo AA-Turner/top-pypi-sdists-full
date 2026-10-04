@@ -54,7 +54,9 @@ hedley_dep = dependency('hedley')
 fmt_dep = dependency('fmt')
 cpp_utils_dep = dependency('cpp_utils', fallback : ['cpp_utils', 'cpp_utils_dep'],
                             default_options: ['with_tests=false'])
-if target_machine.cpu_family() == 'x86_64'
+# WebAssembly gets SIMD time conversions only when built with -msimd128 (wacdfpp's cross files).
+wasm_simd = target_machine.cpu_family().startswith('wasm') and cpp.get_define('__wasm_simd128__') != ''
+if target_machine.cpu_family() == 'x86_64' or wasm_simd
     xsimd_dep = dependency('xsimd')
 else
     xsimd_dep = dependency('', required: false)
@@ -109,6 +111,7 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/desc-records.hpp',
     'include/cdfpp/cdf-io/endianness.hpp',
     'include/cdfpp/cdf-io/majority-swap.hpp',
+    'include/cdfpp/cdf-io/md5.hpp',
     'include/cdfpp/cdf-io/decompression.hpp',
     'include/cdfpp/cdf-io/compression.hpp',
     'include/cdfpp/cdf-io/zlib.hpp',
@@ -123,6 +126,7 @@ cdfpp_headers = files(
     'include/cdfpp/cdf-io/saving/records-saving.hpp',
     'include/cdfpp/cdf-io/saving/buffers.hpp',
     'include/cdfpp/cdf-io/saving/create_records.hpp',
+    'include/cdfpp/cdf-io/saving/file-layout.hpp',
     'include/cdfpp/cdf-io/saving/layout_records.hpp',
     'include/cdfpp/cdf-io/saving/link_records.hpp'
 )

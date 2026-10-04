@@ -42,10 +42,8 @@ class CorpStat:
 
     @property
     def avg_fat(self) -> str:
-        try:
-            return "%.2f" % (float(self.n_fats) / float(self.corp.member_count))
-        except ZeroDivisionError:
-            return f"{0:.2f}"
+        # Use safe defaults to avoid division by zero: numerator defaults to 0, denominator to 1
+        return "%.2f" % ((float(self.n_fats) or 0) / (float(self.corp.member_count) or 1))
 
 
 class MemberStat:
@@ -64,24 +62,37 @@ class MemberStat:
 
     @property
     def avg_fat(self) -> str:
-        try:
-            return "%.2f" % (float(self.n_fats) / float(self.n_chars))
-        except ZeroDivisionError:
-            return f"{0:.2f}"
+        # Use safe defaults to avoid division by zero: numerator defaults to 0, denominator to 1
+        return "%.2f" % ((float(self.n_fats) or 0) / (float(self.n_chars) or 1))
 
 
 def first_day_of_next_month(year, month) -> datetime:
+    # Build a naive datetime for the first day of the next month then return
+    # a timezone-aware datetime if the project uses timezones so comparisons
+    # with `timezone.now()` won't fail (can't compare naive vs aware).
     if month == 12:
-        return datetime(year + 1, 1, 1)
+        dt = datetime(year + 1, 1, 1)
     else:
-        return datetime(year, month + 1, 1)
+        dt = datetime(year, month + 1, 1)
+
+    now = timezone.now()
+    if timezone.is_aware(now):
+        return timezone.make_aware(dt, timezone.get_default_timezone())
+    return dt
 
 
 def first_day_of_previous_month(year, month) -> datetime:
+    # Build a naive datetime for the first day of the previous month then
+    # return a timezone-aware datetime when appropriate.
     if month == 1:
-        return datetime(year - 1, 12, 1)
+        dt = datetime(year - 1, 12, 1)
     else:
-        return datetime(year, month - 1, 1)
+        dt = datetime(year, month - 1, 1)
+
+    now = timezone.now()
+    if timezone.is_aware(now):
+        return timezone.make_aware(dt, timezone.get_default_timezone())
+    return dt
 
 
 @login_required

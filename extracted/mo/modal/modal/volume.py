@@ -12,7 +12,7 @@ import re
 import sys
 import time
 import typing
-from collections.abc import AsyncGenerator, AsyncIterator, Callable, Coroutine, Generator, Sequence
+from collections.abc import AsyncGenerator, Callable, Coroutine, Generator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
@@ -888,6 +888,8 @@ class _Volume(_Object, type_prefix="vo"):
     async def commit(self):
         """Commit changes to a mounted volume.
 
+        Must be called inside a container that mounts the Volume.
+
         If successful, the changes made are now persisted in durable storage and available to other containers accessing
         the volume.
         """
@@ -905,6 +907,8 @@ class _Volume(_Object, type_prefix="vo"):
     @live_method
     async def reload(self):
         """Make latest committed state of volume available in the running container.
+
+        Must be called inside a container that mounts the Volume.
 
         Any uncommitted changes to the volume, such as new or modified files, may implicitly be committed when
         reloading.
@@ -930,7 +934,7 @@ class _Volume(_Object, type_prefix="vo"):
             raise RuntimeError(message)
 
     @live_method_gen
-    async def iterdir(self, path: str, *, recursive: bool = True) -> AsyncIterator[FileEntry]:
+    async def iterdir(self, path: str, *, recursive: bool = True) -> AsyncGenerator[FileEntry, None]:
         """Iterate over all files in a directory in the volume.
 
         Passing a directory path lists all files in the directory. For a file path, return only that

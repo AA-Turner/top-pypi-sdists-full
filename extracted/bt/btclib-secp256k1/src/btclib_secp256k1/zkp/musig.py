@@ -82,7 +82,7 @@ import secrets
 import threading
 from collections.abc import Sequence
 from types import TracebackType
-from typing import Any, Self, overload
+from typing import Any, Never, Self, overload
 
 from btclib_secp256k1 import BytesLike, CData, MutableBytesLike
 from btclib_secp256k1._scalar import in_range, octets, scalar
@@ -605,6 +605,42 @@ class KeyAggCache:
         return self._cache
 
 
+def _cache_of(keyagg_cache: object) -> CData:
+    """Return the cache object of a `KeyAggCache`, refusing any other type.
+
+    Args:
+        keyagg_cache: the argument as the caller passed it.
+
+    Returns:
+        What `KeyAggCache._cache_` returns.
+
+    Raises:
+        TypeError: if it is not a `KeyAggCache`.
+    """
+    if not isinstance(keyagg_cache, KeyAggCache):
+        msg = f"the key aggregation cache must be a KeyAggCache, not {type(keyagg_cache).__name__}"
+        raise TypeError(msg)
+    return keyagg_cache._cache_()
+
+
+def _session_of(session: object) -> CData:
+    """Return the session object of a `Session`, refusing any other type.
+
+    Args:
+        session: the argument as the caller passed it.
+
+    Returns:
+        What `Session._session_` returns.
+
+    Raises:
+        TypeError: if it is not a `Session`.
+    """
+    if not isinstance(session, Session):
+        msg = f"the session must be a Session, not {type(session).__name__}"
+        raise TypeError(msg)
+    return session._session_()
+
+
 def nonce_gen(
     pubkey_bytes: BytesLike,
     prvkey: BytesLike | int | None = None,
@@ -652,6 +688,7 @@ def nonce_gen(
         wipes if this session is abandoned before `partial_sign`.
 
     Raises:
+        TypeError: if `keyagg_cache` is not a `KeyAggCache`.
         ValueError: if the public key is not a valid point, if the
             private key is given and is not 32 bytes, does not fit in
             them, or is not in [1, n-1], or if `msg32` or
@@ -664,7 +701,7 @@ def nonce_gen(
     extra_bytes = (
         None if extra_input32 is None else octets(extra_input32, "extra_input32", 32)
     )
-    cache = ffi.NULL if keyagg_cache is None else keyagg_cache._cache_()
+    cache = ffi.NULL if keyagg_cache is None else _cache_of(keyagg_cache)
 
     secnonce = ffi.new("secp256k1_musig_secnonce *")
     pubnonce = ffi.new("secp256k1_musig_pubnonce *")
@@ -724,7 +761,8 @@ def nonce_gen_counter(
         The secret nonce, as `nonce_gen` returns it.
 
     Raises:
-        TypeError: if `nonrepeating_cnt` is not an int.
+        TypeError: if `nonrepeating_cnt` is not an int, or if
+            `keyagg_cache` is not a `KeyAggCache`.
         ValueError: if the private key is not 32 bytes, does not fit in
             them, or is not in [1, n-1], if `nonrepeating_cnt` is out of
             range, if `extra_input32` is given and is not 32 bytes, or if
@@ -739,7 +777,7 @@ def nonce_gen_counter(
     extra_bytes = (
         None if extra_input32 is None else octets(extra_input32, "extra_input32", 32)
     )
-    cache = ffi.NULL if keyagg_cache is None else keyagg_cache._cache_()
+    cache = ffi.NULL if keyagg_cache is None else _cache_of(keyagg_cache)
 
     keypair_obj = _keypair(ffi, lib, ctx, prvkey)
     try:
@@ -767,6 +805,9 @@ def nonce_gen_counter(
     if not generated:
         raise RuntimeError("nonce generation failed")
     return SecretNonce(secnonce, pubnonce, pubkey)
+
+
+_NO_COPY = "a SecretNonce is the one handle to its secret nonce: no copy, no pickle"
 
 
 class SecretNonce:
@@ -839,6 +880,8 @@ class SecretNonce:
             The 32-byte partial signature.
 
         Raises:
+            TypeError: if `keyagg_cache` is not a `KeyAggCache`, or `session`
+                is not a `Session`.
             ValueError: if this secret nonce has already been spent or
                 wiped, if the private key is not 32 bytes, does not fit
                 in them, or is not in [1, n-1], or if it does not match
@@ -867,8 +910,8 @@ class SecretNonce:
                 partial_sig,
                 secnonce,
                 keypair_obj,
-                keyagg_cache._cache_(),
-                session._session_(),
+                _cache_of(keyagg_cache),
+                _session_of(session),
             )
         finally:
             # the keypair carries the private key, wiped unconditionally
@@ -888,8 +931,8 @@ class SecretNonce:
             partial_sig,
             self._pubnonce,
             self._pubkey,
-            keyagg_cache._cache_(),
-            session._session_(),
+            _cache_of(keyagg_cache),
+            _session_of(session),
         ):
             raise RuntimeError(
                 "partial signing produced a signature that does not verify"
@@ -912,6 +955,33 @@ class SecretNonce:
             self._secnonce = None
         if secnonce is not None:
             wipe(secnonce)
+
+    def __copy__(self) -> Never:
+        """Refuse: a copy would be a second handle to the one secret nonce.
+
+        It would share the native secnonce and the lock but have its own
+        `_secnonce` attribute, so both objects could pass `_take` and
+        sign with the same secnonce.
+
+        Returns:
+            Nothing: this always raises.
+
+        Raises:
+            TypeError: always.
+        """
+        raise TypeError(_NO_COPY)
+
+    # object has a __reduce__ and typing.override needs Python 3.12
+    def __reduce__(self) -> Never:  # type: ignore[explicit-override]
+        """Refuse `pickle` and `copy.deepcopy`, for the reason `__copy__` gives.
+
+        Returns:
+            Nothing: this always raises.
+
+        Raises:
+            TypeError: always.
+        """
+        raise TypeError(_NO_COPY)
 
     def __enter__(self) -> Self:
         """Return this secret nonce, for the `with` block that wipes it.
@@ -985,6 +1055,7 @@ class Session:
             turns it into one, given the secret this point commits to.
 
     Raises:
+        TypeError: if `keyagg_cache` is not a `KeyAggCache`.
         ValueError: if `aggnonce_bytes` is not 66 bytes or not one
             BIP327 defines, if the message is not 32 bytes, or if
             `adaptor_bytes` is given and is not a valid point.
@@ -1023,7 +1094,7 @@ class Session:
         )
         session = ffi.new("secp256k1_musig_session *")
         if not lib.secp256k1_musig_nonce_process(
-            ctx, session, aggnonce, msg_bytes, keyagg_cache._cache_(), adaptor
+            ctx, session, aggnonce, msg_bytes, _cache_of(keyagg_cache), adaptor
         ):
             raise RuntimeError("nonce processing failed")
         self._session = session
@@ -1058,6 +1129,7 @@ class Session:
             nonce and key, within this session.
 
         Raises:
+            TypeError: if `keyagg_cache` is not a `KeyAggCache`.
             ValueError: if any of the three byte arguments is not the
                 right length or not one libsecp256k1-zkp will read.
         """
@@ -1071,7 +1143,7 @@ class Session:
                 partial_sig,
                 pubnonce,
                 pubkey,
-                keyagg_cache._cache_(),
+                _cache_of(keyagg_cache),
                 self._session,
             )
         )

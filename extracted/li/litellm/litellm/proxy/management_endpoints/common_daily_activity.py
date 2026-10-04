@@ -16,10 +16,10 @@ from litellm.proxy.spend_tracking.key_metadata_recovery import (
     recover_cli_session_key_metadata,
     recover_double_hashed_key_metadata,
     recover_key_metadata_from_spend_logs,
-    recover_key_owner_from_daily_spend,
 )
 from litellm.proxy.spend_tracking.ptu_feature_flag import is_ptu_cost_attribution_enabled
 from litellm.proxy.utils import PrismaClient
+from litellm.repositories.prisma_protocols import TableActions
 from litellm.repositories.table_repositories import DeletedVerificationTokenRepository
 from litellm.repositories.verification_token_repository import (
     VerificationTokenRepository,
@@ -468,17 +468,6 @@ def _parse_spend_date(raw: str | None) -> datetime | None:
 _EMPTY_KEY_METADATA: Final[Mapping[str, _KeyMetadataDict]] = MappingProxyType({})
 
 
-def _metadata_with_recovered_owner(
-    metadata: Mapping[str, _KeyMetadataDict],
-    key: str,
-    owner: str,
-) -> _KeyMetadataDict:
-    current: Final = metadata.get(key)
-    if current is None:
-        return {"user_id": owner}
-    return {**current, "user_id": owner}
-
-
 async def get_api_key_metadata(
     prisma_client: PrismaClient,
     api_keys: AbstractSet[str],
@@ -541,19 +530,7 @@ async def get_api_key_metadata(
         else _EMPTY_KEY_METADATA
     )
     combined: Final = MappingProxyType({**after_token_recovery, **from_spend_logs})
-    ownerless: Final = frozenset(
-        key
-        for key in api_keys
-        if not combined.get(key, {}).get("user_id") and not combined.get(key, {}).get("key_exists")
-    )
-    owners: Final = await recover_key_owner_from_daily_spend(prisma_client, ownerless)
-    metadata_with_owners: Final[Mapping[str, _KeyMetadataDict]] = MappingProxyType(
-        {
-            **combined,
-            **{key: _metadata_with_recovered_owner(combined, key, owner) for key, owner in owners.items()},
-        }
-    )
-    return await attach_user_details(prisma_client, metadata_with_owners)
+    return await attach_user_details(prisma_client, combined)
 
 
 def _adjust_dates_for_timezone(
@@ -967,7 +944,7 @@ async def _aggregate_spend_records(
         record.api_key for record in records if record.api_key and record.api_key != PTU_SENTINEL_API_KEY
     }
 
-    api_key_metadata: Mapping[str, _KeyMetadataDict] = MappingProxyType({})
+    api_key_metadata: dict[str, _KeyMetadataDict] = {}
     if api_keys:
         api_key_metadata = await get_api_key_metadata(
             prisma_client, api_keys, _spend_logs_window(frozenset(record.date for record in records))
@@ -1167,7 +1144,7 @@ async def _aggregate_grouping_sets_records(
     """Async wrapper: fetch api_key_metadata, then dispatch on a worker thread."""
     api_keys: Final[set[str]] = {r.api_key for r in records if r.api_key and r.api_key != PTU_SENTINEL_API_KEY}
 
-    api_key_metadata: Mapping[str, _KeyMetadataDict] = MappingProxyType({})
+    api_key_metadata: dict[str, _KeyMetadataDict] = {}
     if api_keys:
         api_key_metadata = await get_api_key_metadata(
             prisma_client, api_keys, _spend_logs_window(frozenset(r.date for r in records))
@@ -1232,8 +1209,10 @@ async def get_daily_activity(
             include_current_utc_day=include_current_utc_day,
         )
 
+        spend_table: Final[TableActions[DailySpendRecord]] = getattr(prisma_client.db, table_name)
+
         # Get total count for pagination
-        total_count: Final[int] = await getattr(prisma_client.db, table_name).count(where=where_conditions)
+        total_count: Final[int] = await spend_table.count(where=where_conditions)
 
         # Fetch paginated results.
         # ``date`` alone is not a unique sort key -- a busy tenant has many
@@ -1245,7 +1224,7 @@ async def get_daily_activity(
         # total. Adding ``id`` (the row's UUID primary key, present on both
         # LiteLLM_DailyUserSpend and LiteLLM_DailyTeamSpend) as a tiebreaker
         # gives every page a stable cursor (#30164).
-        daily_spend_data: Final[Sequence[DailySpendRecord]] = await getattr(prisma_client.db, table_name).find_many(
+        daily_spend_data: Final[Sequence[DailySpendRecord]] = await spend_table.find_many(
             where=where_conditions,
             order=[
                 {"date": "desc"},

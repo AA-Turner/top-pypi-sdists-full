@@ -307,6 +307,23 @@ class TestIsRetryableException:
         assert not is_retryable_exception(KeyError("Missing key"))
         assert not is_retryable_exception(AttributeError("No attribute"))
 
+    def test_taxonomy_classification(self):
+        """NetworkError retries; tested permanent taxonomy failures ignore transient-looking messages."""
+        from content_core.common.exceptions import (
+            ConfigurationError,
+            FileOperationError,
+            InvalidInputError,
+            NetworkError,
+            UnsupportedTypeException,
+        )
+
+        assert is_retryable_exception(NetworkError("dns failure"))
+        # Even with a transient-looking message, these are permanent.
+        assert not is_retryable_exception(ConfigurationError("connection timeout"))
+        assert not is_retryable_exception(UnsupportedTypeException("503"))
+        assert not is_retryable_exception(InvalidInputError("network"))
+        assert not is_retryable_exception(FileOperationError("ffprobe timeout"))
+
     def test_generic_exception_with_transient_message_is_retryable(self):
         """Test that generic exceptions with transient-looking messages are retried."""
         assert is_retryable_exception(Exception("Connection timeout"))
@@ -315,6 +332,42 @@ class TestIsRetryableException:
         assert is_retryable_exception(Exception("Rate limit exceeded"))
         assert is_retryable_exception(Exception("Too many requests"))
         assert is_retryable_exception(Exception("503 Service Unavailable"))
+
+    def test_youtube_blocks_retryable_by_type(self):
+        """Blocks are retried by type, not by the wording of their message."""
+        import youtube_transcript_api as yta
+
+        for exc in (yta.IpBlocked("vid"), yta.RequestBlocked("vid")):
+            assert is_retryable_exception(exc)
+            with patch.object(type(exc), "__str__", lambda self: "blocked"):
+                assert is_retryable_exception(exc)
+
+    def test_youtube_video_states_not_retryable(self):
+        """A state of the video will not change on retry, whatever the message says."""
+        import youtube_transcript_api as yta
+
+        for exc in (
+            yta.VideoUnavailable("vid"),
+            yta.TranscriptsDisabled("vid"),
+            yta.AgeRestricted("vid"),
+            yta.InvalidVideoId("vid"),
+        ):
+            with patch.object(
+                type(exc), "__str__", lambda self: "temporarily unavailable"
+            ):
+                assert not is_retryable_exception(exc)
+
+    def test_youtube_request_failed_judged_by_status(self):
+        """YouTubeRequestFailed retries 429/5xx and not other 4xx, by status."""
+        import requests
+        import youtube_transcript_api as yta
+
+        def failed(reason):
+            return yta.YouTubeRequestFailed("vid", requests.HTTPError(reason))
+
+        assert is_retryable_exception(failed("429 Client Error: Too Many Requests"))
+        assert is_retryable_exception(failed("502 Server Error: Bad Gateway"))
+        assert not is_retryable_exception(failed("403 Client Error: Forbidden"))
 
     def test_generic_exception_without_transient_message_not_retryable(self):
         """Test that generic exceptions without transient indicators are not retried."""

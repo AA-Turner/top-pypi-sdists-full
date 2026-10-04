@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-snap7
-Version: 3.2.0
+Version: 3.2.1
 Summary: Pure Python S7 communication library for Siemens PLCs
 Author-email: Gijs Molenaar <gijsmolenaar@gmail.com>
 License-Expression: MIT
@@ -24,6 +24,7 @@ License-File: LICENSE
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-bdd<9,>=8.1; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-html; extra == "test"
 Requires-Dist: hypothesis; extra == "test"
@@ -101,3 +102,6 @@ Documentation
 
 Read the full documentation at
 `python-snap7.readthedocs.io <https://python-snap7.readthedocs.io/en/latest/>`_.
+
+The safe volunteer hardware-test procedure is in
+`Real-PLC acceptance testing <doc/real-plc-testing.rst>`_.

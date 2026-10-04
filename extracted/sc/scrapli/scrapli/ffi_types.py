@@ -1,0 +1,495 @@
+"""scrapli.ffi_types"""
+
+import xml.etree.ElementTree as ET
+from collections.abc import Callable
+from ctypes import (
+    CFUNCTYPE,
+    POINTER,
+    Structure,
+)
+from ctypes import _CFuncPtr as FuncPtr  # type: ignore[attr-defined]
+from ctypes import (
+    _Pointer,
+    c_bool,
+    c_char_p,
+    c_int,
+    c_size_t,
+    c_uint8,
+    c_uint16,
+    c_uint32,
+    c_uint64,
+    c_void_p,
+    cast,
+    create_string_buffer,
+    memmove,
+    pointer,
+)
+from enum import IntEnum
+from logging import CRITICAL, DEBUG, FATAL, INFO, NOTSET, WARN, Logger
+from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
+
+from scrapli.exceptions import (
+    CancelledException,
+    DriverException,
+    EOFException,
+    FFIException,
+    InvalidArgumentException,
+    OperationException,
+    OutOfMememoryException,
+    SessionException,
+    TimeoutException,
+    TransportException,
+)
+
+DriverPointer = c_void_p
+OptionsPointer = c_void_p
+OperationId: TypeAlias = c_uint32
+
+if TYPE_CHECKING:
+    OperationIdPointer: TypeAlias = _Pointer[OperationId]
+
+    CancelPointer: TypeAlias = _Pointer[c_bool]
+    BoolPointer: TypeAlias = _Pointer[c_bool]
+
+    IntPointer: TypeAlias = _Pointer[c_int]
+    U8Pointer: TypeAlias = _Pointer[c_uint8]
+    U16Pointer: TypeAlias = _Pointer[c_uint16]
+    U32Pointer: TypeAlias = _Pointer[c_uint32]
+    U64Pointer: TypeAlias = _Pointer[c_uint64]
+    USizePointer: TypeAlias = _Pointer[c_size_t]
+
+    StringPointer: TypeAlias = _Pointer[c_char_p]
+
+else:
+    OperationIdPointer: TypeAlias = POINTER(OperationId)
+
+    CancelPointer: TypeAlias = POINTER(c_bool)
+    BoolPointer: TypeAlias = POINTER(c_bool)
+
+    IntPointer: TypeAlias = POINTER(c_int)
+    U8Pointer: TypeAlias = POINTER(c_uint8)
+    U16Pointer: TypeAlias = POINTER(c_uint16)
+    U32Pointer: TypeAlias = POINTER(c_uint32)
+    U64Pointer: TypeAlias = POINTER(c_uint64)
+    USizePointer: TypeAlias = POINTER(c_size_t)
+
+    StringPointer: TypeAlias = POINTER(c_char_p)
+
+
+class Cancel:
+    """Wrapper to provide ergonomic cancellation for ops."""
+
+    def __init__(self) -> None:
+        self._v = c_bool(False)
+
+    def _to_ffi(self) -> CancelPointer:
+        return pointer(self._v)
+
+    def cancel(self) -> None:
+        """Send the cancellation signal for the operation."""
+        self._v.value = True
+
+    @property
+    def cancelled(self) -> bool:
+        """Returns the cancellation state."""
+        return self._v.value
+
+
+class LibScrapliFFIResult(IntEnum):
+    """
+    Mapping to libscrapli ffi results/errors.
+
+    Many operations expose/return a uint8 where 0 is success, and any non-zero value indicates an
+    error of some kind. Typically the "real" errors are not happening at the ffi driver layer,
+    and instead are happening in the actual Cli/Netconf objects in zig and written into the error
+    results, however sometimes we can catch/see memory related errors etc. because of this enum so
+    we get a bit of extra debug/troubleshooting info.
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    SUCCESS = 0
+    UNKNOWN = 1
+    OUT_OF_MEMORY = 2
+    EOF = 3
+    CANCELLED = 4
+    TIMEOUT = 5
+    DRIVER = 6
+    SESSION = 7
+    TRANSPORT = 8
+    OPERATION = 9
+    INVALID_ARGUMENT = 10
+
+    def raise_if_error(  # noqa:C901
+        self,
+        message: str,
+    ) -> None:
+        """
+        Raises an exception from the result or returns cleanly for success
+
+        Args:
+            message: the message to push into the exception being raised.
+
+        Returns:
+            N/A
+
+        Raises:
+            FFIException: wrapping an exception based on the result.
+
+        """
+        match self:
+            case LibScrapliFFIResult.SUCCESS:
+                return
+            case LibScrapliFFIResult.OUT_OF_MEMORY:
+                raise FFIException(OutOfMememoryException(message))
+            case LibScrapliFFIResult.EOF:
+                raise FFIException(EOFException(message))
+            case LibScrapliFFIResult.CANCELLED:
+                raise FFIException(CancelledException(message))
+            case LibScrapliFFIResult.TIMEOUT:
+                raise FFIException(TimeoutException(message))
+            case LibScrapliFFIResult.DRIVER:
+                raise FFIException(DriverException(message))
+            case LibScrapliFFIResult.SESSION:
+                raise FFIException(SessionException(message))
+            case LibScrapliFFIResult.TRANSPORT:
+                raise FFIException(TransportException(message))
+            case LibScrapliFFIResult.OPERATION:
+                raise FFIException(OperationException(message))
+            case LibScrapliFFIResult.INVALID_ARGUMENT:
+                raise FFIException(InvalidArgumentException(message))
+            case LibScrapliFFIResult.UNKNOWN | _:
+                raise FFIException(message)
+
+
+class ZigU64Slice(Structure):
+    """
+    A struct representing a slice of u64 in zig.
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    # fields must be declared this way to be c types compatible
+    _fields_: ClassVar[list[tuple[str, Any]]] = [
+        ("ptr", POINTER(c_uint64)),
+        ("len", c_size_t),
+    ]
+
+    def __init__(
+        self,
+        size: c_uint64 | None = None,
+        vals: list[int] | None = None,
+    ):
+        super().__init__()
+
+        if vals is not None:
+            size = c_uint64(len(vals))
+
+        if size is None:
+            raise ValueError("size or vals required")
+
+        self._buf = (c_uint64 * size.value)()
+        self.ptr = cast(self._buf, POINTER(c_uint64))
+        self.len = size.value
+
+        if vals is not None:
+            for idx, val in enumerate(vals):
+                self.ptr[idx] = val
+
+    def get_contents(self) -> list[int]:
+        """
+        Return the contents of the slice as a list of ints.
+
+        Args:
+            N/A
+
+        Returns:
+            list[int]: the slice contents
+
+        Raises:
+            N/A
+
+        """
+        return [self.ptr[i] for i in range(self.len)]
+
+
+if TYPE_CHECKING:
+    ZigU64SlicePointer: TypeAlias = _Pointer[ZigU64Slice]
+else:
+    ZigU64SlicePointer: TypeAlias = POINTER(ZigU64Slice)
+
+
+class ZigSlice(Structure):
+    """
+    A struct representing a slice of u8 (a string) in zig.
+
+    Args:
+        N/A
+
+    Returns:
+        None
+
+    Raises:
+        N/A
+
+    """
+
+    _fields_: ClassVar[list[tuple[str, Any]]] = [
+        (
+            "ptr",
+            POINTER(c_uint8),
+        ),
+        ("len", c_size_t),
+    ]
+
+    def __init__(
+        self,
+        size: c_size_t | c_uint64 | None = None,
+        content: bytes | None = None,
+    ):
+        super().__init__()
+
+        if content is not None:
+            size = c_size_t(len(content))
+
+        if size is None:
+            raise ValueError("size or content required")
+
+        self._buf = create_string_buffer(size.value)
+        self.ptr = cast(self._buf, POINTER(c_uint8))
+        self.len = size.value
+
+        if content is not None:
+            memmove(self.ptr, content, len(content))
+
+    def get_contents(self) -> bytes:
+        """
+        Return the contents of the slice as bytes.
+
+        Args:
+            N/A
+
+        Returns:
+            bytes: the slice contents
+
+        Raises:
+            N/A
+
+        """
+        return bytes(cast(self.ptr, POINTER(c_uint8 * self.len)).contents[0 : self.len])
+
+    def get_decoded_contents(self) -> str:
+        """
+        Return the contents of the slice as str.
+
+        Args:
+            N/A
+
+        Returns:
+            bytes: the slice contents
+
+        Raises:
+            N/A
+
+        """
+        return self.get_contents().decode()
+
+
+if TYPE_CHECKING:
+    ZigSlicePointer: TypeAlias = _Pointer[ZigSlice]
+else:
+    ZigSlicePointer: TypeAlias = POINTER(ZigSlice)
+
+
+def to_c_string(s: str) -> c_char_p:
+    """
+    Accepts a string and converts it to a c_char_p.
+
+    Args:
+        s: the string-like thing to convert to a c_char_p
+
+    Returns:
+        c_char_p: the converted string
+
+    Raises:
+        N/A
+
+    """
+    return c_char_p(s.encode(encoding="utf-8"))
+
+
+LoggerCallbackC = CFUNCTYPE(c_void_p, c_size_t, c_uint8, ZigSlicePointer)
+LoggerCallback: TypeAlias = FuncPtr
+
+
+def ffi_logger_callback_wrapper(logger: Logger) -> LoggerCallback:
+    """
+    Closure that accepts logger instance and returns a ffi logger callback
+
+    Args:
+        logger: the logger to wrap for use in the zig bits
+
+    Returns:
+        LogerCallback: the logger callback
+
+    Raises:
+        N/A
+
+    """
+
+    def _cb(_: c_size_t, level: c_uint8, message: ZigSlicePointer) -> None:
+        v = message.contents
+        if v is None:
+            return
+
+        m = v.get_decoded_contents()
+
+        match level:
+            case 0:
+                # no "trace" level in std logger, so just format to be clear which ones are trace
+                logger.debug("TRACE: %s", m)
+            case 1:
+                logger.debug(m)
+            case 2:
+                logger.info(m)
+            case 3:
+                logger.warning(m)
+            case 4:
+                logger.critical(m)
+            case 5:
+                logger.fatal(m)
+            case _:
+                return
+
+    return LoggerCallbackC(_cb)
+
+
+def ffi_logger_level(logger: Logger) -> c_uint8:  # noqa: PLR0911
+    """
+    Returns a c string matching a libscrapli log level based on the given loggers configuration
+
+    Args:
+        logger: the logger we are getting the level from
+
+    Returns:
+        c_uint8: the level as a uint8 so libscrapli can cast that to the enum value
+
+    Raises:
+        N/A
+
+    """
+    level = logger.getEffectiveLevel()
+
+    if level == NOTSET:
+        return c_uint8(0)
+    elif level == DEBUG:
+        return c_uint8(1)
+    elif level == INFO:
+        return c_uint8(2)
+    elif level == WARN:
+        return c_uint8(3)
+    elif level == CRITICAL:
+        return c_uint8(4)
+    elif level == FATAL:
+        return c_uint8(5)
+    else:
+        return c_uint8(3)
+
+
+RecorderCallbackC = CFUNCTYPE(c_void_p, c_size_t, ZigSlicePointer)
+RecorderCallback: TypeAlias = FuncPtr
+
+
+def recorder_callback_wrapper(cb: Callable[[str], None]) -> RecorderCallback:
+    """
+    Closure that accepts a session recorder callback and returns an ffi compatible wrapper
+
+    Args:
+        cb: the recorder to wrap for use in the zig bits
+
+    Returns:
+        RecorderCallback: the recorder callback
+
+    Raises:
+        N/A
+
+    """
+
+    def _cb(_: c_size_t, buf: ZigSlicePointer) -> None:
+        v = buf.contents
+        if not v:
+            return
+
+        return cb(v.get_decoded_contents())
+
+    return RecorderCallbackC(_cb)
+
+
+NetconfCapabilitesCallbackC = CFUNCTYPE(c_void_p, c_size_t, ZigSlicePointer)
+NetconfCapabilitesCallback: TypeAlias = FuncPtr
+
+
+def capabilities_callback_wrapper(
+    cb: Callable[[list[str]], list[str]],
+) -> NetconfCapabilitesCallback:
+    """
+    Closure that accepts a netconf capabillities callback and returns an ffi compatible wrapper
+
+    Args:
+        cb: the capabilities handler to wrap for use in the zig bits
+
+    Returns:
+        NetconfCapabilitesCallback: the capabilities callback
+
+    Raises:
+        N/A
+
+    """
+
+    def _cb(_: c_size_t, buf: ZigSlicePointer) -> int:
+        v = buf.contents
+
+        root = ET.fromstring(v.get_decoded_contents())
+
+        caps = [
+            elem.text or ""
+            for elem in root.findall(
+                ".//nc:capability", {"nc": "urn:ietf:params:xml:ns:netconf:base:1.0"}
+            )
+        ]
+
+        user_capabilities = cb(caps)
+
+        out_elems = []
+
+        for cap in user_capabilities:
+            el = ET.Element("capability")
+            el.text = cap
+            out_elems.append(ET.tostring(el, encoding="unicode"))
+
+        out_bytes = "".join(out_elems).encode()
+
+        slice = ZigSlice(size=c_size_t(len(out_bytes)))
+        slice.ptr = cast((c_uint8 * len(out_bytes))(*out_bytes), POINTER(c_uint8))
+
+        # ctypes expects an int that it will wrap in c_void_p for us (because of the typing above
+        # so... we'll just always return an int, it should really never not succeed?)
+        return cast(pointer(slice), c_void_p).value or 0
+
+    return NetconfCapabilitesCallbackC(_cb)

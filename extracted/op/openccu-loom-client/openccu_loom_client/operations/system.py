@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (C) 2026 OpenCCU-Loom authors.
+# Copyright (C) 2026 SukramJ.
 
 """System-level REST operations: snapshot, health, diagnostics, interfaces."""
 
@@ -8,13 +8,13 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
+from openccu_loom_client.daemon_info import Info
 from openccu_loom_client.operations._base import _OperationsBase
 from openccu_loom_client.wire.rest import (
     AddonUpdateStatus,
     Health,
     HubDataPoints,
     HubMetricsEntry,
-    Info,
     InterfaceState,
     Snapshot,
     StartupCaptureConfig,
@@ -30,7 +30,12 @@ class SystemOperations(_OperationsBase):
     # ---- info / health ----
 
     async def get_info(self) -> Info:
-        """Build + runtime info (also runs at connect() in HttpTransport)."""
+        """
+        Build + runtime info (also runs at connect() in HttpTransport).
+
+        ``deployment`` is ``None`` from a daemon older than api 13.5.0 — see
+        :class:`openccu_loom_client.daemon_info.Info` for what that means.
+        """
         payload = await self._transport.request(method="GET", path="/info")
         return Info.model_validate(payload)
 

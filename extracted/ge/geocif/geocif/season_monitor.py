@@ -5,10 +5,10 @@ One call scores every season that is running right now and publishes it::
 
     from geocif import season_monitor
     season_monitor.run([
-        "/gpfs/data1/cmongp1/GEO/config/geocif/geobase.txt",
-        "/gpfs/data1/cmongp1/GEO/config/geocif/countries.txt",
-        "/gpfs/data1/cmongp1/GEO/config/geocif/crops.txt",
-        "/gpfs/data1/cmongp1/GEO/config/geocif/geocif.txt",
+        "/gpfs/data1/cmongp1/GEO/config/production/geocif/geobase.txt",
+        "/gpfs/data1/cmongp1/GEO/config/production/geocif/countries.txt",
+        "/gpfs/data1/cmongp1/GEO/config/production/geocif/crops.txt",
+        "/gpfs/data1/cmongp1/GEO/config/production/geocif/geocif.txt",
     ])
 
 Stages, in order:

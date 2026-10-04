@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lazycloud-client
-Version: 0.1.82
+Version: 0.1.92
 Summary: LazyCloud Python SDK and client CLI.
 Requires-Python: >=3.10
 Requires-Dist: cloudpickle<4,>=3

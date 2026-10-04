@@ -38,7 +38,7 @@ from asyncssh.constants import MSG_CHANNEL_DATA
 from asyncssh.constants import MSG_CHANNEL_EXTENDED_DATA
 from asyncssh.constants import MSG_CHANNEL_EOF, MSG_CHANNEL_CLOSE
 from asyncssh.constants import MSG_CHANNEL_SUCCESS
-from asyncssh.packet import Byte, String, UInt32
+from asyncssh.packet import Boolean, Byte, String, UInt32
 from asyncssh.public_key import CERT_TYPE_USER
 from asyncssh.stream import SSHTCPStreamSession, SSHUNIXStreamSession
 from asyncssh.stream import SSHTunTapStreamSession
@@ -61,6 +61,10 @@ class _ClientChannel(asyncssh.SSHClientChannel):
                 args = args[:5] + (String(args[5][4:-5]),)
             elif args[5][-6:-5] == Byte(PTY_OP_NO_END):
                 args = args[:5] + (String(args[5][4:-6]),)
+            elif args[0].endswith(b'_multiple'):
+                super()._send_request(request, *args)
+        elif request == b'exec' and args[0].endswith(b'_multiple'):
+            super()._send_request(request, *args)
 
         super()._send_request(request, *args, want_reply=want_reply)
 
@@ -152,6 +156,11 @@ class _ServerChannel(asyncssh.SSHServerChannel):
                 args = args[:3] + (String(b'\xff'),)
 
         super()._send_request(request, *args, want_reply=want_reply)
+
+    def send_request(self, request, *args):
+        """Send a custom request (for unit testing)"""
+
+        self._send_request(request, *args)
 
     def _process_delayed_request(self, packet):
         """Process a request that delays before responding"""
@@ -379,7 +388,7 @@ class _ChannelServer(Server):
                 stdin.channel.exit(1)
         elif action == 'invalid_open_confirm':
             stdin.channel.send_packet(MSG_CHANNEL_OPEN_CONFIRMATION,
-                                      UInt32(0), UInt32(0), UInt32(0))
+                                      UInt32(0), UInt32(1), UInt32(1))
         elif action == 'invalid_open_failure':
             stdin.channel.send_packet(MSG_CHANNEL_OPEN_FAILURE,
                                       UInt32(0), String(''), String(''))
@@ -420,11 +429,18 @@ class _ChannelServer(Server):
                 stdin.channel.exit_with_signal('ABRT', False, str(size))
         elif action == 'exit_status':
             stdin.channel.exit(1)
+        elif action == 'multiple_exit_statuses':
+            stdin.channel.send_request(b'exit-status', UInt32(1))
+            stdin.channel.exit(1)
         elif action == 'closed_status':
             stdin.channel.close()
             stdin.channel.exit(1)
         elif action == 'exit_signal':
             stdin.channel.exit_with_signal('INT', False, 'exit_signal')
+        elif action == 'multiple_exit_signals':
+            stdin.channel.send_request(b'exit-signal', String('INT'),
+                                       Boolean(False), String(''), String(''))
+            stdin.channel.exit_with_signal('INT', False, '')
         elif action == 'unknown_signal':
             stdin.channel.exit_with_signal('unknown', False, 'unknown_signal')
         elif action == 'closed_signal':
@@ -450,10 +466,10 @@ class _ChannelServer(Server):
             stdin.channel.send_packet(MSG_CHANNEL_DATA, String(data[:3]))
         elif action == 'unicode_error':
             stdin.channel.send_packet(MSG_CHANNEL_DATA, String(b'\xff'))
-        elif action == 'data_past_window':
+        elif action == 'large_data':
             stdin.channel.send_packet(MSG_CHANNEL_DATA,
                                       String(2*1025*1024*'\0'))
-        elif action == 'ext_data_past_window':
+        elif action == 'large_ext_data':
             stdin.channel.send_packet(MSG_CHANNEL_EXTENDED_DATA,
                                       UInt32(asyncssh.EXTENDED_DATA_STDERR),
                                       String(2*1025*1024*'\0'))
@@ -620,6 +636,15 @@ class _TestChannel(ServerTestCase):
                                       max_pktsize=16384)
 
     @asynctest
+    async def test_multiple_exec(self):
+        """Test multiple exec requests on the same channel"""
+
+        with patch('asyncssh.connection.SSHClientChannel', _ClientChannel):
+            async with self.connect() as conn:
+                with self.assertRaises(asyncssh.ChannelOpenError):
+                    await _create_session(conn, 'exec_multiple')
+
+    @asynctest
     async def test_exec_from_connect(self):
         """Test execution of a remote command set on connection"""
 
@@ -754,6 +779,14 @@ class _TestChannel(ServerTestCase):
 
                 result = await chan.make_request(b'keepalive@openssh.com')
                 self.assertFalse(result)
+
+    @asynctest
+    async def test_invalid_open_max_pktsize(self):
+        """Test sending an open with invalid max packet size"""
+
+        async with self.connect() as conn:
+            with self.assertRaises(asyncssh.ChannelOpenError):
+                await _create_session(conn, 'echo', max_pktsize=0)
 
     @asynctest
     async def test_invalid_open_confirmation(self):
@@ -1031,7 +1064,7 @@ class _TestChannel(ServerTestCase):
 
     @asynctest
     async def test_request_pty(self):
-        """Test reuquesting a PTY with terminal information"""
+        """Test requesting a PTY with terminal information"""
 
         modes = {asyncssh.PTY_OP_OSPEED: 9600}
 
@@ -1044,6 +1077,15 @@ class _TestChannel(ServerTestCase):
 
             result = ''.join(session.recv_buf[None])
             self.assertEqual(result, "Req: ('ansi', (80, 24, 0, 0), 9600)\r\n")
+
+    @asynctest
+    async def test_request_pty_multiple_times(self):
+        """Test requesting multiple a PTY multiple times"""
+
+        with patch('asyncssh.connection.SSHClientChannel', _ClientChannel):
+            async with self.connect() as conn:
+                with self.assertRaises(asyncssh.ChannelOpenError):
+                    await _create_session(conn, term_type='ansi_multiple')
 
     @asynctest
     async def test_terminal_full_size(self):
@@ -1196,7 +1238,7 @@ class _TestChannel(ServerTestCase):
 
     @asynctest
     async def test_env_invalid_str(self):
-        """Test trying to access binary envionment value as a Unicode string"""
+        """Test trying to access binary environment value as a Unicode string"""
 
         async with self.connect() as conn:
             chan, session = await _create_session(conn, 'env_str',
@@ -1535,6 +1577,13 @@ class _TestChannel(ServerTestCase):
             self.assertEqual(chan.get_returncode(), 1)
 
     @asynctest
+    async def test_multiple_exit_statuses(self):
+        """Test receiving multiple exit statuses"""
+
+        async with self.connect() as conn:
+            await _create_session(conn, 'multiple_exit_statuses')
+
+    @asynctest
     async def test_exit_status_after_close(self):
         """Test delivery of exit status after remote close"""
 
@@ -1561,6 +1610,13 @@ class _TestChannel(ServerTestCase):
                                                       'exit_signal',
                                                       DEFAULT_LANG))
             self.assertEqual(chan.get_returncode(), -SIGINT)
+
+    @asynctest
+    async def test_multiple_exit_signals(self):
+        """Test receiving multiple exit signals"""
+
+        async with self.connect() as conn:
+            await _create_session(conn, 'multiple_exit_signals')
 
     @asynctest
     async def test_exit_signal_after_close(self):
@@ -1681,11 +1737,21 @@ class _TestChannel(ServerTestCase):
             self.assertIsInstance(session.exc, asyncssh.ProtocolError)
 
     @asynctest
+    async def test_oversized_data(self):
+        """Test receiving a data packet larger than the maximum length"""
+
+        async with self.connect() as conn:
+            chan, _ = await _create_session(conn, 'large_data')
+
+            await chan.wait_closed()
+
+    @asynctest
     async def test_data_past_window(self):
         """Test receiving a data packet past the advertised window"""
 
         async with self.connect() as conn:
-            chan, _ = await _create_session(conn, 'data_past_window')
+            chan, _ = await _create_session(conn, 'large_data',
+                                            max_pktsize=4*1024*1024)
 
             await chan.wait_closed()
 
@@ -1694,7 +1760,8 @@ class _TestChannel(ServerTestCase):
         """Test receiving an extended data packet past the advertised window"""
 
         async with self.connect() as conn:
-            chan, _ = await _create_session(conn, 'ext_data_past_window')
+            chan, _ = await _create_session(conn, 'large_ext_data',
+                                            max_pktsize=4*1024*1024)
 
             await chan.wait_closed()
 
@@ -1802,6 +1869,24 @@ class _TestChannel(ServerTestCase):
 
         async with self.connect() as conn:
             await conn.create_session(_ClientSessionCleanupError)
+
+
+class _TestInvalidMaxPktsizeServer(ServerTestCase):
+    """Unit tests for testing a server responding with max_pktsuze of 0"""
+
+    @classmethod
+    async def start_server(cls):
+        """Start an SSH server to connect to"""
+
+        return await cls.create_server(_ChannelServer, max_pktsize=0)
+
+    @asynctest
+    async def test_invalid_max_pktsize_server(self):
+        """Test connecting to a server which sends max_pktsize of 0"""
+
+        async with self.connect() as conn:
+            with self.assertRaises(asyncssh.ChannelOpenError):
+                await _create_session(conn, 'echo')
 
 
 class _TestChannelNoPTY(ServerTestCase):

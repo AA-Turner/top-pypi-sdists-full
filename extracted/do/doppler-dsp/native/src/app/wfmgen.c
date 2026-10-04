@@ -292,6 +292,12 @@ static const char USAGE[]
       "      [preamble x REPS | sync | data:LEN | CRC-16]\n"
       "  each carrying the next --data-len bits of --data or\n"
       "  --data-from-file until the source ends, which ends the run.\n"
+      "  --sync FIELD    The frame-sync word, between the preamble and the\n"
+      "                  data (such as Barker-13).\n"
+      "  --crc C         none (the default) or crc16: a CRC-16-CCITT over\n"
+      "                  the data, as the frame's last field.\n"
+      "  --sync and --crc build the frame description for you; --frame\n"
+      "  FILE is the same thing written out, and --record stores it.\n"
       "  For --type bits --modulation maps the frames to BPSK or QPSK; the\n"
       "  PN-sourced types map them as their names say. Types with no bit\n"
       "  stream (tone, noise, chirp, symbols) cannot be framed.\n"
@@ -309,7 +315,7 @@ static const char USAGE[]
       "  preamble (code A), then the frame [sync | data:LEN | CRC-16],\n"
       "  every frame bit spread by a second code B. --sps is samples per\n"
       "  CHIP; the run is derived (n_chips * sps samples a burst, one burst\n"
-      "  with no data source) and --count ignored; --snr-mode esno is the\n"
+      "  with no data source) and --count refused; --snr-mode esno is the\n"
       "  Es/N0 of the outer DATA symbol (code-B chips x sps "
       "samples).\n" WFM_SURFACE_HELP_DSSS_BURST "\n"
       "FIELDS  (--acq-code / --sync / --data-code / --data / --fill)\n"
@@ -363,11 +369,17 @@ static const char USAGE[]
       "  --detached      BLUE detached header: the HCB to <out>.hdr and the\n"
       "                  data to <out>.det, instead of one file. Needs\n"
       "                  --file-type blue, --output, and a finite run.\n"
-      "  --record FILE   Write a JSON record of the resolved run to FILE\n"
+      "  --record FILE   Write a JSON record of the resolved run to FILE;\n"
+      "                  a data source's \"data_sent\" (frames, idle\n"
+      "                  frames, fill, and a file's or stdin's hash) is\n"
+      "                  written once the run ends\n"
       "\n"
       "COMPOSITION\n"
       "  --from-file F   Load a multi-segment JSON scene (overrides signal"
-      " flags)\n"
+      " flags).\n"
+      "                  A recorded data file whose hash differs is refused;\n"
+      "                  a record of stdin replays only with\n"
+      "                  --data-from-file FILE given again\n"
       "  --repeat        Loop the spec indefinitely\n"
       "  --continuous    Stream continuously (no defined end)\n"
       "  --seed-advance A  none | noise | all (default none): how the seed "
@@ -419,7 +431,6 @@ source_free (wfm_source_t *s)
   free (s->symbols);
   free ((void *)s->acq_code.bits);
   free ((void *)s->data_code.bits);
-  free ((void *)s->sync.bits);
   free ((void *)s->data.bits);
   free ((void *)s->fill.bits);
   s->data.bits = NULL;
@@ -429,7 +440,6 @@ source_free (wfm_source_t *s)
   s->symbols        = NULL;
   s->acq_code.bits  = NULL;
   s->data_code.bits = NULL;
-  s->sync.bits      = NULL;
   /* A --frame description is the CLI's own, read from its file. */
   dp_wfm_frame_free ((wfm_frame_desc_t *)s->frame);
   s->frame = NULL;
@@ -471,20 +481,27 @@ typedef struct
   } discard;
   wfm_source_t  src;
   wfm_segment_t seg;
-  double        headroom; /* dB of peak backoff; gain = 10^(-H/20) */
-  double        fc;       /* centre frequency, SigMF metadata only */
-  const char   *from_file;
-  const char   *out_path;
-  const char   *record_path;
-  int           repeat, continuous, detached;
-  int           seed_advance; /* wfm_seed_advance_t: none/noise/all */
-  int           realtime, realtime_resync;
-  int           clip_report, clip_error;
-  int           headroom_set; /* explicit --headroom overrides a record */
-  int           sample_type, file_type, endian;
+  /* --sync and --crc are sugar for fields of one fixed layout,
+     [preamble x reps | sync | data | crc], that build_common_frame() turns
+     into a frame DESCRIPTION before anything else sees it (frame-description
+     .md R). They live here, not on the source: a source carries no sync word
+     and no CRC, only the description. `sync` owns its bits; `crc_set` is
+     whether --crc was GIVEN, which --frame refuses even as `none`. */
+  wfm_seq_t   sync;
+  int         crc, crc_set;
+  double      headroom; /* dB of peak backoff; gain = 10^(-H/20) */
+  double      fc;       /* centre frequency, SigMF metadata only */
+  const char *from_file;
+  const char *out_path;
+  const char *record_path;
+  int         repeat, continuous, detached;
+  int         seed_advance; /* wfm_seed_advance_t: none/noise/all */
+  int         realtime, realtime_resync;
+  int         clip_report, clip_error;
+  int         headroom_set; /* explicit --headroom overrides a record */
+  int         sample_type, file_type, endian;
   /* Which surface rows were given, indexed WFM_SURFACE_<owner>_<name>.
-     Presence matters where a value's default is not "absent": --crc
-     defaults to crc16, so giving it is what frames a waveform, and a given
+     Presence matters where a value's default is not "absent": a given
      --symbol-rate is refused at <= 0 where the default 0 means burst. */
   int surf_seen[WFM_SURFACE_N];
   /* A BESPOKE row's raw value (--frame FILE), read by this face's own code
@@ -576,6 +593,12 @@ static const opt_t OPTS[] = {
     .kind = OPT_CHOICE,
     .off  = OFF (endian),
     CHOICES (ENDIAN_NAMES) },
+  { .name = "--sync", .kind = OPT_FIELD, .off = OFF (sync) },
+  { .name = "--crc",
+    .kind = OPT_CHOICE,
+    .off  = OFF (crc),
+    .seen = SEEN (crc_set),
+    CHOICES (CRC_NAMES) },
   { .name = "--fc", .kind = OPT_DOUBLE, .off = OFF (fc) },
   { .name = "--repeat", .kind = OPT_SET, .off = OFF (repeat) },
   { .name = "--continuous", .kind = OPT_SET, .off = OFF (continuous) },
@@ -1189,8 +1212,14 @@ emit_detached_blue (const emit_ctx_t *e)
 static void
 write_sigmf_meta (const emit_ctx_t *e)
 {
+  /* Borrowed again rather than from e->segs: borrowing brings each data
+     source's truth up to date (wfm_source_t.data_sent), and this runs at
+     close, after the run, so the idle count is final (section 4.8). */
+  size_t               n = 0;
+  const wfm_segment_t *segs
+      = dp_wfm_compose_segments (e->comp, &n, NULL, NULL);
   char *meta = dp_wfm_sigmf_meta_json (e->o->sample_type, e->o->endian, e->fs,
-                                       e->o->fc, 0.0, e->segs, e->n_segs);
+                                       e->o->fc, 0.0, segs, n);
   if (!meta)
     return;
   char  meta_path[1024];
@@ -1285,11 +1314,20 @@ emit_to_file (const emit_ctx_t *e)
 }
 
 /* The --record sidecar: the fully-resolved run, as the JSON that --from-file
- * reads back. Best-effort, like the SigMF sidecar. */
+ * reads back. Best-effort, like the SigMF sidecar.
+ *
+ * Written twice: before the run, so a run that never ends (--continuous,
+ * killed) still leaves its scene, and again after it, when each data
+ * source's "data_sent" -- the frames, idle frames and fill it sent, and a
+ * file's or stdin's hash -- is known. The segments are borrowed again each
+ * time, which is what brings that truth up to date. */
 static void
 write_record (const emit_ctx_t *e, int repeating)
 {
-  char *json = dp_wfm_spec_to_json (e->segs, e->n_segs, repeating, e->endless,
+  size_t               n = 0;
+  const wfm_segment_t *segs
+      = dp_wfm_compose_segments (e->comp, &n, NULL, NULL);
+  char *json = dp_wfm_spec_to_json (segs, n, repeating, e->endless,
                                     dp_wfm_compose_seed_advance (e->comp),
                                     e->o->headroom);
   if (!json)
@@ -1401,8 +1439,7 @@ check_continuous_dsss (const wfmgen_opts_t *o)
                              "--data-code\n");
       return 2;
     }
-  if (o->src.acq_code.len || o->src.sync.len || o->src.frame
-      || o->surf_seen[WFM_SURFACE_source_crc])
+  if (o->src.acq_code.len || o->sync.len || o->src.frame || o->crc_set)
     {
       (void)fprintf (stderr, "error: --acq-code/--sync/--crc/--frame are "
                              "burst-frame flags, meaningless with "
@@ -1446,19 +1483,20 @@ check_exclusive (const wfmgen_opts_t *o)
  * The file holds what a scene's "frame" key holds, through the one reader
  * of that form (dp_wfm_frame_from_json). A carried description IS the frame,
  * so the flags that spell the common frame are refused beside it rather than
- * silently dropped: the sync word and an unspread preamble by the bridge
- * (dp_wfm_source_frame_error); --crc here,
- * because only this face can tell it was GIVEN (crc defaults to crc16).
+ * silently dropped: an unspread preamble by the bridge
+ * (dp_wfm_source_frame_error); --sync and --crc here, because they are this
+ * face's own flags (and `--crc none` counts: it was GIVEN).
  * Returns 0, or the exit code. */
 static int
 load_frame (wfmgen_opts_t *o)
 {
   if (!FRAME_PATH (o))
     return 0;
-  if (o->surf_seen[WFM_SURFACE_source_crc])
+  if (o->crc_set || o->sync.len)
     {
-      (void)fprintf (stderr, "error: --frame FILE is the whole frame: its CRC "
-                             "is a stage in the file, so --crc cannot sit "
+      (void)fprintf (stderr, "error: --frame FILE is the whole frame: its "
+                             "sync word is a field and its CRC a stage in "
+                             "the file, so --sync and --crc cannot sit "
                              "beside it\n");
       return 2;
     }
@@ -1481,6 +1519,69 @@ load_frame (wfmgen_opts_t *o)
 }
 
 /**
+ * @brief Turn --sync and --crc into the frame DESCRIPTION they spell.
+ *
+ * The CLI takes a frame two ways and they are not two representations:
+ * `--frame FILE` is a description, and for the common frame `--acq-code`,
+ * `--sync`, `--data`/`--data-len` and `--crc` are the fields of one fixed
+ * layout, `[preamble x reps | sync | data | crc]`, which
+ * dp_wfm_source_common_frame (dp_wfm_frame_fixed underneath) builds into a
+ * description here. Nothing downstream knows which was used, and --record
+ * stores the description.
+ *
+ * Built only when --sync or a --crc16 on an otherwise framed source asked
+ * for it: `--acq-code` and `--data` alone stay the bridge's common frame, so
+ * a run that never said sync or crc records exactly what it recorded before.
+ * The description holds its own copy of the bits, so the options may be
+ * freed; an unspread preamble moves INTO it (a carried frame is the whole
+ * frame), while a DSSS preamble stays on the source, sent unspread outside
+ * the description.
+ *
+ * Returns 0, or the exit code having said why.
+ */
+static int
+build_common_frame (wfmgen_opts_t *o)
+{
+  if (o->src.frame
+      || !(o->sync.len || (o->crc && dp_wfm_source_has_frame (&o->src))))
+    return 0;
+  /* The flags frame a waveform only where it can be framed: a type with a
+     bit stream and, off dsss, a data source. Said before building, because a
+     carried frame would otherwise be taken for a fixed-bits one and sent. */
+  const char *no = dp_wfm_framing_flags_error (&o->src);
+  if (no)
+    {
+      /* The source's own first refusal wins where it has one (type=bits
+         names its own fix); the flags' rule is the answer where it has not. */
+      const char *first = dp_wfm_source_error (&o->src);
+      (void)fprintf (stderr, "error: %s\n", first ? first : no);
+      return 2;
+    }
+  wfm_frame_desc_t d;
+  if (dp_wfm_source_common_frame (&o->src, o->sync.len ? &o->sync : NULL,
+                                  o->crc, &d)
+      != 0)
+    {
+      (void)fprintf (stderr, "error: the frame --sync/--crc describe does "
+                             "not lay out: give it a --data source or an "
+                             "--acq-code to frame\n");
+      return 2;
+    }
+  o->src.frame = dp_wfm_frame_copy (&d);
+  if (!o->src.frame)
+    {
+      (void)fprintf (stderr, "error: could not copy the frame description\n");
+      return 1;
+    }
+  if (o->src.type != WFM_SYNTH_DSSS)
+    {
+      free ((void *)o->src.acq_code.bits);
+      o->src.acq_code = (wfm_seq_t){ 0 };
+    }
+  return 0;
+}
+
+/**
  * @brief Refuse a source that cannot be built — with the reason.
  *
  * The rule itself is `dp_wfm_source_error()`: a source's own parameters
@@ -1495,30 +1596,11 @@ load_frame (wfmgen_opts_t *o)
 static int
 check_source (wfmgen_opts_t *o)
 {
-  /* A data source sets the run's length (payload-data-source.md 4.6): a
-     finite one is its frames, so a --count beside it is refused by name
-     -- the one face that can tell a count given from its default -- and
-     an absent count is 0 (the composer derives it, or runs a stream until
-     it ends). A stream may take a --count as an upper bound. */
+  /* A data source sets the run's length (payload-data-source.md 4.6),
+     and so does a lone dsss burst: a --count beside either is refused by
+     dp_wfm_scene_error() below, the one rule every face asks, and an
+     absent one is 0 -- "derive it". */
   const int has_data = o->src.data.len || o->src.data_from_file;
-  /* A carried frame of fixed bits is a finite source too: one frame, sent
-     once (doppler#1718) -- more of it is --repeats, a gap after it
-     --off. */
-  const int finite = dp_wfm_source_data_frames (&o->src) > 0;
-  if (finite && o->surf_seen[WFM_SURFACE_segment_num_samples])
-    {
-      (void)fprintf (stderr,
-                     has_data ? "error: --count: a finite data source sets "
-                                "the run's length (its frames); drop "
-                                "--count\n"
-                              : "error: --count: a carried frame of fixed "
-                                "bits is sent once and sets the run's length "
-                                "(one frame); drop --count, and give "
-                                "--repeats for more\n");
-      return 2;
-    }
-  if ((has_data || finite) && !o->surf_seen[WFM_SURFACE_segment_num_samples])
-    o->seg.num_samples = 0;
   if (has_data)
     {
       /* Paced, a pause in a pipe is an idle frame -- and continuous dsss
@@ -1543,6 +1625,9 @@ check_source (wfmgen_opts_t *o)
                    (unsigned long long)o->src.pn_poly, o->src.pn_length, why);
   else if (why == dp_wfm_why_dsss_frame_no_data_code)
     (void)fprintf (stderr, "error: --data-code: %s\n", why);
+  else if (why == dp_wfm_why_count_derived)
+    (void)fprintf (stderr, "error: --count %zu: %s\n", o->seg.num_samples,
+                   why);
   else if (why == dp_wfm_why_dsss_cont_rate)
     (void)fprintf (stderr, "error: --symbol-rate %g, --fs %g, --sps %d: %s\n",
                    o->src.symbol_rate, o->seg.fs, o->src.sps, why);
@@ -1589,9 +1674,8 @@ dir_of (const char *path)
  * common case -- the path is kept as typed, so a record stays portable.
  * Returns a malloc'd absolute path to use instead, or NULL to keep it. */
 static char *
-data_path_for_record (const wfmgen_opts_t *o)
+data_path_for_record (const wfmgen_opts_t *o, const char *p)
 {
-  const char *p = o->src.data_from_file;
   if (!p || !o->record_path || p[0] == '/' || strcmp (p, "-") == 0)
     return NULL;
   char     *rdir = dir_of (o->record_path);
@@ -1710,15 +1794,6 @@ wfmgen_run (int argc, char *argv[])
   if (rc)
     goto done;
 
-  if (o.surf_text[WFM_SURFACE_source_data_from_file] && o.from_file)
-    {
-      (void)fprintf (stderr, "error: --data-from-file names the data of a "
-                             "run built from flags; a --from-file scene "
-                             "carries its own, as a source's "
-                             "\"data_from_file\"\n");
-      rc = 2;
-      goto done;
-    }
   if (FRAME_PATH (&o) && o.from_file)
     {
       (void)fprintf (stderr, "error: --frame describes the frame of a run "
@@ -1744,9 +1819,17 @@ wfmgen_run (int argc, char *argv[])
       /* A refused FRAME is the one spec failure with a sentence behind it,
          so it exits here rather than falling through to the generic line
          below — two messages for one fault reads as two faults. */
+      /* --data-from-file beside --from-file is the file a record of a
+         stdin run is replayed from (section 4.8): the reader checks it
+         against the record's hash, and refuses it for a scene that carries
+         its own data. Made absolute when the new record lands elsewhere,
+         as for a run built from flags. */
+      const char *df   = o.surf_text[WFM_SURFACE_source_data_from_file];
+      data_abs         = df ? data_path_for_record (&o, df) : NULL;
       const char *why  = NULL;
       char       *sdir = dir_of (o.from_file);
-      comp             = dp_wfm_compose_from_json_at (spec, sdir, &why);
+      comp = dp_wfm_compose_from_json_data (spec, sdir,
+                                            data_abs ? data_abs : df, &why);
       free (sdir);
       if (!comp && why)
         {
@@ -1767,10 +1850,13 @@ wfmgen_run (int argc, char *argv[])
       /* The surface-only --data-from-file row: its text is the path, read
          by the data source when the synth is built (wfm/wfm_data.h). */
       o.src.data_from_file = o.surf_text[WFM_SURFACE_source_data_from_file];
-      data_abs             = data_path_for_record (&o);
+      data_abs             = data_path_for_record (&o, o.src.data_from_file);
       if (data_abs)
         o.src.data_from_file = data_abs;
       rc = check_continuous_dsss (&o);
+      if (rc)
+        goto done;
+      rc = build_common_frame (&o);
       if (rc)
         goto done;
       rc = check_source (&o);
@@ -1840,6 +1926,10 @@ wfmgen_run (int argc, char *argv[])
   else
     rc = emit_to_file (&e);
 
+  /* Again, now the run's truth is known (write_record). */
+  if (o.record_path)
+    write_record (&e, r);
+
   if (o.realtime && clk.underruns)
     (void)fprintf (
         stderr, "wfmgen: %llu underrun(s) — worst %.3f ms behind real time\n",
@@ -1852,6 +1942,7 @@ wfmgen_run (int argc, char *argv[])
 done:
   dp_wfm_compose_destroy (comp);
   source_free (&o.src);
+  free ((void *)o.sync.bits);
   free (data_abs);
   return rc;
 }

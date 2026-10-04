@@ -37,6 +37,7 @@ __all__ = [
     "translate",
 ]
 
+import errno
 import logging
 import os.path
 import re
@@ -48,6 +49,7 @@ if TYPE_CHECKING:
     from .repo import Repo
 
 from .config import Config, get_xdg_config_home_path
+from .file import open_nofollow_read
 from .wildmatch import MalformedPattern
 from .wildmatch import translate as translate_wildmatch
 
@@ -361,6 +363,27 @@ def _excluded_inside(filters: Sequence[_DepthFilter], name: str) -> bool:
     return False
 
 
+def _may_prune(filters_for: _FiltersFor, path: str) -> bool:
+    """Check whether a directory can be skipped without missing anything.
+
+    Git stops descending only when a pattern excludes the directory by name.
+    A pattern that merely describes the contents, such as ``dir/*``, leaves
+    the walk free to enter, so a later negation can still re-include
+    something below. ``check-ignore`` reports such a directory as ignored --
+    ``dir/*`` matches the text ``dir/`` because ``*`` also matches the empty
+    string -- which is why walking callers must ask this instead of reading
+    ``is_ignored`` as permission to prune.
+    """
+    name = path.rstrip("/")
+    parts = name.split("/")
+    for i in range(1, len(parts) + 1):
+        prefix = "/".join(parts[:i])
+        pattern = _last_matching_pattern(filters_for(prefix + "/"), prefix, True)
+        if pattern is not None and pattern.is_exclude:
+            return True
+    return False
+
+
 class IgnoreFilter:
     """Filter to apply gitignore patterns.
 
@@ -438,6 +461,16 @@ class IgnoreFilter:
         # a work tree to consult, a trailing slash is the only indication that
         # the path is a directory.
         return _decide(lambda _path: [(0, self)], path, path.endswith("/"))
+
+    def may_prune_directory(self, path: bytes | str) -> bool:
+        """Check whether a directory can be skipped when walking a work tree.
+
+        See :func:`_may_prune`; a directory reported ignored by
+        :meth:`is_ignored` may still need to be entered.
+        """
+        if isinstance(path, bytes):
+            path = path.decode()
+        return _may_prune(lambda _path: [(0, self)], path)
 
     @classmethod
     def from_path(
@@ -554,16 +587,24 @@ class IgnoreFilterManager:
 
         p = os.path.join(self._top_path, path, ".gitignore")
         try:
-            self._path_filters[path] = IgnoreFilter.from_path(p, self._ignorecase)
+            f = open_nofollow_read(p)
         except (FileNotFoundError, NotADirectoryError):
             self._path_filters[path] = None
         except OSError as e:
+            if e.errno in (errno.ELOOP, errno.EMLINK):
+                logger.warning("Ignoring %s: it is a symbolic link", p)
+                self._path_filters[path] = None
             # On Windows, opening a path that contains a symlink can fail with
             # errno 22 (Invalid argument) when the symlink points outside the repo
-            if e.errno == 22:
+            elif e.errno == 22:
                 self._path_filters[path] = None
             else:
                 raise
+        else:
+            with f:
+                self._path_filters[path] = IgnoreFilter(
+                    read_ignore_patterns(f), self._ignorecase, path=p
+                )
         return self._path_filters[path]
 
     def find_matching(self, path: str) -> Iterable[Pattern]:
@@ -615,6 +656,14 @@ class IgnoreFilterManager:
         """
         path = self._normalize(path)
         return _decide(self._filters_for, path, self._is_dir(path))
+
+    def may_prune_directory(self, path: str) -> bool:
+        """Check whether a directory can be skipped when walking a work tree.
+
+        See :func:`_may_prune`; a directory reported ignored by
+        :meth:`is_ignored` may still need to be entered.
+        """
+        return _may_prune(self._filters_for, self._normalize(path))
 
     def _is_dir(self, path: str) -> bool:
         """Check whether path names a directory in the work tree.

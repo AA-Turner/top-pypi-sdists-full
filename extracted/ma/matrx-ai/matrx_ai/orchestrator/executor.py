@@ -1047,6 +1047,11 @@ def _response_has_tool_calls(response: UnifiedResponse) -> bool:
     return False
 
 
+#: error_type of a turn whose whole output limit went to reasoning — no visible
+#: answer was written (see the truncated branch of the provider loop).
+EMPTY_REPLY_AT_OUTPUT_LIMIT = "empty_reply_at_output_limit"
+
+
 def _terminal_response_problem(
     response: UnifiedResponse,
 ) -> tuple[str, str] | None:
@@ -1616,11 +1621,33 @@ async def _apply_turn_directives(
             config=current_request.config,
             auto_stub_keys=list(auto_stub_keys or []),
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — never break the turn, never swallow it either
+        # NOTHING FAILS SILENTLY (THREADS R3, 2026-10-03). A directive the model
+        # wrote in this turn (a context groom, a comment reply) did not apply:
+        # the turn stands, but the failure is captured as a system error and
+        # screamed, never a yellow line nobody reads. Per-item failures are the
+        # host's receipts; this is the backstop for a handler that crashed whole.
         vcprint(
-            f"[executor] turn directive handler failed (ignored): {type(exc).__name__}: {exc}",
-            color="yellow",
+            f"[executor] 🚨 TURN DIRECTIVE HANDLER FAILED: {type(exc).__name__}: {exc}",
+            color="red",
         )
+        try:
+            from matrx_connect.context.app_context import try_get_app_context
+            from matrx_connect.streaming.error_capture import capture_error
+
+            exec_ctx = try_get_app_context()
+            await capture_error(
+                exc,
+                kind="turn_directive_handler_failed",
+                request_id=current_request.request_id or getattr(exec_ctx, "request_id", None),
+                user_id=getattr(exec_ctx, "user_id", None),
+                conversation_id=current_request.conversation_id
+                or getattr(exec_ctx, "conversation_id", None),
+                route="orchestrator/turn_directives",
+                error_type=type(exc).__name__,
+            )
+        except Exception as cap_exc:  # noqa: BLE001
+            vcprint(f"[executor] turn directive failure capture failed: {cap_exc}", color="red")
 
 
 def _running_unattended() -> bool:
@@ -3154,8 +3181,8 @@ async def _apply_output_directive_if_present(parsed: Any) -> None:
         if ctx is None:
             return
 
-        # 🚨 A MANDATE CANDIDATE NEVER APPLIES ITS OUTPUT (PLAN P3/P14). An
-        # ``__matrx_apply`` envelope creates real rows; a candidate's answer is
+        # 🚨 A MANDATE CANDIDATE NEVER APPLIES ITS OUTPUT (PLAN P3/P14). A Kind
+        # Directive at the output root creates real rows; a candidate's answer is
         # recorded on its pair and compared, never acted on.
         from matrx_graph.candidate import candidate_marker
 
@@ -4089,6 +4116,14 @@ async def execute_until_complete(
             max_retries_per_iteration=max_retries_per_iteration,
         )
     except asyncio.CancelledError as _cancel_exc:
+        # A cancel the lease heartbeat's STALL backstop sent is not a person
+        # stopping the run — the run stopped making progress (a wedged commit).
+        # It persists as FAILED with an honest message and leaves as
+        # RunStalledError, never as "cancelled".
+        from matrx_ai.persistence.liveness import RunStalledError, stalled_run
+
+        _stall = stalled_run()
+        _stall_error = RunStalledError(_stall) if _stall is not None else None
         # ────────────────────────────────────────────────────────────────
         # CLOSE THE LOOP. This is the entire reason this system exists.
         #
@@ -4196,20 +4231,36 @@ async def execute_until_complete(
                         current_request=state.current_request,
                         iteration=state.iteration,
                         final_response=_interrupt_final_resp,
-                        metadata={
-                            "status": "cancelled",
-                            "interrupted": True,
-                            "partial_assistant_captured": bool(_partial_text.strip()),
-                            "provider_completed_after_cancellation": bool(_completed_response),
-                            "error": (
-                                "Request cancelled mid-stream (client "
-                                "disconnect or server shutdown). Persisted the "
-                                "completed provider response when available, "
-                                "otherwise the partial assistant turn, plus "
-                                "cost/usage accumulated through cancellation."
-                            ),
-                            "cancelled_iteration": state.iteration,
-                        },
+                        metadata=(
+                            {
+                                "status": "failed",
+                                "interrupted": True,
+                                "partial_assistant_captured": bool(_partial_text.strip()),
+                                "error": {
+                                    "type": _stall_error.error_info.error_type,
+                                    "message": _stall_error.error_info.user_message,
+                                    "details": _stall_error.error_info.details,
+                                },
+                                "cancelled_iteration": state.iteration,
+                            }
+                            if _stall_error is not None
+                            else {
+                                "status": "cancelled",
+                                "interrupted": True,
+                                "partial_assistant_captured": bool(_partial_text.strip()),
+                                "provider_completed_after_cancellation": bool(
+                                    _completed_response
+                                ),
+                                "error": (
+                                    "Request cancelled mid-stream (client "
+                                    "disconnect or server shutdown). Persisted the "
+                                    "completed provider response when available, "
+                                    "otherwise the partial assistant turn, plus "
+                                    "cost/usage accumulated through cancellation."
+                                ),
+                                "cancelled_iteration": state.iteration,
+                            }
+                        ),
                         trigger_position=state.trigger_position,
                         pre_execution_message_count=state.pre_execution_message_count,
                         debug=False,
@@ -4230,6 +4281,11 @@ async def execute_until_complete(
                     f"Watchdog is the backstop.",
                     color="red",
                 )
+        if _stall_error is not None:
+            _task = asyncio.current_task()
+            if _task is not None:
+                _task.uncancel()
+            raise _stall_error from _cancel_exc
         raise
     finally:
         clear_execution_state(state_token)
@@ -4376,6 +4432,7 @@ async def _execute_until_complete_inner(
     first_assistant_position = pre_execution_message_count
 
     # Lazy import — break cycle with matrx_ai.persistence ↔ orchestrator.
+    from matrx_ai.orchestrator.user_turn_echo import user_turn_echo
     from matrx_ai.persistence.queue_helpers import get_coordinator, queue_message_create
 
     # Message-row RESERVATION is a streaming-only optimization: it pre-announces
@@ -4435,10 +4492,14 @@ async def _execute_until_complete_inner(
         _trigger_user_content: list[Any] = []
         _trigger_pristine_user_content: list[Any] | None = None
         _trigger_user_status: str = "pending"
-        # Empty message list (internal callers) keeps the legacy empty/pending
-        # reservation so later code that appends a user message can finalize
-        # the row via UPDATE.
-        _reserve_user_row = pre_execution_message_count == 0
+        # An EMPTY message list has no user message to reserve. It used to get an
+        # empty 'pending' user placeholder anyway — at trigger_position 0, the SAME
+        # key as the assistant reservation (first_assistant_position 0), which
+        # overwrote it in ``reserved_messages``. The orphaned placeholder was then
+        # invisible to the failed-request close in persist_completed_request and
+        # stayed 'pending' with content [] forever (live: conversation 93ea4aed,
+        # 2026-10-03, row a9d346c3). No user message → no user row.
+        _reserve_user_row = False
         if pre_execution_message_count > 0 and 0 <= trigger_position < pre_execution_message_count:
             _trigger_msg = current_request.config.messages[trigger_position]
             _trigger_role = getattr(_trigger_msg, "role", None)
@@ -4490,6 +4551,9 @@ async def _execute_until_complete_inner(
                         "role": "user",
                         "position": trigger_position,
                         "position_kind": "logical_index",
+                        # A page rejoining mid-answer replays this frame; the
+                        # person's own words ride on it (user_turn_echo.py).
+                        **user_turn_echo(_trigger_pristine_user_content),
                     },
                     record_id=user_msg_id,
                 )
@@ -5173,11 +5237,22 @@ async def _execute_until_complete_inner(
                     # 2cf711eb…: a parent was told to ask for the rest of her
                     # questions, inside a run with nobody to ask).
                     continuable = _caller_can_continue(current_request)
+                    # NOTHING FAILS SILENTLY (2026-10-03, clone, the Vision
+                    # Interview Archaeologist at 500 tokens): a reasoning model
+                    # can spend the WHOLE limit thinking. The turn then holds no
+                    # visible answer — finalizing it as a "truncated" success
+                    # told the person "what you see above is incomplete" over
+                    # an empty reply and recorded the request as completed.
+                    # Decided BEFORE the notice is appended (the notice is text).
+                    empty_reply = (
+                        not interrupted and _terminal_response_problem(api_response) is not None
+                    )
                     notice = truncation_notice(
                         model=model,
                         max_output_tokens=max_tokens,
                         interrupted_tool_calls=interrupted,
                         continuable=continuable,
+                        empty_reply=empty_reply,
                     )
                     _announce_truncation(api_response, notice, truncation)
                     try:
@@ -5206,25 +5281,64 @@ async def _execute_until_complete_inner(
                     print("=" * 70)
                     print("\n")
 
-                    await exec_ctx.emitter.send_warning(
-                        WarningPayload(
-                            code="truncated_response",
-                            system_message=(
-                                f"Model '{model}' hit the output token limit and returned an incomplete response "
-                                f"(max_output_tokens={max_tokens})."
-                            ),
-                            user_message=notice,
-                            level="medium",
-                            recoverable=True,
-                            metadata={
-                                "model": model,
-                                "max_output_tokens": max_tokens,
-                                "finish_reason": str(api_response.finish_reason),
-                                "iteration": iteration,
-                                "interrupted_tool_calls": interrupted,
-                            },
+                    if not empty_reply:  # the empty case ends in ONE terminal error below
+                        await exec_ctx.emitter.send_warning(
+                            WarningPayload(
+                                code="truncated_response",
+                                system_message=(
+                                    f"Model '{model}' hit the output token limit and returned an incomplete response "
+                                    f"(max_output_tokens={max_tokens})."
+                                ),
+                                user_message=notice,
+                                level="medium",
+                                recoverable=True,
+                                metadata={
+                                    "model": model,
+                                    "max_output_tokens": max_tokens,
+                                    "finish_reason": str(api_response.finish_reason),
+                                    "iteration": iteration,
+                                    "interrupted_tool_calls": interrupted,
+                                },
+                            )
                         )
-                    )
+
+                    if empty_reply:
+                        # No answer at all: a FAILED turn with a terminal error,
+                        # exactly like the reasoning-only clean stop below
+                        # (``_terminal_response_problem``). The notice still
+                        # rides in the stored turn so a reload says why.
+                        for message in api_response.messages or []:
+                            if getattr(message, "role", None) == "assistant":
+                                message.status = "failed"
+                        current_request = _append_partial_response(
+                            current_request, api_response, state
+                        )
+                        last_assistant = current_request.config.messages.get_last_by_role(
+                            "assistant"
+                        )
+                        if last_assistant is not None:
+                            last_assistant.status = "failed"
+                        await exec_ctx.emitter.send_error(
+                            error_type=EMPTY_REPLY_AT_OUTPUT_LIMIT,
+                            message=notice,
+                            user_message=notice,
+                        )
+                        return await _finalize_and_persist(
+                            current_request=current_request,
+                            iteration=iteration,
+                            final_response=api_response,
+                            metadata={
+                                "status": "failed",
+                                "finish_reason": str(api_response.finish_reason),
+                                "error": notice,
+                                "error_type": EMPTY_REPLY_AT_OUTPUT_LIMIT,
+                                TRUNCATION_METADATA_KEY: truncation,
+                            },
+                            trigger_position=trigger_position,
+                            pre_execution_message_count=pre_execution_message_count,
+                            debug=debug,
+                            state=state,
+                        )
 
                     # Persist the partial content the model streamed before it
                     # was truncated. The early return here happens BEFORE the

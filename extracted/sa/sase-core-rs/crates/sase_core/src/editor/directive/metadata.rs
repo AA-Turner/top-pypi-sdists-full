@@ -820,3 +820,8 @@ pub const DIRECTIVES: &[DirectiveMetadata] = &[
 ];
 
 pub(super) const HIDDEN_COMPLETION_DIRECTIVES: &[&str] = &[];
+
+/// Hidden input-only directive aliases: accepted and canonicalized but never
+/// emitted in the directive contract or offered by name completion.
+pub(super) const HIDDEN_DIRECTIVE_ALIASES: &[(&str, &str)] =
+    &[("macros_enabled", "xprompts_enabled")]; // legacy xprompt spelling

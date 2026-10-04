@@ -229,10 +229,11 @@ def test_train_only_imputation_is_applied_to_test_rows():
     obj.X_train = pd.DataFrame({
         "a": [1.0, 3.0, np.nan], "b": [np.nan, 2.0, 2.0], "Region": ["x", "y", "z"],
     })
-    obj._fill_missing_values()
+    obj._record_nan_fills()
     assert obj._nan_fill_values["a"] == 2.0
     assert obj._nan_fill_values["b"] == 2.0
-    assert not obj.X_train[["a", "b"]].isna().any().any()
+    # the feature-selection frame keeps its gaps (test_feature_selection_nan_gate)
+    assert obj.X_train[["a", "b"]].isna().sum().tolist() == [1, 1]
     X_test = pd.DataFrame({"a": [np.nan], "b": [5.0], "Region": ["x"]})
     out = obj._preprocess_test_data(X_test, None)
     assert out["a"].iloc[0] == 2.0
@@ -249,7 +250,7 @@ def test_nan_native_models_skip_imputation():
     )
     obj._clean_training_features = lambda X: X
     calls = []
-    obj._fill_missing_values = lambda: calls.append("fill")
+    obj._record_nan_fills = lambda: calls.append("fill")
     df = pd.DataFrame({
         "a": [1.0, np.nan], "Region": ["x", "x"], "Harvest Year": [2018, 2019],
         TARGET: [1.0, 2.0],

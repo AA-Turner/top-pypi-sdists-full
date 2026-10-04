@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aa-killstats
-Version: 4.0.0
+Version: 4.0.1
 Summary: Killboard Stats shows Hall of Shame/Fame, Kills, Top Kills,Loss,etc.
 Project-URL: Changelog, https://github.com/Geuthur/aa-killstats/blob/master/CHANGELOG.md
 Project-URL: Discord, https://discord.gg/WrHzA4rnxA
@@ -841,8 +841,7 @@ python manage.py esde_load_sde
 Migrate the app and collect static.
 
 ```shell
-python manage.py migrate skillfarm
-python manage.py skillfarm_load_prices
+python manage.py migrate killstats
 python manage.py collectstatic --noinput
 ```
 

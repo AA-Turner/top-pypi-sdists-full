@@ -1,14 +1,14 @@
 Metadata-Version: 2.5
 Name: content-core
-Version: 2.1.0
+Version: 2.2.0
 Summary: Extract what matters from any media source. Available as Python Library, macOS Service, CLI and MCP Server
 Author-email: LUIS NOVO <lfnovo@gmail.com>
 License-File: LICENSE
 Requires-Python: >=3.10
 Requires-Dist: ai-prompter>=0.4.0
-Requires-Dist: aiohttp>=3.13
+Requires-Dist: aiohttp>=3.14.3
 Requires-Dist: bs4>=0.0.2
-Requires-Dist: click>=8.3.0
+Requires-Dist: click>=8.3.3
 Requires-Dist: esperanto>=2.26.0
 Requires-Dist: fast-ebook>=0.2.0
 Requires-Dist: fastmcp>=3.0.0
@@ -17,28 +17,30 @@ Requires-Dist: jinja2>=3.1.6
 Requires-Dist: langdetect>=1.0.9
 Requires-Dist: loguru>=0.7.3
 Requires-Dist: markdownify>=0.14.0
+Requires-Dist: odfpy>=1.4.1
 Requires-Dist: openpyxl>=3.1.5
 Requires-Dist: pandas>=2.2.3
 Requires-Dist: pdfplumber>=0.11.0
-Requires-Dist: pillow>=12.0.0
-Requires-Dist: pydantic-settings>=2.12.0
+Requires-Dist: pillow>=12.3.0
+Requires-Dist: pydantic-settings>=2.14.2
 Requires-Dist: python-docx>=1.1.2
 Requires-Dist: python-dotenv>=1.2.0
 Requires-Dist: python-pptx>=1.0.2
 Requires-Dist: pytubefix>=10.0.0
 Requires-Dist: readability-lxml>=0.8.4.1
+Requires-Dist: requests>=2.31.0
 Requires-Dist: tenacity>=9.0.0
 Requires-Dist: tomli>=2.0; python_version < '3.11'
 Requires-Dist: validators>=0.34.0
 Requires-Dist: youtube-transcript-api>=1.2.0
 Provides-Extra: crawl4ai
-Requires-Dist: crawl4ai>=0.7.0; extra == 'crawl4ai'
+Requires-Dist: crawl4ai>=0.9.0; extra == 'crawl4ai'
 Provides-Extra: docling
-Requires-Dist: docling>=2.86.0; extra == 'docling'
+Requires-Dist: docling>=2.94.0; extra == 'docling'
 Requires-Dist: peft>=0.18.0; extra == 'docling'
 Requires-Dist: transformers<5,>=4.50; extra == 'docling'
 Provides-Extra: langchain
-Requires-Dist: langchain-core>=0.1.0; extra == 'langchain'
+Requires-Dist: langchain-core>=1.3.3; extra == 'langchain'
 Description-Content-Type: text/markdown
 
 # Content Core
@@ -59,7 +61,7 @@ Extract, process, and summarize content from URLs, files, and text through a uni
 | Category | Formats |
 |----------|---------|
 | Web | URLs, HTML pages, YouTube videos, Reddit posts |
-| Documents | PDF, DOCX, PPTX, XLSX, EPUB, HTML, Markdown, plain text |
+| Documents | PDF, DOCX, PPTX, XLSX, ODT, ODS, ODP, EPUB, HTML, Markdown, plain text |
 | Media | MP3, WAV, M4A, FLAC, OGG (audio); MP4, AVI, MOV, MKV (video) |
 
 ## Quick Start
@@ -269,6 +271,7 @@ Content Core uses `ContentCoreConfig` powered by pydantic-settings. Settings are
 | `CCORE_URL_ENGINE` | URL extraction engine (`auto`, `simple`, `firecrawl`, `jina`, `crawl4ai`) | `auto` |
 | `CCORE_DOCUMENT_ENGINE` | Document extraction engine (`auto`, `simple`, `docling`) — `docling` raises `ConfigurationError` if the extra is not installed; `auto` falls back silently | `auto` |
 | `CCORE_AUDIO_CONCURRENCY` | Concurrent audio transcriptions (1-10) | `3` |
+| `CCORE_AUDIO_SEGMENT_MINUTES` | Length of the segments long audio is split into; `0` sends the file whole | `10` |
 | `CRAWL4AI_API_URL` | Crawl4AI Docker API URL (omit for local browser mode) | - |
 | `CRAWL4AI_API_TOKEN` | Bearer token for the Crawl4AI Docker API (required by Crawl4AI >= 0.9.0) | - |
 | `FIRECRAWL_API_URL` | Custom Firecrawl API URL for self-hosted instances or Firecrawl-compatible backends (e.g. fastCRW) | - |
@@ -280,12 +283,18 @@ Content Core uses `ContentCoreConfig` powered by pydantic-settings. Settings are
 | `CCORE_STT_MODEL` | Speech-to-text model | - |
 | `CCORE_STT_TIMEOUT` | Speech-to-text timeout in seconds | - |
 | `CCORE_YOUTUBE_LANGUAGES` | Preferred YouTube transcript languages | - |
+| `CCORE_YOUTUBE_COOKIES_FILE` | Path to a Netscape `cookies.txt` for YouTube transcripts (missing file raises `ConfigurationError`) | - |
+| `CCORE_YOUTUBE_PROXY` | Proxy URL for YouTube transcripts, e.g. `http://user:pass@host:port` | - |
 
 API keys for external services are set via their standard environment variables (e.g., `OPENAI_API_KEY`, `FIRECRAWL_API_KEY`, `JINA_API_KEY`).
 
 ### Proxy Configuration
 
 Content Core reads standard `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` environment variables automatically. No additional configuration is needed.
+
+### YouTube on Blocked Networks
+
+If YouTube extraction fails with `IpBlocked`/`RequestBlocked` on a flagged IP (cloud hosts, VPNs), either point `CCORE_YOUTUBE_COOKIES_FILE` at a `cookies.txt` exported from a logged-in browser (re-export it when the cookies expire), or set `CCORE_YOUTUBE_PROXY` to a **residential** proxy — datacenter proxies get blocked or CAPTCHA'd. See [docs/usage.md](docs/usage.md#youtube-on-blocked-networks).
 
 ## Optional Dependencies
 
