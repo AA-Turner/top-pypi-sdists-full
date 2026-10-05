@@ -55,8 +55,9 @@ class _buffer_reader:
     def __call__(self, _, position, p_buf_first, size):
         c_buffer = get_buffer(p_buf_first, size)
         self.py_buffer.seek(position)
-        self.py_buffer.readinto(c_buffer)
-        return 1
+        # compare requested and read size to ensure we never pass on uninitialized memory without reporting error, in case readinto() might have failed to consume enough input
+        read_size = self.py_buffer.readinto(c_buffer)
+        return int(read_size == size)
 
 
 class _buffer_writer:

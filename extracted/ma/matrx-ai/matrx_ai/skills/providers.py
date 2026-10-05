@@ -370,6 +370,15 @@ class DbSkillProvider:
             out.append(row)
         return out
 
+    async def list_visible_rows(self, *, user_id: UUID | None) -> list[Any]:
+        """Every active skill row this caller can read (system/public + their own).
+
+        The same universe ``list_hints`` and ``get_by_id`` answer from, as raw rows,
+        for callers that match on columns a hint does not carry (``metadata``,
+        ``created_at``) — e.g. resolving a picked shape to its skill.
+        """
+        return await self._fetch_visible(user_id=user_id)
+
     async def list_hints(
         self,
         *,

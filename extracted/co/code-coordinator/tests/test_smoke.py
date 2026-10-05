@@ -610,6 +610,124 @@ def test_partition_unroutable_reports_files_from_every_rule_sharing_the_set() ->
     assert bad.rule_files == ("src/cuda/kernels/", "src/cuda/tests/")
 
 
+# ── `platforms` — one partition per OS (#3581) ──────────────────────────────
+#
+# vimcode's `tui-pty` shape: one driver (`UnixPtyChild`) covers BOTH Linux
+# and macOS behind a single `requires: [rust]` — so flat capability routing
+# always picked whichever Rust box sorted first (in practice always Linux)
+# and macOS never got smoke-tested at all. `precision` below has the base
+# capability + `linux`; `macmini` has it + `macos`; neither is a stand-in
+# for the other.
+
+_TUI_PTY_MACHINE_CAPS = {
+    "precision": {"rust", "linux"},
+    "macmini": {"rust", "macos"},
+}
+
+
+def _tui_pty_capable_for(caps: list[str]) -> bool:
+    wanted = set(caps)
+    return any(wanted <= have for have in _TUI_PTY_MACHINE_CAPS.values())
+
+
+def test_partition_platforms_yields_one_partition_per_os() -> None:
+    rules = [
+        SmokeRule(files=["tui/"], requires=["rust"], platforms=["linux", "macos"]),
+    ]
+    partitions, unroutable = partition_capability_requirements(
+        ["tui/src/app.rs"], rules, _tui_pty_capable_for,
+    )
+    assert unroutable == []
+    cap_sets = {frozenset(p.capabilities) for p in partitions}
+    assert cap_sets == {frozenset({"rust", "linux"}), frozenset({"rust", "macos"})}
+    # Both partitions were put on the board by the SAME touched file — the
+    # one rule matched once per platform, not once total.
+    assert all(p.files == ("tui/src/app.rs",) for p in partitions)
+
+
+def test_partition_platform_with_no_capable_host_is_unroutable_not_dropped() -> None:
+    """Only `precision` (rust+linux) is configured — macOS has no capable
+    host at all. The linux half must still resolve to a routable partition;
+    the macOS half must be reported, not silently absent."""
+    capable_for = lambda caps: set(caps) <= {"rust", "linux"}  # noqa: E731
+    rules = [
+        SmokeRule(files=["tui/"], requires=["rust"], platforms=["linux", "macos"]),
+    ]
+    partitions, unroutable = partition_capability_requirements(
+        ["tui/src/app.rs"], rules, capable_for,
+    )
+    assert partitions == [
+        SmokePartition(capabilities=("linux", "rust"), files=("tui/src/app.rs",)),
+    ]
+    assert len(unroutable) == 1
+    assert set(unroutable[0].capabilities) == {"rust", "macos"}
+
+
+def test_partition_platforms_rule_with_empty_requires_still_partitions() -> None:
+    """A rule can declare `platforms` with no extra `requires` at all — each
+    OS name alone is still a real capability requirement. `capable_for`
+    mirrors two single-OS machines (no machine has both), so the generic
+    greedy merge in `partition_capability_requirements` must NOT fold
+    `{linux}`/`{macos}` back into one partition."""
+    rules = [SmokeRule(files=["tui/"], requires=[], platforms=["linux", "macos"])]
+    capable_for = lambda caps: set(caps) <= {"linux"} or set(caps) <= {"macos"}  # noqa: E731
+    partitions, unroutable = partition_capability_requirements(
+        ["tui/src/app.rs"], rules, capable_for,
+    )
+    assert unroutable == []
+    cap_sets = {frozenset(p.capabilities) for p in partitions}
+    assert cap_sets == {frozenset({"linux"}), frozenset({"macos"})}
+
+
+def test_partition_rule_without_platforms_is_unchanged() -> None:
+    """A rule that never sets `platforms` (every rule predating #3581)
+    produces exactly its one `requires`-keyed partition, same as before."""
+    rules = [SmokeRule(files=["tui/"], requires=["rust"])]
+    partitions, unroutable = partition_capability_requirements(
+        ["tui/src/app.rs"], rules, lambda caps: True,
+    )
+    assert unroutable == []
+    assert partitions == [SmokePartition(capabilities=("rust",), files=("tui/src/app.rs",))]
+
+
+def test_dispatch_smoke_fans_out_one_leg_per_platform(repo: Repo) -> None:
+    """End-to-end #3581: a `tui-pty`-shaped rule with `platforms:
+    [linux, macos]` dispatches ONE leg to each OS's own capable host —
+    never both legs to whichever Rust box sorts first."""
+    from coord.smoke import _dispatch_smoke_legs, smoke_leg_capabilities
+
+    cfg = Config(
+        repos=[repo],
+        machines=[
+            _machine("precision", "precision.tail", caps=["rust", "linux"], path="/p/api"),
+            _machine("macmini", "macmini.tail", caps=["rust", "macos"], path="/m/api"),
+        ],
+        smoke_tests=SmokeTestsConfig(
+            auto_queue=True,
+            capability_rules=[
+                SmokeRule(files=["tui/"], requires=["rust"], platforms=["linux", "macos"]),
+            ],
+        ),
+    )
+    completed = _completed()
+    board = Board()
+    client = _MultiHostClient(assign={
+        "precision.tail": {"id": "precision-leg"},
+        "macmini.tail": {"id": "macmini-leg"},
+    })
+    legs = _dispatch_smoke_legs(
+        completed, board, cfg, http_client=client,
+        diff_lookup=lambda r, b: ["tui/src/app.rs"],
+    )
+
+    assert len(legs) == 2
+    by_machine = {a.machine_name: a for a in legs}
+    assert set(by_machine) == {"precision", "macmini"}
+    assert smoke_leg_capabilities(by_machine["precision"].issue_title) == ("linux", "rust")
+    assert smoke_leg_capabilities(by_machine["macmini"].issue_title) == ("macos", "rust")
+    assert completed.test_state == "running"
+
+
 # ── Rule command override (#3056) ───────────────────────────────────────────
 
 
@@ -2657,9 +2775,12 @@ def test_rank_smoke_machines_native_preference_does_not_affect_other_caps(
 # minutes into its declared `quiet_hours` window, and the operator suspended
 # the machine ten minutes later — exactly what "no new dispatch in this
 # window" invites. `rank_smoke_machines` consulted no pause state of any
-# kind. The fix routes candidates through `follow_on_paused_set` — the
-# #2240 spelling, NOT `paused_set`, so a release cordon (which must not
-# block the tail of work already in flight) keeps working.
+# kind. The fix routes candidates through `paused_set` — #2636 originally
+# used the #2240 `follow_on_paused_set` spelling so a release cordon would
+# not block the tail of work already in flight, but #3599 (2026-10-04)
+# found that bypass kept re-landing a multi-leg drive's smoke/review/fix
+# legs on the exact host the cordon was waiting to drain, so a cordon now
+# filters a smoke candidate out same as any other pause.
 
 
 def test_rank_smoke_machines_skips_a_machine_inside_quiet_hours(
@@ -2745,16 +2866,16 @@ def test_rank_smoke_machines_skips_an_explicitly_paused_machine(
     assert names == ["desktop-b", "desktop-c"]
 
 
-def test_rank_smoke_machines_still_ranks_a_cordoned_machine(
+def test_rank_smoke_machines_filters_a_cordoned_machine(
     three_gtk_config: Config,
 ) -> None:
-    """The #2240 regression guard: a release cordon means "no NEW work", but
-    a smoke leg is the tail of work already in flight (the Test stage for a
-    completed work row), so it must NOT be filtered — the same reasoning
-    `pick_reviewer_machine` already applies via `follow_on_paused_set`. If
-    this ever starts filtering cordoned machines, it silently reaches for
-    `paused_set` instead of `follow_on_paused_set` and reproduces the
-    2026-08-14 drain deadlock in the Test stage."""
+    """#3599: a release cordon means "no NEW work", and a smoke leg is no
+    longer exempt from that — #2240/#2636 originally exempted it on the
+    theory that a smoke leg is the tail of work already in flight, but a
+    multi-leg drive can re-dispatch indefinitely, and the exemption kept
+    re-landing legs on the exact host the cordon was waiting to drain
+    (vimcode#1745). A cordoned machine is now filtered out of the ranking
+    exactly like an explicitly paused one."""
     from coord.machine_pause import local_set_cordon
     from coord.smoke import rank_smoke_machines
 
@@ -2762,7 +2883,8 @@ def test_rank_smoke_machines_still_ranks_a_cordoned_machine(
 
     ranked = rank_smoke_machines(["gtk"], "api", "server", Board(), three_gtk_config)
     names = [c.machine.name for c in ranked]
-    assert names == ["desktop-a", "desktop-b", "desktop-c"]
+    assert "desktop-a" not in names
+    assert names == ["desktop-b", "desktop-c"]
 
 
 def test_rank_smoke_machines_operator_set_quiet_hours_bind_same_as_config(
@@ -2819,6 +2941,101 @@ def test_dispatch_smoke_blocked_reason_names_pause_not_capability(
         assert name in reason
     # Must NOT read as a capability miss — all three machines DO declare gtk.
     assert "no configured machine declares capability" not in reason
+
+
+def test_dispatch_smoke_a_wholly_cordoned_fleet_leaves_the_row_waiting(
+    three_gtk_config: Config,
+) -> None:
+    """#3599 blocking review finding: with `rank_smoke_machines` now
+    cordon-aware, every capability-matched machine being cordoned (and
+    NOTHING ELSE — no explicit pause, no quiet-hours window) must NOT
+    durably poison the row the way an explicit pause does. A release
+    cordon is a bounded, self-clearing drain mechanism; stamping
+    `test_state=blocked` here would wedge the row until a human runs
+    `coord diagnose --stage test --reset`, converting the cordon's own
+    TTL-bounded wait into an unbounded one — exactly the bug this closes."""
+    from coord.machine_pause import local_set_cordon
+
+    for name in ("desktop-a", "desktop-b", "desktop-c"):
+        local_set_cordon(name, target_version="0.5.598")
+
+    completed = _completed(machine="server")
+    board = Board(completed=[completed])
+    result = dispatch_smoke(
+        completed, board, three_gtk_config,
+        http_client=_MultiHostClient(),
+        diff_lookup=lambda r, b: _GTK_DIFF,
+    )
+    assert result is None
+    # The whole point: NOT durably blocked. `test_state` must stay whatever
+    # it was before this call (not the sticky "blocked") so a later tick —
+    # once the cordon lifts or expires — genuinely retries dispatch instead
+    # of finding a verdict already recorded and skipping the row forever.
+    assert completed.test_state != "blocked"
+
+
+def test_dispatch_smoke_a_cordoned_fleet_still_recovers_after_the_cordon_lifts(
+    three_gtk_config: Config,
+) -> None:
+    """End-to-end consequence of the fix above: the row is still
+    re-dispatchable after the cordon that caused the dead end is cleared —
+    the exact assertion the #3599 review called for, not just the
+    picker-level `== []`."""
+    from coord.machine_pause import local_clear_cordon, local_set_cordon
+
+    for name in ("desktop-a", "desktop-b", "desktop-c"):
+        local_set_cordon(name, target_version="0.5.598")
+
+    completed = _completed(machine="server")
+    board = Board(completed=[completed])
+    client = _MultiHostClient()
+    first = dispatch_smoke(
+        completed, board, three_gtk_config,
+        http_client=client, diff_lookup=lambda r, b: _GTK_DIFF,
+    )
+    assert first is None
+    assert completed.test_state != "blocked"
+
+    for name in ("desktop-a", "desktop-b", "desktop-c"):
+        local_clear_cordon(name)
+
+    second = dispatch_smoke(
+        completed, board, three_gtk_config,
+        http_client=client, diff_lookup=lambda r, b: _GTK_DIFF,
+    )
+    assert second is not None, (
+        "the row must still be re-dispatchable once the cordon clears — a "
+        "durable block here would require a manual `coord diagnose --reset`"
+    )
+    assert completed.test_state == "running"
+
+
+def test_dispatch_smoke_a_mixed_pause_and_cordon_fleet_still_durably_blocks(
+    three_gtk_config: Config,
+) -> None:
+    """The flip side of the cordon-only carve-out: when AT LEAST ONE
+    capable machine is unavailable for a reason that will NOT self-clear
+    (an explicit pause here), lifting the cordon alone would not make the
+    row dispatchable — the durable block must still fire, same as before
+    #3599, so this doesn't regress into never blocking at all."""
+    from coord.machine_pause import local_pause, local_set_cordon
+
+    local_set_cordon("desktop-a", target_version="0.5.598")
+    for name in ("desktop-b", "desktop-c"):
+        local_pause(name)
+
+    completed = _completed(machine="server")
+    board = Board(completed=[completed])
+    result = dispatch_smoke(
+        completed, board, three_gtk_config,
+        http_client=_MultiHostClient(),
+        diff_lookup=lambda r, b: _GTK_DIFF,
+    )
+    assert result is None
+    assert completed.test_state == "blocked"
+    reason = completed.test_reason or ""
+    assert "cordoned for a release" in reason
+    assert "desktop-a" in reason and "desktop-b" in reason and "desktop-c" in reason
 
 
 # ── Fallback: try the NEXT capability-matched machine ───────────────────────
@@ -3664,11 +3881,16 @@ def test_dispatch_smoke_unroutable_partition_fails_loudly_at_dispatch(
     """#3182 acceptance: a matched rule's capability that NO configured
     machine declares at all is a config error, not a routing puzzle — it
     must fail loudly (naming the capability and the rule) at dispatch time,
-    never a silent retry loop (#1678's shape)."""
+    never a silent retry loop (#1678's shape). Neither rule has a capable
+    machine here (dell64 only has `windows`), so there is no routable
+    sibling to protect — the dispatch-everything-routable case this would
+    otherwise collide with is covered separately by
+    `test_dispatch_smoke_fanout_dispatches_routable_sibling_when_one_
+    capability_set_is_wholly_unroutable` below (#3581 fix-round-1)."""
     cfg = Config(
         repos=[repo],
         machines=[
-            _machine("dell64", "dell64.tail", caps=["gtk", "windows"], path="/d/api"),
+            _machine("dell64", "dell64.tail", caps=["windows"], path="/d/api"),
         ],
         smoke_tests=SmokeTestsConfig(
             auto_queue=True,
@@ -3690,6 +3912,57 @@ def test_dispatch_smoke_unroutable_partition_fails_loudly_at_dispatch(
     assert "macos" in reason
     assert "capability_rules[1]" in reason
     assert "quadraui/src/macos/" in reason
+
+
+def test_dispatch_smoke_fanout_dispatches_routable_sibling_when_one_capability_set_is_wholly_unroutable(
+    repo: Repo,
+) -> None:
+    """#3581 fix-round-1 (the review's blocking finding): a `platforms`-
+    bearing rule where only SOME platforms have a capable host — the
+    issue's own rollout scenario, a macOS host not yet onboarded — must
+    still dispatch the routable Linux leg. Before this fix,
+    `_dispatch_smoke_legs` reported the unroutable macOS capability set and
+    returned `[]` BEFORE ever looking at the routable Linux partition,
+    silently dropping a leg that was perfectly routable — smoke-testing the
+    diff on NEITHER OS, which is exactly the regression the review called
+    out against the issue's own stated goal."""
+    from coord.smoke import TEST_STATE_BLOCKED, _dispatch_smoke_legs, smoke_leg_capabilities
+
+    cfg = Config(
+        repos=[repo],
+        machines=[
+            # Only linux is onboarded — no machine anywhere declares macos.
+            _machine("precision", "precision.tail", caps=["rust", "linux"], path="/p/api"),
+        ],
+        smoke_tests=SmokeTestsConfig(
+            auto_queue=True,
+            capability_rules=[
+                SmokeRule(files=["tui/"], requires=["rust"], platforms=["linux", "macos"]),
+            ],
+        ),
+    )
+    completed = _completed()
+    board = Board()
+    client = _MultiHostClient(assign={"precision.tail": {"id": "precision-leg"}})
+    legs = _dispatch_smoke_legs(
+        completed, board, cfg, http_client=client,
+        diff_lookup=lambda r, b: ["tui/src/app.rs"],
+    )
+
+    # The routable Linux partition still dispatches — a sibling platform
+    # with no capable host must not hold it back.
+    assert len(legs) == 1
+    assert legs[0].machine_name == "precision"
+    assert smoke_leg_capabilities(legs[0].issue_title) == ("linux", "rust")
+    assert board.active == legs
+
+    # The unroutable macOS capability set is reported on the parent row —
+    # never silently dropped — and the aggregate lands on BLOCKED (not a
+    # misleadingly clean "running") so an operator sees the gap.
+    assert completed.test_state == TEST_STATE_BLOCKED
+    reason = completed.test_reason or ""
+    assert "macos" in reason
+    assert "rust" in reason
 
 
 def test_dispatch_smoke_fanout_mixed_round_keeps_blocked_partition_visible(

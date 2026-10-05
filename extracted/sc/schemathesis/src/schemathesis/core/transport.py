@@ -83,10 +83,21 @@ class CallOutcome(enum.Enum):
     ACCEPTED = "accepted"
     # Well-formed, but the addressed resource does not exist.
     UNREACHABLE = "unreachable"
+    # Well-formed, but at odds with the current state of the resource, e.g. a duplicate of a unique value.
+    CONFLICT = "conflict"
     # Refused on the data itself.
     REJECTED = "rejected"
     # Says nothing about whether the data was acceptable, e.g. an auth failure or a server error.
     UNINFORMATIVE = "uninformative"
+
+
+def is_uninformative_status(status_code: int) -> bool:
+    """Whether a response status says nothing about the data the request carried.
+
+    Auth failures, rate limiting, and server errors depend on who sent the request, how often, and the server's
+    health, not on what the request contained.
+    """
+    return status_code in (401, 403, 429) or status_code >= 500
 
 
 class Response:

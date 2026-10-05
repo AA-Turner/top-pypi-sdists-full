@@ -1,11 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: flufl.bounce
-Version: 5.0.1
+Version: 5.1.0
 Summary: Email bounce detectors
 Project-URL: Home Page, https://fluflbounce.readthedocs.io
 Project-URL: Documentation, https://fluflbounce.readthedocs.io
 Project-URL: Source Code, https://gitlab.com/flufl/flufl.bounce.git
-Project-URL: Bug Tracker, https://gitlab.com/flufl/flufl.bounce/issues
+Project-URL: Bug Tracker, https://gitlab.com/flufl/flufl.bounce/-/work_items
 Author-email: Barry Warsaw <barry@python.org>, Mark Sapiro <mark@msapiro.net>
 License: Apache-2.0
 License-File: LICENSE
@@ -32,7 +32,7 @@ flufl.bounce
 
 Email bounce detectors.
 
-The `flufl.bounce` library provides a set of heuristics and an API for
+The ``flufl.bounce`` library provides a set of heuristics and an API for
 detecting the original bouncing email addresses from a bounce message.  Many
 formats found in the wild are supported, as are VERP_ and RFC 3464 (DSN_).
 
@@ -40,7 +40,7 @@ formats found in the wild are supported, as are VERP_ and RFC 3464 (DSN_).
 Authors
 =======
 
-`flufl.bounce` is Copyright (C) 2004-2026 Barry Warsaw <barry@python.org>, and maintained by Barry
+``flufl.bounce`` is Copyright (C) 2004-2026 Barry Warsaw <barry@python.org>, and maintained by Barry
 and Mark Sapiro <mark@msapiro.net>.
 
 Licensed under the terms of the Apache Software License, version 2.  See
@@ -50,11 +50,12 @@ LICENSE for details.
 Project details
 ===============
 
- * Project home: https://gitlab.com/warsaw/flufl.bounce
- * Report bugs at: https://gitlab.com/warsaw/flufl.bounce/issues
- * Code: https://gitlab.com/warsaw/flufl.bounce.git
- * Documentation: http://fluflbounce.readthedocs.io/
+ * Project home: https://gitlab.com/flufl/flufl.bounce
+ * Report bugs at: https://gitlab.com/flufl/flufl.bounce/-/work_items
+ * Code hosting: https://gitlab.com/flufl/flufl.bounce.git
+ * Documentation: https://fluflbounce.readthedocs.io
+ * PyPI: https://pypi.org/project/flufl.bounce/
 
 
-.. _VERP: http://en.wikipedia.org/wiki/Variable_envelope_return_path
-.. _DSN: http://www.faqs.org/rfcs/rfc3464.html
+.. _VERP: https://en.wikipedia.org/wiki/Variable_envelope_return_path
+.. _DSN: https://www.rfc-editor.org/rfc/rfc3464.html

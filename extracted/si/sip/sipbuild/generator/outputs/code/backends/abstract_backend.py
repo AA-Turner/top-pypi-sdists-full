@@ -22,7 +22,7 @@ class AbstractBackend(ABC):
 
     @abstractmethod
     def g_arg_parser(self, sf, spec, scope, py_signature, signature_nr,
-            ctor=None, is_method=False, overload=None):
+            ctor=None, overload=None):
         """ Generate an argument parser call. """
 
         ...
@@ -49,6 +49,12 @@ class AbstractBackend(ABC):
     @abstractmethod
     def g_class_spec_extern_decl(self, sf, spec, klass):
         """ Generate the extern declaration of a class specification. """
+
+        ...
+
+    @abstractmethod
+    def g_code(self, sf, code):
+        """ Generate a block of handwritten code. """
 
         ...
 
@@ -409,8 +415,8 @@ class AbstractBackend(ABC):
         ...
 
     @abstractmethod
-    def get_error_handler_ref_type(self):
-        """ Return the type of a reference to an error handler. """
+    def get_error_handler_type(self, spec):
+        """ Return the type of a virtual error handler. """
 
         ...
 
@@ -430,6 +436,11 @@ class AbstractBackend(ABC):
         # This default implementation returns nothing.
         return ''
 
+    def get_overload_docstring(self, spec, scope, overload):
+        """ Return an overload's docstring. """
+
+        ...
+
     @abstractmethod
     def get_raise_unknown_exception(self):
         """ Return the call to raise an exception about an unknown exception.
@@ -438,7 +449,7 @@ class AbstractBackend(ABC):
         ...
 
     @abstractmethod
-    def get_result_parser(self):
+    def get_result_parser(self, spec):
         """ Return the name of the Python reimplementation result parser. """
 
         ...

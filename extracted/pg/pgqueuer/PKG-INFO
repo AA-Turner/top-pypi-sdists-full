@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pgqueuer
-Version: 1.4.0
+Version: 1.5.0
 Summary: PostgreSQL-backed background job and task queue for Python.
 Author: JeyBee
 License: MIT License
@@ -105,6 +105,12 @@ Dynamic: license-file
 **Your PostgreSQL database is already a job queue.**
 
 PgQueuer turns PostgreSQL into a fast, reliable background job processor. Jobs live in the same database as your application data. One stack, full ACID guarantees, and no separate message broker to run.
+
+## AI-assisted setup
+
+Already using a coding agent? Copy the onboarding prompt from the
+[PgQueuer documentation](https://janbjorge.github.io/pgqueuer/#let-an-agent-introduce-you).
+The prompt directs your agent to the maintained setup route and canonical docs.
 
 ## Features
 
@@ -247,7 +253,7 @@ The in-memory adapter has no durability or multi-process coordination, so use th
 Launch the interactive dashboard to watch queue activity in real time:
 
 ```bash
-pgq dashboard --interval 10 --tail 25
+pgq dashboard --interval 10 --limit 25
 ```
 
 ```text

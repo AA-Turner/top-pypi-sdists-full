@@ -3,13 +3,21 @@ from enum import Enum
 
 import pytest
 
-from kasa.smart.modules import WaterleakSensor
+from kasa import Module
+from kasa.smart import SmartDevice
 
+from ...conftest import get_device_for_fixture_protocol
 from ...device_fixtures import parametrize
 
 waterleak = parametrize(
     "has waterleak", component_filter="sensor_alarm", protocol_filter={"SMART.CHILD"}
 )
+
+
+@pytest.fixture
+async def parent(request):
+    """Get a dummy parent for tz tests."""
+    return await get_device_for_fixture_protocol("H100(EU)_1.0_1.5.5.json", "SMART")
 
 
 @waterleak
@@ -21,9 +29,12 @@ waterleak = parametrize(
         ("water_leak", "status", Enum),
     ],
 )
-async def test_waterleak_properties(dev, feature, prop_name, type):
+async def test_waterleak_properties(
+    dev: SmartDevice, parent: SmartDevice, feature: str, prop_name: str, type: type
+) -> None:
     """Test that features are registered and work as expected."""
-    waterleak: WaterleakSensor = dev.modules["WaterleakSensor"]
+    dev._parent = parent
+    waterleak = dev.modules[Module.WaterleakSensor]
 
     prop = getattr(waterleak, prop_name)
     assert isinstance(prop, type)
@@ -34,12 +45,16 @@ async def test_waterleak_properties(dev, feature, prop_name, type):
 
 
 @waterleak
-async def test_waterleak_features(dev):
+async def test_waterleak_features(dev: SmartDevice, parent: SmartDevice) -> None:
     """Test waterleak features."""
-    waterleak: WaterleakSensor = dev.modules["WaterleakSensor"]
+    dev._parent = parent
+    waterleak = dev.modules[Module.WaterleakSensor]
 
     assert "water_leak" in dev.features
     assert dev.features["water_leak"].value == waterleak.status
 
     assert "water_alert" in dev.features
     assert dev.features["water_alert"].value == waterleak.alert
+
+    assert "water_alert_timestamp" in dev.features
+    assert dev.features["water_alert_timestamp"].value == waterleak.alert_timestamp

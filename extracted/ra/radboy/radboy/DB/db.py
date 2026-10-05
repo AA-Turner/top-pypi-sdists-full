@@ -10231,3 +10231,13 @@ def reciprocalOf(value):
         return value
 
 rcpl=reciprocalOf
+
+def reciprocalOft1k(value):
+    try:
+        v=1/(value/60)*1000
+        return v
+    except Exception as e:
+        print(e)
+        return value
+
+rcplt1k=reciprocalOft1k

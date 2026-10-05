@@ -272,6 +272,8 @@ class Distribution(_distribution_parent):
 
         Custom providers may provide the METADATA file or override this
         property.
+
+        :raises MetadataNotFound: If no metadata file is present.
         """
         ...
     @property

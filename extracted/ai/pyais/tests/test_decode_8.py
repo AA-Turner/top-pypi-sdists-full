@@ -1,3 +1,4 @@
+
 import unittest
 
 from pyais import decode
@@ -22,22 +23,7 @@ from pyais.messages import (
 )
 from pyais.constants import SOLASStatus, IceClass
 
-
-def _twos(value: int, bits: int) -> str:
-    """Render `value` as a `bits`-wide two's complement bit string."""
-    if value < 0:
-        value += 1 << bits
-    return format(value & ((1 << bits) - 1), f'0{bits}b')
-
-
-def _sixbit(text: str, chars: int) -> str:
-    """Encode `text` as `chars` six-bit ASCII characters."""
-    padded = text.ljust(chars, '@')[:chars]
-    out = ''
-    for ch in padded:
-        c = ord(ch)
-        out += format((c - 64) if c >= 64 else c, '06b')
-    return out
+from tests.utils import _pack, _sixbit, _sub_circle, _sub_rectangle, _sub_sector, _sub_text, _sub_waypoints, _twos
 
 
 def _pack_targets(targets) -> bytes:
@@ -71,7 +57,7 @@ def _to_sentences(bits: str):
     return [part.encode() for part in sentences]
 
 
-def _area_notice_header(**over) -> str:
+def _area_notice_header_type_8(**over) -> str:
     """Pack the fixed 111-bit Area Notice header (IMO289 DAC=1/FID=22)."""
     bits = _twos(8, 6)                                  # Message Type
     bits += _twos(over.get('repeat', 0), 2)             # Repeat Indicator
@@ -88,58 +74,6 @@ def _area_notice_header(**over) -> str:
     bits += _twos(over.get('duration', 120), 18)        # Duration in minutes
     assert len(bits) == 111
     return bits
-
-
-def _sub_circle(lon, lat, radius, scale=0, precision=4) -> str:
-    bits = _twos(0, 3) + _twos(scale, 2)
-    bits += _twos(round(lon * 60000), 25) + _twos(round(lat * 60000), 24)
-    bits += _twos(precision, 3) + _twos(radius, 12) + '0' * 18
-    assert len(bits) == 87
-    return bits
-
-
-def _sub_rectangle(lon, lat, east, north, orientation, scale=0, precision=4) -> str:
-    bits = _twos(1, 3) + _twos(scale, 2)
-    bits += _twos(round(lon * 60000), 25) + _twos(round(lat * 60000), 24)
-    bits += _twos(precision, 3) + _twos(east, 8) + _twos(north, 8)
-    bits += _twos(orientation, 9) + '0' * 5
-    assert len(bits) == 87
-    return bits
-
-
-def _sub_sector(lon, lat, radius, left, right, scale=0, precision=4) -> str:
-    bits = _twos(2, 3) + _twos(scale, 2)
-    bits += _twos(round(lon * 60000), 25) + _twos(round(lat * 60000), 24)
-    bits += _twos(precision, 3) + _twos(radius, 12)
-    bits += _twos(left, 9) + _twos(right, 9)
-    assert len(bits) == 87
-    return bits
-
-
-def _sub_waypoints(shape, points, scale=0) -> str:
-    """Polyline (shape 3) or polygon (shape 4): four (bearing, distance) pairs."""
-    bits = _twos(shape, 3) + _twos(scale, 2)
-    for bearing, distance in points:
-        bits += _twos(bearing, 10) + _twos(distance, 10)
-    bits += '00'
-    assert len(bits) == 87
-    return bits
-
-
-def _sub_text(text) -> str:
-    bits = _twos(5, 3) + _sixbit(text, 14)
-    assert len(bits) == 87
-    return bits
-
-
-def _pack_sub_areas(bits: str) -> bytes:
-    """Left-align a run of 87-bit sub-area records into whole bytes.
-
-    87 is not a multiple of 8, so the records are padded on the right rather
-    than truncated to a byte boundary.
-    """
-    padded = bits + '0' * (-len(bits) % 8)
-    return int(padded, 2).to_bytes(len(padded) // 8, 'big')
 
 
 # (id_type, target_id, lat, lon, course, second, speed)
@@ -1042,7 +976,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
 
     def test_bit_layout_matches_spec(self):
         """Hand-pack the header plus one sub-area of every shape."""
-        bits = _area_notice_header()
+        bits = _area_notice_header_type_8()
         bits += _sub_circle(-70.8, 42.3, radius=250, scale=1)
         bits += _sub_rectangle(-70.9, 42.2, east=200, north=150, orientation=45)
         bits += _sub_sector(-70.7, 42.4, radius=1000, left=30, right=120)
@@ -1105,32 +1039,32 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
     def test_scale_factor_applies_to_linear_dimensions(self):
         """Each scale step multiplies radius/east/north/distance by ten."""
         for scale, radius in ((0, 4095), (1, 40950), (2, 409500), (3, 4095000)):
-            bits = _area_notice_header() + _sub_circle(0.0, 0.0, 4095, scale=scale)
+            bits = _area_notice_header_type_8() + _sub_circle(0.0, 0.0, 4095, scale=scale)
             decoded = decode(*_to_sentences(bits))
             assert isinstance(decoded, MessageType8Dac1Fid22)
             self.assertEqual(decoded.sub_areas[0]['radius'], radius)
 
-        bits = _area_notice_header() + _sub_rectangle(0.0, 0.0, 255, 255, 0, scale=2)
+        bits = _area_notice_header_type_8() + _sub_rectangle(0.0, 0.0, 255, 255, 0, scale=2)
         decoded = decode(*_to_sentences(bits))
         assert isinstance(decoded, MessageType8Dac1Fid22)
         self.assertEqual(decoded.sub_areas[0]['east'], 25500)
         self.assertEqual(decoded.sub_areas[0]['north'], 25500)
 
-        bits = _area_notice_header() + _sub_waypoints(3, [(0, 1023)] * 4, scale=3)
+        bits = _area_notice_header_type_8() + _sub_waypoints(3, [(0, 1023)] * 4, scale=3)
         decoded = decode(*_to_sentences(bits))
         assert isinstance(decoded, MessageType8Dac1Fid22)
         self.assertEqual(decoded.sub_areas[0]['points'][0]['distance'], 1023000)
 
     def test_single_and_maximum_sub_area_counts(self):
         """1 sub-area is the minimum (198 bits) and 10 the maximum (981 bits)."""
-        bits = _area_notice_header() + _sub_text("ONE")
+        bits = _area_notice_header_type_8() + _sub_text("ONE")
         self.assertEqual(len(bits), 198)
         decoded = decode(*_to_sentences(bits))
         assert isinstance(decoded, MessageType8Dac1Fid22)
         self.assertEqual(len(decoded.sub_areas), 1)
         self.assertEqual(decoded.sub_areas[0]['text'], 'ONE')
 
-        bits = _area_notice_header()
+        bits = _area_notice_header_type_8()
         for i in range(10):
             bits += _sub_circle(1.0 * i, 2.0 * i, radius=i)
         self.assertEqual(len(bits), 981)
@@ -1143,7 +1077,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
 
     def test_defaults_and_na_sentinels(self):
         """The N/A defaults from the spec table survive a round trip."""
-        bits = _area_notice_header(
+        bits = _area_notice_header_type_8(
             notice=127,      # Undefined (default)
             month=0,         # N/A
             day=0,           # N/A
@@ -1165,7 +1099,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
 
     def test_notice_126_cancels_the_area_by_linkage_id(self):
         """Notice 126 plus duration 0 is the documented cancellation form."""
-        bits = _area_notice_header(notice=126, linkage=1023, duration=0)
+        bits = _area_notice_header_type_8(notice=126, linkage=1023, duration=0)
         bits += _sub_circle(-70.8, 42.3, radius=0)
         decoded = decode(*_to_sentences(bits))
 
@@ -1179,14 +1113,14 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
     def test_reserved_shapes_are_kept_raw(self):
         """Shapes 6-7 are reserved, so the payload is not guessed at."""
         for shape in (6, 7):
-            bits = _area_notice_header() + _twos(shape, 3) + _twos(12345, 84)
+            bits = _area_notice_header_type_8() + _twos(shape, 3) + _twos(12345, 84)
             decoded = decode(*_to_sentences(bits))
             assert isinstance(decoded, MessageType8Dac1Fid22)
             self.assertEqual(decoded.sub_areas[0], {'shape': shape, 'shape_str': 'reserved', 'data': 12345})
 
     def test_negative_and_extreme_coordinates(self):
         """Positions are signed 1/1000-minute values."""
-        bits = _area_notice_header()
+        bits = _area_notice_header_type_8()
         bits += _sub_circle(-179.99998, -89.99998, radius=1)
         bits += _sub_circle(179.99998, 89.99998, radius=1)
         decoded = decode(*_to_sentences(bits))
@@ -1201,7 +1135,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
         """Build a message with create()/encode_msg() and read it back."""
         area_bits = _sub_circle(11.5, 55.25, radius=300)
         area_bits += _sub_text("SURVEY OPS")
-        area_data = _pack_sub_areas(area_bits)
+        area_data = _pack(area_bits)
 
         encoded = encode_msg(MessageType8Dac1Fid22.create(
             mmsi='219000001',
@@ -1231,7 +1165,7 @@ class MessageType8Dac1Fid22Tests(unittest.TestCase):
 
     def test_encode_dict_round_trip(self):
         """The (dac, fid) pair routes through encode_dict as well."""
-        area_data = _pack_sub_areas(_sub_text("HIGH WIND"))
+        area_data = _pack(_sub_text("HIGH WIND"))
         encoded = encode_dict({
             'msg_type': 8,
             'mmsi': '219000001',
@@ -2027,6 +1961,14 @@ class MessageType8Dac1Fid27Tests(unittest.TestCase):
         """DAC=1/FID=27 must route to the structured class, not the fallback."""
         decoded = MessageType8Dac1Fid27.create(mmsi='219000001')
         self.assertNotIsInstance(decoded, MessageType8Default)
+
+    def test_encoded_length_is_exact_for_every_waypoint_count(self):
+        # byte padding is at most 7 bits, so up to 9 stray bits can never add a 55-bit record
+        for n in range(1, 17):
+            with self.subTest(waypoints=n):
+                data = _pack(n * _route_waypoint(-179.99998, -89.99998))
+                msg = MessageType8Dac1Fid27.create(mmsi='219000001', waycount=n, waypoints_data=data)
+                self.assertEqual(msg.to_bytes()[1], 117 + 55 * n)
 
 
 class MessageType8Dac1Fid29Tests(unittest.TestCase):

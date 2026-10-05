@@ -15,19 +15,19 @@ from pytorch_optimizer.optimizer.utils import get_global_gradient_norm, to_real
 
 
 class DAdaptAdaGrad(BaseOptimizer):
-    """AdaGrad with D-Adaptation. Leave LR set to 1 unless you encounter instability.
+    """AdaGrad with D-Adaptation.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        momentum (float): Momentum factor.
-        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Multiplier for the adapted step size. Use `1.0` unless training is unstable.
+        momentum: Momentum factor.
+        d0: Initial estimate of the distance to the optimum.
+        growth_rate: Maximum multiplicative growth of the distance estimate per step.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -153,7 +153,12 @@ class DAdaptAdaGrad(BaseOptimizer):
                     alpha_k_p1_masked = alpha_k_masked._values() + vk
 
                     alpha_k_delta_masked = alpha_k_p1_masked - alpha_k_masked._values()
-                    alpha_k_delta = torch.sparse_coo_tensor(grad.indices(), alpha_k_delta_masked, grad.shape)
+                    alpha_k_delta = torch.sparse_coo_tensor(
+                        grad.indices(),
+                        alpha_k_delta_masked,
+                        grad.shape,
+                        check_invariants=False,
+                    )
                     alpha_k.add_(alpha_k_delta)
 
                     de_nom = torch.sqrt(alpha_k_p1_masked + eps)
@@ -168,7 +173,10 @@ class DAdaptAdaGrad(BaseOptimizer):
 
                     weighted_sk_p1_delta_masked = weighted_sk_p1_masked - weighted_sk_masked._values()
                     weighted_sk_p1_delta = torch.sparse_coo_tensor(
-                        grad.indices(), weighted_sk_p1_delta_masked, grad.shape
+                        grad.indices(),
+                        weighted_sk_p1_delta_masked,
+                        grad.shape,
+                        check_invariants=False,
                     )
                     weighted_sk.add_(weighted_sk_p1_delta)
 
@@ -237,13 +245,18 @@ class DAdaptAdaGrad(BaseOptimizer):
                     loc_masked = x0_masked - sk_masked.div(torch.sqrt(alpha_k_masked + group['eps']))
 
                     loc_delta_masked = loc_masked - p_masked
-                    loc_delta = torch.sparse_coo_tensor(grad.indices(), loc_delta_masked, grad.shape)
+                    loc_delta = torch.sparse_coo_tensor(
+                        grad.indices(),
+                        loc_delta_masked,
+                        grad.shape,
+                        check_invariants=False,
+                    )
                     p.add_(loc_delta)
                 else:
                     z = x0 - sk.div(alpha_k.sqrt().add_(group['eps']))
 
                     if group['momentum'] > 0.0:
-                        p.mul_(group['momentum']).add_(z, alpha=1.0 - group['momentum'])
+                        p.lerp_(z, weight=1.0 - group['momentum'])
                     else:
                         p.copy_(z)
 
@@ -253,20 +266,20 @@ class DAdaptAdaGrad(BaseOptimizer):
 
 
 class DAdaptAdam(BaseOptimizer):
-    """Adam with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
+    """Adam with D-Adaptation V3.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Betas.
-        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Use AdamW style weight decay.
-        fixed_decay (bool): Fix weight decay.
-        bias_correction (bool): Turn on Adam's bias correction.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Multiplier for the adapted step size. Use `1.0` unless training is unstable.
+        betas: Decay rates for the gradient mean and squared gradients.
+        d0: Initial estimate of the distance to the optimum.
+        growth_rate: Maximum multiplicative growth of the distance estimate per step.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        bias_correction: Apply bias correction to the moment estimates.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -365,8 +378,7 @@ class DAdaptAdam(BaseOptimizer):
         numerator_weighted = group['numerator_weighted']
 
         for group in self.param_groups:
-            if group['step'] == 0:
-                self.init_group(group)
+            self.init_group(group)
 
             group['step'] += 1
 
@@ -395,7 +407,7 @@ class DAdaptAdam(BaseOptimizer):
         if sk_l1 == 0:
             return loss
 
-        numerator_weighted.mul_(beta2_sq).add_(numerator_acc, alpha=1.0 - beta2_sq)  # fmt: skip
+        numerator_weighted.lerp_(numerator_acc, weight=1.0 - beta2_sq)  # fmt: skip
 
         if lr > 0.0:
             d_hat = numerator_weighted / ((1.0 - beta2_sq) * sk_l1)
@@ -430,18 +442,18 @@ class DAdaptAdam(BaseOptimizer):
 
 
 class DAdaptSGD(BaseOptimizer):
-    """SGD with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
+    """SGD with D-Adaptation V3.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        momentum (float): Momentum.
-        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Multiplier for the adapted step size. Use `1.0` unless training is unstable.
+        momentum: Momentum factor.
+        d0: Initial estimate of the distance to the optimum.
+        growth_rate: Maximum multiplicative growth of the distance estimate per step.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -528,8 +540,7 @@ class DAdaptSGD(BaseOptimizer):
         d_lr: float = d * lr / g0_norm
 
         for group in self.param_groups:
-            if group['step'] == 0:
-                self.init_group(group)
+            self.init_group(group)
 
             for p in group['params']:
                 if p.grad is None:
@@ -575,25 +586,24 @@ class DAdaptSGD(BaseOptimizer):
                 z = state['z']
                 z.copy_(state['x0'] - state['s'])
 
-                p.mul_(group['momentum']).add_(z, alpha=1.0 - group['momentum'])
+                p.lerp_(z, weight=1.0 - group['momentum'])
 
         return loss
 
 
 class DAdaptAdan(BaseOptimizer):
-    """Adan with D-Adaptation. Leave LR set to 1 unless you encounter instability.
+    """Adan with D-Adaptation.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas: (Betas). coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Decoupled weight decay.
-        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-        growth_rate (float): Prevent the D estimate from growing faster than this multiplicative rate.
-            Default is inf, for unrestricted.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Multiplier for the adapted step size. Use `1.0` unless training is unstable.
+        betas: Decay rates for gradients, gradient differences, and squared corrected gradients.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        d0: Initial estimate of the distance to the optimum.
+        growth_rate: Maximum multiplicative growth of the distance estimate per step.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -680,9 +690,7 @@ class DAdaptAdan(BaseOptimizer):
         gsq_weighted = group['gsq_weighted']
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 0
+            self.init_group(group)
 
             for p in group['params']:
                 if p.grad is None:
@@ -758,17 +766,17 @@ class DAdaptAdan(BaseOptimizer):
 
 
 class DAdaptLion(BaseOptimizer):
-    """Lion with D-Adaptation. Leave LR set to 1 unless you encounter instability. This implementation is based on V3.
+    """Lion with D-Adaptation V3.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas: (Betas). Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        d0 (float): Initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Multiplier for the adapted step size. Use `1.0` unless training is unstable.
+        betas: Decay rates for update interpolation and gradient momentum.
+        d0: Initial estimate of the distance to the optimum.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -850,8 +858,7 @@ class DAdaptLion(BaseOptimizer):
         d_lr: float = d * lr
 
         for group in self.param_groups:
-            if group['step'] == 0:
-                self.init_group(group)
+            self.init_group(group)
 
             for p in group['params']:
                 if p.grad is None:
@@ -874,7 +881,7 @@ class DAdaptLion(BaseOptimizer):
 
                 exp_avg, s = state['exp_avg'], state['s']
 
-                update = exp_avg.clone().mul_(beta1).add_(grad, alpha=1.0 - beta1).sign_()
+                update = exp_avg.clone().lerp_(grad, weight=1.0 - beta1).sign_()
                 p.add_(update, alpha=-d_lr)
 
                 exp_avg.mul_(beta2).add_(grad, alpha=(1.0 - beta2) * d_lr)
@@ -884,7 +891,7 @@ class DAdaptLion(BaseOptimizer):
 
                 sk_l1.add_(s.abs().sum())
 
-        numerator_weighted.mul_(beta2_sq).add_(numerator_accumulator, alpha=1.0 - beta2_sq)
+        numerator_weighted.lerp_(numerator_accumulator, weight=1.0 - beta2_sq)
 
         if sk_l1 == 0:
             return loss

@@ -2427,7 +2427,20 @@ def count_landed(client, project: str) -> tuple[int, bool]:
         total = len(counted)
         at_least = total >= RECONCILE_PAGE
 
-        experiments = _rows(client.list_experiments(project_id=project_id))
+        # EVERY experiment of the project, not the first page: the list pages
+        # by offset (100 a page unless asked), and a short list here would
+        # report a short count as if it were the whole one.
+        experiments: list = []
+        cursor = None
+        while True:
+            listed = client.list_experiments(project_id=project_id, limit=500, cursor=cursor)
+            page_rows = _rows(listed)
+            if page_rows is None:
+                return -1, False
+            experiments.extend(page_rows)
+            cursor = getattr(listed, "next_cursor", None)
+            if not cursor:
+                break
         exp_ids = []
         for exp in experiments or []:
             exp_id = exp.get("id") if isinstance(exp, dict) else getattr(exp, "id", None)

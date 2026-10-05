@@ -24,6 +24,35 @@ ELIDABLE_SCHEMA = {"description": "Test", "type": "object", "properties": {"foo"
 ALL_OF_ROOT = {"allOf": [USER_REFERENCE, {"description": "Test"}], "type": "object", "additionalProperties": False}
 
 
+@pytest.mark.hypothesis_nested
+def test_request_body_schema_reference_to_plain_name_anchor(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/pets": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": {"$ref": "#petName"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components={"schemas": {"Name": {"$anchor": "petName", "type": "string"}}},
+    )
+    operation = schema["/pets"]["POST"]
+
+    assert [body.media_type for body in operation.body] == ["application/json"]
+
+    @given(case=operation.as_strategy())
+    @settings(max_examples=3)
+    def test(case):
+        assert isinstance(case.body, str)
+
+    test()
+
+
 def build_schema_with_recursion(schema, definition):
     schema["paths"]["/users"] = {
         "post": {
@@ -1086,6 +1115,51 @@ def test_remote_ref_fails(ctx, kind, cli, app_runner, snapshot_cli):
         @app.route(path)
         def external():
             return jsonify(42)
+
+    schema_url = app_runner.openapi_url(app)
+    base_url = schema_url.removesuffix("/openapi.json")
+
+    assert (
+        cli.run(
+            schema_url,
+            "--phases=fuzzing",
+            "--checks=not_a_server_error",
+            config={"warnings": False},
+        )
+        == snapshot_cli
+    )
+
+
+def test_remote_ref_missing_fragment_reports_document_url(ctx, cli, app_runner, snapshot_cli):
+    app = Flask(__name__)
+    path = "/external/parameters.json"
+    base_url = ""
+
+    @app.route("/openapi.json")
+    def openapi():
+        return jsonify(
+            ctx.openapi.build_schema(
+                {
+                    "/test": {
+                        "get": {
+                            "parameters": [
+                                {
+                                    "name": "key",
+                                    "in": "query",
+                                    "required": True,
+                                    "schema": {"$ref": f"{base_url}{path}#/Missing"},
+                                }
+                            ],
+                            "responses": {"200": {"description": "OK"}},
+                        }
+                    }
+                }
+            )
+        )
+
+    @app.route(path)
+    def external():
+        return jsonify({"Other": {"schema": {"type": "string"}}})
 
     schema_url = app_runner.openapi_url(app)
     base_url = schema_url.removesuffix("/openapi.json")

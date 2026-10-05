@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import inspect
+from collections.abc import Sequence
 
 import typer
 from typing_extensions import Annotated
 
-from pgqueuer.adapters.persistence import qb
+from pgqueuer.adapters.persistence import qb, schema_ddl
 
 sql_app = typer.Typer(
     help=(
@@ -56,37 +56,40 @@ DurabilityArgument = Annotated[
 ]
 
 
-def render_install(settings: qb.DBSettings, create_schema: bool) -> str:
-    qbe = qb.QueryBuilderEnvironment(settings)
-    return inspect.cleandoc(qbe.build_install_query(create_schema=create_schema)).strip()
-
-
-def render_uninstall() -> str:
-    return inspect.cleandoc(qb.QueryBuilderEnvironment().build_uninstall_query()).strip()
-
-
 def render_upgrade(settings: qb.DBSettings) -> str:
-    qbe = qb.QueryBuilderEnvironment(settings)
-    return "\n\n".join(
-        inspect.cleandoc(statement).strip() for statement in qbe.build_upgrade_queries()
+    return "\n\n".join(schema_ddl.render_converge(settings))
+
+
+def render_plan(statements: Sequence[str], settings: qb.DBSettings) -> str:
+    """A computed plan as a file: header first, so it cannot be mistaken for a migration.
+
+    Empty when there is nothing to do, so a redirect leaves an empty file
+    rather than one holding a stray newline.
+    """
+    if not statements:
+        return ""
+    header = (
+        f"{schema_ddl.provenance(settings)}\n"
+        "-- Computed from this database's catalog: the delta for this database\n"
+        "-- only. Replaying it elsewhere assumes the other database drifted the\n"
+        "-- same way. For a script that suits any installation of this release,\n"
+        "-- use 'pgq sql upgrade'."
     )
+    return "\n\n".join([header, *statements])
 
 
 def render_durability(settings: qb.DBSettings) -> str:
     qbe = qb.QueryBuilderEnvironment(settings)
-    return "\n\n".join(
-        inspect.cleandoc(statement).strip() for statement in qbe.build_alter_durability_query()
-    )
+    return "\n\n".join(qbe.build_alter_durability_query())
 
 
 def render_autovac(rollback: bool) -> str:
     qbe = qb.QueryBuilderEnvironment()
-    query = (
+    return (
         qbe.build_optimize_autovacuum_rollback_query()
         if rollback
         else qbe.build_optimize_autovacuum_query()
     )
-    return inspect.cleandoc(query).strip()
 
 
 @sql_app.command(help="SQL to create the PgQueuer schema.")
@@ -94,15 +97,22 @@ def install(
     durability: DurabilityOption = qb.Durability.durable,
     create_schema: CreateSchemaOption = True,
 ) -> None:
-    typer.echo(render_install(qb.DBSettings(durability=durability), create_schema))
+    settings = qb.DBSettings(durability=durability)
+    typer.echo(schema_ddl.render_install(settings, create_schema=create_schema))
 
 
 @sql_app.command(help="SQL to drop all PgQueuer objects.")
 def uninstall() -> None:
-    typer.echo(render_uninstall())
+    typer.echo(schema_ddl.render_uninstall(qb.DBSettings()))
 
 
-@sql_app.command(help="SQL to migrate an existing installation to the current version.")
+@sql_app.command(
+    help=(
+        "SQL to migrate an existing installation to the current version. "
+        "Re-states every object behind IF NOT EXISTS; for the exact delta a "
+        "database needs, use 'pgq upgrade --plan'."
+    )
+)
 def upgrade(
     durability: DurabilityOption = qb.Durability.durable,
     widen_id: WidenIdOption = True,

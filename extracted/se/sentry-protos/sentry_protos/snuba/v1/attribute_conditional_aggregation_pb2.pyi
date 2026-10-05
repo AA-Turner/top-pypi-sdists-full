@@ -21,6 +21,7 @@ class AttributeConditionalAggregation(google.protobuf.message.Message):
     EXPRESSION_FIELD_NUMBER: builtins.int
     LABEL_FIELD_NUMBER: builtins.int
     EXTRAPOLATION_MODE_FIELD_NUMBER: builtins.int
+    INTERPOLATION_MODE_FIELD_NUMBER: builtins.int
     FILTER_FIELD_NUMBER: builtins.int
     DEFAULT_VALUE_DOUBLE_FIELD_NUMBER: builtins.int
     DEFAULT_VALUE_INT64_FIELD_NUMBER: builtins.int
@@ -28,6 +29,7 @@ class AttributeConditionalAggregation(google.protobuf.message.Message):
     aggregate: sentry_protos.snuba.v1.trace_item_attribute_pb2.Function.ValueType
     label: builtins.str
     extrapolation_mode: sentry_protos.snuba.v1.trace_item_attribute_pb2.ExtrapolationMode.ValueType
+    interpolation_mode: sentry_protos.snuba.v1.trace_item_attribute_pb2.InterpolationMode.ValueType
     default_value_double: builtins.float
     default_value_int64: builtins.int
     @property
@@ -50,13 +52,14 @@ class AttributeConditionalAggregation(google.protobuf.message.Message):
         expression: sentry_protos.snuba.v1.trace_item_attribute_pb2.AttributeKeyExpression | None = ...,
         label: builtins.str = ...,
         extrapolation_mode: sentry_protos.snuba.v1.trace_item_attribute_pb2.ExtrapolationMode.ValueType = ...,
+        interpolation_mode: sentry_protos.snuba.v1.trace_item_attribute_pb2.InterpolationMode.ValueType = ...,
         filter: sentry_protos.snuba.v1.trace_item_filter_pb2.TraceItemFilter | None = ...,
         default_value_double: builtins.float = ...,
         default_value_int64: builtins.int = ...,
         ranked_by: sentry_protos.snuba.v1.trace_item_attribute_pb2.RankedBy | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "expression", b"expression", "filter", b"filter", "key", b"key", "ranked_by", b"ranked_by"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "expression", b"expression", "extrapolation_mode", b"extrapolation_mode", "filter", b"filter", "key", b"key", "label", b"label", "ranked_by", b"ranked_by"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "expression", b"expression", "extrapolation_mode", b"extrapolation_mode", "filter", b"filter", "interpolation_mode", b"interpolation_mode", "key", b"key", "label", b"label", "ranked_by", b"ranked_by"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["default_value", b"default_value"]) -> typing.Literal["default_value_double", "default_value_int64"] | None: ...
 
 global___AttributeConditionalAggregation = AttributeConditionalAggregation

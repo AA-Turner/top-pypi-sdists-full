@@ -20,7 +20,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 
 from probe import __version__
-from probe.cli import autoupdate, updater, versions
+from probe.cli import autoupdate, plugin_cli, updater, versions
 from probe.cli.capabilities import agent_source
 
 
@@ -158,8 +158,15 @@ def perform_update(
         # `include_plugin=False`.
         if source != "pi":
             codex = source == "codex"
-            lines.append("Codex plugins:" if codex else "Claude Code plugins:")
-            pres = updater.update_codex_plugins() if codex else updater.update_plugin(plugin_target)
+            kimi = source == plugin_cli.KIMI
+            lines.append("Codex plugins:" if codex else "Kimi Code plugins:" if kimi else "Claude Code plugins:")
+            pres = (
+                updater.update_codex_plugins()
+                if codex
+                else updater.update_kimi_plugins()
+                if kimi
+                else updater.update_plugin(plugin_target)
+            )
             lines.append(f"  {pres.message}")
             # THE TAP'S OWN LINE, so all three versions are on screen (the CLI's
             # is above). It is a separate plugin, and "updated the plugin" said
@@ -173,10 +180,12 @@ def perform_update(
             # A machine that cannot run git would fail these the same way; the
             # failure printed above already says what to run first.
             if (not pres.confirmed or tap_behind) and not pres.git_blocked:
-                agent = "Codex" if codex else "Claude Code"
+                agent = "Codex" if codex else "Kimi Code" if kimi else "Claude Code"
                 manual = (
                     updater.manual_codex_plugin_commands()
                     if codex
+                    else updater.manual_kimi_plugin_commands()
+                    if kimi
                     else updater.manual_plugin_commands()
                 )
                 lines.append(f"  update them manually, then restart {agent}:")

@@ -5602,6 +5602,182 @@ def test_a_failed_launch_is_a_consumed_attempt_not_a_running_entry(
     assert "tmux: no server running" in entry["last_reason"]
 
 
+def test_the_tick_defers_an_unpinned_entry_with_no_eligible_host(
+    cli, seed, launches, monkeypatch,
+):
+    """#3600: wired through the real `coord drive-queue tick` — when the
+    shell's own `_fetch_no_eligible_host` reports a repo as having no
+    surviving candidate, nothing is spawned for it at all, and a later tick
+    (once the fleet is reported eligible again) launches normally."""
+    from coord.commands import drive_queue as drive_queue_cmd
+
+    seed(issues={1650: "open"})
+    cli("add", REPO, "1650")
+
+    monkeypatch.setattr(
+        drive_queue_cmd, "_fetch_no_eligible_host",
+        lambda entries, config_path: {REPO: "every host ... is paused or cordoned"},
+    )
+    result = cli("tick")
+    assert result.exit_code == 0, result.output
+    assert launches == []
+    entry = queued(1650)
+    assert entry["state"] == "waiting"
+    assert entry["attempts"] == 0
+
+    monkeypatch.setattr(
+        drive_queue_cmd, "_fetch_no_eligible_host", lambda entries, config_path: {},
+    )
+    result = cli("tick")
+    assert result.exit_code == 0, result.output
+    assert launches and "1650" in " ".join(launches[0])
+
+
+def test_a_no_eligible_host_launch_failure_spends_no_attempt(
+    cli, seed, launches, monkeypatch,
+):
+    """#3600's launch-time safety net: a residual race between this tick's
+    own `no_eligible_host` precheck and the moment the launch subprocess
+    actually resolved its machine (every capable host became paused or
+    cordoned in that window) must not be charged against the entry's
+    attempts — the exact failure mode that sent quadraui#1102/#1103 to
+    `blocked` while a `--dry-run` run, moments later, resolved cleanly.
+
+    Review round 1: the free pass is now granted off a POST-launch
+    RE-OBSERVATION (a fresh `_fetch_no_eligible_host([target], ...)` call,
+    right after the failed launch — epic #2096, "a verdict must come from a
+    post-action observation"), never off a substring match against the
+    failed subprocess's captured stderr. Monkeypatched here at that exact
+    seam rather than driving a real paused fleet (matching every other
+    `_fetch_cordons`/`_fetch_no_eligible_host` test in this module), but
+    unlike the pre-review-round-1 version this no longer cares what the
+    stderr text says — any non-zero exit is excused as long as the
+    re-observation still reports the repo.
+    """
+    seed(issues={1650: "open"})
+    cli("add", REPO, "1650")
+    launches.outcome["returncode"] = 2
+    launches.outcome["stderr"] = "tmux: no server running"
+
+    from coord.commands import drive_queue as drive_queue_cmd
+
+    # The FIRST call is `plan_tick`'s own precheck, at the top of the tick —
+    # it must report "eligible" so the entry actually reaches the launch
+    # subprocess instead of being deferred earlier by that unrelated path.
+    # The SECOND call is the launch handler's post-launch RE-OBSERVATION —
+    # that one reports "no eligible host", which is what grants the free
+    # pass this test is actually about.
+    calls = {"n": 0}
+
+    def _fake_no_eligible_host(entries, config_path):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {}
+        return {
+            REPO: "every host that can run claude-coordinator is paused, "
+            "cordoned, or unreachable right now (#3600)",
+        }
+
+    monkeypatch.setattr(
+        drive_queue_cmd, "_fetch_no_eligible_host", _fake_no_eligible_host,
+    )
+
+    result = cli("tick")
+    assert result.exit_code == 0, result.output
+    assert calls["n"] == 2, "the launch handler must re-observe exactly once"
+    entry = queued(1650)
+    assert entry["state"] == "waiting"
+    assert entry["attempts"] == 0
+    assert not entry["session_name"]
+    assert "no eligible host at launch time" in entry["last_reason"]
+    assert "#3600" in entry["last_reason"]
+    # Review non-blocking finding: the free pass must move `deferrals`, like
+    # every other benign `plan_tick` deferral — before this fix it left the
+    # counter untouched, so nothing could answer "how long has this been
+    # happening?".
+    assert entry["deferrals"] == 1
+
+
+def test_a_launch_failure_unrelated_to_eligibility_still_spends_an_attempt(
+    cli, seed, launches, monkeypatch,
+):
+    """The #1906 provider-mismatch message ("no unpaused machine advertises
+    provider ... for {repo}") and an ordinary crash both used to slip past
+    attempt-charging under the old substring match (it matched on the
+    shared "no unpaused machine" prefix). `_fetch_no_eligible_host` never
+    flags a provider mismatch — it only ever reports pause/cordon/
+    unreachable — so the post-launch re-observation correctly reports
+    nothing for this repo, and the failure falls through to the ordinary,
+    bounded, attempt-charging path instead of free-passing forever."""
+    seed(issues={1650: "open"})
+    cli("add", REPO, "1650")
+    launches.outcome["returncode"] = 2
+    launches.outcome["stderr"] = (
+        "no unpaused machine advertises provider 'codex' for "
+        "claude-coordinator — pass --machine, or add the capability"
+    )
+
+    from coord.commands import drive_queue as drive_queue_cmd
+
+    monkeypatch.setattr(
+        drive_queue_cmd, "_fetch_no_eligible_host", lambda entries, config_path: {},
+    )
+
+    result = cli("tick")
+    assert result.exit_code != 0
+    entry = queued(1650)
+    assert entry["state"] == "waiting"
+    assert entry["attempts"] == 1
+    assert "no unpaused machine advertises provider" in entry["last_reason"]
+
+
+def test_the_no_eligible_host_free_pass_is_capped_so_the_row_can_still_block(
+    cli, seed, launches, monkeypatch,
+):
+    """Review round 1's bound on the free pass: once `deferrals` has
+    already reached `_NO_ELIGIBLE_HOST_FREE_PASS_MAX_DEFERRALS`, a condition
+    that keeps re-confirming "no eligible host" stops being excused —
+    otherwise a cordon left in place for days (or a fleet-health flap that
+    never recovers) would free-pass this row FOREVER: it never leaves
+    `waiting`, so `attempts` never reaches `DEFAULT_MAX_ATTEMPTS`, it never
+    reaches `blocked`, and nothing escalates (#2096's "a gate must be able
+    to fail")."""
+    from coord.commands.drive_queue import _NO_ELIGIBLE_HOST_FREE_PASS_MAX_DEFERRALS
+
+    seed(issues={1650: "open"})
+    cli("add", REPO, "1650")
+    state.update_drive_queue_entry(
+        REPO, 1650, deferrals=_NO_ELIGIBLE_HOST_FREE_PASS_MAX_DEFERRALS,
+    )
+    launches.outcome["returncode"] = 2
+    launches.outcome["stderr"] = "tmux: no server running"
+
+    from coord.commands import drive_queue as drive_queue_cmd
+
+    # Same split as the free-pass test above: the precheck (1st call) must
+    # report "eligible" so the entry reaches the launch subprocess at all;
+    # the post-launch re-observation (2nd call) keeps reporting "no
+    # eligible host" — genuinely true, not a misfire — but `deferrals` has
+    # already reached the cap, so this must charge an attempt anyway.
+    calls = {"n": 0}
+
+    def _fake_no_eligible_host(entries, config_path):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {}
+        return {REPO: "every host ... paused or cordoned"}
+
+    monkeypatch.setattr(
+        drive_queue_cmd, "_fetch_no_eligible_host", _fake_no_eligible_host,
+    )
+
+    result = cli("tick")
+    assert result.exit_code != 0
+    entry = queued(1650)
+    assert entry["state"] == "waiting"
+    assert entry["attempts"] == 1
+
+
 # ── status ───────────────────────────────────────────────────────────────────
 
 

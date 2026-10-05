@@ -15,9 +15,29 @@ fn aligned_hamming_matches_per_pixel_count() {
                 bm.set(x, y, seed.is_multiple_of(3));
             }
         }
+        // Junk in the row padding bits must not count.
+        if !w.is_multiple_of(8) {
+            let stride = bm.row_stride();
+            for row in bm.data.chunks_exact_mut(stride) {
+                row[stride - 1] |= 0xFF >> (w % 8);
+            }
+        }
         bm
     };
-    for (cw, ch) in [(1u32, 1u32), (7, 5), (8, 8), (9, 13), (17, 4), (33, 21)] {
+    // Widths around 64 cover `aligned_hamming_words` (both at most 64 px)
+    // and pairs that only the byte path takes.
+    for (cw, ch) in [
+        (1u32, 1u32),
+        (7, 5),
+        (8, 8),
+        (9, 13),
+        (17, 4),
+        (33, 21),
+        (62, 6),
+        (64, 7),
+        (66, 5),
+        (90, 4),
+    ] {
         let cand = random_bitmap(cw, ch);
         for dw in -3i32..=3 {
             for dh in -3i32..=3 {
@@ -44,10 +64,81 @@ fn aligned_hamming_matches_per_pixel_count() {
                     want,
                     "{cw}x{ch} vs {mw}x{mh}"
                 );
+                let inside = mw <= cw && mh <= ch;
+                assert!(
+                    grid_bound(&ink_grid(&cand), &ink_grid(&reference), inside) <= want,
+                    "grid {cw}x{ch} vs {mw}x{mh}"
+                );
+                if cw <= 64 && mw <= 64 {
+                    let (mut c, mut m) = (Vec::new(), Vec::new());
+                    assert!(push_row_words(&cand, &mut c));
+                    assert!(push_row_words(&reference, &mut m));
+                    assert_eq!(
+                        aligned_hamming_words(&c, cw, &m, mw, u32::MAX),
+                        want,
+                        "words {cw}x{ch} vs {mw}x{mh}"
+                    );
+                }
             }
         }
     }
 }
+
+/// `ink_grid` counts each pixel in the cell of its offsets from the centre,
+/// and two pixels that `aligned_hamming` lines up share a cell, so
+/// `grid_bound` is 0 for a one-pixel pair that lines up.
+#[test]
+fn ink_grid_cells_follow_the_alignment() {
+    // Cell band of an offset from the centre: < -2, -2..0, 0..2, >= 2.
+    let band = |off: i32| (off >= -2) as usize + (off >= 0) as usize + (off >= 2) as usize;
+    let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+    for (cw, ch) in [(1u32, 1u32), (5, 7), (8, 8), (9, 4), (12, 11), (21, 3)] {
+        let mut cand = Bitmap::new(cw, ch);
+        let mut want = [0u32; 16];
+        for y in 0..ch as i32 {
+            for x in 0..cw as i32 {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                if seed.is_multiple_of(3) {
+                    cand.set(x as u32, y as u32, true);
+                    let r = ch as i32 - 1 - y - ((ch as i32 - 1) >> 1);
+                    want[4 * band(r) + band(x - ((cw as i32 - 1) >> 1))] += 1;
+                }
+            }
+        }
+        assert_eq!(ink_grid(&cand), want, "{cw}x{ch}");
+        for dw in -3i32..=3 {
+            for dh in -3i32..=3 {
+                let (mw, mh) = (cw as i32 + dw, ch as i32 + dh);
+                if mw < 1 || mh < 1 {
+                    continue;
+                }
+                let row_shift = ((mh - 1) >> 1) - ((ch as i32 - 1) >> 1);
+                let col_shift = ((mw - 1) >> 1) - ((cw as i32 - 1) >> 1);
+                for y in 0..ch as i32 {
+                    let my = mh - 1 - (ch as i32 - 1 - y + row_shift);
+                    for x in 0..cw as i32 {
+                        let mx = x + col_shift;
+                        if !(0..mh).contains(&my) || !(0..mw).contains(&mx) {
+                            continue;
+                        }
+                        let mut c = Bitmap::new(cw, ch);
+                        c.set(x as u32, y as u32, true);
+                        let mut m = Bitmap::new(mw as u32, mh as u32);
+                        m.set(mx as u32, my as u32, true);
+                        assert_eq!(
+                            grid_bound(&ink_grid(&c), &ink_grid(&m), true),
+                            0,
+                            "{cw}x{ch} ({x},{y}) vs {mw}x{mh} ({mx},{my})"
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
 use crate as jb2;
 use djvu_bitmap::Bitmap;
 
@@ -1488,4 +1579,132 @@ fn cluster_shared_symbols_caps_total_pixel_budget() {
     let djbz = encode_jb2_djbz(&shared);
     crate::decode_dict(&djbz, None)
         .expect("encoded shared Djbz must round-trip through decode_dict");
+}
+
+/// `encode_bitmap_direct`, which codes white runs in one call, emits the same
+/// bytes and contexts as a plain per-pixel loop over the 10-pixel context.
+#[test]
+fn encode_bitmap_direct_matches_per_pixel_loop() {
+    let mut seed = 0x9e37_79b9_7f4a_7c15u64;
+    for (w, h, sparsity) in [
+        (1u32, 1u32, 2u64),
+        (5, 3, 3),
+        (8, 4, 5),
+        (13, 9, 7),
+        (64, 20, 40),
+        (100, 37, 200),
+        (257, 31, 1000),
+        (1024, 6, 100_000),
+    ] {
+        let mut bm = Bitmap::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                bm.set(x, y, seed.is_multiple_of(sparsity));
+            }
+        }
+        let mut fast_zp = ZpEncoder::new();
+        let mut fast_ctx = vec![0u8; 1024];
+        encode_bitmap_direct(&mut fast_zp, &mut fast_ctx, &bm);
+
+        let px = |x: i32, y: i32| -> u32 {
+            u32::from(x >= 0 && y >= 0 && x < w as i32 && bm.get(x as u32, y as u32))
+        };
+        let mut slow_zp = ZpEncoder::new();
+        let mut slow_ctx = vec![0u8; 1024];
+        for y in 0..h as i32 {
+            for x in 0..w as i32 {
+                let r2 = px(x - 1, y - 2) << 2 | px(x, y - 2) << 1 | px(x + 1, y - 2);
+                let r1 = px(x - 2, y - 1) << 4
+                    | px(x - 1, y - 1) << 3
+                    | px(x, y - 1) << 2
+                    | px(x + 1, y - 1) << 1
+                    | px(x + 2, y - 1);
+                let r0 = px(x - 2, y) << 1 | px(x - 1, y);
+                let idx = (r2 << 7 | r1 << 2 | r0) as usize;
+                slow_zp.encode_bit(&mut slow_ctx[idx], px(x, y) != 0);
+            }
+        }
+        assert_eq!(fast_ctx, slow_ctx, "{w}x{h}");
+        assert_eq!(fast_zp.finish(), slow_zp.finish(), "{w}x{h}");
+    }
+}
+
+/// `extract_ccs` (packed-bit scan) finds the same components, in the same
+/// order and with the same pixels, as a per-pixel raster scan with the same
+/// DFS; row padding bits never become ink.
+#[test]
+fn extract_ccs_matches_per_pixel_scan() {
+    let mut seed = 0x0123_4567_89ab_cdefu64;
+    for (w, h, sparsity) in [
+        (1u32, 1u32, 2u64),
+        (7, 5, 2),
+        (9, 9, 3),
+        (64, 17, 5),
+        (70, 40, 9),
+        (131, 23, 40),
+        (300, 11, 400),
+    ] {
+        let mut bm = Bitmap::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                seed ^= seed << 13;
+                seed ^= seed >> 7;
+                seed ^= seed << 17;
+                bm.set(x, y, seed.is_multiple_of(sparsity));
+            }
+        }
+        // Junk in the padding bits past `w` must be ignored.
+        let stride = bm.row_stride();
+        if !w.is_multiple_of(8) {
+            for y in 0..h as usize {
+                bm.data[y * stride + stride - 1] |= 0xFF >> (w % 8);
+            }
+        }
+
+        let (wu, hu) = (w as usize, h as usize);
+        let mut seen = vec![false; wu * hu];
+        let mut expected = Vec::new();
+        for y0 in 0..hu {
+            for x0 in 0..wu {
+                if seen[y0 * wu + x0] || !bm.get(x0 as u32, y0 as u32) {
+                    continue;
+                }
+                seen[y0 * wu + x0] = true;
+                let mut stack = vec![(x0, y0)];
+                let mut pixels = Vec::new();
+                while let Some((cx, cy)) = stack.pop() {
+                    pixels.push((cx, cy));
+                    for ny in cy.saturating_sub(1)..=(cy + 1).min(hu - 1) {
+                        for nx in cx.saturating_sub(1)..=(cx + 1).min(wu - 1) {
+                            if !seen[ny * wu + nx] && bm.get(nx as u32, ny as u32) {
+                                seen[ny * wu + nx] = true;
+                                stack.push((nx, ny));
+                            }
+                        }
+                    }
+                }
+                let min_x = pixels.iter().map(|p| p.0).min().unwrap();
+                let min_y = pixels.iter().map(|p| p.1).min().unwrap();
+                expected.push((min_x as u32, min_y as u32, pixels));
+            }
+        }
+
+        let ccs = extract_ccs(&bm);
+        assert_eq!(ccs.len(), expected.len(), "{w}x{h}");
+        for (cc, (x, y, pixels)) in ccs.iter().zip(&expected) {
+            assert_eq!((cc.x, cc.y), (*x, *y), "{w}x{h}");
+            assert_eq!(cc.pixel_count as usize, pixels.len(), "{w}x{h}");
+            for &(px, py) in pixels {
+                assert!(cc.bitmap.get(px as u32 - x, py as u32 - y), "{w}x{h}");
+            }
+            let ink = (0..cc.bitmap.height)
+                .flat_map(|yy| (0..cc.bitmap.width).map(move |xx| (xx, yy)))
+                .filter(|&(xx, yy)| cc.bitmap.get(xx, yy))
+                .count();
+            assert_eq!(ink, pixels.len(), "{w}x{h}");
+        }
+    }
 }

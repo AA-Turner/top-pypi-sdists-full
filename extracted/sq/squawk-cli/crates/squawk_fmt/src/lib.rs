@@ -1,5 +1,5 @@
 mod comment;
 mod fmt;
-pub mod token_compare;
+pub mod validation;
 
-pub use fmt::{fmt, fmt_str};
+pub use fmt::{FormatOptions, fmt, fmt_str};

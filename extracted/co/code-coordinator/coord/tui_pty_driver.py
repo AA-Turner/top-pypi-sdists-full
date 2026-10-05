@@ -98,7 +98,9 @@ from __future__ import annotations
 import os
 import queue
 import re
+import signal
 import subprocess
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -461,10 +463,197 @@ class PtyChild(Protocol):
     def close(self) -> None: ...
 
 
+#: Linux's ``prctl(2)`` opcode for ``PR_SET_PDEATHSIG`` — not exposed by the
+#: stdlib, so :func:`_arm_parent_death_signal` calls it via ``ctypes``
+#: against ``libc.so.6`` rather than pulling in a dependency for one int.
+_PR_SET_PDEATHSIG = 1
+
+
+def _arm_parent_death_signal() -> None:
+    """Run in the forked child, before ``exec`` (#3583): arm a
+    kernel-enforced "kill me if my parent dies" signal, so the real binary
+    this driver launches is reaped even if the Python process managing it
+    is killed abnormally (SIGKILL, OOM, crash) — the one case no userspace
+    cleanup code (``close()``, ``__del__``, ``atexit``, a signal handler)
+    can ever run for, since SIGKILL cannot be caught.
+
+    ``os.setsid()`` detaches the child into its own session/process group
+    (needed so it gets its own controlling tty from the pty) — which also
+    means it is no longer reachable by a plain ``kill`` of the parent's
+    process group, so a death signal is the only remaining guarantee.
+    ``PR_SET_PDEATHSIG`` is preserved across ``execve()`` (POSIX.1-2001),
+    so it still applies to the real compiled binary this ``shell=True``
+    command ultimately execs into — **provided** that exec genuinely
+    replaces this process rather than a shell forking a fresh grandchild
+    for it (see :data:`_EXEC_PREFIX` on why the launch command is wrapped
+    in ``exec`` to force exactly that).
+
+    Linux-only (``prctl`` doesn't exist on macOS/BSD); best-effort — a
+    missing/broken ``libc`` symbol must never prevent the pty from
+    launching at all, so failures here are swallowed rather than raised.
+    """
+    if not sys.platform.startswith("linux"):
+        return
+    try:
+        import ctypes  # noqa: PLC0415
+
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        # Explicit, rather than relying on ctypes' default-`c_int`
+        # argument-promotion guess for an unannotated function pointer —
+        # `prctl(2)`'s real signature is `int prctl(int, unsigned long,
+        # unsigned long, unsigned long, unsigned long)`.
+        libc.prctl.argtypes = [
+            ctypes.c_int, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_ulong,
+        ]
+        libc.prctl.restype = ctypes.c_int
+        libc.prctl(_PR_SET_PDEATHSIG, signal.SIGKILL, 0, 0, 0)
+    except (OSError, AttributeError):
+        # OSError: libc.so.6 can't be loaded (unlikely on real Linux glibc).
+        # AttributeError: the `prctl` symbol lookup itself fails — ctypes
+        # raises this, not OSError, so it must be caught here too for the
+        # "never raised, best-effort" guarantee to actually hold.
+        pass
+
+
+def _unix_pty_preexec() -> None:
+    """``preexec_fn`` for :class:`UnixPtyChild`'s ``subprocess.Popen`` —
+    gives the child its own session (for proper tty signal delivery) and
+    arms its parent-death signal (#3583). Order matters: ``setsid()`` does
+    not fork and does not clear a death signal armed before or after it,
+    but a careless addition of a *fork* between these two calls would."""
+    os.setsid()  # NOTE: order vs the next line doesn't matter today (see
+    # docstring) — but a fork inserted between them would break that.
+    _arm_parent_death_signal()  # NOTE: see the NOTE above this call.
+
+
+#: Prefix :func:`_wrap_launch_command` adds to the *final simple command* of
+#: every ``UnixPtyChild`` command (#3583). Measured directly against this
+#: machine's ``/bin/sh`` (``dash``): ``Popen("sleep 60", shell=True,
+#: preexec_fn=...)`` leaves TWO processes — ``dash`` (the one
+#: ``preexec_fn``/``PR_SET_PDEATHSIG`` ran in) as a *parent*, and a separate
+#: forked ``sleep`` grandchild that never had a death signal armed on it at
+#: all (``PR_SET_PDEATHSIG`` is cleared on every ``fork()``, including the
+#: shell's own). dash never applies bash's "tail call" exec-optimization for
+#: a ``-c`` simple command, so without this, killing the manager reaps the
+#: shell but **leaks exactly the grandchild this issue's evidence found**
+#: (51 ``vcd``s reparented to ``systemd --user``). ``exec`` is the POSIX
+#: shell builtin that replaces the shell's own process image via
+#: ``execve()`` instead of forking — verified empirically to collapse the
+#: above down to one process (the real binary, same pid throughout), onto
+#: which the armed death signal then actually applies.
+_EXEC_PREFIX = "exec "
+
+#: Matches one leading ``VAR=value`` assignment (plus its trailing
+#: whitespace) at the front of a shell simple command — the shape
+#: ``_wrap_launch_command`` must convert to an ``env VAR=value`` argument
+#: *before* the ``exec`` prefix, because POSIX's assignment-prefix parsing
+#: (where a shell applies ``VAR=value`` only to the one command it
+#: precedes) does not apply to ``exec``'s own argument list: ``exec
+#: FOO=bar ./binary`` tries — and fails — to execve a program literally
+#: named ``FOO=bar``. ``env`` has no such restriction (it's a real
+#: executable, not a builtin with special parsing), and `/usr/bin/env`
+#: itself ``execve()``s straight into its target rather than forking, so
+#: ``exec env FOO=bar ./binary`` still collapses to one process.
+_ENV_ASSIGNMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*=\S*)[ \t]+")
+
+
+def _find_last_top_level_and(command: str) -> int | None:
+    """Return the string index of the ``&`` that starts the *last*
+    top-level ``&&`` operator in *command*, or ``None`` if there isn't one.
+
+    "Top-level" means not inside a single- or double-quoted string (the
+    only nesting a real ``tui-pty`` ``run:`` needs to care about today,
+    e.g. ``cd .smoke && HOME=$PWD/home ../target/release/vcd sample.txt``)
+    — quote state and backslash escapes are tracked so a literal ``&&``
+    living inside a quoted argument is correctly skipped rather than
+    mistaken for a command separator. Subshells (``( ... )``) and command
+    substitution (``$( ... )``/backticks) are out of scope: no real route
+    uses them, and misreading one only costs an extra, harmless shell fork
+    on the mis-split segment — it can never leak a process the way a
+    missed ``exec`` would.
+    """
+    in_single = in_double = escaped = False
+    last_idx = None
+    i, n = 0, len(command)
+    while i < n:
+        ch = command[i]
+        if escaped:
+            escaped = False
+        elif ch == "\\" and not in_single:
+            escaped = True
+        elif ch == "'" and not in_double:
+            in_single = not in_single
+        elif ch == '"' and not in_single:
+            in_double = not in_double
+        elif not in_single and not in_double and ch == "&" and command[i + 1:i + 2] == "&":
+            last_idx = i
+            i += 1  # skip the second '&' of this pair
+        i += 1
+    return last_idx
+
+
+def _wrap_launch_command(command: str) -> str:
+    """Rewrite *command* (#3583) so the ``/bin/sh -c`` this class's
+    ``subprocess.Popen`` runs always ends by collapsing into the real
+    binary via a single ``execve()`` — never a shell forking a grandchild
+    for it — so the parent-death signal armed in :func:`_unix_pty_preexec`
+    actually reaches the real process. See :data:`_EXEC_PREFIX`.
+
+    *command* may be a compound script (``cmd1 && cmd2 && ...``, the real
+    ``vimcode`` ``tui-pty`` route's shape: a leading ``cd`` followed by the
+    launch): only the **final** simple command is rewritten — everything
+    before the last top-level ``&&`` (:func:`_find_last_top_level_and`) is
+    left exactly as the caller wrote it, since ``exec cd ...`` fails
+    outright (``cd`` is a shell builtin, not an executable) and earlier
+    steps genuinely need to run as normal shell commands, not replace the
+    shell.
+
+    That final simple command may itself open with one or more *inline
+    env-var assignments* (``HOME=$PWD/home ./binary``, also a real route's
+    shape) — :data:`_ENV_ASSIGNMENT_RE` peels those off and re-emits them
+    as ``env``'s own arguments instead of ``exec``'s, so the result is
+    ``exec env VAR=val ... binary args`` rather than the broken ``exec
+    VAR=val ... binary args`` (see :data:`_ENV_ASSIGNMENT_RE` for why).
+
+    Idempotent at the whole-*command* level: a caller-supplied command
+    that already starts with ``exec `` (leading/trailing whitespace
+    tolerated) is returned unchanged rather than double-prefixed or
+    re-split.
+    """
+    if command.strip().startswith(_EXEC_PREFIX):
+        return command
+
+    split = _find_last_top_level_and(command)
+    if split is None:
+        head, tail = "", command.strip()
+    else:
+        head, tail = command[:split].strip(), command[split + 2:].strip()
+
+    assignments: list[str] = []
+    while True:
+        m = _ENV_ASSIGNMENT_RE.match(tail)
+        if not m:
+            break
+        assignments.append(m.group(1))
+        tail = tail[m.end():]
+
+    env_prefix = f"env {' '.join(assignments)} " if assignments else ""
+    wrapped_tail = f"{_EXEC_PREFIX}{env_prefix}{tail}"
+    return f"{head} && {wrapped_tail}" if head else wrapped_tail
+
+
 class UnixPtyChild:
     """A real Unix pty running *command* under a real child process (#3483)
     — not an in-process harness. Requires a POSIX platform (:mod:`pty` is
-    POSIX-only in the standard library)."""
+    POSIX-only in the standard library).
+
+    #3583: the spawned child also has a kernel-enforced parent-death signal
+    armed (:func:`_arm_parent_death_signal`, Linux-only) so it is reaped
+    even if this driver's own Python process is killed abnormally before
+    :meth:`close` ever runs — see that function's docstring. This is a
+    defense in depth with, not a replacement for, :meth:`close`: a normal
+    teardown still explicitly terminates/kills the child.
+    """
 
     def __init__(self, command: str, cwd: str, cols: int, rows: int) -> None:
         if os.name != "posix":
@@ -481,9 +670,9 @@ class UnixPtyChild:
         fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
         try:
             self._proc = subprocess.Popen(
-                command, shell=True, cwd=cwd or None,
+                _wrap_launch_command(command), shell=True, cwd=cwd or None,
                 stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
-                preexec_fn=os.setsid, close_fds=True,
+                preexec_fn=_unix_pty_preexec, close_fds=True,
             )
         finally:
             os.close(slave_fd)
@@ -505,6 +694,18 @@ class UnixPtyChild:
         except OSError:
             return b""
 
+    @property
+    def pid(self) -> int:
+        """The real pty child's pid (#3590) — for the common
+        single-simple-command launch, :func:`_wrap_launch_command`'s
+        ``exec`` means this ``Popen`` pid IS the real binary's own pid
+        (the shell process image was replaced, not forked), so this is
+        safe to re-observe/re-signal directly as the driven app's pid —
+        unlike the native drivers' own ``Calls.launch()``, which has no
+        such exec-wrap and returns a shell pid instead (see
+        :class:`coord.mac_native_driver.MacNativeSession.pid`)."""
+        return self._proc.pid
+
     def is_alive(self) -> bool:
         return self._proc.poll() is None
 
@@ -518,6 +719,18 @@ class UnixPtyChild:
                 self._proc.wait(timeout=3)
             except subprocess.TimeoutExpired:
                 self._proc.kill()
+                # #3590 review: re-observe after the kill too — the
+                # previous version sent SIGKILL and declared victory
+                # without ever confirming it landed, overstating what
+                # "confirmed terminate-then-kill" (this class's own
+                # module/TuiPtySession docstrings) actually means. SIGKILL
+                # cannot be blocked, so this wait is bounded and
+                # best-effort only against a process already wedged in
+                # uninterruptible kernel sleep.
+                try:
+                    self._proc.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
         try:
             os.close(self._master_fd)
         except OSError:
@@ -570,6 +783,13 @@ class WindowsConPtyChild:
         except queue.Empty:
             return b""
 
+    @property
+    def pid(self) -> int | None:
+        """``pywinpty``'s own child pid (#3590), when it exposes one —
+        best-effort, since this is read via ``getattr`` by callers rather
+        than assumed present on every ``pywinpty`` version."""
+        return getattr(self._proc, "pid", None)
+
     def is_alive(self) -> bool:
         return bool(self._proc.isalive())
 
@@ -584,6 +804,61 @@ class WindowsConPtyChild:
 
 _CPR_QUERY = b"\x1b[6n"
 _READ_POLL_S = 0.05
+
+
+class _CprResponder:
+    """Answers a VT100 cursor-position-report query (``ESC[6n``) with the
+    current cursor position — the ONE implementation both
+    :class:`SmokeRunner` and :class:`TuiPtySession` share (#3603, #2096
+    "one question, one answer").
+
+    Before this, :class:`TuiPtySession` had no CPR-reply logic at all,
+    while :class:`SmokeRunner` did — two independent implementations of
+    "does this reader loop answer a terminal query" that had already
+    drifted. The practical effect (#3603): ``coord app-drive tui-pty open``
+    launched ``vcd`` under a real pty exactly like ``run-spec`` does, but
+    never answered its startup ``ESC[6n`` query, so the app gave up and
+    exited within a few seconds with the screen still blank — while the
+    identical launch command through ``run-spec`` (:class:`SmokeRunner`,
+    which DID answer it) ran a 490-step spec with no instability.
+
+    Reading and replying are split across two threads for the reason this
+    module's own docstring documents: on a real Windows ConPTY, answering
+    synchronously from inside the byte-stream reader callback deadlocks the
+    session. :meth:`observe` is called from the reader thread, AFTER the
+    caller has already fed *data* to its :class:`VtScreen` (so
+    :meth:`VtScreen.cursor` reflects it); the reply is only ever WRITTEN
+    from this class's own responder thread.
+    """
+
+    def __init__(self, child: PtyChild) -> None:
+        self._child = child
+        self._queue: "queue.Queue[bytes]" = queue.Queue()
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def observe(self, data: bytes, screen: VtScreen) -> None:
+        """If *data* contains a CPR query, enqueue the reply the responder
+        thread will write. A no-op when it doesn't."""
+        if _CPR_QUERY in data:
+            row, col = screen.cursor()
+            self._queue.put(f"\x1b[{row + 1};{col + 1}R".encode("ascii"))
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                reply = self._queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            try:
+                self._child.write(reply)
+            except Exception:  # noqa: BLE001 — child may have exited underneath us
+                return
+
+    def close(self) -> None:
+        self._stop.set()
+        self._thread.join(timeout=2)
 
 
 class SmokeRunner:
@@ -610,9 +885,8 @@ class SmokeRunner:
         self._total_bytes = 0
         self._last_byte_time = 0.0
         self._stop = threading.Event()
-        self._cpr_queue: "queue.Queue[bytes]" = queue.Queue()
+        self._cpr_responder: _CprResponder | None = None
         self._reader_thread: threading.Thread | None = None
-        self._responder_thread: threading.Thread | None = None
 
     def run(self, spec: SmokeSpec) -> list[dict]:
         self._cols, self._rows = spec.cols, spec.rows
@@ -663,10 +937,9 @@ class SmokeRunner:
             # which would otherwise read as "already idle" the instant any
             # step runs, regardless of whether the app has settled.
             self._last_byte_time = time.monotonic()
+        self._cpr_responder = _CprResponder(self._child)
         self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
-        self._responder_thread = threading.Thread(target=self._responder_loop, daemon=True)
         self._reader_thread.start()
-        self._responder_thread.start()
         # A brief startup grace window — a binary that fails to exec at all
         # (bad path, missing binary) dies near-instantly; catch that here
         # with an actionable message rather than letting every later step
@@ -791,34 +1064,20 @@ class SmokeRunner:
                 # their own `text()`/`cell_attr()` reads, so neither can
                 # observe a `VtScreen` mid-mutation.
                 screen.feed(data)
-                if _CPR_QUERY in data:
-                    row, col = screen.cursor()
-            if _CPR_QUERY in data:
-                # Reply enqueued here, WRITTEN from `_responder_loop` — never
-                # write the child's stdin synchronously from this thread.
-                # See this module's docstring: doing so deadlocks a real
-                # Windows ConPTY session.
-                self._cpr_queue.put(f"\x1b[{row + 1};{col + 1}R".encode("ascii"))
-
-    def _responder_loop(self) -> None:
-        while not self._stop.is_set():
-            try:
-                reply = self._cpr_queue.get(timeout=0.1)
-            except queue.Empty:
-                continue
-            child = self._child
-            if child is None:
-                return
-            try:
-                child.write(reply)
-            except Exception:  # noqa: BLE001 — child may have exited underneath us
-                return
+                # Reply (if any) is enqueued here, WRITTEN from
+                # `_CprResponder`'s own thread — never write the child's
+                # stdin synchronously from this thread. See this module's
+                # docstring: doing so deadlocks a real Windows ConPTY
+                # session.
+                assert self._cpr_responder is not None
+                self._cpr_responder.observe(data, screen)
 
     def _teardown(self) -> None:
         self._stop.set()
-        for t in (self._reader_thread, self._responder_thread):
-            if t is not None:
-                t.join(timeout=2)
+        if self._reader_thread is not None:
+            self._reader_thread.join(timeout=2)
+        if self._cpr_responder is not None:
+            self._cpr_responder.close()
         if self._child is not None:
             self._child.close()
 
@@ -830,6 +1089,135 @@ def spawn_real_pty(command: str, cwd: str, cols: int, rows: int) -> PtyChild:
     if os.name == "nt":
         return WindowsConPtyChild(command, cwd, cols, rows)
     return UnixPtyChild(command, cwd, cols, rows)
+
+
+class TuiPtySession:
+    """A persistent, interactively-driven tui-pty session (#3590) — the
+    backend ``coord app-drive tui-pty`` (:mod:`coord.app_drive_daemon`)
+    holds open across ``send``/``screen``/``wait-idle``/``close`` calls
+    that each arrive as a SEPARATE, short-lived ``coord app-drive`` CLI
+    invocation (a worker's Bash tool cannot keep one process's stdin open
+    across tool calls), rather than :class:`SmokeRunner`'s own "walk one
+    fixed step list end to end in a single call" shape.
+
+    Mirrors :class:`SmokeRunner`'s reader-loop/lock discipline and reuses
+    the exact same primitives (:func:`encode_key`/:func:`encode_click`/
+    :class:`VtScreen`/:func:`spawn_real_pty`) it's built from — this is NOT
+    a second, home-made input-injection path (#3566's HARD RULE): it is
+    the sanctioned driver, just finally invokable one verb at a time
+    instead of only as a whole pre-scripted spec.
+
+    Teardown (:meth:`close`) delegates straight to the child's own
+    :meth:`PtyChild.close` — for a real :class:`UnixPtyChild` that is the
+    SAME confirmed terminate-then-kill-with-a-timeout teardown every other
+    tui-pty caller gets, backed by the kernel-enforced parent-death signal
+    armed at launch time (#3583, Linux-only): even an abnormal death of
+    whatever process is holding this session (this one, or
+    ``coord.app_drive``'s own daemon wrapping it) still reaps the real
+    child.
+
+    Also answers the ``ESC[6n`` cursor-position query via the same
+    :class:`_CprResponder` :class:`SmokeRunner` uses (#3603): without this,
+    a startup-blocking app (ratatui's ``Terminal::new()``, among others —
+    see #3603's own evidence) never gets a reply when driven through
+    ``coord app-drive tui-pty open`` and gives up within a few seconds,
+    even though the identical launch command ran fine through
+    :func:`run_smoke_spec`/``run-spec`` — the only thing that differed was
+    which of the two reader loops answered this query, so this class now
+    shares the ONE answer instead of having none of its own (#2096).
+    """
+
+    def __init__(
+        self, launch_command: str, cwd: str, cols: int = 80, rows: int = 24,
+        spawn_child: Callable[[str, str, int, int], PtyChild] | None = None,
+    ) -> None:
+        self._cols, self._rows = cols, rows
+        self._child: PtyChild = (spawn_child or spawn_real_pty)(launch_command, cwd, cols, rows)
+        self._screen = VtScreen(cols, rows)
+        self._lock = threading.Lock()
+        self._last_byte_time = time.monotonic()
+        self._stop = threading.Event()
+        self._cpr_responder = _CprResponder(self._child)
+        self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
+        self._reader_thread.start()
+        # Same startup-failure confirmation `SmokeRunner._do_launch` makes
+        # (#2096: an "opened" verdict must be an observation, not the mere
+        # absence of an exception from `Popen`) — a bad launch command
+        # dies near-instantly, so catch that here with an actionable
+        # message rather than every later verb failing against a dead
+        # child with no context.
+        time.sleep(0.2)
+        if not self._child.is_alive():
+            self.close()
+            raise TuiPtyRuntimeError(
+                "child process exited immediately after launch (command failed to start?)"
+            )
+
+    def _reader_loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                data = self._child.read(_READ_POLL_S)
+            except Exception:  # noqa: BLE001 — child may have exited underneath us
+                return
+            if not data:
+                if not self._child.is_alive():
+                    return
+                continue
+            with self._lock:
+                self._last_byte_time = time.monotonic()
+                self._screen.feed(data)
+                # See `_CprResponder`'s own docstring and this class's:
+                # the reply (if any) is enqueued here but WRITTEN from the
+                # responder's own thread, never synchronously from this one.
+                self._cpr_responder.observe(data, self._screen)
+
+    @property
+    def pid(self) -> int | None:
+        """The real pty child's pid (#3590), when the underlying
+        :class:`PtyChild` exposes one (both :class:`UnixPtyChild` and
+        :class:`WindowsConPtyChild` do) — read by
+        :mod:`coord.app_drive_daemon` for its ready-file's ``app_pid`` so
+        :func:`coord.app_drive.close_session` can re-observe/re-signal the
+        driven app itself, not just the daemon wrapping this session."""
+        return getattr(self._child, "pid", None)
+
+    def send_key(self, key: str) -> None:
+        self._child.write(encode_key(key))
+
+    def send_text(self, text: str) -> None:
+        self._child.write(text.encode("utf-8"))
+
+    def send_click(self, row: int, col: int, button: str = "left") -> None:
+        self._child.write(encode_click(row, col, button))
+
+    def wait_idle(self, ms: int = 500, timeout_ms: int = 5000) -> bool:
+        """Block until the stream has gone quiet for *ms* milliseconds, or
+        *timeout_ms* elapses — returns whether it actually settled (#2096:
+        an observed verdict, never assumed from a fixed sleep). Never
+        raises."""
+        idle_for = ms / 1000
+        deadline = time.monotonic() + timeout_ms / 1000
+        while True:
+            with self._lock:
+                since = time.monotonic() - self._last_byte_time
+            if since >= idle_for:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(min(0.02, idle_for) if idle_for > 0 else 0.02)
+
+    def screen_text(self, region: dict | None = None) -> str:
+        with self._lock:
+            return self._screen.text(region)
+
+    def is_alive(self) -> bool:
+        return self._child.is_alive()
+
+    def close(self) -> None:
+        self._stop.set()
+        self._reader_thread.join(timeout=2)
+        self._cpr_responder.close()
+        self._child.close()
 
 
 def run_smoke_spec(

@@ -38,7 +38,13 @@ _INDEX_SLUG = "contents"
 # `source` is part of the transcript document's identity, so an unqualified id
 # has to be resolved by asking, not by guessing one and reading its 404 as
 # "never captured".
-_TRANSCRIPT_AGENTS = ("claude_code", "codex", "pi")
+def _transcript_agents() -> tuple[str, ...]:
+    from probe.harness import get_registry
+
+    return tuple(h.id for h in get_registry().captured())
+
+
+_TRANSCRIPT_AGENTS = _transcript_agents()
 
 # The session-id SHAPE, byte-for-byte the backend's `_SESSION_RE`
 # (app/runs/agent_session.py): the id lands in a URL path segment
@@ -1015,8 +1021,26 @@ class ResearchOSSource:
         against a minted manifest. Passthrough to research-os /reproduce."""
         return self.client.experiment_reproduce(experiment_id, version=version)
 
-    def experiment(self, experiment_id: str) -> dict:
+    def experiment(self, experiment_id: str, *, project_id: str | None = None) -> dict:
+        """One experiment through the experiment API (light experiments R4):
+        identity, question, notes, run count, overview status. With the
+        project it is filed under (a run row names it), one request; without,
+        ``GET /v1/scopes/{id}`` finds it first."""
+        if project_id:
+            try:
+                return self.client.get_experiment(experiment_id, project_id=project_id)
+            except errors.NotFoundError:
+                pass  # not filed there after all: ask where it is
         return self.client.get_experiment(experiment_id)
+
+    def experiment_document(self, experiment_id: str) -> str | None:
+        """The experiment's authored Markdown, as its Overview page holds it.
+
+        Read at the experiment's PROJECT address, deliberately and for now: the
+        experiment API serves the page (HTML) but not the authored block, which
+        the server cuts out of the page for the project-address read. The server
+        keeps that read working for this client until R6."""
+        return self.client.get_experiment_document(experiment_id)
 
     # -- versioned note documents ---------------------------------------------
 

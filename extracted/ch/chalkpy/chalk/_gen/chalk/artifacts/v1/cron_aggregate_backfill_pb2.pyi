@@ -40,6 +40,7 @@ class CronAggregateBackfill(_message.Message):
         "environment",
         "planner_options",
         "num_shards",
+        "include_partial_bucket",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -64,6 +65,7 @@ class CronAggregateBackfill(_message.Message):
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     NUM_SHARDS_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_PARTIAL_BUCKET_FIELD_NUMBER: _ClassVar[int]
     name: str
     schedule: str
     file_name: str
@@ -79,6 +81,7 @@ class CronAggregateBackfill(_message.Message):
     environment: str
     planner_options: _containers.ScalarMap[str, str]
     num_shards: int
+    include_partial_bucket: bool
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -96,4 +99,5 @@ class CronAggregateBackfill(_message.Message):
         environment: _Optional[str] = ...,
         planner_options: _Optional[_Mapping[str, str]] = ...,
         num_shards: _Optional[int] = ...,
+        include_partial_bucket: bool = ...,
     ) -> None: ...

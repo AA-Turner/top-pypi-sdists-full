@@ -203,6 +203,22 @@ async def run_connection_token(context):
         encoding="utf-8")
 
 
+async def run_gate_decision(context):
+    """確認の決定を回答に書き出す（無ければnone）。書き換えられないことと、manifestに本文が無いことも書く。"""
+    gd = context.gate_decision
+    if gd is None:
+        text = "none"
+    else:
+        try:
+            gd["note"] = "changed"
+            writable = True
+        except TypeError:
+            writable = False
+        text = "|".join([gd["gate_id"], gd["decision"], gd["decided_by"], str(gd["note"]), str(gd["decided_at"]),
+                         f"writable={writable}", f"manifest={sorted(context.manifest['gate_decision'].items())}"])
+    (context.output_dir / "reply.md").write_text(text + "\n", encoding="utf-8")
+
+
 async def run_connection_token_expiring(context):
     """期限まで min_ttl を切った token は毎回取り直す。"""
     a = await context.connection_token("gitlab", min_ttl=3600 * 2)

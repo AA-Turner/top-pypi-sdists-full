@@ -32,7 +32,9 @@ def _count() -> int:
 class RLock:
     def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
         """
-        Lock the lock.  `blocking` indicates whether we should wait
+        Lock the lock.
+
+        `blocking` indicates whether we should wait
         for the lock to be available or not.  If `blocking` is False
         and another thread holds the lock, the method will return False
         immediately.  If `blocking` is True and another thread holds
@@ -48,14 +50,16 @@ class RLock:
         ...
     def release(self) -> None:
         """
-        Release the lock, allowing another thread that is blocked waiting for
-        the lock to acquire the lock.  The lock must be in the locked state,
+        Release the lock.
+
+        Allows another thread that is blocked waiting for the lock
+        to acquire the lock.  The lock must be in the locked state,
         and must be locked by the same thread that unlocks it; otherwise a
         `RuntimeError` is raised.
 
-        Do note that if the lock was acquire()d several times in a row by the
-        current thread, release() needs to be called as many times for the lock
-        to be available for other threads.
+        Do note that if the lock was acquire()d several times in a row by
+        the current thread, release() needs to be called as many times for
+        the lock to be available for other threads.
         """
         ...
     __enter__ = acquire
@@ -64,11 +68,7 @@ class RLock:
         ...
     if sys.version_info >= (3, 14):
         def locked(self) -> bool:
-            """
-            locked()
-
-            Return a boolean indicating whether this object is locked right now.
-            """
+            """Return a boolean indicating whether this object is locked right now."""
             ...
 
 if sys.version_info >= (3, 13):
@@ -112,8 +112,10 @@ if sys.version_info >= (3, 13):
         """
         def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
             """
-            Lock the lock.  Without argument, this blocks if the lock is already
-            locked (even by the same thread), waiting for another thread to release
+            Lock the lock.
+
+            Without argument, this blocks if the lock is already locked
+            (even by the same thread), waiting for another thread to release
             the lock, and return True once the lock is acquired.
             With an argument, this will only block if the argument is true,
             and the return value reflects whether the lock is acquired.
@@ -122,7 +124,9 @@ if sys.version_info >= (3, 13):
             ...
         def release(self) -> None:
             """
-            Release the lock, allowing another thread that is blocked waiting for
+            Release the lock.
+
+            Allows another thread that is blocked waiting for
             the lock to acquire the lock.  The lock must be in the locked state,
             but it needn't be locked by the same thread that unlocks it.
             """

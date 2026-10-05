@@ -25,8 +25,9 @@ sipErrorState sip_api_bad_callable_arg(int arg_nr, PyObject *arg);
 void sip_api_bad_catcher_result(PyObject *method);
 PyObject *sip_api_build_result(sipModuleState *ms, int *is_err_p,
         const char *fmt, ...);
-void sip_api_call_error_handler(sipModuleState *ms, const char *error_handler,
-        sipSimpleWrapper *sw, PyThreadStateToken *tst);
+void sip_api_call_error_handler(sipModuleState *ms,
+        sipVirtErrorHandler error_handler, sipSimpleWrapper *sw,
+        PyThreadStateToken *tst);
 PyObject *sip_api_call_method(sipModuleState *ms, int *is_err_p,
         PyObject *method, const char *fmt, ...);
 void sip_api_call_procedure_method(sipModuleState *ms,
@@ -70,9 +71,9 @@ bool sip_api_parse_ctor_args(sipModuleState *ms, PyObject **p_state_p,
         PyObject *const *args, Py_ssize_t nr_pos_args, PyObject *kwd_names,
         const sipArgParserSpec *ap_spec, void **params, PyObject *self,
         PyObject **unused_p);
-int sip_api_parse_result(sipModuleState *ms, PyThreadStateToken *tst,
-        const char *error_handler, sipSimpleWrapper *sw, PyObject *method,
-        PyObject *res, const char *fmt, ...);
+int sip_api_parse_result_object(sipModuleState *ms, PyThreadStateToken *tst,
+        sipVirtErrorHandler error_handler, sipSimpleWrapper *sw,
+        PyObject *method, PyObject *res, const char *fmt, ...);
 void sip_api_release_type(sipModuleState *ms, void *cpp, sipTypeID type_id,
         int state);
 void sip_api_release_type_us(sipModuleState *ms, void *cpp, sipTypeID type_id,

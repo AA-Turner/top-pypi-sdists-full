@@ -4,7 +4,7 @@ These are the shapes that cross the seam between the Browser Manager
 (``matrx-scraper``, out of this package), the ``browser_*`` tools (this
 package), and the runtime spine (``matrx-runtime``). They are the executable
 form of contracts S5 (handoff ↔ runtime) and S6 (tool surface / typed
-outcomes) in ``common-docs/systems/architecture/persistent-cloud-browser/``.
+outcomes) in ``common-docs/systems/web/persistent-cloud-browser/``.
 
 The load-bearing decision (S5 §0): a handoff is NOT a new suspension mechanism
 — it is a client-delegated tool call whose "client" is a human. These models

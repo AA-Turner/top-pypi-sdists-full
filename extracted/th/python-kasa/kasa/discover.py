@@ -1,11 +1,11 @@
 """Discover TPLink Smart Home devices.
 
-The main entry point for this library is :func:`Discover.discover()`,
+The main entry point for this library is :meth:`Discover.discover()`,
 which returns a dictionary of the found devices. The key is the IP address
 of the device and the value contains ready-to-use, SmartDevice-derived
 device object.
 
-:func:`discover_single()` can be used to initialize a single device given its
+:meth:`discover_single()` can be used to initialize a single device given its
 IP address. If the :class:`DeviceConfig` of the device is already known,
 you can initialize the corresponding device class directly without discovery.
 
@@ -27,9 +27,9 @@ Discovery returns a dict of {ip: discovered devices}:
 You can pass username and password for devices requiring authentication
 
 >>> devices = await Discover.discover(
->>>     username="user@example.com",
->>>     password="great_password",
->>> )
+...     username="user@example.com",
+...     password="great_password",
+... )
 >>> print(len(devices))
 6
 
@@ -61,8 +61,8 @@ None
 It is also possible to pass a coroutine to be executed for each found device:
 
 >>> async def print_dev_info(dev):
->>>     await dev.update()
->>>     print(f"Discovered {dev.alias} (model: {dev.model})")
+...     await dev.update()
+...     print(f"Discovered {dev.alias} (model: {dev.model})")
 >>>
 >>> devices = await Discover.discover(on_discovered=print_dev_info, credentials=creds)
 Discovered Bedroom Power Strip (model: KP303)
@@ -264,6 +264,7 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
         self.target = target
         self.target_1 = (target, self.discovery_port)
         self.target_2 = (target, Discover.DISCOVERY_PORT_2)
+        self.target_3 = (target, Discover.DISCOVERY_PORT_3)
 
         self.discovered_devices = {}
         self.unsupported_device_exceptions: dict = {}
@@ -333,6 +334,7 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
                 break
             self.transport.sendto(encrypted_req[4:], self.target_1)  # type: ignore
             self.transport.sendto(aes_discovery_query, self.target_2)  # type: ignore
+            self.transport.sendto(aes_discovery_query, self.target_3)  # type: ignore
             await asyncio.sleep(sleep_between_packets)
 
     def datagram_received(
@@ -361,7 +363,7 @@ class _DiscoverProtocol(asyncio.DatagramProtocol):
             if port == self.discovery_port:
                 json_func = Discover._get_discovery_json_legacy
                 device_func = Discover._get_device_instance_legacy
-            elif port == Discover.DISCOVERY_PORT_2:
+            elif port in (Discover.DISCOVERY_PORT_2, Discover.DISCOVERY_PORT_3):
                 json_func = Discover._get_discovery_json
                 device_func = Discover._get_device_instance
             else:
@@ -422,6 +424,7 @@ class Discover:
     }
 
     DISCOVERY_PORT_2 = 20002
+    DISCOVERY_PORT_3 = 20004
     DISCOVERY_QUERY_2 = binascii.unhexlify("020000010000000000000000463cb5d3")
 
     _redact_data = True
@@ -743,6 +746,8 @@ class Discover:
         device = device_class(config.host, config=config)
         sys_info = _extract_sys_info(info)
         device_type = sys_info.get("mic_type", sys_info.get("type"))
+        if device_type is None:
+            raise UnsupportedDeviceError("type nor mic_type found in sysinfo response")
         login_version = (
             sys_info.get("stream_version") if device_type == "IOT.IPCAMERA" else None
         )
@@ -825,6 +830,13 @@ class Discover:
             # Known encrypt types are ["1","2"] and ["3"]
             # Reuse the login_version attribute to pass the max to transport
             login_version = max([int(i) for i in et])
+
+        if not encrypt_type and encrypt_schm.is_support_https and login_version == 3:
+            # Some camera firmwares (C460 1.2.2 for one) leave encrypt_type out
+            # of mgt_encrypt_schm and send no encrypt_info, only the top level
+            # encrypt_type list. "3" is the AES login that every other camera
+            # reports as sym_schm AES.
+            encrypt_type = DeviceEncryptionType.Aes.value
 
         if not encrypt_type:
             raise UnsupportedDeviceError(

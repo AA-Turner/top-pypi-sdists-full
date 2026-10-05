@@ -86,3 +86,45 @@ def test_tiny_output_cap_lowers_reasoning_so_an_answer_fits():
 def test_a_roomy_cap_keeps_the_asked_effort():
     wire = _wire(GPT5, max_output_tokens=8000, reasoning_effort="high")
     assert wire["reasoning"]["effort"] == "high"
+
+
+# Gemini 2.5 Flash live (FUZZ-2, 2026-10-04): cap 16 with dynamic thinking -> MAX_TOKENS, no
+# text; thinking budget 0 -> "ok". The thinking budget yields to a tiny cap; a roomy cap keeps it.
+GEMINI_FLASH = {
+    "max_output_tokens": {"provider_key": "max_output_tokens", "clamp": {"min": 16}},
+    "reasoning_effort": {
+        "off": {"send": 0},
+        "processor": "google_thinking",
+        "supported": True,
+        "provider_key": "thinking_config.thinking_budget",
+        "processor_config": {
+            "mode": "legacy",
+            "consumes": ["thinking_budget", "thinking_level", "include_thoughts"],
+            "max_thinking_budget": 24576,
+        },
+    },
+}
+
+
+def test_gemini_tiny_cap_turns_thinking_off_so_an_answer_fits():
+    for cap in (0, 1, 16):
+        wire = _wire(GEMINI_FLASH, max_output_tokens=cap, reasoning_effort="high")
+        assert wire["max_output_tokens"] >= 16, wire
+        assert wire["thinking_config"]["thinking_budget"] == 0, wire
+
+
+def test_gemini_roomy_cap_keeps_the_asked_thinking():
+    wire = _wire(GEMINI_FLASH, max_output_tokens=8000, reasoning_effort="high")
+    assert wire["thinking_config"]["thinking_budget"] > 0, wire
+
+
+# FUZZ-2 2026-10-04: thinking_level "none" was a request-validation 422. Convert, never refuse.
+def test_thinking_level_off_the_gemini_scale_converts_onto_reasoning_effort():
+    from matrx_ai.config.llm_params import LLMParams
+
+    assert LLMParams.model_validate({"thinking_level": "none"}).reasoning_effort == "none"
+    assert LLMParams.model_validate({"thinking_level": "max"}).reasoning_effort == "max"
+    kept = LLMParams.model_validate({"thinking_level": "none", "reasoning_effort": "low"})
+    assert kept.reasoning_effort == "low" and kept.thinking_level is None
+    assert LLMParams.model_validate({"thinking_level": "auto"}).reasoning_effort is None
+    assert LLMParams.model_validate({"thinking_level": "High"}).thinking_level == "high"

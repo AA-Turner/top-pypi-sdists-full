@@ -197,7 +197,13 @@ def test_delete_run_is_permanent(client, app):
 def test_delete_experiment_takes_its_runs(client, app):
     exp = _create_experiment(client)
     run = client.create_run(exp["id"], "r")
-    assert client.delete_experiment(exp["id"]) is None
+    # The experiment API's delete is a move to the trash, and says so.
+    receipt = client.delete_experiment(exp["id"])
+    assert receipt["trashed"] is True and receipt["type"] == "experiment"
+    assert receipt["id"] == exp["id"]
+    assert app.experiment_api_requests[-1] == (
+        f"DELETE /v1/projects/{exp['project_id']}/experiments/{exp['id']}"
+    )
     assert exp["id"] not in app.experiments
     assert run.id not in app.runs
     with pytest.raises(errors.NotFoundError):

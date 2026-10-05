@@ -18,6 +18,11 @@ class RosError(Exception):
     #: every subclass -- including the ones built with their own signatures --
     #: carries it; the transport sets it on the instance it raises.
     retry_after: float | None = None
+    #: True when the server answered with its TRASH notice (410 `in_trash`): the
+    #: thing asked for exists and is in the trash. The transport sets it; the
+    #: detail itself is the notice sentence by then, so this is how a caller
+    #: tells "in the trash" from any other 410 (`client_too_old` included).
+    in_trash: bool = False
 
     def __init__(self, message: str, *, status: int | None = None, detail: Any = None):
         super().__init__(message)
@@ -155,10 +160,17 @@ class ConflictError(RosError):
         self.existing_id: str | None = None
         self.suggestion: str | None = None
         self.deleted: bool = False
+        #: The slug's holder, on a create the slug namespace refused:
+        #: ``{id, parent_project_id, kind, workspace_id}``. Slugs are one
+        #: tenant-wide namespace for projects and experiments, so a create-or-get
+        #: adopts the holder only when it is the thing it meant to create.
+        self.existing: dict | None = None
         if isinstance(detail, dict):
             self.existing_id = detail.get("existing_id")
             self.suggestion = detail.get("suggestion")
             self.deleted = bool(detail.get("deleted", False))
+            existing = detail.get("existing")
+            self.existing = existing if isinstance(existing, dict) else None
 
 
 class LimitReachedError(RosError):
@@ -198,6 +210,21 @@ class LimitReachedError(RosError):
 CLIENT_TOO_OLD = "client_too_old"
 
 
+#: What a person types to get past a `client_too_old` refusal. The server's
+#: sentence names it (`app/client_version`); a refusal that does not -- an older
+#: server's, or a proxy's rewrite -- gets it appended, because "too old" without
+#: the command is a dead end on a training box nobody is watching.
+UPGRADE_COMMAND = "pip install -U probe-research"
+
+
+def upgrade_message(message: str, min_version: str | None) -> str:
+    """The refusal's sentence, ending in how to upgrade (added only when missing)."""
+    if "pip install" in message:
+        return message
+    target = f"probe-research {min_version} or later" if min_version else "a newer probe-research"
+    return f"{message.rstrip()} Upgrade to {target}: `{UPGRADE_COMMAND}`."
+
+
 class ClientTooOldError(RosError):
     """The server retired what this client asked for; a newer release speaks it.
 
@@ -217,6 +244,20 @@ class ClientTooOldError(RosError):
     ):
         super().__init__(message, status=status, detail=detail)
         self.min_version = min_version
+
+
+class DocumentNotWritten(RosError):
+    """An experiment was created or edited, and the document written after it was not.
+
+    The experiment API takes no `document` yet, so a create (or an edit) with one
+    is two writes: the first landed, the second failed. Raised so the caller
+    knows the experiment EXISTS -- retrying the create would only meet its own
+    slug -- and how to finish: the message names the command. ``experiment`` is
+    the row the first write answered; ``__cause__`` is the failure."""
+
+    def __init__(self, message: str, *, experiment: dict, status: int | None = None):
+        super().__init__(message, status=status)
+        self.experiment = experiment
 
 
 class ValidationError(RosError):

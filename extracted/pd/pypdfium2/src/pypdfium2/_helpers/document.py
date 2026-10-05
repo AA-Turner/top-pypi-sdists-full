@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
-__all__ = ("PdfDocument", "PdfFormEnv", "PdfXObject", "PdfBookmark", "PdfDest")
+__all__ = ("PdfDocument", "PdfFormEnv", "PdfXObject", "PdfBookmark", "PdfBookmarkStyle", "PdfDest")
 
 import sys
+import enum
 import ctypes
 import logging
 import warnings
@@ -27,8 +28,9 @@ class PdfDocument (pdfium_i.AutoCloseable):
     
     Parameters:
         input (str | pathlib.Path | bytes | ctypes.Array | typing.BinaryIO | FPDF_DOCUMENT):
-            The input PDF given as file path, bytes, ctypes array, byte stream, or raw PDFium document handle.
-            A byte stream is defined as an object that implements ``seek() tell() read() readinto()``.
+            The input PDF given as file path, bytes, ctypes array, readable byte stream, or raw PDFium document handle.
+            A readable byte stream is considered an object that implements ``seek() tell() read() readinto()`` in line with the usual :mod:`io` protocols.
+            If input is file-based (as opposed to in-memory), the backing file must (obviously) remain intact and not be modified while the document handle is used. This goes for both file paths and streams.
         password (str | None):
             A password to unlock the PDF, if encrypted. Otherwise, None or an empty string may be passed.
             If a password is given but the PDF is not encrypted, it will be ignored (as of PDFium 5418).
@@ -250,7 +252,9 @@ class PdfDocument (pdfium_i.AutoCloseable):
         
         Parameters:
             dest (str | pathlib.Path | io.BytesIO):
-                File path or byte stream the document shall be written to.
+                File path or output byte stream the document shall be written to.
+                An output byte stream is considered an object that implements a ``write()`` method which acts like :meth:`io.BufferedIOBase.write`.
+                Implementation detail: The ``write()`` adapter is expected to have written out all bytes given, if it returned without raising an exception. The return value is not checked.
             version (int | None):
                 The PDF version to use, given as an integer (14 for 1.4, 15 for 1.5, ...).
                 If None (the default), PDFium will set a version automatically.
@@ -283,13 +287,15 @@ class PdfDocument (pdfium_i.AutoCloseable):
                 If the file was updated incrementally, the permanent identifier stays the same,
                 while the changing identifier is re-calculated.
         Returns:
-            bytes: Unique file identifier from the PDF's trailer dictionary.
-            See PDF 1.7, Section 14.4 "File Identifiers".
+            bytes: Unique file identifier from the PDF's trailer dictionary, or an empty bytestring if it could not be determined. See PDF 1.7, Section 14.4 "File Identifiers".
         """
         n_bytes = pdfium_c.FPDF_GetFileIdentifier(self, type, None, 0)
-        buffer = ctypes.create_string_buffer(n_bytes)
+        if not n_bytes:
+            return b""
+        buffer = (ctypes.c_char * n_bytes)()
         pdfium_c.FPDF_GetFileIdentifier(self, type, buffer, n_bytes)
-        return buffer[:n_bytes-2]
+        # TODO(apibreak) change return type to avoid copy
+        return memoryview(buffer)[:n_bytes-1].tobytes()
     
     
     def get_version(self):
@@ -662,6 +668,14 @@ class PdfXObject (pdfium_i.AutoCloseable):
         return PdfObject(raw=raw_pageobj, pdf=self.pdf)  # tracked=False
 
 
+_flag_kws = dict()
+if sys.version_info >= (3, 11):
+    _flag_kws["boundary"] = enum.KEEP
+
+class PdfBookmarkStyle (enum.Flag, **_flag_kws):
+    ITALIC = 0b01
+    BOLD   = 0b10
+
 class PdfBookmark (pdfium_i.AutoCastable):
     """
     Bookmark helper class.
@@ -701,10 +715,10 @@ class PdfBookmark (pdfium_i.AutoCastable):
     
     def get_color(self):
         """
-        .. versionadded:: 5.11.0
-        
         Returns:
             tuple[float,float,float] | None: The bookmark's RGB color as float values between 0 and 1, or None if the bookmark does not define a (valid) color.
+        
+        .. versionadded:: 5.11
         """
         # requires pdfium > 7912
         r, g, b = ctypes.c_float(), ctypes.c_float(), ctypes.c_float()
@@ -712,6 +726,18 @@ class PdfBookmark (pdfium_i.AutoCastable):
         if not ok:
             return None
         return r.value, g.value, b.value
+    
+    def get_style(self):
+        """
+        Returns:
+            PdfBookmarkStyle: The bookmark's text style (none, bold, italic, or both) as :class:`enum.Flag`.
+        Note:
+            In Python >= 3.11, unhandled values are treated gracefully via :class:`enum.FlagBoundary.KEEP`.
+        
+        .. versionadded:: 5.14
+        """
+        style_int = pdfium_c.FPDFBookmark_GetStyle(self)
+        return PdfBookmarkStyle(style_int)
     
     def get_dest(self):
         """

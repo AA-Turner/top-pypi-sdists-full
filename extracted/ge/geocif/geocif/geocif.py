@@ -4550,8 +4550,9 @@ class Geocif:
         # a sparse window, and a forecast-year month whose EO product had
         # not arrived was scored as 0 with no trace. NaN-native models
         # (CatBoost, TabPFN, TabICL, Mitra, Cubist's own fitter) take NaN;
-        # every other family is train-median imputed in _setup_training_data
-        # and the same fills are applied to the test rows.
+        # every other family gets the train medians _setup_training_data
+        # records, applied to the fitted matrix and the test rows (the
+        # selection frame keeps its NaN so the gate can fire, 0.4.1069).
         return df
 
     def _add_engineered_features(self, df: pd.DataFrame) -> pd.DataFrame:

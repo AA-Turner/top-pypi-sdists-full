@@ -70,6 +70,7 @@ OWNERS: dict[str, str] = {
     "edge add": DAEMON, "edge remove": DAEMON, "events": READ, "exec": SDK,
     "experiment create": DAEMON, "experiment delete": DAEMON, "experiment edges": READ,
     "experiment freeze": DAEMON, "experiment get": READ, "experiment list": READ,
+    "experiment move": DAEMON,
     "experiment reproduce": READ, "experiment set": DAEMON, "experiment tag": DAEMON,
     "flush": SDK, "sync": SDK, "get": READ, "group create": DAEMON, "group get": READ, "group list": READ, "group set": DAEMON,
     "import wandb": RESEARCHER, "install": SETUP, "link": RESEARCHER, "log": SDK, "login": SETUP, "logout": SETUP,

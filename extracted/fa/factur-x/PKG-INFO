@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: factur-x
-Version: 7.2
+Version: 7.3
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
@@ -195,6 +195,11 @@ Contributors
 
 Changelog
 =========
+
+* Version 7.3 dated 2026-10-04:
+
+  * Add method **preprocess_data_dict()** which is a rename of the private method _check_data_dict(), because it can be useful for the ereporting of transactions
+  * Factorize level autodetection code in XML generation between UBL and Factur-X and add tests
 
 * Version 7.2 dated 2026-10-03:
 

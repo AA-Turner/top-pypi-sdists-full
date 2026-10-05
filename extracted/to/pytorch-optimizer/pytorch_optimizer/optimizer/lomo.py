@@ -1,6 +1,7 @@
 import math
 import os
-from typing import Any, Callable, List, Optional, cast
+from collections.abc import Callable
+from typing import Any, cast
 
 import torch
 from torch import nn
@@ -13,17 +14,17 @@ from pytorch_optimizer.optimizer.utils import has_overflow, is_deepspeed_zero3_e
 
 
 class LOMO(BaseOptimizer):
-    """Full Parameter Fine-tuning for Large Language Models with Limited Resources.
+    """SGD updates fused into backward to reduce optimizer memory.
 
     Reference: https://github.com/OpenLMLab/LOMO/blob/main/src/lomo.py
     Check usage: https://github.com/OpenLMLab/LOMO/blob/main/lomo/src/lomo_trainer.py
 
     Args:
-        model (nn.Module): PyTorch model.
-        lr (float): Learning rate.
-        clip_grad_norm (Optional[float]): Gradient norm clipping value.
-        clip_grad_value (Optional[float]): Gradient value clipping threshold.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        model: PyTorch model.
+        lr: Learning rate.
+        clip_grad_norm: Gradient norm clipping value.
+        clip_grad_value: Gradient value clipping threshold.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -31,8 +32,8 @@ class LOMO(BaseOptimizer):
         self,
         model: nn.Module,
         lr: float = 1e-3,
-        clip_grad_norm: Optional[float] = None,
-        clip_grad_value: Optional[float] = None,
+        clip_grad_norm: float | None = None,
+        clip_grad_value: float | None = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -49,8 +50,8 @@ class LOMO(BaseOptimizer):
         self.local_rank: int = int(os.environ.get('LOCAL_RANK', '0'))
 
         self.gather_norm: bool = False
-        self.grad_norms: List[torch.Tensor] = []
-        self.clip_coef: Optional[float] = None
+        self.grad_norms: list[torch.Tensor] = []
+        self.clip_coef: float | torch.Tensor | None = None
 
         p0: torch.Tensor = next(iter(self.model.parameters()))
 
@@ -58,7 +59,7 @@ class LOMO(BaseOptimizer):
             self.fuse_update_zero3() if hasattr(p0, 'ds_tensor') else self.fuse_update()
         )
 
-        self.loss_scaler: Optional[DynamicLossScaler] = None
+        self.loss_scaler: DynamicLossScaler | None = None
         if p0.dtype == torch.float16:
             if clip_grad_norm is None:
                 raise ValueError('loss scaling is recommended to be used with grad norm to get better performance.')
@@ -89,7 +90,8 @@ class LOMO(BaseOptimizer):
 
                 if (self.loss_scaler and self.loss_scaler.has_overflow_serial) or has_overflow(p.grad):
                     p.grad = None
-                    self.loss_scaler.has_overflow_serial = True
+                    if self.loss_scaler is not None:
+                        self.loss_scaler.has_overflow_serial = True
                     break
 
                 grad_fp32 = p.grad.to(torch.float32)
@@ -127,7 +129,8 @@ class LOMO(BaseOptimizer):
 
                 if (self.loss_scaler and self.loss_scaler.has_overflow_serial) or has_overflow(p.grad):
                     p.grad = None
-                    self.loss_scaler.has_overflow_serial = True
+                    if self.loss_scaler is not None:
+                        self.loss_scaler.has_overflow_serial = True
                     break
 
                 grad_fp32 = p.grad.to(torch.float32)
@@ -202,28 +205,28 @@ class LOMO(BaseOptimizer):
             return
 
         with torch.no_grad():
-            self.grad_norms = torch.stack(self.grad_norms)
+            grad_norms = torch.stack(self.grad_norms)
 
-            total_norm = torch.norm(self.grad_norms, 2.0)
+            total_norm = torch.norm(grad_norms, 2.0)
             self.clip_coef = torch.clamp(float(self.clip_grad_norm) / (total_norm + 1e-6), max=1.0)
 
         self.gather_norm = False
 
 
 class AdaLOMO(BaseOptimizer):
-    """Low-memory Optimization with Adaptive Learning Rate.
+    """Factored adaptive updates fused into backward.
 
     Args:
-        model (nn.Module): PyTorch model.
-        lr (float): Learning rate.
-        weight_decay (float): Weight decay (L2 penalty).
-        loss_scale (float): Loss scale.
-        clip_threshold (float): Threshold of root-mean-square of final gradient update.
-        decay_rate (float): Coefficient used to compute running averages of square gradient.
-        clip_grad_norm (Optional[float]): Clip gradient norm.
-        clip_grad_value (Optional[float]): Clip gradient value.
-        eps1 (float): Term added to the denominator to improve numerical stability.
-        eps2 (float): Term added to the denominator to improve numerical stability.
+        model: PyTorch model.
+        lr: Learning rate.
+        weight_decay: Weight decay coefficient.
+        loss_scale: Multiplier applied before backward and removed from gradients. `0` disables scaling.
+        clip_threshold: Maximum root mean square of the preconditioned update.
+        decay_rate: Exponent controlling the step-dependent second moment decay.
+        clip_grad_norm: Clip gradient norm.
+        clip_grad_value: Clip gradient value.
+        eps1: Stability constant added to squared gradients.
+        eps2: Lower bound for parameter RMS scaling of the learning rate.
 
     """
 
@@ -235,8 +238,8 @@ class AdaLOMO(BaseOptimizer):
         loss_scale: float = 2.0 ** 10,
         clip_threshold: float = 1.0,
         decay_rate: float = -0.8,
-        clip_grad_norm: Optional[float] = None,
-        clip_grad_value: Optional[float] = None,
+        clip_grad_norm: float | None = None,
+        clip_grad_value: float | None = None,
         eps1: float = 1e-30,
         eps2: float = 1e-3,
         **kwargs,
@@ -263,8 +266,8 @@ class AdaLOMO(BaseOptimizer):
 
         self.num_steps: int = 0
         self.gather_norm: bool = False
-        self.grad_norms: List[torch.Tensor] = []
-        self.clip_coef: Optional[float] = None
+        self.grad_norms: list[torch.Tensor] = []
+        self.clip_coef: float | torch.Tensor | None = None
 
         self.local_rank: int = int(os.environ.get('LOCAL_RANK', '0'))
         self.zero3_enabled: bool = is_deepspeed_zero3_enabled()
@@ -290,6 +293,31 @@ class AdaLOMO(BaseOptimizer):
 
     def __str__(self) -> str:
         return 'AdaLOMO'
+
+    def state_dict(self) -> dict:
+        state = super().state_dict()
+        state['num_steps'] = self.num_steps
+        state['exp_avg_sq'] = self.exp_avg_sq
+        state['exp_avg_sq_row'] = self.exp_avg_sq_row
+        state['exp_avg_sq_col'] = self.exp_avg_sq_col
+        return state
+
+    def load_state_dict(self, state_dict: dict) -> None:
+        super().load_state_dict(state_dict)
+        self.num_steps = state_dict.get('num_steps', 0)
+        with torch.no_grad():
+            self.exp_avg_sq = {
+                key: self.exp_avg_sq[key].copy_(value)
+                for key, value in state_dict.get('exp_avg_sq', self.exp_avg_sq).items()
+            }
+            self.exp_avg_sq_row = {
+                key: self.exp_avg_sq_row[key].copy_(value)
+                for key, value in state_dict.get('exp_avg_sq_row', self.exp_avg_sq_row).items()
+            }
+            self.exp_avg_sq_col = {
+                key: self.exp_avg_sq_col[key].copy_(value)
+                for key, value in state_dict.get('exp_avg_sq_col', self.exp_avg_sq_col).items()
+            }
 
     def initialize_states(self) -> None:
         for n, p in self.model.named_parameters():
@@ -340,13 +368,13 @@ class AdaLOMO(BaseOptimizer):
                     update = grad_fp32.pow(2).add_(self.eps1)
 
                     if len(p.shape) > 1:
-                        self.exp_avg_sq_row[n].mul_(beta2_t).add_(update.mean(dim=-1), alpha=1.0 - beta2_t)
-                        self.exp_avg_sq_col[n].mul_(beta2_t).add_(update.mean(dim=-2), alpha=1.0 - beta2_t)
+                        self.exp_avg_sq_row[n].lerp_(update.mean(dim=-1), weight=1.0 - beta2_t)
+                        self.exp_avg_sq_col[n].lerp_(update.mean(dim=-2), weight=1.0 - beta2_t)
 
                         self.approximate_sq_grad(self.exp_avg_sq_row[n], self.exp_avg_sq_col[n], update)
                         update.mul_(grad_fp32)
                     else:
-                        self.exp_avg_sq[n].mul_(beta2_t).add_(update, alpha=1.0 - beta2_t)
+                        self.exp_avg_sq[n].lerp_(update, weight=1.0 - beta2_t)
                         update = self.exp_avg_sq[n].rsqrt().mul_(grad_fp32)
 
                     factor = cast(torch.Tensor, self.get_rms(update)).div_(self.clip_threshold).clamp_min_(1.0)
@@ -358,7 +386,7 @@ class AdaLOMO(BaseOptimizer):
                     lr = self.lr * max(self.eps2, p_rms)
 
                     self.apply_weight_decay(
-                        p,
+                        p_fp32,
                         grad_fp32,
                         lr,
                         self.weight_decay,
@@ -366,7 +394,7 @@ class AdaLOMO(BaseOptimizer):
                         fixed_decay=False,
                     )
 
-                    p_fp32.add_(grad_fp32, alpha=-lr)
+                    p_fp32.add_(update, alpha=-lr)
                     p.copy_(p_fp32)
 
             return x
@@ -474,9 +502,9 @@ class AdaLOMO(BaseOptimizer):
         self.grad_func(0)
 
         with torch.no_grad():
-            self.grad_norms = torch.stack(self.grad_norms)
+            grad_norms = torch.stack(self.grad_norms)
 
-            total_norm = torch.norm(self.grad_norms, 2.0)
+            total_norm = torch.norm(grad_norms, 2.0)
             self.clip_coef = torch.clamp(float(self.clip_grad_norm) / (total_norm + 1e-6), max=1.0)
 
         self.gather_norm = False

@@ -1059,6 +1059,27 @@ def settings_self_heal_suppressed(reason: str = "live_probe"):
         _SELF_HEAL_SUPPRESSED.reset(token)
 
 
+def _response_is_empty(result: Any) -> bool:
+    """True for a UnifiedResponse with no visible output: no tool call, no non-blank
+    text, no media or other typed block (reasoning alone is not an answer)."""
+    messages = getattr(result, "messages", None)
+    if messages is None:
+        return False
+    if not isinstance(messages, (list, tuple)):
+        messages = [messages]
+    for message in messages:
+        for content in getattr(message, "content", None) or []:
+            kind = type(content).__name__
+            if kind in ("ThinkingContent", "ToolResultContent"):
+                continue
+            if kind == "TextContent":
+                if (getattr(content, "text", "") or "").strip():
+                    return False
+                continue
+            return False  # a tool call, media, or any other typed block is visible
+    return True
+
+
 class _SettingsSelfHeal:
     """Settings-translation R2: ONE mechanical repair per provider call.
 
@@ -1133,8 +1154,23 @@ class _SettingsSelfHeal:
             setting_context=ident["setting_context"],
         )
 
-    async def succeeded(self) -> None:
+    async def succeeded(self, result: Any = None) -> None:
         if self.safe_min is not None and self.first_exc is not None:
+            if result is not None and _response_is_empty(result):
+                # R-b net: the safe-minimum retry came back empty too — not settings.
+                from matrx_ai.providers.setting_rejection import SELF_HEALED_KEY
+
+                await self._file(
+                    self.first_exc,
+                    self.first_info,
+                    {
+                        SELF_HEALED_KEY: False,
+                        "repair": self.safe_min.as_record(),
+                        "retry": {"outcome": "empty_again", "kind": "safe_minimum"},
+                    },
+                    self.first_ctx,
+                )
+                return
             await self._safe_minimum_succeeded()
             return
         if self.repair is None or self.first_exc is None:
@@ -1194,6 +1230,69 @@ class _SettingsSelfHeal:
             },
             self.first_ctx,
         )
+
+    async def empty_answer_retry(self, result: Any, *, streamed_before: int | None) -> bool:
+        """Chair ruling R-b (2026-10-04): an EMPTY answer is a failure even on a provider 200.
+
+        A response with no visible output (no text, no tool call, no media) on a call that
+        carries optional settings is filed as a typed ``provider_setting_rejected`` record
+        (shape ``empty_answer``) and sent ONCE more at the safe minimum — every optional
+        setting left out. Nothing streamed, no other repair used, never a third call; an
+        empty retry returns as-is (the executor's honest no-answer error). Never raises.
+        """
+        try:
+            if self.repairs_used or self.repair is not None or self.safe_min is not None:
+                return False
+            if _SELF_HEAL_SUPPRESSED.get() or not _response_is_empty(result):
+                return False
+            streamed_after = _streamed_text_length()
+            if streamed_before is not None and streamed_after is not None and streamed_after > streamed_before:
+                return False
+            from matrx_ai.providers.errors import RetryableError
+            from matrx_ai.providers.setting_rejection import (
+                SETTING_REJECTION_ERROR_TYPE,
+                apply_safe_minimum,
+                config_as_sent_before_safe_minimum,
+                plan_safe_minimum,
+            )
+
+            safe = plan_safe_minimum(self.config, provider_message="empty answer on a 200")
+            if safe is None:
+                return False
+            message = (
+                f"{self.provider} answered 200 with no visible output while optional settings "
+                f"were set ({', '.join(safe.canonical_keys)})"
+            )
+            info = RetryableError(
+                error_type=SETTING_REJECTION_ERROR_TYPE,
+                message=message,
+                status_code=200,
+                is_retryable=False,
+                user_message=message,
+                details={
+                    "provider": self.provider,
+                    "setting_rejection": {
+                        "provider": self.provider,
+                        "shape": "empty_answer",
+                        "recognizer": "empty_answer_net",
+                        "provider_message": "no visible output on a 200",
+                    },
+                },
+            )
+            failure_ctx = self._failure_context()
+            failure_ctx["config"] = config_as_sent_before_safe_minimum(self.config, safe)
+            if not apply_safe_minimum(self.config, safe):
+                return False
+            self.repairs_used += 1
+            self.safe_min = safe
+            self.first_exc = info
+            self.first_info = info
+            self.first_ctx = failure_ctx
+            vcprint(f"[dispatch] {message} — sending once more at the safe minimum", color="yellow")
+            return True
+        except Exception as bug:  # noqa: BLE001 — the net never replaces the answer it has
+            vcprint(f"[dispatch] empty-answer net failed internally: {bug!r}", color="red")
+            return False
 
     async def handle_failure(self, exc: BaseException, *, streamed_before: int | None) -> bool:
         """True when the call should be sent again (repair applied). Never raises."""
@@ -1943,7 +2042,9 @@ class UnifiedAIClient:
                     config=config,
                     defer_setting_rejection=True,
                 )
-                await heal.succeeded()
+                if await heal.empty_answer_retry(result, streamed_before=streamed_before):
+                    continue  # R-b: an empty 200 on a settings-bearing call, sent once more
+                await heal.succeeded(result)
                 return result
             except Exception as exc:
                 if await heal.handle_failure(exc, streamed_before=streamed_before):

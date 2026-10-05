@@ -1,6 +1,6 @@
 [package]
 name = "piot-fixture-zzz-poly-rust"
-version = "0.0.1790970222"
+version = "0.0.1791166038"
 edition = "2021"
 license = "MIT"
 description = "Put It Out There canary fixture. Safe to ignore."

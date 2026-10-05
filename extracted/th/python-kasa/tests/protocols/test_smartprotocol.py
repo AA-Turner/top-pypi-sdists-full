@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pytest
@@ -9,6 +10,7 @@ from kasa.exceptions import (
     DeviceError,
     KasaException,
     SmartErrorCode,
+    TimeoutError,
 )
 from kasa.protocols.smartcamprotocol import SmartCamProtocol
 from kasa.protocols.smartprotocol import SmartProtocol, _ChildProtocolWrapper
@@ -26,7 +28,9 @@ DUMMY_MULTIPLE_QUERY = {
 ERRORS = [e for e in SmartErrorCode if e != 0]
 
 
-async def test_smart_queries(dummy_protocol, mocker: pytest_mock.MockerFixture):
+async def test_smart_queries(
+    dummy_protocol: SmartProtocol, mocker: pytest_mock.MockerFixture
+) -> None:
     mock_response = {"result": {"great": "success"}, "error_code": 0}
 
     mocker.patch.object(dummy_protocol._transport, "send", return_value=mock_response)
@@ -42,7 +46,9 @@ async def test_smart_queries(dummy_protocol, mocker: pytest_mock.MockerFixture):
 
 
 @pytest.mark.parametrize("error_code", ERRORS, ids=lambda e: e.name)
-async def test_smart_device_errors(dummy_protocol, mocker, error_code):
+async def test_smart_device_errors(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture, error_code: SmartErrorCode
+) -> None:
     mock_response = {"result": {"great": "success"}, "error_code": error_code.value}
 
     send_mock = mocker.patch.object(
@@ -59,8 +65,11 @@ async def test_smart_device_errors(dummy_protocol, mocker, error_code):
 @pytest.mark.parametrize("error_code", [-13333, 13333])
 @pytest.mark.xdist_group(name="caplog")
 async def test_smart_device_unknown_errors(
-    dummy_protocol, mocker, error_code, caplog: pytest.LogCaptureFixture
-):
+    dummy_protocol: SmartProtocol,
+    mocker: MockerFixture,
+    error_code: int,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test handling of unknown error codes."""
     mock_response = {"result": {"great": "success"}, "error_code": error_code}
 
@@ -78,8 +87,8 @@ async def test_smart_device_unknown_errors(
 
 @pytest.mark.parametrize("error_code", ERRORS, ids=lambda e: e.name)
 async def test_smart_device_errors_in_multiple_request(
-    dummy_protocol, mocker, error_code
-):
+    dummy_protocol: SmartProtocol, mocker: MockerFixture, error_code: SmartErrorCode
+) -> None:
     mock_request = {
         "foobar1": {"foo": "bar", "bar": "foo"},
         "foobar2": {"foo": "bar", "bar": "foo"},
@@ -113,10 +122,13 @@ async def test_smart_device_errors_in_multiple_request(
 @pytest.mark.parametrize("request_size", [1, 3, 5, 10])
 @pytest.mark.parametrize("batch_size", [1, 2, 3, 4, 5])
 async def test_smart_device_multiple_request(
-    dummy_protocol, mocker, request_size, batch_size
-):
+    dummy_protocol: SmartProtocol,
+    mocker: MockerFixture,
+    request_size: int,
+    batch_size: int,
+) -> None:
     requests = {}
-    mock_response = {
+    mock_response: dict = {
         "result": {"responses": []},
         "error_code": 0,
     }
@@ -138,8 +150,8 @@ async def test_smart_device_multiple_request(
 
 
 async def test_smart_device_multiple_request_json_decode_failure(
-    dummy_protocol, mocker
-):
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     """Test the logic to disable multiple requests on JSON_DECODE_FAIL_ERROR."""
     requests = {}
     mock_responses = []
@@ -169,8 +181,8 @@ async def test_smart_device_multiple_request_json_decode_failure(
 
 
 async def test_smart_device_multiple_request_json_decode_failure_twice(
-    dummy_protocol, mocker
-):
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     """Test the logic to disable multiple requests on JSON_DECODE_FAIL_ERROR."""
     requests = {}
 
@@ -196,8 +208,8 @@ async def test_smart_device_multiple_request_json_decode_failure_twice(
 
 
 async def test_smart_device_multiple_request_non_json_decode_failure(
-    dummy_protocol, mocker
-):
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     """Test the logic to disable multiple requests on JSON_DECODE_FAIL_ERROR.
 
     Ensure other exception types behave as expected.
@@ -225,7 +237,105 @@ async def test_smart_device_multiple_request_non_json_decode_failure(
     assert send_mock.call_count == 1
 
 
-async def test_childdevicewrapper_unwrapping(dummy_protocol, mocker):
+async def test_smart_device_multiple_request_timeout(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
+    """Test that a timed out multi request disables batching and retries."""
+    requests = {}
+    mock_responses = []
+    for i in range(10):
+        method = f"get_method_{i}"
+        requests[method] = {"foo": "bar", "bar": "foo"}
+        mock_responses.append(
+            {"method": method, "result": {"great": "success"}, "error_code": 0}
+        )
+
+    send_mock = mocker.patch.object(
+        dummy_protocol._transport,
+        "send",
+        side_effect=[TimeoutError("Simulated timeout"), *mock_responses],
+    )
+    mocker.patch("asyncio.sleep")
+    dummy_protocol._multi_request_batch_size = 5
+    resp = await dummy_protocol.query(requests, retry_count=1)
+    assert dummy_protocol._multi_request_batch_size == 1
+    assert resp == {method: {"great": "success"} for method in requests}
+    # Call count should be the timed out batch + number of requests
+    assert send_mock.call_count == len(requests) + 1
+
+
+async def test_smart_device_multiple_request_timeout_single_requests(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
+    """Test that timeouts on single requests are still retried and raised."""
+    send_mock = mocker.patch.object(
+        dummy_protocol._transport,
+        "send",
+        side_effect=TimeoutError("Simulated timeout"),
+    )
+    mocker.patch("asyncio.sleep")
+    dummy_protocol._multi_request_batch_size = 1
+    with pytest.raises(TimeoutError):
+        await dummy_protocol.query(DUMMY_MULTIPLE_QUERY, retry_count=2)
+    assert dummy_protocol._multi_request_batch_size == 1
+    assert send_mock.call_count == 3
+
+
+async def test_smart_device_multiple_request_child_lists_timeout(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
+    """Test devices that do not respond to batched child list requests.
+
+    The P300(EU) 1.0.7 firmware never answers a multipleRequest containing both
+    get_child_device_component_list and get_child_device_list, while each
+    request sent on its own succeeds.
+    """
+    child_list_methods = {"get_child_device_component_list", "get_child_device_list"}
+    results = {
+        "get_child_device_component_list": {
+            "child_component_list": [],
+            "start_index": 0,
+            "sum": 0,
+        },
+        "get_child_device_list": {
+            "child_device_list": [],
+            "start_index": 0,
+            "sum": 0,
+        },
+    }
+
+    async def _send(request: str) -> dict:
+        req = json.loads(request)
+        if req["method"] != "multipleRequest":
+            return {"result": results[req["method"]], "error_code": 0}
+        methods = {r["method"] for r in req["params"]["requests"]}
+        if child_list_methods <= methods:
+            raise TimeoutError("Simulated timeout")
+        return {
+            "result": {
+                "responses": [
+                    {"method": m, "result": results[m], "error_code": 0}
+                    for m in methods
+                ]
+            },
+            "error_code": 0,
+        }
+
+    send_mock = mocker.patch.object(
+        dummy_protocol._transport, "send", side_effect=_send
+    )
+    mocker.patch("asyncio.sleep")
+    assert dummy_protocol._multi_request_batch_size == 5
+    resp = await dummy_protocol.query(dict.fromkeys(child_list_methods))
+    assert resp == results
+    assert dummy_protocol._multi_request_batch_size == 1
+    # The timed out batch + one single request per method
+    assert send_mock.call_count == 3
+
+
+async def test_childdevicewrapper_unwrapping(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     """Test that responseData gets unwrapped correctly."""
     wrapped_protocol = _ChildProtocolWrapper("dummyid", dummy_protocol)
     mock_response = {"error_code": 0, "result": {"responseData": {"error_code": 0}}}
@@ -235,7 +345,9 @@ async def test_childdevicewrapper_unwrapping(dummy_protocol, mocker):
     assert res == {"foobar": None}
 
 
-async def test_childdevicewrapper_unwrapping_with_payload(dummy_protocol, mocker):
+async def test_childdevicewrapper_unwrapping_with_payload(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     wrapped_protocol = _ChildProtocolWrapper("dummyid", dummy_protocol)
     mock_response = {
         "error_code": 0,
@@ -246,7 +358,9 @@ async def test_childdevicewrapper_unwrapping_with_payload(dummy_protocol, mocker
     assert res == {"foobar": {"bar": "bar"}}
 
 
-async def test_childdevicewrapper_error(dummy_protocol, mocker):
+async def test_childdevicewrapper_error(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     """Test that errors inside the responseData payload cause an exception."""
     wrapped_protocol = _ChildProtocolWrapper("dummyid", dummy_protocol)
     mock_response = {"error_code": 0, "result": {"responseData": {"error_code": -1001}}}
@@ -256,7 +370,9 @@ async def test_childdevicewrapper_error(dummy_protocol, mocker):
         await wrapped_protocol.query(DUMMY_QUERY)
 
 
-async def test_childdevicewrapper_unwrapping_multiplerequest(dummy_protocol, mocker):
+async def test_childdevicewrapper_unwrapping_multiplerequest(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     """Test that unwrapping multiplerequest works correctly."""
     mock_response = {
         "error_code": 0,
@@ -285,7 +401,9 @@ async def test_childdevicewrapper_unwrapping_multiplerequest(dummy_protocol, moc
     assert resp == {"get_device_info": {"foo": "bar"}, "second_command": {"bar": "foo"}}
 
 
-async def test_childdevicewrapper_multiplerequest_error(dummy_protocol, mocker):
+async def test_childdevicewrapper_multiplerequest_error(
+    dummy_protocol: SmartProtocol, mocker: MockerFixture
+) -> None:
     """Test that errors inside multipleRequest response of responseData raise an exception."""
     mock_response = {
         "error_code": 0,
@@ -313,7 +431,9 @@ async def test_childdevicewrapper_multiplerequest_error(dummy_protocol, mocker):
 
 @pytest.mark.parametrize("list_sum", [5, 10, 30])
 @pytest.mark.parametrize("batch_size", [1, 2, 3, 50])
-async def test_smart_protocol_lists_single_request(mocker, list_sum, batch_size):
+async def test_smart_protocol_lists_single_request(
+    mocker: MockerFixture, list_sum: int, batch_size: int
+) -> None:
     child_device_list = [{"foo": i} for i in range(list_sum)]
     response = {
         "get_child_device_list": {
@@ -341,7 +461,9 @@ async def test_smart_protocol_lists_single_request(mocker, list_sum, batch_size)
 
 @pytest.mark.parametrize("list_sum", [5, 10, 30])
 @pytest.mark.parametrize("batch_size", [1, 2, 3, 50])
-async def test_smart_protocol_lists_multiple_request(mocker, list_sum, batch_size):
+async def test_smart_protocol_lists_multiple_request(
+    mocker: MockerFixture, list_sum: int, batch_size: int
+) -> None:
     child_list = [{"foo": i} for i in range(list_sum)]
     response = {
         "get_child_device_list": {
@@ -376,7 +498,9 @@ async def test_smart_protocol_lists_multiple_request(mocker, list_sum, batch_siz
 
 @pytest.mark.parametrize("list_sum", [5, 10, 30])
 @pytest.mark.parametrize("batch_size", [1, 2, 3, 50])
-async def test_smartcam_protocol_list_request(mocker, list_sum, batch_size):
+async def test_smartcam_protocol_list_request(
+    mocker: MockerFixture, list_sum: int, batch_size: int
+) -> None:
     """Test smartcam protocol list handling for lists."""
     child_list = [{"foo": i} for i in range(list_sum)]
 
@@ -414,7 +538,9 @@ async def test_smartcam_protocol_list_request(mocker, list_sum, batch_size):
     assert resp == response
 
 
-async def test_incomplete_list(mocker, caplog):
+async def test_incomplete_list(
+    mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test for handling incomplete lists returned from queries."""
     info = {
         "get_preset_rules": {
@@ -464,7 +590,7 @@ async def test_incomplete_list(mocker, caplog):
 @pytest.mark.xdist_group(name="caplog")
 async def test_smart_queries_redaction(
     dev: SmartDevice, caplog: pytest.LogCaptureFixture
-):
+) -> None:
     """Test query sensitive info redaction."""
     if isinstance(dev.protocol._transport, FakeSmartTransport):
         device_id = "123456789ABCDEF"
@@ -495,7 +621,7 @@ async def test_smart_queries_redaction(
 
 async def test_no_method_returned_multiple(
     mocker: MockerFixture, caplog: pytest.LogCaptureFixture
-):
+) -> None:
     """Test protocol handles multiple requests that don't return the method."""
     req = {
         "getDeviceInfo": {"device_info": {"name": ["basic_info", "info"]}},
@@ -540,7 +666,7 @@ async def test_no_method_returned_multiple(
 
 async def test_no_multiple_methods(
     mocker: MockerFixture, caplog: pytest.LogCaptureFixture
-):
+) -> None:
     """Test protocol sends NO_MULTI methods as single call."""
     req = {
         "getDeviceInfo": {"device_info": {"name": ["basic_info", "info"]}},

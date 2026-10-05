@@ -12,11 +12,11 @@ import platform
 import sys
 
 _SUPPORTED = ['Linux x86_64      (manylinux_2_28_x86_64)', 'Linux aarch64     (manylinux_2_28_aarch64)', 'macOS 14+ arm64   (macosx_14_0_arm64, Apple Silicon)']
-_VERSION = '2.11.20'
+_VERSION = '2.11.21'
 
 _MSG = """
 ================================================================================
-  bithuman 2.11.20 has NO WHEEL for this platform.
+  bithuman 2.11.21 has NO WHEEL for this platform.
 
     you are on : {system} / {machine} / CPython {py}
     supported  : {supported}

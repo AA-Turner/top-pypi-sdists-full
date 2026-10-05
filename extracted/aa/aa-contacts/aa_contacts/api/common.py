@@ -163,7 +163,7 @@ def create_server_link(
     return 200, link
 
 
-def update_server_link(  # noqa: PLR0913
+def update_server_link(  # noqa: PLR0913, PLR0917
     cfg: ContactApiConfig,
     owner_id: int,
     contact_pk: int,

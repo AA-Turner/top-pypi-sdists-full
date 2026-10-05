@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled, reopened]
 
+env:
+  PIP_UPLOADED_PRIOR_TO: P2D
+
 permissions:
   contents: read
 
@@ -12,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -20,6 +23,6 @@ jobs:
         if: >
           contains(github.event.pull_request.labels.*.name, 'ci: skip news') != true
         run: |
-          grep -Pz "\((\n\s*)?#${{ github.event.pull_request.number }}(\n\s*)?\)" CHANGES.md || \
+          grep -Pz '\((#\d+,\s+)*#${{ github.event.pull_request.number }}(,\s+#\d+)*\)$' CHANGES.md || \
           (echo "Please add '(#${{ github.event.pull_request.number }})' change line to CHANGES.md (or if appropriate, ask a maintainer to add the 'ci: skip news' label)" && \
           exit 1)

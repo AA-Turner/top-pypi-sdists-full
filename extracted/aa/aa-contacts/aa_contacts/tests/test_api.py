@@ -4,7 +4,6 @@ import json
 from typing import TYPE_CHECKING, TypeAlias
 from unittest import mock
 
-from app_utils.testdata_factories import EveCharacterFactory, UserMainFactory
 from django.test import TestCase
 
 from aa_contacts.models import (
@@ -17,6 +16,7 @@ from aa_contacts.models import (
     CorporationToken,
 )
 from aa_contacts.tasks import update_alliance_contacts, update_corporation_contacts
+from aa_contacts.tests.factories import create_eve_character, create_user_main
 
 if TYPE_CHECKING:
     from allianceauth.eveonline.models import (
@@ -47,7 +47,7 @@ class ContactApiTestMixin(_MixinBase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.contact_target = EveCharacterFactory()
+        cls.contact_target = create_eve_character()
 
     # -- owner / membership helpers ------------------------------------
 
@@ -58,7 +58,7 @@ class ContactApiTestMixin(_MixinBase):
         return getattr(owner, f"{self.owner_type}_id")
 
     def _member(self, permissions: list[str] | None = None) -> User:
-        return UserMainFactory(permissions=permissions or [])
+        return create_user_main(permissions=permissions or [])
 
     def _make_token(self, user: User) -> ContactToken:
         return self.token_model.objects.create(
@@ -143,7 +143,7 @@ class ContactApiTestMixin(_MixinBase):
         self._make_token(member)
         self._make_contact(owner)
 
-        superuser = UserMainFactory(is_superuser=True)
+        superuser = create_user_main(is_superuser=True)
         self.client.force_login(superuser)
         response = self.client.get(self.contacts_url(self._owner_id(owner)))
 
@@ -592,7 +592,7 @@ class PermissionsApiTest(TestCase):
     url = "/contacts/api/permissions/me"
 
     def test_no_permissions(self):
-        user = UserMainFactory()
+        user = create_user_main()
 
         self.client.force_login(user)
         response = self.client.get(self.url)
@@ -607,7 +607,7 @@ class PermissionsApiTest(TestCase):
         )
 
     def test_manage_alliance_only(self):
-        user = UserMainFactory(permissions=["aa_contacts.manage_alliance_contacts"])
+        user = create_user_main(permissions=["aa_contacts.manage_alliance_contacts"])
 
         self.client.force_login(user)
         response = self.client.get(self.url)
@@ -622,7 +622,7 @@ class PermissionsApiTest(TestCase):
         )
 
     def test_manage_corporation_only(self):
-        user = UserMainFactory(permissions=["aa_contacts.manage_corporation_contacts"])
+        user = create_user_main(permissions=["aa_contacts.manage_corporation_contacts"])
 
         self.client.force_login(user)
         response = self.client.get(self.url)
@@ -637,7 +637,7 @@ class PermissionsApiTest(TestCase):
         )
 
     def test_manage_both(self):
-        user = UserMainFactory(
+        user = create_user_main(
             permissions=[
                 "aa_contacts.manage_alliance_contacts",
                 "aa_contacts.manage_corporation_contacts",
@@ -657,7 +657,7 @@ class PermissionsApiTest(TestCase):
         )
 
     def test_superuser(self):
-        user = UserMainFactory(is_superuser=True)
+        user = create_user_main(is_superuser=True)
 
         self.client.force_login(user)
         response = self.client.get(self.url)

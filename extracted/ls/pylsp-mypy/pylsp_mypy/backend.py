@@ -33,7 +33,7 @@ class Backend(ABC):
         pass
 
     def hover(self, command: list[str], args: list[str]) -> tuple[str, str, int]:
-        return None
+        return "", "", -1
 
     def stop(self, command: list[str], status_file: str) -> None:
         pass

@@ -1,12 +1,14 @@
 Metadata-Version: 2.5
 Name: feu
-Version: 0.8.3
+Version: 0.8.4
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: A lightweight Python library for managing packages and versions across different Python environments
-Project-URL: homepage, https://github.com/durandtibo/feu
-Project-URL: repository, https://github.com/durandtibo/feu
-Project-URL: documentation, https://durandtibo.github.io/feu/
+Project-URL: Homepage, https://github.com/durandtibo/feu
+Project-URL: Repository, https://github.com/durandtibo/feu
+Project-URL: Documentation, https://durandtibo.github.io/feu/
+Project-URL: Changelog, https://github.com/durandtibo/feu/releases
+Project-URL: Issues, https://github.com/durandtibo/feu/issues
 Author-email: Thibaut Durand <durand.tibo+gh@gmail.com>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
@@ -57,9 +59,6 @@ Description-Content-Type: text/markdown
     <a href="https://github.com/durandtibo/feu/actions/workflows/ci.yaml">
         <img alt="CI" src="https://github.com/durandtibo/feu/actions/workflows/ci.yaml/badge.svg">
     </a>
-    <a href="https://github.com/durandtibo/feu/actions/workflows/nightly-tests.yaml">
-        <img alt="Nightly Tests" src="https://github.com/durandtibo/feu/actions/workflows/nightly-tests.yaml/badge.svg">
-    </a>
     <a href="https://github.com/durandtibo/feu/actions/workflows/nightly-package.yaml">
         <img alt="Nightly Package Tests" src="https://github.com/durandtibo/feu/actions/workflows/nightly-package.yaml/badge.svg">
     </a>
@@ -68,10 +67,10 @@ Description-Content-Type: text/markdown
     </a>
     <br/>
     <a href="https://durandtibo.github.io/feu/">
-        <img alt="Documentation" src="https://github.com/durandtibo/feu/actions/workflows/docs.yaml/badge.svg">
+        <img alt="Documentation" src="https://github.com/durandtibo/feu/actions/workflows/release-docs.yaml/badge.svg">
     </a>
     <a href="https://durandtibo.github.io/feu/dev/">
-        <img alt="Documentation" src="https://github.com/durandtibo/feu/actions/workflows/docs-dev.yaml/badge.svg">
+        <img alt="Documentation" src="https://github.com/durandtibo/feu/actions/workflows/release-docs-dev.yaml/badge.svg">
     </a>
     <br/>
     <a href="https://github.com/psf/black">
@@ -195,8 +194,9 @@ install only some specific dependencies or other alternatives to install the lib
 is the corresponding `feu` versions and supported dependencies.
 
 | `feu`   | `packaging`    | `python`       | `click`<sup>*</sup> | `gitpython`<sup>*</sup> | `requests`<sup>*</sup> | `rich`<sup>*</sup> |
-|---------|----------------|----------------|---------------------|-------------------------|------------------------|--------------------|
+| ------- | -------------- | -------------- | ------------------- | ----------------------- | ---------------------- | ------------------ |
 | `main`  | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
+| `0.8.4` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.8.3` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.8.2` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.8.1` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
@@ -216,7 +216,7 @@ is the corresponding `feu` versions and supported dependencies.
     <summary>older versions</summary>
 
 | `feu`   | `packaging`    | `python`       | `click`<sup>*</sup> | `gitpython`<sup>*</sup> | `fire`<sup>*</sup> | `requests`<sup>*</sup> |
-|---------|----------------|----------------|---------------------|-------------------------|--------------------|------------------------|
+| ------- | -------------- | -------------- | ------------------- | ----------------------- | ------------------ | ---------------------- |
 | `0.4.2` | `>=21.0,<26.0` | `>=3.10,<3.15` | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         |                    | `>=2.30,<3.0`          |
 | `0.4.1` | `>=21.0,<26.0` | `>=3.10,<3.15` | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         |                    | `>=2.30,<3.0`          |
 | `0.4.0` | `>=21.0,<26.0` | `>=3.9,<3.14`  | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         |                    | `>=2.30,<3.0`          |

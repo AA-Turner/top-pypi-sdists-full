@@ -26,17 +26,16 @@ The keys are honored by whichever group carries the `--config` option, not only
 by click-extra's own {class}`~click_extra.commands.Group`. Injection happens at
 parse time, from the option itself, because a plain `click.Group` offers
 click-extra no other hook: a third-party framework building its group on
-`click.Group` still gets the feature. A click-extra `Group` reached through an
-ancestor's `--config` carries no option of its own, and applies its own section
-from {meth}`~click_extra.commands.Group.parse_args` instead.
+`click.Group` still gets the feature.
 ```
 
 ```{caution}
-Click prints the `no_args_is_help` screen before it processes any option, so a
-bare invocation reads no configuration. {meth}`~click_extra.commands.Group.parse_args`
-steps around that for click-extra's own groups. A group built on plain
-`click.Group` or `cloup.Group` has no such hook: declare it with
-`no_args_is_help=False` to run the configured subcommands on a bare invocation.
+The option never sees two cases. Click prints the `no_args_is_help` screen of a
+bare invocation before it processes any option, and a group reached through an
+ancestor's `--config` carries no option of its own.
+{class}`~click_extra.config.option.ConfigOption` replaces `click.Group.parse_args`
+for the whole process to cover both, whatever class the group is built on: see its
+documentation.
 ```
 """
 
@@ -204,8 +203,7 @@ def inject_reserved_subcommands(ctx: click.Context, args: list[str]) -> list[str
 
     Applies at most once per group, tracked in
     {data}`~click_extra.context.SUBCOMMANDS_APPLIED`. A group can be visited
-    twice, by the no-args pre-pass in
-    {meth}`click_extra.commands.Group.parse_args` and then by the regular
+    twice, by the pre-pass of a bare invocation and then by the regular
     parameter loop, and prepending the same subcommand on both passes would run
     it twice.
 

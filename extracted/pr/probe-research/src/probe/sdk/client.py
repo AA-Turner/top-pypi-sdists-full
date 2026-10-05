@@ -9,7 +9,9 @@ Every method maps onto a real v4 endpoint (Probe Research v0.4.0.0 ingestion fol
 
 from __future__ import annotations
 
+import contextvars
 import difflib
+import functools
 import errno
 import json
 import os
@@ -23,6 +25,8 @@ import uuid
 import warnings
 import weakref
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from enum import Enum
@@ -36,6 +40,8 @@ from .._generated.models import Authorship as Authorship  # re-export: probe.Aut
 from .._generated.models import SourceReadContractEnum
 from ..models import (
     ArtifactVersionCreate,
+    ProjectKind as _ProjectKind,
+    ScopeKind as _ScopeKind,
     CitationDirection,
     EdgeCreate,
     ExecutionRecordCreate,
@@ -357,56 +363,20 @@ class _UNSET:  # noqa: N801 — a sentinel type, used as the value itself
     """
 
 
-#: AN EXPERIMENT'S ADDRESS ON THE WIRE (0231).
+#: AN EXPERIMENT'S ADDRESS ON THE WIRE.
 #:
-#: An experiment IS a project -- a leaf one, carrying the question it answers as
-#: its description -- and every `/v1/experiments/*` route now answers 410
-#: (PR 5b), pointing at its `/v1/projects/*` twin. This client speaks only the
-#: project address.
+#: 0231 made an experiment a project row (a "leaf") and retired
+#: `/v1/experiments/*` (410). The light-experiments split gave experiments their
+#: own record again and, at R4, this client moved onto the experiment API:
+#: `/v1/projects/{project}/experiments[/{experiment}]` (see the experiments
+#: section of `Client`). `_as_experiment` below stays for the read-only
+#: `Reader`: a service token reaches only allowlisted reads, and the experiment
+#: API is not on that list, so the Reader still reads the leaf row.
 #:
-#: WHY THE PATHS BELOW ARE SPELLED OUT AT EVERY CALL SITE rather than built by a
-#: helper, which is what this first tried. `tests/test_parity.py` READS the
-#: client's source to decide which backend routes a client can reach, and its
-#: `test_no_transport_call_builds_its_path_opaquely` refuses a transport call
-#: whose path it cannot resolve -- because an unreadable path makes a real route
-#: look unreachable, or, worse, silently satisfies a PENDING entry that then
-#: never clears. Route coverage being machine-checkable is worth more than a
-#: single place to edit, so the literals stay.
-_EXPERIMENTS_PATH = "/v1/projects"
-
-
-def _to_project_body(body: dict) -> dict:
-    """The experiment vocabulary, spoken to the project address.
-
-    Two renames and nothing else, both decided by the merge rather than by this
-    client: the QUESTION an experiment answers IS its description (there is no
-    second field for it), and the project it belongs to IS its parent.
-    """
-    out = dict(body)
-    # THE COLLISION, AND WHY IT IS AN ERROR RATHER THAN A CHOICE. An experiment
-    # row has a question AND a legacy description; a project row has one
-    # `description`, and on a leaf that field IS the question. So a body
-    # carrying both has two values for one slot, and picking either silently
-    # destroys the other -- the question being the one that matters.
-    #
-    # `description` alone is the same problem one step quieter: it would land
-    # on the question. The legacy descriptions that existed were moved onto the
-    # Overview page under `## Setup` by the 0231 sweep, so `document` is where
-    # that prose lives now, and `question` is where the framing lives. Both are
-    # named here because a caller hitting this knows which one they meant.
-    if "description" in out:
-        raise ValueError(
-            "an experiment's description was replaced by its QUESTION (0231): a "
-            "leaf project's `description` field holds the question it answers, so "
-            "there is no separate slot left for this text. Pass question= for what "
-            "the experiment is testing, or document= for prose about it -- which is "
-            "where existing descriptions were moved."
-        )
-    if "question" in out:
-        out["description"] = out.pop("question")
-    if "project_id" in out:
-        out["parent_project_id"] = out.pop("project_id")
-    return out
+#: Paths are spelled out at every call site rather than built by a helper:
+#: `tests/test_parity.py` READS the client's source to decide which backend
+#: routes a client can reach, and refuses a transport call whose path it cannot
+#: resolve.
 
 
 def _as_experiment(row: object) -> object:
@@ -425,6 +395,134 @@ def _as_experiment(row: object) -> object:
     if "project_id" not in out and "parent_project_id" in out:
         out["project_id"] = out["parent_project_id"]
     return out
+
+
+#: An experiment's description was replaced by its question (0231); both the
+#: project address and the experiment API refuse it, and this says why first.
+_EXPERIMENT_DESCRIPTION_RETIRED = (
+    "an experiment's description was replaced by its QUESTION (0231): a "
+    "leaf project's `description` field holds the question it answers, so "
+    "there is no separate slot left for this text. Pass question= for what "
+    "the experiment is testing, or document= for prose about it -- which is "
+    "where existing descriptions were moved."
+)
+
+#: The experiment API's page sizes (`app/experiments/store.py`,
+#: `read_router.py`): at most 500 per page, 100 when unasked.
+_EXPERIMENT_PAGE_MAX = 500
+_EXPERIMENT_PAGE_DEFAULT = 100
+
+
+def _refuse_read_only_experiment_fields(**fields: object) -> None:
+    """Refuse the fields an experiment no longer takes, before anything is sent.
+
+    Since the light experiments' R3 switch an experiment is its own record, and
+    the tags and metadata its project row carried are kept read-only (the
+    project address answers 422 naming them); the experiment API has no such
+    fields at all. Refusing here says so in one line instead of a round trip."""
+    given = sorted(name for name, value in fields.items() if value is not None)
+    if given:
+        raise ValueError(
+            f"{', '.join(given)} cannot be set on an experiment: an experiment's "
+            "tags and metadata are kept read-only since it moved to its own record "
+            "(light experiments). Set its name, question, notes or document instead."
+        )
+
+
+def _from_experiment_api(row: object) -> object:
+    """An experiment from the experiment API, in the vocabulary callers already read.
+
+    The experiment API answers an experiment AS an experiment: `project_id` is
+    the project it is filed under and `question` the question it answers. Code
+    written against the project address also reads `parent_project_id`,
+    `description` (which held the question) and `kind`, so those are added --
+    never replacing a field the API sent.
+
+    `summary` on the API's detail read is the OVERVIEW PAGE's status, while on
+    the project address `summary` was the deprecated alias of `summary_metrics`
+    (headline numbers). It is renamed `overview_status` so no reader takes a
+    page's queue state for a result."""
+    if not isinstance(row, dict):
+        return row
+    out = dict(row)
+    if isinstance(out.get("summary"), dict) and "content" in out["summary"]:
+        out["overview_status"] = out.pop("summary")
+    out.setdefault("kind", _ProjectKind.experiment.value)
+    if "project_id" in out:
+        out.setdefault("parent_project_id", out["project_id"])
+    if "question" in out:
+        out.setdefault("description", out["question"])
+    return out
+
+
+def _is_uuid(value: object) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return True
+
+
+def _offset_cursor(cursor: str | None) -> int:
+    """The experiment list's page token: an offset, as this client hands it out."""
+    if cursor in (None, ""):
+        return 0
+    try:
+        offset = int(str(cursor))
+    except ValueError:
+        raise ValueError(
+            f"cursor {cursor!r} is not an experiment-list cursor (an older client's "
+            "keyset cursor does not carry over); start from the first page"
+        ) from None
+    if offset < 0:
+        raise ValueError("cursor cannot be negative")
+    return offset
+
+
+def _same_name(row: dict, name: str) -> bool:
+    return str(row.get("name", "")).lower() == name.lower()
+
+
+#: How many projects' experiment lists one walk fetches at once.
+_WALK_CONCURRENCY = 8
+
+#: A walk of every project's experiments, kept for ONE top-level call
+#: (`run()`, `ensure_experiment`, `resolve_or_raise`): the near-miss guard can
+#: be asked twice in one call (before a parent project is committed, then again
+#: in the create), and the second ask must not walk the tenant again. Keyed by
+#: client, per context (so per thread), and only ever holding a COMPLETE walk.
+_WALK_MEMO: contextvars.ContextVar[dict[int, list[dict]] | None] = contextvars.ContextVar(
+    "probe_experiment_walk_memo", default=None
+)
+
+
+@contextmanager
+def _one_walk():
+    """Share one experiment walk across everything inside this block."""
+    if _WALK_MEMO.get() is not None:
+        yield
+        return
+    token = _WALK_MEMO.set({})
+    try:
+        yield
+    finally:
+        _WALK_MEMO.reset(token)
+
+
+def _walks_once(method):
+    """Run a top-level method inside :func:`_one_walk`."""
+
+    @functools.wraps(method)
+    def wrapper(*args, **kwargs):
+        with _one_walk():
+            return method(*args, **kwargs)
+
+    return wrapper
+
+
+def _route_absent(exc: errors.RosError) -> bool:
+    """FastAPI's own 404 for a path no route matches: an older server."""
+    return isinstance(exc, errors.NotFoundError) and exc.detail == "Not Found"
 
 
 class Anchor(str, Enum):
@@ -3635,6 +3733,225 @@ class Client:
         return self.transport.post(f"/v1/shared/files/{artifact_id}/confirm", None)
 
     # -- experiments --------------------------------------------------------
+    #
+    # THE EXPERIMENT API (light experiments R4). An experiment is read and
+    # written as an experiment, under the project it is filed in:
+    #
+    #   GET    /v1/projects/{P}/experiments            list (offset paged, with a total)
+    #   POST   /v1/projects/{P}/experiments            create
+    #   GET    /v1/projects/{P}/experiments/{E}        one (uuid, slug or legacy slug)
+    #   PATCH  /v1/projects/{P}/experiments/{E}        edit; `project_id` moves it
+    #   DELETE /v1/projects/{P}/experiments/{E}        move to the trash
+    #   GET    /v1/scopes/{id}                         where an id is filed
+    #   GET    /v1/projects/{P}/workspace?scope=...    T16: one scope in one read
+    #
+    # Nothing here addresses an experiment as a project (`/v1/projects/{E}`):
+    # from the server's R4 refusal on, an older client that does is answered
+    # 410 `client_too_old`. Two things still go through that address because
+    # the experiment API has no field for them yet, and the server serves them
+    # to this client until R6: the experiment's `document` (a block of its
+    # Overview page) and the child routes (runs, groups, edges, files, notes
+    # history, versions). See `agent/CHANGELOG.md` for the list.
+    #
+    # The writes take uuids only (the server refuses a slug in either slot:
+    # a slug can be minted again once its holder is in the trash), so a slug is
+    # resolved to its id first.
+
+    def get_scope(self, scope_id: str) -> dict:
+        """What a project, experiment or run id is, and where it is filed:
+        ``{id, kind: project|experiment|run, project_id, experiment_id, run_id}``.
+
+        ``GET /v1/scopes/{id}``. 404 for an id the caller cannot see, 410 with the
+        trash notice for one in the trash. ``project_id`` is null only for an
+        unfiled run."""
+        return self.transport.get(f"/v1/scopes/{scope_id}")
+
+    def get_scope_by_slug(self, slug: str) -> dict:
+        """The project or experiment ``slug`` names, tenant-wide, in the same
+        shape as :meth:`get_scope`: a live experiment slug, else a project's,
+        else the slug an experiment had before a rename.
+
+        ``GET /v1/scopes?slug=``. 404 when nothing the caller can see holds it,
+        410 with the trash notice when the holder is in the trash. Raises
+        ``CapabilityUnavailable`` against a server that predates the route."""
+        try:
+            return self.transport.get("/v1/scopes", params={"slug": slug})
+        except errors.NotFoundError as exc:
+            if _route_absent(exc):
+                raise CapabilityUnavailable(
+                    "scope_by_slug", "this Probe server has no GET /v1/scopes?slug= yet"
+                ) from None
+            raise
+
+    def _experiment_scope(self, slug: str) -> dict | None:
+        """The scope of the EXPERIMENT ``slug`` names, or None (nothing holds it,
+        the holder is in the trash, or a project holds it). Raises
+        ``CapabilityUnavailable`` against an older server."""
+        try:
+            scope = self.get_scope_by_slug(slug)
+        except errors.NotFoundError:
+            return None
+        except errors.RosError as exc:
+            if exc.in_trash:
+                return None
+            raise
+        if scope.get("kind") != _ScopeKind.experiment.value or not scope.get("project_id"):
+            return None
+        return scope
+
+    def get_project_workspace(
+        self,
+        project_id: str,
+        *,
+        scope: str | None = None,
+        runs_limit: int | None = None,
+        runs_offset: int | None = None,
+        files_limit: int | None = None,
+        include_experiments: bool | None = None,
+    ) -> dict:
+        """One scope of a project in one read (the T16 workspace read model).
+
+        Not :meth:`get_workspace`, which reads a WORKSPACE (the place projects
+        are filed); this reads a project's page for one of its scopes.
+
+        ``scope`` is ``project:<id>`` (the default), ``experiment:<id>`` or
+        ``run:<id>``, and must be inside the project. Answers ``{project_id,
+        scope, writable, experiments, runs: {ids, total, limit, offset,
+        next_offset, series_cap}, question, summary, files}``: the project's
+        experiments with run counts (null with ``include_experiments=False``),
+        the run ids in scope newest first (at most ``series_cap`` per page, the
+        most one series query takes), the experiment's question, the scope's
+        overview status and the root of its Files tree."""
+        params = {
+            key: value
+            for key, value in {
+                "scope": scope,
+                "runs_limit": runs_limit,
+                "runs_offset": runs_offset,
+                "files_limit": files_limit,
+                "include_experiments": (
+                    None if include_experiments is None else str(include_experiments).lower()
+                ),
+            }.items()
+            if value is not None
+        }
+        return self.transport.get(f"/v1/projects/{project_id}/workspace", params=params or None)
+
+    def _locate_experiment(self, ref: str, project_id: str | None) -> tuple[str, str]:
+        """``(project id, experiment ref)`` for an experiment the caller named.
+
+        With the project known, the ref goes to the server as given (the item
+        route takes a uuid, slug or legacy slug). Without it, ONE request places
+        it: ``GET /v1/scopes/{id}`` for a uuid, ``GET /v1/scopes?slug=`` for a
+        slug. Only a server older than that route makes a slug cost a walk of
+        the caller's projects (:meth:`_tenant_experiments`)."""
+        ref = str(ref)
+        if project_id:
+            return str(project_id), ref
+        if _is_uuid(ref):
+            scope = self.get_scope(ref)
+            if scope.get("kind") != _ScopeKind.experiment.value or not scope.get("project_id"):
+                raise errors.NotFoundError(
+                    f"no experiment with id {ref!r}: that id is a {scope.get('kind') or 'something else'}"
+                )
+            return str(scope["project_id"]), ref
+        try:
+            scope = self._experiment_scope(ref)
+        except CapabilityUnavailable:
+            row = self._walk_for_slug(ref)
+            if row is None:
+                raise errors.NotFoundError(f"no experiment {ref!r}") from None
+            return str(row["project_id"]), str(row["id"])
+        if scope is None:
+            raise errors.NotFoundError(f"no experiment {ref!r}")
+        return str(scope["project_id"]), str(scope.get("experiment_id") or scope["id"])
+
+    def _experiment_ids(self, ref: str, project_id: str | None) -> tuple[str, str]:
+        """``(project uuid, experiment uuid)``: what the experiment API's writes take."""
+        project, experiment = self._locate_experiment(ref, project_id)
+        if not _is_uuid(experiment) or not _is_uuid(project):
+            row = self.get_experiment(experiment, project_id=project)
+            project, experiment = str(row["project_id"]), str(row["id"])
+        return project, experiment
+
+    def _tenant_experiments(self, *, stop_at: str | None = None) -> list[dict]:
+        """Every experiment the caller can see, project by project.
+
+        The experiment API lists experiments PER PROJECT, so this reads the
+        project list (it never holds an experiment) and each project's
+        experiments, :data:`_WALK_CONCURRENCY` projects at a time. Paid only
+        where a whole list is the question -- the near-miss guard, a
+        project-less ``list_experiments`` -- or against a server older than
+        ``GET /v1/scopes?slug=``. ``stop_at`` ends the walk at the first batch
+        holding that live slug. A project trashed or hidden mid-walk is skipped.
+        Inside :func:`_one_walk` a complete walk is fetched once."""
+        memo = _WALK_MEMO.get()
+        if memo is not None and id(self) in memo:
+            return memo[id(self)]
+        projects = [str(row["id"]) for row in self._all_slugs("project")]
+        rows: list[dict] = []
+        complete = True
+        if projects:
+            with ThreadPoolExecutor(max_workers=min(_WALK_CONCURRENCY, len(projects))) as pool:
+                for start in range(0, len(projects), _WALK_CONCURRENCY):
+                    batch = projects[start : start + _WALK_CONCURRENCY]
+                    # Each task in a COPY of this context: the hosted MCP binds the
+                    # caller's client headers in a context variable, and a bare
+                    # worker thread would report the server's own version instead.
+                    futures = [
+                        pool.submit(contextvars.copy_context().run, self._experiments_of, pid)
+                        for pid in batch
+                    ]
+                    for future in futures:
+                        rows.extend(future.result())
+                    if stop_at is not None and any(r.get("slug") == stop_at for r in rows):
+                        complete = start + _WALK_CONCURRENCY >= len(projects)
+                        break
+        if complete and memo is not None:
+            memo[id(self)] = rows
+        return rows
+
+    def _experiments_of(self, project_id: str) -> list[dict]:
+        """One project's experiments, every page; [] for a project that went
+        away (404) or into the trash (410) since the project list was read."""
+        rows: list[dict] = []
+        offset = 0
+        while True:
+            try:
+                page = self.transport.get(
+                    f"/v1/projects/{project_id}/experiments",
+                    params={"limit": _EXPERIMENT_PAGE_MAX, "offset": offset},
+                )
+            except errors.NotFoundError:
+                return rows
+            except errors.RosError as exc:
+                if exc.in_trash:
+                    return rows
+                raise
+            rows.extend(_from_experiment_api(item) for item in page.get("items") or [])
+            next_offset = page.get("next_offset")
+            if next_offset is None:
+                return rows
+            offset = next_offset
+
+    def _walk_for_slug(self, slug: str) -> dict | None:
+        """The experiment ``slug`` names, found by walking (an older server only)."""
+        return self._find_experiment(self._tenant_experiments(stop_at=slug), slug)
+
+    @staticmethod
+    def _find_experiment(rows: Iterable[dict], slug: str) -> dict | None:
+        """The experiment ``slug`` names: its slug, else the slug it had before a
+        rename (``legacy_slug``) -- second, as the server's resolvers rank them,
+        so a live slug outranks somebody's remembered name for another row."""
+        rows = list(rows)
+        for row in rows:
+            if row.get("slug") == slug:
+                return row
+        for row in rows:
+            if row.get("legacy_slug") == slug:
+                return row
+        return None
+
     def create_experiment(
         self,
         slug: str,
@@ -3647,19 +3964,30 @@ class Client:
         tags: list[str] | None = None,
         authored_by: str | None = None,
     ) -> dict:
-        """Create an experiment. Raises ``ConflictError`` if the slug is taken.
+        """Create an experiment in a project. Raises ``ConflictError`` if the slug is taken.
 
-        The question is REQUIRED and is not synthesised. This used to accept
-        ``None`` and compose a marked ``[auto]`` placeholder from ambient context,
-        which then became permanent: an existing experiment keeps its own
-        question first-write-wins, so nothing ever replaced the placeholder
-        unless a human noticed and ran ``probe experiment set``. Making creation
-        explicit means naming what you are testing at the moment you create it.
+        ``POST /v1/projects/{project_id}/experiments``. The question is REQUIRED
+        and is not synthesised. This used to accept ``None`` and compose a marked
+        ``[auto]`` placeholder from ambient context, which then became permanent:
+        an existing experiment keeps its own question first-write-wins, so
+        nothing ever replaced the placeholder unless a human noticed and ran
+        ``probe experiment set``. Making creation explicit means naming what you
+        are testing at the moment you create it.
 
-        ``document`` seeds authored Markdown that lives INSIDE the
-        experiment's Overview page, as a block the page's AI writer may not
-        rewrite. A README embed in that document also derives the experiment's
-        repo, using the same syntax documented by :meth:`update_experiment`."""
+        Slugs are one namespace with project slugs, tenant-wide. On a 409 the
+        error's ``existing`` names the holder (``id``, ``parent_project_id``,
+        ``kind``); it is this experiment only when ``kind`` is ``experiment``
+        and ``parent_project_id`` is ``project_id``.
+
+        ``document`` seeds authored Markdown that lives INSIDE the experiment's
+        Overview page, as a block the page's AI writer may not rewrite (written
+        right after the create; the experiment API has no field for it yet). A
+        README embed in that document also derives the experiment's repo, using
+        the same syntax documented by :meth:`update_experiment`.
+
+        ``tags`` and ``description`` are refused: an experiment's tags are kept
+        read-only since it moved to its own record, and its question replaced
+        its description."""
         if not question:
             raise errors.ValidationError(
                 f"an experiment needs a question: what do you expect {slug} to show?"
@@ -3668,53 +3996,93 @@ class Client:
             raise errors.ValidationError(
                 "an experiment needs an explicit project_id; create or resolve the project first"
             )
-        body: dict[str, Any] = {
-            "slug": slug,
-            "question": question,
-            "project_id": project_id,
-        }
+        if description is not None:
+            raise ValueError(_EXPERIMENT_DESCRIPTION_RETIRED)
+        _refuse_read_only_experiment_fields(tags=tags)
+        body: dict[str, Any] = {"slug": slug, "question": question}
         # See create_project: omitted, never the slug. Same reason.
         if name:
             body["name"] = name
         _put_authorship(body, authored_by)
-        if description is not None:
-            body["description"] = description
-        if document is not None:
-            body["document"] = document
-        if tags is not None:
-            body["tags"] = tags
-        row = _as_experiment(
-            self.transport.post(
-                _EXPERIMENTS_PATH, {**_to_project_body(body), "kind": "experiment"}
-            )
+        row = _from_experiment_api(
+            self.transport.post(f"/v1/projects/{project_id}/experiments", body)
         )
         if document is not None:
-            # Large visible Markdown is intentionally absent from collection-shaped
-            # experiment responses, so this one has to read the item door -- and
-            # that door answers from the Overview page (0219), which RENDERS the
-            # document rather than storing it verbatim. Byte equality is the
-            # wrong question there; what this guard is for is an older schema
-            # that accepted the field and dropped it, which a present document
-            # disproves.
-            self._verify_entity_markdown_present(
-                "experiment",
-                document,
-                self.get_experiment(str(row["id"])),
-                "POST /v1/projects (kind=experiment)",
-            )
+            try:
+                row["document"] = self._write_experiment_document(
+                    str(row["id"]), document, authored_by
+                )
+            except errors.RosError as exc:
+                raise errors.DocumentNotWritten(
+                    f"experiment {slug!r} was created ({row['id']}), but its document was "
+                    f"not written: {exc}. Write it with `probe experiment set "
+                    f"{shlex.quote(slug)} --summary <markdown or @file>` (SDK: "
+                    f"update_experiment({str(row['id'])!r}, document=...)); creating it "
+                    "again would only meet its own slug.",
+                    experiment=row,
+                    status=exc.status,
+                ) from exc
         return row
 
-    def resolve_experiment(self, slug: str, *, strict: bool = False) -> dict | None:
+    def _write_experiment_document(
+        self, experiment_id: str, document: str, authored_by: str | None
+    ) -> str | None:
+        """Write an experiment's Overview-page block and check it landed.
+
+        THROUGH THE PROJECT ADDRESS, on purpose and for now: the experiment API
+        takes no `document`, and the server keeps this write working for a
+        client at or above its experiment floor until R6. The check reads the
+        write's OWN row: a detail GET answers from the page, a lossy rendering of
+        what was sent (see :meth:`update_project`)."""
+        body: dict[str, Any] = {"document": document}
+        _put_authorship(body, authored_by)
+        written = self.transport.patch(f"/v1/projects/{experiment_id}", body)
+        self._verify_entity_markdown_written(
+            "experiment", document, written, "PATCH /v1/projects/{id}"
+        )
+        return written.get("document") if isinstance(written, dict) else None
+
+    def resolve_experiment(
+        self, slug: str, *, strict: bool = False, project_id: str | None = None
+    ) -> dict | None:
         """Look an experiment up by slug. ``None`` when it does not exist.
 
-        Experiment slugs are UNIQUE per TENANT, not per project, so this needs no
-        project_id to disambiguate."""
-        rows = [
-            _as_experiment(row)
-            for row in self.transport.get(_EXPERIMENTS_PATH, params={"slug": slug})
-        ]
-        return _exactly(rows, slug, strict=strict)
+        With ``project_id``, one request: ``GET /v1/projects/{P}/experiments/{slug}``
+        (None when it is not filed there, or is in the trash). Without it,
+        experiment slugs are unique per TENANT: ``GET /v1/scopes?slug=`` places
+        it and its project's item route reads it (two requests). Against a
+        server older than that route, the caller's projects are walked.
 
+        A slug an experiment had before a rename (``legacy_slug``) resolves too,
+        after every live slug, as it does on the server. ``strict`` is accepted
+        for callers of the old signature; there is no unfiltered listing left
+        for it to guard against."""
+        del strict
+        if project_id:
+            try:
+                row = self.transport.get(f"/v1/projects/{project_id}/experiments/{slug}")
+            except errors.NotFoundError:
+                return None
+            except errors.RosError as exc:
+                if exc.in_trash:
+                    # In the trash: its slug was moved aside and is free again.
+                    return None
+                raise
+            return self._find_experiment([_from_experiment_api(row)], slug)
+        try:
+            scope = self._experiment_scope(slug)
+        except CapabilityUnavailable:
+            return self._walk_for_slug(slug)
+        if scope is None:
+            return None
+        try:
+            return self.get_experiment(
+                str(scope.get("experiment_id") or scope["id"]), project_id=str(scope["project_id"])
+            )
+        except errors.NotFoundError:
+            return None  # gone between the two reads
+
+    @_walks_once
     def ensure_experiment(
         self,
         slug: str,
@@ -3724,7 +4092,7 @@ class Client:
         project_id: str,
         **kw,
     ) -> dict:
-        """Get-or-create an experiment by slug. SDK-only; see :meth:`run`.
+        """Get-or-create an experiment by slug in a project. SDK-only; see :meth:`run`.
 
         ``question`` is REQUIRED and keyword-only: reaching this method means
         creation is on the table, and an experiment is never created without one.
@@ -3734,10 +4102,13 @@ class Client:
         noticed it, which is why it is gone.
 
         A slug that resolves to nothing but looks like a typo of an existing one
-        is REFUSED, not created — see :meth:`_refuse_near_miss`. Callers who want
+        is REFUSED, not created — see :meth:`_refuse_near_miss`. A create that
+        loses a race adopts the winner only when it is an experiment filed in
+        this same project (the server's 409 names the holder); a slug held by a
+        project, or by an experiment in another project, raises. Callers who want
         the strict three-outcome error for an absent slug use
         :meth:`resolve_or_raise` instead."""
-        found = self.resolve_experiment(slug)
+        found = self.resolve_experiment(slug, project_id=project_id)
         if found is not None:
             return found
         self._guard_creatable("experiment", slug)
@@ -3745,15 +4116,72 @@ class Client:
             return self.create_experiment(
                 slug, name, question=question, project_id=project_id, **kw
             )
-        except errors.ConflictError:
-            # Lost a create race; see the note in ensure_project.
-            found = self.resolve_experiment(slug)
-            if found is None:
+        except errors.ConflictError as exc:
+            holder = exc.existing if isinstance(exc.existing, dict) else {}
+            if holder.get("kind") != _ProjectKind.experiment.value:
                 raise
-            return found
+            if str(holder.get("parent_project_id")) != str(project_id):
+                raise errors.ValidationError(
+                    f"experiment {slug!r} already exists in another project "
+                    f"({holder.get('parent_project_id')}), not in {project_id}. Name "
+                    "the project it belongs to, or choose another slug."
+                ) from exc
+            # Lost a create race to the same experiment; see ensure_project.
+            return self.get_experiment(
+                str(holder.get("id") or exc.existing_id), project_id=project_id
+            )
 
-    def get_experiment(self, experiment_id: str) -> dict:
-        return _as_experiment(self.transport.get(f"/v1/projects/{experiment_id}"))
+    def get_experiment(self, experiment_id: str, *, project_id: str | None = None) -> dict:
+        """One experiment: identity, question, notes, run count, overview status.
+
+        ``GET /v1/projects/{P}/experiments/{E}``, the project from ``project_id``
+        or ``GET /v1/scopes/{E}``. ``experiment_id`` may also be its slug. The
+        row names the project it is filed under as ``project_id`` (and, for
+        callers of the project address, as ``parent_project_id``)."""
+        project, experiment = self._locate_experiment(experiment_id, project_id)
+        return _from_experiment_api(
+            self.transport.get(f"/v1/projects/{project}/experiments/{experiment}")
+        )
+
+    def get_experiment_document(self, experiment_id: str) -> str | None:
+        """The experiment's authored Markdown (``document=``), as its Overview page
+        holds it; None when it has none.
+
+        :meth:`get_experiment` no longer carries it: the experiment API serves
+        the page (HTML) and not the authored block the server cuts out of it.
+        This reads it at the experiment's PROJECT address, which the server keeps
+        serving this client until R6. Not byte-identical to what was sent: the
+        page renders it (see :meth:`update_project`)."""
+        row = self.get_experiment_leaf(experiment_id)
+        return row.get("document") if isinstance(row, dict) else None
+
+    def get_experiment_leaf(self, experiment_id: str) -> dict:
+        """The experiment as its PROJECT address answers it (``GET /v1/projects/{E}``).
+
+        For the two things only that read still carries: the authored
+        ``document`` and the notes' headroom pair (``notes_limit_chars``,
+        ``notes_remaining_chars``). The server keeps it answering this client
+        until R6; everything else about an experiment is :meth:`get_experiment`."""
+        experiment = str(experiment_id)
+        if not _is_uuid(experiment):
+            experiment = self._experiment_ids(experiment, None)[1]
+        return self.transport.get(f"/v1/projects/{experiment}")
+
+    def get_experiment_overview(
+        self, experiment_id: str, *, project_id: str | None = None, status_only: bool = False
+    ) -> dict:
+        """The experiment's Overview page (``OverviewOut``, the same shape as a
+        project's), or with ``status_only`` just its freshness and queue state.
+
+        ``GET /v1/projects/{P}/experiments/{E}/overview[/status]``. Its
+        ``anchor_type`` reads ``project`` before the server's R3 switch and
+        ``experiment`` after; never branch on it."""
+        project, experiment = self._locate_experiment(experiment_id, project_id)
+        if status_only:
+            return self.transport.get(
+                f"/v1/projects/{project}/experiments/{experiment}/overview/status"
+            )
+        return self.transport.get(f"/v1/projects/{project}/experiments/{experiment}/overview")
 
     def update_experiment(
         self,
@@ -3767,97 +4195,179 @@ class Client:
         metadata: dict | None = None,
         summary: dict | None = None,
         authored_by: str | None = None,
+        project_id: str | None = None,
     ) -> dict:
-        """PATCH /v1/projects/{id} — amend authored experiment fields.
+        """Amend an experiment's question, name or visible Markdown.
 
-        ``document`` replaces the authored Markdown that lives INSIDE
-        the experiment's Overview page, as a block the page's AI writer may not
+        ``question`` and ``name`` go to ``PATCH /v1/projects/{P}/experiments/{E}``.
+
+        ``document`` replaces the authored Markdown that lives INSIDE the
+        experiment's Overview page, as a block the page's AI writer may not
         rewrite. It is whole-document and last-write-wins, separate from the
         experiment's private Notes. Read immediately before editing and preserve
         useful sections; ``""`` clears it. A line containing only
         ``[README](https://github.com/owner/repo)`` embeds that README and derives
-        the experiment's read-only ``repo`` field.
+        the experiment's read-only ``repo`` field. (Written through the project
+        address: the experiment API has no field for it yet.)
 
         DO NOT expect a read-back to be byte-identical: a detail GET answers
         from the page, which renders the document -- see :meth:`update_project`.
 
-        ``tags`` REPLACES the whole list ([] clears); the server normalizes to
-        lowercase-kebab (CONTRACT.md "tags")."""
-        body = {
+        ``tags``, ``metadata`` and ``summary`` are refused: the server keeps an
+        experiment's tags and metadata read-only since it moved to its own
+        record. ``description`` is refused too: the question replaced it."""
+        if description is not None:
+            raise ValueError(_EXPERIMENT_DESCRIPTION_RETIRED)
+        _refuse_read_only_experiment_fields(tags=tags, metadata=metadata, summary=summary)
+        identity = {
             key: value
-            for key, value in {
-                "question": question,
-                "name": name,
-                "description": description,
-                "document": document,
-                "tags": tags,
-                "metadata": metadata,
-                "summary": summary,
-            }.items()
+            for key, value in {"question": question, "name": name}.items()
             if value is not None
         }
-        if not body:
+        if not identity and document is None:
             raise ValueError("update_experiment needs at least one field to set")
-        # AFTER the emptiness check, deliberately. `authored_by` declares who
-        # wrote the OTHER fields; on its own it declares authorship of nothing,
-        # and letting it satisfy "at least one field to set" would turn a
-        # no-op call into a PATCH.
-        _put_authorship(body, authored_by)
-        row = _as_experiment(
-            self.transport.patch(f"/v1/projects/{experiment_id}", _to_project_body(body))
-        )
-        if document is not None:
-            # THE WRITE'S OWN ROW, not a fresh detail read. Since 0219 a detail
-            # GET answers `document` from the Overview page, which is a
-            # lossy rendering of what was sent -- a fenced block loses its
-            # language, a table separator is renormalised -- so comparing
-            # against it reported "the backend did not store it" for a document
-            # that landed perfectly. `update_project` always compared the row;
-            # this is the same check, on the same evidence.
-            self._verify_entity_markdown_written(
-                "experiment",
-                document,
-                row,
-                "PATCH /v1/projects/{id}",
+        project, experiment = self._experiment_ids(experiment_id, project_id)
+        row: dict | None = None
+        if identity:
+            # AFTER the emptiness check, deliberately. `authored_by` declares who
+            # wrote the OTHER fields; on its own it declares authorship of nothing.
+            _put_authorship(identity, authored_by)
+            row = _from_experiment_api(
+                self.transport.patch(
+                    f"/v1/projects/{project}/experiments/{experiment}", identity
+                )
             )
-        if tags is not None:
-            self._verify_tags_written(tags, row, "PATCH /v1/projects/{id}")
+        if document is not None:
+            try:
+                written = self._write_experiment_document(experiment, document, authored_by)
+            except errors.RosError as exc:
+                if row is None:
+                    raise  # nothing landed: the one failure is the whole answer
+                raise errors.DocumentNotWritten(
+                    f"experiment {row.get('slug') or experiment!r} ({experiment}): "
+                    f"{' and '.join(sorted(k for k in identity if k != 'authored_by'))} "
+                    f"changed, but its document was not written: {exc}. Write it with "
+                    f"`probe experiment set {shlex.quote(str(row.get('slug') or experiment))} "
+                    "--summary <markdown or @file>`.",
+                    experiment=row,
+                    status=exc.status,
+                ) from exc
+            if row is None:
+                row = self.get_experiment(experiment, project_id=project)
+            row["document"] = written
+        assert row is not None
         return row
+
+    def move_experiment(
+        self, experiment_id: str, project_id: str, *, from_project_id: str | None = None
+    ) -> dict:
+        """Move an experiment, with its runs, files and groups, to another project.
+
+        ``PATCH /v1/projects/{from}/experiments/{E}`` with ``{project_id}``: one
+        statement on the server. Needs edit access on both projects (403); a
+        target that is an experiment is 422, one in the trash 410, a project
+        being purged 409, and a move under a restricted project revokes the
+        experiment's public share. Answers the experiment filed under its new
+        project. ``project_id`` is the TARGET's uuid; ``from_project_id`` saves
+        the lookup of where it is now."""
+        if not project_id:
+            raise ValueError("move_experiment needs the target project's id")
+        project, experiment = self._experiment_ids(experiment_id, from_project_id)
+        return _from_experiment_api(
+            self.transport.patch(
+                f"/v1/projects/{project}/experiments/{experiment}",
+                {"project_id": str(project_id)},
+            )
+        )
 
     def list_experiments(
         self,
         *,
         project_id: str | None = None,
         tags: list[str] | None = None,
+        name: str | None = None,
+        limit: int | None = None,
+        cursor: str | None = None,
         **params,
     ) -> Page:
-        """``tags`` filters to experiments carrying ALL of them (AND, 0066)."""
-        query = dict(params)
-        if project_id is not None:
-            query["project_id"] = project_id
-        tags = canonical_tags(tags) if tags else None
+        """A project's experiments, newest first; with no ``project_id``, every
+        project's.
+
+        ``GET /v1/projects/{project_id}/experiments``, offset paged (at most 500
+        per page): pass a page's ``next_cursor`` back as cursor= for the next one,
+        an opaque token. Without a
+        project, the caller's projects are walked (:meth:`_tenant_experiments`):
+        one request per project, sorted newest first, then paged here.
+
+        ``name`` keeps rows whose name matches exactly (case-insensitive).
+        ``tags`` is refused: an experiment's tags are read-only since it moved to
+        its own record, and the experiment API filters on none."""
         if tags:
-            query["tags"] = tags
-        page = self.transport.get_page(
-            _EXPERIMENTS_PATH, params={**(query or {}), "kind": "experiment"}
+            _refuse_read_only_experiment_fields(tags=tags)
+        if params:
+            raise ValueError(
+                f"list_experiments takes project_id, name, limit and cursor; "
+                f"{', '.join(sorted(params))} is not a filter of the experiment list"
+            )
+        offset = _offset_cursor(cursor)
+        if project_id is not None:
+            query: dict[str, Any] = {"offset": offset}
+            if limit is not None:
+                query["limit"] = limit
+            page = self.transport.get(f"/v1/projects/{project_id}/experiments", params=query)
+            items = [_from_experiment_api(item) for item in page.get("items") or []]
+            if name is not None:
+                items = [row for row in items if _same_name(row, name)]
+            next_offset = page.get("next_offset")
+            return Page(items=items, next_cursor=None if next_offset is None else str(next_offset))
+        rows = self._tenant_experiments()
+        if name is not None:
+            rows = [row for row in rows if _same_name(row, name)]
+        rows.sort(key=lambda row: (str(row.get("created_at") or ""), str(row["id"])), reverse=True)
+        size = limit if limit is not None else _EXPERIMENT_PAGE_DEFAULT
+        window = rows[offset : offset + size]
+        more = offset + size < len(rows)
+        return Page(items=window, next_cursor=str(offset + size) if more else None)
+
+    def delete_experiment(
+        self,
+        experiment_id: str,
+        *,
+        project_id: str | None = None,
+        dry_run: bool = False,
+        reason: str | None = None,
+    ) -> dict | None:
+        """Move an experiment, its runs, groups, files, notes and page to the
+        server's TRASH. Frees the slug.
+
+        ``DELETE /v1/projects/{P}/experiments/{E}``. Probe support can restore it
+        for 21 days (the returned receipt says until when); after that it is
+        deleted for good. ``dry_run=True`` changes nothing and answers what would
+        go and whose it is. 409 if a published experiment version outside this
+        experiment pins something under it, or a live W&B mirror is bound to it."""
+        project, experiment = self._experiment_ids(experiment_id, project_id)
+        params: dict[str, str] = {}
+        if dry_run:
+            params["dry_run"] = "true"
+        if reason:
+            params["reason"] = reason
+        if not params:
+            return self.transport.delete(f"/v1/projects/{project}/experiments/{experiment}")
+        resp = self.transport.request(
+            "DELETE",
+            f"/v1/projects/{project}/experiments/{experiment}",
+            params=params,
+            idempotent=True,
         )
-        if tags and page.items:
-            self._verify_tags_filter(tags, page.items, "GET /v1/projects (kind=experiment)")
-        return page
-
-    def delete_experiment(self, experiment_id: str) -> dict | None:
-        """Move an experiment and its runs to the server's TRASH. Frees the slug.
-
-        Probe support can restore it for 21 days (the returned receipt says
-        until when); after that it is deleted for good. A server without the
-        `trash` feature deletes PERMANENTLY and returns None. 409 if a published experiment
-        version outside this experiment pins something under it."""
-        return self.transport.delete(f"/v1/projects/{experiment_id}")
+        return resp.json() if resp.content else None
 
     def experiment_edges(self, experiment_id: str, *, limit: int | None = None) -> list[dict]:
         """Every lineage edge under an experiment (the run-level view is
         :meth:`run_edges`); at most ``limit`` (1-1000) when given, stored edges
-        first. The experiment's OWN links are :meth:`project_lineage`."""
+        first. The experiment's OWN links are :meth:`project_lineage`.
+
+        Still read at the project address: the experiment API has no edges
+        route yet, and the server serves this one to this client until R6."""
         params = {"limit": limit} if limit is not None else None
         return self.transport.get(f"/v1/projects/{experiment_id}/edges", params=params)
 
@@ -4466,6 +4976,7 @@ class Client:
             )
         )
 
+    @_walks_once
     def run(
         self,
         *,
@@ -4743,8 +5254,15 @@ class Client:
         # ensure_project runs first below, so without this a refused experiment
         # leaves a brand-new orphan project behind — the exact stray identity the
         # refusal exists to prevent.
-        if experiment and question is not None and self.resolve_experiment(experiment) is None:
-            self._guard_creatable("experiment", experiment)
+        if experiment and question is not None:
+            # Read-only: the project may not exist yet (ensure_project below
+            # creates it), and then the lookup is tenant-wide.
+            known = self.resolve_project(project) if project else None
+            if (
+                self.resolve_experiment(experiment, project_id=known["id"] if known else None)
+                is None
+            ):
+                self._guard_creatable("experiment", experiment)
         project_id = None
         if project:
             # The project follows the experiment: creation is unlocked only by a
@@ -6092,6 +6610,7 @@ class Client:
                 handle._resume_via_attach = armed_by_attach
         return handle
 
+    @_walks_once
     def resolve_or_raise(self, kind: str, slug: str, *, project_id: str | None = None) -> dict:
         """Resolve a slug or raise the error that says what to do about it.
 
@@ -6101,16 +6620,25 @@ class Client:
         gone, so a deleted slug is genuinely free. Both `run()` and the CLI go
         through here so the same failure cannot exit 1 from one surface and 2
         from the other."""
-        resolve = self.resolve_project if kind == "project" else self.resolve_experiment
-        found = resolve(slug)
+        if kind == "project":
+            found = self.resolve_project(slug)
+            if found is not None:
+                return found
+            raise self._no_such(kind, slug, self.list_projects(limit=200).items)
+        # An experiment: in the named project first (one request), then -- only
+        # on a miss -- every project's, so an experiment filed elsewhere comes
+        # back for `run()` to name the mismatch ("not in project ...") rather
+        # than reading as absent, and a real absence names near misses from the
+        # whole tenant (slugs are tenant-wide).
+        if project_id:
+            found = self.resolve_experiment(slug, project_id=project_id)
+            if found is not None:
+                return found
+        found = self.resolve_experiment(slug)
         if found is not None:
             return found
-        listing = (
-            self.list_projects(limit=200).items
-            if kind == "project"
-            else self.list_experiments(project_id=project_id, limit=200).items
-        )
-        raise self._no_such(kind, slug, listing)
+        # A real absence: name the near misses, which needs the whole list.
+        raise self._no_such(kind, slug, self._all_slugs("experiment"))
 
     @staticmethod
     def _near(slug: str, existing: Iterable[dict]) -> list[str]:
@@ -6131,14 +6659,15 @@ class Client:
         older slugs that drop out of view, which are exactly the ones a typo is
         likely to be a near-miss of. `analysis.compare()` follows the cursor for
         the same reason."""
-        rows: list[dict] = []
-        cursor = None
-        lister = self.list_projects if kind == "project" else self.list_experiments
-        while True:
+        if kind != "project":
             # Tenant-wide on purpose: experiment slugs are unique per TENANT, not
             # per project (see resolve_experiment). Scoping this to a project
             # would let a typo of an experiment filed elsewhere sail through.
-            page = lister(limit=200, cursor=cursor)
+            return self._tenant_experiments()
+        rows: list[dict] = []
+        cursor = None
+        while True:
+            page = self.list_projects(limit=200, cursor=cursor)
             rows.extend(page.items)
             cursor = page.next_cursor
             if not cursor:
@@ -7812,7 +8341,8 @@ class Client:
         works they cite or are cited by, and the ``cites`` edges among them.
 
         Returns the ``CitationGraphOut`` shape (``probe.models``): ``state``
-        (``ok`` | ``partial`` | ``pending`` | ``disabled``), ``nodes`` (each
+        (``ok`` | ``partial`` | ``pending``; only a server older than the
+        citation flag's removal also answers ``disabled``), ``nodes`` (each
         ``primary`` is one of the project's papers with its fetch status;
         each ``suggested`` is a work the papers link to that the project has
         not recorded), ``edges`` (``cites``, each with the bibliography entries
@@ -7892,9 +8422,9 @@ class Client:
         a refresh for the paper is already queued or within an hour of its
         last fetch -- the lists are third-party documents and asking twice
         cannot make them newer; 409 (``ConflictError``) with ``detail.code ==
-        "citations_disabled"`` when the team's citation links are not switched
-        on, or ``detail.code == "generation_paused"`` when the team's page
-        generation is paused. A plain non-idempotent POST: an
+        "generation_paused"`` when the team's page generation is paused (only
+        a server older than the citation flag's removal also answers 409
+        ``citations_disabled``). A plain non-idempotent POST: an
         answer from the server (a 429 included) is never retried, and nothing
         is queued offline -- a refresh is a request to act now. Only a connect
         failure that never reached the server is retried, as for every request.

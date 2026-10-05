@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 import torch
 
@@ -8,18 +7,17 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, Par
 
 
 class Tiger(BaseOptimizer):
-    r"""A Tight-fisted Optimizer, an optimizer that is extremely budget-conscious.
+    """Sign based updates with a single gradient momentum buffer.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        beta (float): Coefficient used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Whether to fix weight decay.
-        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
-            None means auto-detect based on device (True for CUDA, False otherwise).
-        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        beta: Decay rate for gradient momentum.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        foreach: Use batched tensor operations. `None` enables them for supported parameter groups.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -31,7 +29,7 @@ class Tiger(BaseOptimizer):
         weight_decay: float = 0.01,
         weight_decouple: bool = True,
         fixed_decay: bool = False,
-        foreach: Optional[bool] = None,
+        foreach: bool | None = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -82,9 +80,9 @@ class Tiger(BaseOptimizer):
     def _step_foreach(
         self,
         group: ParamGroup,
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        exp_avgs: List[torch.Tensor],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
     ) -> None:
         if self.maximize:
             torch._foreach_neg_(grads)

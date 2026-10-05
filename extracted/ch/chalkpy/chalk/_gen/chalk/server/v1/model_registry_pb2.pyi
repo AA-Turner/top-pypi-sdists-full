@@ -375,13 +375,18 @@ class DeleteModelResponse(_message.Message):
     def __init__(self, model: _Optional[_Union[Model, _Mapping]] = ...) -> None: ...
 
 class ListModelVersionsFilters(_message.Message):
-    __slots__ = ("aliases", "author_ids")
+    __slots__ = ("aliases", "author_ids", "model_artifact_ids")
     ALIASES_FIELD_NUMBER: _ClassVar[int]
     AUTHOR_IDS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ARTIFACT_IDS_FIELD_NUMBER: _ClassVar[int]
     aliases: _containers.RepeatedScalarFieldContainer[str]
     author_ids: _containers.RepeatedScalarFieldContainer[str]
+    model_artifact_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
-        self, aliases: _Optional[_Iterable[str]] = ..., author_ids: _Optional[_Iterable[str]] = ...
+        self,
+        aliases: _Optional[_Iterable[str]] = ...,
+        author_ids: _Optional[_Iterable[str]] = ...,
+        model_artifact_ids: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListModelVersionsRequest(_message.Message):

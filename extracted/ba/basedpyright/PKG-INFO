@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: basedpyright
-Version: 1.40.1
+Version: 1.40.2
 Summary: static type checking for Python (but based)
 Author-Email: detachhead <detachhead@users.noreply.github.com>
 Classifier: License :: OSI Approved :: MIT License
@@ -10,6 +10,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: repository, https://github.com/detachhead/basedpyright
 Requires-Python: >=3.10
 Requires-Dist: nodejs-wheel-binaries>=20.13.1

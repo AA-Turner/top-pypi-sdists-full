@@ -62,7 +62,7 @@ def _row(**overrides) -> dict:
 def test_the_registry_loads_and_names_its_default():
     reg = registry_mod.load()
     # Detection order: the first row whose marker is set wins (same as the SDK's AGENTS).
-    assert reg.ids() == ("claude_code", "cursor", "codex", "pi")
+    assert reg.ids() == ("claude_code", "cursor", "codex", "pi", "kimi_code")
     assert reg.default == "claude_code"
     assert reg.get(reg.default).captured
 
@@ -73,7 +73,9 @@ def test_find_takes_ids_and_aliases_and_nothing_else():
     assert reg.find(" CLAUDE ").id == "claude_code"
     assert reg.find("claude-code") is None  # that is its ingest route, not a name
     assert reg.find("codex").id == "codex"
-    assert reg.find("kimi") is None
+    assert reg.find("kimi").id == "kimi_code"
+    assert reg.find("kimi-code") is None  # its ingest route, not a name
+    assert reg.find("gemini") is None
     assert reg.find("") is None
     with pytest.raises(KeyError):
         reg.get("claude")  # get() takes exact ids only, never an alias or a default
@@ -128,7 +130,7 @@ def test_home_dir_honours_the_override_variable(tmp_path):
         ),
         (lambda d: d["harnesses"].append(_row(transcripts="projects")), "transcripts must be an object"),
         (lambda d: d["harnesses"].append(_row(home={"path": ".fake"})), "home.env must be"),
-        (lambda d: d.update(default="kimi"), "is not a harness id"),
+        (lambda d: d.update(default="gemini"), "is not a harness id"),
         (lambda d: d.update(version=2), "unsupported registry version"),
     ],
 )

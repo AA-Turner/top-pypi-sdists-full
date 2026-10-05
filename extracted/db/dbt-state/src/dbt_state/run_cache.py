@@ -57,6 +57,7 @@ from query_cache_common.models.services.clone_service_models import TablePropert
 from query_cache_common.models.services.explain_service_models import ExplainMessageEntry
 
 from dbt_state import events
+from dbt_state._typing import MODEL_OR_SNAPSHOT_OR_TEST_NODE
 from dbt_state.adapters import BaseAdapterExtension, create_adapter_extension
 from dbt_state.adapters.clock import EngineHeuristicsClock
 from dbt_state.adapters.common import ViewTraversalResult
@@ -262,6 +263,11 @@ class RunCache:
         self._prefetch_future: t.Optional[Future[None]] = None
         self._prefetch_done: bool = False
 
+        self._prefetch_schemas_lock = threading.Lock()
+        self._prefetch_schemas_started: bool = False
+        self._prefetch_schemas_future: t.Optional[Future[None]] = None
+        self._prefetch_schemas_done: bool = False
+
         self._total_cache_hits: int = 0
         self._total_time_saved_ms: int = 0
         self._reused_status_warning_emitted: bool = False
@@ -405,12 +411,27 @@ class RunCache:
         Args:
             node: The model node being compiled.
         """
+        if self._is_dbt_compile_command:
+            # we dont need to trigger off all the metadata prefetches on `dbt compile`
+            # or pre-emptively make dev clones of deferred relations
+            # the metadata prefetches are used for making cache decisions, but `dbt compile`
+            # doesnt make cache decisions
+            return
+
         try:
             self._start_prefetch_last_modified()
         except Exception as e:
             events.fire_warn_event("Failed to prefetch last modified timestamps: {}", str(e))
 
-        if isinstance(node, (ModelNode, SnapshotNode)) and not self._is_dbt_compile_command:
+        if isinstance(
+            node, MODEL_OR_SNAPSHOT_OR_TEST_NODE
+        ) and self._run_cache_config.resolve_compare_selected_columns(node.config):
+            try:
+                self._start_prefetch_schemas()
+            except Exception as e:
+                events.fire_warn_event("Failed to prefetch schemas: {}", str(e))
+
+        if isinstance(node, (ModelNode, SnapshotNode)):
             if self._try_clone(node):
                 self._dev_cloned_nodes.add(node.unique_id)
 
@@ -790,6 +811,56 @@ class RunCache:
 
         return tables
 
+    def _collect_edge_prefetch_fqns(self, selected_ids: t.Set[str]) -> t.Set[str]:
+        """FQNs of the statically known edge tables of the selected models/snapshots.
+
+        An edge is a relation a selected node reads that this invocation does not build: sources,
+        seeds, and unselected upstream nodes. Unselected nodes may be deferred, so their candidate
+        FQNs depend on the defer settings:
+        - defer disabled: the local relation
+        - defer enabled with `--favor-state`: the deferred relation only
+        - defer enabled otherwise: both, since dbt only defers when the local relation is missing,
+            and we dont know for sure if it's missing or not without an expensive metadata check
+
+        Args:
+            selected_ids: Unique IDs selected for this run. Empty means a full-project run.
+        """
+        favor_state = bool(getattr(self._config.args, "favor_state", False))
+        built_ids = {n.unique_id for n in self._iter_selected_nodes(selected_ids)}
+        fqns: t.Set[str] = set()
+
+        def add(node: ManifestNode | SourceDefinition, deferred: bool = False) -> None:
+            table = self._node_to_deferred_table(node) if deferred else self._node_to_table(node)  # ty: ignore[invalid-argument-type]
+            fqns.add(table.sql(dialect=self.dialect))
+
+        for node in self._iter_selected_nodes(selected_ids):
+            dep_ids, source_ids = self._resolve_deps(node)
+
+            # sources are always edge nodes
+            for source_id in source_ids:
+                if (source := self._manifest.sources.get(source_id)) is not None:
+                    add(source)
+
+            for dep_id in dep_ids:
+                dep = self._manifest.nodes.get(dep_id)
+                if dep is None or dep_id in built_ids:
+                    # built by this run, so isnt an edge
+                    continue
+
+                if self._defer_enabled and dep_id not in selected_ids:
+                    # there is a dependency on a deferred relation, add it as an edge
+                    add(dep, deferred=True)
+
+                    if not favor_state:
+                        # if --favor-state is not set, a local version of a deferred relation is used over the
+                        # remote one, if it exists. Since the "if it exists" check is expensive, we add it to
+                        # the list of schemas to prefetch, and if it doesnt exist the schema prefetch will
+                        # return no information for it
+                        add(dep)
+                else:
+                    add(dep)
+        return fqns
+
     def _start_prefetch_last_modified(self) -> None:
         """Kick off the async last-modified prefetch if not already started.
 
@@ -846,6 +917,45 @@ class RunCache:
                 return False
             future = self._prefetch_future
             return self._prefetch_done or future is None or future.done()
+
+    def _start_prefetch_schemas(self) -> None:
+        """Kick off the async schema prefetch if not already started.
+
+        Mirrors `_start_prefetch_last_modified` but for schemas, and is fully decoupled from
+        it (its own lock, future and done flag).
+
+        Collects the statically known edge FQNs of the  selected models (via `_collect_edge_prefetch_fqns`),
+        then triggers an async prefetch. This is only a warm-up: edges discovered later
+        (e.g. tables reachable only through view definitions) are fetched on demand by `get_schemas`.
+
+        Does not block on the result; use `_await_prefetch_schemas` to wait for it.
+        Idempotent: subsequent calls are no-ops.
+        """
+        with self._prefetch_schemas_lock:
+            if self._prefetch_schemas_started:
+                return
+            self._prefetch_schemas_started = True
+            edge_fqns = sorted(self._collect_edge_prefetch_fqns(self._selected_resource_ids))
+            if not edge_fqns:
+                self._prefetch_schemas_done = True
+                return
+
+            events.fire_debug_event("Prefetching schemas for {} edge tables", len(edge_fqns))
+            self._prefetch_schemas_future = self._adapter_ext.prefetch_schemas(edge_fqns)
+
+    def _await_prefetch_schemas(self) -> None:
+        """Ensure the schema prefetch has started, then block until it completes.
+
+        Idempotent: once the prefetch has completed, subsequent calls are no-ops.
+        """
+        if self._prefetch_schemas_done:
+            return
+        self._start_prefetch_schemas()
+        with self._prefetch_schemas_lock:
+            future = self._prefetch_schemas_future
+        if future is not None:
+            future.result()
+        self._prefetch_schemas_done = True
 
     def _commit_if_open(self) -> None:
         self._adapter.connections.get_thread_connection().transaction_open = True
@@ -1572,6 +1682,38 @@ class RunCache:
 
         last_modified_duration_ms = int((perf_counter() - last_modified_start) * 1000)
 
+        # Only edge table schemas are fetched, so we intentionally exclude them from TableModifiedInfo
+        # entries to avoid the sparseness problem where most tables will not have any schemas set.
+        # Speculative requests omit schemas entirely: impact analysis is not applied to them, so
+        # blocking on the schema prefetch here would defeat the point of speculating.
+        table_schemas: t.List[shared_models.TableSchema] = []
+        compare_selected_columns = self._run_cache_config.resolve_compare_selected_columns(
+            node_config
+        )
+        if compare_selected_columns and not speculative:
+            # traversal_result.seen_tables contains the all the upstream tables that this model
+            # depends on, plus the ones that are only reachable through view definitions
+            # we remove the ones that have already been handled by this run, because those
+            # already have schemas stored in state that the server can use
+            edge_tables = traversal_result.seen_tables - self._selected_target_fqns
+
+            if target_table is not None:
+                edge_tables.discard(target_table)
+
+            if edge_tables:
+                self._await_prefetch_schemas()
+                table_schemas = [
+                    shared_models.TableSchema(
+                        name=name,
+                        columns=[
+                            shared_models.ColumnInfo(name=column, type=data_type)
+                            for column, data_type in columns.items()
+                        ],
+                    )
+                    for name, columns in self._adapter_ext.get_schemas(edge_tables).items()
+                    if columns is not None
+                ]
+
         table_infos = [
             shared_models.TableModifiedInfo(name=name, last_modified_epoch=epoch)  # ty: ignore[invalid-argument-type]
             for name, epoch in last_modified_epoch.items()
@@ -1599,6 +1741,7 @@ class RunCache:
             start, end = microbatch_window
             semantic_extras[MICROBATCH_EVENT_TIME_START_KEY] = start.isoformat()
             semantic_extras[MICROBATCH_EVENT_TIME_END_KEY] = end.isoformat()
+
         semantic_extras.update(self._persisted_docs_semantic_extras(node))
         return sql_service_models.SubmitEnrichedSQLRequest(
             tables=table_infos,
@@ -1632,6 +1775,8 @@ class RunCache:
             allow_clones=self.run_cache_config.allow_clones,
             is_defer_to_profile=self._profiles.is_defer_to_profile,
             defer_enabled=self._defer_enabled,
+            table_schemas=table_schemas,
+            compare_selected_columns=compare_selected_columns,
         ), last_modified_duration_ms
 
     def _build_clone_request(
@@ -1779,6 +1924,17 @@ class RunCache:
                 "Failed to get last modified for table: '{}'", table.sql(dialect=self.dialect)
             )
         return last_modified_epoch
+
+    @cached_property
+    def _selected_target_fqns(self) -> t.Set[str]:
+        """FQNs of the relations the selected models and snapshots write to, computed once.
+
+        This includes all --select'ed nodes, not just edges
+        """
+        return {
+            self._node_to_table(node).sql(dialect=self.dialect)
+            for node in self._iter_selected_nodes(self._selected_resource_ids)
+        }
 
     def _node_to_table(self, node: ManifestNode | SourceDefinition) -> exp.Table:
         return self._adapter_ext._node_to_table(node)  # noqa: SLF001

@@ -41,6 +41,8 @@ void register_razor(py::module_ &m);
 void register_somm_pairs(py::module_ &m);
 void register_factorize(py::module_ &m);
 void register_left_gather(py::module_ &m);
+void register_razor_t2(py::module_ &m);
+void register_row_scatter(py::module_ &m);
 
 // Ubuntu/glibc <cmath> headers don't carry `omp declare simd` markers for the
 // libmvec routines, so GCC's auto-vectorizer can't substitute the vectorized
@@ -115,9 +117,14 @@ constexpr size_t BSPLINE_SAME_EDGE_MAX_N_QP = 8;
 // across the grid. GCC (and MSVC's /openmp:llvm) keeps collapse(2).
 #if defined(_MSC_VER)
 #  define MW_OMP_PARALLEL_FOR_COLLAPSE2 _Pragma("omp parallel for schedule(static)")
+// No MW_OMP_FOR_COLLAPSE2 for MSVC: its one user keeps main's structure
+// there (_accel_bspline.cpp's off-edge kernel).
 #else
 #  define MW_OMP_PARALLEL_FOR_COLLAPSE2 \
        _Pragma("omp parallel for collapse(2) schedule(static)")
+// The work-sharing half alone, for a loop inside an `omp parallel` region
+// that keeps per-thread state across its iterations.
+#  define MW_OMP_FOR_COLLAPSE2 _Pragma("omp for collapse(2) schedule(static)")
 #endif
 
 // `omp simd` neutralization for MSVC. MSVC's /openmp:llvm (which we build with,

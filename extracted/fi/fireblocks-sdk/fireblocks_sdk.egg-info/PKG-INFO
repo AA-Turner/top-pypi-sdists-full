@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: fireblocks_sdk
-Version: 2.18.0
-Summary: Fireblocks python SDK
+Version: 2.19.0
+Summary: DEPRECATED — use the fireblocks package instead. Legacy Fireblocks python SDK, end-of-life November 1, 2026
 Home-page: https://github.com/fireblocks/fireblocks-sdk-py
-Download-URL: https://github.com/fireblocks/fireblocks-sdk-py/archive/v2.18.0.tar.gz
+Download-URL: https://github.com/fireblocks/fireblocks-sdk-py/archive/v2.19.0.tar.gz
 License: MIT
 Keywords: Fireblocks,SDK
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 7 - Inactive
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development
 Classifier: License :: OSI Approved :: MIT License
@@ -27,4 +27,66 @@ Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 
-Fireblocks python SDK
+# The Official Python SDK for Fireblocks API
+[![PyPI version](https://badge.fury.io/py/fireblocks-sdk.svg)](https://badge.fury.io/py/fireblocks-sdk)
+
+> **⚠️ This package is deprecated.**
+>
+> `fireblocks-sdk` is deprecated and reaches **end-of-life on November 1, 2026** — no further updates or fixes will be released after that date.
+>
+> Existing installs continue to work, and this package will never be unpublished or yanked.
+>
+> Migrate to the [`fireblocks`](https://pypi.org/project/fireblocks/) package — see the [SDK Migration Guide](https://developers.fireblocks.com/reference/sdk-migration-guide).
+>
+> To silence the startup warning, set `FIREBLOCKS_SDK_SUPPRESS_DEPRECATION_WARNING=1`.
+
+## About
+This repository contains the official Python SDK for Fireblocks API.
+For the complete API reference, go to the [API reference](https://developers.fireblocks.com/).
+
+## Usage
+### Before You Begin
+Make sure you have the credentials for Fireblocks API Services. Otherwise, please contact Fireblocks support for further instructions on how to obtain your API credentials.
+
+### Requirements
+An officially supported version of Python, as per the official lifecycle:
+https://devguide.python.org/versions
+
+### Installation
+`pip3 install fireblocks-sdk`
+
+#### Importing Fireblocks SDK
+```python
+from fireblocks_sdk import FireblocksSDK
+
+fireblocks = FireblocksSDK(private_key, api_key)
+```
+
+You can also pass additional arguments:
+```python
+fireblocks = FireblocksSDK(private_key, api_key, api_base_url="https://api.fireblocks.io", timeout=2.0, anonymous_platform=True)
+```
+
+#### Using Fireblocks Tokenization endpoints
+```python
+from fireblocks_sdk import FireblocksSDK, FireblocksTokenization, \
+                           ContractUploadRequest
+
+fireblocks = FireblocksSDK(private_key, api_key)
+
+# Get linked tokens
+tokens=fireblocks.get_linked_tokens()
+
+# Upload a private contract
+contractTemplateRequest=ContractUploadRequest(
+    name='New Contract Template',
+    description='description',
+    longDescription='long description',
+    bytecode='0x12345',
+    sourcecode= 'sourcecode',
+    initializationPhase='ON_DEPLOYMENT',
+    abi=[]
+)
+template=fireblocks.upload_contract_template(contractTemplateRequest)
+print(template['id'])
+```

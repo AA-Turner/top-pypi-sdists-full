@@ -607,6 +607,8 @@ def render(caps: Capabilities) -> str:
         # is filtered out of the package, and whether a daemon is live for this
         # session. Both are silent failures everywhere else.
         lines.extend(_pi_capture_rows())
+    elif caps.agent_source == plugin_cli.KIMI:
+        lines.extend(_kimi_rows())
     else:
         agent_label = "Codex CLI" if caps.agent_source == "codex" else "Claude Code CLI"
         agent_available = (
@@ -1090,7 +1092,7 @@ def _agent_version(source: str) -> str | None:
     question. None, same as every other "cannot check" case this function
     already returns.
     """
-    if source == "pi":
+    if source in ("pi", plugin_cli.KIMI):
         return None
     try:
         from probe.cli.backfill import Agent, agent_version
@@ -1099,6 +1101,31 @@ def _agent_version(source: str) -> str | None:
         return agent_version(agent)
     except Exception:  # noqa: BLE001 - a diagnostic must never crash
         return None
+
+
+def _kimi_rows() -> list[str]:
+    """Kimi Code's binary and version (Probe needs 2.1.1+), and whether its
+    plugin list is one the wizard can manage (Kimi has no install command, so
+    the wizard writes that file; a layout it does not know is left alone)."""
+    from probe.cli import kimi_config
+
+    rows = []
+    if not kimi_config.binary_available():
+        rows.append(_row("Kimi Code CLI", _MISSING))
+        return rows
+    version = kimi_config.kimi_version()
+    state = f"{_OK} ({'.'.join(map(str, version))})" if version else _OK
+    problem = kimi_config.version_floor_problem()
+    rows.append(_row("Kimi Code CLI", f"{state} -- {problem}" if problem else state))
+    doc, refused = kimi_config._read_installed()  # noqa: SLF001 -- the same check the installer runs
+    if refused:
+        rows.append(_row("Kimi plugin list", f"not managed: {refused}"))
+    else:
+        ours = sorted(
+            p.get("id") for p in doc["plugins"] if isinstance(p, dict) and p.get("id") in kimi_config.PLUGIN_IDS
+        )
+        rows.append(_row("Kimi plugin list", ", ".join(ours) if ours else "no Probe plugins"))
+    return rows
 
 
 def _live_runs() -> list[str]:

@@ -355,7 +355,7 @@ import scipy.sparse
 import scipy.spatial.distance
 
 from . import _below_interface, _crossing_fill, _field_ground, _ground_mirror
-from . import _medium_spec, _wire_loading
+from . import _medium_spec, _wire_loading, _wire_spec
 from ._accel import acc as _acc
 from ._bspline_kernels import _ek_axis_groups
 from .bspline import SINGULAR_ENRICHMENT_NEVER
@@ -725,8 +725,11 @@ def _ordered_row_scatter(dest, idx, src):
     order. Each addition is an elementwise IEEE add of the same two
     operands, with no reduction to reassociate, so the sums cannot depend
     on the platform's SIMD width or library either. The rank count is a
-    basis's support size: 2 on a plain wire, the member count at a
-    junction."""
+    basis's entry count within the band: 3 on a plain wire's interior (2
+    at a wire end) on the free-space array, more at a junction.
+
+    The fill calls it through `_row_scatter`, which hands it to the
+    accelerator when it can; this is that kernel's reference."""
     n = idx.shape[0]
     if n == 0:
         return
@@ -745,6 +748,48 @@ def _ordered_row_scatter(dest, idx, src):
         for c0 in range(r0, r1, chunk):
             sel = by_rank[c0 : min(c0 + chunk, r1)]
             dest[idx[sel]] += src[sel]
+
+
+# The band scatter in C++ (`ordered_row_scatter`, momwire#1290) when the
+# accelerator carries it. False routes every call through
+# `_ordered_row_scatter`, the reference the kernel is gated against bit for
+# bit (tests/test_sg_row_scatter_accel_1290.py).
+_ROW_SCATTER_ACCEL = True
+_HAVE_ROW_SCATTER_ACCEL = _acc is not None and bool(
+    getattr(_acc, "row_scatter_1290", False)
+)
+
+
+def _row_scatter(dest, idx, src, fresh=None):
+    """`np.add.at(dest, idx, src)` along dest's first axis, to the bit, with
+    the rows where `fresh` is true taken as +0 whatever dest holds there
+    (so the caller may pass `np.empty` rows).
+
+    `_ordered_row_scatter` reaches `np.add.at`'s order in numpy and pays for
+    it in memory traffic: every rank gathers its destination and source
+    rows into temporaries and scatters the sums back, 0.65 s of a 6.2 s
+    free-space solve at N = 2816 (Skylake). The accelerator's
+    `ordered_row_scatter` performs the same adds in the same order — per
+    destination row, its entries ascending, one IEEE add each, from +0 on a
+    fresh row — reading each source row in place, and threads over rows,
+    which are independent. Anything it cannot take (no accelerator, a
+    non-complex or 1-D operand, strided rows) goes to the reference."""
+    if (
+        _ROW_SCATTER_ACCEL
+        and _HAVE_ROW_SCATTER_ACCEL
+        and dest.ndim == 2
+        and src.ndim == 2
+        and dest.dtype == np.complex128
+        and src.dtype == np.complex128
+        and (dest.shape[1] <= 1 or (dest.strides[1] == 16 and src.strides[1] == 16))
+    ):
+        _acc.ordered_row_scatter(
+            dest, idx, src, np.zeros(0, dtype=bool) if fresh is None else fresh
+        )
+        return
+    if fresh is not None:
+        dest[fresh] = 0
+    _ordered_row_scatter(dest, idx, src)
 
 
 def _solve_in_place(G, rhs):
@@ -1062,7 +1107,10 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         terminates there. Entries are `(junction_index, side_a)` (voltage 0)
         or `(junction_index, side_a, voltage)`, where `side_a` indexes into
         `junctions[junction_index]` and must be a nonempty PROPER subset —
-        both sides of the gap need a conductor.
+        both sides of the gap need a conductor. A junction of K >= 3 members
+        takes several ports when each cuts ONE member's branch off the node
+        (one member on one side) and no branch is cut twice — NEC-5's object
+        per named wire (momwire#1300); see `_check_shared_junction`.
 
         Ports are ordered [gap feeds…, junction ports…, node ports…]. Drive
         and readout are the same vector, so a node port's Y block is
@@ -1294,6 +1342,15 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         self.node_gaps = []
         node_port_entries = list(node_ports) if node_ports else []
         if node_gaps:
+            # The spec's rules are every family's (`normalize_node_gaps`):
+            # its messages for a repeated member and for a second gap at a
+            # two-wire junction are the ones the other node-gap rows give.
+            _wire_spec.normalize_node_gaps(
+                node_gaps,
+                self.junctions,
+                len(self.wires_polylines),
+                junction_ports=[j for j, _v in self.junction_ports],
+            )
             member_pos = {
                 (w, e): (j, m)
                 for j, jw in enumerate(self.junctions)
@@ -1351,7 +1408,9 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         if not node_ports:
             return []
         out = []
-        seen = set()
+        # junction -> the member each earlier port there cuts off the node,
+        # or None for a port with several members on both sides.
+        seen = {}
         junction_port_idx = {j for j, _v in self.junction_ports}
         for entry in node_ports:
             if not isinstance(entry, (tuple, list)) or len(entry) not in (2, 3):
@@ -1367,8 +1426,6 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                     f"node_ports: junction index {j_idx} out of range "
                     f"(have {len(self.junctions)} junctions)"
                 )
-            if j_idx in seen:
-                raise ValueError(f"node_ports: junction {j_idx} listed twice")
             if j_idx in junction_port_idx:
                 raise ValueError(
                     f"junction {j_idx} is declared as both a junction_port and "
@@ -1376,7 +1433,6 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                     "at the node vs an EMF across the node) and cannot share a "
                     "junction"
                 )
-            seen.add(j_idx)
             members = self.junctions[j_idx]
             if len(members) < 2:
                 raise ValueError(
@@ -1399,8 +1455,57 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                     f"subset of junction {j_idx}'s {len(members)} members — "
                     "both sides of the gap need at least one conductor"
                 )
+            self._check_shared_junction(seen, j_idx, side_a, len(members))
             out.append((j_idx, side_a, volts))
         return out
+
+    @staticmethod
+    def _check_shared_junction(seen, j_idx, side_a, n_members):
+        """Admit a second (third, ...) node port at one junction only where it
+        is a different cut (momwire#1300).
+
+        A port with a single member m on one side cuts m's BRANCH off the
+        node: its drive and readout are ±f_m, the current flowing into the
+        node along m alone (`_node_cut_vectors`). Ports cutting different
+        branches are different series EMFs, each in its own wire, and since
+        a node port adds no basis column — it is a column of U and nothing
+        else — several of them are the superposition of single-port solves
+        and exactly as good as one. That is NEC-5's object per named wire at
+        a K >= 3 node. With every branch cut the K columns sum to zero
+        (#177's KCL identity), so the K-port Y has rank K - 1: one EMF added
+        to every branch only moves the node's potential.
+
+        Two shapes stay refused. At K = 2 the two possible cuts are one cut
+        (f_0 = -f_1), so a second port there is the first again. And a cut
+        with several members on BOTH sides (K >= 4) is not one branch; two
+        of those, or one beside a branch cut, are partitions of the node no
+        wire-end address can name and nothing measured says how they meet.
+        """
+        branch = None
+        if len(side_a) == 1:
+            branch = side_a[0]
+        elif len(side_a) == n_members - 1:
+            (branch,) = set(range(n_members)) - set(side_a)
+        if j_idx not in seen:
+            seen[j_idx] = [branch]
+            return
+        if n_members == 2:
+            raise ValueError(
+                f"node_ports: junction {j_idx} listed twice — it joins two "
+                "wire ends, so it has one cut and one port"
+            )
+        if branch is None or None in seen[j_idx]:
+            raise ValueError(
+                f"node_ports: junction {j_idx} listed twice — several ports "
+                "share a junction only when each cuts ONE member's branch "
+                "off the node (one member on one side of it)"
+            )
+        if branch in seen[j_idx]:
+            raise ValueError(
+                f"node_ports: junction {j_idx} listed twice — member {branch}'s "
+                "branch is already cut there"
+            )
+        seen[j_idx].append(branch)
 
     def _reject_junction_ports(self):
         """No-op at CONSTRUCTION: #177's stated blocker was the missing
@@ -4462,8 +4567,9 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         unit weights multiply exactly). So T rows are accumulated here the
         same way — the basis's carried partial row, or zeros, then this
         band's entries added one at a time in ascending order
-        (`_ordered_row_scatter`, `np.add.at`'s order without its per-element
-        loop) — and since every band
+        (`_row_scatter`, `np.add.at`'s order without its per-element loop;
+        a row with no carry starts from +0 in the scatter itself rather than
+        from a zeroed buffer) — and since every band
         follows every earlier one, a basis that straddles bands meets its
         entries in the sequence the whole product did. A basis is finished at
         the band holding its LAST entry; its rows of the three products
@@ -4475,14 +4581,16 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         i_of = rows.i_of_entry[e0:e1]
         touched, local = np.unique(i_of, return_inverse=True)
         n_src = band[0].shape[1]
-        T = [np.zeros((touched.size, n_src), dtype=np.complex128) for _ in range(3)]
+        T = [np.empty((touched.size, n_src), dtype=np.complex128) for _ in range(3)]
+        fresh = np.ones(touched.size, dtype=bool)
         for r, b in enumerate(touched):
             got = rows.carry.pop(int(b), None)
             if got is not None:
+                fresh[r] = False
                 for t, g in zip(T, got):
                     t[r] = g
         for t, c in zip(T, band):
-            _ordered_row_scatter(t, local, c)
+            _row_scatter(t, local, c, fresh)
         done = rows.last[touched] < e1
         if done.any():
             fin = np.flatnonzero(done)
@@ -4876,7 +4984,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
           and the band buffer dies. Banding over TEST segments (not source
           columns, and not per block) is what keeps it bit-exact: a matrix
           cell's writers are its own test segment's entries, so a cell is
-          finished inside one band and the scatter (`_ordered_row_scatter`)
+          finished inside one band and the scatter (`_row_scatter`)
           reaches it in the same ascending-entry order the whole-triple
           scatter did. Folding per
           BLOCK instead — the other shape momwire#355 floated — would have
@@ -4936,12 +5044,12 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             rows = i_of_entry[e0:e1]
             for dest, c in zip(T, corr):
                 # The scatter's own accumulation, reached one band early.
-                # `_ordered_row_scatter` adds the band's rows one at a time in
+                # `_row_scatter` adds the band's rows one at a time in
                 # ascending entry order, which is the order `R @ corr` sums a basis
                 # row's entries in — and the bands are ascending too, so every
                 # T cell sees exactly the sequence of additions the
                 # whole-triple product performed.
-                _ordered_row_scatter(dest, rows, c)
+                _row_scatter(dest, rows, c)
         if not any(np.any(t) for t in T):
             return
         if not self._band_fill_serves(N):

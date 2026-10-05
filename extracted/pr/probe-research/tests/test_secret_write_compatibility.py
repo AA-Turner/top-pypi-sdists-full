@@ -32,8 +32,8 @@ def test_document_create_verifies_redacted_readback(client, app, entity):
     project = client.create_project("safe-project", kind="general")
     row = client.create_experiment("safe-experiment", question="Does it work?",
                                    project_id=project["id"], document=TEXT)
-    stored = client.get_experiment(row["id"])
-    assert stored["document"] == default_scrub(TEXT)
+    assert row["document"] == default_scrub(TEXT)
+    assert client.get_experiment_document(row["id"]) == default_scrub(TEXT)
 
 
 def test_a_run_has_no_document_to_scrub(client, app):

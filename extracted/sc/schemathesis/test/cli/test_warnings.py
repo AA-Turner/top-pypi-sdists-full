@@ -6,7 +6,6 @@ from _pytest.main import ExitCode
 from flask import Flask, Response, jsonify, request
 
 import schemathesis
-from schemathesis.python._constants.registry import default_registry
 
 
 def _serve_schema(ctx, cli, app_runner, schema: dict, routes):
@@ -497,14 +496,7 @@ def test_missing_test_data_advice_grouped_by_cause(ctx, cli, snapshot_cli):
     )
 
 
-@pytest.fixture
-def _clean_registry():
-    default_registry().clear()
-    yield
-    default_registry().clear()
-
-
-@pytest.mark.usefixtures("_clean_registry")
+@pytest.mark.usefixtures("clean_constants_registry")
 def test_constants_extraction_warning_displayed(cli, ctx):
     @schemathesis.python.constants
     def broken_source():
@@ -645,6 +637,23 @@ def test_low_valid_rate_distinguishes_rejections_from_missing_resources(ctx, cli
 
     assert "(1/10, 9 rejected)" in result.stdout
     assert "refused on their data" in result.stdout
+
+
+def test_low_valid_rate_distinguishes_conflicts_from_rejections(ctx, cli):
+    app = _orders_app(ctx, accept_every=10, rejection_status=409)
+
+    result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS, "--checks=not_a_server_error")
+
+    assert "(1/10, 9 conflicts)" in result.stdout
+    assert "collided with existing resources" in result.stdout
+
+
+def test_no_low_valid_rate_warning_for_rate_limited_requests(ctx, cli):
+    app = _orders_app(ctx, accept_every=10, rejection_status=429)
+
+    result = cli.run_openapi_app(app, *LOW_VALID_RATE_ARGS, "--checks=not_a_server_error")
+
+    assert "Low valid-input rate" not in result.stdout
 
 
 def test_no_low_valid_rate_warning_when_most_requests_are_accepted(ctx, cli):

@@ -154,7 +154,74 @@ def _attribution_needs_pairing(label: str) -> bool:
 
 
 def _env(env: Mapping[str, str] | None) -> Mapping[str, str]:
-    return os.environ if env is None else env
+    if env is None:
+        adopt_harness_process_session()
+        return os.environ
+    return env
+
+
+_ADOPTED = False
+
+
+def adopt_harness_process_session() -> dict[str, str]:
+    """Name this process's coding-agent session in the environment when the
+    agent itself did not (Kimi Code puts no session id in its shells).
+
+    The agent's hook recorded "harness process P runs session S"
+    (`session_marker.record_harness_process`); a `probe` command or a script the
+    agent started walks up to P and finds it, stopping at any nearer coding agent
+    (a Claude Code started inside Kimi is Claude Code's). The id then goes into
+    ``os.environ`` under the registry's ``session_env`` for that harness, so this
+    process AND everything it starts (a training script, a launcher forwarding
+    the session to a remote job) resolve it the ordinary way. The markers of
+    other agents that P inherited (Kimi run from a Claude Code shell or a Cursor
+    terminal) are dropped: P is the agent driving this process. Runs once per
+    process. Never raises. Returns what it set ({} when nothing)."""
+    global _ADOPTED
+    if _ADOPTED:
+        return {}
+    _ADOPTED = True
+    try:
+        from probe.harness import get_registry
+        from probe.sdk import session_marker
+
+        registry = get_registry()
+        recorded = [h for h in registry.all() if h.process_title]
+        if not recorded:
+            return {}
+        stop_titles = tuple(h.binary for h in registry.all() if h.binary and not h.process_title)
+        found = session_marker.harness_process(stop_titles=stop_titles)
+        if found is None:
+            return {}
+        harness = registry.find(found[0])
+        if harness is None or not harness.session_env:
+            return {}
+        inherited = session_marker.process_environ(found[2])
+        carried = os.environ.get(harness.session_env)
+        # A session this process already carries, set below the harness process
+        # (a job adopted it earlier), stays: a TUI's /new must not reassign the
+        # job's later children. One the harness process itself inherited (a new
+        # Kimi started from inside such a job) is stale.
+        if carried and (inherited is None or inherited.get(harness.session_env) != carried):
+            return {}
+        others = [
+            key
+            for other in registry.all()
+            if other.id != harness.id
+            for key in (*other.detect_env, *((other.session_env,) if other.session_env else ()))
+        ]
+        # Another agent's marker that the harness process itself did not have
+        # was set below it: a nearer agent (pi run inside Kimi) owns this process.
+        if inherited is not None and any(
+            os.environ.get(key) and inherited.get(key) != os.environ.get(key) for key in others
+        ):
+            return {}
+        for key in others:
+            os.environ.pop(key, None)
+        os.environ[harness.session_env] = found[1]
+        return {harness.session_env: found[1]}
+    except Exception:  # noqa: BLE001 -- attribution must never break a command
+        return {}
 
 
 def detect_agent(env: Mapping[str, str] | None = None) -> AgentSpec | None:

@@ -164,7 +164,9 @@ def peer_whole_int(value: Any, *, default: int = 0, maximum: int | None = None) 
 #: ``approve`` gates who may ATTEMPT an allow for a session on this device (ask
 #: for a signing challenge; the signature still decides admission), and
 #: ``unattended`` is the right to start sessions here without a per-card gate.
-#: Both are GRANTABLE-ONLY (no role carries them) — see
+#: Both are granted PER MEMBER: no ``read``/``drive`` role carries them — an
+#: ``admin`` member holds the full vocabulary (``ROLE_CAPABILITIES``), so a
+#: consumer reads the member row rather than a role name — and both are in
 #: :data:`GRANTABLE_CAPABILITIES`.
 CAPABILITIES: frozenset[str] = frozenset(
     {
@@ -286,6 +288,7 @@ NET_OPS: tuple[str, ...] = (
     "net_sync",
     "net_broker",
     "net_session_lifecycle",
+    "net_session_receipt",
     "net_session_move",
     "net_session_create",
     "net_session_engage",
@@ -389,6 +392,7 @@ LOCAL_OPS: tuple[str, ...] = (
     "session_move",
     "session_sync",
     "session_lifecycle",
+    "session_receipt",
     # The credential broker's leg 1 (runtime → its own relay, §2.3).
     "credential_grant",
     "credential_report",
@@ -425,13 +429,18 @@ MOVE_PHASES_AFTER_HANDOFF: frozenset[str] = frozenset({"status", "ready", "done"
 #: what ``credential share`` writes on the owner (§2.2) — but only by a device
 #: whose own row holds ``admin``, which is the "stays admin-only" rule: the
 #: capability is never in a non-admin ROLE, and only an admin may hand it out.
+#: The ONE carve-out is the write-authorization set beside this table
+#: (:data:`SELF_DECIDED_SCOPES`): the two onboarding scopes are what the
+#: deciding device records in a PEER's row in its own record, so it needs no
+#: admin row for exactly those.
 #:
-#: ``approve`` and ``unattended`` are grantable and, like ``broker_credential``,
-#: are in no ROLE: they are the onboarding scopes the operator ticks on the
-#: approval card ("grant: approve", "trust: unattended sessions"), and a role
-#: that carried them silently would widen every existing member the day this
-#: table changed. ``approve`` gates who may ATTEMPT an allow; ``unattended``
-#: gates a session that starts with no card at all.
+#: ``approve`` and ``unattended`` are grantable per member: no ``read``/``drive``
+#: role carries them — the blanket ``admin`` role holds the full vocabulary — and
+#: adding either to a non-admin role silently would widen every existing member
+#: the day this table changed. They are the onboarding scopes the operator ticks
+#: on the approval card ("grant: approve", "trust: unattended sessions").
+#: ``approve`` gates who may ATTEMPT an allow; ``unattended`` gates a session
+#: that starts with no card at all.
 GRANTABLE_CAPABILITIES: frozenset[str] = frozenset(
     {
         "list",
@@ -447,6 +456,23 @@ GRANTABLE_CAPABILITIES: frozenset[str] = frozenset(
         "unattended",
     }
 )
+
+#: The capability names the DECIDING device may write into a PEER's row in its
+#: OWN record without an admin row (F7). ``approve`` and ``unattended`` are the
+#: onboarding scopes: trust decisions about THIS device's own files and sessions
+#: ("may the
+#: laptop start sessions on THIS box"), and every consumer resolves them from this
+#: device's own member row per use (``relay.PeerLink.role_capabilities`` → the
+#: authoriser chokepoint, the ``yolo`` create gate, the forwarded approval
+#: challenge, the carried-auto engage). The design makes the receiver-side grant
+#: the whole mechanism ("one node-side grant is sufficient",
+#: ``mesh-remote-onboarding.md`` §2.8) and no wire op can write another device's
+#: copy — so the blanket admin requirement in
+#: :func:`relay.set_member_capabilities` left the deciding device itself unable to
+#: record a decision it had already made with its operator (§3.3 step 9 runs the
+#: grant on the node). Every capability outside this set keeps the admin-only
+#: write rule; ``broker_credential`` and the role caps explicitly.
+SELF_DECIDED_SCOPES: frozenset[str] = frozenset({"approve", "unattended"})
 
 #: What each capability lets the peer DO, in words, for ``member grant/revoke``'s
 #: human output. A capability name alone ("broker_credential") does not tell the
@@ -497,6 +523,13 @@ OP_CAPABILITY: dict[str, str | None] = {
     "net_sync": "view",
     "net_broker": "broker_credential",
     "net_session_lifecycle": "delete",
+    # ``view``, the same row the stream plane's ``acknowledge_attention`` carries
+    # (see :data:`INNER_OP_CAPABILITY`): clearing the OWNER's own read receipt is
+    # a session-scoped write whose narrowest words are viewing — the
+    # 36-character completion token is what bounds who may do it, not the
+    # capability — and it deletes nothing, so the ``delete`` row its lifecycle
+    # sibling holds would be false about it.
+    "net_session_receipt": "view",
     "net_session_move": "move",
     # The three the mobility design adds (§2.2): creating a session IS a prompt
     # (it admits one), warming a cold one is a read, and the kill switch is its
@@ -906,6 +939,56 @@ def delete_scope_refusal(
     if may_run_delete_scoped_slash(locality, capabilities):
         return None
     return delete_scope_refusal_sentence(command)
+
+
+def unattended_fallback_notice(peer: str = "") -> str:
+    """The notice a create carries when its IMPLIED unattended request was refused.
+
+    THE FALLBACK'S SENTENCE, written once because two surfaces produce it — the
+    CLI's ``network sessions --create`` and the desktop's ``create_on_peer`` — and
+    they must not drift (the rule ``delete_scope_refusal_sentence`` states for its
+    own pair). It exists because the request it explains was IMPLIED: the origin's
+    ``tool_approval_mode: auto``, not an explicit ask. An implied request that
+    dead-ended in a failed create would make an unattended send the one thing
+    unattended cannot do, so the create falls back ATTENDED and this sentence says
+    what that means: this conversation asks, here is how its cards are answered,
+    and here is what the grant it names actually changes.
+
+    THE GRANT'S TRUE SCOPE (design round 1, D1/D5). ``unattended`` is a
+    create/move-time carry, not a live switch: the fallback's create runs without
+    ``yolo``, so the receiver stamps the session attended (``stamp.unattended =
+    False``, ``relay._op_session_create``) and the carried-auto construction
+    needs that stamp — a grant made AFTER this refusal governs FUTURE sends from
+    this device and cannot quiet the conversation this notice is attached to. The
+    sentence must not imply otherwise, or an operator who makes the grant
+    expecting THIS session to go quiet is surprised — exactly the failure the
+    round-1 review named.
+
+    THE REMEDY IS THE REFUSAL'S OWN VERB AND NOUN ("approve setup for <device> in
+    the Mesh tab", ``relay._op_session_create``), because it IS that refusal's
+    remedy: one grant, made once, on the device that would run the session — and
+    the location is said out loud ("in the Mesh tab on <device>") because the
+    reader is on the REQUESTER's machine and must not have to infer whose tab
+    (design round 1, D4). Two surfaces sending the operator to two different
+    places would be worse than either sentence alone.
+
+    ``peer`` is the device as the REQUESTER typed it (a name or an id); empty
+    falls back to the description the refusal uses for an unnamed device.
+    """
+    named = str(peer or "").strip()
+    if named:
+        subject = f"{named} has not granted"
+        remedy = f"approve setup for {named} in the Mesh tab on {named}"
+    else:
+        subject = "the device that would run the session has not granted"
+        remedy = "approve that device's setup in the Mesh tab on that device"
+    return (
+        f"created attended: {subject} this device 'unattended', so this "
+        "conversation will ask for approvals there — answer its card from an "
+        "attached viewer, or from a device its operator has granted 'approve'. "
+        "The grant covers future sends from this device, not this conversation: "
+        f"its operator makes it — {remedy}."
+    )
 
 
 #: The slash commands a RELAYED connection may run through the ONE carrier that

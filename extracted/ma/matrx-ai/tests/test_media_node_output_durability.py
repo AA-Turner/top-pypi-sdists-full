@@ -21,7 +21,7 @@ If a test here fails, do NOT relax it and do NOT add a second X-Amz regex. The
 rule is: a signed URL is a handoff, never an identity. Emit ``file_id``; the
 consumer mints its own URL from it at the moment it renders.
 
-System of record: common-docs/systems/media/media-durability/FEATURE.md.
+System of record: common-docs/systems/files/media-durability/FEATURE.md.
 """
 
 from __future__ import annotations

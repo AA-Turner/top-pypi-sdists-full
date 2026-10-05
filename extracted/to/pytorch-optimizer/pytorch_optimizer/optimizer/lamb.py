@@ -1,4 +1,3 @@
-from typing import List, Optional, Union
 
 import torch
 
@@ -9,29 +8,27 @@ from pytorch_optimizer.optimizer.utils import get_global_gradient_norm
 
 
 class Lamb(BaseOptimizer):
-    """Large Batch Optimization for Deep Learning.
+    """Adam updates with a trust ratio for each parameter tensor.
 
-    This Lamb implementation is based on the paper v3, which does not use de-biasing.
+    The default update follows version 3 of the paper without bias correction.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay coefficient.
-        weight_decouple (bool): Apply decoupled weight decay as in AdamW. False follows the LAMB paper's
-            standard update.
-        fixed_decay (bool): Fix weight decay.
-        rectify (bool): Perform the rectified update similar to RAdam.
-        degenerated_to_sgd (bool): Degenerate to SGD.
-        n_sma_threshold (int): Recommended is 5.
-        grad_averaging (bool): Whether to apply (1 - beta2) to gradient when calculating running averages of gradient.
-        max_grad_norm (float): Max gradient norm to clip.
-        adam (bool): Always use trust ratio = 1, which turns this into Adam. Useful for comparison purposes.
-        pre_norm (bool): Perform pre-normalization of all gradients.
-        eps (float): Term added to the denominator to improve numerical stability.
-        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
-            None means auto-detect based on device (True for CUDA, False otherwise).
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        rectify: Perform the rectified update similar to RAdam.
+        degenerated_to_sgd: Use an SGD update before the moving average reaches the rectification threshold.
+        n_sma_threshold: Minimum effective simple moving average length for rectification.
+        grad_averaging: Scale new gradient contributions by `1 - beta1`.
+        max_grad_norm: Reference norm for gradient scaling when `pre_norm=True`. `0` disables scaling.
+        adam: Use a trust ratio of 1 for all parameters.
+        pre_norm: Divide gradients by a scaling factor derived from their global norm.
+        eps: Term added to the denominator to improve numerical stability.
+        foreach: Use batched tensor operations. `None` enables them for supported parameter groups.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -53,7 +50,7 @@ class Lamb(BaseOptimizer):
         adam: bool = False,
         pre_norm: bool = False,
         eps: float = 1e-6,
-        foreach: Optional[bool] = None,
+        foreach: bool | None = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -111,11 +108,9 @@ class Lamb(BaseOptimizer):
                     state['exp_grad_adanorm'] = torch.zeros((1,), dtype=p.dtype, device=p.device)
 
     def _can_use_foreach(self, group: ParamGroup) -> bool:
-        """Check if foreach can be used for this group.
+        """Check tensor compatibility and options for batched updates.
 
-        Foreach is disabled when using features that require per-parameter handling:
-        - AdaNorm
-        - Rectify (has conditional logic per parameter)
+        Disable batched updates when using AdaNorm or rectification.
         """
         if group.get('foreach') is False:
             return False
@@ -128,11 +123,11 @@ class Lamb(BaseOptimizer):
     def _step_foreach(
         self,
         group: ParamGroup,
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        grad_norm: Union[torch.Tensor, float],
-        exp_avgs: List[torch.Tensor],
-        exp_avg_sqs: List[torch.Tensor],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        grad_norm: torch.Tensor | float,
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
         step_size: float,
     ) -> None:
         beta1, beta2 = group['betas']
@@ -144,9 +139,9 @@ class Lamb(BaseOptimizer):
 
         if self.pre_norm:
             if isinstance(grad_norm, torch.Tensor):
-                grad_norm = grad_norm.item()
+                grad_norm = grad_norm.reshape(())
 
-            torch._foreach_div_(grads, grad_norm)
+            torch._foreach_mul_(grads, grad_norm)
 
         if group['weight_decouple']:
             self.apply_weight_decay_foreach(
@@ -177,23 +172,25 @@ class Lamb(BaseOptimizer):
 
         p_norms = torch._foreach_norm(updates)
 
-        for p, update, wn, pn in zip(params, updates, weight_norms, p_norms):
-            trust_ratio: float = 1.0
-            if wn != 0 and pn != 0:
-                trust_ratio = (wn / (pn + eps)).item()
+        trust_ratios = torch._foreach_div(weight_norms, torch._foreach_add(p_norms, eps))
+        trust_ratios = [
+            torch.where((wn != 0) & (pn != 0), ratio, torch.ones_like(ratio))
+            for wn, pn, ratio in zip(weight_norms, p_norms, trust_ratios)
+        ]
 
+        for p, wn, pn, trust_ratio in zip(params, weight_norms, p_norms, trust_ratios):
             state = self.state[p]
             state['weight_norm'] = wn
             state['adam_norm'] = pn
             state['trust_ratio'] = trust_ratio
 
-            if group['adam']:
-                trust_ratio = 1.0
+        if not group['adam']:
+            torch._foreach_mul_(updates, trust_ratios)
 
-            p.add_(update, alpha=-step_size * trust_ratio)
+        torch._foreach_add_(params, updates, alpha=-step_size)
 
     @torch.no_grad()
-    def get_global_gradient_norm(self) -> Union[torch.Tensor, float]:
+    def get_global_gradient_norm(self) -> torch.Tensor | float:
         if self.defaults['max_grad_norm'] == 0.0:
             return 1.0
 
@@ -206,7 +203,7 @@ class Lamb(BaseOptimizer):
         self,
         p: torch.Tensor,
         group: ParamGroup,
-        grad_norm: Union[torch.Tensor, float],
+        grad_norm: torch.Tensor | float,
         n_sma: float,
         step_size: float,
         beta1: float,
@@ -218,7 +215,7 @@ class Lamb(BaseOptimizer):
             return
 
         if self.pre_norm:
-            grad.div_(grad_norm)
+            grad.mul_(grad_norm)
 
         self.maximize_gradient(grad, maximize=self.maximize)
 
@@ -247,7 +244,10 @@ class Lamb(BaseOptimizer):
             fixed_decay=group['fixed_decay'],
         )
 
-        de_nom: Optional[torch.Tensor] = None
+        if group['rectify'] and step_size <= 0:
+            return
+
+        de_nom: torch.Tensor | None = None
 
         if group['rectify']:
             update = p.clone()

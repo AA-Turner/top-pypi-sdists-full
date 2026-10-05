@@ -1,5 +1,4 @@
 import math
-from typing import List, Optional, Tuple
 
 import torch
 
@@ -9,16 +8,16 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, Par
 
 
 class AccSGD(BaseOptimizer):
-    """Accelerating Stochastic Gradient Descent For Least Squares Regression.
+    """Accelerated SGD with coupled short and long steps.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        kappa (float): ratio of long to short step.
-        xi (float): statistical advantage parameter.
-        constant (float): any small constant under 1.
-        weight_decay (float): weight decay (L2 penalty).
-        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        kappa: Ratio of long to short step.
+        xi: Statistical advantage parameter.
+        constant: Any small constant under 1.
+        weight_decay: Weight decay coefficient.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -109,25 +108,24 @@ class AccSGD(BaseOptimizer):
                 buf = state['momentum_buffer']
                 buf.mul_((1.0 / beta) - 1.0).add_(grad, alpha=-large_lr).add_(p).mul_(beta)
 
-                p.add_(grad, alpha=-group['lr']).mul_(zeta).add_(buf, alpha=1.0 - zeta)
+                p.add_(grad, alpha=-group['lr']).lerp_(buf, weight=1.0 - zeta)
 
         return loss
 
 
 class SGDW(BaseOptimizer):
-    """Decoupled Weight Decay Regularization.
+    """SGD with optional decoupled weight decay.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        momentum (float): momentum factor.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): optimizer uses decoupled weight decay as in AdamW.
-        dampening (float): dampening for momentum.
-        nesterov (bool): enables Nesterov momentum.
-        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
-            None means auto-detect based on device (True for CUDA, False otherwise).
-        maximize (bool): maximize the objective instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        dampening: Dampening factor for momentum.
+        nesterov: Use Nesterov momentum.
+        foreach: Use batched tensor operations. `None` enables them for supported parameter groups.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -140,7 +138,7 @@ class SGDW(BaseOptimizer):
         weight_decouple: bool = True,
         dampening: float = 0.0,
         nesterov: bool = False,
-        foreach: Optional[bool] = None,
+        foreach: bool | None = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -178,11 +176,6 @@ class SGDW(BaseOptimizer):
             if grad.is_sparse:
                 raise NoSparseGradientError(str(self))
 
-            state = self.state[p]
-
-            if len(state) == 0:
-                state['momentum_buffer'] = p.clone()
-
     def _can_use_foreach(self, group: ParamGroup) -> bool:
         if group.get('foreach') is False:
             return False
@@ -192,12 +185,10 @@ class SGDW(BaseOptimizer):
     def _step_foreach(
         self,
         group: ParamGroup,
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        momentum_buffers: List[torch.Tensor],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor] | tuple[torch.Tensor, ...],
     ) -> None:
-        lr = group['lr']
-        dampening = group['dampening']
+        lr, momentum, dampening = group['lr'], group['momentum'], group['dampening']
 
         if self.maximize:
             torch._foreach_neg_(grads)
@@ -211,11 +202,25 @@ class SGDW(BaseOptimizer):
             fixed_decay=False,
         )
 
-        torch._foreach_lerp_(momentum_buffers, grads, weight=1.0 - dampening)
-        if group['nesterov']:
-            torch._foreach_add_(grads, momentum_buffers, alpha=group['momentum'])
+        if momentum > 0.0:
+            buffers, existing_buffers, existing_grads = [], [], []
+            for p, grad in zip(params, grads):
+                state = self.state[p]
+                buf = state.get('momentum_buffer')
+                if buf is None:
+                    state['momentum_buffer'] = buf = grad.clone()
+                else:
+                    existing_buffers.append(buf)
+                    existing_grads.append(grad)
+                buffers.append(buf)
 
-        torch._foreach_add_(params, momentum_buffers, alpha=-lr)
+            if existing_buffers:
+                torch._foreach_mul_(existing_buffers, momentum)
+                torch._foreach_add_(existing_buffers, existing_grads, alpha=1.0 - dampening)
+
+            grads = torch._foreach_add(grads, buffers, alpha=momentum) if group['nesterov'] else buffers
+
+        torch._foreach_add_(params, grads, alpha=-lr)
 
     def _step_per_param(self, group: ParamGroup) -> None:
         momentum = group['momentum']
@@ -228,17 +233,6 @@ class SGDW(BaseOptimizer):
 
             self.maximize_gradient(grad, maximize=self.maximize)
 
-            state = self.state[p]
-
-            if momentum > 0.0:
-                buf = state['momentum_buffer']
-                buf.mul_(momentum).add_(grad, alpha=1.0 - group['dampening'])
-
-                if group['nesterov']:
-                    grad.add_(buf, alpha=momentum)
-                else:
-                    grad = buf
-
             self.apply_weight_decay(
                 p,
                 grad=grad,
@@ -247,6 +241,16 @@ class SGDW(BaseOptimizer):
                 weight_decouple=group['weight_decouple'],
                 fixed_decay=False,
             )
+
+            if momentum > 0.0:
+                state = self.state[p]
+                buf = state.get('momentum_buffer')
+                if buf is None:
+                    state['momentum_buffer'] = buf = grad.clone()
+                else:
+                    buf.mul_(momentum).add_(grad, alpha=1.0 - group['dampening'])
+
+                grad = grad.add_(buf, alpha=momentum) if group['nesterov'] else buf
 
             p.add_(grad, alpha=-group['lr'])
 
@@ -262,11 +266,9 @@ class SGDW(BaseOptimizer):
             group['step'] += 1
 
             if self._can_use_foreach(group):
-                params, grads, state_dict = self.collect_trainable_params(
-                    group, self.state, state_keys=['momentum_buffer']
-                )
+                params, grads, _ = self.collect_trainable_params(group, self.state)
                 if params:
-                    self._step_foreach(group, params, grads, state_dict['momentum_buffer'])
+                    self._step_foreach(group, params, grads)
             else:
                 self._step_per_param(group)
 
@@ -277,16 +279,16 @@ class ASGD(BaseOptimizer):
     """Adaptive SGD with estimation of the local smoothness (curvature).
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        amplifier (float): amplifier.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): fix weight decay.
-        theta (float): theta.
-        dampening (float): dampening for momentum.
-        eps (float): term added to denominator to improve numerical stability.
-        maximize (bool): maximize the objective instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        amplifier: Coefficient controlling the maximum learning rate growth per step.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        theta: Initial ratio of consecutive learning rates, updated after each step.
+        dampening: Scale of the local smoothness bound on the learning rate.
+        eps: Term added to denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -331,8 +333,8 @@ class ASGD(BaseOptimizer):
         pass
 
     @staticmethod
-    def get_norms_by_group(group: ParamGroup, device: torch.device) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Get parameter & gradient norm by group."""
+    def get_norms_by_group(group: ParamGroup, device: torch.device) -> tuple[torch.Tensor, torch.Tensor]:
+        """Compute global parameter and gradient L2 norms for a parameter group."""
         p_norm = torch.zeros(1, dtype=torch.float32, device=device)
         g_norm = torch.zeros(1, dtype=torch.float32, device=device)
 
@@ -401,17 +403,16 @@ class ASGD(BaseOptimizer):
 
 
 class SignSGD(BaseOptimizer):
-    """Compressed Optimisation for Non-Convex Problems.
+    """Sign based SGD with optional momentum.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        momentum (float): momentum factor (0.0 = SignSGD, >0 = Signum).
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): optimizer uses decoupled weight decay as in AdamW.
-        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
-            None means auto-detect based on device (True for CUDA, False otherwise).
-        maximize (bool): maximize the objective instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        momentum: Momentum factor. `0` gives SignSGD. Positive values give Signum.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        foreach: Use batched tensor operations. `None` enables them for supported parameter groups.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -422,7 +423,7 @@ class SignSGD(BaseOptimizer):
         momentum: float = 0.9,
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
-        foreach: Optional[bool] = None,
+        foreach: bool | None = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -472,9 +473,9 @@ class SignSGD(BaseOptimizer):
     def _step_foreach(
         self,
         group: ParamGroup,
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        momentum_buffers: List[torch.Tensor],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        momentum_buffers: list[torch.Tensor],
     ) -> None:
         lr = group['lr']
 
@@ -549,16 +550,16 @@ class SignSGD(BaseOptimizer):
 
 
 class SGDSaI(BaseOptimizer):
-    """No More Adam: Learning Rate Scaling at Initialization is All You Need.
+    """SGD with learning rate scaling from the initial gradient signal-to-noise ratio.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        momentum (float): coefficients used for computing running averages of gradient.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): optimizer uses decoupled weight decay as in AdamW.
-        eps (float): term added to denominator to improve numerical stability.
-        maximize (bool): maximize the objective instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        eps: Term added to denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -578,7 +579,6 @@ class SGDSaI(BaseOptimizer):
         self.validate_non_negative(weight_decay, 'weight_decay')
         self.validate_non_negative(eps, 'eps')
 
-        self.has_warmup: bool = False
         self.maximize = maximize
 
         defaults: Defaults = {
@@ -608,11 +608,16 @@ class SGDSaI(BaseOptimizer):
 
             state = self.state[p]
 
-            if group['momentum'] > 0.0:
+            if group['momentum'] > 0.0 and 'momentum_buffer' not in state:
                 state['momentum_buffer'] = torch.zeros_like(p)
 
+            if 'gsnr' not in state:
+                sigma = grad.std().nan_to_num_() if grad.ndim > 1 and grad.size(0) != 1 else 0
+                grad_norm = grad.norm()
+                state['gsnr'] = grad_norm / (sigma + group['eps']) if sigma != 0.0 else grad_norm
+
     @torch.no_grad()
-    def warmup_step(self, closure: Closure = None) -> Loss:
+    def step(self, closure: Closure = None) -> Loss:
         loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
@@ -620,38 +625,6 @@ class SGDSaI(BaseOptimizer):
 
         for group in self.param_groups:
             self.init_group(group)
-            group['step'] += 1
-
-            for p in group['params']:
-                if p.grad is None:
-                    continue
-
-                grad = p.grad
-
-                self.maximize_gradient(grad, maximize=self.maximize)
-
-                sigma = grad.std().nan_to_num_() if grad.ndim > 1 and grad.size(0) != 1 else 0
-                grad_norm = grad.norm()
-
-                g_snr = grad_norm.div_(sigma.add_(group['eps'])) if sigma != 0.0 else grad_norm
-
-                self.state[p]['gsnr'] = g_snr
-
-        self.has_warmup = True
-
-        return loss
-
-    @torch.no_grad()
-    def step(self, closure: Closure = None) -> Loss:
-        if not self.has_warmup:
-            self.warmup_step(closure)
-
-        loss: Loss = None
-        if closure is not None:
-            with torch.enable_grad():
-                loss = closure()
-
-        for group in self.param_groups:
             group['step'] += 1
 
             momentum: float = group['momentum']
@@ -668,7 +641,7 @@ class SGDSaI(BaseOptimizer):
 
                 if momentum > 0.0:
                     buf = state['momentum_buffer']
-                    buf.mul_(momentum).add_(grad, alpha=1.0 - momentum)
+                    buf.lerp_(grad, weight=1.0 - momentum)
                 else:
                     buf = grad
 
@@ -687,19 +660,19 @@ class SGDSaI(BaseOptimizer):
 
 
 class VSGD(BaseOptimizer):
-    """Variational Stochastic Gradient Descent for Deep Neural Networks.
+    """SGD with variational gradient estimates.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        ghattg (float): prior variance ratio between ghat and g, Var(ghat_t-g_t)/Var(g_t-g_{t-1}).
-        ps (float): prior strength.
-        tau1 (float): remember rate for the gamma parameters of g.
-        tau2 (float): remember rate for the gamma parameter of ghat.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): optimizer uses decoupled weight decay as in AdamW.
-        eps (float): term added to denominator to improve numerical stability.
-        maximize (bool): maximize the objective instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        ghattg: Prior variance ratio between ghat and g, Var(ghat_t-g_t)/Var(g_t-g_{t-1}).
+        ps: Prior strength.
+        tau1: Remember rate for the gamma parameters of g.
+        tau2: Remember rate for the gamma parameter of ghat.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        eps: Term added to denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -760,8 +733,8 @@ class VSGD(BaseOptimizer):
 
             if len(state) == 0:
                 state['mug'] = torch.zeros_like(p)
-                state['bg'] = torch.zeros_like(p)
-                state['bhg'] = torch.zeros_like(p)
+                state['bg'] = torch.full_like(p, group['pbg2'])
+                state['bhg'] = torch.full_like(p, group['pbhg2'])
 
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
@@ -818,8 +791,8 @@ class VSGD(BaseOptimizer):
                 bg2 = pbg2 + mug_sq - 2.0 * mug * mug_prev + mug_prev.pow(2)
                 bhg2 = pbhg2 + mug_sq - 2.0 * grad * mug + grad.pow(2)
 
-                bg.mul_(1.0 - rho1).add_(bg2, alpha=rho1)
-                bhg.mul_(1.0 - rho2).add_(bhg2, alpha=rho2)
+                bg.lerp_(bg2, weight=rho1)
+                bhg.lerp_(bhg2, weight=rho2)
 
                 p.add_(group['lr'] / mug_sq.sqrt().add_(group['eps']) * mug, alpha=-1.0)
 

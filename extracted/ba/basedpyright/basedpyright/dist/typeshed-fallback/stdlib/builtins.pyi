@@ -1434,8 +1434,8 @@ class str(Sequence[str]):
                 Maximum number of occurrences to replace.
                 -1 (the default value) means replace all occurrences.
 
-            If the optional argument count is given, only the first count occurrences are
-            replaced.
+            If count is given, only the first count occurrences are replaced.
+            If count is not specified or -1, then all occurrences are replaced.
             """
             ...
         @overload
@@ -1447,8 +1447,8 @@ class str(Sequence[str]):
                 Maximum number of occurrences to replace.
                 -1 (the default value) means replace all occurrences.
 
-            If the optional argument count is given, only the first count occurrences are
-            replaced.
+            If count is given, only the first count occurrences are replaced.
+            If count is not specified or -1, then all occurrences are replaced.
             """
             ...
     else:
@@ -1820,7 +1820,20 @@ class str(Sequence[str]):
                 | frozendict[str | int, _T]
             ),
             /,
-        ) -> dict[int, _T]: ...
+        ) -> dict[int, _T]:
+            """
+            Return a translation table usable for str.translate().
+
+            If there is only one argument, it must be a dictionary mapping
+            Unicode ordinals (integers) or characters to Unicode ordinals,
+            strings or None.  Character keys will be then converted to ordinals.
+            If there are two arguments, they must be strings of equal length,
+            and in the resulting dictionary, each character in x will be mapped
+            to the character at the same position in y.  If there is a third
+            argument, it must be a string, whose characters will be mapped to
+            None in the result.
+            """
+            ...
     else:
         @staticmethod
         @overload
@@ -2212,7 +2225,18 @@ class bytes(Sequence[int]):
         """
         ...
     if sys.version_info >= (3, 15):
-        def replace(self, old: ReadableBuffer, new: ReadableBuffer, /, count: SupportsIndex = -1) -> bytes: ...
+        def replace(self, old: ReadableBuffer, new: ReadableBuffer, /, count: SupportsIndex = -1) -> bytes:
+            """
+            Return a copy with all occurrences of substring old replaced by new.
+
+              count
+                Maximum number of occurrences to replace.
+                -1 (the default value) means replace all occurrences.
+
+            If count is given, only the first count occurrences are replaced.
+            If count is not specified or -1, then all occurrences are replaced.
+            """
+            ...
     else:
         def replace(self, old: ReadableBuffer, new: ReadableBuffer, count: SupportsIndex = -1, /) -> bytes:
             """
@@ -2817,7 +2841,18 @@ class bytearray(MutableSequence[int]):
         """
         ...
     if sys.version_info >= (3, 15):
-        def replace(self, old: ReadableBuffer, new: ReadableBuffer, /, count: SupportsIndex = -1) -> bytearray: ...
+        def replace(self, old: ReadableBuffer, new: ReadableBuffer, /, count: SupportsIndex = -1) -> bytearray:
+            """
+            Return a copy with all occurrences of substring old replaced by new.
+
+              count
+                Maximum number of occurrences to replace.
+                -1 (the default value) means replace all occurrences.
+
+            If count is given, only the first count occurrences are replaced.
+            If count is not specified or -1, then all occurrences are replaced.
+            """
+            ...
     else:
         def replace(self, old: ReadableBuffer, new: ReadableBuffer, count: SupportsIndex = -1, /) -> bytearray:
             """
@@ -2980,7 +3015,14 @@ class bytearray(MutableSequence[int]):
         """
         ...
     if sys.version_info >= (3, 15):
-        def take_bytes(self, n: int | None = None, /) -> bytes: ...
+        def take_bytes(self, n: int | None = None, /) -> bytes:
+            """
+            Take *n* bytes from the bytearray and return them as a bytes object.
+
+            n
+              Bytes to take, negative indexes from end. None indicates all bytes.
+            """
+            ...
 
     def upper(self) -> bytearray:
         """
@@ -3460,7 +3502,9 @@ class slice(Generic[_StartT_co, _StopT_co, _StepT_co]):
         """
         ...
     if sys.version_info >= (3, 15):
-        def __class_getitem__(cls, item: Any, /) -> GenericAlias: ...
+        def __class_getitem__(cls, item: Any, /) -> GenericAlias:
+            """slices are generic over the types of their start, end, and step values"""
+            ...
 
 @disjoint_base
 class tuple(Sequence[_T_co]):
@@ -3902,12 +3946,18 @@ class dict(MutableMapping[_KT, _VT]):
         """dicts are generic over two types, signifying (respectively) the types of their keys and values"""
         ...
     if sys.version_info >= (3, 15):
-        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]: ...
+        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]:
+            """Return self|value."""
+            ...
 
         @overload
-        def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]:
+            """Return value|self."""
+            ...
         @overload
-        def __ror__(self, value: frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, value: frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]:
+            """Return value|self."""
+            ...
     else:
         def __or__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]:
             """Return self|value."""
@@ -3929,6 +3979,18 @@ class dict(MutableMapping[_KT, _VT]):
 if sys.version_info >= (3, 15):
     @disjoint_base
     class frozendict(Mapping[_KT, _VT]):
+        """
+        frozendict() -> new empty immutable dictionary
+        frozendict(mapping) -> new immutable dictionary initialized from a mapping
+            object's (key, value) pairs
+        frozendict(iterable) -> new immutable dictionary initialized as if via:
+            d = {}
+            for k, v in iterable:
+                d[k] = v
+            d = frozendict(d)
+        frozendict(**kwargs) -> new immutable dictionary initialized with the name=value
+            pairs in the keyword argument list.  For example:  frozendict(one=1, two=2)
+        """
         @overload
         def __new__(cls, /) -> frozendict[Any, Any]: ...
         @overload
@@ -3947,37 +4009,73 @@ if sys.version_info >= (3, 15):
         ) -> frozendict[str, _VT]: ...
 
         def __init__(self) -> None: ...
-        def copy(self) -> frozendict[_KT, _VT]: ...
+        def copy(self) -> frozendict[_KT, _VT]:
+            """Return a shallow copy of the frozendict."""
+            ...
 
         @overload
         @classmethod
-        def fromkeys(cls, iterable: Iterable[_T], value: None = None, /) -> frozendict[_T, Any | None]: ...
+        def fromkeys(cls, iterable: Iterable[_T], value: None = None, /) -> frozendict[_T, Any | None]:
+            """Create a new dictionary with keys from iterable and values set to value."""
+            ...
         @overload
         @classmethod
-        def fromkeys(cls, iterable: Iterable[_T], value: _S, /) -> frozendict[_T, _S]: ...
+        def fromkeys(cls, iterable: Iterable[_T], value: _S, /) -> frozendict[_T, _S]:
+            """Create a new dictionary with keys from iterable and values set to value."""
+            ...
 
         @overload  # type: ignore[override]
-        def get(self, key: _KT, default: None = None, /) -> _VT | None: ...
+        def get(self, key: _KT, default: None = None, /) -> _VT | None:
+            """Return the value for key if key is in the dictionary, else default."""
+            ...
         @overload
-        def get(self, key: _KT, default: _VT, /) -> _VT: ...
+        def get(self, key: _KT, default: _VT, /) -> _VT:
+            """Return the value for key if key is in the dictionary, else default."""
+            ...
         @overload
-        def get(self, key: _KT, default: _T, /) -> _VT | _T: ...
+        def get(self, key: _KT, default: _T, /) -> _VT | _T:
+            """Return the value for key if key is in the dictionary, else default."""
+            ...
 
-        def keys(self) -> dict_keys[_KT, _VT]: ...
-        def values(self) -> dict_values[_KT, _VT]: ...
-        def items(self) -> dict_items[_KT, _VT]: ...
-        def __len__(self) -> int: ...
-        def __getitem__(self, key: _KT, /) -> _VT: ...
-        def __reversed__(self) -> Iterator[_KT]: ...
-        def __iter__(self) -> Iterator[_KT]: ...
-        def __hash__(self) -> int: ...
-        def __class_getitem__(cls, item: Any, /) -> GenericAlias: ...
-        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]: ...
+        def keys(self) -> dict_keys[_KT, _VT]:
+            """Return a set-like object providing a view on the dict's keys."""
+            ...
+        def values(self) -> dict_values[_KT, _VT]:
+            """Return an object providing a view on the dict's values."""
+            ...
+        def items(self) -> dict_items[_KT, _VT]:
+            """Return a set-like object providing a view on the dict's items."""
+            ...
+        def __len__(self) -> int:
+            """Return len(self)."""
+            ...
+        def __getitem__(self, key: _KT, /) -> _VT:
+            """Return self[key]."""
+            ...
+        def __reversed__(self) -> Iterator[_KT]:
+            """Return a reverse iterator over the dict keys."""
+            ...
+        def __iter__(self) -> Iterator[_KT]:
+            """Implement iter(self)."""
+            ...
+        def __hash__(self) -> int:
+            """Return hash(self)."""
+            ...
+        def __class_getitem__(cls, item: Any, /) -> GenericAlias:
+            """frozendicts are generic over two types, signifying (respectively) the types of the frozendict's keys and values"""
+            ...
+        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]:
+            """Return self|value."""
+            ...
 
         @overload
-        def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, value: dict[_T1, _T2], /) -> dict[_KT | _T1, _VT | _T2]:
+            """Return value|self."""
+            ...
         @overload
-        def __ror__(self, value: frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]: ...
+        def __ror__(self, value: frozendict[_T1, _T2], /) -> frozendict[_KT | _T1, _VT | _T2]:
+            """Return value|self."""
+            ...
 
 @disjoint_base
 class set(MutableSet[_T]):
@@ -4365,7 +4463,14 @@ def ascii(obj: object, /) -> str:
     ...
 
 if sys.version_info >= (3, 15):
-    def bin(integer: SupportsIndex, /) -> str: ...
+    def bin(integer: SupportsIndex, /) -> str:
+        """
+        Return the binary representation of an integer.
+
+        >>> bin(2796202)
+        '0b1010101010101010101010'
+        """
+        ...
 
 else:
     def bin(number: SupportsIndex, /) -> str:
@@ -4441,7 +4546,23 @@ if sys.version_info >= (3, 15):
         *,
         module: str | None = None,
         _feature_version: int = -1,
-    ) -> CodeType: ...
+    ) -> CodeType:
+        """
+        Compile source into a code object that can be executed by exec() or eval().
+
+        The source code may represent a Python module, statement or
+        expression.
+        The filename will be used for run-time error messages.
+        The mode must be 'exec' to compile a module, 'single' to compile a
+        single (interactive) statement, or 'eval' to compile an expression.
+        The flags argument, if present, controls which future statements
+        influence the compilation of the code.
+        The dont_inherit argument, if true, stops the compilation inheriting
+        the effects of any future statements in effect in the code calling
+        compile; if absent or false these statements do influence the
+        compilation, in addition to any features explicitly specified.
+        """
+        ...
     @overload
     def compile(
         source: str | ReadableBuffer | _ast.Module | _ast.Expression | _ast.Interactive,
@@ -4452,7 +4573,23 @@ if sys.version_info >= (3, 15):
         optimize: int = -1,
         module: str | None = None,
         _feature_version: int = -1,
-    ) -> CodeType: ...
+    ) -> CodeType:
+        """
+        Compile source into a code object that can be executed by exec() or eval().
+
+        The source code may represent a Python module, statement or
+        expression.
+        The filename will be used for run-time error messages.
+        The mode must be 'exec' to compile a module, 'single' to compile a
+        single (interactive) statement, or 'eval' to compile an expression.
+        The flags argument, if present, controls which future statements
+        influence the compilation of the code.
+        The dont_inherit argument, if true, stops the compilation inheriting
+        the effects of any future statements in effect in the code calling
+        compile; if absent or false these statements do influence the
+        compilation, in addition to any features explicitly specified.
+        """
+        ...
     @overload
     def compile(
         source: str | ReadableBuffer | _ast.Module | _ast.Expression | _ast.Interactive,
@@ -4464,7 +4601,23 @@ if sys.version_info >= (3, 15):
         *,
         module: str | None = None,
         _feature_version: int = -1,
-    ) -> _ast.AST: ...
+    ) -> _ast.AST:
+        """
+        Compile source into a code object that can be executed by exec() or eval().
+
+        The source code may represent a Python module, statement or
+        expression.
+        The filename will be used for run-time error messages.
+        The mode must be 'exec' to compile a module, 'single' to compile a
+        single (interactive) statement, or 'eval' to compile an expression.
+        The flags argument, if present, controls which future statements
+        influence the compilation of the code.
+        The dont_inherit argument, if true, stops the compilation inheriting
+        the effects of any future statements in effect in the code calling
+        compile; if absent or false these statements do influence the
+        compilation, in addition to any features explicitly specified.
+        """
+        ...
     @overload
     def compile(
         source: str | ReadableBuffer | _ast.Module | _ast.Expression | _ast.Interactive,
@@ -4476,7 +4629,23 @@ if sys.version_info >= (3, 15):
         *,
         module: str | None = None,
         _feature_version: int = -1,
-    ) -> Any: ...
+    ) -> Any:
+        """
+        Compile source into a code object that can be executed by exec() or eval().
+
+        The source code may represent a Python module, statement or
+        expression.
+        The filename will be used for run-time error messages.
+        The mode must be 'exec' to compile a module, 'single' to compile a
+        single (interactive) statement, or 'eval' to compile an expression.
+        The flags argument, if present, controls which future statements
+        influence the compilation of the code.
+        The dont_inherit argument, if true, stops the compilation inheriting
+        the effects of any future statements in effect in the code calling
+        compile; if absent or false these statements do influence the
+        compilation, in addition to any features explicitly specified.
+        """
+        ...
 else:
     @overload
     def compile(
@@ -4630,7 +4799,17 @@ if sys.version_info >= (3, 15):
         /,
         globals: dict[str, Any] | frozendict[str, Any] | None = None,
         locals: Mapping[str, object] | None = None,
-    ) -> Any: ...
+    ) -> Any:
+        """
+        Evaluate the given source in the context of globals and locals.
+
+        The source may be a string representing a Python expression
+        or a code object as returned by compile().
+        The globals must be a dictionary and locals can be any mapping,
+        defaulting to the current globals and locals.
+        If only globals is given, locals defaults to it.
+        """
+        ...
 
 elif sys.version_info >= (3, 13):
     def eval(
@@ -4677,7 +4856,19 @@ if sys.version_info >= (3, 15):
         locals: Mapping[str, object] | None = None,
         *,
         closure: tuple[CellType, ...] | None = None,
-    ) -> None: ...
+    ) -> None:
+        """
+        Execute the given source in the context of globals and locals.
+
+        The source may be a string representing one or more Python statements
+        or a code object as returned by compile().
+        The globals must be a dictionary and locals can be any mapping,
+        defaulting to the current globals and locals.
+        If only globals is given, locals defaults to it.
+        The closure must be a tuple of cellvars, and can only be used
+        when source is a code object requiring exactly that many cellvars.
+        """
+        ...
 
 elif sys.version_info >= (3, 13):
     def exec(
@@ -4885,7 +5076,14 @@ def hash(obj: object, /) -> int:
 help: _sitebuiltins._Helper
 
 if sys.version_info >= (3, 15):
-    def hex(integer: SupportsIndex, /) -> str: ...
+    def hex(integer: SupportsIndex, /) -> str:
+        """
+        Return the hexadecimal representation of an integer.
+
+        >>> hex(12648430)
+        '0xc0ffee'
+        """
+        ...
 
 else:
     def hex(number: SupportsIndex, /) -> str:
@@ -5296,7 +5494,14 @@ def next(i: SupportsNext[_T], default: _VT, /) -> _T | _VT:
     ...
 
 if sys.version_info >= (3, 15):
-    def oct(integer: SupportsIndex, /) -> str: ...
+    def oct(integer: SupportsIndex, /) -> str:
+        """
+        Return the octal representation of an integer.
+
+        >>> oct(342391)
+        '0o1234567'
+        """
+        ...
 
 else:
     def oct(number: SupportsIndex, /) -> str:
@@ -6508,13 +6713,18 @@ def setattr(obj: object, name: str, value: Any, /) -> None:
 if sys.version_info >= (3, 15):
     @final
     class sentinel:
+        """Create a unique sentinel object with the given name."""
         __name__: str
         __module__: str
         def __new__(cls, name: str, /, *, repr: str | None = None) -> Self: ...
         def __copy__(self, /) -> Self: ...
         def __deepcopy__(self, memo: Any, /) -> Self: ...
-        def __or__(self, other: Any, /) -> Any: ...
-        def __ror__(self, other: Any, /) -> Any: ...
+        def __or__(self, other: Any, /) -> Any:
+            """Return self|value."""
+            ...
+        def __ror__(self, other: Any, /) -> Any:
+            """Return value|self."""
+            ...
 
 @overload
 def sorted(
@@ -6698,7 +6908,14 @@ if sys.version_info >= (3, 15):
         locals: Mapping[str, object] | None = None,
         fromlist: Sequence[str] | None = (),
         level: int = 0,
-    ) -> Any: ...
+    ) -> Any:
+        """
+        Lazily imports a module.
+
+        Returns either the module to be imported or a imp.lazy_module object
+        which indicates the module to be lazily imported.
+        """
+        ...
 
 def __build_class__(func: Callable[[], CellType | Any], name: str, /, *bases: Any, metaclass: Any = ..., **kwds: Any) -> Any:
     """

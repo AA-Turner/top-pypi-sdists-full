@@ -157,10 +157,13 @@ def test_experiment_visible_markdown_is_writable_on_create_and_update(client):
         document="# Plan\n\n[README](https://github.com/probe-labs/example)",
     )
 
-    assert client.get_experiment(experiment["id"])["document"].startswith("# Plan")
+    # The experiment API's read carries no document (it is a block of the
+    # Overview page); its own read says what the page holds.
+    assert experiment["document"].startswith("# Plan")
+    assert client.get_experiment_document(experiment["id"]).startswith("# Plan")
 
     client.update_experiment(experiment["id"], document="# Result\n\nDone.")
-    assert client.get_experiment(experiment["id"])["document"] == "# Result\n\nDone."
+    assert client.get_experiment_document(experiment["id"]) == "# Result\n\nDone."
 
 
 def test_update_experiment_requires_a_field(client):

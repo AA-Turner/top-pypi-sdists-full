@@ -4,15 +4,16 @@
 # Useful for testing the python-arango driver against a local ArangoDB setup.
 
 # Usage:
-#   ./starter.sh [single|cluster] [community|enterprise|enterprise-preview] [version]
+#   ./starter.sh [single|cluster] [core-preview|enterprise|enterprise-preview] [version]
 #   ./starter.sh [single|cluster] [image[:tag]]
 # Example:
 #   ./starter.sh cluster enterprise 3.12.4
 #   ./starter.sh single core-preview 4.0-nightly
 #   ./starter.sh single arangodb/enterprise-preview:3.12-nightly
+# Defaults: single server, enterprise image, latest version.
 
 setup="${1:-single}"
-image="${2:-community}"
+image="${2:-enterprise}"
 version="${3:-latest}"
 
 extra_ports=""
@@ -35,14 +36,14 @@ if [[ "$image" == */* ]]; then
     else
         image_ref="$image:$version"
     fi
-elif [ "$image" == "community" ]; then
-    image_ref="arangodb/arangodb:$version"
+elif [ "$image" == "core-preview" ]; then
+    image_ref="arangodb/core-preview:$version"
 elif [ "$image" == "enterprise" ]; then
     image_ref="arangodb/enterprise:$version"
 elif [ "$image" == "enterprise-preview" ]; then
     image_ref="arangodb/enterprise-preview:$version"
 else
-    echo "Invalid argument. Please provide 'community', 'enterprise', 'enterprise-preview', or a full image reference."
+    echo "Invalid argument. Please provide 'core-preview', 'enterprise', 'enterprise-preview', or a full image reference."
     exit 1
 fi
 

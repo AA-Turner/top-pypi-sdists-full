@@ -1,8 +1,10 @@
-"""One source-aware interface for Claude Code and Codex plugin commands.
+"""One source-aware interface for the hook-plugin harnesses' plugin commands.
 
-The two agents expose the same plugin lifecycle with a few spelling differences:
-Claude uses ``install``/``uninstall``/``marketplace update`` while Codex uses
-``add``/``remove``/``marketplace upgrade`` and can return JSON from ``list``.
+Claude Code and Codex expose the same plugin lifecycle with a few spelling
+differences: Claude uses ``install``/``uninstall``/``marketplace update`` while
+Codex uses ``add``/``remove``/``marketplace upgrade`` and can return JSON from
+``list``. Kimi Code has no plugin command a shell can run, so its install,
+uninstall and list go to ``kimi_config``, which edits Kimi's own plugin list.
 Keeping those differences here prevents setup, doctor, capture, and updater from
 each growing their own subprocess wrapper and verb table.
 """
@@ -17,6 +19,7 @@ from probe.cli import claude_cli
 
 CLAUDE = "claude_code"
 CODEX = "codex"
+KIMI = "kimi_code"
 
 
 def binary_name(source: str) -> str:
@@ -31,9 +34,11 @@ def binary_name(source: str) -> str:
         return "claude"
     if source == CODEX:
         return "codex"
+    if source == KIMI:
+        return "kimi"
     raise ValueError(
-        f"plugin_cli has no binary for agent source {source!r} -- claude_code and "
-        "codex only; pi routes through pi_config, never a marketplace CLI"
+        f"plugin_cli has no binary for agent source {source!r} -- claude_code, codex "
+        "and kimi_code only; pi routes through pi_config, never a marketplace CLI"
     )
 
 
@@ -45,7 +50,9 @@ def run(source: str, args: list[str], *, timeout: float) -> claude_cli.Result:
     """Run an agent CLI with captured output and closed stdin. A source with no
     marketplace CLI is refused by name: falling through to `claude` once ran
     Claude Code's plugin commands on a pi device's behalf."""
-    binary_name(source)  # raises for anything but the two marketplace harnesses
+    binary_name(source)  # raises for anything but the hook-plugin harnesses
+    if source == KIMI:
+        raise ValueError("Kimi Code has no plugin command; kimi_config edits its plugin list")
     if source == CLAUDE:
         return claude_cli.run(args, timeout=timeout)
     command = " ".join(["codex", *args])
@@ -98,10 +105,20 @@ def install_verb(source: str) -> str:
 
 
 def list_plugins(source: str) -> claude_cli.Result:
+    if source == KIMI:
+        return _kimi().list_plugins()
     return run(source, list(_verb(source, "list")), timeout=claude_cli.LIST_TIMEOUT_S)
 
 
+def _kimi():
+    from probe.cli import kimi_config  # noqa: PLC0415
+
+    return kimi_config
+
+
 def add_marketplace(source: str, location: str) -> claude_cli.Result:
+    if source == KIMI:
+        return _kimi().refresh()
     return run(
         source,
         ["plugin", "marketplace", "add", location],
@@ -110,6 +127,8 @@ def add_marketplace(source: str, location: str) -> claude_cli.Result:
 
 
 def refresh_marketplace(source: str, marketplace: str) -> claude_cli.Result:
+    if source == KIMI:
+        return _kimi().refresh()
     return run(
         source,
         ["plugin", "marketplace", refresh_verb(source), marketplace],
@@ -118,6 +137,8 @@ def refresh_marketplace(source: str, marketplace: str) -> claude_cli.Result:
 
 
 def install(source: str, plugin_id: str) -> claude_cli.Result:
+    if source == KIMI:
+        return _kimi().install_plugin(plugin_id.split("@", 1)[0])
     return run(
         source,
         ["plugin", install_verb(source), plugin_id],
@@ -126,6 +147,8 @@ def install(source: str, plugin_id: str) -> claude_cli.Result:
 
 
 def uninstall(source: str, plugin_id: str) -> claude_cli.Result:
+    if source == KIMI:
+        return _kimi().uninstall_plugin(plugin_id.split("@", 1)[0])
     return run(
         source,
         ["plugin", _verb(source, "uninstall"), plugin_id],

@@ -1049,19 +1049,30 @@ def test_set_refuses_contradictions_and_empty_edits(wired, capsys, argv):
     assert _patches(wired) == []
 
 
-def test_experiment_set_changes_fields_and_tags_in_one_patch(wired, capsys):
+def test_experiment_set_edits_through_the_experiment_route(wired, capsys):
+    """Light experiments R4: the question and name go to
+    `PATCH /v1/projects/{P}/experiments/{E}`, never the project address."""
     experiment = _experiment(wired)
-    experiment["tags"] = ["sweep"]
-
-    rc = cli.main(
-        ["experiment", "set", "e", "--question", "does warmup help?", "--add-tag", "warmup"]
-    )
+    rc = cli.main(["experiment", "set", "e", "--question", "does warmup help?", "--name", "Warmup"])
     assert rc == 0
     capsys.readouterr()
-    (body,) = _patches(wired, f"/v1/projects/{experiment['id']}")
-    assert body["description"] == "does warmup help?"  # an experiment's question IS its description
-    assert body["tags"] == ["sweep", "warmup"]
-    assert experiment["tags"] == ["sweep", "warmup"]
+    (body,) = _patches(wired, f"/experiments/{experiment['id']}")
+    assert body["question"] == "does warmup help?" and body["name"] == "Warmup"
+    assert _patches(wired, f"/v1/projects/{experiment['id']}") == []
+    assert experiment["question"] == "does warmup help?"
+
+
+def test_experiment_tag_flags_are_refused_and_write_nothing(wired, capsys):
+    """An experiment's tags are read-only since it moved to its own record (the
+    server refuses tag writes on one since R3), so every tag flag says so."""
+    experiment = _experiment(wired)
+    experiment["tags"] = ["sweep"]
+    assert cli.main(["experiment", "set", "e", "--question", "q?", "--add-tag", "warmup"]) != 0
+    assert cli.main(["experiment", "tag", "e", "warmup"]) != 0
+    assert cli.main(["experiment", "list", "--tag", "warmup"]) != 0
+    assert "read-only" in capsys.readouterr().err
+    assert _patches(wired) == []
+    assert experiment["tags"] == ["sweep"]
 
 
 def test_a_refused_set_with_tags_writes_neither_half(wired, monkeypatch, capsys):

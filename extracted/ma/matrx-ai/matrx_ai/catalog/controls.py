@@ -1680,7 +1680,12 @@ class CompiledControlsMap(BaseModel):
             return
         cap_rule = self.rules.get("max_output_tokens")
         effort_rule = self.rules.get("reasoning_effort")
-        if cap_rule is None or effort_rule is None or effort_rule.processor or effort_rule.drop:
+        if cap_rule is None or effort_rule is None or effort_rule.drop:
+            return
+        if effort_rule.processor == "google_thinking":
+            self._reserve_visible_output_google(cap_rule, effort_rule, canonical, out, adjustments)
+            return
+        if effort_rule.processor:
             return
         if effort_rule.off is None or effort_rule.off.omit:
             return
@@ -1710,6 +1715,54 @@ class CompiledControlsMap(BaseModel):
                 reason=(
                     f"output cap {sent_cap} leaves no room for reasoning and an answer; "
                     f"reasoning lowered to {lowest!r} so the answer fits"
+                ),
+            )
+        )
+
+    def _reserve_visible_output_google(
+        self,
+        cap_rule: ControlRule,
+        effort_rule: ControlRule,
+        canonical: dict[str, Any],
+        out: dict[str, Any],
+        adjustments: list[Adjustment],
+    ) -> None:
+        """R-a / R-b for Gemini 2.5 (``google_thinking`` legacy): a tiny output cap leaves
+        no room for dynamic thinking, so the thinking budget yields to its declared off
+        (or the model's minimum budget). Live 2026-10-04: gemini-2.5-flash cap 16 with
+        thinking on -> MAX_TOKENS and no text; budget 0 -> "ok"."""
+        config = effort_rule.processor_config or {}
+        if config.get("mode") != "legacy":
+            return
+        sent_cap = _get_dotted(out, cap_rule.provider_key or "max_output_tokens")
+        if not isinstance(sent_cap, int) or sent_cap >= VISIBLE_OUTPUT_RESERVE_TOKENS:
+            return
+        floor = config.get("min_thinking_budget")
+        if floor is not None:
+            lowest = int(floor)
+        elif effort_rule.off is not None and isinstance(effort_rule.off.send, int):
+            lowest = effort_rule.off.send
+        else:
+            return
+        target = config.get("target", "thinking_config")
+        fragment = out.get(target)
+        fragment = dict(fragment) if isinstance(fragment, dict) else {}
+        before = fragment.get("thinking_budget")
+        if before == lowest:
+            return
+        fragment["thinking_budget"] = lowest
+        out[target] = fragment
+        adjustments.append(
+            Adjustment(
+                key="reasoning_effort",
+                action="clamped",
+                canonical_value=canonical.get("reasoning_effort", before),
+                sent_value=lowest,
+                provenance="computed",
+                law="R-a",
+                reason=(
+                    f"output cap {sent_cap} leaves no room for thinking and an answer; "
+                    f"thinking budget lowered to {lowest} so the answer fits"
                 ),
             )
         )

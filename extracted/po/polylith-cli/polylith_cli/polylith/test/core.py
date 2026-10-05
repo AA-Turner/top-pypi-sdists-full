@@ -15,13 +15,24 @@ def extract_parts_from_test_path(root: Path, path: Path) -> List[str]:
     parts = str.split(relative_path, '/')
     return [p for p in parts if p]
 
+def _is_brick_path(parts: List[str]) -> bool:
+    return any((i in parts for i in {'bases', 'components'}))
+
 def extract_brick_type_from_test(root: Path, path: Path, theme: str) -> str:
     parts = extract_parts_from_test_path(root, path)
-    return parts[1] if theme == 'loose' else parts[0]
+    if not _is_brick_path(parts):
+        return ''
+    if theme == 'loose':
+        return parts[1] if len(parts) > 1 else ''
+    return parts[0] if parts else ''
 
 def extract_brick_name_from_test(root: Path, path: Path, theme: str) -> str:
     parts = extract_parts_from_test_path(root, path)
-    return parts[3] if theme == 'loose' else parts[1]
+    if not _is_brick_path(parts):
+        return ''
+    if theme == 'loose':
+        return parts[3] if len(parts) > 3 else ''
+    return parts[1] if len(parts) > 1 else ''
 
 def find_tests(root: Path, ns: str, theme: str, files: List[Path]) -> Set[Path]:
     return {f for f in files if is_test(root, ns, f, theme)}

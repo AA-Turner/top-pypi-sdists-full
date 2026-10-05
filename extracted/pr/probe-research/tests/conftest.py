@@ -412,6 +412,9 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # PI_CODING_AGENT_DIR, likewise: an update test reaching the pi step would
     # run a real `pi update` against a developer's own pi install.
     monkeypatch.delenv("PI_CODING_AGENT_DIR", raising=False)
+    # KIMI_CODE_HOME, likewise: the daemon's shell lets the agent's instruction
+    # file there be read, and the Kimi adapter lists it.
+    monkeypatch.delenv("KIMI_CODE_HOME", raising=False)
     # XDG_STATE_HOME is the telemetry flavor of the same hole: machine_id and
     # the identity cache live under it, and the plugin's build_batch now mints
     # a machine id on every call — a developer exporting XDG_STATE_HOME would
@@ -1286,11 +1289,33 @@ class FakeApp:
             "slug": slug,
             "name": slug,
             "question": "h",
-            "project_id": project_id,
+            # An experiment is always filed under a project (the experiment API
+            # addresses it there), so a seed with none gets one of its own.
+            "project_id": project_id or self._seed_home_project(slug),
             "created_at": _T0,
         }
         self.experiments[eid] = row
         return row
+
+    def _seed_home_project(self, slug: str) -> str:
+        """The project a project-less seeded experiment is filed under: a real
+        row, so the experiment API (and the client's walk of the project list)
+        finds it where the server would."""
+        pid = str(uuid.uuid4())
+        self.seeded_home_projects.add(pid)
+        self.projects[pid] = {
+            "id": pid,
+            "slug": f"{slug}-home",
+            "name": f"{slug}-home",
+            "customer_id": "lab-42",
+            "workspace_id": self._default_workspace_id(),
+            "description": None,
+            "metadata": {},
+            "parent_project_id": None,
+            "kind": "general",
+            "created_at": _T0,
+        }
+        return pid
 
     def __init__(self):
         #: Titled sub-notes (0146), keyed by their own id.
@@ -1483,6 +1508,15 @@ class FakeApp:
         self.blobs_by_hash: dict[str, bytes] = {}
         # test knobs
         self.experiment_conflict_id: str | None = None
+        #: Requests to the experiment API (`/v1/scopes`, `/v1/projects/{P}/experiments`).
+        self.experiment_api_requests: list[str] = []
+        #: Experiments moved to the trash through the experiment API.
+        self.trashed_experiments: list[dict] = []
+        #: Projects `seed_experiment` made to file a project-less seed under.
+        self.seeded_home_projects: set[str] = set()
+        #: False models a server older than `GET /v1/scopes?slug=` (FastAPI's
+        #: bare "Not Found"), so the client's project walk is what answers.
+        self.supports_scope_by_slug = True
         self.fail_next_metrics = False
         #: Production's metric-write contention answer (`MetricWriteBusy` ->
         #: `app/telemetry/metrics_router.py`): the next N metric POSTs get
@@ -2018,6 +2052,200 @@ class FakeApp:
                 return "/v1/experiments", body
         return path, body
 
+
+    # -- the experiment API (light experiments; the SDK speaks it from R4) ----
+    #
+    # `GET /v1/scopes/{id}` and `/v1/projects/{P}/experiments[/{E}]`, over the
+    # SAME `self.experiments` rows the old-address handlers keep, so a test can
+    # mix the two (a run is still created at `/v1/projects/{E}/runs`). Bodies are
+    # closed like the real `write_schemas.py` (extra="forbid"); a row answers in
+    # `ProjectExperimentOut` shape: `project_id` is the project it is filed under.
+
+    _EXPERIMENT_CREATE_FIELDS = frozenset({"slug", "name", "question", "authored_by"})
+    _EXPERIMENT_PATCH_FIELDS = frozenset(
+        {"name", "question", "notes", "base_version", "project_id", "authored_by"}
+    )
+
+    def _experiment_out(self, row: dict) -> dict:
+        return {
+            "id": row["id"],
+            "project_id": row.get("project_id"),
+            "slug": row.get("slug"),
+            "legacy_slug": row.get("legacy_slug"),
+            "name": row.get("name") or row.get("slug"),
+            "question": row.get("question"),
+            "run_count": sum(1 for r in self.runs.values() if r.get("experiment_id") == row["id"]),
+            "created_at": row.get("created_at") or _T0,
+            "updated_at": row.get("updated_at") or row.get("created_at") or _T0,
+            "created_by": row.get("created_by"),
+        }
+
+    def _experiment_of_project(self, project_id: str, ref: str) -> dict | None:
+        for row in self.experiments.values():
+            if row.get("project_id") != project_id:
+                continue
+            if ref in (row["id"], row.get("slug"), row.get("legacy_slug")):
+                return row
+        return None
+
+    def _experiment_api(self, method, path, body, request) -> httpx.Response | None:
+        params = request.url.params
+        if path == "/v1/scopes" and method == "GET":
+            self.experiment_api_requests.append(f"{method} {path}")
+            if not self.supports_scope_by_slug:
+                return httpx.Response(404, json={"detail": "Not Found"})
+            slug = params.get("slug")
+            if not slug:
+                return httpx.Response(422, json={"detail": [{"loc": ["query", "slug"], "type": "missing"}]})
+            exp = next((r for r in self.experiments.values() if r.get("slug") == slug), None)
+            if exp is None:
+                proj = next((r for r in self.projects.values() if r.get("slug") == slug), None)
+                if proj is not None:
+                    return httpx.Response(200, json={
+                        "id": proj["id"], "kind": "project", "project_id": proj["id"],
+                        "experiment_id": None, "run_id": None})
+                exp = next((r for r in self.experiments.values() if r.get("legacy_slug") == slug), None)
+            if exp is None:
+                return httpx.Response(404, json={"detail": "no project or experiment with this slug"})
+            return httpx.Response(200, json={
+                "id": exp["id"], "kind": "experiment", "project_id": exp.get("project_id"),
+                "experiment_id": exp["id"], "run_id": None})
+        m = re.fullmatch(r"/v1/scopes/([^/]+)", path)
+        if m and method == "GET":
+            self.experiment_api_requests.append(f"{method} {path}")
+            ident = m.group(1)
+            if ident in self.experiments:
+                row = self.experiments[ident]
+                return httpx.Response(200, json={
+                    "id": ident, "kind": "experiment", "project_id": row.get("project_id"),
+                    "experiment_id": ident, "run_id": None})
+            if ident in self.projects:
+                return httpx.Response(200, json={
+                    "id": ident, "kind": "project", "project_id": ident,
+                    "experiment_id": None, "run_id": None})
+            if ident in self.runs:
+                run = self.runs[ident]
+                return httpx.Response(200, json={
+                    "id": ident, "kind": "run", "project_id": run.get("project_id"),
+                    "experiment_id": run.get("experiment_id"), "run_id": ident})
+            return httpx.Response(404, json={"detail": "nothing with this id"})
+        m = re.fullmatch(r"/v1/projects/([^/]+)/experiments(?:/([^/]+))?", path)
+        if not m:
+            return None
+        self.experiment_api_requests.append(f"{method} {path}")
+        project_id, ref = m.group(1), m.group(2)
+        if method != "GET" and not all(_is_uuid_text(v) for v in (project_id, ref) if v is not None):
+            # Writes take uuids only (`write_router.py`: a slug can be minted
+            # again once its holder is in the trash), so a slug in either slot
+            # is FastAPI's uuid_parsing 422.
+            return httpx.Response(422, json={"detail": [
+                {"loc": ["path", "project_ref"], "type": "uuid_parsing",
+                 "msg": "Input should be a valid UUID"}]})
+        if project_id in self.experiments:
+            return httpx.Response(404, json={"detail": "project not found: this id is an experiment"})
+        if ref is None and method == "GET":
+            rows = sorted(
+                (r for r in self.experiments.values() if r.get("project_id") == project_id),
+                key=lambda r: (str(r.get("created_at") or ""), r["id"]),
+                reverse=True,
+            )
+            limit, offset = int(params.get("limit", 100)), int(params.get("offset", 0))
+            window = rows[offset : offset + limit]
+            more = offset + limit < len(rows)
+            return httpx.Response(200, json={
+                "items": [self._experiment_out(r) for r in window], "total": len(rows),
+                "limit": limit, "offset": offset, "next_offset": offset + limit if more else None})
+        if ref is None and method == "POST":
+            extra = sorted(set(body or {}) - self._EXPERIMENT_CREATE_FIELDS)
+            if extra:
+                return httpx.Response(422, json={"detail": [
+                    {"loc": ["body", k], "type": "extra_forbidden"} for k in extra]})
+            slug = (body or {}).get("slug")
+            holder = next((r for r in self.experiments.values() if r.get("slug") == slug), None)
+            kind = "experiment"
+            if holder is None:
+                holder = next((r for r in self.projects.values() if r.get("slug") == slug), None)
+                kind = "project"
+            if holder is None and self.experiment_conflict_id:
+                holder = self.experiments.get(self.experiment_conflict_id) or {
+                    "id": self.experiment_conflict_id}
+                kind = "experiment"
+            if holder is not None:
+                return httpx.Response(409, json={"detail": {
+                    "message": f"slug {slug!r} is taken", "existing_id": holder["id"],
+                    "suggestion": f"{slug}-2",
+                    "existing": {"id": holder["id"], "kind": kind,
+                                 "parent_project_id": holder.get("project_id") if kind == "experiment"
+                                 else holder.get("parent_project_id"),
+                                 "workspace_id": None}}})
+            eid = str(uuid.uuid4())
+            row = {
+                "id": eid,
+                "slug": slug,
+                "name": _chosen_name(body.get("name"), slug) or slug,
+                "name_customized": _owns_field(_chosen_name(body.get("name"), slug), body.get("authored_by")),
+                "question": body.get("question"),
+                "project_id": project_id,
+                "customer_id": "lab-42",
+                "created_at": self._stamp(),
+            }
+            if body.get("authored_by") is not None:
+                row["authored_by"] = body["authored_by"]
+            self.experiments[eid] = row
+            return httpx.Response(201, json={**self._experiment_out(row), "notes_version": 0})
+        row = self._experiment_of_project(project_id, ref) if ref else None
+        if row is None:
+            return httpx.Response(404, json={"detail": "experiment not found"})
+        if method == "GET":
+            return httpx.Response(200, json={
+                **self._experiment_out(row),
+                "notes": row.get("notes"),
+                "notes_version": row.get("notes_version", 0),
+                "notes_updated_at": None,
+                "summary": {"content": "absent", "job": "idle", "blurb": None, "version": 0},
+            })
+        if method == "PATCH":
+            extra = sorted(set(body or {}) - self._EXPERIMENT_PATCH_FIELDS)
+            if extra:
+                return httpx.Response(422, json={"detail": [
+                    {"loc": ["body", k], "type": "extra_forbidden"} for k in extra]})
+            if "notes" in body:
+                refused = self._apply_notes_write(row, body, self.document_notes_cap)
+                if refused is not None:
+                    return refused
+            target = body.get("project_id")
+            if "project_id" in body and target is None:
+                return httpx.Response(422, json={"detail": "an experiment is always filed under a project"})
+            if target is not None and target in self.experiments:
+                return httpx.Response(422, json={"detail": "the target is an experiment"})
+            for key in ("name", "question", "authored_by"):
+                if body.get(key) is not None:
+                    row[key] = body[key]
+            if target is not None:
+                row["project_id"] = target
+            return httpx.Response(200, json={**self._experiment_out(row),
+                                             "notes_version": row.get("notes_version", 0)})
+        if method == "DELETE":
+            if params.get("dry_run") == "true":
+                return httpx.Response(200, json={
+                    "dry_run": True, "type": "experiment", "id": row["id"], "name": row.get("name"),
+                    "count": {"projects": 1, "runs": 0, "groups": 0},
+                    "created_by": {"unknown": {"projects": 1, "runs": 0, "groups": 0}},
+                    "updated_at": None, "restorable_until": "2026-08-05T00:00:00Z"})
+            self.experiments.pop(row["id"])
+            # The trash hides the experiment's runs with it (a fake has no
+            # hidden state, so they go).
+            for rid in [rid for rid, r in self.runs.items() if r.get("experiment_id") == row["id"]]:
+                self.runs.pop(rid)
+            self.trashed_experiments.append({"id": row["id"], "reason": params.get("reason")})
+            return httpx.Response(200, json={
+                "trashed": True, "type": "experiment", "id": row["id"], "name": row.get("name"),
+                "trash_id": str(uuid.uuid4()), "trashed_at": self._stamp(),
+                "restorable_until": "2026-08-05T00:00:00Z",
+                "count": {"projects": 1, "runs": 0, "groups": 0},
+                "message": "moved to the trash"})
+        return httpx.Response(405, json={"detail": "Method Not Allowed"})
+
     def handler(self, request: httpx.Request) -> httpx.Response:
         return self._with_notes_headroom(self._dispatch(request))
 
@@ -2042,6 +2270,9 @@ class FakeApp:
         if fenced is not None:
             return fenced
         self._note_activity(method, path)
+        answered = self._experiment_api(method, path, body, request)
+        if answered is not None:
+            return answered
 
         if path == "/v1/me" and method == "GET":
             # Counted so a test can prove the MCP source caches identity: every
@@ -5565,6 +5796,14 @@ def run_outputs_problems(batch) -> list[str]:
         if not isinstance(row["observation_id"], str) or not row["observation_id"]:
             problems.append(f"row {i} observation_id")
     return problems
+
+
+def _is_uuid_text(value: str) -> bool:
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
 
 
 def make_client(

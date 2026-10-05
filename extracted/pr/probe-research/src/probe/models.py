@@ -36,7 +36,8 @@ from ._generated.models import (
     EventOut,
     ExecutionRecordCreate,
     ExecutionRecordOut,
-    ExperimentCreate,
+    ExperimentTrashedOut,
+    ExperimentTrashPreviewOut,
     ExperimentVersionMint,
     ExperimentVersionOut,
     IngestArtifact,
@@ -57,6 +58,13 @@ from ._generated.models import (
     PaperCitationsOut,
     ParentRelation,
     ProjectCreate,
+    ProjectExperimentCreate,
+    ProjectExperimentDetailOut,
+    ProjectExperimentListOut,
+    ProjectExperimentMutationOut,
+    ProjectExperimentOut,
+    ProjectExperimentPatch,
+    ProjectWorkspaceOut,
     RunCreate,
     RunDetailOut,
     RunGroupCreate,
@@ -87,6 +95,19 @@ from ._generated.models import (
 from ._generated.models import Direction as CitationDirection
 from ._generated.models import GraphState as CitationGraphState
 
+#: What a scope id or slug names (`GET /v1/scopes/...`): project, experiment or
+#: run. The generator names it after its server module.
+from ._generated.models import AppProjectsTwinScopeKind as ScopeKind
+from ._generated.models import ProjectKind
+
+#: The experiment create body. `/v1/experiments` was retired by 0231 and its
+#: `ExperimentCreate` with it; the light experiments' experiment API creates
+#: through `POST /v1/projects/{project_id}/experiments`, whose body is
+#: `ProjectExperimentCreate` (slug, question, name, authored_by -- the project
+#: is the path). Kept under the old public name so `from probe.models import
+#: ExperimentCreate` still imports.
+ExperimentCreate = ProjectExperimentCreate
+
 __all__ = [
     # The vertically-movable artifact anchors, backing `probe artifact move --to`.
     # Taken from the contract rather than spelled out in the CLI so a level the
@@ -108,6 +129,8 @@ __all__ = [
     "ExecutionRecordCreate",
     "ExecutionRecordOut",
     "ExperimentCreate",
+    "ExperimentTrashedOut",
+    "ExperimentTrashPreviewOut",
     "ExperimentVersionMint",
     "ExperimentVersionOut",
     "IngestArtifact",
@@ -128,6 +151,16 @@ __all__ = [
     "PaperCitationsOut",
     "ParentRelation",
     "ProjectCreate",
+    "ProjectKind",
+    "ScopeKind",
+    # The experiment API (light experiments; `Client.*_experiment`).
+    "ProjectExperimentCreate",
+    "ProjectExperimentDetailOut",
+    "ProjectExperimentListOut",
+    "ProjectExperimentMutationOut",
+    "ProjectExperimentOut",
+    "ProjectExperimentPatch",
+    "ProjectWorkspaceOut",
     "RunCreate",
     "RunDetailOut",
     "RunGroupCreate",

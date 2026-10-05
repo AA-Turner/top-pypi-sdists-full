@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import dataclasses
+import functools
 import random
 import uuid
 from collections.abc import MutableMapping
@@ -14,7 +15,6 @@ import anyio
 
 from pgqueuer.core import (
     buffers,
-    cache,
     executors,
     heartbeat,
     listeners,
@@ -145,6 +145,10 @@ class QueueManager:
 
     def get_context(self, job_id: types.JobId) -> models.Context:
         return self.job_context[job_id]
+
+    def forget_job(self, job_id: types.JobId, task: asyncio.Task[None]) -> None:
+        """Drop *job_id*'s context once its dispatch task is done, however it ended."""
+        self.job_context.pop(job_id, None)
 
     def register_executor(
         self,
@@ -319,7 +323,6 @@ class QueueManager:
         self,
         mode: types.QueueExecutionMode,
         task_manager: tm.TaskManager,
-        cached_queued_work: cache.TTLCache[int],
     ) -> None:
         """In drain mode, shut down once the queue is empty and all tasks have finished.
 
@@ -332,10 +335,8 @@ class QueueManager:
             return
         if task_manager.tasks:
             await asyncio.sleep(0)
-        if task_manager.tasks or (await cached_queued_work()) != 0:
+        if task_manager.tasks:
             return
-        # The cached count may predate a RetryRequested re-queue that landed
-        # within the TTL window; confirm with an uncached read before exiting.
         if await self.queries.queued_work(list(self.entrypoint_registry.keys())) == 0:
             self.shutdown.set()
 
@@ -415,7 +416,9 @@ class QueueManager:
                 # Flush will be mainly driven by timeouts, but allow flush if
                 # backlog becomes too large.
                 max_size=batch_size**2,
-                timeout=heartbeat_timeout / 4,
+                # With beats at T/2, T/8 keeps a live job within 0.8 T through one failed
+                # flush; see docs/guides/heartbeat.md.
+                timeout=heartbeat_timeout / 8,
                 repository=self.queries,
             ) as hbuff,
             tm.TaskManager() as task_manager,
@@ -447,27 +450,25 @@ class QueueManager:
                 ),
             )
 
-            cached_queued_work = cache.TTLCache.create(
-                ttl=timedelta(seconds=0.250),
-                on_expired=lambda: self.queries.queued_work(list(self.entrypoint_registry.keys())),
-            )
-
             while not self.shutdown.is_set():
                 async for job in self.fetch_jobs(
                     batch_size, max_concurrent_tasks, heartbeat_timeout
                 ):
+                    # A late heartbeat lets our own dequeue re-pick a job still running here.
+                    if job.id in self.job_context:
+                        continue
                     self.job_context[job.id] = models.Context(
                         cancellation=anyio.CancelScope(),
                         resources=self.resources,
                     )
-                    task_manager.add(
-                        asyncio.create_task(self._dispatch(job, jbuff, hbuff, heartbeat_timeout))
-                    )
+                    task = asyncio.create_task(self._dispatch(job, jbuff, hbuff, heartbeat_timeout))
+                    task.add_done_callback(functools.partial(self.forget_job, job.id))
+                    task_manager.add(task)
 
                     with contextlib.suppress(asyncio.QueueEmpty):
                         notice_event_listener.get_nowait()
 
-                await self._maybe_drain_shutdown(mode, task_manager, cached_queued_work)
+                await self._maybe_drain_shutdown(mode, task_manager)
                 await self._maybe_health_shutdown(
                     periodic_health_check_task, mode, shutdown_on_listener_failure
                 )
@@ -570,5 +571,4 @@ class QueueManager:
                 canceled = ctx.cancellation.cancel_called
                 await jbuff.add((job, "canceled" if canceled else "successful", None))
             finally:
-                self.job_context.pop(job.id, None)
                 self.jobs_logged += 1

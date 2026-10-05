@@ -6,10 +6,10 @@ Light, AutoOff, Firmware etc.
 >>> from kasa import Discover, Module
 >>>
 >>> dev = await Discover.discover_single(
->>>     "127.0.0.3",
->>>     username="user@example.com",
->>>     password="great_password"
->>> )
+...     "127.0.0.3",
+...     username="user@example.com",
+...     password="great_password"
+... )
 >>> await dev.update()
 >>> print(dev.alias)
 Living Room Bulb
@@ -18,7 +18,7 @@ To see whether a device supports a group of functionality
 check for the existence of the module:
 
 >>> if light := dev.modules.get("Light"):
->>>     print(light.brightness)
+...     print(light.brightness)
 100
 
 .. include:: ../featureattributes.md
@@ -28,7 +28,7 @@ To see whether a device supports specific functionality, you can check whether t
 module has that feature:
 
 >>> if light.has_feature("hsv"):
->>>     print(light.hsv)
+...     print(light.hsv)
 HSV(hue=0, saturation=100, value=100)
 
 If you know or expect the module to exist you can access by index:
@@ -44,8 +44,8 @@ Modules support typing via the Module names in Module:
 >>> light_effect = dev.modules.get("LightEffect")
 >>> light_effect_typed = dev.modules.get(Module.LightEffect)
 >>> if TYPE_CHECKING:
->>>     reveal_type(light_effect)  # Static checker will reveal: str
->>>     reveal_type(light_effect_typed)  # Static checker will reveal: LightEffect
+...     reveal_type(light_effect)  # Static checker will reveal: str
+...     reveal_type(light_effect_typed)  # Static checker will reveal: LightEffect
 
 """
 
@@ -116,6 +116,7 @@ class Module(ABC):
     IotSchedule: Final[ModuleName[iot.Schedule]] = ModuleName("schedule")
     IotUsage: Final[ModuleName[iot.Usage]] = ModuleName("usage")
     IotCloud: Final[ModuleName[iot.Cloud]] = ModuleName("cloud")
+    IotHomeKit: Final[ModuleName[iot.HomeKit]] = ModuleName("homekit")
 
     # SMART only Modules
     AutoOff: Final[ModuleName[smart.AutoOff]] = ModuleName("AutoOff")
@@ -162,6 +163,9 @@ class Module(ABC):
     PowerProtection: Final[ModuleName[smart.PowerProtection]] = ModuleName(
         "PowerProtection"
     )
+    LightStripSegment: Final[ModuleName[smart.LightStripSegment]] = ModuleName(
+        "LightStripSegment"
+    )
 
     HomeKit: Final[ModuleName[smart.HomeKit]] = ModuleName("HomeKit")
     Matter: Final[ModuleName[smart.Matter]] = ModuleName("Matter")
@@ -169,6 +173,7 @@ class Module(ABC):
     # SMARTCAM only modules
     Camera: Final[ModuleName[smartcam.Camera]] = ModuleName("Camera")
     LensMask: Final[ModuleName[smartcam.LensMask]] = ModuleName("LensMask")
+    PanTilt: Final[ModuleName[smartcam.PanTilt]] = ModuleName("PanTilt")
 
     # Vacuum modules
     Clean: Final[ModuleName[smart.Clean]] = ModuleName("Clean")

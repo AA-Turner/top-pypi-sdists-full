@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ntgcalls
-Version: 3.0.0
+Version: 3.0.1
 Summary: A Native Implementation of Telegram Calls in a seamless way.
 Author-email: Lauren Iraci <iraci.lauren@gmail.com>
 Project-URL: Homepage, https://pytgcalls.github.io/

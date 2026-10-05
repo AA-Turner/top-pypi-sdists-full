@@ -120,7 +120,7 @@ const _afatBootstrapTooltip = ({selector = '.allianceauth-afat', namespace = 'af
  * @private
  */
 const _removeSearchFromColumnControl = () => { // eslint-disable-line no-unused-vars
-    return afatSettings.dataTables.columnControl.map((control, index) => index === 1 ? { ...control, content: [] } : control);
+    return afatSettings.dataTables.columnControl.map((control, index) => index === 1 ? {...control, content: []} : control);
 };
 
 /**
@@ -130,7 +130,7 @@ const _removeSearchFromColumnControl = () => { // eslint-disable-line no-unused-
  * @private
  */
 const _removeColumnControl = () => { // eslint-disable-line no-unused-vars
-    return afatSettings.dataTables.columnControl.map((control) => ({ ...control, content: [] }));
+    return afatSettings.dataTables.columnControl.map((control) => ({...control, content: []}));
 };
 
 /**

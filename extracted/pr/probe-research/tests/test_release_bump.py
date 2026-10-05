@@ -24,12 +24,16 @@ release_bump = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = release_bump
 spec.loader.exec_module(release_bump)
 
-#: What release.yml bumped and committed by name before the registry did it.
+#: What release.yml bumped and committed by name before the registry did it,
+#: plus what the registry added since.
 _HAND_LIST = {
     "agent/plugins/probe-research/.claude-plugin/plugin.json",
     "agent/plugins/probe-research/.codex-plugin/plugin.json",
     "agent/plugins/probe-research-daemon/.claude-plugin/plugin.json",
     "agent/plugins/probe-research-daemon/.codex-plugin/plugin.json",
+    # Kimi Code, the first hook-plugin harness the registry added on its own.
+    "agent/plugins/probe-research/.kimi-plugin/plugin.json",
+    "agent/plugins/probe-research-daemon/.kimi-plugin/plugin.json",
 }
 
 

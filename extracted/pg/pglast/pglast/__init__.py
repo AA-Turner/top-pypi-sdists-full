@@ -19,7 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 # This is injected automatically at release time
-__version__ = 'v8.4'
+__version__ = 'v8.5'
 "Package's version."
 
 __author__ = 'Lele Gaifax <lele@metapensiero.it>'
@@ -92,6 +92,7 @@ def parse_plpgsql(statement: str) -> list[dict[str, Any]]:
                     'options': ({'@': 'DefElem',
                                  'arg': ({'@': 'String',
                                           'sval': '\\nBEGIN\\n  RETURN a + b;\\nEND;\\n'},),
+                                 'arg_location': ...,
                                  'defaction': {'#': 'DefElemAction',
                                                'name': 'DEFELEM_UNSPEC',
                                                'value': 0},

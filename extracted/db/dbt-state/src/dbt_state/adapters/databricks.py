@@ -124,6 +124,58 @@ class DatabricksAdapterExtension(BaseAdapterExtension):
         timestamps = {fqn: epoch for fqn, epoch in rows}
         return {fqn: timestamps.get(fqn) for fqn in fqns_to_exprs}
 
+    def _fetch_schemas(
+        self, table_batch: t.Collection[exp.Table]
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        if not table_batch:
+            return {}
+
+        queries = []
+        for catalog, tables in group_tables_by_catalog(table_batch, self.default_catalog).items():
+            filter_expr = build_information_schema_filter(
+                tables, ("table_catalog", "table_schema", "table_name")
+            )
+            # We select `full_data_type` rather than `data_type` because `full_data_type`
+            # has eg "DECIMAL(19, 4)" instead of just `DECIMAL`
+            queries.append(f"""
+            SELECT
+                table_catalog,
+                table_schema,
+                table_name,
+                column_name,
+                full_data_type
+            FROM {catalog}.information_schema.columns
+            WHERE {self._sql(filter_expr)}
+            """)
+
+        # the ORDER BY applies to the whole union, so columns come back in ordinal order
+        # (and therefore end up in the result mapping in ordinal order) for every catalog
+        query = "UNION ALL\n".join(queries)
+        query = f"{query}\nORDER BY table_catalog, table_schema, table_name, ordinal_position"
+
+        schemas: t.Dict[str, t.Dict[str, str]] = defaultdict(dict)
+
+        for catalog, schema, table_name, column_name, data_type in self.execute(
+            query, fetch=True
+        ).rows:
+            fqn = self._build_fqn_from_row(catalog, schema, table_name)
+            schemas[fqn][column_name] = data_type
+
+        # tables that returned no rows are omitted, so the caller records them as None
+        return dict(schemas)
+
+    def _batch_tables_for_schemas(
+        self, tables: t.Collection[exp.Table]
+    ) -> t.Collection[t.Collection[exp.Table]]:
+        # Unlike last modified timestamps, schemas come from information_schema.columns for both
+        # tables and views, so we skip the per-table get_relation type check that
+        # _batch_table_names performs and simply group by catalog. That gives one query per
+        # catalog, fanned out across the executor.
+        return [
+            list(catalog_tables)
+            for catalog_tables in group_tables_by_catalog(tables, self.default_catalog).values()
+        ]
+
     def _batch_table_names(
         self, tables: t.Collection[exp.Table]
     ) -> t.Collection[t.Collection[exp.Table]]:

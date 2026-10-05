@@ -1,5 +1,5 @@
 import math
-from typing import List, Tuple, cast
+from typing import cast
 
 import torch
 from torch import nn
@@ -16,8 +16,19 @@ from pytorch_optimizer.optimizer.shampoo_utils import (
 )
 
 
-def get_adjusted_lr(lr: float, param_shape: Tuple[float, ...], use_adjusted_lr: bool = False) -> float:
-    r"""Get the adjust learning rate."""
+def get_adjusted_lr(lr: float, param_shape: tuple[float, ...], use_adjusted_lr: bool = False) -> float:
+    """Scale the learning rate for an orthogonal matrix update.
+
+    Args:
+        lr: Base learning rate.
+        param_shape: Weight shape, with output features first and remaining dimensions as input features.
+        use_adjusted_lr: Use the Moonlight factor `sqrt(max(1, output / input))`. Otherwise use `0.2 *
+            sqrt(max(output, input))`.
+
+    Returns:
+        float: Shape adjusted learning rate.
+
+    """
     output_shape, *input_shape = param_shape
     input_shape = math.prod(input_shape)
 
@@ -31,37 +42,30 @@ def get_adjusted_lr(lr: float, param_shape: Tuple[float, ...], use_adjusted_lr: 
 
 
 class Muon(BaseOptimizer):
-    """Momentum Orthogonalized by Newton-schulz.
+    """Momentum updates with Newton-Schulz matrix orthogonalization.
 
-    Muon internally runs standard SGD-momentum, and then performs an orthogonalization post-processing step, in which
-    each 2D parameter's update is replaced with the nearest orthogonal matrix. To efficiently orthogonalize each
-    update, we use a Newton-Schulz iteration, which has the advantage that it can be stably run in bfloat16 on the GPU.
-
-    Muon is intended to optimize only the internal ≥2D parameters of a network. Embeddings, classifier heads, and
-    scalar or vector parameters should be optimized using AdamW.
-
-    Some warnings:
-    - We believe this optimizer is unlikely to work well for training with small batch size.
-    - We believe it may not work well for fine-tuning pretrained models, but we haven't tested this.
+    Set `use_muon=True` for hidden weight matrices and `use_muon=False` for AdamW groups,
+    such as embeddings, classifier heads, biases, and gains. Pass higher dimensional
+    weights directly. The orthogonal update uses a flattened matrix view.
 
     Args:
-        params (ParamsT): The parameters to be optimized by Muon.
-        lr (float): Learning rate.
-        momentum (float): The momentum used by the internal SGD.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        nesterov (bool): Whether to use nesterov momentum.
-        ns_steps (int): The number of Newton-Schulz iterations to run. (5 is probably always enough)
-        ns_coeffs (NewtonSchulzWeights): Newton-Schulz coefficients or preset name.
-        use_adjusted_lr (bool): Whether to use adjusted learning rate, which is from the Moonlight.
-            Reference: https://github.com/MoonshotAI/Moonlight/blob/master/examples/toy_train.py
-        adamw_lr (float): The learning rate for the internal AdamW.
-        adamw_betas (tuple): The betas for the internal AdamW.
-        adamw_wd (float): The weight decay for the internal AdamW.
-        adamw_eps (float): The epsilon for the internal AdamW.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameter group dictionaries with a `use_muon` flag for each group.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        nesterov: Use Nesterov momentum.
+        ns_steps: Number of Newton-Schulz iterations.
+        ns_coeffs: Newton-Schulz coefficients or preset name.
+        use_adjusted_lr: Scale orthogonal updates using the Moonlight shape adjustment.
+        adamw_lr: Learning rate for parameters in the AdamW groups.
+        adamw_betas: Decay rates for the first and second moments in the AdamW groups.
+        adamw_wd: Weight decay for parameters in the AdamW groups.
+        adamw_eps: Numerical stability constant for the AdamW groups.
+        maximize: Maximize the objective instead of minimizing it.
 
-    Example:
+    Examples:
+        ```python
         from pytorch_optimizer import Muon
 
         hidden_weights = [p for p in model.body.parameters() if p.ndim >= 2]
@@ -80,6 +84,7 @@ class Muon(BaseOptimizer):
         ]
 
         optimizer = Muon(param_groups)
+        ```
 
     """
 
@@ -230,37 +235,31 @@ class Muon(BaseOptimizer):
 
 
 class DistributedMuon(BaseOptimizer):  # pragma: no cover
-    """Momentum Orthogonalized by Newton-schulz.
+    """Distributed momentum updates with Newton-Schulz matrix orthogonalization.
 
-    Muon internally runs standard SGD-momentum, and then performs an orthogonalization post-processing step, in which
-    each 2D parameter's update is replaced with the nearest orthogonal matrix. To efficiently orthogonalize each
-    update, we use a Newton-Schulz iteration, which has the advantage that it can be stably run in bfloat16 on the GPU.
-
-    Muon is intended to optimize only the internal ≥2D parameters of a network. Embeddings, classifier heads, and
-    scalar or vector parameters should be optimized using AdamW.
-
-    Some warnings:
-    - We believe this optimizer is unlikely to work well for training with small batch size.
-    - We believe it may not work well for fine-tuning pretrained models, but we haven't tested this.
+    Set `use_muon=True` for hidden weight matrices and `use_muon=False` for AdamW groups,
+    such as embeddings, classifier heads, biases, and gains. Pass higher dimensional
+    weights directly. The orthogonal update uses a flattened matrix view.
+    Requires an initialized distributed process group.
 
     Args:
-        params (ParamsT): The parameters to be optimized by Muon.
-        lr (float): Learning rate.
-        momentum (float): The momentum used by the internal SGD.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        nesterov (bool): Whether to use nesterov momentum.
-        ns_steps (int): The number of Newton-Schulz iterations to run. (5 is probably always enough)
-        ns_coeffs (NewtonSchulzWeights): Newton-Schulz coefficients or preset name.
-        use_adjusted_lr (bool): Whether to use adjusted learning rate, which is from the Moonlight.
-            Reference: https://github.com/MoonshotAI/Moonlight/blob/master/examples/toy_train.py
-        adamw_lr (float): The learning rate for the internal AdamW.
-        adamw_betas (tuple): The betas for the internal AdamW.
-        adamw_wd (float): The weight decay for the internal AdamW.
-        adamw_eps (float): The epsilon for the internal AdamW.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameter group dictionaries with a `use_muon` flag for each group.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        nesterov: Use Nesterov momentum.
+        ns_steps: Number of Newton-Schulz iterations.
+        ns_coeffs: Newton-Schulz coefficients or preset name.
+        use_adjusted_lr: Scale orthogonal updates using the Moonlight shape adjustment.
+        adamw_lr: Learning rate for parameters in the AdamW groups.
+        adamw_betas: Decay rates for the first and second moments in the AdamW groups.
+        adamw_wd: Weight decay for parameters in the AdamW groups.
+        adamw_eps: Numerical stability constant for the AdamW groups.
+        maximize: Maximize the objective instead of minimizing it.
 
-    Example:
+    Examples:
+        ```python
         from pytorch_optimizer import DistributedMuon
 
         hidden_weights = [p for p in model.body.parameters() if p.ndim >= 2]
@@ -279,6 +278,7 @@ class DistributedMuon(BaseOptimizer):  # pragma: no cover
         ]
 
         optimizer = DistributedMuon(param_groups)
+        ```
 
     """
 
@@ -418,7 +418,7 @@ class DistributedMuon(BaseOptimizer):  # pragma: no cover
 
                         p.add_(update.reshape(p.shape), alpha=-lr)
 
-                    all_gather(padded_params[i:i + self.world_size], padded_params[i:i + self.rank])  # fmt: skip
+                    all_gather(padded_params[i:i + self.world_size], padded_params[i + self.rank])  # fmt: skip
             else:
                 for p in group['params']:
                     grad = p.grad
@@ -442,36 +442,29 @@ class DistributedMuon(BaseOptimizer):  # pragma: no cover
 
 
 class AdaMuon(BaseOptimizer):
-    """Adaptive Muon optimizer.
+    """Adaptive momentum updates with Newton-Schulz matrix orthogonalization.
 
-    Muon internally runs standard SGD-momentum, and then performs an orthogonalization post-processing step, in which
-    each 2D parameter's update is replaced with the nearest orthogonal matrix. To efficiently orthogonalize each
-    update, we use a Newton-Schulz iteration, which has the advantage that it can be stably run in bfloat16 on the GPU.
-
-    Muon is intended to optimize only the internal ≥2D parameters of a network. Embeddings, classifier heads, and
-    scalar or vector parameters should be optimized using AdamW.
-
-    Some warnings:
-    - We believe this optimizer is unlikely to work well for training with small batch size.
-    - We believe it may not work well for fine-tuning pretrained models, but we haven't tested this.
+    Set `use_muon=True` for hidden weight matrices and `use_muon=False` for AdamW groups,
+    such as embeddings, classifier heads, biases, and gains. Pass higher dimensional
+    weights directly. The orthogonal update uses a flattened matrix view.
 
     Args:
-        params (ParamsT): The parameters to be optimized by Muon.
-        lr (float): Learning rate.
-        betas (tuple): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        ns_steps (int): The number of Newton-Schulz iterations to run. (5 is probably always enough)
-        ns_coeffs (NewtonSchulzWeights): Newton-Schulz coefficients or preset name.
-        use_adjusted_lr (bool): Whether to use adjusted learning rate, which is from the Moonlight.
-            Reference: https://github.com/MoonshotAI/Moonlight/blob/master/examples/toy_train.py
-        adamw_lr (float): The learning rate for the internal AdamW.
-        adamw_betas (tuple): The betas for the internal AdamW.
-        adamw_wd (float): The weight decay for the internal AdamW.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameter group dictionaries with a `use_muon` flag for each group.
+        lr: Learning rate.
+        betas: Decay rates for gradient momentum and squared orthogonalized updates.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        ns_steps: Number of Newton-Schulz iterations.
+        ns_coeffs: Newton-Schulz coefficients or preset name.
+        use_adjusted_lr: Scale orthogonal updates using the Moonlight shape adjustment.
+        adamw_lr: Learning rate for parameters in the AdamW groups.
+        adamw_betas: Decay rates for the first and second moments in the AdamW groups.
+        adamw_wd: Weight decay for parameters in the AdamW groups.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
-    Example:
+    Examples:
+        ```python
         from pytorch_optimizer import AdaMuon
 
         hidden_weights = [p for p in model.body.parameters() if p.ndim >= 2]
@@ -490,6 +483,7 @@ class AdaMuon(BaseOptimizer):
         ]
 
         optimizer = AdaMuon(param_groups)
+        ```
 
     """
 
@@ -645,28 +639,33 @@ class AdaMuon(BaseOptimizer):
 
 
 class AdaGO(BaseOptimizer):
-    """AdaGrad Meets Muon: Adaptive Stepsizes for Orthogonal Updates.
+    """Orthogonal momentum updates with AdaGrad step size adaptation.
+
+    Set `use_muon=True` for hidden weight matrices and `use_muon=False` for AdamW groups,
+    such as embeddings, classifier heads, biases, and gains. Pass higher dimensional
+    weights directly. The orthogonal update uses a flattened matrix view.
 
     Args:
-        params (ParamsT): The parameters to be optimized by Muon.
-        lr (float): Learning rate.
-        momentum (float): The momentum used by the internal SGD.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        nesterov (bool): Whether to use nesterov momentum.
-        gamma (float): Gamma factor. Empirically, AdaGO performs robustly across a wide range of gamma values.
-        eps (float): Epsilon value. Lower bound eps > 0 on the stepsizes.
-        ns_steps (int): The number of Newton-Schulz iterations to run. (5 is probably always enough)
-        ns_coeffs (NewtonSchulzWeights): Newton-Schulz coefficients or preset name.
-        use_adjusted_lr (bool): Whether to use adjusted learning rate, which is from the Moonlight.
-            Reference: https://github.com/MoonshotAI/Moonlight/blob/master/examples/toy_train.py
-        adamw_lr (float): The learning rate for the internal AdamW.
-        adamw_betas (tuple): The betas for the internal AdamW.
-        adamw_wd (float): The weight decay for the internal AdamW.
-        adamw_eps (float): The epsilon for the internal AdamW.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameter group dictionaries with a `use_muon` flag for each group.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        nesterov: Use Nesterov momentum.
+        gamma: Gradient norm cap for the accumulator and adaptive step size.
+        v: Initial value of the AdaGrad accumulator.
+        eps: Epsilon value. Lower bound eps > 0 on the stepsizes.
+        ns_steps: Number of Newton-Schulz iterations.
+        ns_coeffs: Newton-Schulz coefficients or preset name.
+        use_adjusted_lr: Scale orthogonal updates using the Moonlight shape adjustment.
+        adamw_lr: Learning rate for parameters in the AdamW groups.
+        adamw_betas: Decay rates for the first and second moments in the AdamW groups.
+        adamw_wd: Weight decay for parameters in the AdamW groups.
+        adamw_eps: Numerical stability constant for the AdamW groups.
+        maximize: Maximize the objective instead of minimizing it.
 
-    Example:
+    Examples:
+        ```python
         from pytorch_optimizer import AdaGO
 
         hidden_weights = [p for p in model.body.parameters() if p.ndim >= 2]
@@ -685,6 +684,7 @@ class AdaGO(BaseOptimizer):
         ]
 
         optimizer = AdaGO(param_groups)
+        ```
 
     """
 
@@ -829,8 +829,225 @@ class AdaGO(BaseOptimizer):
 
                     p.add_(
                         update.reshape(p.shape),
-                        alpha=-max(group['eps'], lr * min(grad.norm(2), group['gamma']) / v).item(),
+                        alpha=-max(group['eps'], (lr * min(grad.norm(2), group['gamma']) / v).item()),
                     )
+                else:
+                    exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+
+                    beta1, beta2 = group['betas']
+
+                    bias_correction1: float = self.debias(beta1, group['step'])
+                    bias_correction2_sq: float = math.sqrt(self.debias(beta2, group['step']))
+
+                    exp_avg.lerp_(grad, weight=1.0 - beta1)
+                    exp_avg_sq.lerp_(grad.square(), weight=1.0 - beta2)
+
+                    de_nom = exp_avg_sq.sqrt().add_(group['eps']).div_(bias_correction2_sq)
+
+                    p.addcdiv_(exp_avg / bias_correction1, de_nom, value=-group['lr'])
+
+        return loss
+
+
+class NorMuon(BaseOptimizer):
+    """Muon updates with row wise second moment normalization.
+
+    Set `use_muon=True` for hidden weight matrices and `use_muon=False` for AdamW groups,
+    such as embeddings, classifier heads, biases, and gains. Pass higher dimensional
+    weights directly. The orthogonal update uses a flattened matrix view.
+
+    Args:
+        params: Parameter group dictionaries with a `use_muon` flag for each group.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        beta2: Decay rate of the row wise second moment of the orthogonalized update.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        nesterov: Use Nesterov momentum.
+        ns_steps: Number of Newton-Schulz iterations.
+        ns_coeffs: Newton-Schulz coefficients or preset name.
+        update_scale: How to rescale the row normalized update. `preserve_norm` keeps the Frobenius norm of the
+            orthogonalized update, as the official code does. `match_rms` gives it the Frobenius norm `0.2 * sqrt(m
+            * n)`, so the RMS is 0.2 as in Algorithm 1 of the paper.
+        use_adjusted_lr: Apply the Moonlight shape adjustment in `preserve_norm` mode. Unused in `match_rms` mode.
+        adamw_lr: Learning rate for parameters in the AdamW groups.
+        adamw_betas: Decay rates for the first and second moments in the AdamW groups.
+        adamw_wd: Weight decay for parameters in the AdamW groups.
+        adamw_eps: Numerical stability constant for the AdamW groups.
+        eps: Term added to the denominator of the row wise normalization.
+        maximize: Maximize the objective instead of minimizing it.
+
+    Examples:
+        ```python
+        from pytorch_optimizer import NorMuon
+
+        hidden_weights = [p for p in model.body.parameters() if p.ndim >= 2]
+        hidden_gains_biases = [p for p in model.body.parameters() if p.ndim < 2]
+        non_hidden_params = [*model.head.parameters(), *model.embed.parameters()]
+
+        param_groups = [
+            dict(params=hidden_weights, lr=0.02, weight_decay=0.01, use_muon=True),
+            dict(
+                params=hidden_gains_biases + non_hidden_params,
+                lr=3e-4,
+                betas=(0.9, 0.95),
+                weight_decay=0.01,
+                use_muon=False,
+            ),
+        ]
+
+        optimizer = NorMuon(param_groups)
+        ```
+
+    """
+
+    def __init__(
+        self,
+        params: ParamsT,
+        lr: float = 2e-2,
+        momentum: float = 0.95,
+        beta2: float = 0.95,
+        weight_decay: float = 0.0,
+        weight_decouple: bool = True,
+        nesterov: bool = True,
+        ns_steps: int = 5,
+        ns_coeffs: NewtonSchulzWeights = 'original',
+        update_scale: str = 'preserve_norm',
+        use_adjusted_lr: bool = True,
+        adamw_lr: float = 3e-4,
+        adamw_betas: Betas = (0.9, 0.95),
+        adamw_wd: float = 0.0,
+        adamw_eps: float = 1e-10,
+        eps: float = 1e-10,
+        maximize: bool = False,
+        **kwargs,
+    ):
+        self.validate_learning_rate(lr)
+        self.validate_learning_rate(adamw_lr)
+        self.validate_non_negative(weight_decay, 'weight_decay')
+        self.validate_range(momentum, 'momentum', 0.0, 1.0, range_type='[)')
+        self.validate_range(beta2, 'beta2', 0.0, 1.0, range_type='[)')
+        self.validate_positive(ns_steps, 'ns_steps')
+        self.validate_options(update_scale, 'update_scale', ['preserve_norm', 'match_rms'])
+        self.validate_betas(adamw_betas)
+        self.validate_non_negative(adamw_wd, 'adamw_wd')
+        self.validate_non_negative(adamw_eps, 'adamw_eps')
+        self.validate_non_negative(eps, 'eps')
+        ns_coeffs = get_newton_schulz_weights(ns_coeffs)
+
+        self.maximize = maximize
+
+        for group in params:
+            group = cast(ParamGroup, group)
+            if 'use_muon' not in group:
+                raise ValueError('`use_muon` must be set.')
+
+            if group['use_muon']:
+                group['lr'] = group.get('lr', lr)
+                group['momentum'] = group.get('momentum', momentum)
+                group['beta2'] = group.get('beta2', beta2)
+                group['nesterov'] = group.get('nesterov', nesterov)
+                group['weight_decay'] = group.get('weight_decay', weight_decay)
+                group['ns_steps'] = group.get('ns_steps', ns_steps)
+                group['ns_coeffs'] = get_newton_schulz_weights(group.get('ns_coeffs', ns_coeffs))
+                group['update_scale'] = group.get('update_scale', update_scale)
+                group['use_adjusted_lr'] = group.get('use_adjusted_lr', use_adjusted_lr)
+                group['eps'] = group.get('eps', eps)
+            else:
+                group['lr'] = group.get('lr', adamw_lr)
+                group['betas'] = group.get('betas', adamw_betas)
+                group['eps'] = group.get('eps', adamw_eps)
+                group['weight_decay'] = group.get('weight_decay', adamw_wd)
+
+            group['weight_decouple'] = group.get('weight_decouple', weight_decouple)
+
+        super().__init__(params, kwargs)
+
+    def __str__(self) -> str:
+        return 'NorMuon'
+
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
+        for p in group['params']:
+            if p.grad is None:
+                continue
+
+            grad = p.grad
+            if grad.is_sparse:
+                raise NoSparseGradientError(str(self))
+
+            if torch.is_complex(p):
+                raise NoComplexParameterError(str(self))
+
+            state = self.state[p]
+
+            if len(state) == 0:
+                if group['use_muon']:
+                    state['momentum_buffer'] = torch.zeros_like(p)
+                    state['second_momentum_buffer'] = p.new_zeros(p.size(0), 1)
+                else:
+                    state['exp_avg'] = torch.zeros_like(p)
+                    state['exp_avg_sq'] = torch.zeros_like(p)
+
+    @torch.no_grad()
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            self.init_group(group)
+            group['step'] += 1
+
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+
+                grad = p.grad
+
+                self.maximize_gradient(grad, maximize=self.maximize)
+
+                state = self.state[p]
+
+                self.apply_weight_decay(
+                    p,
+                    grad=grad,
+                    lr=group['lr'],
+                    weight_decay=group['weight_decay'],
+                    weight_decouple=group['weight_decouple'],
+                    fixed_decay=False,
+                )
+
+                if group['use_muon']:
+                    buf = state['momentum_buffer']
+                    buf.lerp_(grad, weight=1.0 - group['momentum'])
+
+                    update = grad.lerp_(buf, weight=group['momentum']) if group['nesterov'] else buf
+                    update = update.reshape(len(update), -1)
+
+                    update = zero_power_via_newton_schulz_5(
+                        update, num_steps=group['ns_steps'], weights=group['ns_coeffs']
+                    ).to(grad.dtype)
+
+                    original_norm = update.norm()
+
+                    v_mean = update.square().mean(dim=-1, keepdim=True)
+                    second_momentum = state['second_momentum_buffer']
+                    second_momentum.lerp_(v_mean, weight=1.0 - group['beta2'])
+
+                    update.div_(second_momentum.sqrt().add_(group['eps']))
+
+                    if group['update_scale'] == 'preserve_norm':
+                        update.mul_(original_norm / update.norm().add_(group['eps']))
+                        lr: float = get_adjusted_lr(group['lr'], p.size(), use_adjusted_lr=group['use_adjusted_lr'])
+                    else:
+                        update.mul_(0.2 * math.sqrt(update.numel()) / update.norm().add_(group['eps']))
+                        lr = group['lr']
+
+                    p.add_(update.reshape(p.shape), alpha=-lr)
                 else:
                     exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
 
@@ -852,20 +1069,32 @@ class AdaGO(BaseOptimizer):
 def prepare_muon_parameters(
     model: nn.Module,
     optimizer_name: str,
-    lr: float,
+    lr: float | torch.Tensor,
     weight_decay: float,
     adamw_lr: float = 3e-4,
     adamw_wd: float = 0.0,
     **kwargs,
 ) -> Optimizer:
-    """Prepare the parameters for Muon optimizer.
+    """Create a Muon family optimizer by grouping model parameters.
 
-    Be careful at using this function to prepare the parameters for Muon optimizer. It's not likely acting perfectly
-    for all cases. So, highly recommend you to create the Muon optimizer manually following by the given example in the
-    docstring.
+    Classifies weights by parameter name and dimensionality. Review the resulting groups,
+    or construct them yourself using the optimizer's example for model specific control.
+
+    Args:
+        model: Model whose parameters to group.
+        optimizer_name: Muon family optimizer name.
+        lr: Learning rate for the orthogonal update groups.
+        weight_decay: Weight decay for the orthogonal update groups.
+        adamw_lr: Learning rate for the AdamW groups.
+        adamw_wd: Weight decay for the AdamW groups.
+        **kwargs (dict): Options for the selected optimizer.
+
+    Returns:
+        Optimizer: Optimizer with orthogonal update and AdamW parameter groups.
+
     """
-    muon_parameters: List[str] = []
-    non_muon_params: List[str] = []
+    muon_parameters: list[torch.Tensor] = []
+    non_muon_params: list[torch.Tensor] = []
 
     for _, module in model.named_modules():
         for name, param in module.named_parameters(recurse=False):
@@ -889,5 +1118,7 @@ def prepare_muon_parameters(
         return AdaMuon(param_groups, **kwargs)
     if optimizer_name == 'adago':
         return AdaGO(param_groups, **kwargs)
+    if optimizer_name == 'normuon':
+        return NorMuon(param_groups, **kwargs)
 
     return Muon(param_groups, **kwargs)

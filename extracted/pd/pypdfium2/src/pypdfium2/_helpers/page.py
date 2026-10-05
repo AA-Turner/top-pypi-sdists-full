@@ -13,7 +13,6 @@ from pypdfium2._helpers.misc import PdfiumError
 from pypdfium2._helpers.bitmap import PdfBitmap
 from pypdfium2._helpers.textpage import PdfTextPage
 from pypdfium2._helpers.pageobjects import PdfObject
-from pypdfium2.version import PDFIUM_INFO
 
 c_float = ctypes.c_float
 logger = logging.getLogger(__name__)
@@ -220,7 +219,7 @@ class PdfPage (pdfium_i.AutoCloseable):
             raise ValueError("The pageobject you attempted to insert belongs to a different PDF.")
         
         ok = pdfium_c.FPDFPage_InsertObject(self, pageobj)
-        if not ok and PDFIUM_INFO.build >= 7809:
+        if not ok:
             raise PdfiumError("Failed to insert object.")
         pageobj._detach_finalizer()
         pageobj.page = self

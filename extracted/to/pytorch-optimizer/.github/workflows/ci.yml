@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
   workflow_call:
     inputs:
       ref:
@@ -64,9 +65,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --no-editable
 
-      - uses: jakebailey/pyright-action@8ec14b5cfe41f26e5f41686a31eb6012758217ef # v3.0.2
-        with:
-          version: 1.1.414
+      - name: Run type check
+        run: uv run --frozen ty check
 
   docs:
     name: Documentation
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
 
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

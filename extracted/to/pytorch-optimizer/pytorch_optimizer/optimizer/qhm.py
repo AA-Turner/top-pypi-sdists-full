@@ -6,17 +6,17 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, Par
 
 
 class QHM(BaseOptimizer):
-    """Quasi-hyperbolic momentum (QHM) optimization algorithm.
+    """SGD with quasi-hyperbolic momentum.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        momentum (float): momentum factor.
-        nu (float): immediate discount factor used to estimate the gradient and its square.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): fix weight decay.
-        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        nu: Weight of momentum relative to the current gradient.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -104,7 +104,7 @@ class QHM(BaseOptimizer):
                     fixed_decay=group['fixed_decay'],
                 )
 
-                buf.mul_(group['momentum']).add_(grad, alpha=1.0 - group['momentum'])
+                buf.lerp_(grad, weight=1.0 - group['momentum'])
 
                 p.add_(buf, alpha=-group['lr'] * group['nu'])
                 p.add_(grad, alpha=-group['lr'] * (1.0 - group['nu']))

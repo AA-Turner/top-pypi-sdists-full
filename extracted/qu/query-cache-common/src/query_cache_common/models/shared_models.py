@@ -30,6 +30,18 @@ class TableModifiedInfo(BaseSerDeModel):
     last_modified_epoch: int = 0
 
 
+@proto_dataclass(shared_pb2.ColumnInfo)
+class ColumnInfo(BaseSerDeModel):
+    name: str
+    type: str
+
+
+@proto_dataclass(shared_pb2.TableSchema)
+class TableSchema(BaseSerDeModel):
+    name: str
+    columns: t.List[ColumnInfo]
+
+
 @proto_dataclass(shared_pb2.QueryDependency)
 class QueryDependency(BaseSerDeModel):
     name: str

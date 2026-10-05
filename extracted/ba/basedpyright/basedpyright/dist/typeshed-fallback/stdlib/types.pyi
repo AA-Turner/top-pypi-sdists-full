@@ -436,11 +436,10 @@ class CellType:
     """
     Create a new cell object.
 
-     contents
-       the contents of the cell. If not specified, the cell will be empty,
-       and 
-    further attempts to access its cell_contents attribute will
-       raise a ValueError.
+    contents
+      the contents of the cell. If not specified, the cell will be empty,
+      and further attempts to access its cell_contents attribute will
+      raise a ValueError.
     """
     def __new__(cls, contents: object = ..., /) -> Self: ...
     __hash__: ClassVar[None]  # type: ignore[assignment]
@@ -467,7 +466,9 @@ class GeneratorType(Generator[_YieldT_co, _SendT_contra, _ReturnT_co]):
         def gi_suspended(self) -> bool: ...
     if sys.version_info >= (3, 15):
         @property
-        def gi_state(self) -> Literal["GEN_CREATED", "GEN_SUSPENDED", "GEN_RUNNING", "GEN_CLOSED"]: ...
+        def gi_state(self) -> Literal["GEN_CREATED", "GEN_SUSPENDED", "GEN_RUNNING", "GEN_CLOSED"]:
+            """state of the generator"""
+            ...
     __name__: str
     __qualname__: str
     def __iter__(self) -> Self:
@@ -534,7 +535,9 @@ class AsyncGeneratorType(AsyncGenerator[_YieldT_co, _SendT_contra]):
         def ag_suspended(self) -> bool: ...
     if sys.version_info >= (3, 15):
         @property
-        def ag_state(self) -> Literal["AGEN_CREATED", "AGEN_SUSPENDED", "AGEN_RUNNING", "AGEN_CLOSED"]: ...
+        def ag_state(self) -> Literal["AGEN_CREATED", "AGEN_SUSPENDED", "AGEN_RUNNING", "AGEN_CLOSED"]:
+            """state of the async generator"""
+            ...
 
     def __aiter__(self) -> Self:
         """Return an awaitable, that resolves in asynchronous iterator."""
@@ -603,7 +606,9 @@ class CoroutineType(Coroutine[_YieldT_co, _SendT_nd_contra, _ReturnT_nd_co]):
         def cr_suspended(self) -> bool: ...
     if sys.version_info >= (3, 15):
         @property
-        def cr_state(self) -> Literal["CORO_CREATED", "CORO_SUSPENDED", "CORO_RUNNING", "CORO_CLOSED"]: ...
+        def cr_state(self) -> Literal["CORO_CREATED", "CORO_SUSPENDED", "CORO_RUNNING", "CORO_CLOSED"]:
+            """state of the coroutine"""
+            ...
 
     def close(self) -> None:
         """close() -> raise GeneratorExit inside coroutine."""
@@ -819,7 +824,9 @@ class FrameType:
 
     if sys.version_info >= (3, 15):
         @property
-        def f_locals(self) -> FrameLocalsProxyType | dict[str, Any]: ...
+        def f_locals(self) -> FrameLocalsProxyType | dict[str, Any]:
+            """Return the mapping used by the frame to look up local variables."""
+            ...
     else:
         @property
         def f_locals(self) -> dict[str, Any]:
@@ -841,12 +848,26 @@ class FrameType:
 if sys.version_info >= (3, 15):
     @final
     class FrameLocalsProxyType(MutableMapping[str, Any]):
+        """
+        Create a write-through view of the locals dictionary for a frame.
+
+        frame
+          the frame object to wrap.
+        """
         def __new__(cls, frame: FrameType, /) -> Self: ...
         def __getitem__(self, key: str, /) -> Any: ...
-        def __setitem__(self, key: str, value: Any, /) -> None: ...
-        def __delitem__(self, key: str, /) -> None: ...
-        def __iter__(self) -> Iterator[str]: ...
-        def __len__(self) -> int: ...
+        def __setitem__(self, key: str, value: Any, /) -> None:
+            """Set self[key] to value."""
+            ...
+        def __delitem__(self, key: str, /) -> None:
+            """Delete self[key]."""
+            ...
+        def __iter__(self) -> Iterator[str]:
+            """Implement iter(self)."""
+            ...
+        def __len__(self) -> int:
+            """Return len(self)."""
+            ...
         def __contains__(self, key: object, /) -> bool: ...
         def __reversed__(self) -> Iterator[str]: ...
         def copy(self) -> dict[str, Any]: ...
@@ -856,9 +877,18 @@ if sys.version_info >= (3, 15):
 
     @final
     class LazyImportType:
+        """
+        Represents a lazy import that will be resolved on first use.
+
+        Instances of this object accessed from the global scope will be
+        automatically imported based upon their name and then replaced with
+        the imported value.
+        """
         @property
         def __name__(self) -> str: ...
-        def resolve(self) -> Any: ...
+        def resolve(self) -> Any:
+            """Resolve the lazy import and return the imported object."""
+            ...
 
 @final
 class GetSetDescriptorType:

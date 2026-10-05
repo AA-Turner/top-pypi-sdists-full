@@ -813,7 +813,9 @@ class WriteRefused(Exception):
 
 
 @asynccontextmanager
-async def writing_as_the_person(ctx: ToolContext | None) -> AsyncIterator[None]:
+async def writing_as_the_person(
+    ctx: ToolContext | None, *, system_job: bool = False
+) -> AsyncIterator[None]:
     """Write to a certified kind table in the caller's RLS session.
 
     On an admin surface the admin lane is opened inside the same session, so the
@@ -824,7 +826,10 @@ async def writing_as_the_person(ctx: ToolContext | None) -> AsyncIterator[None]:
 
     try:
         async with as_the_person():
-            if ctx_is_admin(ctx):
+            # ``system_job``: a scheduled platform job (the weekly shape refresh) runs as the
+            # scheduler's operator identity, which has no admin SURFACE; it asks the database's
+            # own admin arm explicitly. RLS still decides -- a non-admin identity is refused.
+            if system_job or ctx_is_admin(ctx):
                 from matrx_orm import admin_lane
 
                 async with admin_lane(database=get_db_model("KindDefinition")._database):
@@ -839,9 +844,11 @@ async def writing_as_the_person(ctx: ToolContext | None) -> AsyncIterator[None]:
         raise
 
 
-async def update_as_the_person(model: Any, row_id: str, ctx: ToolContext | None, **values: Any) -> None:
+async def update_as_the_person(
+    model: Any, row_id: str, ctx: ToolContext | None, *, system_job: bool = False, **values: Any
+) -> None:
     """``update_where`` by id in the caller's session; no row changed = ``WriteRefused``."""
-    async with writing_as_the_person(ctx):
+    async with writing_as_the_person(ctx, system_job=system_job):
         result = await model.update_where({"id": str(row_id)}, **values)
         if not int(getattr(result, "rows_affected", 0) or 0):
             raise WriteRefused(f"no row {row_id} was changed for this person")

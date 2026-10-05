@@ -1,7 +1,8 @@
 """顧客 Agent の entrypoint に渡す `context`（marketplace-3.0 03 §2）。
 
 read-only の相関、parameters、input/work/output_dir、operation_key、監査（tool.invoked / tool.effect / tool.denied）、
-取消 / 期限の確認、permitted skip の宣言を提供する。gate を決定するメソッドや任意 DB 接続は提供しない。
+取消 / 期限の確認、permitted skip の宣言、起動のきっかけになった確認の決定（`gate_decision`）を提供する。
+gate を決定するメソッドや任意 DB 接続は提供しない。
 実体は子プロセス側にあり、監査と取消確認は親 runner へ IPC で委譲する。
 
 IPC は stdin / stdout ではなく **専用の fd**（親が pass_fds で渡す。要求 = fd `ASTER_WORKFLOW_IPC_OUT`、応答 = `ASTER_WORKFLOW_IPC_IN`）
@@ -211,6 +212,9 @@ class WorkflowContext:
         self.output_dir = Path(spec["output_dir"])
         self.manifest: Mapping[str, Any] = MappingProxyType(dict(spec.get("manifest") or {}))
         self.deadlines: Mapping[str, Optional[str]] = MappingProxyType(dict(spec.get("deadlines") or {}))
+        gd = spec.get("gate_decision")
+        # 確認で差し戻された・承認された後の起動だけ。decision = proceed / send_back、note = 人が書いた理由・コメント
+        self.gate_decision: Optional[Mapping[str, Optional[str]]] = MappingProxyType(dict(gd)) if isinstance(gd, dict) else None
         self.audit = AuditApi(ipc)
         self._last_check = 0.0
         self._stopped = False

@@ -1,5 +1,4 @@
 import math
-from typing import Optional
 
 import torch
 
@@ -10,31 +9,27 @@ from pytorch_optimizer.optimizer.agc import agc
 
 
 class Ranger25(BaseOptimizer):
-    """Mixin' every fancy optimizer hacks.
+    """Adaptive updates combining ADOPT preconditioning, mixed momentum, and Lookahead.
 
-    Here's the components:
-        * ADOPT
-        * AdEMAMix
-        * Cautious
-        * StableAdamW or Adam-atan2
-        * OrthoGrad
-        * Adaptive gradient clipping
-        * Lookahead
-        * Cautious Weight Decay
+    Includes adaptive gradient clipping and cautious weight decay, with optional
+    cautious updates, OrthoGrad, and StableAdamW or Adam atan2 scaling.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        alpha (float): Usually between 4 and 10 works well.
-        t_alpha_beta3 (Optional[float]): Total number of iterations is preferred when needed.
-        cautious (bool): Whether to use the Cautious variant.
-        stable_adamw (bool): Whether to use stable AdamW variant.
-        orthograd (bool): Whether to use OrthoGrad variant.
-        eps (Optional[float]): Term added to the denominator to improve numerical stability.
-            When eps is None and stable_adamw is False, adam-atan2 feature will be used.
-        maximize (bool): Maximize the objective w.r.t the parameters instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for fast normalized gradient momentum, squared gradients, and slow normalized gradient
+            momentum.
+        weight_decay: Weight decay coefficient.
+        alpha: Weight of slow momentum relative to fast momentum.
+        t_alpha_beta3: Steps to warm up the slow momentum weight and decay rate. `None` disables warmup.
+        cautious: Whether to use the Cautious variant.
+        stable_adamw: Whether to use stable AdamW variant.
+        orthograd: Whether to use OrthoGrad variant.
+        eps: Term added to the denominator to improve numerical stability. When eps is None and stable_adamw is
+            False, adam-atan2 feature will be used.
+        maximize: Maximize the objective instead of minimizing it.
+        lookahead_merge_time: Number of steps between Lookahead slow weight updates.
+        lookahead_blending_alpha: Interpolation factor from slow weights toward fast weights.
 
     """
 
@@ -45,13 +40,13 @@ class Ranger25(BaseOptimizer):
         betas: Betas = (0.9, 0.98, 0.9999),
         weight_decay: float = 1e-3,
         alpha: float = 5.0,
-        t_alpha_beta3: Optional[float] = None,
+        t_alpha_beta3: float | None = None,
         lookahead_merge_time: int = 5,
         lookahead_blending_alpha: float = 0.5,
         cautious: bool = True,
         stable_adamw: bool = True,
         orthograd: bool = True,
-        eps: Optional[float] = 1e-8,
+        eps: float | None = 1e-8,
         maximize: bool = False,
         **kwargs,
     ):
@@ -109,11 +104,11 @@ class Ranger25(BaseOptimizer):
                 state['slow_momentum'] = p.clone()
 
     @staticmethod
-    def schedule_alpha(t_alpha_beta3: Optional[float], step: int, alpha: float) -> float:
+    def schedule_alpha(t_alpha_beta3: float | None, step: int, alpha: float) -> float:
         return alpha if t_alpha_beta3 is None else min(step * alpha / t_alpha_beta3, alpha)
 
     @staticmethod
-    def schedule_beta3(t_alpha_beta3: Optional[float], step: int, beta1: float, beta3: float) -> float:
+    def schedule_beta3(t_alpha_beta3: float | None, step: int, beta1: float, beta3: float) -> float:
         if t_alpha_beta3 is None:
             return beta3
 
@@ -146,7 +141,7 @@ class Ranger25(BaseOptimizer):
             bias_correction1: float = self.debias(beta1, group['step'])
             bias_correction2_sq: float = math.sqrt(self.debias(beta2, group['step']))
 
-            step_size: float = group['lr'] / bias_correction1
+            step_size: float | torch.Tensor = group['lr'] / bias_correction1
             clip: float = math.pow(group['step'], 0.25)
 
             alpha_t: float = self.schedule_alpha(group['t_alpha_beta3'], group['step'], group['alpha'])
@@ -182,16 +177,23 @@ class Ranger25(BaseOptimizer):
                     self.apply_cautious(update, grad)
 
                 if self.stable_adamw:
-                    step_size /= self.get_stable_adamw_rms(grad, exp_avg_sq)
+                    param_step_size = step_size / self.get_stable_adamw_rms(grad, exp_avg_sq)
+                else:
+                    param_step_size = step_size
 
                 update.add_(exp_avg_slow, alpha=alpha_t)
 
                 de_nom = exp_avg_sq.sqrt().div_(bias_correction2_sq)
 
                 if group['eps'] is not None:
-                    p.addcdiv_(update, de_nom.add_(group['eps']), value=-step_size)
+                    de_nom.add_(group['eps'])
+                    if self.stable_adamw:
+                        de_nom = de_nom.to(dtype=param_step_size.dtype).div_(-param_step_size)
+                        p.addcdiv_(update, de_nom)
+                    else:
+                        p.addcdiv_(update, de_nom, value=-param_step_size)
                 else:
-                    p.add_(update.atan2_(de_nom), alpha=-step_size)
+                    p.add_(update.atan2_(de_nom), alpha=-param_step_size)
 
                 if group['step'] % self.lookahead_merge_time == 0:
                     slow_p = state['slow_momentum']

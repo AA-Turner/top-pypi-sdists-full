@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.0.8
+Version: 3.0.10
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -333,6 +333,16 @@ user = await client.get_user(user_id="user-001")
 
 # Get MCP tokens
 tokens = await client.get_mcp_tokens(user_id="user-001")
+
+# After an MCP server rejected a token with 401 before its stored expiry, ask again with the
+# SHA-256 of the rejected token (SDK >= 3.0.10). The token supply refreshes it even before expiry.
+import hashlib
+rejected_access_token = "..."  # the access token the MCP server answered 401 to
+tokens = await client.get_mcp_tokens(
+    user_id="user-001",
+    providers=["slack_mcp"],
+    rejected_token_sha256={"slack_mcp": hashlib.sha256(rejected_access_token.encode("utf-8")).hexdigest()},
+)
 ```
 
 ### Memory Module
@@ -579,7 +589,10 @@ What `context` provides: correlation (`execution_id` / `run_id` / `operation_key
 do not start an external write without that acknowledgement), `is_cancel_requested()` /
 `ensure_can_act()` / `deadline_remaining()`, `skip(reason)` (a step with nothing to do: `no_target` /
 `not_applicable` / `nothing_to_do` → `skipped`), `policy_unavailable()` (the policy could not be
-checked before any external action → `skipped/policy_unavailable`), `log(message)`, and
+checked before any external action → `skipped/policy_unavailable`), `log(message)`,
+`gate_decision` (SDK ≥ 3.0.9: the review decision that started this run — `None` unless the run follows a
+review; otherwise a read-only mapping `{gate_id, decision, decided_by, note, decided_at}` where `decision` is
+`send_back` or `proceed` and `note` is the reason or comment the reviewer wrote), and
 `connection_token(slot, min_ttl=300)` (the access
 token of a connection slot bound at startup; refreshed through the platform once less than `min_ttl`
 seconds remain, or every 600 seconds when the expiry is unknown; raises `WorkflowError` after
@@ -844,6 +857,26 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.0.10 (2026-10-04) — auth: refresh an MCP token that was rejected before its expiry
+
+- **New `rejected_token_sha256` argument on `AgenticStarAuthClient.get_mcp_tokens()`.** A mapping of provider → SHA-256 of an access token that the MCP server rejected with 401 (hex, lowercase, 64 characters; hash the token string as UTF-8). When the stored token is still that token, the token supply refreshes it even if it has not expired yet; when it has already been replaced, the newer token is returned. Do not send the token itself.
+- Some providers revoke tokens before the stored expiry (Slack keeps at most two valid tokens per installation; some providers revoke the previous token when a new one is issued). Up to 3.0.9 the same rejected token came back until its expiry, so the MCP server stayed unusable.
+- The supply does not refresh personal access tokens, connections without a refresh token or whose provider does not support refresh, or tokens issued less than a minute ago; in those cases it returns the stored token as before.
+- **Platform requirement**: the token supply (chatboardlogin) must support the field. Against an older one the field is ignored and nothing else changes. Without the argument, requests are the same as before.
+
+### 3.0.9 (2026-10-03) — workflow: the review decision that started a run (`context.gate_decision`)
+
+- **New `WorkflowContext.gate_decision`.** When a step runs again because a reviewer sent it back, or the next step runs after a reviewer approved, it is a read-only mapping `{gate_id, decision, decided_by, note, decided_at}`:
+  - `decision`: `send_back` or `proceed`.
+  - `decided_by`: `human`, or `system` when the decision was made automatically (after the deadline, or on an external condition).
+  - `note`: the reason for sending back, or the comment added on approval, as written by the reviewer. `None` when the reviewer wrote nothing or the decision was automatic.
+  - `decided_at`: when the decision was made (ISO 8601).
+
+  It is `None` for every other run (the first step of a case, steps that do not follow a review, and platforms that do not return it). Up to 3.0.8 the reason never reached the agent, so a step that was sent back produced the same output again; use `note` to tell your agent what to fix.
+- `context.manifest` (the start record saved to the audit) includes `gate_decision` with `gate_id` / `decision` / `decided_by` when the run follows a review. The reason / comment text is not included.
+- The sample `docs/examples/workflow_reply_agent.py` adds the reason to its instructions after a send-back.
+- **Platform requirement**: the platform runtime API returns `gate_decision` in the context. Against a platform that does not, `gate_decision` is always `None` and nothing else changes. To use it, rebuild the agent image with this SDK.
 
 ### 3.0.8 (2026-10-01) — security: Prompt Shield inspects documents to the end
 
@@ -1178,4 +1211,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.0.7
+3.0.10

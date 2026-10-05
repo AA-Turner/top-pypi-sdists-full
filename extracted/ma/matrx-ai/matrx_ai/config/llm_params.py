@@ -139,6 +139,30 @@ def _validate_camera_control(value: Any) -> dict[str, Any] | None:
 
     return validate_camera_control(value)
 
+#: thinking_level carries Gemini 3's four levels; the rest of the effort scale is
+#: CONVERTED onto reasoning_effort (the canonical depth key), never refused with a 422
+#: (FUZZ-2 2026-10-04: thinking_level "none" was a request-validation 422). "none" stays
+#: "none" (off is not unset); "auto" means unset.
+_THINKING_LEVELS = frozenset({"minimal", "low", "medium", "high"})
+_THINKING_LEVEL_TO_EFFORT = {"none": "none", "off": "none", "xhigh": "xhigh", "max": "max", "auto": None}
+
+
+def _convert_thinking_level(data: dict[str, Any]) -> None:
+    level = data.get("thinking_level")
+    if not isinstance(level, str):
+        return
+    key = level.strip().lower()
+    if key in _THINKING_LEVELS:
+        data["thinking_level"] = key
+        return
+    if key not in _THINKING_LEVEL_TO_EFFORT:
+        return  # an unknown word still gets the honest validation message
+    data["thinking_level"] = None
+    effort = _THINKING_LEVEL_TO_EFFORT[key]
+    if effort is not None and data.get("reasoning_effort") is None:
+        data["reasoning_effort"] = effort
+
+
 class LLMParams(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
@@ -167,6 +191,7 @@ class LLMParams(BaseModel):
                     continue
             if data.get(new_name) is None:
                 data[new_name] = value
+        _convert_thinking_level(data)
         return data
 
     model: ModelReference | None = None

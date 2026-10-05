@@ -1653,6 +1653,7 @@ if sys.platform != "win32":
 
         - RWF_HIPRI
         - RWF_NOWAIT
+        - RWF_DONTCACHE
 
         Using non-zero flags requires Linux 4.6 or newer.
         """
@@ -1675,6 +1676,8 @@ if sys.platform != "win32":
         - RWF_DSYNC
         - RWF_SYNC
         - RWF_APPEND
+        - RWF_DONTCACHE
+        - RWF_ATOMIC
 
         Using non-zero flags requires Linux 4.7 or newer.
         """
@@ -1829,8 +1832,8 @@ def access(
       NotImplementedError.
 
     Note that most operations will use the effective uid/gid, therefore this
-      routine can be used in a suid/sgid environment to test if the invoking user
-      has the specified access to the path.
+      routine can be used in a suid/sgid environment to test if the invoking
+      user has the specified access to the path.
     """
     ...
 def chdir(path: FileDescriptorOrPath) -> None:
@@ -2480,6 +2483,7 @@ if sys.platform != "win32":
         Like fork(), return pid of 0 to the child process,
         and pid of child to the parent process.
         To both, return fd of newly opened pseudo-terminal.
+        The master_fd is non-inheritable.
         """
         ...
     def killpg(pgid: int, signal: int, /) -> None:
@@ -2740,7 +2744,33 @@ else:
             setsigmask: Iterable[int] = (),
             setsigdef: Iterable[int] = (),
             scheduler: tuple[Any, sched_param] | None = None,  # None allowed starting in 3.15
-        ) -> int: ...
+        ) -> int:
+            """
+            Execute the program specified by path in a new process.
+
+            path
+              Path of executable file.
+            argv
+              Tuple or list of strings.
+            env
+              Dictionary of strings mapping to strings.
+            file_actions
+              A sequence of file action tuples.
+            setpgroup
+              The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.
+            resetids
+              If the value is `true` the POSIX_SPAWN_RESETIDS will be activated.
+            setsid
+              If the value is `true` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP
+              will be activated.
+            setsigmask
+              The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.
+            setsigdef
+              The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.
+            scheduler
+              A tuple with the scheduler policy (optional) and parameters.
+            """
+            ...
         def posix_spawnp(
             path: StrOrBytesPath,
             argv: _ExecVArgs,
@@ -2754,7 +2784,33 @@ else:
             setsigmask: Iterable[int] = (),
             setsigdef: Iterable[int] = (),
             scheduler: tuple[Any, sched_param] | None = None,  # None allowed starting in 3.15
-        ) -> int: ...
+        ) -> int:
+            """
+            Execute the program specified by path in a new process.
+
+            path
+              Path of executable file.
+            argv
+              Tuple or list of strings.
+            env
+              Dictionary of strings mapping to strings.
+            file_actions
+              A sequence of file action tuples.
+            setpgroup
+              The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.
+            resetids
+              If the value is `True` the POSIX_SPAWN_RESETIDS will be activated.
+            setsid
+              If the value is `True` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP
+              will be activated.
+            setsigmask
+              The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.
+            setsigdef
+              The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.
+            scheduler
+              A tuple with the scheduler policy (optional) and parameters.
+            """
+            ...
     elif sys.version_info >= (3, 13):
         def posix_spawn(
             path: StrOrBytesPath,

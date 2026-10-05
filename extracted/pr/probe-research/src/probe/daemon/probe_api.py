@@ -22,6 +22,8 @@ from urllib.parse import quote
 
 import httpx
 
+from probe import __version__
+from probe.client_headers import client_version_headers
 from probe.sdk.config import DEFAULT_BASE_URL
 from probe.sdk.key_refusal import credential_refused
 from probe.sdk.tls import ssl_context
@@ -76,8 +78,17 @@ def valid_ref(ref: str) -> str:
 
 async def _client(env: dict[str, str]) -> httpx.AsyncClient:
     base = env.get("PROBE_BASE_URL", DEFAULT_BASE_URL).rstrip("/")
-    return httpx.AsyncClient(base_url=base, timeout=TIMEOUT_S, verify=ssl_context(),
-                             headers={"Authorization": f"Bearer {env.get('PROBE_TOKEN', '')}"})
+    # The client pair rides every request, as the SDK's does: the server grades
+    # a key's caller by it, and from the light experiments' R4 refusal on a PAT
+    # request that names no version is answered as an old client wherever it
+    # reaches an experiment through its project address (the delete preview
+    # below does). The daemon ships in the probe-research distribution, so it
+    # reports the CLI's version.
+    headers = {
+        "Authorization": f"Bearer {env.get('PROBE_TOKEN', '')}",
+        **client_version_headers("cli", __version__),
+    }
+    return httpx.AsyncClient(base_url=base, timeout=TIMEOUT_S, verify=ssl_context(), headers=headers)
 
 
 async def whoami(env: dict[str, str]) -> dict:

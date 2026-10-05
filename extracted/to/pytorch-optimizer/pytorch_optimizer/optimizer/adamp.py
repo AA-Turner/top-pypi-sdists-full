@@ -1,5 +1,5 @@
 import math
-from typing import Callable, List, Tuple
+from collections.abc import Callable
 
 import torch
 from torch.nn.functional import cosine_similarity
@@ -11,12 +11,12 @@ from pytorch_optimizer.optimizer.gradient_centralization import centralize_gradi
 
 
 def channel_view(x: torch.Tensor) -> torch.Tensor:
-    """Do channel view."""
+    """Flatten a tensor to one row per output channel."""
     return x.view(x.size()[0], -1)
 
 
 def layer_view(x: torch.Tensor) -> torch.Tensor:
-    """Do layer view."""
+    """Flatten a tensor to a single row."""
     return x.view(1, -1)
 
 
@@ -29,10 +29,10 @@ def cosine_similarity_by_view(
     """Calculate cosine similarity by the view.
 
     Args:
-        x (torch.Tensor): Source tensor.
-        y (torch.Tensor): Destination tensor.
-        eps (float): Small constant epsilon added for numerical stability.
-        view_func (Callable): Function defining the view (e.g., per-channel or per-layer).
+        x: Source tensor.
+        y: Destination tensor.
+        eps: Small constant epsilon added for numerical stability.
+        view_func: Function defining the view (e.g., per channel or per layer).
 
     """
     x = view_func(x)
@@ -47,10 +47,10 @@ def projection(
     delta: float,
     wd_ratio: float,
     eps: float,
-) -> Tuple[torch.Tensor, float]:
+) -> tuple[torch.Tensor, float]:
     """Project to remove the radial component from the update vector."""
     wd: float = 1.0
-    expand_size: List[int] = [-1] + [1] * (len(p.shape) - 1)
+    expand_size: list[int] = [-1] + [1] * (len(p.shape) - 1)
     for view_func in (channel_view, layer_view):
         cosine_sim = cosine_similarity_by_view(grad, p, eps, view_func)
 
@@ -64,22 +64,22 @@ def projection(
 
 
 class SGDP(BaseOptimizer):
-    """SGD + Slowing Down the Slowdown for Momentum Optimizers on Scale-invariant Weights.
+    """SGD with projected updates for scale invariant weights.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        momentum (float): Momentum factor.
-        dampening (float): Dampening for momentum.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
-        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
-        delta (float): Threshold that determines whether a set of parameters is scale-invariant or not.
-        wd_ratio (float): Relative weight decay applied on scale-invariant parameters compared to that applied
-            on scale-variant parameters.
-        nesterov (bool): Enables Nesterov momentum.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        momentum: Momentum factor.
+        dampening: Dampening factor for momentum.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        delta: Threshold that determines whether a set of parameters is scale invariant or not.
+        wd_ratio: Relative weight decay applied on scale invariant parameters compared to that applied on
+            scale-variant parameters.
+        nesterov: Use Nesterov momentum.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -200,21 +200,21 @@ class SGDP(BaseOptimizer):
 
 
 class AdamP(BaseOptimizer):
-    """Slowing Down the Slowdown for Momentum Optimizers on Scale-invariant Weights.
+    """Adam with projected updates for scale invariant weights.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
-        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
-        delta (float): Threshold that determines whether a set of parameters is scale-invariant or not.
-        wd_ratio (float): Relative weight decay applied on scale-invariant parameters compared to that applied
-            on scale-variant parameters.
-        nesterov (bool): Enables Nesterov momentum.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        delta: Threshold that determines whether a set of parameters is scale invariant or not.
+        wd_ratio: Relative weight decay applied on scale invariant parameters compared to that applied on
+            scale-variant parameters.
+        nesterov: Use Nesterov momentum.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -326,7 +326,7 @@ class AdamP(BaseOptimizer):
                     r=group.get('adanorm_r', None),
                 )
 
-                exp_avg.mul_(beta1).add_(s_grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(s_grad, weight=1.0 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                 inv_de_nom = exp_avg_sq.sqrt().add_(group['eps']).reciprocal_().mul_(bias_correction2_sq)
@@ -337,7 +337,7 @@ class AdamP(BaseOptimizer):
                     self.apply_cautious(perturb, grad)
 
                 if group['nesterov']:
-                    perturb.mul_(beta1).addcmul_(grad, inv_de_nom, value=1.0 - beta1)
+                    perturb.lerp_(grad, weight=1.0 - beta1).mul_(inv_de_nom)
                 else:
                     perturb.mul_(inv_de_nom)
 

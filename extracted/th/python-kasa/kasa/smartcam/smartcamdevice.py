@@ -2,12 +2,22 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import logging
 from typing import Any, cast
 
-from ..device import DeviceInfo
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+
+from ..credentials import DEFAULT_CREDENTIALS, get_default_credentials
+from ..device import DeviceInfo, WifiNetwork
 from ..device_type import DeviceType
+from ..deviceconfig import DeviceConfig
+from ..exceptions import AuthenticationError, DeviceError, KasaException
 from ..module import Module
+from ..protocols import SmartProtocol
 from ..protocols.smartcamprotocol import _ChildCameraProtocolWrapper
 from ..smart import SmartChildDevice, SmartDevice
 from ..smart.smartdevice import ComponentsRaw
@@ -22,6 +32,24 @@ class SmartCamDevice(SmartDevice):
 
     # Modules that are called as part of the init procedure on first update
     FIRST_UPDATE_MODULES = {DeviceModule, ChildDevice}
+
+    STATIC_PUBLIC_KEY_B64 = (
+        "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC4D6i0oD/Ga5qb//RfSe8MrPVI"
+        "rMIGecCxkcGWGj9kxxk74qQNq8XUuXoy2PczQ30BpiRHrlkbtBEPeWLpq85tfubT"
+        "UjhBz1NPNvWrC88uaYVGvzNpgzZOqDC35961uPTuvdUa8vztcUQjEZy16WbmetRj"
+        "URFIiWJgFCmemyYVbQIDAQAB"
+    )
+
+    def __init__(
+        self,
+        host: str,
+        *,
+        config: DeviceConfig | None = None,
+        protocol: SmartProtocol | None = None,
+    ) -> None:
+        super().__init__(host, config=config, protocol=protocol)
+        self._public_key: str | None = None
+        self._networks: list[WifiNetwork] = []
 
     @staticmethod
     def _get_device_type_from_sysinfo(sysinfo: dict[str, Any]) -> DeviceType:
@@ -288,3 +316,136 @@ class SmartCamDevice(SmartDevice):
     def rssi(self) -> int | None:
         """Return the device id."""
         return self.modules[SmartCamModule.SmartCamDeviceModule].rssi
+
+    async def wifi_scan(self) -> list[WifiNetwork]:
+        """Scan for available wifi networks."""
+
+        def _net_for_scan_info(res: dict) -> WifiNetwork:
+            return WifiNetwork(
+                ssid=res["ssid"],
+                auth=res["auth"],
+                encryption=res["encryption"],
+                rssi=res["rssi"],
+                bssid=res["bssid"],
+            )
+
+        _LOGGER.debug("Querying networks")
+
+        resp = await self._query_helper("scanApList", {"onboarding": {"scan": {}}})
+        scan_data: dict = resp["scanApList"]["onboarding"]["scan"]
+        self._public_key = scan_data.get("publicKey", "")
+        self._networks = [_net_for_scan_info(net) for net in scan_data["ap_list"]]
+        return self._networks
+
+    async def wifi_join(
+        self, ssid: str, password: str, keytype: str = "wpa2_psk"
+    ) -> dict:
+        """Join the given wifi network.
+
+        This method returns nothing as the device tries to activate the new
+        settings immediately instead of responding to the request.
+
+        If joining the network fails, the device will return to the previous state
+        after some delay.
+        """
+        if not self.credentials:
+            raise AuthenticationError("Device requires authentication.")
+
+        if not self._networks:
+            await self.wifi_scan()
+        net = next(
+            (n for n in self._networks if getattr(n, "ssid", None) == ssid), None
+        )
+        if net is None:
+            raise DeviceError(f"Network with SSID '{ssid}' not found.")
+
+        encrypted_password = self._encrypt_password(password)
+
+        payload = {
+            "onboarding": {
+                "connect": {
+                    "auth": net.auth,
+                    "bssid": net.bssid,
+                    "encryption": net.encryption,
+                    "password": encrypted_password,
+                    "rssi": net.rssi,
+                    "ssid": net.ssid,
+                }
+            }
+        }
+
+        # The device does not respond to the request but changes the settings
+        # immediately which causes us to timeout.
+        # Thus, We limit retries and suppress the raised exception as useless.
+        try:
+            return await self.protocol.query({"connectAp": payload}, retry_count=0)
+        except DeviceError:
+            raise  # Re-raise on device-reported errors
+        except KasaException:
+            _LOGGER.debug(
+                "Received a kasa exception for wifi join, but this is expected"
+            )
+            return {}
+
+    def _encrypt_password(self, password: str) -> str:
+        public_key_b64 = self._public_key or self.STATIC_PUBLIC_KEY_B64
+        key_bytes = base64.b64decode(public_key_b64)
+        public_key = serialization.load_der_public_key(key_bytes)
+        if not isinstance(public_key, RSAPublicKey):
+            raise TypeError("Loaded public key is not an RSA public key")
+        encrypted = public_key.encrypt(password.encode(), padding.PKCS1v15())
+        return base64.b64encode(encrypted).decode()
+
+    async def update_credentials(self, username: str, password: str) -> dict:
+        """Update smart camera credentials."""
+        login_version = self.config.connection_type.login_version
+        last_error: DeviceError | None = None
+        for old_password_candidate in self._password_candidates():
+            try:
+                return await self._try_change_password(
+                    old_password_candidate, password, login_version
+                )
+            except DeviceError as ex:
+                last_error = ex
+
+        if last_error is not None:
+            raise last_error
+        raise KasaException("Unable to determine current admin password.")
+
+    def _password_candidates(self) -> list[str]:
+        password_candidates = [
+            get_default_credentials(default_credentials).password
+            for key, default_credentials in DEFAULT_CREDENTIALS.items()
+            if key.startswith("TAPOCAMERA")
+        ]
+        if self.credentials and self.credentials.password:
+            password_candidates.append(self.credentials.password)
+
+        return list(dict.fromkeys(password_candidates))
+
+    async def _try_change_password(
+        self, old_password: str, new_password: str, login_version: int | None
+    ) -> dict:
+        new_password_hash = self._hash_password(new_password, login_version)
+        old_password_hash = self._hash_password(old_password, login_version)
+
+        change_admin_password_payload: dict[str, str] = {
+            "secname": "root",
+            "username": "admin",
+            "old_passwd": old_password_hash,
+            "passwd": new_password_hash,
+            "ciphertext": self._encrypt_password(new_password_hash),
+        }
+        if login_version == 3:
+            change_admin_password_payload["encrypt_type"] = "3"
+
+        payload = {
+            "user_management": {"change_admin_password": change_admin_password_payload}
+        }
+        return await self.protocol.query({"changeAdminPassword": payload})
+
+    @staticmethod
+    def _hash_password(password: str, login_version: int | None) -> str:
+        if login_version == 3:
+            return hashlib.sha256(password.encode()).hexdigest().upper()  # noqa: S324
+        return hashlib.md5(password.encode()).hexdigest().upper()  # noqa: S324

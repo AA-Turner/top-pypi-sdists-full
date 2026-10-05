@@ -399,6 +399,7 @@ class AgenticStarAuthClient:
         self,
         user_id: str,
         providers: Optional[List[OAuthProviderName]] = None,
+        rejected_token_sha256: Optional[Dict[str, str]] = None,
     ) -> GetMCPTokensResult:
         """
         MCP用OAuthトークンを取得
@@ -407,6 +408,9 @@ class AgenticStarAuthClient:
             user_id: ユーザーID
             providers: 取得するプロバイダー（省略時は全プロバイダー）
                       例: ["github", "slack", "google", "office365"]
+            rejected_token_sha256: provider → 接続先に 401 で拒否されたアクセストークンの SHA-256
+                      (トークン文字列の UTF-8。16 進の小文字 64 桁)。供給側は保存中のトークンがこれと同じなら
+                      期限前でも取り直す (SDK ≥ 3.0.10 / chatboardlogin が対応している場合)。トークンそのものは渡さない
 
         Returns:
             GetMCPTokensResult: MCPトークン取得結果
@@ -436,6 +440,8 @@ class AgenticStarAuthClient:
             body: Dict[str, Any] = {"user_id": user_id}
             if providers:
                 body["providers"] = providers
+            if rejected_token_sha256:
+                body["rejected_token_sha256"] = dict(rejected_token_sha256)
 
             response = await self._request(
                 "POST", "/api/v1/oauth/mcp/token", json_body=body

@@ -312,7 +312,6 @@ async def cli(
         if type == "camera":
             encrypt_type = "AES"
             https = True
-            login_version = 2
             device_family = "SMART.IPCAMERA"
 
         from kasa.device import Device
@@ -415,7 +414,7 @@ async def shell(dev: Device) -> None:
 @click.argument("parameters", default=None, required=False)
 async def raw_command(ctx, module, command, parameters):
     """Run a raw command on the device."""
-    logging.warning("Deprecated, use 'kasa command --module %s %s'", module, command)
+    logging.warning("Deprecated, use 'kasa command --module %s %s'", module, command)  # noqa: LOG015
     return await ctx.forward(cmd_command)
 
 

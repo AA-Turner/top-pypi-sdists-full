@@ -42,7 +42,10 @@ def _resolver():
         # leftover in the shell, not evidence: Claude Code keeps its row (and
         # its question tool).
         ({"PROBE_AGENT": "pi", "CLAUDE_PLUGIN_ROOT": "/x"}, "claude_code"),
-        ({"PROBE_AGENT": "kimi", "CLAUDECODE": "1"}, "claude_code"),
+        ({"PROBE_AGENT": "gemini", "CLAUDECODE": "1"}, "claude_code"),
+        # Kimi Code: its own plugin root, or the PROBE_AGENT its manifests export.
+        ({"KIMI_PLUGIN_ROOT": "/x"}, "kimi_code"),
+        ({"PROBE_AGENT": "kimi_code", "KIMI_PLUGIN_ROOT": "/x"}, "kimi_code"),
         # No plugin root: a direct call names its harness (the parity tests
         # and pi's own callers rely on it).
         ({"PROBE_AGENT": "pi"}, "pi"),

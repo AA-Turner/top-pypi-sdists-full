@@ -89,6 +89,7 @@ from chalk.client.model_deployment import (
     ModelDeployment,
     ModelDeploymentRevision,
     ModelDeploymentSpec,
+    QueuePolicy,
 )
 from chalk.client.models import (
     TIMEDELTA_PREFIX,
@@ -6666,6 +6667,8 @@ https://docs.chalk.ai/cli/apply
         wait_timeout: float = 300,
         environment: Optional[EnvironmentId] = None,
         chalk_workload_identity: bool = False,
+        retries: Optional[int] = None,
+        queue_policy: Optional[QueuePolicy] = None,
     ) -> ModelDeployment:
         return self._get_grpc_client(environment=environment).create_model_deployment(
             name=name,
@@ -6682,6 +6685,8 @@ https://docs.chalk.ai/cli/apply
             wait_ready=wait_ready,
             wait_timeout=wait_timeout,
             chalk_workload_identity=chalk_workload_identity,
+            retries=retries,
+            queue_policy=queue_policy,
         )
 
     def get_model_deployment(
@@ -6810,6 +6815,8 @@ https://docs.chalk.ai/cli/apply
         environment: Optional[EnvironmentId] = None,
         chalk_workload_identity: bool = False,
         validate: bool = True,
+        retries: Optional[int] = None,
+        queue_policy: Optional[QueuePolicy] = None,
     ) -> dict[str, Any]:
         """Deprecated: use `create_model_deployment`. Deploys without waiting for readiness."""
         warnings.warn(DEPLOY_MODEL_VERSION_DEPRECATION, DeprecationWarning, stacklevel=2)
@@ -6834,6 +6841,8 @@ https://docs.chalk.ai/cli/apply
             readiness_probe=readiness_probe,
             startup_probe=startup_probe,
             chalk_workload_identity=chalk_workload_identity,
+            retries=retries,
+            queue_policy=queue_policy,
         )
 
     def list_scaling_groups(self, environment: Optional[EnvironmentId] = None) -> ListScalingGroupsResponse:

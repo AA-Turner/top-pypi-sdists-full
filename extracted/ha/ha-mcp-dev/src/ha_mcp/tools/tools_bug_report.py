@@ -36,6 +36,7 @@ from ..utils.usage_logger import (
     get_recent_logs,
     get_startup_logs,
 )
+from .bug_report_config import collect_config_toggles
 from .bug_report_templates import (
     REPORT_END_MARKER,
     _build_issue_url,
@@ -61,6 +62,7 @@ from .helpers import (
     register_tool_methods,
 )
 from .response_helpers import project_fields
+from .tool_hints import read_only_hints
 
 logger = logging.getLogger(__name__)
 
@@ -153,28 +155,24 @@ def _detect_installation_method() -> str:
     """
     Detect how ha-mcp was installed.
 
-    Returns one of: pyinstaller, embedded, addon, docker, git, pypi, unknown
+    Returns one of: embedded, addon, docker, git, pypi, unknown
     """
-    # 1. PyInstaller binary
-    if getattr(sys, "frozen", False):
-        return "pyinstaller"
-
-    # 2. In-process server inside HA core (the ha_mcp_tools custom
+    # 1. In-process server inside HA core (the ha_mcp_tools custom
     #    component's "server" entry). Checked BEFORE the docker probe: the
     #    HA core container carries /.dockerenv, so without this branch
     #    embedded installs misreport as plain docker.
     if is_embedded():
         return "embedded"
 
-    # 3. Home Assistant Add-on (has supervisor token)
+    # 2. Home Assistant Add-on (has supervisor token)
     if is_running_in_addon():
         return "addon"
 
-    # 4. Docker container (non-addon)
+    # 3. Docker container (non-addon)
     if Path("/.dockerenv").exists():
         return "docker"
 
-    # 5. Git clone - check for .git directory relative to package
+    # 4. Git clone - check for .git directory relative to package
     try:
         # Go up from tools_bug_report.py -> tools -> ha_mcp -> src -> project_root
         project_root = Path(__file__).parent.parent.parent.parent
@@ -185,7 +183,7 @@ def _detect_installation_method() -> str:
         # fall through to the next detection heuristic.
         pass
 
-    # 6. PyPI install - marker file exists in package
+    # 5. PyPI install - marker file exists in package
     try:
         marker_path = Path(__file__).parent.parent / "_pypi_marker"
         if marker_path.exists():
@@ -195,7 +193,7 @@ def _detect_installation_method() -> str:
         # fall through to the default "unknown" result.
         pass
 
-    # 7. Default - unknown
+    # 6. Default - unknown
     return "unknown"
 
 
@@ -315,62 +313,17 @@ def _websockets_dependency_state() -> dict[str, Any]:
     return state
 
 
-# Tool-surface-shaping toggles surfaced in bug reports. The set is small on
-# purpose: only settings that change which tools the agent sees or whether a
-# call runs, since the same bug report behaves very differently depending on
-# these. New settings of that kind should be added here so triage doesn't
-# have to ask.
-#
-# ``enable_beta_features`` leads the list because it is the master gate: when
-# off it force-disables every beta sub-flag (filesystem tools, code mode, YAML
-# editing, ...) regardless of the sub-flag's own value, so a "missing tool"
-# report is meaningless without it. ``enable_filesystem_tools`` is a beta-gated
-# tool family from issue #1804 — surfacing it lets triage see at a glance whether
-# the tool the user couldn't find was even enabled server-side.
-# ``read_only_mode`` removes the write tools, and tool security policies can
-# hold or refuse a call, so a "write did nothing" report depends on both.
-_CONFIG_TOGGLE_FIELDS: tuple[str, ...] = (
-    "enable_beta_features",
-    "read_only_mode",
-    "enable_tool_security_policies",
-    "enable_websocket",
-    "enable_dashboard_partial_tools",
-    "enable_tool_search",
-    "tool_search_max_results",
-    "enable_yaml_config_editing",
-    "enable_filesystem_tools",
-    "enable_code_mode",
-    "enabled_tool_modules",
-)
-
-
 def _get_config_toggles(settings: Settings | None = None) -> dict[str, Any]:
     """Read tool-surface-shaping config toggles from Settings.
 
-    Defaults to the global settings singleton; tests can pass a fake Settings
-    instance instead. Returns an empty dict on any failure (Settings
-    construction, attribute coercion, list-field split) so a misconfigured
-    environment can't break the bug report path itself.
+    Defaults to global settings; tests can pass Settings instead. Settings
+    lookup failures return an empty dict; tool-state failures preserve the
+    known settings and mark tool configuration diagnostics unavailable.
     """
     try:
         s = settings if settings is not None else get_global_settings()
 
-        toggles: dict[str, Any] = {}
-        for field in _CONFIG_TOGGLE_FIELDS:
-            value = getattr(s, field, None)
-            if value is None:
-                continue
-            toggles[field] = value
-
-        # Summarize list-shaped seeds as counts rather than dumping the full
-        # strings — they can be very long, and listing the exact tools the
-        # user disabled isn't useful for triage.
-        for list_field in ("disabled_tools", "pinned_tools"):
-            raw = getattr(s, list_field, "") or ""
-            count = len([item for item in raw.split(",") if item.strip()])
-            toggles[f"{list_field}_count"] = count
-
-        return toggles
+        return collect_config_toggles(s)
     except Exception as e:  # noqa: BLE001
         logger.warning(
             "Failed to read settings for bug report toggles: %s (%s)",
@@ -881,12 +834,7 @@ class BugReportTools:
     @tool(
         name="ha_report_issue",
         tags={"Utilities"},
-        annotations={
-            "openWorldHint": False,
-            "idempotentHint": True,
-            "readOnlyHint": True,
-            "title": "Report Issue or Feedback",
-        },
+        annotations=read_only_hints("Report Issue or Feedback", open_world=False),
     )
     @log_tool_usage
     async def ha_report_issue(
@@ -1092,6 +1040,9 @@ class BugReportTools:
             "mcp_client_host": client_host,
             "http_user_agent": user_agent,
             "config_toggles": config_toggles,
+            "ignored_disabled_tools": config_toggles.get("ignored_disabled_tools"),
+            "tool_config_warnings": config_toggles.get("tool_config_warnings"),
+            "tool_config_status": config_toggles.get("tool_config_status"),
             "tool_policy": tool_policy,
             "connection_status": "Unknown",
             "home_assistant_version": "Unknown",

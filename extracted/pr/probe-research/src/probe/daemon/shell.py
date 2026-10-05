@@ -139,6 +139,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator, Sequence
 
+from probe.harness import get_registry
 from probe.sdk.config import DAEMON_SHELL_CONFIG
 
 __all__ = ["ShellResult", "Step", "Verdict", "classify", "minimal_env", "read_refusal", "run"]
@@ -323,7 +324,27 @@ _HOME_SECRETS = (
 _SECRET_NAMES = frozenset({".netrc", ".pgpass", ".git-credentials", ".pypirc", ".npmrc"})
 #: Harness instruction files allowed even inside a hidden folder of a working folder.
 _HARNESS_NAMES = frozenset({"CLAUDE.md", "CLAUDE.local.md", "AGENTS.md"})
-_HARNESS_FILES = ([".claude", "CLAUDE.md"], [".codex", "AGENTS.md"], [".pi", "agent", "AGENTS.md"])
+_HARNESS_FILES = (
+    [".claude", "CLAUDE.md"], [".codex", "AGENTS.md"], [".pi", "agent", "AGENTS.md"], [".kimi-code", "AGENTS.md"],
+)  # fmt: skip
+
+
+def _moved_harness_files() -> frozenset[str]:
+    """Each harness's own instruction file where its home override puts it
+    (`$KIMI_CODE_HOME/AGENTS.md`), outside $HOME as well: read-only, like the
+    ones `_HARNESS_FILES` lists under $HOME."""
+    found: set[str] = set()
+    for harness in get_registry().all():
+        name = (harness.instructions or {}).get("global")
+        if not harness.home or not isinstance(name, str) or not name:
+            continue
+        if not (os.environ.get(harness.home["env"]) or "").strip():
+            continue
+        home = harness.home_dir()
+        if home is not None:
+            found.add(os.path.realpath(str(home / name)))
+    return frozenset(found)
+
 
 _ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\+?=")
 _SED_PRINT = re.compile(r"[0-9]+(,[0-9]+)?p")  # Codex: /^(\d+,)?\d+p$/
@@ -801,6 +822,7 @@ class _Checker:
         self.secret_prefixes = sorted(
             {v for p in secrets for v in (_norm(os.path.abspath(p)), os.path.realpath(p))}
         )
+        self.moved_harness_files = _moved_harness_files()
 
     # -- whole command --
 
@@ -1232,6 +1254,8 @@ class _Checker:
 
     def _harness(self, real: str) -> bool:
         """The coding agent's own instructions and memory, read-only (S7)."""
+        if real in self.moved_harness_files:
+            return True
         if not real.startswith(self.home_real + "/"):
             return False
         rel = real[len(self.home_real) + 1 :].split("/")

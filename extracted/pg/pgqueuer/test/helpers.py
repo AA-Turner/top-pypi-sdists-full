@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import uuid
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from itertools import count
+from pathlib import Path
 from typing import Protocol
 from urllib.parse import urlparse
 
@@ -14,6 +16,8 @@ from pgqueuer import db
 from pgqueuer.adapters.persistence import qb
 from pgqueuer.adapters.persistence.queries import Queries
 from pgqueuer.adapters.persistence.query_helpers import cell
+from pgqueuer.domain.schema.declaration import target
+from pgqueuer.domain.schema.model import Schema
 from pgqueuer.domain.types import JOB_STATUS, JobId, QueueEntrypoint, QueueManagerId
 from pgqueuer.models import Job
 from pgqueuer.ports import RepositoryPort
@@ -126,3 +130,32 @@ async def wait_until_empty_queue(
 
     for manager in managers:
         manager.shutdown.set()
+
+
+def collapse(schema: Schema) -> Schema:
+    """Whitespace-normalise function bodies; everything else compares exactly.
+
+    A plpgsql body cannot be normalised in the model itself: it carries ``--``
+    comments, so folding newlines would swallow the rest of each line.
+    """
+    return dataclasses.replace(
+        schema,
+        functions=tuple(
+            dataclasses.replace(function, body=" ".join(function.body.split()))
+            for function in schema.functions
+        ),
+    )
+
+
+def declared_schema(settings: qb.DBSettings) -> Schema:
+    """The target model, normalised the same way ``collapse`` reads."""
+    return collapse(target(settings))
+
+
+RELEASES_DIR = Path(__file__).parent / "schema_releases"
+
+
+async def install_release(driver: db.Driver, release: str) -> None:
+    """Replace the template schema with the one *release* shipped."""
+    await Queries(driver).uninstall()
+    await driver.execute((RELEASES_DIR / f"{release}.sql").read_text())

@@ -48,6 +48,11 @@ preloader={
             'desc':'percent change = ((new-old)/old)*100'
             	},
     f'{uuid1()}':{
+            'cmds':['energy absorbed','btu/cal','enab'],
+            'exec':energy_absorbed,
+            'desc':'calorie = mass of water * temperature change ; btu = 1lb of water * degF ; calorie = 50grams of water * degC'
+            	},
+    f'{uuid1()}':{
             'cmds':['rate of change','rt of chng'],
             'exec':rate_of_change,
             'desc':'rate of change = (new-old)/across'
@@ -61,7 +66,12 @@ preloader={
 			'cmds':['average daily balance','adb'],
 			'exec':averageDailyBalance,
 			'desc':'sum month end of day balances and divide by the sum of the days in that month for averageDailyBalance'
-				},       	
+				},
+	f'{uuid1()}':{
+			'cmds':['xp nm ck',],
+			'exec':experimentName_power_useage,
+			'desc':'experiment name taxt cooking'
+				},
     f'{uuid1()}':{
             'cmds':['compound interest standard','cis'],
             'exec':compound_interest_standard,
@@ -731,6 +741,26 @@ preloader={
 						'cmds':['self-inductance pint',],
 						'desc':f'find self-inductance using pint to normalize the values for self-inductance=relative_permeability*(((turns**2)*area)/length)*1.26e-6',
 						'exec':inductance_pint
+					},
+	f'{uuid1()}':{
+						'cmds':['rcpl tx1k','reciprocalOf time * 1000'],
+						'desc':f'return the (1/(time in minutes over 60))*1000; the reciprocal of time in minutes multiplied by 1000; multiply this value by kWh to get watts used',
+						'exec':lambda: rcplt1k(value=Control(ptext="How Long in minutes?",helpText="a float or integer",data="float"))
+					},
+	f'{uuid1()}':{
+						'cmds':['rcpl tx1k','reciprocalOf time.in.minutes * 1000'],
+						'desc':f'return the (1/(time in minutes over 60))*1000; the reciprocal of time in minutes multiplied by 1000; multiply this value by kWh to get watts used',
+						'exec':lambda: rcplt1k(value=Control(ptext="How Long in minutes?",helpText="a float or integer",data="float"))
+					},
+	f'{uuid1()}':{
+						'cmds':['rcpl a1k','reciprocalOf time-auto * multiplier'],
+						'desc':f'return the (1/(time as))*multiplier; the reciprocal of time in units multiplied by multiplier; multiply this value by kWh to get watts used',
+						'exec':rcpl_of_time_x_1000
+					},
+	f'{uuid1()}':{
+						'cmds':['watts used',],
+						'desc':f'return the watts used from kilowatts and time duressed',
+						'exec':watts_x_rcpl_of_time_x_1000
 					},
 	f'{uuid1()}':{
 						'cmds':['rcpl','reciprocalOf'],

@@ -359,6 +359,8 @@ class PDFDocument:
         self._page_char_counts: dict[int, int] = {}
         self._page_sizes: dict[int, tuple[float, float]] = {}
         self._page_rotations: dict[int, Literal[0, 90, 180, 270]] = {}
+        self._form_reader = None
+        self._form_reader_ready = False
         self.render_scale = render_scale
         self.render_max_edge = render_max_edge
 
@@ -469,6 +471,8 @@ class PDFDocument:
                     if session is not None:
                         _try_close(session)
         finally:
+            self._form_reader = None
+            self._form_reader_ready = False
             if getattr(self, "_pdf_doc_opened", None) is not None:
                 with _pdfium_lock:
                     _try_close(self._pdf_doc_opened)
@@ -625,6 +629,27 @@ class PDFDocument:
         """一次读取字符、tight bbox 和字符原点，避免 Hybrid 重复打开 textpage。"""
         return self._get_page_text_geometry(page_idx, include_extended_geometry=True)
 
+    def _get_page_text_paint(self, page_idx: int, char_indices: Sequence[int]) -> dict[int, tuple[int, int, int, int]]:
+        """仅为可疑短文字读取原生绘制颜色；页面和文字句柄在共享锁内及时释放，不改变字符或公开输出。"""
+        from ctypes import byref, c_uint
+        import pypdfium2.raw as raw
+
+        result = {}
+        with self._open_page(page_idx) as page:
+            text = page.get_textpage()
+            try:
+                for index in dict.fromkeys(char_indices):
+                    obj = raw.FPDFText_GetTextObject(text.raw, index)
+                    if not obj or raw.FPDFTextObj_GetTextRenderMode(obj) != 0:
+                        # 带描边或仅裁剪的文字不能仅凭填色判定浅色噪声。
+                        continue
+                    values = [c_uint() for _ in range(4)]
+                    if raw.FPDFText_GetFillColor(text.raw, index, *(byref(value) for value in values)):
+                        result[index] = tuple(value.value for value in values)
+            finally:
+                text.close()
+        return result
+
     def _extract_owned_text_snapshot(self, page_idx: int, page, *, visible_only: bool, reference: bool = True):
         """只提取并弱缓存自有文本，完整页面快照复用它而不引入额外矢量或链接依赖。"""
         key = (page_idx, visible_only)
@@ -639,7 +664,12 @@ class PDFDocument:
                 else None
             )
         text = _extract_page_text_geometry(
-            page, include_extended_geometry=True, visible_only=visible_only, compact=True, compact_only=not reference
+            page,
+            include_extended_geometry=True,
+            visible_only=visible_only,
+            compact=True,
+            compact_only=not reference,
+            paint_page_reader=(lambda: self._get_form_resource_page(page_idx)) if visible_only else None,
         )
         if text is not None and not isinstance(text, PDFPageTextGeometry):
             self._owned_text_snapshots[key] = text
@@ -701,6 +731,12 @@ class PDFDocument:
                 raw_rotation = 0
             rotation = raw_rotation if raw_rotation in {0, 90, 180, 270} else 0
             drawings, paths = _extract_page_paths_and_lines(page, page_bbox, raw_rotation)
+            form_bboxes = _extract_page_form_bboxes(page, page_bbox, raw_rotation)
+            form_infos = ()
+            if form_bboxes:
+                from .form_structure import extract_form_structure
+
+                form_infos = extract_form_structure(page, page_bbox, rotation, self._get_form_resource_page(page_idx))
             text = self._extract_owned_text_snapshot(page_idx, page, visible_only=True)
             native_text = None if isinstance(text, PDFPageTextGeometry) else text
             return _PDFPageSnapshot(
@@ -711,7 +747,8 @@ class PDFDocument:
                 drawing_lines=drawings,
                 path_infos=paths,
                 image_infos=_extract_page_image_infos(page, page_bbox, raw_rotation),
-                form_bboxes=_extract_page_form_bboxes(page, page_bbox, raw_rotation),
+                form_bboxes=form_bboxes,
+                form_infos=form_infos,
                 signature_bboxes=_extract_page_signature_bboxes(
                     page,
                     page_bbox,
@@ -720,6 +757,21 @@ class PDFDocument:
                 ),
                 link_annotations=_extract_page_link_annotations(page, self._pdf_doc.raw, page_bbox, raw_rotation),
             )
+
+    def _get_form_resource_page(self, page_idx: int):
+        """仅为含 Form 的文档惰性读取资源字典，复用 reader 并隔离损坏 PDF。"""
+        if not self._form_reader_ready:
+            self._form_reader_ready = True
+            try:
+                from pypdf import PdfReader
+
+                self._form_reader = PdfReader(BytesIO(self._pdf_bytes))
+            except Exception:
+                self._form_reader = None
+        try:
+            return self._form_reader.pages[page_idx] if self._form_reader is not None else None
+        except Exception:
+            return None
 
     def _get_page_text_geometry(
         self,

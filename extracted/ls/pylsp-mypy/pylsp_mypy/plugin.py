@@ -7,23 +7,15 @@ Created on Fri Jul 10 09:53:57 2020
 @author: Richard Kellnberger
 """
 
-import ast
 import collections
 import os
 import os.path
 import re
 import tempfile
+import tomllib
 from configparser import ConfigParser
 from pathlib import Path
 from typing import IO, Any, Optional
-
-from pylsp_mypy.hover import hover
-from pylsp_mypy.util import get_cmd
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
 
 from pylsp import hookimpl
 from pylsp.config.config import Config
@@ -37,6 +29,8 @@ from pylsp_mypy.backend import (
     MypyAPIBackend,
     MypyCommandBackend,
 )
+from pylsp_mypy.hover import hover
+from pylsp_mypy.util import get_cmd
 
 line_pattern = re.compile(
     (
@@ -405,12 +399,8 @@ def init(workspace: str) -> dict[str, str]:
     configuration = {}
     path = findConfigFile(workspace, [], ["pylsp-mypy.cfg", "pyproject.toml"], False)
     if path:
-        if "pyproject.toml" in path:
-            with open(path, "rb") as file:
-                configuration = tomllib.load(file).get("tool").get("pylsp-mypy")
-        else:
-            with open(path) as file:
-                configuration = ast.literal_eval(file.read())
+        with open(path, "rb") as file:
+            configuration = tomllib.load(file).get("tool", {}).get("pylsp-mypy", {})
 
     configSubPaths = configuration.get("config_sub_paths", [])
     mypyConfigFile = findConfigFile(
@@ -456,7 +446,7 @@ def findConfigFile(
                 file = parent.joinpath(subPath).joinpath(name)
                 if file.is_file():
                     if file.name in ["pylsp-mypy.cfg"]:
-                        raise DeprecationWarning(
+                        raise NameError(
                             f"{str(file)}: {file.name} is no longer supported, you should use a"
                             "pyproject.toml instead."
                         )

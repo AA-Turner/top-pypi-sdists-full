@@ -54,3 +54,25 @@ def job_awaiting_start(job: dict) -> bool:
     if status in _TERMINAL_JOB_STATUSES:
         return False
     return (not job.get('started_at')) or bool(job.get('gpu_slot_wait_started_at'))
+
+
+def server_liveness_time(job: dict) -> float | None:
+    """Local wall-clock time at which the node last saw this RUNNING job
+    alive, or None when the node gave no answer.
+
+    The node stamps ``liveness_age_seconds`` on running jobs with the same
+    rule its watchdog uses to call a job stale (freshest of stdout.log mtime
+    and the Redis progress tick). A wait loop folds this into its stall
+    timer -- ``last_progress_time = max(last_progress_time, t)`` -- so it
+    never declares stalled a job the node itself sees working. Hang detection
+    belongs to the node watchdog, which fails/pauses a genuinely stuck job
+    and the waiter sees that status.
+
+    2026-10-04 queso, KDDCup09_churn: the SP spent 70 min in probes +
+    baselines and 35 min in burn-in with no epoch or progress-fraction
+    movement; the client raised "stalled" at 3642s and the job finished
+    successfully three hours later."""
+    age = job.get('liveness_age_seconds')
+    if isinstance(age, bool) or not isinstance(age, (int, float)) or age < 0:
+        return None
+    return time.time() - age

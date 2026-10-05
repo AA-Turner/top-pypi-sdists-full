@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: leptris
-Version: 1.9.298.0
+Version: 1.9.304.0
 Summary: Python bindings for libleptris — fast XML 1.0 parsing and XPath 1.0, shaped like lxml
 Author: Ribose
 License-Expression: MIT

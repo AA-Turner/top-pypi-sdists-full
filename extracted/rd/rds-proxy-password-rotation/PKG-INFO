@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rds-proxy-password-rotation
-Version: 0.6.608
+Version: 0.6.609
 Summary: A program to rotate the password of an RDS database accessed via a RDS proxy
 Home-page: https://github.com/Hapag-Lloyd/rds-proxy-password-rotation
 Author: Hapag-Lloyd AG

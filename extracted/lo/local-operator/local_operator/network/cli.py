@@ -967,8 +967,7 @@ def _reported(detail: dict[str, Any], field: str, *, verb: str) -> Any:
         raise MeshRefusal(
             f"{verb}_unreported",
             f"this device's relay answered `{verb}` without reporting `{field}`, so whether "
-            "the peer acted is unknown; restart the relay with `lop network restart` and "
-            "ask again.",
+            "the peer acted is unknown; restart the relay and ask again.",
         )
     return detail[field]
 
@@ -980,15 +979,13 @@ def _resolve(target: str, root: Path | None = None) -> Any:
     # THE EMPTY CASE NAMES ITS REMEDY (UX round 1, U4). `name a network: this
     # device is in none` was measured on a device that had just been told to
     # invite and had nothing to invite to: it said what was missing and stopped,
-    # while every other refusal in this family ends with the command that gets the
-    # reader out (`no token was given … mint one on the other device with `lop
-    # network init`, bring the file across, then run …`). The sentence is composed
-    # here rather than appended by a front end because this is the one place that
-    # knows the list is EMPTY — with one network the name is optional, and with
-    # several the reader's problem is which one, not that none exists. The remedy
-    # is spelled in the CLI's own dialect; a composer reader gets this front end's
-    # spelling from ``tui_spelling``, which is what makes both readers able to
-    # paste it.
+    # while every other refusal in this family ends with the action that gets the
+    # reader out. The sentence is composed here rather than appended by a front
+    # end because this is the one place that knows the list is EMPTY — with one
+    # network the name is optional, and with several the reader's problem is
+    # which one, not that none exists. It NAMES THE PRODUCT ACTION (§2.9's
+    # repave, 2026-10-04): a network is created here — what a given front end
+    # calls that setup is front-end copy, not something this sentence may paste.
     records = store.list_networks(root)
     if not target:
         if len(records) == 1:
@@ -996,8 +993,8 @@ def _resolve(target: str, root: Path | None = None) -> Any:
         if not records:
             raise types.MeshRefusal(
                 "ambiguous_network",
-                "name a network: this device is in none — `lop network init <name>` "
-                "creates the first one",
+                "name a network: this device is in none — create a network here "
+                "to make the first one",
             )
         raise types.MeshRefusal(
             "ambiguous_network",
@@ -2721,8 +2718,7 @@ def _read_token(argument: str) -> str:
         raise types.MeshRefusal(
             "no_invite_token",
             "no token was given and this device has no invite file in its outbox. Mint "
-            "one on the other device with `lop network invite`, bring the file across, "
-            "then run `lop network join @<path>`.",
+            "one on the other device, bring the file across, then join with it.",
         )
     return files[-1].read_text(encoding="utf-8").strip()
 
@@ -5179,7 +5175,7 @@ def _cmd_sessions(args: argparse.Namespace) -> int:
     missing answer as a result (Q-R4-1). ``ok`` is a claim about a NAMED field the
     peer reported — never about the absence of one.
     """
-    from local_operator.network.types import MeshRefusal
+    from local_operator.network.types import MeshRefusal, unattended_fallback_notice
 
     peer = str(getattr(args, "peer", "") or "")
     session_id = str(getattr(args, "stop", "") or "")
@@ -5368,32 +5364,78 @@ def _cmd_sessions(args: argparse.Namespace) -> int:
             # instructions and the agent's routing. Nothing here silently drops
             # one of them, which is what the old behaviour did to both.
             pass
-        detail = _relay_answer(
-            "peer_session_create",
-            peer=peer,
-            cwd=str(getattr(args, "cwd", "") or ""),
-            name=str(getattr(args, "name", "") or ""),
-            prompt=str(getattr(args, "prompt", "") or ""),
-            # FORWARDED SO THE QUESTION CAN BE ASKED. The owner accepts it only
-            # against its own ``unattended`` grant (design §2 OQ4); dropping the
-            # flag here would leave a granted member unable to say what it wants,
-            # which is the dead end this slice removes.
-            yolo=bool(getattr(args, "yolo", False)),
-            model=(
-                {
-                    "provider": str(getattr(args, "hosting", "") or ""),
-                    "model_id": str(getattr(args, "model", "") or ""),
-                }
-                if (getattr(args, "hosting", None) or getattr(args, "model", None))
-                else None
-            ),
-            profile=profile,
-            agent_name=agent_name,
-            agent_id=agent_id,
-            team=team,
-            effort=effort,
-            timeout=120.0,  # a spawn plus its first turn's admission
-        )
+        # THE SAVED MODE SUPPLIES THE IMPLIED REQUEST (remote-onboarding §6
+        # defect 2, the create half): a device whose ``tool_approval_mode``
+        # resolves ``auto`` asks for an unattended session when it asks a peer
+        # for one, exactly as the local equivalent would run — the operator's
+        # standing "no routine re-prompts", read once, in the file. The read goes
+        # through the ONE derivation (``session_factory.saved_tool_approval_is_auto``
+        # → ``_approval_mode_is_auto``), so the request cannot drift from the gate
+        # a session started here would run with. Explicit ``--yolo`` stays the
+        # override; with config ``ask`` this call is byte-identical to what it was.
+        from local_operator.session_factory import saved_tool_approval_is_auto
+
+        explicit_yolo = bool(getattr(args, "yolo", False))
+        implied_yolo = (not explicit_yolo) and saved_tool_approval_is_auto()
+
+        def _create(yolo: bool) -> dict[str, Any]:
+            # ONE BUILDER FOR BOTH ATTEMPTS, so the fallback differs in nothing
+            # but ``yolo``. The retry is a CHANGED BODY — a changed intent — and
+            # it is issued as a fresh call (its own control connection and request
+            # numbering), never a replay of the refused frame under the old
+            # identity. Nothing durable existed when the refusal was raised:
+            # ``not_permitted`` is raised ABOVE the mint in
+            # ``relay._op_session_create``, so a refused create leaves no
+            # directory, no stamp and no claim behind — the retry has nothing to
+            # reconcile on either surface.
+            return _relay_answer(
+                "peer_session_create",
+                peer=peer,
+                cwd=str(getattr(args, "cwd", "") or ""),
+                name=str(getattr(args, "name", "") or ""),
+                prompt=str(getattr(args, "prompt", "") or ""),
+                # FORWARDED SO THE QUESTION CAN BE ASKED. The owner accepts it only
+                # against its own ``unattended`` grant (design §2 OQ4); dropping the
+                # flag here would leave a granted member unable to say what it wants,
+                # which is the dead end this slice removes.
+                yolo=yolo,
+                model=(
+                    {
+                        "provider": str(getattr(args, "hosting", "") or ""),
+                        "model_id": str(getattr(args, "model", "") or ""),
+                    }
+                    if (getattr(args, "hosting", None) or getattr(args, "model", None))
+                    else None
+                ),
+                profile=profile,
+                agent_name=agent_name,
+                agent_id=agent_id,
+                team=team,
+                effort=effort,
+                timeout=120.0,  # a spawn plus its first turn's admission
+            )
+
+        unattended_notice = ""
+        try:
+            detail = _create(explicit_yolo or implied_yolo)
+        except MeshRefusal as refusal:
+            # THE IMPLIED REQUEST FALLS BACK, ATTENDED — the acceptance read
+            # literally: an unattended send to a node must not dead-end in a failed
+            # create. ONLY THE IMPLIED CASE falls back: when the user typed
+            # ``--yolo`` they asked for unattended ITSELF, and swallowing that
+            # refusal would hide that the far end refused the thing they asked
+            # for — the design keeps the explicit ask's refusal.
+            if not implied_yolo or refusal.code != "not_permitted":
+                raise
+            detail = _create(False)
+            unattended_notice = unattended_fallback_notice(peer)
+            logging.getLogger(__name__).info(
+                "create on %s: the unattended request was refused (%s); created attended",
+                peer,
+                str(refusal),
+            )
+        if unattended_notice:
+            detail = {**detail, "unattended_notice": unattended_notice}
         minted = str(_reported(detail, "session_id", verb="create") or "")
         prompt = str(getattr(args, "prompt", "") or "")
         # THE RECEIPT NAMES THE DEVICE, AND DOES NOT CALL AN ABSENT PROMPT A
@@ -5408,6 +5450,13 @@ def _cmd_sessions(args: argparse.Namespace) -> int:
         # moment ago and have already scrolled past. The machine-readable
         # ``admitted`` key is unchanged — a ``--json`` consumer branches on it.
         lines = [f"session: {minted or '-'}", f"created on {peer}"]
+        if unattended_notice:
+            # THE FALLBACK IS SAID OUT LOUD. The same sentence rides the payload
+            # (``**detail`` below carries ``unattended_notice``), so a ``--json``
+            # consumer reads it too; a receipt that quietly created attended where
+            # the device is set to auto would be the silent substitution this
+            # slice exists to end.
+            lines.append(unattended_notice)
         # WHO IT RUNS AS, SAID IN THE RECEIPT. The identity half of this verb is new,
         # and a receipt that named the device but not the agent would leave the one
         # fact the user just chose unreported — they cannot re-read it from the
@@ -5609,6 +5658,40 @@ def _status_membership_lines(row: dict[str, Any]) -> list[str]:
     return membership_lines(row)
 
 
+def _generation_line(payload: Mapping[str, Any]) -> str:
+    """The ``build:`` row for `status`, or ``""`` when there is nothing to say.
+
+    THE HONESTY HALF OF THE DRILL'S FIX (2026-10-04, F6). An update moves the
+    install onto a new generation and the relay keeps serving the build it was
+    started from until something restarts it — three were found in one night,
+    one 14 hours stale, and the relay is the one process whose protocol must
+    match its peer's. Nothing on any surface said so; this row does, from the
+    same facts ``--json`` carries.
+
+    THE WORDS ARE THE FAMILY'S (design round 1, D3/D4): ``build``, a version for
+    the value (the generation id reads as noise outside this module and rides
+    ``--json`` as provenance), and the ``behind X`` + remedy shape
+    ``readiness.build_suffix`` already prints — every rendered form ≤80 columns
+    so the remedy never wraps. One missing reading is two different things, and
+    design round 1 (D1) made the row say which is which: a machine with nothing
+    to name on either side (no layout, no unit, no shim) cannot have this
+    question, so there is no row; a machine whose running build cannot be read
+    at all says ``not reported`` rather than staying silent, because silence
+    would read as healthy; and a machine whose build WAS read while the
+    comparison could not be proven names that build (``… — cannot confirm it is
+    current``) instead of withholding it. The flag is never guessed —
+    ``relay_generation_stale`` is True/False only when the shipped probe proves
+    the move or the match — so the remedy appears only when the restart is
+    warranted.
+    """
+    from local_operator.network.relay import generation_words
+
+    if not payload.get("relay_running"):
+        return ""
+    words = generation_words(payload)
+    return f"build:      {words}" if words else ""
+
+
 def _cmd_status(args: argparse.Namespace) -> int:
     relay_mod = _import_relay()
     # ASK FOR A FRESH TABLE PASS (bounded — see ``relay._fresh_membership_read``):
@@ -5638,9 +5721,19 @@ def _cmd_status(args: argparse.Namespace) -> int:
         f"identity:   {'present' if payload['identity_present'] else 'missing'}",
         f"relay:      {relay_line}",
     ]
-    # THE AUDIT LINE, IN THE SAME BLOCK AND AT THE SAME COLUMN as the three above
-    # (every value here starts at cell 12: `installed:`+2, `identity:`+3, `relay:`+6,
-    # `audit:`+6). The counters existed on this command's ``--json`` for two releases
+    # THE RUNNING RELAY'S BUILD (drill 2026-10-04, F6): the row the three stale
+    # relays were invisible without. Derived from the payload's ``relay_build``/
+    # ``relay_generation*`` facts, so this block and ``--json`` cannot disagree;
+    # omitted only where the machine has no generation layout (the question
+    # cannot exist there), and "not reported" where one exists but the running
+    # build could not be read — see :func:`_generation_line`.
+    generation_line = _generation_line(payload)
+    if generation_line:
+        lines.append(generation_line)
+    # THE AUDIT LINE, IN THE SAME BLOCK AND AT THE SAME COLUMN as the rows above
+    # (every value here starts at cell 12: `installed:`+2, `identity:`+3,
+    # `relay:`+6, `build:`+6, `audit:`+6). The counters existed on this command's
+    # ``--json`` for two releases
     # while the human block said nothing about them, which made a lagging writer and a
     # healthy one the same picture to the reader the numbers are for (design round 3,
     # D40). It sits ABOVE ``log:`` because it is news about the relay's own state while
@@ -6067,8 +6160,7 @@ def _cmd_confirm(args: argparse.Namespace) -> int:
             "no_pending_pairing",
             "no device is waiting to pair with this one"
             + (f" under invite {wanted}" if wanted else "")
-            + ". Run `lop network confirm --list` to see the queue, or mint an invite "
-            "with `lop network invite`.",
+            + ". Check the pairing queue, or mint an invite.",
         )
 
     invite_id = str(chosen.get("invite_id") or "")
@@ -6185,7 +6277,7 @@ def _read_confirmation(args: argparse.Namespace, chosen: dict[str, Any]) -> tupl
             raise types.MeshRefusal(
                 "test_seam_closed",
                 f"--sas-stdin is the test harness's seam and requires {TEST_MODE_ENV}=1. "
-                "Run `lop network confirm` at a terminal: the comparison is the human "
+                "Confirm at a terminal: the comparison is the human "
                 "check, and answering it from a script makes it a formality.",
             )
         typed = sys.stdin.readline().strip().lower()
@@ -6347,24 +6439,36 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 
     lines = []
     for check in checks:
-        state = "ok " if check.get("ok") else "FAIL"
-        # The shared clause hangs here with one separator spelling (design round
-        # 1, D3): the sentence itself lives in ``readiness``, so this line and
-        # the readiness reading cannot drift apart.
-        clause = readiness_mod.informational_clause(check)
+        observed = check.get("observed")
+        observed = observed if isinstance(observed, Mapping) else {}
+        scoped = bool(observed.get("out_of_scope"))
+        if scoped:
+            # EXCLUDED FROM THE DECISION, VISIBLE IN THE READING (F9; design
+            # round 1, D3): the same address reads the same way here as on
+            # ``ready`` — neither a failure nor a verification — and the raw
+            # dial result does not ride along.
+            state = "n/a "
+        else:
+            state = "ok " if check.get("ok") else "FAIL"
+        # The shared clause hangs here with one separator spelling: the
+        # sentences live in ``readiness``, so these lines and the readiness
+        # readings cannot drift apart (design round 1, D3).
+        if scoped:
+            clause = readiness_mod.out_of_scope_clause(check)
+            detail_words = ""
+        else:
+            clause = readiness_mod.informational_clause(check)
+            detail_words = doctor_detail_words(str(check.get("detail", "")))
         lines.append(
             f"{state} {check.get('check', '')} {check.get('device_id', '')} "
-            f"{check.get('endpoint', '')} {doctor_detail_words(str(check.get('detail', '')))}"
+            f"{check.get('endpoint', '')} {detail_words}".rstrip()
             + (f" {check['latency_ms']}ms" if check.get("latency_ms") is not None else "")
             + (f" — {clause}" if clause else "")
         )
     if not lines:
         lines.append("nothing to check: no networks, or no other members yet")
     if not payload.get("identity_present", True):
-        lines.append(
-            "this device has no device identity (identity_missing): run `lop network init`, or "
-            "re-pair with a new invite"
-        )
+        lines.append(readiness_mod.NO_IDENTITY_LINE)
     failures = [
         f"{check.get('check', '')}: {doctor_detail_words(str(check.get('detail', ''))) or 'failed'}"
         for check in checks
@@ -6425,12 +6529,28 @@ def _cmd_ready(args: argparse.Namespace) -> int:
     )
     payload = live if live is not None else _ready_locally(args)
     checks = list(payload.get("checks") or [])
+    # THE ROW'S OWN STATE, ON THE ROW (F8 residual): `ready --json` is the
+    # drill's acceptance surface, and a reader there scans ROWS, not the
+    # aggregate — a reported-but-non-gating row must not read failure-shaped
+    # to it. The cell is the same register the human column prints
+    # (`readiness.row_state`), so the two readings cannot drift; the raw `ok`
+    # stays as reported (a warn row keeps `ok: false` — reported, not failed)
+    # and a genuine admission/operator failure keeps `FAIL`. Stamped here, the
+    # one point both producers (the live relay report and the no-dial local
+    # fallback) pass through.
+    for check in checks:
+        check["state"] = readiness_mod.row_state(check)
     lines = _ready_lines(checks)
     if not lines:
         lines.append(readiness_mod.NOTHING_TO_CHECK_LINE)
     if not payload.get("identity_present", True):
         lines.append(readiness_mod.NO_IDENTITY_LINE)
-    failures = [_ready_failure(check) for check in checks if not check.get("ok")]
+    # THE SAME FOLD THE VERIFY RECEIPT READS (design round 1, D1): a row that
+    # cannot hold the onboarding verdict must not redden this report either — it
+    # is named in its own ``warn`` line below and in the receipt's equipment
+    # note, never as the reason the whole report failed. The fold excludes
+    # nothing admission-shaped or still-gating.
+    failures = [_ready_failure(check) for check in readiness_mod.onboarding_failures(checks)]
     healthy = not failures and bool(payload.get("identity_present", True))
     answer: dict[str, Any] = {**payload, "ok": healthy}
     if not healthy:
@@ -6476,13 +6596,23 @@ def _relay_state() -> tuple[str, bool]:
     timeout its record classifies as ``wedged`` and a live-only scan returns nothing
     — the branch added for the wedge sat behind a read that could never see one, and
     `doctor` went on calling a stopped process "not running" (QA round 3, Q-R3-4).
+
+    AND THE SENTENCE NAMES THE RUNNING BUILD WHERE IT CAN (drill 2026-10-04, F6):
+    the same reading `lop network status` names, so the fallback path this
+    function feeds (doctor, ready) cannot describe a relay a generation behind
+    without saying so. What it cannot read, it never dresses as current: an
+    unreadable build adds ``not reported``, and a readable one with an unproven
+    comparison (F10) is named with ``… — cannot confirm it is current`` — both
+    only where the question exists (a generation layout, an installed unit, or a
+    shim), and a machine with none of them keeps this sentence byte-for-byte.
     """
     from local_operator.network import relay as relay_mod
     from local_operator.network import store
 
     live = relay_mod.health()
     if live is not None:
-        return f"running, pid {live.get('pid')}", True
+        clause = relay_mod.generation_clause(relay_mod.generation_reading(live.get("pid")))
+        return f"running, pid {live.get('pid')}{clause}", True
     record, state = store.scan_own_relay()
     if record is not None:
         detail = (
@@ -6491,7 +6621,14 @@ def _relay_state() -> tuple[str, bool]:
             if state == "wedged"
             else "its control socket did not answer this probe"
         )
-        return f"running (pid {record.pid}), and {detail}", True
+        # THE BUILD IS ITS OWN SENTENCE, AFTER THE DETAIL (design round 1, D6):
+        # run into one clause it read as a second thing to do — "…; run `lop
+        # network restart`, and its control socket…" — with the remedy stranded
+        # mid-clause. Detail first; the reading (and its remedy, when the
+        # reading proves the move) second. No reading: no second sentence.
+        words = relay_mod.generation_words(relay_mod.generation_reading(record.pid))
+        tail = f". Build {words}." if words else ""
+        return f"running (pid {record.pid}), and {detail}{tail}", True
     return "not running", False
 
 
@@ -6630,6 +6767,7 @@ def _ready_locally(args: argparse.Namespace) -> dict[str, Any]:
     checks.append(
         {
             "check": "identity",
+            "class": readiness_mod.CLASS_ADMISSION,
             "ok": identity_file.exists(),
             "detail": "present" if identity_file.exists() else "identity_missing",
         }
@@ -6638,6 +6776,7 @@ def _ready_locally(args: argparse.Namespace) -> dict[str, Any]:
         checks.append(
             {
                 "check": "network",
+                "class": readiness_mod.CLASS_ADMISSION,
                 "ok": not record.stale,
                 "detail": record.stale or "ok",
                 "network_id": record.network_id,
@@ -6648,6 +6787,7 @@ def _ready_locally(args: argparse.Namespace) -> dict[str, Any]:
             checks.append(
                 {
                     "check": "membership",
+                    "class": readiness_mod.CLASS_ADMISSION,
                     "network_id": record.network_id,
                     "ok": False,
                     "code": standing["state"],
@@ -6663,6 +6803,7 @@ def _ready_locally(args: argparse.Namespace) -> dict[str, Any]:
             checks.append(
                 {
                     "check": "reachability",
+                    "class": readiness_mod.CLASS_ADMISSION,
                     "device_id": member.device_id,
                     "device_name": member.name,
                     "endpoint": (member.endpoints or [""])[0],
@@ -6706,10 +6847,10 @@ def _cmd_identity_show(args: argparse.Namespace) -> int:
             {
                 "ok": False,
                 "code": "identity_missing",
-                "message": "this device has no mesh identity yet; run `lop network init`",
+                "message": "this device has no mesh identity yet; create a network here",
                 "error": "identity_missing",
             },
-            ["this device has no mesh identity yet; run `lop network init`"],
+            ["this device has no mesh identity yet; create a network here"],
         )
     return _emit(
         args,

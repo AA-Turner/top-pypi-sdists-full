@@ -6,9 +6,13 @@ Every server response to a client that reports its version carries
 worth interrupting anyone for, and only once: a training loop makes thousands
 of requests, and a notice repeated on each is one people learn to filter.
 
-The server never refuses a request by version (no 426), so this is advice, not
-an error. It must never raise: it runs on every response, beside a training
-loop. Stdlib-only for the same reason.
+These headers are advice, not an error: the server answers the request either
+way. Its one refusal by version is separate and narrow -- from the light
+experiments' R4 refusal on (switched on by a usage gate), an older client that
+addresses an experiment through its project address gets 410
+`client_too_old`, raised as `ClientTooOldError` by the transport, never here.
+This must never raise: it runs on every response, beside a training loop.
+Stdlib-only for the same reason.
 """
 
 from __future__ import annotations

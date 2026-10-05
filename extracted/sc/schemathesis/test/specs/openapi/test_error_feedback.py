@@ -132,6 +132,17 @@ def _assert_valid_schema_object(input_schema: object, out: object, *, draft: str
         raise AssertionError(f"Adjustment output is not a valid Schema Object: {exc}") from exc
 
 
+def _apply_body_adjustment(adjustment, schema, observations, case_factory):
+    out = adjustment.apply(
+        operation=case_factory().operation,
+        location=ParameterLocation.BODY,
+        schema=schema,
+        observations=observations,
+    )
+    _assert_valid_schema_object(schema, out)
+    return out
+
+
 @pytest.fixture
 def make_operation(ctx):
     def factory(method: str = "post", path: str = "/api/users"):
@@ -7140,6 +7151,18 @@ def test_restler_parser_can_parse_rejects_non_restler_bodies(body):
     assert RestlerParser().can_parse(body=body) is False
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"error": {"code": 400, "message": 5}},
+        _restler("Thirdparty ID is mandatory"),
+    ],
+    ids=["non-string-message", "unrecognised-message"],
+)
+def test_restler_parser_parse_ignores_unclassifiable_bodies(make_operation, case_factory, body):
+    assert parse_observations(RestlerParser(), body, make_operation, case_factory) == ()
+
+
 @_RESTLER_VERSIONS
 @pytest.mark.parametrize(("message", "expected"), _RESTLER_MESSAGES)
 def test_restler_parser_parse(make_operation, case_factory, message, expected, version):
@@ -8071,14 +8094,10 @@ def _build_observations(*paths: tuple[str | int, ...]) -> tuple[Observation, ...
     ],
 )
 def test_required_field_adjustment_applies_correctly(input_schema, paths, expected, case_factory):
-    out = RequiredFieldAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_observations(*paths),
+    assert (
+        _apply_body_adjustment(RequiredFieldAdjustment(), input_schema, _build_observations(*paths), case_factory)
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 def test_required_field_adjustment_idempotent(case_factory):
@@ -8283,14 +8302,12 @@ def _build_size_bound_observations(
     ],
 )
 def test_size_bound_adjustment_applies_correctly(input_schema, items, expected, case_factory):
-    out = SizeBoundAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_size_bound_observations(*items),
+    assert (
+        _apply_body_adjustment(
+            SizeBoundAdjustment(), input_schema, _build_size_bound_observations(*items), case_factory
+        )
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 def _build_format_observations(*items: tuple[tuple[str | int, ...], str]) -> tuple[Observation, ...]:
@@ -8414,14 +8431,10 @@ def _build_format_observations(*items: tuple[tuple[str | int, ...], str]) -> tup
     ],
 )
 def test_format_adjustment_applies_correctly(input_schema, items, expected, case_factory):
-    out = FormatAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_format_observations(*items),
+    assert (
+        _apply_body_adjustment(FormatAdjustment(), input_schema, _build_format_observations(*items), case_factory)
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 def _build_numeric_bound_observations(
@@ -8554,14 +8567,12 @@ def openapi_31_case_factory(openapi_31):
     ],
 )
 def test_numeric_bound_adjustment_applies_correctly_draft4(input_schema, items, expected, case_factory):
-    out = NumericBoundAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_numeric_bound_observations(*items),
+    assert (
+        _apply_body_adjustment(
+            NumericBoundAdjustment(), input_schema, _build_numeric_bound_observations(*items), case_factory
+        )
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 @pytest.mark.parametrize(
@@ -8790,14 +8801,10 @@ def _build_pattern_observations(*items: tuple[tuple[str | int, ...], str]) -> tu
     ],
 )
 def test_pattern_adjustment_applies_correctly(input_schema, items, expected, case_factory):
-    out = PatternAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_pattern_observations(*items),
+    assert (
+        _apply_body_adjustment(PatternAdjustment(), input_schema, _build_pattern_observations(*items), case_factory)
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 def _build_type_mismatch_observations(
@@ -8971,14 +8978,12 @@ def _build_type_mismatch_observations(
     ],
 )
 def test_type_mismatch_adjustment_applies_correctly(input_schema, items, expected, case_factory):
-    out = TypeMismatchAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_type_mismatch_observations(*items),
+    assert (
+        _apply_body_adjustment(
+            TypeMismatchAdjustment(), input_schema, _build_type_mismatch_observations(*items), case_factory
+        )
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 @pytest.mark.parametrize(
@@ -9080,14 +9085,12 @@ def test_type_mismatch_adjustment_applies_correctly(input_schema, items, expecte
     ],
 )
 def test_type_mismatch_adjustment_handles_drf_and_java_payloads(input_schema, items, expected, case_factory):
-    out = TypeMismatchAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_type_mismatch_observations(*items),
+    assert (
+        _apply_body_adjustment(
+            TypeMismatchAdjustment(), input_schema, _build_type_mismatch_observations(*items), case_factory
+        )
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 def _build_enum_observations(*items: tuple[tuple[str | int, ...], tuple[str, ...]]) -> tuple[Observation, ...]:
@@ -9205,27 +9208,18 @@ def _build_enum_observations(*items: tuple[tuple[str | int, ...], tuple[str, ...
     ],
 )
 def test_enum_adjustment_applies_correctly(input_schema, items, expected, case_factory):
-    out = EnumAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_enum_observations(*items),
+    assert (
+        _apply_body_adjustment(EnumAdjustment(), input_schema, _build_enum_observations(*items), case_factory)
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 def test_size_bound_adjustment_preserves_stricter_existing_bound(case_factory):
     # Schema's `maxLength: 10` is tighter than server's `max: 15` — keep the schema's.
     schema = {"type": "object", "properties": {"username": {"type": "string", "maxLength": 10}}}
-    out = SizeBoundAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=schema,
-        observations=_build_size_bound_observations((("username",), 0, 15)),
-    )
-    _assert_valid_schema_object(schema, out)
-    assert out == {
+    assert _apply_body_adjustment(
+        SizeBoundAdjustment(), schema, _build_size_bound_observations((("username",), 0, 15)), case_factory
+    ) == {
         "type": "object",
         "properties": {"username": {"type": "string", "minLength": 0, "maxLength": 10}},
     }
@@ -9243,14 +9237,7 @@ def test_size_bound_adjustment_min_only_payload(case_factory):
             payload=SizeBoundPayload(min=3, max=None),
         ),
     )
-    out = SizeBoundAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=schema,
-        observations=obs,
-    )
-    _assert_valid_schema_object(schema, out)
-    assert out == {
+    assert _apply_body_adjustment(SizeBoundAdjustment(), schema, obs, case_factory) == {
         "type": "object",
         "properties": {"name": {"type": "string", "minLength": 3}},
     }
@@ -9268,14 +9255,7 @@ def test_size_bound_adjustment_max_only_payload(case_factory):
             payload=SizeBoundPayload(min=None, max=20),
         ),
     )
-    out = SizeBoundAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=schema,
-        observations=obs,
-    )
-    _assert_valid_schema_object(schema, out)
-    assert out == {
+    assert _apply_body_adjustment(SizeBoundAdjustment(), schema, obs, case_factory) == {
         "type": "object",
         "properties": {"name": {"type": "string", "maxLength": 20}},
     }
@@ -9832,6 +9812,38 @@ def test_pydantic_parser_extracts_extra_forbidden(loc, expected_path, make_opera
     ],
 )
 def test_additional_properties_adjustment_forbids_extras(input_schema, path, expected, case_factory):
+    assert (
+        _apply_body_adjustment(
+            AdditionalPropertiesAdjustment(),
+            input_schema,
+            (
+                Observation(
+                    operation_label="POST /api/users",
+                    location=ParameterLocation.BODY,
+                    parameter_path=path,
+                    kind=ObservationKind.FORBIDS_ADDITIONAL_PROPERTIES,
+                    raw_message="Extra inputs are not permitted",
+                ),
+            ),
+            case_factory,
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize(
+    "input_schema, path, expected",
+    [
+        pytest.param(True, (), True, id="boolean-schema"),
+        pytest.param(
+            {"type": "object", "properties": {"a": {}}},
+            ("missing",),
+            {"type": "object", "properties": {"a": {}}},
+            id="unknown-nested-property",
+        ),
+    ],
+)
+def test_additional_properties_adjustment_skips_unreachable_targets(input_schema, path, expected, case_factory):
     out = AdditionalPropertiesAdjustment().apply(
         operation=case_factory().operation,
         location=ParameterLocation.BODY,
@@ -9846,7 +9858,6 @@ def test_additional_properties_adjustment_forbids_extras(input_schema, path, exp
             ),
         ),
     )
-    _assert_valid_schema_object(input_schema, out)
     assert out == expected
 
 
@@ -10391,26 +10402,20 @@ def _build_unexpected_property_observations(*paths: tuple[str | int, ...]) -> tu
     ],
 )
 def test_unexpected_property_adjustment_applies_correctly(input_schema, paths, expected, case_factory):
-    out = UnexpectedPropertyAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_unexpected_property_observations(*paths),
+    assert (
+        _apply_body_adjustment(
+            UnexpectedPropertyAdjustment(), input_schema, _build_unexpected_property_observations(*paths), case_factory
+        )
+        == expected
     )
-    _assert_valid_schema_object(input_schema, out)
-    assert out == expected
 
 
 def test_unexpected_property_adjustment_drops_empty_required(case_factory):
     # Empty `required` violates the OpenAPI meta-schema and crashes Hypothesis draws.
     input_schema = {"type": "object", "properties": {"shadow": {}}, "required": ["shadow"]}
-    out = UnexpectedPropertyAdjustment().apply(
-        operation=case_factory().operation,
-        location=ParameterLocation.BODY,
-        schema=input_schema,
-        observations=_build_unexpected_property_observations(("shadow",)),
+    out = _apply_body_adjustment(
+        UnexpectedPropertyAdjustment(), input_schema, _build_unexpected_property_observations(("shadow",)), case_factory
     )
-    _assert_valid_schema_object(input_schema, out)
     assert "required" not in out
 
 

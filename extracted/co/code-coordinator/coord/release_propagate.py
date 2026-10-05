@@ -556,7 +556,7 @@ class GateVerdict:
         """
         hosts: set[str] = set()
         for finding in self.blocking:
-            for host, _lane in _finding_pairs(finding):
+            for host, _lane in finding_pairs(finding):
                 if not host or host == _UNATTRIBUTABLE_HOST:
                     return None
                 hosts.add(host)
@@ -576,8 +576,16 @@ class GateVerdict:
 _SEVERITY_RANK = {"ok": 0, "unknown": 1, "warn": 2, "crit": 3}
 
 
-def _finding_pairs(finding: Mapping[str, Any]) -> list[tuple[str, str]]:
-    """``(host, lane)`` for every lane a verify finding actually speaks about."""
+def finding_pairs(finding: Mapping[str, Any]) -> list[tuple[str, str]]:
+    """``(host, lane)`` for every lane a verify finding actually speaks about.
+
+    Public (#3588): the one place that knows how to take a grouped finding
+    apart is this function — a caller outside this module (``coord/commands/
+    release.py``'s ``_scope_gate``, matching a finding against this run's own
+    ``deferred`` lanes) must call it too, rather than re-deriving the same
+    ``"lane (host)"`` parsing a second time (the "one question, one answer"
+    rule — see #2085).
+    """
     lane_field = str(finding.get("lane") or "")
     pairs = [
         parsed
@@ -602,7 +610,26 @@ def attempted_scope(lanes: Iterable[Mapping[str, Any]]) -> set[tuple[str, str]]:
       daemon's python lane failed, or already on the target;
     * anything flagged ``unrollable`` — a lane with no channel *on this host*
       (the remote ``coord-tui``, an agent that predates ``/deploy-units``).
-      Attempting is not the same as being able to.
+      Attempting is not the same as being able to;
+    * anything flagged ``deferred`` (#3588) — a python lane whose swap
+      landed but whose restart this run's own ``/update`` deliberately put
+      off to the agent's idle self-restart watcher (#2139) because it had
+      live assignments at that instant. This genuinely was attempted and
+      could resolve any moment on its own; it is excluded for the opposite
+      reason ``unrollable`` is — not "nothing to wait for" but "already
+      waiting, correctly". A row this run attempted MUST have ``ok is
+      None`` here for either reason to end up excluded — both are checked
+      through the one ``ok is None`` test below, not two parallel ones,
+      so a row can never be "attempted and blocking" through one flag
+      while reading as unattempted through the other.
+
+      NEVER the daemon host's own python lane: ``agent_app.
+      _idle_restart_target`` refuses to ever fire there on purpose
+      (``_daemon_runs_here()`` true), so a "staged" result on that host is
+      permanently stuck, not pending — ``coord.commands.release``'s roll
+      loop scores it as a plain ``ok=False`` failure instead, specifically
+      so it can never reach this exclusion and can never make the gate
+      report ``verified``/exit 0 while the daemon sits on the old version.
     """
     scope: set[tuple[str, str]] = set()
     for row in lanes:
@@ -646,7 +673,7 @@ def scope_verification(
     for finding in verification.get("findings") or []:
         if not isinstance(finding, Mapping):
             continue
-        pairs = _finding_pairs(finding)
+        pairs = finding_pairs(finding)
         holds = False
         for host, lane in pairs:
             kind = verify_lane_kind(lane)
@@ -1705,6 +1732,32 @@ _STATUS_MARK = {
 }
 
 
+def lane_mark(ok: bool | None, *, deferred: bool = False) -> str:
+    """The one-character glyph a single lane row's ``(ok, deferred)`` pair
+    renders as.
+
+    #3588 review: `coord.commands.release`'s roll loop computes this exact
+    mark for its own live `_out` echo of a lane the moment it is rolled, and
+    :func:`render_record` computes it again later for the same row once it
+    has round-tripped through the journal. Two independent copies of the
+    same ternary is exactly the "one question, one answer" trap #2085 named
+    for `finding_pairs` — sharing this one function is what keeps a future
+    change to the mark scheme (a new lane outcome, a new glyph) from
+    reaching one call site and not the other.
+
+    ``ok is None`` is "excluded from the gate" either way (see
+    :func:`attempted_scope`) but is NOT one situation — ``deferred=True`` is
+    "attempted, pending this host's own idle self-restart watcher (#2139)";
+    ``deferred=False`` is "no channel for this lane on this host at all" (a
+    remote `coord-tui` with no install path, most commonly). Collapsing
+    those back to one glyph would re-hide the distinction the `deferred`
+    flag exists to keep legible.
+    """
+    if ok is None:
+        return "⧗" if deferred else "·"
+    return "✓" if ok else "✗"
+
+
 def render_record(record: PropagationRecord | Mapping[str, Any]) -> list[str]:
     """Human-readable lines for one attempt."""
     data = record.to_dict() if isinstance(record, PropagationRecord) else dict(record)
@@ -1747,11 +1800,11 @@ def render_record(record: PropagationRecord | Mapping[str, Any]) -> list[str]:
 
     for lane in data.get("lanes") or []:
         ok = lane.get("ok")
-        lane_mark = "✓" if ok else ("·" if ok is None else "✗")
+        mark = lane_mark(ok, deferred=bool(lane.get("deferred")))
         detail = lane.get("detail") or ""
         channel = lane.get("channel")
         lines.append(
-            f"    {lane_mark} {lane.get('lane')}@{lane.get('host')}"
+            f"    {mark} {lane.get('lane')}@{lane.get('host')}"
             + (f" [{channel}]" if channel else "")
             + (f" — {detail}" if detail else "")
         )

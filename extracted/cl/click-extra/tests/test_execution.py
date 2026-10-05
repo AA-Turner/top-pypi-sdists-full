@@ -18,6 +18,7 @@ subprocess-execution primitives (run_cli and the interrupt machinery)."""
 
 from __future__ import annotations
 
+import ast
 import logging
 import os
 import re
@@ -35,6 +36,7 @@ import click
 import cloup
 import pytest
 from boltons.strutils import strip_ansi
+from extra_platforms import is_windows
 from extra_platforms.pytest import skip_windows
 
 from click_extra import (
@@ -60,6 +62,7 @@ from click_extra import (
 )
 from click_extra.execution import (
     _GROUP_LEADERS,
+    _KILL_SIGNAL,
     _LIVE_PROCESSES,
     _LIVE_PROCESSES_LOCK,
     _WORKER_WINDOW_FACTOR,
@@ -557,6 +560,650 @@ def test_run_lanes_interrupt_aborts_without_blocking():
         assert monotonic() - start < 4
     finally:
         release.set()
+
+
+def test_run_lanes_interrupt_stops_each_lane_after_its_current_item():
+    """An interrupt lets each running lane finish its current item, then stop."""
+    started = threading.Event()
+    release = threading.Event()
+    ran: list[int] = []
+    lock = threading.Lock()
+
+    def work(n):
+        with lock:
+            ran.append(n)
+        if n == 0:
+            started.wait(timeout=5)
+            raise KeyboardInterrupt
+        if n == 1:
+            started.set()
+            release.wait(timeout=5)
+        return n
+
+    with pytest.raises(KeyboardInterrupt):
+        list(run_lanes(work, ([0], [1, 2, 3]), jobs=2))
+    release.set()
+    # Leaves the lane worker time to run on, which it must not.
+    sleep(0.3)
+    assert sorted(ran) == [0, 1]
+
+
+NAP_CLI = """
+import time
+
+import click_extra
+
+
+@click_extra.command
+def nap():
+    print("ready", flush=True)
+    time.sleep(30)
+
+
+nap()
+"""
+"""A CLI that announces it is running, then sleeps until interrupted."""
+
+
+PARSE_NAP_CLI = """
+import time
+
+import click_extra
+
+
+def soak(ctx, param, value):
+    print("ready", flush=True)
+    time.sleep(30)
+
+
+@click_extra.command
+@click_extra.option("--beans", expose_value=False, callback=soak)
+def stew():
+    pass
+
+
+stew()
+"""
+"""A CLI that sleeps while it parses its options, before its context is entered."""
+
+
+def interrupt_cli(
+    tmp_path: Path,
+    script: str,
+    presses: int = 1,
+    launcher: tuple[str, ...] = (),
+) -> tuple[int, str]:
+    """Run `script` in a child, press Ctrl+C `presses` times once it is ready.
+
+    `launcher` holds the interpreter arguments that go before the script, to run
+    it through another CLI.
+
+    A further press waits for the child to say what one does, so it lands once
+    the child handles it. A child that never says so is killed.
+
+    :return: the child's return code and its `stderr`.
+    """
+    script_path = tmp_path / "cli.py"
+    script_path.write_text(script, encoding="UTF-8")
+    process = subprocess.Popen(
+        (sys.executable, *launcher, str(script_path)),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="UTF-8",
+        # Keeps a `-m` launcher on the installed package, not on a checkout the
+        # tests happen to run from.
+        cwd=tmp_path,
+    )
+    watchdog = threading.Timer(20, process.kill)
+    watchdog.start()
+    stderr = ""
+    try:
+        assert process.stdout is not None
+        assert process.stderr is not None
+        assert process.stdout.readline() == "ready\n"
+        process.send_signal(signal.SIGINT)
+        for _ in range(presses - 1):
+            for line in process.stderr:
+                stderr += line
+                if "Press Ctrl+C again" in line:
+                    break
+            process.send_signal(signal.SIGINT)
+        process.wait()
+        stderr += process.stderr.read()
+    finally:
+        watchdog.cancel()
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+    return process.returncode, stderr
+
+
+@skip_windows
+@pytest.mark.parametrize(
+    "script",
+    (
+        pytest.param(NAP_CLI, id="in_the_command"),
+        pytest.param(PARSE_NAP_CLI, id="while_parsing"),
+    ),
+)
+def test_ctrl_c_ends_the_process_by_sigint(tmp_path, script):
+    """A real Ctrl+C prints Click's `Aborted!`, then ends the process by `SIGINT`,
+    which a calling shell needs to stop its own loop: a status of `1`, or even
+    `130`, tells the shell the program handled the interrupt itself."""
+    returncode, stderr = interrupt_cli(tmp_path, script)
+    assert returncode == -signal.SIGINT
+    assert "Aborted!" in stderr
+
+
+PLAIN_NAP_CLI = """
+import time
+
+import click
+
+
+@click.command()
+def nap():
+    print("ready", flush=True)
+    time.sleep(30)
+
+
+if __name__ == "__main__":
+    nap()
+"""
+"""A plain Click CLI that sleeps until interrupted, for the `wrap` command to run."""
+
+
+@skip_windows
+def test_ctrl_c_in_a_wrapped_cli_ends_the_process_by_sigint(tmp_path):
+    """A CLI run by `wrap` aborts under Click's own `main()`, and the wrapping
+    process still ends by `SIGINT`."""
+    returncode, stderr = interrupt_cli(
+        tmp_path, PLAIN_NAP_CLI, launcher=("-m", "click_extra", "wrap", "--")
+    )
+    assert returncode == -signal.SIGINT
+    assert "Aborted!" in stderr
+
+
+SLOW_JOBS_CLI = """
+import threading
+import time
+
+import click_extra
+from click_extra.execution import run_jobs
+
+BOTH_IN = threading.Barrier(2)
+
+
+def bake(tray):
+    # Reports once both trays are in, so the interrupt finds two running tasks.
+    if BOTH_IN.wait(timeout=10) == 0:
+        print("ready", flush=True)
+    time.sleep(30)
+    return tray
+
+
+@click_extra.command
+def oven():
+    list(run_jobs(bake, [0, 1], jobs=2))
+
+
+oven()
+"""
+"""A CLI whose two parallel tasks outlast any reasonable wait."""
+
+
+SLOW_THREAD_CLI = """
+import threading
+import time
+
+import click_extra
+
+
+@click_extra.command
+def kettle():
+    threading.Thread(target=time.sleep, args=(30,)).start()
+    print("ready", flush=True)
+    time.sleep(30)
+
+
+kettle()
+"""
+"""A CLI whose single background thread outlasts any reasonable wait."""
+
+
+@skip_windows
+@pytest.mark.parametrize(
+    ("script", "notice"),
+    (
+        pytest.param(
+            SLOW_JOBS_CLI, "Waiting for 2 running tasks to finish.", id="two_tasks"
+        ),
+        pytest.param(
+            SLOW_THREAD_CLI, "Waiting for 1 running task to finish.", id="one_task"
+        ),
+    ),
+)
+def test_second_ctrl_c_quits_while_tasks_finish(tmp_path, script, notice):
+    """After a Ctrl+C, the run says it waits for its running tasks, and what a
+    second Ctrl+C does: quit at once, instead of waiting for the tasks."""
+    returncode, stderr = interrupt_cli(tmp_path, script, presses=2)
+    assert returncode == -signal.SIGINT
+    assert "Aborted!" in stderr
+    assert notice in stderr
+    assert "Press Ctrl+C again to quit now." in stderr
+    assert "Traceback" not in stderr
+
+
+STUBBORN_CHILDREN_CLI = """
+import os
+import sys
+import threading
+import time
+
+import click_extra
+from click_extra import execution
+from click_extra.execution import run_cli, run_jobs
+
+execution._TERMINATE_GRACE = 0.5
+
+CHILD = (
+    "import os, signal, sys, time;"
+    "signal.signal(signal.SIGINT, signal.SIG_IGN);"
+    "signal.signal(signal.SIGTERM, signal.SIG_IGN);"
+    "open(sys.argv[1], 'w', encoding='utf-8').write(str(os.getpid()));"
+    "time.sleep(30)"
+)
+PID_FILES = [os.path.join(FOLDER, f"child-{n}.pid") for n in range(2)]
+
+
+def spawn(pid_file):
+    return run_cli((sys.executable, "-c", CHILD, pid_file))
+
+
+def announce():
+    while not all(os.path.exists(path) for path in PID_FILES):
+        time.sleep(0.05)
+    print("ready", flush=True)
+
+
+@click_extra.command
+def stubborn():
+    threading.Thread(target=announce, daemon=True).start()
+    list(run_jobs(spawn, PID_FILES, jobs=2))
+
+
+stubborn()
+"""
+"""A CLI fanning out two children that ignore both `SIGINT` and `SIGTERM`."""
+
+
+@skip_windows
+def test_interrupted_run_kills_children_ignoring_sigterm(tmp_path):
+    """One Ctrl+C is enough: the aborting run sends `SIGTERM` to the children of
+    `run_cli`, then `SIGKILL` to the ones still running after the grace."""
+    script = STUBBORN_CHILDREN_CLI.replace("FOLDER", repr(str(tmp_path)))
+    start = monotonic()
+    try:
+        returncode, _ = interrupt_cli(tmp_path, script)
+        assert returncode == -signal.SIGINT
+        assert monotonic() - start < 10
+        pids = [
+            int(path.read_text(encoding="utf-8"))
+            for path in tmp_path.glob("child-*.pid")
+        ]
+        assert len(pids) == 2
+        for pid in pids:
+            deadline = monotonic() + 5
+            while monotonic() < deadline:
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                sleep(0.05)
+            else:
+                pytest.fail(f"child {pid} survived the interrupt")
+    finally:
+        for path in tmp_path.glob("child-*.pid"):
+            try:
+                os.kill(int(path.read_text(encoding="utf-8")), signal.SIGKILL)
+            except (ProcessLookupError, ValueError):
+                pass
+
+
+STUBBORN_GRANDCHILDREN_CLI = """
+import os
+import sys
+import threading
+import time
+
+import click_extra
+from click_extra import execution
+from click_extra.execution import run_cli, run_jobs
+
+execution._TERMINATE_GRACE = 0.5
+
+GRANDCHILD = (
+    "import os, signal, sys, time;"
+    "signal.signal(signal.SIGINT, signal.SIG_IGN);"
+    "signal.signal(signal.SIGTERM, signal.SIG_IGN);"
+    "open(sys.argv[1] + '.tmp', 'w', encoding='utf-8').write(str(os.getpid()));"
+    "os.replace(sys.argv[1] + '.tmp', sys.argv[1]);"
+    "time.sleep(30)"
+)
+CHILD = (
+    "import signal, subprocess, sys, time;"
+    "signal.signal(signal.SIGINT, signal.SIG_IGN);"
+    "signal.signal(signal.SIGTERM, signal.CHILD_ON_SIGTERM);"
+    "subprocess.Popen((sys.executable, '-c', sys.argv[2], sys.argv[1]));"
+    "time.sleep(30)"
+)
+PID_FILES = [os.path.join(FOLDER, f"grandchild-{n}.pid") for n in range(2)]
+
+
+def spawn(pid_file):
+    return run_cli(
+        (sys.executable, "-c", CHILD, pid_file, GRANDCHILD),
+        start_new_session=NEW_SESSION,
+    )
+
+
+def announce():
+    while not all(os.path.exists(path) for path in PID_FILES):
+        time.sleep(0.05)
+    print("ready", flush=True)
+
+
+@click_extra.command
+def stubborn():
+    threading.Thread(target=announce, daemon=True).start()
+    list(run_jobs(spawn, PID_FILES, jobs=2))
+
+
+stubborn()
+"""
+"""A CLI fanning out two children, each with a grandchild that ignores both
+`SIGINT` and `SIGTERM` and holds the output its child was given."""
+
+
+@skip_windows
+@pytest.mark.parametrize("new_session", (False, True), ids=("same-group", "session"))
+@pytest.mark.parametrize(
+    "child_on_sigterm",
+    # A child that outlives `SIGTERM` is killed with its grandchild. One that
+    # exits on it leaves the grandchild behind, with no parent to find it by.
+    ("SIG_IGN", "SIG_DFL"),
+    ids=("stubborn-child", "child-exits-first"),
+)
+def test_interrupted_run_kills_grandchildren_ignoring_sigterm(
+    tmp_path, new_session, child_on_sigterm
+):
+    """The `SIGKILL` of an aborting run reaches what the children of `run_cli`
+    started, so no grandchild holds the run open or outlives it."""
+    script = (
+        STUBBORN_GRANDCHILDREN_CLI
+        .replace("FOLDER", repr(str(tmp_path)))
+        .replace("NEW_SESSION", repr(new_session))
+        .replace("CHILD_ON_SIGTERM", child_on_sigterm)
+    )
+    pid_files = [tmp_path / f"grandchild-{n}.pid" for n in range(2)]
+    start = monotonic()
+    try:
+        returncode, _ = interrupt_cli(tmp_path, script)
+        assert returncode == -signal.SIGINT
+        assert monotonic() - start < 10
+        for pid_file in pid_files:
+            _assert_process_dies(int(pid_file.read_text(encoding="utf-8")))
+    finally:
+        for pid_file in pid_files:
+            try:
+                os.kill(int(pid_file.read_text(encoding="utf-8")), signal.SIGKILL)
+            except (OSError, ValueError):
+                pass
+
+
+SELF_INTERRUPT_CLI = """
+import signal
+
+import click_extra
+
+
+@click_extra.command
+def nap():
+    signal.raise_signal(signal.SIGINT)
+
+
+nap()
+"""
+"""A CLI that interrupts itself, as a Ctrl+C does, on every platform."""
+
+
+SECOND_INTERRUPT_SCRIPT = """
+import signal
+
+from click_extra import execution
+
+execution._second_interrupt(signal.SIGINT, None)
+"""
+"""A process handling the Ctrl+C pressed while an interrupted run waits."""
+
+
+OUTLASTED_GRACE_SCRIPT = """
+import threading
+import time
+
+from click_extra import execution
+
+execution._TERMINATE_GRACE = 0.1
+threading.Thread(target=time.sleep, args=(1,)).start()
+execution._exit_interrupted()
+"""
+"""An interrupted run whose only task outlasts the grace given to children."""
+
+
+@pytest.mark.parametrize(
+    ("script", "notice"),
+    (
+        pytest.param(SELF_INTERRUPT_CLI, "Aborted!", id="ctrl_c"),
+        # The handler of a second Ctrl+C exits without a word.
+        pytest.param(SECOND_INTERRUPT_SCRIPT, "", id="second_ctrl_c"),
+        pytest.param(
+            OUTLASTED_GRACE_SCRIPT,
+            "Waiting for 1 running task to finish.",
+            id="kill_after_the_grace",
+        ),
+    ),
+)
+def test_interrupted_run_exits_like_an_unhandled_ctrl_c(tmp_path, script, notice):
+    """An interrupted run ends the way an unhandled Ctrl+C does, on Windows too.
+
+    The process dies by `SIGINT` on POSIX, and exits with the status Windows
+    reports for a Ctrl+C. The tests sending a real Ctrl+C to a child are skipped
+    on Windows, so each script here reaches one step of that exit on its own: the
+    whole path of a command, the second Ctrl+C, and the kill of the children still
+    running after the grace, for which Windows has no `SIGKILL`.
+    """
+    result = subprocess.run(
+        (sys.executable, "-c", script),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        cwd=tmp_path,
+        timeout=20,
+        check=False,
+    )
+    assert "Traceback" not in result.stderr
+    assert notice in result.stderr
+    # 0xC000013A is STATUS_CONTROL_C_EXIT, as a parent process reads it.
+    assert result.returncode == (0xC000013A if is_windows() else -signal.SIGINT)
+
+
+PACKAGE_ROOT = Path(__file__).parent.parent / "click_extra"
+
+PORTABLE_SIGNALS = frozenset({
+    "SIGABRT",
+    "SIGFPE",
+    "SIGILL",
+    "SIGINT",
+    "SIGSEGV",
+    "SIGTERM",
+})
+"""The signal numbers Python defines on every platform, Windows included."""
+
+POSIX_BRANCHES = {"is_windows()": "orelse", "not is_windows()": "body"}
+"""The branch only POSIX takes, for each platform check an `if` can test."""
+
+
+def unguarded_posix_signals(source: str) -> list[int]:
+    """Lines of `source` that read a signal number Windows does not define.
+
+    `signal.SIGKILL` raises `AttributeError` on Windows, as every signal number
+    outside `PORTABLE_SIGNALS` does. So a module may read one only where Windows
+    never goes: in the `else` of an `is_windows()` check, or under a
+    `not is_windows()` one, of an `if` statement or a conditional expression.
+    """
+    lines: list[int] = []
+
+    def scan(node: ast.AST, guarded: bool) -> None:
+        posix_branch = None
+        if isinstance(node, (ast.If, ast.IfExp)):
+            posix_branch = POSIX_BRANCHES.get(ast.unparse(node.test))
+        elif (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "signal"
+            and re.fullmatch(r"SIG[A-Z0-9]+", node.attr)
+            and node.attr not in PORTABLE_SIGNALS
+            and not guarded
+        ):
+            lines.append(node.lineno)
+        for branch, children in ast.iter_fields(node):
+            for child in children if isinstance(children, list) else [children]:
+                if isinstance(child, ast.AST):
+                    scan(child, guarded or branch == posix_branch)
+
+    scan(ast.parse(source), guarded=False)
+    return lines
+
+
+def test_posix_only_signals_are_read_under_a_platform_check():
+    """No module of the package reads a POSIX-only signal number on Windows.
+
+    Windows runs none of the tests that send a real signal, so only the sources
+    can tell. `unguarded_posix_signals` states the rule.
+    """
+    violations = [
+        f"{path.relative_to(PACKAGE_ROOT.parent).as_posix()}:{line}"
+        for path in sorted(PACKAGE_ROOT.rglob("*.py"))
+        for line in unguarded_posix_signals(path.read_text(encoding="utf-8"))
+    ]
+    assert not violations, f"POSIX-only signal read with no guard: {violations}"
+
+
+def test_posix_only_signal_scan_finds_the_package_and_an_unguarded_read():
+    """The scan above reads the package, and tells a guarded read from a bare one."""
+    assert PACKAGE_ROOT / "execution.py" in PACKAGE_ROOT.rglob("*.py")
+
+    for unguarded in (
+        "os.kill(pid, signal.SIGKILL)\n",
+        # The branch Windows takes is no guard.
+        "if is_windows():\n    os.kill(pid, signal.SIGKILL)\n",
+        "signal.SIGKILL if is_windows() else signal.SIGTERM\n",
+    ):
+        assert unguarded_posix_signals(unguarded), unguarded
+
+    for guarded in (
+        "if is_windows():\n    pass\nelse:\n    os.kill(pid, signal.SIGKILL)\n",
+        "if not is_windows():\n    os.kill(pid, signal.SIGKILL)\n",
+        "signal.SIGTERM if is_windows() else signal.SIGKILL\n",
+        # A portable signal number and a handler need no guard.
+        "signal.signal(signal.SIGINT, signal.SIG_DFL)\n",
+    ):
+        assert not unguarded_posix_signals(guarded), guarded
+
+
+def test_simulated_interrupt_keeps_click_exit_status(invoke):
+    """A `KeyboardInterrupt` raised by code, as a test runner does, keeps Click's
+    `Aborted!` and status `1`: only a real Ctrl+C ends the process by `SIGINT`."""
+
+    @command
+    def nap():
+        raise KeyboardInterrupt
+
+    result = invoke(nap)
+    assert result.exit_code == 1
+    assert "Aborted!" in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("abort", "notice"),
+    (
+        pytest.param("interrupt", "\nAborted!\n", id="interrupt"),
+        pytest.param("abort", "Aborted!\n", id="abort"),
+    ),
+)
+def test_abort_notice_precedes_close_callbacks(invoke, abort, notice):
+    """`Aborted!` prints as soon as the abort leaves the command: before the close
+    callbacks of its context and of its parents, where Click prints it after them."""
+
+    @group
+    @pass_context
+    def farm(ctx):
+        ctx.call_on_close(lambda: echo("Barn closed.", err=True))
+
+    @farm.command()
+    @pass_context
+    def harvest(ctx):
+        ctx.call_on_close(lambda: echo("Field closed.", err=True))
+        if abort == "interrupt":
+            raise KeyboardInterrupt
+        ctx.abort()
+
+    result = invoke(farm, "harvest")
+    assert result.exit_code == 1
+    assert result.stderr == f"{notice}Field closed.\nBarn closed.\n"
+
+
+def test_abort_caught_around_an_invoked_command_prints_no_notice(invoke):
+    """A command run through `ctx.invoke()` leaves its caller free to catch the
+    abort: a run that goes on prints no `Aborted!`."""
+
+    @group
+    def farm():
+        pass
+
+    @farm.command()
+    @pass_context
+    def harvest(ctx):
+        ctx.abort()
+
+    @farm.command()
+    @pass_context
+    def visit(ctx):
+        try:
+            ctx.invoke(harvest)
+        except click.Abort:
+            echo("The visit goes on.")
+
+    result = invoke(farm, "visit")
+    assert result.exit_code == 0
+    assert result.stdout == "The visit goes on.\n"
+    assert not result.stderr
+
+
+def test_abort_without_standalone_mode_prints_no_notice(invoke):
+    """Without standalone mode, Click raises the abort to the caller, which reports
+    it its own way: no `Aborted!` is printed."""
+
+    @command
+    @pass_context
+    def nap(ctx):
+        ctx.call_on_close(lambda: echo("Closed.", err=True))
+        raise KeyboardInterrupt
+
+    result = invoke(nap, standalone_mode=False)
+    assert isinstance(result.exception, click.Abort)
+    assert result.stderr == "Closed.\n\n"
 
 
 def test_invalid_value(invoke):
@@ -1102,6 +1749,38 @@ def test_run_cli_timeout_kills_child_and_attaches_partial_output():
 
 
 @skip_windows
+def test_run_cli_kill_survives_a_second_interrupt(monkeypatch):
+    """A Ctrl+C landing while the kill reads the process table waits for the
+    kill to land, so the child never outlives the interrupt."""
+    spawned: list[subprocess.Popen] = []
+
+    class RecordingPopen(subprocess.Popen):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            spawned.append(self)
+
+    def interrupted_table():
+        # The second Ctrl+C arrives between the table read and the signals.
+        signal.raise_signal(signal.SIGINT)
+        return _posix_process_table()
+
+    monkeypatch.setattr(subprocess, "Popen", RecordingPopen)
+    monkeypatch.setattr("click_extra.execution._posix_process_table", interrupted_table)
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            run_cli((sys.executable, "-c", "import time; time.sleep(30)"), timeout=0.5)
+        # The child, spawned first, was killed despite the interrupt: it ends
+        # at once, where a surviving one would sleep through the wait.
+        assert spawned
+        assert spawned[0].wait(timeout=5) == -signal.SIGKILL
+    finally:
+        for process in spawned:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+
+
+@skip_windows
 def test_run_cli_default_shares_process_group():
     """By default the child stays in the caller's process group: it keeps the
     controlling terminal (an interactive ``sudo`` raised from inside the child
@@ -1298,6 +1977,43 @@ def test_terminate_live_processes_signals_whole_group(tmp_path, grandchild_sessi
     assert not _LIVE_PROCESSES
     assert not _GROUP_LEADERS
     _assert_process_dies(int(pid_file.read_text(encoding="utf-8")))
+
+
+def test_kill_signal_reaches_a_grandchild_holding_the_output(tmp_path):
+    """The kill signal ends what a child started too, on every platform.
+
+    The grandchild holds the pipe `run_cli` reads, so the call returns only once
+    the grandchild is gone: a prompt return is the evidence.
+    """
+    ready = tmp_path / "ready"
+    code = dedent(f"""\
+        import subprocess, sys, time
+        subprocess.Popen(
+            (sys.executable, "-c", "import time; time.sleep(30)"),
+            stdout=sys.stdout,
+        )
+        open({str(ready)!r}, "w", encoding="utf-8").close()
+        time.sleep(30)
+        """)
+
+    def call():
+        run_cli((sys.executable, "-c", code), timeout=30)
+
+    # A daemon, so a grandchild that survives cannot hold the test session.
+    worker = threading.Thread(target=call, daemon=True)
+    worker.start()
+    try:
+        deadline = monotonic() + 10
+        while not ready.exists() and monotonic() < deadline:
+            sleep(0.01)
+        assert ready.exists(), "the child never started its grandchild"
+        terminate_live_processes(_KILL_SIGNAL)
+        worker.join(timeout=10)
+        assert not worker.is_alive()
+    finally:
+        terminate_live_processes(_KILL_SIGNAL)
+        worker.join(timeout=5)
+    assert not _LIVE_PROCESSES
 
 
 @pytest.mark.parametrize(

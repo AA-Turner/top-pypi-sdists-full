@@ -9,21 +9,21 @@ from pytorch_optimizer.optimizer.utils import get_global_gradient_norm
 
 
 class AdaGC(BaseOptimizer):
-    """Improving Training Stability for Large Language Model Pretraining.
+    """Adam with adaptive gradient clipping for stable training.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        beta (float): Smoothing coefficient for the exponential moving average (EMA).
-        lambda_abs (float): Absolute clipping threshold to prevent unstable updates from gradient explosions.
-        lambda_rel (float): Relative clipping threshold to prevent unstable updates from gradient explosions.
-        warmup_steps (int): Number of warmup steps.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        beta: Smoothing coefficient for the exponential moving average (EMA).
+        lambda_abs: Absolute clipping threshold to prevent unstable updates from gradient explosions.
+        lambda_rel: Relative clipping threshold to prevent unstable updates from gradient explosions.
+        warmup_steps: Number of warmup steps.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -93,7 +93,6 @@ class AdaGC(BaseOptimizer):
             if 'exp_avg' not in state:
                 state['exp_avg'] = torch.zeros_like(grad)
                 state['exp_avg_sq'] = torch.zeros_like(grad)
-                state['gamma'] = torch.empty((1,), device=grad.device, dtype=grad.dtype)
 
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
@@ -130,24 +129,27 @@ class AdaGC(BaseOptimizer):
                     fixed_decay=group['fixed_decay'],
                 )
 
-                exp_avg, exp_avg_sq, gamma = state['exp_avg'], state['exp_avg_sq'], state['gamma']
+                exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+                gamma = state.get('gamma')
 
-                if group['step'] < group['warmup_steps']:
-                    grad_norm = get_global_gradient_norm(self.param_groups).add_(group['eps'])
+                if gamma is None or group['step'] < group['warmup_steps']:
+                    grad_norm = get_global_gradient_norm(self.param_groups).sqrt_().add_(group['eps'])
 
                     h_t = min(group['lambda_abs'] / grad_norm, 1.0)
                     g_hat = grad.mul(h_t)
 
                     g_hat_norm = g_hat.norm()
 
-                    gamma.copy_(g_hat_norm if group['step'] == 1 else min(gamma, g_hat_norm))
+                    state['gamma'] = g_hat_norm if gamma is None else gamma.copy_(min(gamma, g_hat_norm))
                 else:
-                    h_t = min(group['lambda_rel'] * gamma / grad.norm(), 1.0)
+                    h_t = (
+                        group['lambda_rel'] * gamma.clamp_min(group['eps']) / grad.norm().clamp_min(group['eps'])
+                    ).clamp_max_(1.0)
                     g_hat = grad.mul(h_t)
 
-                    gamma.mul_(group['beta']).add_(g_hat.norm(), alpha=1.0 - group['beta'])
+                    gamma.lerp_(g_hat.norm(), weight=1.0 - group['beta'])
 
-                exp_avg.mul_(beta1).add_(g_hat, alpha=1.0 - beta1)
+                exp_avg.lerp_(g_hat, weight=1.0 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(g_hat, g_hat, value=1.0 - beta2)
 
                 update = (exp_avg / bias_correction1) / exp_avg_sq.sqrt().div_(bias_correction2_sq).add_(group['eps'])

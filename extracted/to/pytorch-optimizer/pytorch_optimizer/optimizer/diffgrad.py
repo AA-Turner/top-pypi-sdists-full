@@ -1,3 +1,5 @@
+import math
+
 import torch
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
@@ -6,21 +8,21 @@ from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGro
 
 
 class DiffGrad(BaseOptimizer):
-    """An Optimization Method for Convolutional Neural Networks.
+    """Adam updates scaled by changes between consecutive gradients.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        rectify (bool): Perform the rectified update similar to RAdam.
-        n_sma_threshold (int): Recommended is 5.
-        degenerated_to_sgd (bool): Degenerated to SGD.
-        ams_bound (bool): Whether to use the AMSBound variant.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        rectify: Perform the rectified update similar to RAdam.
+        n_sma_threshold: Minimum effective simple moving average length for rectification.
+        degenerated_to_sgd: Use an SGD update before the moving average reaches the rectification threshold.
+        ams_bound: Use the running maximum of the second moment to bound adaptive updates.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -115,6 +117,9 @@ class DiffGrad(BaseOptimizer):
                 degenerated_to_sgd=self.degenerated_to_sgd,
             )
 
+            if not group['rectify']:
+                step_size *= math.sqrt(self.debias(beta2, group['step']))
+
             step_size = self.apply_adam_debias(
                 adam_debias=group.get('adam_debias', False),
                 step_size=step_size,
@@ -128,6 +133,15 @@ class DiffGrad(BaseOptimizer):
                 grad = p.grad
 
                 self.maximize_gradient(grad, maximize=self.maximize)
+
+                self.apply_weight_decay(
+                    p=p,
+                    grad=grad,
+                    lr=group['lr'],
+                    weight_decay=group['weight_decay'],
+                    weight_decouple=group['weight_decouple'],
+                    fixed_decay=group['fixed_decay'],
+                )
 
                 state = self.state[p]
 
@@ -144,7 +158,7 @@ class DiffGrad(BaseOptimizer):
                     r=group.get('adanorm_r', None),
                 )
 
-                exp_avg.mul_(beta1).add_(s_grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(s_grad, weight=1.0 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                 de_nom = self.apply_ams_bound(
@@ -161,17 +175,8 @@ class DiffGrad(BaseOptimizer):
                 )
 
                 if not group['rectify']:
-                    p.addcdiv_(exp_avg, de_nom, value=-step_size)
+                    p.addcdiv_(dfc, de_nom, value=-step_size)
                     continue
-
-                self.apply_weight_decay(
-                    p=p,
-                    grad=None,
-                    lr=group['lr'],
-                    weight_decay=group['weight_decay'],
-                    weight_decouple=group['weight_decouple'],
-                    fixed_decay=group['fixed_decay'],
-                )
 
                 if n_sma >= self.n_sma_threshold:
                     p.addcdiv_(dfc, de_nom, value=-step_size)

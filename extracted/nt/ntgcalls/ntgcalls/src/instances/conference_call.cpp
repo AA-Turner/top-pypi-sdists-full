@@ -29,7 +29,9 @@ namespace ntgcalls::instances {
 
     std::string ConferenceCall::init_presentation() {
         auto res = GroupCall::init_presentation();
-        presentation_connection_->set_e2e_encryptor(session_.get());
+        if (const auto presentation = presentation_connection()) {
+            presentation->set_e2e_encryptor(session_.get());
+        }
         return res;
     }
 
@@ -88,7 +90,11 @@ namespace ntgcalls::instances {
 
     void ConferenceCall::stop() {
         GroupCall::stop();
-        session_ = nullptr;
+        if (session_) {
+            session_->on_outbound_block(nullptr);
+            session_->on_subchain_request(nullptr);
+            session_->on_update_emoji_hash(nullptr);
+        }
     }
 
     std::string ConferenceCall::get_fingerprint_emojis() {

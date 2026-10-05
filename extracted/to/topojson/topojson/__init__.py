@@ -11,7 +11,9 @@ Main Features
     computing the topology.
   - Options to topoquantize and toposimplify after the topology is computed
   - Choose between the package `shapely` or `simplification` to simplify the
-    linestrings or arcs.
+    linestrings or arcs, or `geos` to presimplify polygons as a coverage.
+  - Add, remove or synchronise features in an existing topology, without computing
+    it again, and continue from a saved state.
   - Direct support to analyze the arcs as svg
   - Optional support to parse the TopoJSON into a GeoDataFrame if geopandas is
     installed.
@@ -21,6 +23,6 @@ Main Features
     and toposimplify interactively if ipywidgets is installed.
 """
 
-__version__ = "1.10"
+__version__ = "2.1"
 
 from .core.topology import Topology  # noqa

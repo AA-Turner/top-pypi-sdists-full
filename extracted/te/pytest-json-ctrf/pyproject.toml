@@ -1,16 +1,16 @@
 [build-system]
-requires = ["setuptools>=65.5.1", "wheel"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 exclude = [
     ".github", "tests", "build", "dist", ".venv",
     "pytest_json_ctrf.egg-info", ".env", ".gitignore",
-    "CHANGELOG.md", "assets", "test-results"]
+    "CHANGELOG.md", "assets", "test-results", "schema_validator"]
 
 [project]
 name = "pytest-json-ctrf"
-version = "0.5.3"
+version = "0.6.1"
 
 dependencies = [
     "pytest>6.0.0",
@@ -21,16 +21,16 @@ authors = [
 ]
 description = "Pytest plugin to generate json report in CTRF (Common Test Report Format)"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.8"
 classifiers = [
     "Framework :: Pytest",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 
 [project.urls]
-"Infopulse" = "https://infopulse.com/"
+"QAMania" = "https://qamania.org"
 "Homepage" = "https://github.com/infopulse/pytest-common-test-report-json"
 
 [tool.pytest.ini_options]
@@ -41,3 +41,10 @@ markers = [
 
 [project.entry-points.pytest11]
 ctrf = "ctrf.main"
+
+[dependency-groups]
+dev = [
+    "jsonschema>=4.23.0",
+    "pytest-rerunfailures>=14.0",
+    "pytest-xdist>=3.6.1",
+]

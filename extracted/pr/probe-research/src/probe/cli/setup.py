@@ -214,6 +214,7 @@ AGENT_ROW_DETAIL: dict[str, tuple[str, ...]] = {
     "claude_code": ("Plugins and session capture.",),
     "codex": ("Plugins and session capture.",),
     "pi": ("Extension, skills and MCP, via settings.json.",),
+    "kimi_code": ("Plugins and session capture.",),
 }
 
 
@@ -424,11 +425,13 @@ AGENT_ROW_DETAIL_BY_ACTION: dict[str, dict[str, tuple[str, ...]]] = {
     "uninstall": {
         "claude_code": ("Remove plugins and stop capture.",),
         "codex": ("Remove plugins and stop capture.",),
+        "kimi_code": ("Remove plugins and stop capture.",),
         "pi": ("Remove its settings.json entry.",),
     },
     "update": {
         "claude_code": ("Update the plugins.",),
         "codex": ("Update the plugins.",),
+        "kimi_code": ("Update the plugins.",),
         # Not a hedge: `upgrading.py` skips pi outright and says so in its own
         # output. Promising an upgrade here that the apply then declines is the
         # same class of mismatch as the install copy this table replaces.
@@ -437,11 +440,13 @@ AGENT_ROW_DETAIL_BY_ACTION: dict[str, dict[str, tuple[str, ...]]] = {
     "diagnose": {
         "claude_code": ("Check setup, sign-in and updates.",),
         "codex": ("Check setup, sign-in and updates.",),
+        "kimi_code": ("Check setup, sign-in and updates.",),
         "pi": ("Check setup, sign-in and updates.",),
     },
     "manual": {
         "claude_code": ("Print the setup commands.",),
         "codex": ("Print the setup commands.",),
+        "kimi_code": ("Print the setup commands.",),
         "pi": ("Print the setup commands.",),
     },
 }
@@ -2384,6 +2389,7 @@ CAPTURE_PLUGIN_LABEL: dict[str, str] = {
     "claude_code": TAP_PLUGIN_NAME,
     "codex": CODEX_TAP_PLUGIN_NAME,
     "pi": pi_config.PACKAGE_NAME,
+    "kimi_code": TAP_PLUGIN_NAME,
 }
 
 
@@ -4171,6 +4177,7 @@ class Setting(StrEnum):
     RECORDER_CLAUDE_CODE = "recorder_claude_code"
     RECORDER_CODEX = "recorder_codex"
     RECORDER_PI = "recorder_pi"
+    RECORDER_KIMI_CODE = "recorder_kimi_code"
     REASONING_SUMMARIES = "reasoning_summaries"
 
 
@@ -4184,6 +4191,7 @@ RECORDER_SETTINGS: dict["Setting", str] = {
     Setting.RECORDER_CLAUDE_CODE: "claude_code",
     Setting.RECORDER_CODEX: "codex",
     Setting.RECORDER_PI: "pi",
+    Setting.RECORDER_KIMI_CODE: "kimi_code",
 }
 
 
@@ -4215,7 +4223,8 @@ DAEMON_GROUPS: tuple[tuple[str, tuple[Setting, ...]], ...] = (
 #: of the registry -- read by `read_settings`, written by `apply_settings` --
 #: so `grouped_settings` counts them as placed rather than as missing.
 MENU_SETTINGS: frozenset[Setting] = frozenset(
-    {Setting.TRACKING_DEFAULT, Setting.RECORDER_CLAUDE_CODE, Setting.RECORDER_CODEX, Setting.RECORDER_PI}
+    {Setting.TRACKING_DEFAULT, Setting.RECORDER_CLAUDE_CODE, Setting.RECORDER_CODEX, Setting.RECORDER_PI,
+     Setting.RECORDER_KIMI_CODE}
 )
 
 #: Row copy, `MENU_COPY`-shaped (title, detail lines) so `_bind_menu_keys` can
@@ -4240,6 +4249,7 @@ SETTINGS_COPY: dict[Setting, tuple[str, tuple[str, ...]]] = {
     Setting.RECORDER_CLAUDE_CODE: ("Who records in Claude Code", ("",)),
     Setting.RECORDER_CODEX: ("Who records in Codex", ("",)),
     Setting.RECORDER_PI: ("Who records in pi", ("",)),
+    Setting.RECORDER_KIMI_CODE: ("Who records in Kimi Code", ("",)),
     # One setting per coding agent, written for the daemon into each agent's
     # own config (`reasoning_summaries`): it changes what the user sees too,
     # so the row says so.
@@ -4298,6 +4308,7 @@ SETTINGS_STATE_COPY: dict[Setting, dict[str, tuple[str, ...]]] = {
     Setting.RECORDER_CLAUDE_CODE: _RECORDER_STATE_COPY,
     Setting.RECORDER_CODEX: _RECORDER_STATE_COPY,
     Setting.RECORDER_PI: _RECORDER_STATE_COPY,
+    Setting.RECORDER_KIMI_CODE: _RECORDER_STATE_COPY,
 }
 
 
@@ -5703,6 +5714,13 @@ def restart_notice(caps: Capabilities, selection: Selection) -> list[str]:
     # plugin work and already printed the real next step (install the agent,
     # re-run Install). "Restart Claude Code" about a Claude that is not on
     # the machine reads as success guidance for work that never ran.
+    if caps.agent_source == plugin_cli.KIMI:
+        from probe.cli import kimi_config
+
+        if not kimi_config.binary_available():
+            return []
+        # Kimi loads plugins at session start; an open TUI picks them up on /reload.
+        return ["Restart Kimi Code (or run /reload in an open session) to load Probe."]
     if not (caps.codex_available if caps.agent_source == "codex" else caps.claude_available):
         return []
     agent = "Codex" if caps.agent_source == "codex" else "Claude Code"

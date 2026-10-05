@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: rpaframework
-Version: 33.0.1
+Version: 33.0.2
 Summary: A collection of tools and libraries for RPA
 Project-URL: homepage, https://rpaframework.org/
 Project-URL: documentation, https://rpaframework.org/
@@ -18,9 +18,11 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.14,>=3.10
+Requires-Python: >=3.10
 Requires-Dist: beautifulsoup4>=4.7.0
 Requires-Dist: chardet>=3.0.0
 Requires-Dist: click>=8.1.2
@@ -43,7 +45,7 @@ Requires-Dist: openpyxl>=3.0.9
 Requires-Dist: pendulum>=3.0.0
 Requires-Dist: pillow>=12.3.0
 Requires-Dist: psutil>=5.7.0; sys_platform == 'win32'
-Requires-Dist: pyjwt>=2.13.0
+Requires-Dist: pyjwt>=2.14.0
 Requires-Dist: pynput>=1.8.1
 Requires-Dist: pyotp>=2.6.0
 Requires-Dist: pyperclip>=1.8.0
@@ -63,7 +65,7 @@ Requires-Dist: robotframework-sapguilibrary>=1.1; sys_platform == 'win32'
 Requires-Dist: robotframework-seleniumlibrary>=6.7.1
 Requires-Dist: robotframework-seleniumtestability>=2.0.0
 Requires-Dist: rpaframework-core>=13.0.2
-Requires-Dist: rpaframework-pdf>=11.0.0
+Requires-Dist: rpaframework-pdf>=11.0.3
 Requires-Dist: rpaframework-windows>=11.0.0; sys_platform == 'win32'
 Requires-Dist: selenium<5.0.0,>=4.16.0
 Requires-Dist: simple-salesforce>=1.0.0

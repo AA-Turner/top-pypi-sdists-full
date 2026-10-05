@@ -562,6 +562,51 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
             _, agate_result = catalog_adapter.execute(query, fetch=True)
         return agate_result.rows
 
+    def _fetch_schemas(
+        self, table_batch: t.Collection[exp.Table]
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        if not table_batch:
+            return {}
+
+        queries = []
+
+        # redshift supports cross-database queries, need to group/query by catalog
+        for catalog, tables in group_tables_by_catalog(table_batch, self.default_catalog).items():
+            filter_expr = build_information_schema_filter(tables, ("table_schema", "table_name"))
+            # data_type is unparameterized (`character varying` rather than `character varying(256)`)
+            # so for parameterized data types we build the parameterized version which SQLGlot can parse
+            queries.append(f"""
+            SELECT
+                table_catalog,
+                table_schema,
+                table_name,
+                column_name,
+                CASE
+                    WHEN character_maximum_length IS NOT NULL
+                        THEN data_type || '(' || character_maximum_length || ')'
+                    WHEN data_type IN ('numeric', 'decimal') AND numeric_precision IS NOT NULL
+                        THEN data_type || '(' || numeric_precision || ',' || COALESCE(numeric_scale, 0) || ')'
+                    ELSE data_type
+                END AS full_data_type,
+                ordinal_position
+            FROM {catalog}.information_schema.columns
+            WHERE {self._sql(filter_expr)}
+            """)
+
+        query = "UNION ALL\n".join(queries)
+        query = f"{query}\nORDER BY table_catalog, table_schema, table_name, ordinal_position"
+
+        schemas: t.Dict[str, t.Dict[str, str]] = defaultdict(dict)
+
+        for catalog, schema, table_name, column_name, data_type, _ in self.execute(
+            query, fetch=True
+        ).rows:
+            fqn = self._build_fqn_from_row(catalog, schema, table_name)
+            schemas[fqn][column_name] = data_type
+
+        # tables that returned no rows are omitted, so the caller records them as None
+        return dict(schemas)
+
     @override
     def cache_view_definition(self, table: exp.Table, definition: str, default_schema: str) -> None:
         # Redshift uses early-binding views by default: at CREATE VIEW time it

@@ -205,6 +205,7 @@ _DAEMON_PLIST_LABELS = (
     "com.local-operator.browser",
     "com.local-operator.tunnel",
     "com.local-operator.wakes",
+    "com.local-operator.network",
 )
 
 #: Whether this host's supervised daemons are launchd AGENTS, i.e. whether the
@@ -1598,6 +1599,66 @@ def generation_of_process(pid: int) -> Path | None:
     return generation_in_argv(argv)
 
 
+#: How many whitespace-delimited fragments of a ``ps`` argv line may belong to
+#: the image path before the probe gives up. ``ps`` joins argv with single
+#: spaces, so an image under a directory that contains one — the shape this
+#: codebase's systemd quoting exists for — is only recoverable as a PREFIX of
+#: the line (``/home/a b/…/python3 -m …``); the image is never more than a
+#: handful of fragments, and the probe stops at the first option-looking
+#: fragment or the first tree that answers, so this bound is only a backstop.
+_IMAGE_ARGV_FRAGMENTS = 8
+
+
+def version_of_process(pid: int) -> str:
+    """The version inside the tree a live process's own image sits in, or ``""``.
+
+    THE OFF-GENERATION HALF of the running-build question (drill 2026-10-04, F10):
+    :func:`generation_of_process` answers for a process exec'd from a generation
+    and answers ``None`` for every other tree a supervised daemon legitimately
+    runs from — a ``uv tool`` install, a pip venv, a launcher — because none of
+    their argv names a generation. The process still names its own IMAGE, and the
+    distribution beside that image records the build the tree carries, so the same
+    observation answers both questions: the generation when there is one, this
+    version when there is not. (A flow-installed node's reading said nothing about
+    its build while its "installed" side read a pointer the install never moved —
+    the defect this exists to close.)
+
+    THE IMAGE IS PROBED AS ASCENDING PREFIXES, LONGEST FIRST (review round 1,
+    R1-1): splitting at the first space truncates any image under a spaced
+    directory into a path whose ancestors carry no distribution, so a reading
+    that existed came back as silence. ``ps`` cannot re-escape those spaces for
+    us, so the prefixes that could BE the image are walked longest-first — the
+    nearest distribution wins exactly as it does for a single path — and a space
+    in the image's own final component keeps resolving through the ancestor walk
+    of :func:`version_of_image`.
+
+    ``""`` for every way the answer can fail to exist: a pid that is gone or was
+    never there, no ``ps``, a timeout, an argv that names no readable tree (see
+    :func:`version_of_image`). Callers render the empty answer as "not reported" —
+    never as a version, and never as health.
+    """
+    if pid <= 0:
+        return ""
+    argv = _process_argv(pid)
+    if argv is None:
+        return ""
+    fragments = argv.split()
+    if not fragments:
+        return ""
+    # The image ends before the first option-looking fragment — everything past
+    # it describes the run, not the tree the image sits in.
+    last = len(fragments)
+    for end in range(2, len(fragments) + 1):
+        if fragments[end - 1].startswith("-"):
+            last = end - 1
+            break
+    for end in range(min(last, _IMAGE_ARGV_FRAGMENTS), 0, -1):
+        found = version_of_image(Path(" ".join(fragments[:end])))
+        if found:
+            return found
+    return ""
+
+
 def stale_generation_of_process(pid: int) -> Path | None:
     """The generation ``pid`` runs, when that is provably NOT ``current``.
 
@@ -1639,13 +1700,53 @@ def stale_generation_of_process(pid: int) -> Path | None:
     acted on (:func:`local_operator.launchd.restart_if_build_moved`): a build-stamp
     comparison cannot answer at all for a generation that carries no source ref, and
     that machine would keep the original defect.
+
+    THE SURFACE'S SIBLING is :func:`generation_staleness_of_process`: the same
+    comparison returned as a tri-state, because a surface must not render an
+    unanswered question as ``false`` (F10). The two ride one shared read
+    (:func:`_generation_comparison`), so the repair and every rendered row cannot
+    drift about what "older" means.
+    """
+    running, stale = _generation_comparison(pid)
+    if running is None or not stale:
+        return None
+    return running
+
+
+def generation_staleness_of_process(pid: int) -> bool | None:
+    """Is the live process provably on a generation other than ``current``?
+
+    THE SURFACE'S HALF of the comparison :func:`stale_generation_of_process` feeds
+    the repair (drill 2026-10-04, F10). TRI-STATE, because a surface must not print
+    a verdict it did not earn: ``True`` only when the process's own generation was
+    read AND differs from a readable ``current``; ``False`` only when both sides
+    were read and match; ``None`` when the comparison could not be made at all — no
+    generation in the process's argv, no readable pointer, a pointer mid-rename.
+    ``False`` used to cover the last three as well, which made
+    ``relay_generation_stale: false`` beside two unreadable fields the only thing
+    an unreadable probe could say.
+
+    The repair's direction rule is untouched: it keeps consuming
+    :func:`stale_generation_of_process`, whose ``None`` still means "no move" for
+    both proven-current and unproven.
+    """
+    return _generation_comparison(pid)[1]
+
+
+def _generation_comparison(pid: int) -> tuple[Path | None, bool | None]:
+    """The shared read: ``(the generation in its argv, its staleness vs current)``.
+
+    ONE comparison, two publics: the repair's two-state ``Path | None`` and the
+    surface's tri-state ``bool | None`` both come from here, so they cannot drift
+    about what "older" means — the QA round-1 Q3 lesson (a chained pointer must be
+    resolved before its name is compared) lives here once now.
     """
     running = generation_of_process(pid)
     if running is None:
-        return None
+        return None, None
     current = current_generation()
     if current is None:
-        return None
+        return running, None
     try:
         current_name = current.resolve().name
     except OSError:
@@ -1656,8 +1757,8 @@ def stale_generation_of_process(pid: int) -> Path | None:
         # hardening rather than a fix; it is here because the module's rule is that
         # an unreadable answer means NO MOVE, and a raise here would instead escape
         # as a warning from the installer's guard.
-        return None
-    return None if running.name == current_name else running
+        return running, None
+    return running, running.name != current_name
 
 
 def current_install_root() -> Path | None:
@@ -1758,6 +1859,63 @@ def _stamp_at(root: Path) -> BuildStamp | None:
     if found is None:
         return None
     return BuildStamp(version=found.version, source_ref=source_ref(root))
+
+
+def generation_version(generation: Path | None) -> str:
+    """The distribution version INSIDE one generation tree, or ``""``.
+
+    THE VERSION HALF OF "which build is this" (design review round 1, D3/D4):
+    the human surfaces name a build the way a person reads one — the version,
+    the same string ``lop --version`` prints — while the generation NAME stays
+    in ``--json`` as provenance. Read by name out of the tree's own
+    ``site-packages`` (:func:`_distribution_at`), never by importing, so it
+    answers for the generation the POINTER names and for the one a running
+    process was exec'd from alike, and ``""`` is the honest answer for a tree
+    that was pruned or never carried a distribution — callers then fall back
+    to the generation name, which is still true provenance.
+    """
+    if generation is None:
+        return ""
+    found = _distribution_at(_generation_install_root(generation))
+    return found.version if found is not None else ""
+
+
+#: How many ancestor levels above a process image may still be its install tree.
+#: Two cover every shipped shape (``<root>/bin/<image>``); the bound leaves room
+#: for a nested layout without letting the walk wander into an operator's home
+#: directory, where an unrelated checkout would be a plausible wrong answer
+#: rather than no answer.
+_IMAGE_TREE_DEPTH = 4
+
+
+def version_of_image(image: Path) -> str:
+    """The version inside the tree a process image path belongs to, or ``""``.
+
+    WHO ASKS THIS (drill 2026-10-04, F10). Both a supervised unit and a running
+    process name an IMAGE — ``…/bin/python3``, ``…/bin/Local Operator``, a
+    generation's ``tools/local-operator/bin/…`` — and the tree holding that image
+    carries its own distribution in its own ``site-packages``. Reading it answers
+    "which build is on disk in the tree this image names" for a plain ``uv tool``
+    install, a pip venv and a generation alike, which is the half the generation
+    pointer never sees: a flow-installed node's ``installed`` side read the
+    pointer and reported ``0.67.2`` beside a 0.67.8 CLI.
+
+    NEAREST-FIRST AND BOUNDED: at most :data:`_IMAGE_TREE_DEPTH` ancestors are
+    asked, and only through :func:`_distribution_at`, which reads that tree's OWN
+    ``site-packages`` — never ``sys.path``, never an import — so the answer is
+    the first ancestor that really carries this distribution. A relative path is
+    refused outright: its ancestors are the working directory's, and the answer
+    would be about wherever the reader happens to stand. ``""`` covers every miss
+    — an interpreter with no install of ours, a pruned tree — and callers render
+    it as "not reported" rather than guessing.
+    """
+    if not image.is_absolute():
+        return ""
+    for root in image.parents[:_IMAGE_TREE_DEPTH]:
+        found = _distribution_at(root)
+        if found is not None:
+            return found.version
+    return ""
 
 
 def disk_build(root: str | Path | None = None) -> BuildStamp | None:
@@ -5612,8 +5770,15 @@ def refresh_service_daemons_after_upgrade(*, deadline: float | None = None) -> D
     exactly one owner — the mobile unit itself, which refreshes it and then
     bounces, so the rewrite and the bounce never split across actors — and a
     second writer here would race that owner's ``bootout``/``bootstrap`` pair.
-    ``_refresh_steps`` therefore carries the other three; the mobile half is
+    ``_refresh_steps`` therefore carries the other four; the mobile half is
     :func:`refresh_mobile_after_upgrade`'s child.
+
+    THE NETWORK RELAY JOINED THIS CHILD FOR THE GENERATION-LAYOUT GAP (2026-10-04,
+    F6), not the branding gap above: its plist is byte-identical across builds,
+    so a relay serving a superseded build is invisible to a rewrite-only repair
+    — its step asks the running process instead (``network/relay.py``'s
+    ``refresh_plist_if_stale``), which is what moves a relay that ``lop update``
+    would otherwise leave a generation behind.
 
     ``deadline`` is the concurrent stage's shared budget (see
     :func:`_bounded_timeout`); ``None`` — every other caller — keeps this
@@ -5784,14 +5949,14 @@ def refresh_daemons_after_upgrade() -> list[DaemonRefresh]:
     """Every supervised daemon this build knows, refreshed with the NEW wheel.
 
     ONE STAGE, TWO CONCURRENT UNITS (2026-09-30 design): the services child
-    (browser bridge, tunnel and wakes plists) and the mobile unit (this daemon's
-    own plist, then its bounce) run AT THE SAME TIME, joined once under the
-    :data:`_STAGE_DEADLINE_S` budget. The serial order between the two units is
-    gone; what is kept is the per-daemon order that made that order
+    (browser bridge, tunnel, wakes and network relay plists) and the mobile unit
+    (this daemon's own plist, then its bounce) run AT THE SAME TIME, joined once
+    under the :data:`_STAGE_DEADLINE_S` budget. The serial order between the two
+    units is gone; what is kept is the per-daemon order that made that order
     load-bearing — every daemon's plist is current before that daemon is
     bounced — because each plist now has exactly ONE actor: the mobile unit
     refreshes its own plist before bouncing it, and the services child owns the
-    other three. No daemon's plist is ever touched by two processes.
+    other four. No daemon's plist is ever touched by two processes.
 
     "First" in the old sense is now "printed first": the list comes back
     ``[services, mobile, ...]`` whatever order the units finished in, so the
@@ -5937,8 +6102,13 @@ def _refresh_steps() -> tuple[tuple[str, str, Callable[[], launchd.PlistRefresh]
     reader — :func:`_bound_fired_sentence`, which has to describe a daemon the
     process it describes is dead (see :data:`_PROGRESS_PREFIX`) — and they live
     here, beside the child that announces them, because the parent cannot know
-    which daemon a killed child had reached and must not enumerate what a fifth
+    which daemon a killed child had reached and must not enumerate what another
     daemon would make stale.
+
+    THE NETWORK RELAY JOINED THIS TABLE WITH THE DRILL'S FIX (2026-10-04, F6):
+    its plist does not change when a generation moves, so its step is the one
+    that asks the RUNNING PROCESS the second staleness question and restarts a
+    relay left a generation behind (``network/relay.refresh_plist_if_stale``).
 
     THE MOBILE DAEMON IS DELIBERATELY NOT HERE (2026-09-30 design). Its plist is
     owned END TO END by the mobile unit (:func:`refresh_mobile_after_upgrade` →
@@ -5966,6 +6136,7 @@ def _refresh_steps() -> tuple[tuple[str, str, Callable[[], launchd.PlistRefresh]
     is still paid by every session that never refreshes anything.
     """
     from local_operator.browser_bridge import install as browser_install
+    from local_operator.network import relay as relay_install
     from local_operator.tunnels import install as tunnel_install
     from local_operator.wakes import install as wakes_install
 
@@ -5973,6 +6144,7 @@ def _refresh_steps() -> tuple[tuple[str, str, Callable[[], launchd.PlistRefresh]
         ("browser bridge", "lop browser install", browser_install.refresh_plist_if_stale),
         ("tunnel", "lop tunnel install", tunnel_install.refresh_plist_if_stale),
         ("wakes supervisor", "lop wake install", wakes_install.refresh_plist_if_stale),
+        ("network relay", "lop network install", relay_install.refresh_plist_if_stale),
     )
 
 
@@ -6073,7 +6245,7 @@ def _bound_fired_sentence(*streams: object, bound: float | None = None) -> str:
     to touch anything.
 
     The recovery command is the child's, carried in the announcement, so these
-    sentences stay true when a fifth daemon exists. All of them name a command
+    sentences stay true when another daemon exists. All of them name a command
     rather than leaving the operator to find one: the whole point of the failure is
     that a daemon is STOPPED, and 0.61.4's own reload failure already names one.
     """

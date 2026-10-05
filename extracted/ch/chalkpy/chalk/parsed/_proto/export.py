@@ -417,13 +417,15 @@ def export_from_registries(
             AggregateBackfillTarget.OFFLINE: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_OFFLINE,
         }
         proto_targets = [proto_target_by_storage_target[target] for target in backfill.targets]
-        # environment/num_shards are passed only when set; the proto fields are added in
+        # environment/num_shards/include_partial_bucket are passed only when set; the proto fields are added in
         # artifacts.v1.CronAggregateBackfill (Layer 2) and None would raise on older stubs.
         optional_backfill_fields: Dict[str, Any] = {}
         if backfill.environment is not None:
             optional_backfill_fields["environment"] = backfill.environment
         if backfill.num_shards is not None:
             optional_backfill_fields["num_shards"] = backfill.num_shards
+        if backfill.include_partial_bucket:
+            optional_backfill_fields["include_partial_bucket"] = True
         cron_aggregate_backfills.append(
             cron_aggregate_backfill_pb.CronAggregateBackfill(
                 name=backfill.name,

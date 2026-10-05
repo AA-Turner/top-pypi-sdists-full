@@ -16,8 +16,6 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 from pydantic import Field
 
-from ha_mcp._vendor.mcp.types import Icon
-
 from .config import _PACKAGE_VERSION, get_global_settings
 from .errors import ErrorCode, create_error_response
 from .http_transport import HttpTransportFastMCP as FastMCP
@@ -33,6 +31,7 @@ from .server_tool_text import (
     TOOL_DISCOVERY_INSTRUCTIONS,
 )
 from .tools.helpers import raise_tool_error
+from .tools.tool_hints import read_only_hints
 from .transforms import DEFAULT_PINNED_TOOLS
 from .utils.skill_loader import (
     BEST_PRACTICES_SKILL_NAME,
@@ -78,21 +77,6 @@ _SKILL_GUIDE_MANDATORYBPS_HINT = (
 )
 
 
-# Server icon configuration using GitHub-hosted images
-# These icons are bundled in packaging/mcpb/ and also available via GitHub raw URLs
-SERVER_ICONS = [
-    Icon(
-        src="https://raw.githubusercontent.com/homeassistant-ai/ha-mcp/master/packaging/mcpb/icon.svg",
-        mime_type="image/svg+xml",
-    ),
-    Icon(
-        src="https://raw.githubusercontent.com/homeassistant-ai/ha-mcp/master/packaging/mcpb/icon-128.png",
-        mime_type="image/png",
-        sizes=["128x128"],
-    ),
-]
-
-
 class HomeAssistantSmartMCPServer:
     """Home Assistant MCP Server with smart tools and fuzzy search.
 
@@ -133,11 +117,9 @@ class HomeAssistantSmartMCPServer:
 
         instructions = self._build_instructions()
 
-        # Create FastMCP server with Home Assistant icons for client UI display
         self.mcp = FastMCP(
             name=server_name,
             version=server_version,
-            icons=SERVER_ICONS,
             instructions=instructions,
             lifespan=server_lifespan,
         )
@@ -1201,12 +1183,9 @@ class HomeAssistantSmartMCPServer:
         self.mcp.tool(
             name=SKILL_TOOL_NAME,
             description=tool_description,
-            annotations={
-                "openWorldHint": False,
-                "readOnlyHint": True,
-                "idempotentHint": True,
-                "title": "Get Home Assistant Best Practices Skill Guide",
-            },
+            annotations=read_only_hints(
+                "Get Home Assistant Best Practices Skill Guide", open_world=False
+            ),
             tags={"System"},
         )(ha_get_skill_guide)
         logger.info(

@@ -1,6 +1,6 @@
 [project]
 name = "oidc-provider-mock"
-version = "0.4.7"
+version = "0.4.8"
 description = "OpenID Connect provider server for testing authentication"
 authors = [{ name = "Thomas Scholtes", email = "geigerzaehler@axiom.fm" }]
 readme = "README.md"
@@ -64,7 +64,7 @@ dev = [
   "pytest-playwright~=0.9.0",
   "pytest-randomly~=5.0",
   "pytest-watcher~=0.6.3",
-  "pytest~=9.0",
+  "pytest~=9.1",
   "ruff==0.16.7",
   "shibuya~=2026.1",
   "sphinx-autobuild~=2025.8",

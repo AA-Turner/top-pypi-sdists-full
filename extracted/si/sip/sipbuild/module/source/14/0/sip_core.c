@@ -24,6 +24,7 @@
 #include "sip_helpers.h"
 #include "sip_int_convertors.h"
 #include "sip_method_descriptor.h"
+#include "sip_object_guard.h"
 #include "sip_parsers.h"
 #include "sip_simple_wrapper.h"
 #include "sip_sip_module.h"
@@ -39,7 +40,7 @@ static void sip_api_abstract_method(const char *classname, const char *method);
 static void sip_api_call_hook(const char *hookname);
 static void *sip_api_cast_to_target_type(sipModuleState *ms, sipTypeID type_id,
         void *cpp, const sipClassTypeSpec *target_cts);
-static int sip_api_convert_to_enum(sipModuleState *ms, PyObject *obj,
+static int sip_api_convert_to_based_enum(sipModuleState *ms, PyObject *obj,
         void *addr, sipTypeID type_id);
 static int sip_api_enable_autoconversion(sipModuleState *ms,
         PyTypeObject *py_type, int enable);
@@ -51,8 +52,8 @@ static PyTypeObject *sip_api_get_py_type_ref(sipModuleState *ms,
         sipTypeID type_id);
 static PyTypeObject *sip_api_get_simple_wrapper_type(sipModuleState *ms);
 static int sip_api_get_state(PyObject *transferObj);
-static PyObject *sip_api_get_type_user_object(sipWrapperType *wt);
-static PyObject *sip_api_get_user_object(sipSimpleWrapper *sw);
+static PyObject *sip_api_get_type_user_object_ref(sipWrapperType *wt);
+static PyObject *sip_api_get_user_object_ref(sipSimpleWrapper *sw);
 static PyTypeObject *sip_api_get_void_ptr_type(sipModuleState *ms);
 static PyTypeObject *sip_api_get_wrapper_type(sipModuleState *ms);
 static PyTypeObject *sip_api_get_wrapper_type_type(sipModuleState *ms);
@@ -112,6 +113,7 @@ const sipABISpec sip_abi = {
     sip_api_release_type_us,
     sip_api_convert_from_type,
     sip_api_convert_from_new_type,
+    sip_api_convert_from_based_enum,
     sip_api_convert_from_enum,
     sip_api_get_state,
     sip_api_free,
@@ -145,7 +147,7 @@ const sipABISpec sip_abi = {
     sip_api_convert_to_array,
     sip_api_get_interpreter_view,
     sip_api_set_type_user_object,
-    sip_api_get_type_user_object,
+    sip_api_get_type_user_object_ref,
     sip_api_get_method,
     sip_api_from_method,
     sip_api_get_c_function,
@@ -159,13 +161,14 @@ const sipABISpec sip_abi = {
     sip_api_unicode_new,
     sip_api_unicode_write,
     sip_api_unicode_data,
-    sip_api_get_user_object,
+    sip_api_get_user_object_ref,
     sip_api_set_user_object,
     sip_api_instance_destroyed,
     sip_api_is_owned_by_python,
     sip_api_enable_gc,
     sip_api_object_dump,
     sip_api_register_event_handlers,
+    sip_api_convert_to_based_enum,
     sip_api_convert_to_enum,
     sip_api_convert_to_bool,
     sip_api_long_as_char,
@@ -190,6 +193,21 @@ const sipABISpec sip_abi = {
     sip_api_get_frame_ref,
     sip_api_get_module_user_state,
     sip_api_set_module_user_state,
+    sip_api_get_module_state,
+    sip_api_get_module_state_by_type,
+    sip_api_py_type_name,
+    sip_api_type_from_py_type_object,
+    sip_api_make_absolute,
+    sip_api_type_name,
+    sip_api_get_assignment_function,
+    sip_api_type_plugin_data,
+    sip_api_object_guard_new,
+    sip_api_object_guard_get_module_state,
+    sip_api_object_guard_get_ref,
+    sip_api_object_guard_release,
+    sip_api_object_guard_clear,
+    sip_api_object_guard_free,
+    sip_api_object_guard_traverse,
     /*
      * The following are not part of the public ABI.
      */
@@ -208,7 +226,7 @@ const sipABISpec sip_abi = {
     sip_api_deprecated,
     sip_api_keep_reference,
     sip_api_add_exception,
-    sip_api_parse_result,
+    sip_api_parse_result_object,
     sip_api_call_error_handler,
     sip_api_call_procedure_method,
     sip_api_init_slot_impl,
@@ -339,10 +357,10 @@ static void sip_api_trace(sipModuleState *ms, unsigned mask, const char *fmt,
  * Convert a Python object implementing an enum to a member value.  An
  * exception is raised if there was an error.
  */
-static int sip_api_convert_to_enum(sipModuleState *ms, PyObject *obj,
+static int sip_api_convert_to_based_enum(sipModuleState *ms, PyObject *obj,
         void *addr, sipTypeID type_id)
 {
-    return sip_enum_convert_to_enum(ms, obj, addr, type_id, TRUE);
+    return sip_enum_convert_to_based_enum(ms, obj, addr, type_id, TRUE);
 }
 
 
@@ -352,7 +370,7 @@ static int sip_api_convert_to_enum(sipModuleState *ms, PyObject *obj,
 static int sip_api_register_py_type(sipModuleState *ms, PyTypeObject *type)
 {
     return sip_append_py_object_to_list(ms->sip_module_state,
-            &ms->registered_py_types, (PyObject *)type);
+            &ms->registered_py_types, (PyObject *)type) < 0 ? -1 : 0;
 }
 
 
@@ -751,13 +769,8 @@ int sip_add_attrs_to_type(sipModuleState *ms, PyTypeObject *py_type,
  */
 PyObject *sip_get_type_name(const sipTypeSpec *ts)
 {
-    const char *name = strrchr(ts->tp_name, '.');
-    if (name != NULL)
-        name++;
-    else
-        name = ts->tp_name;
-
-    return PyUnicode_FromString(name);
+    /* The tp_name will always contain a dot. */
+    return PyUnicode_FromString(strrchr(ts->tp_name, '.') + 1);
 }
 
 
@@ -942,12 +955,14 @@ static PyTypeObject *create_class_type(sipModuleState *ms, sipTypeNr type_nr,
     sipSipModuleState *sms = ms->sip_module_state;
 
     PyObject *bases;
+    sipTypeID type_type = sipTypeSpecIsNamespace(&cts->base) ?
+            SIP_TYPE_ID_TYPE_NAMESPACE : SIP_TYPE_ID_TYPE_CLASS;
 
     if (cts->supers == NULL)
     {
         if (cts->supertype == NULL)
         {
-            bases = sipTypeSpecIsNamespace(&cts->base) ?
+            bases = (type_type == SIP_TYPE_ID_TYPE_NAMESPACE) ?
                 Py_NewRef(sms->simple_wrapper_type) :
                 Py_NewRef(sms->wrapper_type);
         }
@@ -1051,7 +1066,7 @@ static PyTypeObject *create_class_type(sipModuleState *ms, sipTypeNr type_nr,
         metatype = (PyTypeObject *)Py_NewRef(Py_TYPE(first));
     }
 
-    sipTypeID type_id = SIP_TYPE_ID_TYPE_CLASS | SIP_TYPE_ID_LOCAL_MODULE | type_nr;
+    sipTypeID type_id = SIP_TYPE_ID_ABSOLUTE | type_type | (ms->module_nr << 16) | type_nr;
 
     PyTypeObject *py_type = create_container_type(ms, type_id, &cts->base,
             cts->init_slot, cts->getbuffer, cts->releasebuffer, cts->attrs,
@@ -1241,7 +1256,7 @@ static PyTypeObject *create_mapped_type(sipModuleState *ms, sipTypeNr type_nr,
     sipSipModuleState *sms = ms->sip_module_state;
 
     return create_container_type(ms,
-            SIP_TYPE_ID_TYPE_MAPPED | SIP_TYPE_ID_LOCAL_MODULE | type_nr,
+            SIP_TYPE_ID_ABSOLUTE | SIP_TYPE_ID_TYPE_MAPPED | (ms->module_nr << 16) | type_nr,
             &mts->base, NULL, NULL, NULL, mts->attrs,
             (PyObject *)sms->simple_wrapper_type, sms->wrapper_type_type);
 }
@@ -1438,7 +1453,12 @@ void sip_transfer_to(sipSipModuleState *sms, PyObject *self,
 
     if (owner == NULL)
     {
-        /* There is no owner. */
+        /*
+         * There is no owner.  This code implements 'sip.transferto(obj, None)'
+         * but it's likely that the correct implementation is that in the
+         * following block.  We choose to leave this as it is to avoid breaking
+         * user code.
+         */
 
         if (sipCppHasRef(sw))
         {
@@ -1458,8 +1478,8 @@ void sip_transfer_to(sipSipModuleState *sms, PyObject *self,
         /*
          * The owner is a C++ instance and not a Python object (ie. there is no
          * parent) so there is an explicit extra reference to keep this Python
-         * object alive.  Note that there is no way to specify this from a .sip
-         * file - it is useful when embedding in C/C++ applications.
+         * object alive.  This code implements the '/TransferThis/' function
+         * annotation.
          */
 
         if (!sipCppHasRef(sw))
@@ -1637,30 +1657,23 @@ static int sip_api_is_derived_class(sipSimpleWrapper *sw)
 
 
 /*
- * Return a borrowed reference to the user defined object from a wrapped
+ * Return a new reference to the optional user defined object from a wrapped
  * instance.
  */
-static PyObject *sip_api_get_user_object(sipSimpleWrapper *sw)
+static PyObject *sip_api_get_user_object_ref(sipSimpleWrapper *sw)
 {
-    return sw->user;
+    return Py_XNewRef(sw->user);
 }
 
 
 /*
- * Set the user defined object in a wrapped instance.  This steals a reference
- * to the object.
+ * Set the user defined object in a wrapped instance.
  */
 static void sip_api_set_user_object(sipSimpleWrapper *sw, PyObject *user)
 {
-    /*
-     * Note that there are multiple issues with the current implementation:
-     * - the getter should return a strong reference
-     * - only one object can be stored (there may be use cases where different
-     *   modules each want to set an object).
-     * We choose not to change the implementation for the moment and wait until
-     * we have specific use cases to inform the design.
-     */
-    sw->user = user;
+    Py_BEGIN_CRITICAL_SECTION(wt);
+    Py_XSETREF(sw->user, Py_XNewRef(user));
+    Py_END_CRITICAL_SECTION();
 }
 
 
@@ -1723,7 +1736,8 @@ static sipTypeID sip_api_find_type(sipModuleState *ms, const char *type)
         if (mod == NULL)
             continue;
 
-        const sipModuleSpec *m_spec = sip_get_module_state(mod)->module_spec;
+        sipModuleState *m_state = sip_get_module_state(mod);
+        const sipModuleSpec *m_spec = m_state->module_spec;
 
         /* Everything from here uses const specifications. */
         Py_DECREF(mod);
@@ -1758,7 +1772,7 @@ static sipTypeID sip_api_find_type(sipModuleState *ms, const char *type)
              * that a type that this module knows nothing about can still be
              * referenced.
              */
-            return type_type | SIP_TYPE_ID_ABSOLUTE | (sipTypeID)(i << 16) | type_nr;
+            return SIP_TYPE_ID_ABSOLUTE | type_type | (m_state->module_nr << 16) | type_nr;
         }
     }
 
@@ -1866,7 +1880,7 @@ static void *sip_api_cast_to_target_type(sipModuleState *ms, sipTypeID type_id,
 static PyObject *resolve_type_id(sipModuleState *ms, sipTypeID type_id,
         sipTypeNr *def_type_nr_p)
 {
-    if (!sipTypeIsClass(type_id) && !sipTypeIsMapped(type_id) && !sipTypeIsEnum(type_id) && !sipTypeIsException(type_id))
+    if (!sipTypeIsClass(type_id) && !sipTypeIsNamespace(type_id) && !sipTypeIsMapped(type_id) && !sipTypeIsEnum(type_id) && !sipTypeIsException(type_id))
     {
         PyErr_Format(PyExc_TypeError,
                 "type ID %0x does not refer to a wrapped type", type_id);
@@ -2189,12 +2203,13 @@ static int compare_typedef_name(const void *key, const void *el)
 
 
 /*
- * Add a Python type object to a list.  Return 0 if there was no error.
+ * Add a Python type object to a list.  Return the position in the list or -1
+ * if there was an error.
  */
-int sip_append_py_object_to_list(sipSipModuleState *sms, PyObject **listp,
-        PyObject *object)
+Py_ssize_t sip_append_py_object_to_list(sipSipModuleState *sms,
+        PyObject **listp, PyObject *object)
 {
-    int rc;
+    Py_ssize_t pos;
 
     Py_BEGIN_CRITICAL_SECTION_MUTEX(&sms->mutex);
 
@@ -2202,22 +2217,25 @@ int sip_append_py_object_to_list(sipSipModuleState *sms, PyObject **listp,
 
     if (list != NULL)
     {
-        rc = PyList_Append(list, object);
+        if (PyList_Append(list, object) < 0)
+            pos = -1;
+        else
+            pos = PyList_GET_SIZE(list) - 1;
     }
     else if ((list = PyList_New(1)) != NULL)
     {
         PyList_SET_ITEM(list, 0, Py_NewRef(object));
         *listp = list;
-        rc = 0;
+        pos = 0;
     }
     else
     {
-        rc = -1;
+        pos = -1;
     }
 
     Py_END_CRITICAL_SECTION();
 
-    return rc;
+    return pos;
 }
 
 
@@ -2390,11 +2408,6 @@ void *sip_get_final_address(sipSipModuleState *sms, PyTypeObject *py_type,
  */
 static void sip_api_set_type_user_object(sipWrapperType *wt, PyObject *data)
 {
-    /*
-     * Note that there are similar issues to those with the user object stored
-     * in a wrapped instance.  Likewise we choose to wait for specific use
-     * cases to inform a better implementation.
-     */
     Py_BEGIN_CRITICAL_SECTION(wt);
     Py_XSETREF(wt->user_data, Py_XNewRef(data));
     Py_END_CRITICAL_SECTION();
@@ -2404,7 +2417,7 @@ static void sip_api_set_type_user_object(sipWrapperType *wt, PyObject *data)
 /*
  * Get the user-specific type data.
  */
-static PyObject *sip_api_get_type_user_object(sipWrapperType *wt)
+static PyObject *sip_api_get_type_user_object_ref(sipWrapperType *wt)
 {
     return Py_XNewRef(wt->user_data);
 }

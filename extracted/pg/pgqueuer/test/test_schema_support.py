@@ -88,6 +88,24 @@ async def test_fresh_install_round_trip_in_schema(apgdriver: db.Driver) -> None:
     assert len(rows) == 1
 
 
+async def test_dedupe_skip_infers_the_index_in_a_schema(apgdriver: db.Driver) -> None:
+    """The ON CONFLICT arbiter names the status enum, which a schema'd install qualifies.
+
+    PostgreSQL raises outright when it cannot match an arbiter to an index, so
+    a second enqueue returning None is the proof that inference still holds.
+    """
+    await queries.Queries(apgdriver).uninstall()
+
+    settings = DBSettings(db_schema=SCHEMA, prefix="iso_")
+    q = queries_for(apgdriver, settings)
+    await q.install()
+
+    (first,) = await q.enqueue("ep", b"x", 0, dedupe_key="same", on_conflict="skip")
+    (second,) = await q.enqueue("ep", b"y", 0, dedupe_key="same", on_conflict="skip")
+    assert first is not None
+    assert second is None
+
+
 async def test_widen_id_in_schema_with_prefix(apgdriver: db.Driver) -> None:
     """The widen-id migration targets the configured schema, not the search_path."""
     await queries.Queries(apgdriver).uninstall()
@@ -142,6 +160,23 @@ async def test_schema_info_respects_db_schema(apgdriver: db.Driver) -> None:
         settings.statistics_table,
         settings.schedules_table,
     }
+
+
+async def test_dashboard_queries_respect_db_schema(apgdriver: db.Driver) -> None:
+    await queries.Queries(apgdriver).uninstall()
+
+    settings = DBSettings(db_schema=SCHEMA, prefix="iso_")
+    q = queries_for(apgdriver, settings)
+    await q.install()
+    (job_id,) = await q.enqueue("ep", None)
+
+    assert [job.id for job in await q.browse_queue()] == [job_id]
+    assert await q.queue_job_by_id(job_id) is not None
+    assert len(await q.job_log_history(job_id)) == 1
+    assert await q.unaggregated_log_count() == 1
+    assert await q.job_duration_percentiles(timedelta(hours=1)) == []
+    (bucket,) = await q.throughput_timeseries(timedelta(hours=1))
+    assert bucket.count == 1
 
 
 async def test_install_without_create_schema(apgdriver: db.Driver) -> None:

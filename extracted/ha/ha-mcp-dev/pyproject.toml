@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "ha-mcp-dev"
-version = "8.6.0.dev2879"
+version = "8.6.0.dev2909"
 description = "Home Assistant MCP Server - Complete control of Home Assistant through MCP"
 readme = "README.md"
 requires-python = ">=3.13,<3.15"
@@ -302,7 +302,6 @@ dev = [
     "mcp>=1.26.0,<2",
     "mypy>=1.17.0",
     "openai>=1.0.0",
-    "pyinstaller>=6.0.0",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.1.0",
     "pytest-timeout>=2.3.0",

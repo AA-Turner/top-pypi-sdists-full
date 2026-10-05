@@ -1,5 +1,4 @@
 import math
-from typing import List, Optional
 
 import torch
 
@@ -10,21 +9,20 @@ from pytorch_optimizer.optimizer.foreach_utils import foreach_rsqrt_
 
 
 class Amos(BaseOptimizer):
-    """An Adam-style Optimizer with Adaptive Weight Decay towards Model-Oriented Scale.
+    """Adaptive updates with weight decay toward a target parameter scale.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        beta (float): A float slightly less than 1. Recommended to set `1 - beta` approximately the same magnitude
-            as the learning rate, similar to beta2 in Adam.
-        momentum (float): Exponential decay rate for optional moving average of updates.
-        extra_l2 (float): Additional L2 regularization.
-        c_coef (float): Coefficient for decay_factor_c.
-        d_coef (float): Coefficient for decay_factor_d.
-        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
-            None means auto-detect based on device (True for CUDA, False otherwise).
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        beta: A float slightly less than 1. Recommended to set `1 - beta` approximately the same magnitude as the
+            learning rate, similar to beta2 in Adam.
+        momentum: Momentum factor.
+        extra_l2: Additional L2 regularization.
+        c_coef: Coefficient for decay_factor_c.
+        d_coef: Coefficient for decay_factor_d.
+        foreach: Use batched tensor operations. `None` enables them for supported parameter groups.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -37,7 +35,7 @@ class Amos(BaseOptimizer):
         extra_l2: float = 0.0,
         c_coef: float = 0.25,
         d_coef: float = 0.25,
-        foreach: Optional[bool] = None,
+        foreach: bool | None = None,
         eps: float = 1e-18,
         maximize: bool = False,
         **kwargs,
@@ -95,7 +93,7 @@ class Amos(BaseOptimizer):
 
     @staticmethod
     def get_scale(p: torch.Tensor) -> float:
-        r"""Get expected scale for model weights."""
+        """Return the target weight scale from the parameter shape."""
         if len(p.shape) == 1:
             return 0.5
         if len(p.shape) == 2:
@@ -105,11 +103,11 @@ class Amos(BaseOptimizer):
     def _step_foreach(
         self,
         group: ParamGroup,
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        exp_avgs: List[torch.Tensor],
-        exp_avg_sqs: List[torch.Tensor],
-        decays: List[torch.Tensor],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
+        decays: list[torch.Tensor],
     ) -> None:
         lr_sq: float = math.sqrt(group['lr'])
         lr_p2: float = math.pow(group['lr'], 2)
@@ -121,7 +119,7 @@ class Amos(BaseOptimizer):
             torch._foreach_neg_(grads)
 
         g2 = [grad.pow(2).mean() for grad in grads]
-        init_lrs: List[float] = [group['lr'] * self.get_scale(p) for p in params]
+        init_lrs: list[float] = [group['lr'] * self.get_scale(p) for p in params]
 
         torch._foreach_mul_(exp_avg_sqs, beta)
         torch._foreach_add_(exp_avg_sqs, g2, alpha=1.0 - beta)
@@ -181,7 +179,7 @@ class Amos(BaseOptimizer):
             init_lr: float = group['lr'] * self.get_scale(p)
 
             exp_avg_sq = state['exp_avg_sq']
-            exp_avg_sq.mul_(beta).add_(g2, alpha=1.0 - beta)
+            exp_avg_sq.lerp_(g2, weight=1.0 - beta)
 
             r_v_hat = bias_correction / (exp_avg_sq + group['eps'])
 
@@ -200,7 +198,7 @@ class Amos(BaseOptimizer):
 
             if momentum > 0.0:
                 exp_avg = state['exp_avg']
-                exp_avg.mul_(momentum).add_(update, alpha=1.0 - momentum)
+                exp_avg.lerp_(update, weight=1.0 - momentum)
 
                 update.copy_(exp_avg)
 

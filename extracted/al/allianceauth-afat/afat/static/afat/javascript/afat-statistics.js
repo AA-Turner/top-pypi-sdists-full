@@ -43,7 +43,7 @@ $(document).ready(() => {
      * @param {boolean} show True to show, false to hide
      */
     const toggleElements = (selectors, show) => {
-        selectors.forEach(selector => toggleElement(selector, show));
+        selectors.forEach((selector) => toggleElement(selector, show));
     };
 
     /**
@@ -109,10 +109,10 @@ $(document).ready(() => {
             ...afatSettings.dataTables,
             data: tableData,
             columns: [
-                { data: 'character_name' },
-                { data: 'fat_count' },
-                { data: 'show_details_button' },
-                { data: 'in_main_corp' }
+                {data: 'character_name'},
+                {data: 'fat_count'},
+                {data: 'show_details_button'},
+                {data: 'in_main_corp'}
             ],
             order: [
                 [3, 'desc'],
@@ -122,7 +122,7 @@ $(document).ready(() => {
             columnDefs: [
                 {
                     targets: 1,
-                    columnControl: _removeSearchFromColumnControl(),
+                    columnControl: _removeSearchFromColumnControl()
                 },
                 {
                     target: 2,

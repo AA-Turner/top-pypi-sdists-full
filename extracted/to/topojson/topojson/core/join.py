@@ -2,19 +2,22 @@
 import copy
 import pprint
 
+import numpy as np
 from shapely import geometry
 from shapely.errors import ShapelyError
-from shapely.ops import linemerge
-from shapely.ops import shared_paths
+from shapely.ops import linemerge, shared_paths
 
-from ..ops import bounds
-from ..ops import compare_bounds
-from ..ops import explode
-from ..ops import linemerge_ext
-from ..ops import quantize
-from ..ops import select_unique_combs
+from ..ops import (
+    bounds,
+    compare_bounds,
+    quantize,
+    select_unique_combs,
+    shared_path_ends,
+    shared_path_ends_on_grid,
+    simplify,
+    simplify_coverage,
+)
 from ..utils import serialize_as_svg
-from ..ops import simplify
 from .extract import Extract
 
 
@@ -34,23 +37,18 @@ class Join(Extract):
 
     Parameters
     ----------
-    data : dict
-        object created by the method topojson.extract.
-    quant_factor : int, optional (default: None)
-        quantization factor, used to constrain float numbers to integer values.
-        - Use 1e4 for 5 valued values (00001-99999)
-        - Use 1e5 for 6 valued values (000001-999999)
-        - Use 1e6 for 7 valued values (0000001-9999999)
+    data : _any_ geometric type
+        Geometric data, as for `Extract`
+    options : dict or TopoOptions
+        Options of the topology, see `Topology`
 
     Returns
     -------
     dict
-        object expanded with
-        - new key: junctions
-        - new key: transform (if quant_factor is not None)
+        Output of `Extract` with the key `junctions`, and `transform` if quantized
     """
 
-    def __init__(self, data, options={}):
+    def __init__(self, data, options=None):
         # execute previous step
         super().__init__(data, options)
 
@@ -63,7 +61,7 @@ class Join(Extract):
         self.output = self._joiner(self.output)
 
     def __repr__(self):
-        return "Join(\n{}\n)".format(pprint.pformat(self.output))
+        return f"Join(\n{pprint.pformat(self.output)}\n)"
 
     def to_dict(self):
         """
@@ -129,19 +127,39 @@ class Join(Extract):
         # presimplify linestrings if required
         if self.options.presimplify > 0:
             # set default if not specifically given in the options
-            if isinstance(type(self.options.presimplify), bool):
+            if isinstance(self.options.presimplify, bool):
                 simplify_factor = 2
             else:
                 simplify_factor = self.options.presimplify
 
-            data["linestrings"] = simplify(
-                data["linestrings"],
-                simplify_factor,
-                algorithm=self.options.simplify_algorithm,
-                package=self.options.simplify_with,
-                input_as="linestring",
-                prevent_oversimplify=self.options.prevent_oversimplify,
-            )
+            if self.options.simplify_with == "geos":
+                # polygons together as a coverage, the other lines one by one
+                lines = data["linestrings"]
+                polygons = _polygon_rings(data["objects"], data["bookkeeping_geoms"])
+                order = self.options.winding_order
+                exterior_cw = None if order is None else order == "CW_CCW"
+                simplify_coverage(lines, polygons, simplify_factor, exterior_cw)
+                ring = np.zeros(len(lines), bool)
+                ring[[i for p in polygons for i in p]] = True
+                rest = np.flatnonzero(~ring)
+                simple = simplify(
+                    [lines[i] for i in rest],
+                    simplify_factor,
+                    package="shapely",
+                    input_as="linestring",
+                    prevent_oversimplify=self.options.prevent_oversimplify,
+                )
+                for i, line in zip(rest.tolist(), simple):
+                    lines[i] = line
+            else:
+                data["linestrings"] = simplify(
+                    data["linestrings"],
+                    simplify_factor,
+                    algorithm=self.options.simplify_algorithm,
+                    package=self.options.simplify_with,
+                    input_as="linestring",
+                    prevent_oversimplify=self.options.prevent_oversimplify,
+                )
 
         # compute the bounding box of input geometry
         lsbs = bounds(data["linestrings"])
@@ -156,19 +174,27 @@ class Join(Extract):
             return data
 
         # prequantize linestrings if required
-        if self.options.prequantize > 0:
+        quantized = isinstance(self.options.prequantize, dict) or (
+            self.options.prequantize > 0
+        )
+        if quantized:
+            # a fixed transform defines the grid, independent of the bbox
+            transform = None
+            quant_factor = None
+            if isinstance(self.options.prequantize, dict):
+                transform = self.options.prequantize
             # set default if not specifically given in the options
-            if isinstance(self.options.prequantize, bool):
+            elif isinstance(self.options.prequantize, bool):
                 quant_factor = 1e5
             else:
                 quant_factor = self.options.prequantize
 
             data["linestrings"], data["transform"] = quantize(
-                data["linestrings"], data["bbox"], quant_factor
+                data["linestrings"], data["bbox"], quant_factor, transform=transform
             )
 
             data["coordinates"], data["transform"] = quantize(
-                data["coordinates"], data["bbox"], quant_factor
+                data["coordinates"], data["bbox"], quant_factor, transform=transform
             )
 
         if not self.options.topology or not data["linestrings"]:
@@ -179,7 +205,7 @@ class Join(Extract):
 
             def _get_verts(geom):
                 # get coords of each LineString
-                return [x for x in geom.coords]
+                return list(geom.coords)
 
             geoms = {}
             junctions = []
@@ -197,33 +223,14 @@ class Join(Extract):
 
             self._junctions = [geometry.Point(xy) for xy in set(junctions)]
         else:
-
-            # calculate line intersections between all linestrings
-            idx_combs, _ = select_unique_combs(data["linestrings"])
-            geom_combs = [
-                (data["linestrings"][idx_comb[0]], data["linestrings"][idx_comb[1]])
-                for idx_comb in idx_combs
-            ]
-            # we don't want junctions for equal linestrings, so filter them out
-            geom_combs = [
-                geoms for geoms in geom_combs if not geoms[0].equals(geoms[1])
-            ]
-
-            # calculate line intersections between linestrings
-            intersect_lines = [
-                linemerge_ext(geom1.intersection(geom2)) for geom1, geom2 in geom_combs
-            ]
-            intersect_lines = [line for line in intersect_lines if not line.is_empty]
-            intersect_lines = explode(intersect_lines)
-
-            # the start and end points of the intersect_lines are the junctions
-            junctions = [
-                junction
-                for line in intersect_lines
-                for junction in (line.coords[0], line.coords[-1])
-            ]
-            # keep unique junctions
-            self._junctions = list(map(geometry.Point, set(junctions)))
+            # junctions are the ends of the paths shared by two linestrings
+            if quantized:
+                ends = shared_path_ends_on_grid(data["linestrings"])
+            else:
+                idx_combs, _ = select_unique_combs(data["linestrings"])
+                lines = data["linestrings"]
+                ends = shared_path_ends([(lines[i], lines[j]) for i, j in idx_combs])
+            self._junctions = list(map(geometry.Point, ends))
 
         # prepare to return object
         data["junctions"] = self._junctions
@@ -237,7 +244,7 @@ class Join(Extract):
         """
 
         if not isinstance(merged_line, geometry.LineString):
-            merged_line = [ls for ls in merged_line.geoms]
+            merged_line = list(merged_line.geoms)
         else:
             merged_line = [merged_line]
         return merged_line
@@ -269,7 +276,6 @@ class Join(Extract):
 
         # continue if any shared path was detected
         if fw_bw and not fw_bw.is_empty:
-
             forward = fw_bw.geoms[0]
             backward = fw_bw.geoms[1]
 
@@ -294,3 +300,15 @@ class Join(Extract):
             p1_g2 = geometry.Point([g2.xy[0][0], g2.xy[1][0]])
             ls_p1_g1g2 = geometry.LineString([p1_g1, p1_g2])
             self._segments.extend([[ls_p1_g1g2]])
+
+
+def _polygon_rings(objects, bookkeeping_geoms):
+    """Index of the rings of each polygon in the extracted objects, also inside
+    geometry collections."""
+    polygons = []
+    for obj in objects.values() if isinstance(objects, dict) else objects:
+        if obj.get("type") == "GeometryCollection":
+            polygons += _polygon_rings(obj.get("geometries", []), bookkeeping_geoms)
+        elif obj.get("type") in ("Polygon", "MultiPolygon"):
+            polygons += [bookkeeping_geoms[b] for b in obj.get("arcs") or []]
+    return polygons

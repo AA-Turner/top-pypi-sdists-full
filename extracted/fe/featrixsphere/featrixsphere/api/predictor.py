@@ -29,7 +29,7 @@ from .http_client import TRAINING_IN_PROGRESS_STATUSES, customer_metadata_header
 from .prediction_result import PredictionResult
 from .api_endpoint import APIEndpoint
 from .exceptions import TrainingStatusUnavailableError, SessionNotFoundError
-from .poll_utils import adaptive_poll_interval, job_awaiting_start
+from .poll_utils import adaptive_poll_interval, job_awaiting_start, server_liveness_time
 
 # A single poll reading status='failed' can be a transient/racy read — require
 # this many consecutive confirming reads before treating it as a real terminal
@@ -764,6 +764,10 @@ class Predictor:
                     current_epoch = job.get('current_epoch') or job.get('epoch')
                     progress_fraction = job.get('progress')
                     awaiting_start = job_awaiting_start(job)
+                    # Node still sees the job working (poll_utils.server_liveness_time).
+                    alive_at = server_liveness_time(job)
+                    if alive_at is not None:
+                        last_progress_time = max(last_progress_time, alive_at)
                     if status in ('failed', 'error'):
                         error_msg = job.get('error', 'Unknown error')
                     break

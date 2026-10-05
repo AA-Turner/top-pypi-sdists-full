@@ -5,7 +5,9 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from zlib import crc32
 
+from .....plugin import Class, MappedType as PluginMappedType, Specification
 from .....sip_module_configuration import SipModuleConfiguration
 
 from ....python_slots import (is_extendable_slot, is_number_slot,
@@ -19,15 +21,14 @@ from ....utils import is_namespace_extender
 
 from ...formatters import fmt_argument_as_name, fmt_enum_as_cpp_type
 
-from ..snippets import (g_argument_variable, g_ctor_type_hint,
-        g_member_function, g_overload_type_hint, g_static_function,
-        g_type_init_body)
+from ..snippets import (g_argument_variable, g_member_function,
+        g_static_function, g_type_init_body)
 from ..utils import (callable_overloads, get_class_from_void,
-        get_docstring_text, get_enum_member, get_function_table,
-        get_mapped_type_flags, get_method_table, get_optional_ptr,
-        get_type_from_void, get_use_in_code, has_method_docstring, is_string,
-        is_used_in_code, module_classes, need_dealloc, py_scope,
-        scoped_class_name, variables_in_scope)
+        get_ctor_type_hint, get_docstring_text, get_enum_member,
+        get_function_table, get_mapped_type_flags, get_method_table,
+        get_optional_ptr, get_overload_type_hint, get_type_from_void,
+        get_use_in_code, is_string, is_used_in_code, module_classes,
+        need_dealloc, py_scope, scoped_class_name, variables_in_scope)
 
 from .abstract_backend import AbstractBackend
 
@@ -127,7 +128,7 @@ class v14Backend(AbstractBackend):
         """ Generate an argument parser call. """
 
         return _g_arg_parser(sf, spec, scope, py_signature, signature_nr, ctor,
-                is_method, overload)
+                overload)
 
     @staticmethod
     def g_cast_function(sf, spec, klass):
@@ -218,7 +219,7 @@ f'''    if (sipIsTargetType(sipMS, {sc_type_ref}, target_cts))
             module_ref = iface_file.module.module_nr
 
         if not is_namespace_extender(klass):
-            sf.write(f'#define {_get_type_ref(klass)} SIP_TYPE_ID_TYPE_CLASS|{external}{module_ref}|{iface_file.type_nr}\n')
+            sf.write(f'#define {_get_type_ref(klass)} (SIP_TYPE_ID_TYPE_CLASS|{external}{module_ref}|{iface_file.type_nr})\n')
 
     @staticmethod
     def g_class_spec_extern_decl(sf, spec, klass):
@@ -233,6 +234,12 @@ f'''    if (sipIsTargetType(sipMS, {sc_type_ref}, target_cts))
             sf.write(f'\nextern const sipClassTypeSpec sipTypeSpec_{module_name}_{klass_name};\n')
 
     @staticmethod
+    def g_code(sf, code):
+        """ Generate a block of handwritten code. """
+
+        sf.write_code(code)
+
+    @staticmethod
     def g_conversion_to_enum(sf, enum):
         """ Generate the code to convert a Python enum (sipSelf) to a C/C++
         enum (sipCpp).
@@ -244,7 +251,7 @@ f'''    if (sipIsTargetType(sipMS, {sc_type_ref}, target_cts))
         sf.write(
 f'''
     {cpp_name} sipCpp;
-    if (sipConvertToEnum(sipMS, sipSelf, &sipCpp, {type_ref}) < 0)
+    if (sipConvertToBasedEnum(sipMS, sipSelf, &sipCpp, {type_ref}) < 0)
 ''')
 
     @staticmethod
@@ -542,7 +549,7 @@ f'''    {{
 
         for exception in spec.exceptions:
             if exception.iface_file.module is module and exception.exception_nr >= 0:
-                sf.write(f'{newline}#define {_get_type_ref(exception)} SIP_TYPE_ID_TYPE_EXCEPTION|SIP_TYPE_ID_LOCAL_MODULE|{exception.iface_file.type_nr}\n')
+                sf.write(f'{newline}#define {_get_type_ref(exception)} (SIP_TYPE_ID_TYPE_EXCEPTION|SIP_TYPE_ID_LOCAL_MODULE|{exception.iface_file.type_nr})\n')
                 newline = ''
 
     @classmethod
@@ -688,7 +695,7 @@ static const sipInitExtenderSpec sipInitExtenders_{module.py_name}[] = {{
 
         sf.write(
 f'''
-#define {_get_type_ref(mapped_type)} SIP_TYPE_ID_TYPE_MAPPED|{module_ref}|{iface_file.type_nr}
+#define {_get_type_ref(mapped_type)} (SIP_TYPE_ID_TYPE_MAPPED|{module_ref}|{iface_file.type_nr})
 ''')
 
         if iface_file.module is module:
@@ -704,6 +711,7 @@ extern const sipMappedTypeSpec sipTypeSpec_{module_name}_{mapped_type_name};
         """
 
         module = spec.module
+        project = spec.bindings.project
         module_name = module.py_name
         mapped_type_name = mapped_type.iface_file.fq_cpp_name.as_word
 
@@ -763,6 +771,15 @@ extern const sipMappedTypeSpec sipTypeSpec_{module_name}_{mapped_type_name};
         )
 
         _generate_struct(sf, struct)
+
+        # Invoke any plugins.
+        if project.plugins:
+            plugin_spec = Specification(spec)
+            plugin_mapped_type = PluginMappedType(mapped_type, spec)
+
+            for plugin in project.plugins:
+                plugin.sip_mapped_type_generate_impl(sf, plugin_spec,
+                        plugin_mapped_type)
 
     @staticmethod
     def g_method_error_handler_end(sf, overload):
@@ -924,8 +941,8 @@ PyMODEXPORT_FUNC PyModExport_{module_name}({arg_type})
 
         callable_name = _get_callable_name(scope, member)
 
-        _g_type_hints_docstring(sf, spec, member, original_scope.overloads,
-                callable_name, is_method=True)
+        _g_type_hints_docstring(sf, spec, scope, member,
+                original_scope.overloads, callable_name)
 
         if not spec.c_bindings:
             sf.write(f'extern "C" {{static PyObject *callable_{callable_name}({_get_py_method_args(spec, is_impl=False)});}}\n')
@@ -939,6 +956,19 @@ PyMODEXPORT_FUNC PyModExport_{module_name}({arg_type})
         """ Generate the SIP API as seen by generated code. """
 
         module_name = spec.module.py_name
+        plugins = spec.bindings.project.plugins
+
+        # Generate any plugin IDs.
+        if plugins:
+            sf.write('\n/* The IDs of the installed plugins. */\n')
+
+            for plugin in plugins:
+                # The ID is the CRC32 of the plugin key.  Note that we don't
+                # check for clashes.
+                plugin_id = crc32(plugin.sip_key.encode('UTF-8'))
+                sf.write(f'#define SIP_PLUGIN_ID_{plugin.sip_key} 0x{plugin_id:08x}\n')
+
+            local_plugin = plugins[-1].sip_key
 
         # These comprise the public ABI.
         sf.write(
@@ -954,7 +984,7 @@ extern const sipABISpec *sipABI_{module_name};
 #define sipCanConvertToType(...)        sipABI_{module_name}->api_can_convert_to_type(sipMS, __VA_ARGS__)
 #define sipConvertFromConstVoidPtr(...) sipABI_{module_name}->api_convert_from_const_void_ptr(sipMS, __VA_ARGS__)
 #define sipConvertFromConstVoidPtrAndSize(...)  sipABI_{module_name}->api_convert_from_const_void_ptr_and_size(sipMS, __VA_ARGS__)
-#define sipConvertFromEnum(...)         sipABI_{module_name}->api_convert_from_enum(sipMS, __VA_ARGS__)
+#define sipConvertFromBasedEnum(...)    sipABI_{module_name}->api_convert_from_based_enum(sipMS, __VA_ARGS__)
 #define sipConvertFromNewType(...)      sipABI_{module_name}->api_convert_from_new_type(sipMS, __VA_ARGS__)
 #define sipConvertFromNewPyType(...)    sipABI_{module_name}->api_convert_from_new_py_type(sipMS, __VA_ARGS__)
 #define sipConvertFromSliceObject       sipABI_{module_name}->api_convert_from_slice_object
@@ -962,8 +992,8 @@ extern const sipABISpec *sipABI_{module_name};
 #define sipConvertFromVoidPtr(...)      sipABI_{module_name}->api_convert_from_void_ptr(sipMS, __VA_ARGS__)
 #define sipConvertFromVoidPtrAndSize(...)   sipABI_{module_name}->api_convert_from_void_ptr_and_size(sipMS, __VA_ARGS__)
 #define sipConvertToArray(...)          sipABI_{module_name}->api_convert_to_array(sipMS, __VA_ARGS__)
+#define sipConvertToBasedEnum(...)      sipABI_{module_name}->api_convert_to_based_enum(sipMS, __VA_ARGS__)
 #define sipConvertToBool                sipABI_{module_name}->api_convert_to_bool
-#define sipConvertToEnum(...)           sipABI_{module_name}->api_convert_to_enum(sipMS, __VA_ARGS__)
 #define sipConvertToType(...)           sipABI_{module_name}->api_convert_to_type(sipMS, __VA_ARGS__)
 #define sipConvertToTypedArray(...)     sipABI_{module_name}->api_convert_to_typed_array(sipMS, __VA_ARGS__)
 #define sipConvertToTypeUS(...)         sipABI_{module_name}->api_convert_to_type_us(sipMS, __VA_ARGS__)
@@ -980,13 +1010,13 @@ extern const sipABISpec *sipABI_{module_name};
 #define sipGetPyObjectRef(...)          sipABI_{module_name}->api_get_py_object_ref(sipMS, __VA_ARGS__)
 #define sipGetPyTypeRef(...)            sipABI_{module_name}->api_get_py_type_ref(sipMS, __VA_ARGS__)
 #define sipGetState                     sipABI_{module_name}->api_get_state
-#define sipGetTypeUserObject            sipABI_{module_name}->api_get_type_user_object
-#define sipGetUserObject                sipABI_{module_name}->api_get_user_object
+#define sipGetTypeUserObjectRef         sipABI_{module_name}->api_get_type_user_object_ref
+#define sipGetUserObjectRef             sipABI_{module_name}->api_get_user_object_ref
 #define sipIsUserType(...)              sipABI_{module_name}->api_is_user_type
-#define sipGetSimpleWrapperType(...)    sipABI_{module_name}->api_get_simple_wrapper_type(sipMS, __VA_ARGS__)
-#define sipGetVoidPtrType(...)          sipABI_{module_name}->api_get_void_ptr_type(sipMS, __VA_ARGS__)
-#define sipGetWrapperType(...)          sipABI_{module_name}->api_get_wrapper_type(sipMS, __VA_ARGS__)
-#define sipGetWrapperTypeType(...)      sipABI_{module_name}->api_get_wrapper_type_type(sipMS, __VA_ARGS__)
+#define sipGetSimpleWrapperType()       sipABI_{module_name}->api_get_simple_wrapper_type(sipMS)
+#define sipGetVoidPtrType()             sipABI_{module_name}->api_get_void_ptr_type(sipMS)
+#define sipGetWrapperType()             sipABI_{module_name}->api_get_wrapper_type(sipMS)
+#define sipGetWrapperTypeType()         sipABI_{module_name}->api_get_wrapper_type_type(sipMS)
 #define sipImportSymbol(...)            sipABI_{module_name}->api_import_symbol(sipMS, __VA_ARGS__)
 #define sipIsOwnedByPython              sipABI_{module_name}->api_is_owned_by_python
 #define sipLong_AsChar                  sipABI_{module_name}->api_long_as_char
@@ -1002,7 +1032,8 @@ extern const sipABISpec *sipABI_{module_name};
 #define sipLong_AsUnsignedLongLong      sipABI_{module_name}->api_long_as_unsigned_long_long
 #define sipLong_AsSizeT                 sipABI_{module_name}->api_long_as_size_t
 #define sipMalloc                       sipABI_{module_name}->api_malloc
-#define sipParseResult(...)             sipABI_{module_name}->api_parse_result(sipMS, __VA_ARGS__)
+#define sipParseResultObject(...)       sipABI_{module_name}->api_parse_result_object(sipMS, __VA_ARGS__)
+#define sipPyTypeName                   sipABI_{module_name}->api_py_type_name
 #define sipRaiseTypeException(...)      sipABI_{module_name}->api_raise_type_exception(sipMS, __VA_ARGS__)
 #define sipRegisterEventHandlers(...)   sipABI_{module_name}->api_register_event_handlers(sipMS, __VA_ARGS__)
 #define sipRegisterPyType(...)          sipABI_{module_name}->api_register_py_type(sipMS, __VA_ARGS__)
@@ -1026,24 +1057,43 @@ f'''#define sipIsEnumFlag(...)              sipABI_{module_name}->api_is_enum_fl
         # These comprise the public helper ABI.
         sf.write(
 f'''#define sipBadLengthForSlice            sipABI_{module_name}->api_bad_length_for_slice
+#define sipConvertFromEnum(...)         sipABI_{module_name}->api_convert_from_enum(sipMS, __VA_ARGS__)
 #define sipConvertFromSequenceIndex     sipABI_{module_name}->api_convert_from_sequence_index
+#define sipConvertToEnum(...)           sipABI_{module_name}->api_convert_to_enum(sipMS, __VA_ARGS__)
 #define sipEnableGC                     sipABI_{module_name}->api_enable_gc
 #define sipFromDate                     sipABI_{module_name}->api_from_date
 #define sipFromDateTime                 sipABI_{module_name}->api_from_date_time
 #define sipFromMethod                   sipABI_{module_name}->api_from_method
 #define sipFromTime                     sipABI_{module_name}->api_from_time
+#define sipGetAssignmentFunction(...)   sipABI_{module_name}->api_get_assignment_function(sipMS, __VA_ARGS__)
 #define sipGetCFunction                 sipABI_{module_name}->api_get_c_function
 #define sipGetDate                      sipABI_{module_name}->api_get_date
 #define sipGetDateTime                  sipABI_{module_name}->api_get_date_time
 #define sipGetFrameRef                  sipABI_{module_name}->api_get_frame_ref
 #define sipGetMethod                    sipABI_{module_name}->api_get_method
+#define sipGetModuleState(...)          sipABI_{module_name}->api_get_module_state(sipMS, SIP_MODULE_TOKEN_{module_name}, __VA_ARGS__)
+#define sipGetModuleStateByType(...)    sipABI_{module_name}->api_get_module_state_by_type(SIP_MODULE_TOKEN_{module_name}, __VA_ARGS__)
 #define sipGetTime                      sipABI_{module_name}->api_get_time
+#define sipMakeAbsolute(...)            sipABI_{module_name}->api_make_absolute(sipMS, __VA_ARGS__)
+#define sipObjectGuard_Clear(...)       sipABI_{module_name}->api_object_guard_clear(sipMS, __VA_ARGS__)
+#define sipObjectGuard_Free(...)        sipABI_{module_name}->api_object_guard_free(sipMS, __VA_ARGS__)
+#define sipObjectGuard_GetModuleState   sipABI_{module_name}->api_object_guard_get_module_state
+#define sipObjectGuard_GetRef           sipABI_{module_name}->api_object_guard_get_ref
+#define sipObjectGuard_New(...)         sipABI_{module_name}->api_object_guard_new(sipMS, __VA_ARGS__)
+#define sipObjectGuard_Release          sipABI_{module_name}->api_object_guard_release
+#define sipObjectGuard_Traverse(...)    sipABI_{module_name}->api_object_guard_traverse(sipMS, __VA_ARGS__)
 #define sipObjectDump                   sipABI_{module_name}->api_object_dump
 #define sipPyTypeDictRef                sipABI_{module_name}->api_py_type_dict_ref
+#define sipTypeFromPyTypeObject(...)    sipABI_{module_name}->api_type_from_py_type_object(sipMS, __VA_ARGS__)
+#define sipTypeName(...)                sipABI_{module_name}->api_type_name(sipMS, __VA_ARGS__)
 #define sipUnicodeData                  sipABI_{module_name}->api_unicode_data
 #define sipUnicodeNew                   sipABI_{module_name}->api_unicode_new
 #define sipUnicodeWrite                 sipABI_{module_name}->api_unicode_write
 ''')
+
+        # We only expose this if there is at least one plugin.
+        if plugins:
+            sf.write(f'#define sipTypePluginData(...)          sipABI_{module_name}->api_type_plugin_data(sipMS, SIP_PLUGIN_ID_{local_plugin}, __VA_ARGS__)\n')
 
         # These comprise the private ABI.
         sf.write(
@@ -1083,6 +1133,7 @@ f'''#define sipModuleClear                  sipABI_{module_name}->api_module_cle
 
 /* The module token. */
 extern {lang}PySlot sipModuleSlots_{module_name}[];
+#define SIP_MODULE_TOKEN_{module_name}  ((void *)sipModuleSlots_{module_name})
 ''')
 
         # Generate the declarations of the individual scope enum specification
@@ -1137,15 +1188,13 @@ extern {lang}PySlot sipModuleSlots_{module_name}[];
 
         callable_name = _get_callable_name(scope_py, member)
 
-        _g_type_hints_docstring(sf, spec, member, overloads,
+        _g_type_hints_docstring(sf, spec, scope_py, member, overloads,
                 callable_name)
 
         if not spec.c_bindings:
             sf.write(f'extern "C" {{static PyObject *callable_{callable_name}({_get_py_method_args(spec, is_impl=False)});}}\n')
 
-        sf.write(f'static PyObject *callable_{callable_name}({_get_py_method_args(spec, is_impl=True, need_self=True)})\n')
-
-        sf.write('{')
+        sf.write(f'static PyObject *callable_{callable_name}({_get_py_method_args(spec, is_impl=True, need_self=True)})\n{{\n')
 
         return None
 
@@ -1209,10 +1258,34 @@ static sipSubClassConvertorSpec sipSubClassConvertors_{module.py_name}[] = {{
         """
 
         bindings = spec.bindings
+        project = bindings.project
 
         module = spec.module
         module_name = module.py_name
         klass_name = klass.iface_file.fq_cpp_name.as_word
+
+        # Generate any plugin-specific, type-specific support.
+        plugins_data = []
+
+        if project.plugins:
+            plugin_spec = Specification(spec)
+            plugin_klass = Class(klass, spec)
+
+            for plugin in project.plugins:
+                data = plugin.sip_class_generate_impl(sf, plugin_spec,
+                        plugin_klass)
+
+                if data:
+                    plugins_data.append((plugin, data))
+
+        # Generate the table of plugin data.
+        if plugins_data:
+            sf.write(f'\nstatic const sipPluginDataSpec sipPluginsData_{klass_name}[] = {{\n')
+
+            for plugin, data in plugins_data:
+                sf.write(f'    &{data},  SIP_PLUGIN_ID_{plugin.sip_key}}},\n')
+
+            sf.write('    {0}\n}\n')
 
         # Generate the enums table.
         cls.g_enums_specifications(sf, spec, scope=klass)
@@ -1294,7 +1367,7 @@ static sipSubClassConvertorSpec sipSubClassConvertors_{module.py_name}[] = {{
                                 selector=(scope_id is not None)),
                         StructField('flags',
                                 _get_class_flags(module, klass,
-                                        bindings.project.py_debug))
+                                        project.py_debug))
                     ),
                 ),
                 StructField('docstring',
@@ -1350,6 +1423,8 @@ static sipSubClassConvertorSpec sipSubClassConvertors_{module.py_name}[] = {{
                         selector=(klass.finalisation_code is not None)),
                 StructField('array_delete', 'array_delete_' + klass_name,
                         selector=(spec.c_bindings or klass.needs_array_helper)),
+                StructField('plugins_data', '&sipPluginsData_' + klass_name,
+                        selector=plugins_data),
                 StructField('sizeof_class',
                         f'sizeof ({scoped_class_name(spec, klass)})',
                         selector=klass.can_create)
@@ -1362,6 +1437,7 @@ static sipSubClassConvertorSpec sipSubClassConvertors_{module.py_name}[] = {{
     def g_type_init(sf, spec, klass, need_self, need_owner):
         """ Generate the code that initialises a type. """
 
+        module_name = spec.module.py_name
         klass_name = klass.iface_file.fq_cpp_name.as_word
 
         # Generate any constructor documentation.
@@ -1376,8 +1452,7 @@ static sipSubClassConvertorSpec sipSubClassConvertors_{module.py_name}[] = {{
                     sf.write(f'static const sipDocSpec sipDocs_{klass_name}[] = {{\n')
                     need_decl = False
 
-                sf.write('    {"')
-                g_ctor_type_hint(sf, spec, klass, ctor)
+                sf.write('    {"' + get_ctor_type_hint(spec, klass, ctor))
 
                 if ctor.docstring is not None:
                     sf.write(f'", "{_get_typed_docstring_text(ctor.docstring)}"}},\n')
@@ -1407,7 +1482,7 @@ f'''static void *init_type_{klass_name}(sipModuleState *sipMS, PyObject **sipPSt
 
         sf.write(f'''static int init_slot_{klass_name}(PyObject *self, PyObject *args, PyObject *kwds)
 {{
-    return sipInitSlotImpl(self, args, kwds, (void *)sipModuleSlots_{spec.module.py_name}, sipType_{klass_name});
+    return sipInitSlotImpl(self, args, kwds, SIP_MODULE_TOKEN_{module_name}, sipType_{klass_name});
 }}
 
 ''')
@@ -1530,7 +1605,7 @@ static void sipVEH_{spec.module.py_name}_{virtual_error_handler.name}(sipModuleS
         if enum.fq_cpp_name is None:
             return f'PyLong_FromLong({value_name})'
 
-        return f'sipConvertFromEnum(&{value_name}, {_get_type_ref(enum)})'
+        return f'sipConvertFromBasedEnum(&{value_name}, {_get_type_ref(enum)})'
 
     @staticmethod
     def get_enum_ref_value(spec, enum):
@@ -1538,7 +1613,7 @@ static void sipVEH_{spec.module.py_name}_{virtual_error_handler.name}(sipModuleS
 
         module_nr = 'SIP_TYPE_ID_LOCAL_MODULE' if enum.module is spec.module else enum.module.module_nr
 
-        return f'SIP_TYPE_ID_TYPE_ENUM|{module_nr}|{enum.type_nr}'
+        return f'(SIP_TYPE_ID_TYPE_ENUM|{module_nr}|{enum.type_nr})'
 
     @staticmethod
     def get_error_handler_ref(spec, error_handler):
@@ -1547,10 +1622,10 @@ static void sipVEH_{spec.module.py_name}_{virtual_error_handler.name}(sipModuleS
         return 'SIP_NULLPTR' if error_handler is None else f'"{error_handler.name}"'
 
     @staticmethod
-    def get_error_handler_ref_type():
-        """ Return the type of a reference to an error handler. """
+    def get_error_handler_type(spec):
+        """ Return the type of a virtual error handler. """
 
-        return 'const char *'
+        return 'sipVirtErrorHandler'
 
     @staticmethod
     def get_module_context():
@@ -1568,6 +1643,11 @@ static void sipVEH_{spec.module.py_name}_{virtual_error_handler.name}(sipModuleS
 
         return 'sipModuleState *sipMS, '
 
+    def get_overload_docstring(self, spec, scope, overload):
+        """ Return an overload's docstring. """
+
+        return _get_typed_docstring_text(overload.docstring)
+
     @staticmethod
     def get_raise_unknown_exception():
         """ Return the call to raise an exception about an unknown exception.
@@ -1576,10 +1656,10 @@ static void sipVEH_{spec.module.py_name}_{virtual_error_handler.name}(sipModuleS
         return 'sipRaiseUnknownException(sipPStateP)'
 
     @staticmethod
-    def get_result_parser():
+    def get_result_parser(spec):
         """ Return the name of the Python reimplementation result parser. """
 
-        return 'sipParseResult'
+        return 'sipParseResultObject'
 
     @staticmethod
     def get_sipself_test(spec, klass):
@@ -1624,8 +1704,7 @@ static void sipVEH_{spec.module.py_name}_{virtual_error_handler.name}(sipModuleS
         sf.write('            sipCpp->sipPySelf = (sipSimpleWrapper *)sipSelf;\n\n')
 
 
-def _g_arg_parser(sf, spec, scope, py_signature, signature_nr, ctor, is_method,
-        overload):
+def _g_arg_parser(sf, spec, scope, py_signature, signature_nr, ctor, overload):
     """ Generate the argument variables for a callable. """
 
     # If the scope is a mapped type or a namespace, then ignore it.
@@ -1826,6 +1905,7 @@ def _g_arg_parser(sf, spec, scope, py_signature, signature_nr, ctor, is_method,
             _add_format_flags(flags, arg)
 
             if arg.transfer is Transfer.TRANSFER_THIS:
+                params.append(('sipOwner', ))
                 flags.append('TRANSFER_THIS')
 
             if len(arg.derefs) != 0 and not arg.disallow_none:
@@ -1933,7 +2013,7 @@ def _g_arg_parser(sf, spec, scope, py_signature, signature_nr, ctor, is_method,
     else:
         args.append('&sipSelf')
 
-        if scope is None or overload.is_static:
+        if scope is None or overload is None or overload.is_static:
             args.append('sipType_Invalid')
             args.append('SIP_NULLPTR')
         else:
@@ -2133,6 +2213,7 @@ static int module_clear(PyObject *mod)
 def _g_module_exec(sf, spec):
     """ Generate the module exec slot. """
 
+    project = spec.bindings.project
     module = spec.module
     module_name = module.py_name
 
@@ -2144,7 +2225,7 @@ static int module_exec(PyObject *sipModule)
 {
 ''')
 
-    if spec.bindings.project.sip_module:
+    if project.sip_module:
         sip_init_func_ref = 'sipModuleExec'
     else:
         sip_init_func_ref = 'sip_api_module_exec';
@@ -2166,6 +2247,13 @@ static int module_exec(PyObject *sipModule)
         return -1;
 
 ''')
+
+    # Invoke any plugins.
+    if project.plugins:
+        plugin_spec = Specification(spec)
+
+        for plugin in project.plugins:
+            plugin.sip_module_generate_initialisation_code(sf, plugin_spec)
 
     sf.write(
 f'''    if ({sip_init_func_ref}(sipModule, &sipModule_{module_name}) < 0)
@@ -2307,8 +2395,7 @@ def _g_py_method_table(sf, members, scope, attrs):
         sf.write('};\n')
 
 
-def _g_type_hints_docstring(sf, spec, member, overloads, callable_name,
-        is_method=False):
+def _g_type_hints_docstring(sf, spec, scope, member, overloads, callable_name):
     """ Generate any type hints and docstring. """
 
     if spec.bindings.docstrings and _has_documentation(member, overloads):
@@ -2316,11 +2403,11 @@ def _g_type_hints_docstring(sf, spec, member, overloads, callable_name,
 
         for overload in callable_overloads(member, overloads):
             if member.no_arg_parser:
-                sf.write('    {NULL, ')
+                type_hint = 'NULL'
             else:
-                sf.write('    {"')
-                g_overload_type_hint(sf, spec, overload, is_method=is_method)
-                sf.write('", ')
+                type_hint = '"' + get_overload_type_hint(spec, scope, overload) + '"'
+
+            sf.write(f'    {{{type_hint}, ')
 
             if overload.docstring is not None:
                 sf.write(f'"{_get_typed_docstring_text(overload.docstring)}"')
@@ -2329,7 +2416,7 @@ def _g_type_hints_docstring(sf, spec, member, overloads, callable_name,
 
             sf.write('},\n')
 
-        sf.write('    {0}\n};\n\n')
+        sf.write('    {NULL, NULL}\n};\n\n')
 
 
 def _g_variables_table(sf, spec, attrs, static_variables, scope=None):

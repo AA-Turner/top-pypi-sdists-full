@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Callable, Dict
+from collections.abc import Callable
 
 import torch
 from torch.optim import Optimizer
@@ -9,13 +9,13 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, OptimizerInstan
 
 
 class Lookahead(BaseOptimizer):
-    """k steps forward, 1 step back.
+    """Wrap an optimizer with periodic interpolation toward slow weights.
 
     Args:
-        optimizer (OptimizerInstanceOrClass): Base optimizer.
-        k (int): Number of lookahead steps.
-        alpha (float): Linear interpolation factor.
-        pullback_momentum (str): Change to inner optimizer momentum on interpolation update.
+        optimizer: Base optimizer.
+        k: Number of base optimizer steps between slow weight updates.
+        alpha: Interpolation factor from slow weights toward fast weights.
+        pullback_momentum: Momentum handling at interpolation: `'none'`, `'reset'`, or `'pullback'`.
 
     """
 
@@ -33,8 +33,8 @@ class Lookahead(BaseOptimizer):
 
         self.optimizer: Optimizer = self.load_optimizer(optimizer, **kwargs)
 
-        self._optimizer_step_pre_hooks: Dict[int, Callable] = {}
-        self._optimizer_step_post_hooks: Dict[int, Callable] = {}
+        self._optimizer_step_pre_hooks: dict[int, Callable] = {}
+        self._optimizer_step_post_hooks: dict[int, Callable] = {}
 
         self.alpha = alpha
         self.k = k
@@ -81,7 +81,7 @@ class Lookahead(BaseOptimizer):
             group['step'] = 0
 
     def backup_and_load_cache(self) -> None:
-        r"""Backup cache parameters."""
+        """Back up fast weights and load slow weights for evaluation."""
         for group in self.param_groups:
             for p in group['params']:
                 state = self.state[p]
@@ -89,7 +89,7 @@ class Lookahead(BaseOptimizer):
                 p.data.copy_(state['slow_params'])
 
     def clear_and_load_backup(self) -> None:
-        r"""Load backup parameters."""
+        """Restore fast weights after evaluating slow weights."""
         for group in self.param_groups:
             for p in group['params']:
                 state = self.state[p]
@@ -106,7 +106,7 @@ class Lookahead(BaseOptimizer):
         return {'lookahead_state': lookahead_state, 'base_optimizer': self.optimizer.state_dict()}
 
     def load_state_dict(self, state: State) -> None:
-        r"""Load state."""
+        """Restore optimizer state and slow weights from a checkpoint."""
         saved_state = state['lookahead_state']
         restored_state: State = {}
         for group_index, group in enumerate(self.param_groups):
@@ -121,13 +121,14 @@ class Lookahead(BaseOptimizer):
             raise ValueError('lookahead state does not match the current parameters')
 
         self.optimizer.load_state_dict(state['base_optimizer'])
-        for parameter_state in restored_state.values():
-            if 'slow_momentum' in parameter_state:
-                parameter_state['slow_momentum'] = parameter_state['slow_momentum'].clone()
+        for p, parameter_state in restored_state.items():
+            for key, value in parameter_state.items():
+                if isinstance(value, torch.Tensor):
+                    parameter_state[key] = value.to(device=p.device, dtype=p.dtype).clone()
         self.state = defaultdict(dict, restored_state)
 
     @torch.no_grad()
-    def update(self, group: Dict):
+    def update(self, group: dict):
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -136,13 +137,13 @@ class Lookahead(BaseOptimizer):
 
             slow = state['slow_params']
 
-            p.mul_(self.alpha).add_(slow, alpha=1.0 - self.alpha)
+            p.lerp_(slow, weight=1.0 - self.alpha)
             slow.copy_(p)
 
-            if 'momentum_buffer' not in self.optimizer.state[p]:
-                self.optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
-
             if self.pullback_momentum == 'pullback':
+                if 'momentum_buffer' not in self.optimizer.state[p]:
+                    self.optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
+
                 internal_momentum = self.optimizer.state[p]['momentum_buffer']
                 internal_momentum.lerp_(state['slow_momentum'], weight=1.0 - self.alpha)
                 state['slow_momentum'].copy_(internal_momentum)

@@ -257,7 +257,6 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # parity green today. DELETE this line at the next `make regen` -- otherwise
     # `test_allowlisted_operations_still_exist_in_the_schema` will fail on a route
     # the regenerated schema no longer declares.
-    ("POST", "/internal/github/installation_token"): "engine-to-control-plane credential broker; internal authentication only",
     ("POST", "/v1/search/entities"): "dashboard structured entity-search adapter; SDK search uses the general search endpoint",
     ("GET", "/v1/integrations/capabilities"): "dashboard connector-detail rollout switch",
     ("GET", "/v1/integrations/github/installations/{}/backfills"): "dashboard installation history-job controls",
@@ -274,7 +273,6 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     ("GET", "/v1/integrations/mirror/connections/{}/backfills/{}"): "dashboard mirror connection history-job progress",
     ("POST", "/v1/integrations/mirror/connections/{}/backfills/{}/cancel"): "dashboard mirror connection history-job cancellation",
     ("POST", "/v1/integrations/mirror/connections/{}/backfills/{}/retry"): "dashboard mirror connection history-job retry",
-    ("GET", "/v1/experiments/{}/artifacts/tree"): "dashboard lazy folder browsing; CLI uses experiment artifact listing",
     ("GET", "/public/v1/projects/{}/artifacts/tree"): "anonymous dashboard lazy folder browsing",
     ("GET", "/public/v1/experiments/{}/artifacts/tree"): "anonymous dashboard lazy folder browsing",
     ("GET", "/public/v1/runs/{}/artifacts/tree"): "anonymous dashboard lazy folder browsing",
@@ -487,10 +485,6 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # itself, and that IS reachable through its detail read. The PROJECT's README
     # left this list: the MCP's `entity(view="readme")` reads its TEXT, which
     # an agent can use even where the image links cannot resolve.
-    (
-        "GET",
-        "/v1/experiments/{}/readme",
-    ): "dashboard render surface; the SDK reads experiment.repo",
     ("GET", "/v1/runs/{}/readme"): "dashboard render surface; the SDK reads run.repo",
     (
         "GET",
@@ -560,118 +554,72 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "GET",
         "/ingest/v1/sessions/status",
     ): "tap plugin killswitch; path pinned by the tap's own tests",
-    # 0231 -- THE EXPERIMENT SURFACE THE CLIENT HAS ALREADY LEFT.
-    #
-    # An experiment IS a project now, and every one of these has a
-    # `/v1/projects/*` twin sharing its implementation --
-    # `tests/unit/test_every_experiment_route_has_a_project_twin.py` in the
-    # backend proves all 45 pairs exist, and the SDK calls the project address
-    # for every one of them. PR 5b deletes these routes and answers them with a
-    # 410 naming the replacement.
-    #
-    # NOT "PENDING": there is no work owed here. Wiring the client back up to a
-    # route that is being retired is the opposite of what the merge is for, and
-    # the entries leave this list when the routes themselves do.
-    #
-    # THE CLIENT MOVED FIRST, DELIBERATELY. A client that moves before the cut
-    # keeps working across it; one that moves with it has a window where neither
-    # address is certain.
-    (
-        "GET",
-        "/v1/experiments",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    # Surfaced by the schema refresh of the light experiments' R4 (X15, 2026-10-05):
+    # routes main landed for other surfaces while the snapshot was stale.
+    ("GET", "/auth/teams/crash-alerts"): "dashboard team settings: crash-alert emails",
+    ("PUT", "/auth/teams/crash-alerts"): "dashboard team settings: crash-alert emails",
+    ("GET", "/public/v1/projects/{}/overview"): "anonymous public share page (dashboard)",
+    ("GET", "/public/v1/projects/{}/projects"): "anonymous public share page (dashboard)",
+    ("POST", "/public/v1/series/latest"): "anonymous public share page charts (dashboard)",
+    ("GET", "/v1/access-groups/{}/nodes"): "dashboard access-group management",
     (
         "POST",
-        "/v1/experiments",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "DELETE",
-        "/v1/experiments/{}",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "GET",
-        "/v1/experiments/{}",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "PATCH",
-        "/v1/experiments/{}",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "GET",
-        "/v1/experiments/{}/artifacts",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+        "/v1/companion/chat/completions",
+    ): "Probe daemon model gateway, reached by probe.daemon.model's own httpx client",
     (
         "POST",
-        "/v1/experiments/{}/artifacts",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+        "/v1/companion/traces",
+    ): "Probe daemon trace upload, reached by the daemon's own httpx client",
+    (
+        "POST",
+        "/v1/device-state",
+    ): "setup wizard's main-menu read (the npm launcher / wizard), not the SDK",
+    ("GET", "/v1/projects/{}/public/effective"): "dashboard share management",
+    ("GET", "/v1/projects/{}/workspace/visuals"): "dashboard evaluation-project visuals browser",
+    # 0231 -- THE RETIRED `/v1/experiments/*` SURFACE the schema still declares.
+    #
+    # `app/experiments/gone_router.py` answers every one of these 410
+    # `client_too_old` (it is registered first); the schema still lists the old
+    # handlers. NOT "PENDING": the client never calls this address again. It calls
+    # the experiment API (`/v1/projects/{P}/experiments[/{E}]`) for the experiment
+    # itself and, for these child routes, the `/v1/projects/{E}/...` address the
+    # server keeps serving a current client until R6 adds experiment-API twins.
     (
         "POST",
         "/v1/experiments/{}/artifacts/uploads",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "GET",
-        "/v1/experiments/{}/code",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "GET",
         "/v1/experiments/{}/edges",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "GET",
         "/v1/experiments/{}/groups",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "POST",
         "/v1/experiments/{}/groups",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "GET",
         "/v1/experiments/{}/reproduce",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "POST",
         "/v1/experiments/{}/runs",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "GET",
         "/v1/experiments/{}/sub-notes",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "PATCH",
         "/v1/experiments/{}/sub-notes",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     (
         "POST",
         "/v1/experiments/{}/sub-notes",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "GET",
-        "/v1/experiments/{}/versions",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "POST",
-        "/v1/experiments/{}/versions",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "GET",
-        "/v1/experiments/{}/versions/{}",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "GET",
-        "/v1/experiments/{}/wandb-sources",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "POST",
-        "/v1/experiments/{}/wandb-sources",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "DELETE",
-        "/v1/experiments/{}/wandb-sources/{}",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
-    (
-        "PATCH",
-        "/v1/experiments/{}/wandb-sources/{}",
-    ): "retired by 0231; the client calls the /v1/projects twin, and PR 5b deletes this",
+    ): "retired by 0231 (410 client_too_old); the client uses the /v1/projects/{E} twin until R6",
     # Dashboard-owned, both of them, and both surfaced by the snapshot refresh
     # this branch ran rather than introduced by it.
     (
@@ -808,22 +756,6 @@ PENDING: dict[Op, str] = {
     # /v1/projects/{}/paper-edges, DELETE /v1/edges/{}) are real SDK + CLI call
     # sites (`probe paper edges`, `probe edge remove`) and deliberately absent
     # from this list.
-    #
-    # Chart-settings and metric-view HISTORY are the same dashboard-only shape
-    # as the sub-note history entries below: version lists, one version, and a
-    # revert control, all driven from chart UI that has no CLI equivalent.
-    ("GET", "/v1/chart-settings/versions"): "chart history; dashboard-only read today",
-    (
-        "GET",
-        "/v1/chart-settings/versions/{}",
-    ): "chart history; dashboard-only read today",
-    ("POST", "/v1/chart-settings/revert"): "chart revert; dashboard-only write today",
-    ("GET", "/v1/views/{}/versions"): "metric-view history; dashboard-only read today",
-    (
-        "GET",
-        "/v1/views/{}/versions/{}",
-    ): "metric-view history; dashboard-only read today",
-    ("POST", "/v1/views/{}/revert"): "metric-view revert; dashboard-only write today",
     # Paper BODY fetch (0173). Reader-facing: the dashboard opens a paper and
     # streams its parsed text from a 24h cache. Nothing an agent scripting the
     # CLI wants -- it already has the paper's URL; the MCP's `find_papers`
@@ -860,12 +792,6 @@ PENDING: dict[Op, str] = {
     ("PUT", "/v1/projects/{}/notes/public"): "note share control; dashboard surface today",
     ("GET", "/v1/projects/{}/notes/public"): "note share control; dashboard surface today",
     ("DELETE", "/v1/projects/{}/notes/public"): "note share control; dashboard surface today",
-    ("PUT", "/v1/experiments/{}/notes/public"): "note share control; dashboard surface today",
-    ("GET", "/v1/experiments/{}/notes/public"): "note share control; dashboard surface today",
-    (
-        "DELETE",
-        "/v1/experiments/{}/notes/public",
-    ): "note share control; dashboard surface today",
     ("PUT", "/v1/runs/{}/notes/public"): "note share control; dashboard surface today",
     ("GET", "/v1/runs/{}/notes/public"): "note share control; dashboard surface today",
     ("DELETE", "/v1/runs/{}/notes/public"): "note share control; dashboard surface today",
@@ -883,10 +809,6 @@ PENDING: dict[Op, str] = {
     # this shipped on the backend while the checked-in schema sat stale. Newly
     # VISIBLE debt, not new debt, and unrelated to that pass -- wiring it there
     # would have been scope creep. Same shape as the two batches below.
-    (
-        "PUT",
-        "/v1/experiments/{}/metadata/{}",
-    ): "experiment metadata set; `probe` has no metadata verb yet",
     #
     # Surfaced 2026-08-02 by the `make regen` in the archive-removal pass: the
     # public share-links surface (research-os#226) and two sandbox-state reads
@@ -1001,9 +923,6 @@ PENDING: dict[Op, str] = {
         "POST",
         "/public/v1/series/query",
     ): "public share read; unauthenticated browser surface, no client story yet",
-    ("DELETE", "/v1/experiments/{}/public"): "share-links publish control; dashboard surface today",
-    ("GET", "/v1/experiments/{}/public"): "share-links publish control; dashboard surface today",
-    ("PUT", "/v1/experiments/{}/public"): "share-links publish control; dashboard surface today",
     ("DELETE", "/v1/projects/{}/public"): "share-links publish control; dashboard surface today",
     ("GET", "/v1/projects/{}/public"): "share-links publish control; dashboard surface today",
     ("PUT", "/v1/projects/{}/public"): "share-links publish control; dashboard surface today",
@@ -1061,6 +980,12 @@ PENDING: dict[Op, str] = {
     ("GET", "/v1/service-tokens"): "service tokens; no CLI verb designed yet",
     ("POST", "/v1/service-tokens"): "service tokens; no CLI verb designed yet",
     ("DELETE", "/v1/service-tokens/{}"): "service tokens; no CLI verb designed yet",
+    # Surfaced by the R4 (X15) schema refresh; owed by the lanes that shipped them.
+    (
+        "DELETE",
+        "/v1/groups/{}",
+    ): "a run group's move to the trash (0261 trash doors); no SDK/CLI verb yet",
+    ("GET", "/v1/runs/{}/logs"): "reading a run's live console log back; the client only writes it (log-chunks)",
 }
 
 # The REVERSE debt ledger: client call sites that land AHEAD of the backend,
@@ -1076,40 +1001,11 @@ PENDING: dict[Op, str] = {
 # those are older than this schema.
 CLIENT_AHEAD: dict[Op, str] = {
     # Shape: ("METHOD", "/v1/path/{}"): "why the client is ahead + the guard".
-    (
-        "POST",
-        "/v1/runs",
-    ): "daemon v2 floating runs (S1, server PR in flight); `create_floating_run` turns "
-    "an old backend's 405 into CapabilityUnavailable naming --project/--experiment",
-    (
-        "POST",
-        "/v1/runs/{}/log-chunks",
-    ): "live console log (plan item (h)); the server route merged in #2012, the generated "
-    "schema has not been regenerated since. `logstream.prepare` creates no spool and sends "
-    "nothing unless /v1/server/features declares run_log_stream",
-    # Plan item (g): the multipart doors (server PR, 0273). `Run._maybe_multipart`
-    # queues nothing and keeps 0.7's reference row unless /v1/server/features
-    # declares artifact_multipart; a queued op that meets an older server (404)
-    # dead-letters with the same reference row (`sdk/multipart.py`).
-    ("POST", "/v1/runs/{}/artifacts/multipart"): "artifacts over 64 MiB (plan (g)), gated on "
-    "artifact_multipart; 404 -> reference row",
-    ("POST", "/v1/runs/{}/artifacts/multipart/{}/parts"): "plan (g) part URLs, same gate",
-    ("GET", "/v1/runs/{}/artifacts/multipart/{}"): "plan (g) resume listing, same gate",
-    ("POST", "/v1/runs/{}/artifacts/multipart/{}/complete"): "plan (g) complete, same gate",
-    ("DELETE", "/v1/runs/{}/artifacts/multipart/{}"): "plan (g) abort, same gate",
-    # Lineage plan 3, F2 (server 0285, gaps-server lane; the schema has not been
-    # regenerated since). The write recorder journals its list only when
-    # /v1/server/features declares run_outputs; these are the direct doors.
-    ("POST", "/v1/runs/{}/outputs"): "a run's recorded writes (plan 3 F2); the recorder sends "
-    "only when run_outputs is declared; an older backend answers 404",
-    ("GET", "/v1/runs/{}/outputs"): "a run's recorded writes (plan 3 F2); an older backend "
-    "answers 404 (NotFound)",
-    # research-os 0291 (hide one session's own work); the schema has not been
-    # regenerated since. Only the hosted MCP reads it, for a caller carrying
-    # X-Probe-Hide-Session-Work; an older backend's 404 is caught and reported
-    # as `session_work_exclusion_unsupported`, never read as "nothing created".
-    ("GET", "/v1/sessions/{}/created"): "what a session created (0291); the MCP marks "
-    "session_work_exclusion_unsupported on a 404",
+    #
+    # EMPTY since the schema refresh of the light experiments' R4 (X15): every
+    # route this client was ahead on -- floating runs, the log stream, the
+    # multipart doors, a run's recorded outputs, a session's created work -- is
+    # declared by the backend now, so the debt is paid.
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

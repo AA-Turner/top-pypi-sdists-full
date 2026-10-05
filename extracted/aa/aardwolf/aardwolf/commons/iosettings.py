@@ -1,9 +1,12 @@
+import copy
+
 from aardwolf.extensions.RDPECLIP.channel import RDPECLIPChannel
 from aardwolf.extensions.RDPECLIP.clipboard import Clipboard
 from aardwolf.protocol.x224.constants import SUPP_PROTOCOLS, NEG_FLAGS
 from aardwolf.commons.queuedata.constants import VIDEO_FORMAT
 from aardwolf.protocol.T125.extendedinfopacket import PERF
 from aardwolf.extensions.RDPEDYC.channel import RDPEDYCChannel
+from aardwolf.protocol.compression import BulkCompressionType
 
 from aardwolf.extensions.RDPEDYC.vchannels.echo import VchannelECHO
 #from aardwolf.extensions.RDPEDYC.vchannels.test import VchannelTEST
@@ -17,6 +20,8 @@ class RDPIOSettings:
 			'ECHO' : VchannelECHO(),
 			#'DATATEST1' : VchannelTEST(),
 		}
+		# RDPDR filesystem shares. Empty means the rdpdr channel is not joined.
+		self.drives = []
 		# Authentication protocols supported
 		self.supported_protocols = None # supported_protocols if None: it will be determined automatically. otherwise  select one or more from these SUPP_PROTOCOLS.RDP | SUPP_PROTOCOLS.SSL |SUPP_PROTOCOLS.HYBRID_EX
 
@@ -32,6 +37,12 @@ class RDPIOSettings:
 		self.video_bpp_max = 16 #max supported bpp
 		# all supported BPPs
 		self.video_bpp_supported = [15, 16, 24, 32]
+		# Maximum size of one reassembled fast-path update. This value is
+		# advertised to the server in the Multifragment Update capability.
+		self.fastpath_max_request_size = 608299
+		# Highest server-to-client bulk-compression package to advertise.
+		# Set this to None to disable bulk compression entirely.
+		self.bulk_compression_max_type = BulkCompressionType.RDP61
 
 		#Performance booster flags
 		self.performance_flags = PERF.DISABLE_WALLPAPER | PERF.DISABLE_THEMING | PERF.DISABLE_CURSORSETTINGS | PERF.DISABLE_MENUANIMATIONS | PERF.DISABLE_FULLWINDOWDRAG
@@ -69,4 +80,13 @@ class RDPIOSettings:
 		# Each value corresponds to an encoding type and only these three anre implemented currently.
 		# The order signifies the preference to the server but the server can decide to ignore it
 		self.vnc_encodings = [2, 1, 0]
+
+	def clone_for_connection(self):
+		settings = RDPIOSettings()
+		for name, value in vars(self).items():
+			if name == 'clipboard':
+				settings.clipboard = value.clone_for_connection()
+			else:
+				setattr(settings, name, copy.deepcopy(value))
+		return settings
 		

@@ -386,4 +386,7 @@ def test_transcript_agents_cover_every_capture_source():
     to the capture-source vocabulary so source #4 cannot repeat this."""
     from probe.mcp.source import _TRANSCRIPT_AGENTS
 
-    assert set(_TRANSCRIPT_AGENTS) == {"claude_code", "codex", "pi"}
+    from probe.harness import get_registry
+
+    assert set(_TRANSCRIPT_AGENTS) == {h.id for h in get_registry().captured()}
+    assert set(_TRANSCRIPT_AGENTS) == {"claude_code", "codex", "pi", "kimi_code"}

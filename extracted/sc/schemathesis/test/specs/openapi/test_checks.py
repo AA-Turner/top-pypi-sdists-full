@@ -878,6 +878,159 @@ def test_negative_data_rejection_validates_numeric_wire_value_against_query_sche
         assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
+@pytest.mark.parametrize(
+    ("parameter", "value"),
+    [
+        ({"schema": {"type": "string"}}, -6.922717852139307e16),
+        ({"schema": {"type": "string"}}, []),
+        ({"schema": {"type": "integer"}, "allowEmptyValue": True}, {}),
+    ],
+    ids=["number-becomes-string", "empty-list-is-omitted", "empty-object-becomes-blank"],
+)
+def test_negative_data_rejection_validates_serialized_query(ctx, response_factory, parameter, value):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [{"in": "query", "name": "value", "required": False, **parameter}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        query={"value": value},
+    )
+    response = response_factory.requests()
+    response.request.prepare_url("http://127.0.0.1/items", case.as_transport_kwargs()["params"])
+
+    assert negative_data_rejection(check_context(), response, case) is None
+
+
+def test_negative_data_rejection_validates_repeated_query_with_allowed_empty_value(ctx, response_factory):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "page",
+                            "schema": {"anyOf": [{"type": "integer"}, {"type": "string", "enum": ["first"]}]},
+                            "allowEmptyValue": True,
+                        },
+                        {"in": "query", "name": "filter_dead", "schema": {"type": "boolean"}},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_modes=[GenerationMode.NEGATIVE],
+            mutations=(_mutation(OperatorKind.NEGATE_CONSTRAINTS, ("anyOf",), parameter="page"),),
+        ),
+        query={"page": ["not-an-integer", ""], "filter_dead": True},
+    )
+    response = response_factory.requests()
+    response.request.prepare_url("http://127.0.0.1/items", case.as_transport_kwargs()["params"])
+
+    assert negative_data_rejection(check_context(), response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("extra_schema", "extra_value", "url"),
+    [
+        ({"type": "integer"}, 5, "http://127.0.0.1/items"),
+        ({"type": "number"}, 1.5, "http://127.0.0.1/items"),
+        ({"type": "boolean"}, True, "http://127.0.0.1/items"),
+        ({"type": "array", "items": {"type": "integer"}}, [1], "http://127.0.0.1/items"),
+        ({"type": "array", "items": {"type": "integer"}}, [1, 2], "http://127.0.0.1/items"),
+        ({"enum": ["123"]}, "123", "http://127.0.0.1/items"),
+        ({"type": "integer"}, 5, "http://127.0.0.1/items?api_key=secret"),
+    ],
+    ids=[
+        "integer",
+        "number",
+        "boolean",
+        "single-item-array",
+        "array",
+        "untyped-enum",
+        "query-key-added-outside-case",
+    ],
+)
+def test_negative_data_rejection_validates_serialized_query_with_typed_values(
+    ctx, response_factory, extra_schema, extra_value, url
+):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {"in": "query", "name": "value", "schema": {"type": "string"}},
+                        {"in": "query", "name": "extra", "schema": extra_schema},
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        query={"value": 42, "extra": extra_value},
+    )
+    response = response_factory.requests()
+    response.request.prepare_url(url, case.as_transport_kwargs()["params"])
+
+    assert negative_data_rejection(check_context(), response, case) is None
+
+
+@pytest.mark.parametrize(
+    ("parameter_schema", "required", "value"),
+    [
+        ({"type": "integer"}, False, "not-an-integer"),
+        ({"type": "integer"}, True, []),
+        ({"type": "integer"}, False, "1_0"),
+        ({"type": "integer"}, False, " 5"),
+        ({"type": "integer"}, False, "\u0665"),
+        ({"type": "boolean"}, False, "True"),
+    ],
+    ids=["text", "omitted-required", "underscore", "whitespace", "non-ascii-digit", "capitalized-boolean"],
+)
+def test_negative_data_rejection_reports_invalid_serialized_query(
+    ctx, response_factory, parameter_schema, required, value
+):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "in": "query",
+                            "name": "value",
+                            "required": required,
+                            "schema": parameter_schema,
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/items"]["GET"].Case(
+        _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        query={"value": value},
+    )
+    response = response_factory.requests()
+    response.request.prepare_url("http://127.0.0.1/items", case.as_transport_kwargs()["params"])
+
+    with pytest.raises(AcceptedNegativeData):
+        negative_data_rejection(check_context(), response, case)
+
+
 # Servers commonly parse these as floats, so they may legitimately read them as numbers.
 @pytest.mark.parametrize("value", ["nan", "inf", "-Infinity", "1e400"])
 @pytest.mark.parametrize("location", [ParameterLocation.PATH, ParameterLocation.QUERY], ids=["path", "query"])
@@ -1643,152 +1796,6 @@ def test_negative_data_rejection_valid_array_element_beside_invalid_parameter(
         assert negative_data_rejection(check_context(), response, case) is None
 
 
-def test_negative_data_rejection_multi_element_array_with_valid_element(ctx, response_factory):
-    # See GH-3697
-    # Multi-element arrays in query parameters serialize as repeated keys: [True, 1] -> ?page_size=True&page_size=1
-    # Some frameworks (e.g. Django/DRF) pick one value from repeated keys. If that value is a valid integer (1),
-    # the request is accepted and should NOT trigger negative_data_rejection.
-    schema = ctx.openapi.load_schema(
-        {
-            "/api/model-fk/user/": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "page_size",
-                            "in": "query",
-                            "required": False,
-                            "schema": {"type": "integer", "minimum": 1, "maximum": 100},
-                        }
-                    ],
-                    "responses": {
-                        "200": {"description": "Success"},
-                        "400": {"description": "Bad Request"},
-                    },
-                }
-            }
-        }
-    )
-
-    operation = schema["/api/model-fk/user/"]["GET"]
-
-    case = operation.Case(
-        _meta=build_metadata(
-            query=GenerationMode.NEGATIVE,
-            generation_modes=[GenerationMode.NEGATIVE],
-            description="Invalid type array (expected integer)",
-            parameter="page_size",
-            parameter_location=ParameterLocation.QUERY,
-        ),
-        query={"page_size": [True, 1]},
-    )
-
-    response = response_factory.requests(status_code=200)
-
-    result = negative_data_rejection(
-        check_context(),
-        response,
-        case,
-    )
-
-    assert result is None
-
-
-def test_negative_data_rejection_multi_element_array_string_numeric_element(ctx, response_factory):
-    # GH-3931: a string element like "44" inside the array serializes to the wire form
-    # `?page_size=44`, which Django parses as integer 44. The strict JSON Schema validator
-    # treats "44" as a string (not integer), but the server accepts it.
-    schema = ctx.openapi.load_schema(
-        {
-            "/api/model-fk/user/": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "page_size",
-                            "in": "query",
-                            "required": False,
-                            "schema": {"type": "integer", "minimum": 1, "maximum": 100},
-                        }
-                    ],
-                    "responses": {
-                        "200": {"description": "Success"},
-                        "400": {"description": "Bad Request"},
-                    },
-                }
-            }
-        }
-    )
-
-    operation = schema["/api/model-fk/user/"]["GET"]
-
-    case = operation.Case(
-        _meta=build_metadata(
-            query=GenerationMode.NEGATIVE,
-            generation_modes=[GenerationMode.NEGATIVE],
-            description="Invalid type array (expected integer)",
-            parameter="page_size",
-            parameter_location=ParameterLocation.QUERY,
-        ),
-        query={
-            "page_size": [
-                -1.2097890770124232e65,
-                {"a": None},
-                [[-8.080921524865554e-19], "x"],
-                [],
-                "44",
-            ]
-        },
-    )
-
-    response = response_factory.requests(status_code=200)
-
-    result = negative_data_rejection(
-        check_context(),
-        response,
-        case,
-    )
-
-    assert result is None
-
-
-def test_negative_data_rejection_query_object_mutation_with_numeric_key(ctx, response_factory):
-    # Negative type mutation can turn an integer query into an object. urlencode(doseq=True)
-    # iterates dict keys, so {"5": "x"} produces ?id=5 — the server parses 5 as integer
-    # and the request becomes effectively valid.
-    schema = ctx.openapi.load_schema(
-        {
-            "/api/items": {
-                "get": {
-                    "parameters": [{"name": "id", "in": "query", "required": False, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
-                }
-            }
-        }
-    )
-
-    operation = schema["/api/items"]["GET"]
-
-    case = operation.Case(
-        _meta=build_metadata(
-            query=GenerationMode.NEGATIVE,
-            generation_modes=[GenerationMode.NEGATIVE],
-            description="Invalid type object (expected integer)",
-            parameter="id",
-            parameter_location=ParameterLocation.QUERY,
-        ),
-        query={"id": {"5": "x"}},
-    )
-    response = response_factory.requests(status_code=200)
-
-    assert (
-        negative_data_rejection(
-            check_context(),
-            response,
-            case,
-        )
-        is None
-    )
-
-
 def test_negative_data_rejection_multiple_mutations_name_parameters(ctx, response_factory):
     schema = ctx.openapi.load_schema(
         {
@@ -1887,72 +1894,43 @@ def test_negative_data_rejection_query_string_parameter_wire_form(ctx, response_
         assert negative_data_rejection(check_context(), response, case) is None
 
 
-def test_negative_data_rejection_path_string_numeric_serialization(ctx, response_factory):
+@pytest.mark.parametrize(
+    "parameter_schema",
+    [{"type": "boolean"}, {"type": "string", "enum": ["asc"]}, {"type": "string", "minLength": 1}],
+    ids=["boolean", "enum", "min-length"],
+)
+@pytest.mark.parametrize("allow_empty_value", [True, False, None], ids=["allowed", "forbidden", "default"])
+def test_negative_data_rejection_query_allow_empty_value(ctx, response_factory, parameter_schema, allow_empty_value):
+    parameter = {"name": "filter", "in": "query", "required": True, "schema": parameter_schema}
+    if allow_empty_value is not None:
+        parameter["allowEmptyValue"] = allow_empty_value
     schema = ctx.openapi.load_schema(
         {
-            "/api/run/{id}": {
-                "post": {
-                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "integer"}}],
-                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
+            "/items": {
+                "get": {
+                    "parameters": [parameter],
+                    "responses": {"200": {"description": "OK"}},
                 }
             }
         }
     )
-
-    operation = schema["/api/run/{id}"]["POST"]
-
-    case = operation.Case(
+    case = schema["/items"]["GET"].Case(
         _meta=build_metadata(
-            path_parameters=GenerationMode.NEGATIVE,
+            query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
-            description="Invalid type string (expected integer)",
-            parameter="id",
-            parameter_location=ParameterLocation.PATH,
+            description="Invalid query parameter",
+            parameter="filter",
+            parameter_location=ParameterLocation.QUERY,
         ),
-        # Encoded `+1` decodes back to an integer-like value accepted by many servers
-        path_parameters={"id": "%2B1"},
+        query={"filter": ""},
     )
     response = response_factory.requests(status_code=200)
 
-    assert (
-        negative_data_rejection(
-            check_context(),
-            response,
-            case,
-        )
-        is None
-    )
-
-
-def test_negative_data_rejection_encoded_path_value(ctx, response_factory):
-    # Already-encoded path values carry a `str` subclass that the JSON Schema validator rejects.
-    schema = ctx.openapi.load_schema(
-        {
-            "/api/run/{id}": {
-                "post": {
-                    "parameters": [
-                        {"name": "id", "in": "path", "required": True, "schema": {"type": "string", "minLength": 1}}
-                    ],
-                    "responses": {"200": {"description": "Success"}, "400": {"description": "Bad Request"}},
-                }
-            }
-        }
-    )
-
-    operation = schema["/api/run/{id}"]["POST"]
-
-    case = operation.Case(
-        _meta=build_metadata(
-            path_parameters=GenerationMode.NEGATIVE,
-            generation_modes=[GenerationMode.NEGATIVE],
-            description="Invalid type integer (expected string)",
-            parameter="id",
-            parameter_location=ParameterLocation.PATH,
-        ),
-        path_parameters={"id": EncodedPath("abc")},
-    )
-
-    assert negative_data_rejection(check_context(), response_factory.requests(status_code=200), case) is None
+    if allow_empty_value is True:
+        assert negative_data_rejection(check_context(), response, case) is None
+    else:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
 
 
 @pytest.mark.parametrize(
@@ -2426,6 +2404,58 @@ def test_response_schema_conformance_discriminator_boolean_schema(ctx, response_
     invalid = response_factory.requests(content=b'{"petType": "Fish"}')
     with pytest.raises(Failure) as exc_info:
         response_schema_conformance(_CHECK_CTX, Response.from_requests(invalid, True), case)
+    assert exc_info.value.title == "Discriminator value not in schema mapping"
+
+
+def _single_response_schema(ctx, content):
+    return ctx.openapi.load_schema(
+        {"/test": {"get": {"responses": {"200": {"description": "OK", "content": content}}}}}
+    )
+
+
+def test_response_schema_conformance_skips_malformed_media_type_key(ctx, response_factory):
+    schema = _single_response_schema(
+        ctx,
+        {
+            "not a media type": {"schema": {"type": "string"}},
+            "application/*": {"schema": {"type": "integer"}},
+        },
+    )
+    case = schema["/test"]["GET"].Case()
+    valid = Response.from_requests(response_factory.requests(content=b"42"), True)
+    assert response_schema_conformance(_CHECK_CTX, valid, case) is None
+
+    invalid = Response.from_requests(response_factory.requests(content=b'"text"'), True)
+    with pytest.raises(JsonSchemaError, match='is not of type "integer"'):
+        response_schema_conformance(_CHECK_CTX, invalid, case)
+
+
+def test_response_schema_conformance_ignores_non_object_media_type_entry(ctx, response_factory):
+    schema = _single_response_schema(ctx, {"application/json": "not an object"})
+    case = schema["/test"]["GET"].Case()
+    response = Response.from_requests(response_factory.requests(content=b'"anything"'), True)
+    assert response_schema_conformance(_CHECK_CTX, response, case) is None
+
+
+def test_response_schema_conformance_discriminator_inline_branch(ctx, response_factory):
+    schema = _single_response_schema(
+        ctx,
+        {
+            "application/json": {
+                "schema": {
+                    "oneOf": [{"type": "object", "properties": {"petType": {"type": "string"}}}],
+                    "discriminator": {"propertyName": "petType", "mapping": {"cat": "#/components/schemas/Cat"}},
+                }
+            }
+        },
+    )
+    case = schema["/test"]["GET"].Case()
+    valid = Response.from_requests(response_factory.requests(content=b'{"petType": "cat"}'), True)
+    assert response_schema_conformance(_CHECK_CTX, valid, case) is None
+
+    invalid = Response.from_requests(response_factory.requests(content=b'{"petType": "fish"}'), True)
+    with pytest.raises(Failure) as exc_info:
+        response_schema_conformance(_CHECK_CTX, invalid, case)
     assert exc_info.value.title == "Discriminator value not in schema mapping"
 
 
@@ -2951,26 +2981,83 @@ def _negative_case(operation, location, parameter, mutation=None, **kwargs):
     )
 
 
-def test_negative_data_rejection_path_non_numeric_string_for_number(ctx, response_factory):
+PAGE_SIZE = {"type": "integer", "minimum": 1, "maximum": 100}
+
+
+@pytest.mark.parametrize(
+    ("location", "parameter_schema", "value", "type_mutation", "reported"),
+    [
+        # Repeated keys let frameworks such as Django pick the valid `1` (GH-3697).
+        pytest.param(
+            ParameterLocation.QUERY, PAGE_SIZE, [True, 1], True, False, id="multi_element_array_with_valid_element"
+        ),
+        # `"44"` reaches the wire as `44`, which Django parses as an integer (GH-3931).
+        pytest.param(
+            ParameterLocation.QUERY,
+            PAGE_SIZE,
+            [-1.2097890770124232e65, {"a": None}, [[-8.080921524865554e-19], "x"], [], "44"],
+            True,
+            False,
+            id="multi_element_array_string_numeric_element",
+        ),
+        # Object keys serialize as values, so `{"5": "x"}` sends `?value=5`.
+        pytest.param(
+            ParameterLocation.QUERY,
+            {"type": "integer"},
+            {"5": "x"},
+            True,
+            False,
+            id="query_object_mutation_with_numeric_key",
+        ),
+        # Encoded `+1` decodes back to an integer-like value accepted by many servers.
+        pytest.param(
+            ParameterLocation.PATH, {"type": "integer"}, "%2B1", True, False, id="path_string_numeric_serialization"
+        ),
+        # Already-encoded path values are judged by the string they carry.
+        pytest.param(
+            ParameterLocation.PATH,
+            {"type": "string", "minLength": 1},
+            EncodedPath("abc"),
+            True,
+            False,
+            id="encoded_path_value",
+        ),
+        pytest.param(
+            ParameterLocation.PATH,
+            {"type": "string", "minLength": 2},
+            "ab",
+            False,
+            False,
+            id="negative_path_value_that_matches_schema",
+        ),
+        pytest.param(
+            ParameterLocation.PATH, {"type": "number"}, "abc", True, True, id="path_non_numeric_string_for_number"
+        ),
+    ],
+)
+def test_negative_data_rejection_single_parameter(
+    ctx, response_factory, location, parameter_schema, value, type_mutation, reported
+):
+    path = "/items/{value}" if location == ParameterLocation.PATH else "/items"
+    parameter = {
+        "name": "value",
+        "in": location.value,
+        "required": location == ParameterLocation.PATH,
+        "schema": parameter_schema,
+    }
     operation = ctx.openapi.load_schema(
-        {
-            "/items/{price}": {
-                "get": {
-                    "parameters": [{"name": "price", "in": "path", "required": True, "schema": {"type": "number"}}],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/items/{price}"]["GET"]
-    case = _negative_case(
-        operation,
-        ParameterLocation.PATH,
-        "price",
-        _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="price", location=ParameterLocation.PATH),
-        path_parameters={"price": "abc"},
+        {path: {"get": {"parameters": [parameter], "responses": {"200": {"description": "OK"}}}}}
+    )[path]["GET"]
+    mutation = (
+        _mutation(OperatorKind.CHANGE_TYPE, ("type",), parameter="value", location=location) if type_mutation else None
     )
-    with pytest.raises(AcceptedNegativeData):
-        negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
+    case = _negative_case(operation, location, "value", mutation, **{location.container_name: {"value": value}})
+    response = response_factory.requests(status_code=200)
+    if reported:
+        with pytest.raises(AcceptedNegativeData):
+            negative_data_rejection(check_context(), response, case)
+    else:
+        assert negative_data_rejection(check_context(), response, case) is None
 
 
 # Validity can't be decided when the validator rejects the schema itself, so nothing is reported.
@@ -3053,23 +3140,6 @@ def test_negative_data_rejection_reports_header_beside_query_rejected_by_validat
     )
     with pytest.raises(AcceptedNegativeData):
         negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
-
-
-def test_negative_data_rejection_ignores_negative_path_value_that_matches_schema(ctx, response_factory):
-    operation = ctx.openapi.load_schema(
-        {
-            "/items/{key}": {
-                "get": {
-                    "parameters": [
-                        {"name": "key", "in": "path", "required": True, "schema": {"type": "string", "minLength": 2}}
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )["/items/{key}"]["GET"]
-    case = _negative_case(operation, ParameterLocation.PATH, "key", path_parameters={"key": "ab"})
-    assert negative_data_rejection(check_context(), response_factory.requests(status_code=200), case) is None
 
 
 _NAME_PROPERTY = {"type": "object", "properties": {"name": {"type": "string"}}}

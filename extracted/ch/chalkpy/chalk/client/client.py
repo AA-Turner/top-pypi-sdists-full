@@ -79,6 +79,7 @@ if TYPE_CHECKING:
         ModelDeployment,
         ModelDeploymentRevision,
         ModelDeploymentSpec,
+        QueuePolicy,
     )
     from chalk.features._encoding.inputs import InputSchemaHint
     from chalk.queries.data_quality import DataQualityCheck
@@ -3340,6 +3341,8 @@ class ChalkClient:
         wait_timeout: float = 300,
         environment: Optional[EnvironmentId] = None,
         chalk_workload_identity: bool = False,
+        retries: Optional[int] = None,
+        queue_policy: Optional[QueuePolicy] = None,
     ) -> "ModelDeployment":
         """Deploy a registered model version behind a stable, named endpoint.
 
@@ -3379,6 +3382,14 @@ class ChalkClient:
             Environment to deploy to.
         chalk_workload_identity
             Use Chalk workload identity for cloud resource access.
+
+        retries
+            Retries after the initial asynchronous execution. Must be a nonnegative
+            integer; defaults to zero. Requires Redis Streams and uses the queue's
+            fixed reclaim delay. Synchronous calls do not retry.
+        queue_policy
+            QueuePolicy controlling pending-item capacity and result retention after
+            completion. Defaults to 500000 pending items and 86400 seconds of retention.
 
         Returns
         -------
@@ -3610,6 +3621,8 @@ class ChalkClient:
         environment: Optional[EnvironmentId] = None,
         chalk_workload_identity: bool = False,
         validate: bool = True,
+        retries: Optional[int] = None,
+        queue_policy: Optional[QueuePolicy] = None,
     ) -> dict[str, Any]:
         """Deprecated: use `create_model_deployment`, which returns a typed
         `ModelDeployment` and can wait for readiness.

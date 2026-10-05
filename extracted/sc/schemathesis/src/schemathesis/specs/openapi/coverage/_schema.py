@@ -211,8 +211,9 @@ def _extra_property_schema(schema: JsonSchemaObject) -> JsonSchema:
 
 
 def _is_strictly_valid(value: Any, schema: dict[str, Any], ctx: CoverageContext) -> bool:
-    # Fails closed, so a value nothing can check is dropped rather than shipped as a valid positive.
-    return _admitted(value, schema, ctx, unjudged=False)
+    # Binary payloads cannot be validated and pass, as elsewhere in this module. Anything else fails closed,
+    # so a value nothing can check is dropped rather than shipped as a valid positive.
+    return contains_binary(value) or _admitted(value, schema, ctx, unjudged=False)
 
 
 def _without_forbidden_keys(value: Any, schema: dict[str, Any]) -> Any:
@@ -2308,7 +2309,7 @@ def _negative_any_of(
 ) -> Generator[GeneratedValue, None, None]:
     nctx = ctx.with_negative()
     resolved_schemas = [ctx.resolve_ref(s["$ref"]) if isinstance(s, dict) and "$ref" in s else s for s in value]
-    validators = _make_branch_validators(resolved_schemas, ctx)
+    validators = _make_branch_validators(value, ctx)
     # Body fields in multipart/form-urlencoded are serialized as strings via str().
     # Query/path/header parameters are also stringified, but servers parse them
     # back to their declared type before validation, so str() doesn't make them
@@ -2393,7 +2394,9 @@ def cover_schema_iter(
                     bundle = ctx.root_schema.get(BUNDLE_STORAGE_KEY) if isinstance(ctx.root_schema, dict) else None
                     check_schema = schema if bundle is None else {**schema, BUNDLE_STORAGE_KEY: bundle}
                     try:
-                        unmerged_validator = ctx.validator_cls(check_schema, pattern_options=FANCY_REGEX_OPTIONS)
+                        unmerged_validator = ctx.validator_cls(
+                            check_schema, validate_formats=True, pattern_options=FANCY_REGEX_OPTIONS
+                        )
                     except Exception:
                         pass
                 with ctx.expand(reference):

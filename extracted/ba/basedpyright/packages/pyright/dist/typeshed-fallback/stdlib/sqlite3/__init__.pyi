@@ -363,7 +363,9 @@ class Connection:
         """
         ...
     if sys.version_info >= (3, 15):
-        def create_aggregate(self, name: str, n_arg: int, aggregate_class: Callable[[], _AggregateProtocol], /) -> None: ...
+        def create_aggregate(self, name: str, n_arg: int, aggregate_class: Callable[[], _AggregateProtocol], /) -> None:
+            """Creates a new aggregate."""
+            ...
     else:
         def create_aggregate(self, name: str, n_arg: int, aggregate_class: Callable[[], _AggregateProtocol]) -> None:
             """
@@ -437,7 +439,9 @@ class Connection:
     if sys.version_info >= (3, 15):
         def create_function(
             self, name: str, narg: int, func: Callable[..., _SqliteData] | None, /, *, deterministic: bool = False
-        ) -> None: ...
+        ) -> None:
+            """Creates a new function."""
+            ...
     else:
         def create_function(
             self, name: str, narg: int, func: Callable[..., _SqliteData] | None, *, deterministic: bool = False
@@ -496,9 +500,28 @@ class Connection:
     if sys.version_info >= (3, 15):
         def set_authorizer(
             self, authorizer_callback: Callable[[int, str | None, str | None, str | None, str | None], int] | None, /
-        ) -> None: ...
-        def set_progress_handler(self, progress_handler: Callable[[], int | None] | None, /, n: int) -> None: ...
-        def set_trace_callback(self, trace_callback: Callable[[str], object] | None, /) -> None: ...
+        ) -> None:
+            """Set authorizer callback."""
+            ...
+        def set_progress_handler(self, progress_handler: Callable[[], int | None] | None, /, n: int) -> None:
+            """
+            Set progress handler callback.
+
+              progress_handler
+                A callable that takes no arguments.
+                If the callable returns non-zero, the current query is
+                terminated, and an exception is raised.
+              n
+                The number of SQLite virtual machine instructions that are
+                executed between invocations of 'progress_handler'.
+
+            If 'progress_handler' is None or 'n' is 0, the progress handler is
+            disabled.
+            """
+            ...
+        def set_trace_callback(self, trace_callback: Callable[[str], object] | None, /) -> None:
+            """Set a trace callback called for each SQL statement (passed as unicode)."""
+            ...
     else:
         def set_authorizer(
             self, authorizer_callback: Callable[[int, str | None, str | None, str | None, str | None], int] | None

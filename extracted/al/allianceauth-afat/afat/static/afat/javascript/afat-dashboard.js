@@ -38,7 +38,7 @@ $(document).ready(() => {
                 data: {
                     display: (data) => _dateRender(data.fleet_time.time),
                     sort: (data) => data.fleet_time.timestamp
-                },
+                }
             }
         ];
 
@@ -69,7 +69,7 @@ $(document).ready(() => {
                 data: {
                     display: (data) => _dateRender(data.fleet_time.time),
                     sort: (data) => data.fleet_time.timestamp
-                },
+                }
             }
         ];
 
@@ -112,7 +112,7 @@ $(document).ready(() => {
             afatSettings.modal.deleteFatLinkModal.element
         ];
 
-        modals.forEach(modalElement => {
+        modals.forEach((modalElement) => {
             _manageModal($(modalElement));
         });
     };

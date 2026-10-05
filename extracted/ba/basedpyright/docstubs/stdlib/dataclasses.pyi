@@ -58,7 +58,9 @@ class _MISSING_TYPE(enum.Enum):
 
 MISSING: Final = _MISSING_TYPE.MISSING
 
-class KW_ONLY: ...
+class KW_ONLY:
+    """Create a unique sentinel object with the given name."""
+    ...
 
 @overload
 def asdict(obj: DataclassInstance) -> dict[str, Any]: ...

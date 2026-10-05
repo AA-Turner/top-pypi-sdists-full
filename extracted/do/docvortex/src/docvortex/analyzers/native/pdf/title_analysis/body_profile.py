@@ -148,8 +148,11 @@ def _infer_document_body_profile(
             float | None,
         ]
     ] = []
+    sparse_document = sum(line.semantic_type is None for prepared in prepared_pages for line in prepared.remaining_lines) <= 6
     for page_index, prepared in enumerate(prepared_pages):
-        for line in prepared.remaining_lines:
+        # 表格几乎覆盖全页时，完整认领不应删除正文样式的统计证据；缓存不含原生字符字典。
+        profile_lines = [*prepared.remaining_lines, *(prepared.table_body_profile_lines if sparse_document else [])]
+        for line in profile_lines:
             if line.semantic_type is not None:
                 continue
             local_bbox = _rotate_bbox_to_upright(
@@ -187,6 +190,11 @@ def _infer_document_body_profile(
     height_clusters = [[samples[index][:3] for index in group] for group in groups]
     cross_page_clusters = [cluster for cluster in height_clusters if len({item[1] for item in cluster}) >= 2]
     eligible_clusters = cross_page_clusters or height_clusters
+    # 单页演示稿中两条跨页宽大标题会压过多栏正文；至少三条独立正文行才竞争画像。
+    if len(prepared_pages) == 1 and len(samples) >= 6:
+        repeated_clusters = [cluster for cluster in eligible_clusters if len(cluster) >= 3]
+        if repeated_clusters:
+            eligible_clusters = repeated_clusters
     body_cluster = max(
         eligible_clusters,
         key=lambda cluster: (

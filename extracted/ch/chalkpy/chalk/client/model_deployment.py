@@ -7,7 +7,7 @@ import math
 import random
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Mapping, Optional, Sequence, Tuple, cast
 
 import grpc
 
@@ -75,6 +75,18 @@ class ModelDeploymentTimeoutError(ModelDeploymentError, TimeoutError):
 
 
 @dataclasses.dataclass(frozen=True)
+class QueuePolicy:
+    """Async model queue capacity and terminal result retention.
+
+    ``max_items`` caps pending calls; ``result_ttl_seconds`` retains completed
+    results, including failures. Both must be positive integers.
+    """
+
+    max_items: int = 500_000
+    result_ttl_seconds: int = 86_400
+
+
+@dataclasses.dataclass(frozen=True)
 class ModelDeploymentSpec:
     """The complete serving spec for a new revision of a model deployment.
 
@@ -102,6 +114,11 @@ class ModelDeploymentSpec:
         gRPC startup probe. Defaults to the standard gRPC health check method.
     chalk_workload_identity
         Use Chalk workload identity for cloud resource access.
+    retries
+        Retries after the initial asynchronous execution; defaults to zero.
+        Requires Redis Streams and uses the queue's fixed reclaim delay.
+    queue_policy
+        Pending-item capacity and asynchronous result retention.
     """
 
     model_version: int
@@ -113,6 +130,8 @@ class ModelDeploymentSpec:
     readiness_probe: Optional[GrpcReadinessProbe] = None
     startup_probe: Optional[GrpcStartupProbe] = None
     chalk_workload_identity: bool = False
+    retries: Optional[int] = None
+    queue_policy: Optional[QueuePolicy] = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -143,17 +162,21 @@ class ModelDeployment:
     """Public URL that ``remote()`` calls. Unset until routing is ready."""
     ready_replicas: int
     available_replicas: int
+    model_id: Optional[str] = None
+    """The owning registry model's stable ID, when returned by the API."""
 
     _client: Any = dataclasses.field(default=None, repr=False, compare=False)
 
     _queue_name: str = dataclasses.field(default="", repr=False, compare=False)
-    """The function queue ``defer()`` enqueues on, recorded on the selected revision."""
+    """The function queue ``defer()`` enqueues on, preserved across revisions and model renames."""
     _input_features: Optional[Tuple[str, ...]] = dataclasses.field(default=None, repr=False, compare=False)
     """The served model version's input features, fetched on first call unless provided."""
     _live_web_url: Optional[str] = dataclasses.field(default=None, repr=False, compare=False)
     """Replaces ``web_url`` for calls after the URL changed under this snapshot."""
     _live_model_version: Optional[int] = dataclasses.field(default=None, repr=False, compare=False)
     """The version actually served, once a re-read found the deployment moved past ``model_version``."""
+    _live_model_name: Optional[str] = dataclasses.field(default=None, repr=False, compare=False)
+    """The current registry name after a re-read follows a model rename."""
 
     @property
     def min_replicas(self) -> int:
@@ -174,10 +197,10 @@ class ModelDeployment:
             object.__setattr__(self, "_input_features", input_features)
         return bind_inputs(input_features, args, kwargs)
 
-    def _fetch_input_features(self, version: int) -> Tuple[str, ...]:
-        fields = self._bound_client()._model_version_fields(  # pyright: ignore[reportPrivateUsage]
-            self.model_name, version
-        )
+    def _fetch_input_features(self, version: int, model_name: Optional[str] = None) -> Tuple[str, ...]:
+        client = self._bound_client()
+        model_name = model_name or _model_name_by_id(client, self.model_id, self._live_model_name or self.model_name)
+        fields = client._model_version_fields(model_name, version)  # pyright: ignore[reportPrivateUsage]
         return tuple(fields["input_features"])
 
     def remote(self, *args: Any, **kwargs: Any) -> Any:
@@ -254,7 +277,12 @@ class ModelDeployment:
     def _resolve_web_url(self) -> str:
         """Re-read this deployment's URL, following it to whichever version it now serves."""
         fresh = self.refresh()
-        if fresh.model_name != self.model_name:
+        same_model = (
+            fresh.model_id == self.model_id
+            if fresh.model_id and self.model_id
+            else fresh.model_name == (self._live_model_name or self.model_name)
+        )
+        if not same_model:
             raise ModelDeploymentMismatchError(
                 f"Model deployment {self.name!r} now serves model {fresh.model_name!r}, not {self.model_name!r}"
             )
@@ -265,10 +293,11 @@ class ModelDeployment:
         if fresh.model_version != self._served_version():
             # Fetch the new schema before committing the version, so a failed fetch leaves
             # the cached version and inputs consistent.
-            input_features = self._fetch_input_features(fresh.model_version)
+            input_features = self._fetch_input_features(fresh.model_version, fresh.model_name)
             object.__setattr__(self, "_input_features", input_features)
             object.__setattr__(self, "_live_model_version", fresh.model_version)
         object.__setattr__(self, "_live_web_url", fresh.web_url)
+        object.__setattr__(self, "_live_model_name", fresh.model_name)
         return fresh.web_url
 
     def defer(self, *args: Any, **kwargs: Any) -> ModelCallHandle:
@@ -426,42 +455,130 @@ def _resources_from_proto(container_spec: Any) -> Optional[ScalingGroupResourceR
     )
 
 
-def model_deployment_from_proto(pb: Any, client: Optional["ChalkGRPCClient"] = None) -> ModelDeployment:
-    """Convert a model-owned ``ScalingGroupResponse`` proto."""
-    model_name, model_version = model_version_from_metadata(pb.metadata)
+def _model_name_by_id(
+    client: Any, model_id: Optional[str], recorded_name: str, names: Optional[dict[str, str]] = None
+) -> str:
+    """Resolve the current name without allowing reuse of a revision's old name to change ownership."""
+    if not model_id or client is None:
+        return recorded_name
+    if names is not None and model_id in names:
+        return names[model_id]
+    from chalk._gen.chalk.server.v1.model_registry_pb2 import GetModelRequest
+
+    try:
+        response = client._stub_refresher.call_model_stub(  # pyright: ignore[reportPrivateUsage]
+            lambda stub: stub.GetModel(GetModelRequest(model_id=model_id, include_deleted=True))
+        )
+    except grpc.RpcError as e:
+        if e.code() != grpc.StatusCode.NOT_FOUND:  # pyright: ignore[reportAttributeAccessIssue]
+            raise
+        # Archived deployments can outlive their registry model.
+        name = recorded_name
+    else:
+        name = response.model.model_name
+    if names is not None:
+        names[model_id] = name
+    return name
+
+
+def model_deployment_from_proto(
+    pb: Any,
+    client: Optional["ChalkGRPCClient"] = None,
+    *,
+    record: Any = None,
+    current_revision: Any = None,
+    model_names: Optional[dict[str, str]] = None,
+) -> ModelDeployment:
+    """Prefer the model records, falling back to materialized scaling groups from older servers."""
+    if record is not None and not record.id:
+        record = None
+    if record is not None and pb.id and record.id != pb.id:
+        raise ValueError("Model deployment record does not match its scaling group")
+    # The first API returning records did not yet include lifecycle state.
+    source = record if record is not None and record.status else pb
+    if current_revision is not None and current_revision.id:
+        if current_revision.model_scaling_group_id != (record.id if record is not None else pb.id):
+            raise ValueError("Model revision does not belong to its deployment")
+        if source.revision_id and current_revision.id != source.revision_id:
+            raise ValueError("Model revision is not the deployment's selected revision")
+        model_name = current_revision.spec.model_version.model_name
+        model_version = current_revision.model_version
+        spec = current_revision.spec
+    else:
+        model_name, model_version = model_version_from_metadata(pb.metadata)
+        spec = pb.spec
+    model_id = _optional_str(record, "model_id") if record is not None else None
+    model_name = _model_name_by_id(client, model_id, model_name, model_names)
     return ModelDeployment(
-        id=pb.id,
-        name=pb.name,
-        revision_id=pb.revision_id,
+        id=record.id if record is not None else pb.id,
+        name=record.name if record is not None else pb.name,
+        revision_id=source.revision_id,
         model_name=model_name,
         model_version=model_version,
-        status=pb.status,
-        status_message=_optional_str(pb, "status_message"),
-        scaling=auto_scaling_spec_from_proto(pb.spec.scaling_spec),
-        resources=_resources_from_proto(pb.spec.container_spec),
-        created_at=_timestamp(pb, "created_at"),
-        updated_at=_timestamp(pb, "updated_at"),
-        deleted_at=_timestamp(pb, "deleted_at"),
-        web_url=_optional_str(pb, "web_url") or None,
-        ready_replicas=pb.ready_replicas,
-        available_replicas=pb.available_replicas,
+        status=source.status,
+        status_message=_optional_str(source, "status_message"),
+        scaling=auto_scaling_spec_from_proto(spec.scaling_spec),
+        resources=_resources_from_proto(spec.container_spec),
+        created_at=_timestamp(record if record is not None else pb, "created_at"),
+        updated_at=_timestamp(source, "updated_at"),
+        deleted_at=_timestamp(source, "deleted_at"),
+        web_url=_optional_str(source, "web_url") or None,
+        ready_replicas=source.ready_replicas,
+        available_replicas=source.available_replicas,
+        model_id=model_id,
         _client=client,
-        _queue_name=model_deployment_queue_name(pb, model_name),
+        _queue_name=(record.queue_name if record is not None else "") or model_deployment_queue_name(pb, model_name),
     )
 
 
-def model_deployment_revision_from_proto(pb: Any) -> ModelDeploymentRevision:
-    """Convert a model-owned ``ScalingGroupRevisionResponse`` proto."""
-    model_name, model_version = model_version_from_metadata(pb.metadata)
+def model_deployment_from_response(response: Any, client: "ChalkGRPCClient") -> ModelDeployment:
+    return model_deployment_from_proto(
+        response.scaling_group,
+        client,
+        record=response.model_scaling_group,
+        current_revision=getattr(response, "current_revision", None),
+    )
+
+
+def model_deployments_from_response(response: Any, client: "ChalkGRPCClient") -> list[ModelDeployment]:
+    from chalk._gen.chalk.scalinggroup.v1.service_pb2 import ScalingGroupResponse
+
+    groups = {group.id: group for group in response.scaling_groups}
+    revisions = {revision.model_scaling_group_id: revision for revision in response.current_revisions}
+    names: dict[str, str] = {}
+    if response.model_scaling_groups:
+        return [
+            model_deployment_from_proto(
+                groups.get(record.id, ScalingGroupResponse()),
+                client,
+                record=record,
+                current_revision=revisions.get(record.id),
+                model_names=names,
+            )
+            for record in response.model_scaling_groups
+        ]
+    return [model_deployment_from_proto(group, client) for group in response.scaling_groups]
+
+
+def model_deployment_revision_from_proto(pb: Any, model_revision: Any = None) -> ModelDeploymentRevision:
+    """Use the model revision's immutable identity/spec and the scaling revision's runtime state."""
+    if model_revision is not None and model_revision.id:
+        if model_revision.id != pb.id or model_revision.model_scaling_group_id != pb.scaling_group_id:
+            raise ValueError("Model revision does not match its scaling group revision")
+        model_name = model_revision.spec.model_version.model_name
+        model_version = model_revision.model_version
+    else:
+        model_revision = None
+        model_name, model_version = model_version_from_metadata(pb.metadata)
     return ModelDeploymentRevision(
         id=pb.id,
-        deployment_id=pb.scaling_group_id,
+        deployment_id=model_revision.model_scaling_group_id if model_revision is not None else pb.scaling_group_id,
         deployment_name=pb.scaling_group_name,
         model_name=model_name,
         model_version=model_version,
         status=pb.status,
         status_message=_optional_str(pb, "status_message"),
-        created_at=_timestamp(pb, "created_at"),
+        created_at=_timestamp(model_revision if model_revision is not None else pb, "created_at"),
         deleted_at=_timestamp(pb, "deleted_at"),
         selected=pb.latest,
     )
@@ -500,6 +617,33 @@ def startup_probe_to_proto(probe: GrpcStartupProbe) -> Any:
     from chalk._gen.chalk.container.v1 import service_pb2 as container_pb
 
     return container_pb.StartupProbe(grpc=container_pb.GrpcProbe(method=probe.method))
+
+
+def model_queue_policies(retries: Optional[int], queue_policy: Optional[QueuePolicy]) -> dict[str, int]:
+    """Validate asynchronous model policies before any image build or upload."""
+    values: dict[str, int] = {}
+    policies: tuple[tuple[str, object, int], ...] = (
+        ("retries", cast(object, retries), 0),
+        (
+            "result_ttl_seconds",
+            cast(object, queue_policy.result_ttl_seconds) if queue_policy is not None else None,
+            1,
+        ),
+        (
+            "max_items",
+            cast(object, queue_policy.max_items) if queue_policy is not None else None,
+            1,
+        ),
+    )
+    for option, value, minimum in policies:
+        if value is None:
+            continue
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError(f"{option} must be an int")
+        if not minimum <= value <= 2**31 - 1:
+            raise ValueError(f"{option} must be between {minimum} and {2**31 - 1}")
+        values[option] = value
+    return values
 
 
 def merge_model_spec(

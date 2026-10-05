@@ -1,14 +1,13 @@
 import copy
 import pprint
+
 import numpy as np
 from shapely import geometry
 from shapely.ops import linemerge
-from .cut import Cut
-from ..ops import asvoid
-from ..ops import map_values
-from ..ops import lists_from_np_array
-from ..ops import cart
+
+from ..ops import asvoid, cart, lists_from_np_array, map_values
 from ..utils import serialize_as_svg
+from .cut import Cut
 
 
 class Dedup(Cut):
@@ -16,7 +15,7 @@ class Dedup(Cut):
     Dedup duplicates and merge contiguous arcs
     """
 
-    def __init__(self, data, options={}):
+    def __init__(self, data, options=None):
         # execute previous step
         super().__init__(data, options)
 
@@ -27,7 +26,7 @@ class Dedup(Cut):
         self.output = self._deduper(self.output)
 
     def __repr__(self):
-        return "Dedup(\n{}\n)".format(pprint.pformat(self.output))
+        return f"Dedup(\n{pprint.pformat(self.output)}\n)"
 
     def to_dict(self):
         """
@@ -72,6 +71,8 @@ class Dedup(Cut):
         else:
             array_bk = np.array([])
         array_bk_sarcs = None
+        array_bk_parts = array_bk
+        first_of_part = np.array([line[0] for line in data["linestrings"]])
         if len(data["bookkeeping_duplicates"]):
             array_bk, array_bk_sarcs = self._deduplicate(
                 data["bookkeeping_duplicates"], data["linestrings"], array_bk
@@ -82,8 +83,11 @@ class Dedup(Cut):
         mask = np.isin(array_bk, array_bk_sarcs)
         array_bk_ndp = copy.deepcopy(array_bk.astype(float))
 
-        # only do merging of arcs if there are contiguous arcs in geoms
-        if array_bk_ndp[mask].size != 0:
+        # only do merging of arcs if there are contiguous arcs in geoms. With
+        # path-connected junctions (shared_coords=False) every cut is at a junction and
+        # is kept, also between two unshared arcs: merging them would depend on where a
+        # ring starts.
+        if self.options.shared_coords and array_bk_ndp[mask].size != 0:
             # make sure the idx of shared arcs are set to np.nan
             array_bk_ndp[mask] = np.nan
 
@@ -100,6 +104,13 @@ class Dedup(Cut):
                         idx_merged_dups, data["linestrings"], array_bk
                     )
 
+        # without merges, an arc runs backward in a line where it starts elsewhere than
+        # the part it replaces; a line of one arc keeps it forward
+        if not self.options.shared_coords and array_bk.size:
+            array_bk = self._direct_arcs(
+                array_bk, array_bk_parts, first_of_part, data["linestrings"]
+            )
+
         # prepare to return object
         del data["bookkeeping_linestrings"]
         data["bookkeeping_arcs"] = lists_from_np_array(array_bk)
@@ -110,6 +121,22 @@ class Dedup(Cut):
             data["bookkeeping_shared_arcs"] = []
 
         return data
+
+    def _direct_arcs(self, array_bk, array_bk_parts, first_of_part, arcs):
+        """
+        Bookkeeping of arcs where an arc that runs against the part of the line it
+        replaces is written as ~index (backward).
+        """
+        valid = ~np.isnan(array_bk)
+        arc = array_bk[valid].astype(np.intp)
+        part = array_bk_parts[valid].astype(np.intp)
+        first_of_arc = np.array([line[0] for line in arcs])
+        forward = (first_of_arc[arc] == first_of_part[part]).all(axis=1)
+        n_arcs = valid.sum(axis=1)
+        forward |= np.repeat(n_arcs == 1, n_arcs)
+        directed = array_bk.copy()
+        directed[valid] = np.where(forward, arc, ~arc)
+        return directed
 
     def _find_merged_linestring(self, data, no_ndp_arcs, ndp_arcs, ndp_arcs_bk):
         """

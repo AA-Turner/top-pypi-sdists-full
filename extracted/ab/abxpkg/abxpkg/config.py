@@ -118,7 +118,13 @@ def binary_request_cache_key(
     default_provider_names: Iterable[str],
     env: Mapping[str, str] | None = None,
 ) -> str:
-    """Return the exact cache identity shared by event and script requests."""
+    """Return the exact cache identity shared by event and script requests.
+
+    Keep names distinct from paths: identical basenames can select different
+    installations. Only a validated record can prove name-to-path equivalence.
+    Python environment identity also matters even when the executable is shared.
+    See docs/provider-caching.md for the failures behind these boundaries.
+    """
 
     provider_names = request.get("binproviders") or default_provider_names
     if isinstance(provider_names, str):
@@ -712,6 +718,9 @@ def _validated_cached_plan(
     ignored_env_base_keys: Iterable[str] = (),
     require_executable: bool = True,
 ) -> tuple[str, dict[str, str]] | None:
+    # Warm plans must prove their inputs still match, not just that a binary
+    # exists. Ignoring PATH or venv changes previously reused the wrong runtime.
+    # Return stable metadata here; execution alone may peel env/bin aliases.
     if os.getuid() != os.geteuid() or not isinstance(raw_plan, dict):
         return None
     exec_plan = cast(dict[str, object], raw_plan)
@@ -814,6 +823,9 @@ def _load_cached_request_projection(
     base_env: Mapping[str, str] | None = None,
     ignored_env_base_keys: Iterable[str] = (),
 ) -> tuple[dict[str, object], dict[str, object], str, dict[str, str]] | None:
+    # Shared by service preflight and script execution so hydration does not
+    # reintroduce separate cache rules. See docs/provider-caching.md before
+    # changing identity equivalence, environment validation or ownership.
     current_env = os.environ if base_env is None else base_env
     request_key = binary_request_cache_key(
         request,
@@ -851,11 +863,50 @@ def _load_cached_request_projection(
             require_executable=False,
         ):
             raw_projections = record.get("request_exec_projections")
+            projection_key = request_key
+            projection_ignored_env_keys = tuple(ignored_env_base_keys)
             projection = (
-                raw_projections.get(request_key)
+                raw_projections.get(projection_key)
                 if isinstance(raw_projections, dict)
                 else None
             )
+            if (
+                not isinstance(projection, dict)
+                and isinstance(raw_projections, dict)
+                and os.path.isabs(str(request["name"]))
+                and isinstance(record.get("bin_name"), str)
+            ):
+                # Images install by name; runners later pass that installation's
+                # absolute path. _cached_records already verified this exact path
+                # and its fingerprint. Reuse the named request only when every
+                # other option still matches, without letting env claim ownership
+                # or rerun version/hash probes for another provider's binary.
+                projection_key = binary_request_cache_key(
+                    {**request, "name": record["bin_name"]},
+                    default_provider_names=provider_names,
+                    env=current_env,
+                )
+                projection = raw_projections.get(projection_key)
+                # Hydration may also replace FOO_BINARY=foo with this exact
+                # cached path. Only that bound selector is equivalent; changes
+                # to PATH, VIRTUAL_ENV, or any other provider inputs still miss.
+                binary_env_key = (
+                    f"{str(record['bin_name']).upper().replace('-', '_')}_BINARY"
+                )
+                validation = (
+                    projection.get("validation")
+                    if isinstance(projection, dict)
+                    else None
+                )
+                env_base = (
+                    validation.get("env_base") if isinstance(validation, dict) else None
+                )
+                if (
+                    isinstance(env_base, dict)
+                    and env_base.get(binary_env_key) in (None, record["bin_name"])
+                    and current_env.get(binary_env_key) == request["name"]
+                ):
+                    projection_ignored_env_keys += (binary_env_key,)
             if not isinstance(projection, dict):
                 continue
             typed_projection = cast(dict[str, object], projection)
@@ -872,9 +923,9 @@ def _load_cached_request_projection(
                 continue
             validated = _validated_cached_plan(
                 typed_projection.get("validation"),
-                request_key,
+                projection_key,
                 base_env=current_env,
-                ignored_env_base_keys=ignored_env_base_keys,
+                ignored_env_base_keys=projection_ignored_env_keys,
                 require_executable=False,
             )
             if validated is not None:

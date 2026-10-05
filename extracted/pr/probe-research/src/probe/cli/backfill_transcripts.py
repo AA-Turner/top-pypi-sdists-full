@@ -30,7 +30,7 @@ from typing import NamedTuple
 
 from ..sdk.durable import file_lock, fsync_directory, now_iso
 from ..sdk.tls import ssl_context
-from ..tap_core import codex_sanitize, pi_sanitize, sanitize
+from ..tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from ..tap_core.session_identity import compatible_copy, validate_identity
 from ..tap_core.session_journal import (
     DELETED_STATE, DeliveryPending, Journal, ReconciliationRequired, SessionDeleted, Wire,
@@ -43,6 +43,7 @@ from ..tap_core.transcript import (
 CLAUDE = "claude_code"
 CODEX = "codex"
 PI = "pi"
+KIMI = "kimi_code"
 
 #: The ingest route per agent. The gateway binds a paired device to ONE source
 #: and answers 403 for the other, which the tap's classifier treats as a
@@ -96,7 +97,12 @@ def _import_sanitizer(inner):
 
 
 #: The sanitizer modules a registry row can name (`capture.sanitizer`).
-_SANITIZER_MODULES = {"sanitize": sanitize, "codex_sanitize": codex_sanitize, "pi_sanitize": pi_sanitize}
+_SANITIZER_MODULES = {
+    "sanitize": sanitize,
+    "codex_sanitize": codex_sanitize,
+    "pi_sanitize": pi_sanitize,
+    "kimi_sanitize": kimi_sanitize,
+}
 SANITIZER = {
     h.id: _import_sanitizer(_SANITIZER_MODULES[h.capture.sanitizer].sanitize_event) for h in _captured_rows()
 }
@@ -310,6 +316,10 @@ def transcript_roots(agent: str, plugin_dir: Path | None = None) -> list[Path]:
         candidates = pi_session_roots()
         existing = [root for root in candidates if root.is_dir()]
         return existing or candidates[:1]
+    if agent == KIMI:
+        # One root, from the registry row (its override, else under
+        # KIMI_CODE_HOME): Kimi writes nowhere else.
+        return [_kimi().transcript_root()]
 
     env = os.environ.get(_ROOT_ENV[agent])
     if env:
@@ -435,6 +445,12 @@ def session_id_for(path: Path, agent: str) -> str | None:
     if agent in (CODEX, PI):
         match = _UUID_SUFFIX_RE.search(stem)
         return match.group(1) if match else None
+    if agent == KIMI:
+        # sessions/<workdir>/session_<uuid>/agents/main/wire.jsonl
+        if path.name != "wire.jsonl" or path.parent.name != "main":
+            return None
+        canonical = _kimi().canonical_session_id(path.parent.parent.parent.name)
+        return canonical if _CLAUDE_SESSION_STEM_RE.fullmatch(canonical) else None
     # Claude Code session files are `<uuid>.jsonl`; anything else in the
     # directory is a foreign file, not a session. The Workflow tool drops a
     # `journal.jsonl` right beside real transcripts, and treating its stem as
@@ -452,6 +468,14 @@ def read_cwd(path: Path, agent: str, *, max_lines: int = 200) -> str | None:
     Codex writes its `session_meta` first but not always. Bounded so a huge
     transcript with no cwd at all costs a few KB, not a full read.
     """
+    if agent == KIMI:
+        # Kimi keeps the session's folder in its own state.json, beside the wire.
+        try:
+            state = json.loads((path.parent.parent.parent / "state.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        found = state.get("cwd") if isinstance(state, dict) else None
+        return found if isinstance(found, str) and found else None
     try:
         with path.open("rb") as handle:
             for index, raw in enumerate(handle):
@@ -520,8 +544,18 @@ def _is_pi_session_file(path: Path) -> bool:
     return isinstance(first, dict) and first.get("type") == "session"
 
 
+def _kimi():
+    from probe.harness import get_registry
+
+    return get_registry().get(KIMI)
+
+
 def _walk(root: Path, agent: str) -> Iterator[Path]:
     if not root.exists():
+        return
+    if agent == KIMI:
+        # Main wires only: helper agents' wires sit beside them.
+        yield from sorted(root.glob(_kimi().transcript_pattern()))
         return
     candidates = sorted(root.rglob("*.jsonl"))
     if agent == PI:

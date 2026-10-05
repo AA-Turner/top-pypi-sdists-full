@@ -11,15 +11,15 @@ class AdamS(BaseOptimizer):
     """Adam with stable weight decay.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of the gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
-        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
-        ams_bound (bool): Whether to use the AMSBound variant of Adam.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        ams_bound: Use the running maximum of the second moment to bound adaptive updates.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -116,6 +116,16 @@ class AdamS(BaseOptimizer):
 
                 state = self.state[p]
 
+                if not group['weight_decouple']:
+                    self.apply_weight_decay(
+                        p=p,
+                        grad=grad,
+                        lr=group['lr'],
+                        weight_decay=group['weight_decay'],
+                        weight_decouple=False,
+                        fixed_decay=group['fixed_decay'],
+                    )
+
                 s_grad = self.get_adanorm_gradient(
                     grad=grad,
                     adanorm=group.get('adanorm', False),
@@ -124,7 +134,7 @@ class AdamS(BaseOptimizer):
                 )
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                exp_avg.mul_(beta1).add_(s_grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(s_grad, weight=1.0 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                 if group['ams_bound']:
@@ -159,13 +169,11 @@ class AdamS(BaseOptimizer):
 
                 grad = p.grad
 
-                self.maximize_gradient(grad, maximize=self.maximize)
-
                 state = self.state[p]
 
                 self.apply_weight_decay(
                     p=p,
-                    grad=grad,
+                    grad=None,
                     lr=group['lr'],
                     weight_decay=group['weight_decay'],
                     weight_decouple=group['weight_decouple'],
@@ -174,9 +182,7 @@ class AdamS(BaseOptimizer):
                 )
 
                 exp_avg_sq_hat = state['max_exp_avg_sq'] if group['ams_bound'] else state['exp_avg_sq']
-                exp_avg_sq_hat.div_(bias_correction2)
-
-                de_nom = exp_avg_sq_hat.sqrt().add_(group['eps'])
+                de_nom = (exp_avg_sq_hat / bias_correction2).sqrt().add_(group['eps'])
 
                 p.addcdiv_(state['exp_avg'], de_nom, value=-step_size)
 

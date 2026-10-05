@@ -64,6 +64,7 @@ import os
 import plistlib
 import queue
 import re
+import shlex
 import shutil  # noqa: F401 — kept: tests and siblings patch `relay.shutil.which`
 import signal
 import socket
@@ -339,6 +340,7 @@ SLICE_PEER_OPS: frozenset[str] = frozenset(
         "net_sync",
         "net_broker",
         "net_session_lifecycle",
+        "net_session_receipt",
         "net_definitions",
         "net_readiness",
         "net_mcp_defs",
@@ -352,6 +354,7 @@ SLICE_LOCAL_OPS: frozenset[str] = frozenset(
         "session_move",
         "session_sync",
         "session_lifecycle",
+        "session_receipt",
         "credential_grant",
         "credential_report",
         "credential_placement",
@@ -1641,26 +1644,46 @@ def set_member_capabilities(
     would burn the device id.
 
     THE REFUSALS, each named: only an ADMIN device may change another's authority
-    (the same test ``panic`` uses: this device's own row holds ``admin``); the
-    target must be an active member other than this device; a grant may not name
-    ``admin`` (that is a role granted by an invite and a human SAS step,
-    :data:`GRANTABLE_CAPABILITIES`); and an unknown name is refused rather than
-    stored, since a typo stored is an authority nobody decided. The CALLER holds
-    the record's write lock and saves; this function only mutates.
+    (the same test ``panic`` uses: this device's own row holds ``admin``), with ONE
+    carve-out — when every named capability is an onboarding scope
+    (:data:`SELF_DECIDED_SCOPES`), the deciding device writes the PEER's row in its
+    OWN record without an admin row (F7: those scopes govern this device's own
+    files and
+    sessions, their grant is deliberately receiver-side, and no wire op can write
+    another device's copy). The target must be an active member other than this
+    device; a grant may not name ``admin`` (that is a role granted by an invite and
+    a human SAS step, :data:`GRANTABLE_CAPABILITIES`); and an unknown name is
+    refused rather than stored, since a typo stored is an authority nobody decided.
+    The CALLER holds the record's write lock and saves; this function only mutates.
     """
-    from local_operator.network.types import CAPABILITIES
+    from local_operator.network.types import CAPABILITIES, SELF_DECIDED_SCOPES
 
     me = record.self_member()
-    if not (me and me.active and "admin" in me.capabilities):
+    is_admin = bool(me and me.active and "admin" in me.capabilities)
+    requested = {*grant, *revoke}
+    # THE DECIDING DEVICE RECORDS ITS OWN DECISION (F7): when EVERY named
+    # capability is an onboarding scope (:data:`SELF_DECIDED_SCOPES`), the write
+    # is allowed without an admin row — it edits the PEER's row in this device's
+    # OWN record, never this device's own row (that stays refused, below). Those
+    # scopes govern THIS device's files and sessions, their grant is deliberately
+    # receiver-side, and no wire op can write another device's copy, so the
+    # blanket admin gate refused the very device the decision belongs to.
+    # Anything else keeps the admin gate.
+    self_decided = bool(me and me.active) and bool(requested) and requested <= SELF_DECIDED_SCOPES
+    if not (is_admin or self_decided):
         raise MeshRefusal(
             "not_admin",
             f"only an admin device can change what a peer may do; this device is "
             f"{record.self_role or 'not an admin'} in {record.name}",
         )
     if device_id == record.self_device_id:
+        # F7 review round 1 (MINOR-1): the old tail pointed the reader at an admin
+        # device, which cannot write another device's copy either — state the
+        # mechanism instead.
         raise MeshRefusal(
             "self_capabilities",
-            "a device cannot change its own capabilities; ask an admin device in the network",
+            "a device cannot change its own capabilities; the set comes with the "
+            "device's admission",
         )
     member = record.member(device_id)
     if member is None or not member.active:
@@ -6381,12 +6404,24 @@ class RelayServer:
         # sentence that names the grant rather than pretending the wish is absurd.
         unattended = wire.yolo_requested(frame.get("yolo"))
         if unattended and "unattended" not in link.context.capabilities:
+            # The remedy NAMES the deciding device (F7 design round 1, D1): this
+            # sentence is relayed verbatim to the REQUESTING device, where "this
+            # device" means the READER's machine (the engine's own rule — the Mesh
+            # tab's "this device is X" cards), and the tab's onboarding cards are
+            # titled "Onboard <device>", so a name is also what is findable there.
+            named = str(self.identity.name or "").strip()
+            subject = named or "the device that would run the session"
+            remedy = (
+                f"approve setup for {named} in the Mesh tab"
+                if named
+                else "approve that device's setup in the Mesh tab"
+            )
             raise MeshRefusal(
                 "not_permitted",
                 "a session created on another device can start unattended (yolo) only when "
-                "this device grants the requesting member 'unattended' — ask an admin "
-                "device in this network for that grant. Until then, create it here or "
-                "start it on your own device with yolo.",
+                f"{subject} grants the requesting member 'unattended'. Its operator makes "
+                f"that grant there — {remedy}. Until then, create it here or start it on "
+                "your own device with yolo.",
             )
         from local_operator.fork import new_session_id
         from local_operator.network import definitions
@@ -8740,13 +8775,13 @@ class RelayServer:
                     "code": "not_implemented" if planned else "unknown_local_op",
                     "message": (
                         f"{op} is not in this build: {owner} owns that slice. Nothing "
-                        "was changed and no session was touched. `lop network doctor` "
-                        "reports what this build does serve."
+                        "was changed and no session was touched. The doctor on this "
+                        "device reports what this build does serve."
                         if planned
                         else (
                             f"this relay does not know the action {op!r}. Nothing was "
-                            "changed. Check the spelling, or run `lop network doctor` "
-                            "for what this build serves."
+                            "changed. Check the spelling, or check the doctor on this "
+                            "device for what this build serves."
                         )
                     ),
                 }
@@ -9030,8 +9065,7 @@ class RelayServer:
                     "shares_not_offered",
                     f"{unoffered[0]!r} is not being served in this ceremony, so it cannot be "
                     "granted by it — the list can only be reduced here; to share it after "
-                    f"the join, run `lop network credential share {unoffered[0]} --with "
-                    f"{pending.joiner_device_id}` on this device",
+                    f"the join, share it with {pending.joiner_device_id} on this device",
                 )
         decision = PairDecision(
             invite_id=pending.invite_id,
@@ -10155,7 +10189,13 @@ class RelayServer:
             # local fallback reports the same key with the same three states, and
             # it used to hardcode "not running" next to a machine whose relay was
             # demonstrably up (QA round 2, Q-R2-6).
-            "relay": f"running, pid {os.getpid()}",
+            # AND IT NAMES THE BUILD IT RUNS (design round 1, D5): the drill's
+            # answering-but-stale shape must not get a clean bill here either, so
+            # the sentence carries the same clause the CLI's fallback does, read
+            # from this process's own image path.
+            "relay": (
+                f"running, pid {os.getpid()}" + generation_clause(generation_reading(os.getpid()))
+            ),
             "epochs": {row.network_id: row.epoch for row in store.list_networks(self.root)},
         }
 
@@ -10234,6 +10274,17 @@ class RelayServer:
                         "detail": attempt.detail,
                     }
                 )
+        # SCOPE FIRST, THEN INFORMATIONAL (F9; design round 1, D3): the same
+        # order ``ready`` applies, and the same reason — an out-of-scope
+        # candidate must not be re-dressed by the flip that serves addresses
+        # which WERE askable; the two rules must not both claim a row. ``doctor``
+        # reads the same addresses that ``ready`` does, so it must not point its
+        # reader at a question that cannot be asked from here either. The
+        # own-address read is a local interface-table read (no traffic), once
+        # per member probed.
+        from local_operator.network import readiness as readiness_mod
+
+        readiness_mod.mark_out_of_scope(rows, addresses.local_ipv4_addresses())
         # INFORMATIONAL, NOT FAILED (drill finding, 2026-10-03): the same
         # semantics ``ready`` applies to its own rows — ONE home,
         # ``readiness.mark_informational`` — because doctor's reader met the same
@@ -10241,8 +10292,6 @@ class RelayServer:
         # reds the whole report while the handshake VERIFIED the member at
         # another address. The flip touches reachability rows only; the
         # credential-repair rows beside them stay exactly as they are.
-        from local_operator.network import readiness as readiness_mod
-
         readiness_mod.mark_informational(rows)
         return rows
 
@@ -10317,6 +10366,7 @@ def _owning_document(op: str) -> str:
         "net_sync": "mesh-session-mobility.md (R22)",
         "net_broker": "mesh-credentials.md",
         "net_session_lifecycle": "mesh-session-mobility.md",
+        "net_session_receipt": "mesh-session-mobility.md",
         "net_session_move": "mesh-session-mobility.md",
         "net_forward_session": "mesh-session-mobility.md",
         # The LOCAL verbs P0 declared (types.LOCAL_OPS). Named here so a caller
@@ -10325,6 +10375,7 @@ def _owning_document(op: str) -> str:
         "session_move": "mesh-session-mobility.md",
         "session_sync": "mesh-session-mobility.md (R22)",
         "session_lifecycle": "mesh-session-mobility.md",
+        "session_receipt": "mesh-session-mobility.md",
         "credential_grant": "mesh-credentials.md",
         "credential_report": "mesh-credentials.md",
         "credential_placement": "mesh-credentials.md",
@@ -10799,10 +10850,22 @@ def refresh_plist_if_stale() -> Any:
     (measured: a kickstart after a rewrite keeps running the previous argv), and
     every path is guarded by ``launchd.is_own_plist`` so a sandboxed run cannot
     restart the operator's relay.
+
+    A CURRENT PLIST IS NOT A CURRENT BUILD, and this is the daemon the drill
+    (2026-10-04, F6) found serving a superseded build three times in one night —
+    one relay 14 hours stale, and two joins that handshook across two builds.
+    The unit names the stable shim, so its content is byte-identical across
+    generations while a relay started from an older one keeps serving it, and
+    the relay is the one process whose protocol must match its peers'. So the
+    second staleness question is asked here exactly as the other supervised
+    daemons ask it (:func:`launchd.restart_if_build_moved`): a relay whose
+    RUNNING build is provably not ``current`` gets one ``kickstart``, which is
+    also what puts it back in step after ``lop update`` has rolled everything
+    else onto the new generation.
     """
     from local_operator import launchd
 
-    name = "network"
+    name = "network relay"
     try:
         if not is_supported():
             return launchd.PlistRefresh(name=name, kind="unsupported")
@@ -10811,6 +10874,23 @@ def refresh_plist_if_stale() -> Any:
             return launchd.PlistRefresh(name=name, kind="not-addressable")
         port = launchd.int_arg(launchd.load(path), "--port", DEFAULT_PORT)
         outcome = launchd.rewrite_if_stale(name=name, path=path, rendered=render_plist(port))
+        if outcome.kind == "current":
+            # A CURRENT PLIST IS NOT A CURRENT BUILD: this unit names the stable
+            # shim, so its content is byte-identical across generations while a
+            # relay started from an older one keeps serving it. See
+            # :func:`launchd.restart_if_build_moved`.
+            # THE MESH BLIP REACHES THE OPERATOR (design round 1, D1): the roll
+            # moves a process people can feel — a peer's link drops for a
+            # moment — and the update's own summary is where they learn why.
+            # One row at 77 columns with this clause.
+            return launchd.restart_if_build_moved(
+                name=name,
+                label=LABEL,
+                path=path,
+                recovery="lop network install",
+                run=_launchctl,
+                consequence="expect a brief mesh blip",
+            )
         if outcome.kind != "repaired":
             return outcome
         reloaded = launchd.reload_job(label=LABEL, path=path, runner=_launchctl)
@@ -11968,6 +12048,242 @@ def health(timeout: float = 3.0, *, refresh: bool = False) -> dict[str, Any] | N
     return detail if isinstance(detail, dict) else None
 
 
+def _unit_image() -> Path | None:
+    """The image the installed relay unit would re-execute, or ``None``.
+
+    WHAT A RESTART WOULD EXECUTE, read from the unit FILE rather than recomputed
+    from this process (F10): ``lop network restart`` re-runs the plist/systemd
+    unit on disk, and a ``uv tool`` install writes a unit naming a plain
+    interpreter whose tree holds the newer build — while the generation pointer
+    still names the last generation install, which is how a 0.67.8 tool came to
+    report ``installed_build: 0.67.2``.
+
+    Best-effort, the same register as :func:`_service_port`: macOS reads the
+    plist's ``Program`` (or element 0 of ``ProgramArguments`` when there is none —
+    the fallback shape :func:`local_operator.procname.launchd_job` renders, where
+    that element is a real image path, not a label), Linux reads the first token
+    of ``ExecStart`` through ``shlex`` because ``supervisors.quoted`` writes the
+    image double-quoted with backslashes escaped and ``%`` doubled (systemd
+    expands specifiers inside quotes). ``None`` on every failure — no unit, an
+    unreadable one, a shape this reader does not know — and callers treat it as
+    "no answer", never as "no move".
+    """
+    try:
+        if sys.platform == "darwin" and plist_path().exists():
+            from local_operator import launchd
+
+            data = launchd.load(plist_path())
+            if data is None:
+                return None
+            program = data.get("Program")
+            if isinstance(program, str) and program:
+                return Path(program)
+            arguments = data.get("ProgramArguments")
+            if isinstance(arguments, list) and arguments and isinstance(arguments[0], str):
+                return Path(arguments[0])
+            return None
+        if sys.platform.startswith("linux") and systemd_path().exists():
+            text = systemd_path().read_text(encoding="utf-8", errors="replace")
+            found = re.search(r"^ExecStart=(.*)$", text, flags=re.MULTILINE)
+            if found:
+                tokens = shlex.split(found.group(1))
+                if tokens:
+                    return Path(tokens[0].replace("%%", "%"))
+    except Exception:  # noqa: BLE001 — a probe must never fail the action it describes
+        pass
+    return None
+
+
+def _names_the_shim(image: Path) -> bool:
+    """Whether a restart through ``image`` resolves the generation pointer.
+
+    The shim (:func:`local_operator.update.daemon_image_path`) reads ``current``
+    once at exec, so a unit naming it IS the generation axis; every other image
+    names a build in its own tree. Compared through ``resolve`` because the unit
+    may spell the stable root through a different physical path (a symlinked
+    home), and a failure to resolve is a "no" rather than an exception — the
+    callers render every unproven thing as "not reported".
+    """
+    from local_operator import update
+
+    shim = update.daemon_image_path()
+    if image == shim:
+        return True
+    try:
+        return image.resolve() == shim.resolve()
+    except OSError:
+        return False
+
+
+def _restart_target() -> tuple[Path | None, Path | None, bool]:
+    """``(generation, image, through_the_shim)``: what a restart would execute.
+
+    The unit's own image when one is installed and readable; otherwise the shim a
+    (re)install from this build would name
+    (:func:`local_operator.update.daemon_image`) — both are "what a restart would
+    execute", and neither is the generation pointer the old reading followed off
+    this machine's actual install. The generation half is filled only when that
+    image is the shim, because that is the only shape whose exec resolves
+    ``current``; a plain interpreter names a build directly
+    (:func:`local_operator.update.version_of_image`).
+    """
+    from local_operator import update
+
+    image = _unit_image()
+    if image is None:
+        image = update.daemon_image()
+    if image is None:
+        return None, None, False
+    if _names_the_shim(image):
+        return update.current_generation(), image, True
+    return None, image, False
+
+
+def generation_reading(pid: int | None) -> dict[str, Any]:
+    """The running relay's build, for the status surfaces.
+
+    WHY THIS EXISTS (drill 2026-10-04, F6): an update moves the install onto a new
+    generation while the relay keeps serving the build it was started from, and
+    nothing on any surface said so — three stale relays were found in one night,
+    one of them 14 hours behind, and the relay is the one process whose protocol
+    must match the peer's (a relay a version behind is how run 10's
+    ``LinkCryptoError`` looked before the skew was found). This is the reading
+    ``lop network status`` names and flags.
+
+    IT IS READ FROM THE RUNNING PROCESS ITSELF, never from a field the relay
+    carries: the build is in the process's own image path (its argv — the shim
+    ``exec``s the generation's image), the same source
+    ``launchd.restart_if_build_moved`` trusts, so it answers for EVERY build
+    including the old ones the drill found — a relay cannot be asked to report a
+    field it was never built to send, and this needs no cooperation.
+
+    THE FACTS, from the shipped readers, so no surface and the repair can drift
+    about what "older" means:
+
+    * ``relay_generation`` — the generation NAME the process was exec'd from, or
+      ``None``. THE GENERATION AXIS ONLY (F10): a process on a plain ``uv tool``
+      or pip install has none, and that is not an unreadable answer;
+    * ``relay_build`` — the VERSION of the tree the process runs from:
+      :func:`local_operator.update.generation_version` on the generation axis,
+      :func:`local_operator.update.version_of_process` — its argv[0]'s own tree —
+      off it. ``None`` when neither can be read;
+    * ``installed_generation`` / ``installed_build`` — what a RESTART of the
+      managed unit would execute, read from the unit or the shim
+      (:func:`_restart_target`) rather than from the pointer alone, because a
+      flow install never moves the pointer (F10's live ``installed_build:
+      0.67.2`` beside a 0.67.8 CLI);
+    * ``relay_generation_stale`` — TRI-STATE (F10 slice A). ``True`` only when
+      :func:`local_operator.update.generation_staleness_of_process` PROVES the
+      process is on a generation other than ``current``; ``False`` only when it
+      proves the match; ``None`` whenever the comparison could not be made (no
+      generation in the argv, no readable pointer, a pointer mid-rename, an
+      install whose mutable tree cannot prove what the process loaded). Never a
+      boolean from an unreadable probe: the surfaces render ``None`` as "not
+      reported" for an unreadable running build, and name a read one
+      (``… — cannot confirm it is current``) when only the comparison is
+      unproven — never the bare version, never the remedy.
+
+    Never raises, and never spends a probe on a machine with nothing to ask
+    about: a machine with no generation layout, no unit and no shim gets
+    all-``None`` facts, and the surfaces print no row for it.
+    """
+    reading: dict[str, Any] = {
+        "relay_generation": None,
+        "installed_generation": None,
+        "relay_generation_stale": None,
+        "relay_build": None,
+        "installed_build": None,
+    }
+    try:
+        from local_operator import update
+
+        if isinstance(pid, int) and pid > 0:
+            running = update.generation_of_process(pid)
+            if running is not None:
+                reading["relay_generation"] = running.name
+                reading["relay_build"] = update.generation_version(running) or None
+            else:
+                reading["relay_build"] = update.version_of_process(pid) or None
+
+        target_generation, target_image, through_shim = _restart_target()
+        if target_image is not None:
+            if through_shim:
+                if target_generation is not None:
+                    reading["installed_generation"] = target_generation.name
+                    reading["installed_build"] = (
+                        update.generation_version(target_generation) or None
+                    )
+                if isinstance(pid, int) and pid > 0:
+                    reading["relay_generation_stale"] = update.generation_staleness_of_process(pid)
+            else:
+                reading["installed_build"] = update.version_of_image(target_image) or None
+    except Exception:  # noqa: BLE001 — a probe must never fail the payload it decorates
+        pass
+    return reading
+
+
+def generation_words(facts: Mapping[str, Any]) -> str:
+    """The build words every surface renders — ONE spelling (design round 1, D2).
+
+    THE REGISTER IS THE FAMILY'S (design round 1, D3/D4): the word "build", a
+    version for the value (the generation id reads as noise outside this module
+    and rides ``--json`` as provenance), and the ``behind X`` + remedy shape
+    :func:`local_operator.network.readiness.build_suffix` already prints. The id
+    is also the fallback for the one corner a version cannot be read out of — a
+    pruned tree whose process still runs, which is the drill's own incident —
+    because dropping it there would leave the row saying nothing.
+
+    FOUR ANSWERS (F10 slice A; the third is design round 1's D1 correction).
+    ``""``: nothing on either side can be named (no generation layout, no unit,
+    no shim — the question cannot exist, and a pip/pipx machine keeps its block
+    byte-for-byte). ``"not reported"``: the running build could not be read at
+    all — F6's meaning of the words, preserved. ``"{build} — cannot confirm it
+    is current"``: the build WAS read and the comparison could not be proven.
+    That read-but-unproven case is the steady state of a flow-install node, and
+    withholding a value the surface holds made the row information-free exactly
+    where the drill ran (D1): name what was read, decline the verdict. The bare
+    version only when the shipped comparison proves the process current, and the
+    flagged form only when it proves the move.
+
+    WIDTHS (design round 1, D3): every rendered form is ≤80 columns with the
+    sentence-shaped ``running, pid N, `` prefix included to a SIX-digit pid —
+    the widest, the version pair, measures 80 there (81 at seven). Both flagged
+    forms name their referent — ``behind the install`` / ``behind install X``
+    (D2): the number after *behind* is this device's own install, and the tail
+    drops the ``run`` the original carried so the referent fits inside the
+    budget.
+    """
+    name = facts.get("relay_generation")
+    installed = facts.get("installed_generation")
+    running = facts.get("relay_build") or name
+    own = facts.get("installed_build") or installed or ""
+    if not running and not own:
+        return ""
+    stale = facts.get("relay_generation_stale")
+    if not running:
+        return "not reported"
+    if not isinstance(stale, bool):
+        return f"{running} — cannot confirm it is current"
+    if not stale:
+        return str(running)
+    # F10's wording ("behind install X") with the §2.9 repave (this slice): the
+    # sentence names the action, never the command.
+    where = f"behind install {own}" if (own and own != running) else "behind the install"
+    return f"{running} — {where}; restart the relay"
+
+
+def generation_clause(facts: Mapping[str, Any]) -> str:
+    """The words above as a sentence clause — ``, build …`` — or ``""``.
+
+    The fragment-shaped sibling (doctor, ready, the relay's own doctor): their
+    sentences print ``running, pid N``, and this appends the same words
+    :func:`generation_words` gives the row, so no surface can describe a relay
+    a build behind without saying so (design round 1, D2/D5).
+    """
+    words = generation_words(facts)
+    return f", build {words}" if words else ""
+
+
 def status(port: int = DEFAULT_PORT, *, refresh: bool = False) -> dict[str, Any]:
     """What a human needs: is it installed, is it running, what does it see.
 
@@ -11999,11 +12315,24 @@ def status(port: int = DEFAULT_PORT, *, refresh: bool = False) -> dict[str, Any]
     at the last cadence tick, and the client waits the fresh read's own deadline
     (:data:`MEMBERSHIP_READ_CLIENT_TIMEOUT_S`) instead of the 3 s the boolean probes
     use. The relay's wait is bounded and an unlanded pass is reported with its age.
+
+    THE RUNNING BUILD (F6, extended by F10) rides the ``relay_generation*`` keys:
+    the build the relay process runs (generation or own tree), what a RESTART of
+    the unit would execute, and — tri-state — whether the first is provably older
+    than the second, with ``None`` for "could not be compared" so no unreadable
+    probe can render as current — see :func:`generation_reading` for why it is
+    read from the process and the unit rather than reported by the relay.
     """
     record, state = store.scan_own_relay()
     live = health(timeout=MEMBERSHIP_READ_CLIENT_TIMEOUT_S, refresh=True) if refresh else health()
     running = live is not None or state in ("live", "wedged")
-    return {
+    # THE PROCESS THE BUILD QUESTION IS ABOUT (F6): the one that ANSWERED,
+    # falling back to the record's pid — a relay that is up but silent still
+    # has a process whose build can be read.
+    served_pid = live.get("pid") if isinstance(live, Mapping) else None
+    if not isinstance(served_pid, int):
+        served_pid = record.pid if record is not None else None
+    payload = {
         "installed": _supervision_unit_present(),
         "supported": is_supported(),
         "relay_running": running,
@@ -12041,6 +12370,11 @@ def status(port: int = DEFAULT_PORT, *, refresh: bool = False) -> dict[str, Any]
             ]
         ),
     }
+    # THE RUNNING BUILD (F6), merged here so every reader of this payload — the
+    # human block, ``--json``, doctor's fallback — renders one source. See
+    # :func:`generation_reading`.
+    payload.update(generation_reading(served_pid))
+    return payload
 
 
 def control_request(

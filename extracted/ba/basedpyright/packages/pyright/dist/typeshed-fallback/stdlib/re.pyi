@@ -247,15 +247,30 @@ class Pattern(Generic[AnyStr]):
 
     @overload
     def match(self: Pattern[str], string: str, pos: int = 0, endpos: int = sys.maxsize) -> Match[str] | None:
-        """Matches zero or more characters at the beginning of the string."""
+        """
+        prefixmatch($self, /, string, pos=0, endpos=sys.maxsize)
+        --
+
+        Matches zero or more characters at the beginning of the string.
+        """
         ...
     @overload
     def match(self: Pattern[bytes], string: ReadableBuffer, pos: int = 0, endpos: int = sys.maxsize) -> Match[bytes] | None:
-        """Matches zero or more characters at the beginning of the string."""
+        """
+        prefixmatch($self, /, string, pos=0, endpos=sys.maxsize)
+        --
+
+        Matches zero or more characters at the beginning of the string.
+        """
         ...
     @overload
     def match(self, string: AnyStr, pos: int = 0, endpos: int = sys.maxsize) -> Match[AnyStr] | None:
-        """Matches zero or more characters at the beginning of the string."""
+        """
+        prefixmatch($self, /, string, pos=0, endpos=sys.maxsize)
+        --
+
+        Matches zero or more characters at the beginning of the string.
+        """
         ...
 
     if sys.version_info >= (3, 15):

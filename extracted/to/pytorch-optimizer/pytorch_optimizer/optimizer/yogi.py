@@ -8,18 +8,18 @@ from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGro
 
 
 class Yogi(BaseOptimizer):
-    r"""Decoupled Weight Decay Regularization.
+    """Adaptive updates with sign controlled second moment accumulation.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        initial_accumulator (float): Initial values for first and second moments.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Whether to fix weight decay.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        initial_accumulator: Initial values for first and second moments.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -119,7 +119,7 @@ class Yogi(BaseOptimizer):
                 grad_p2 = grad.mul(grad)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(grad, weight=1.0 - beta1)
                 exp_avg_sq.addcmul_(
                     (
                         (exp_avg_sq - grad_p2).sign_()

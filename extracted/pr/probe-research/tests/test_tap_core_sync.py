@@ -33,6 +33,7 @@ _SYNCED = (
     "codex_sanitize.py",
     "transcript.py",
     "pi_sanitize.py",
+    "kimi_sanitize.py",
     "session_journal.py",
     "session_identity.py",
     "secrets.py",
@@ -94,12 +95,13 @@ def test_plugin_copies_import_standalone_without_probe() -> None:
     """
     probe_script = (
         "import sys; "
-        "from tap import sanitize, codex_sanitize, transcript, pi_sanitize; "
+        "from tap import sanitize, codex_sanitize, transcript, pi_sanitize, kimi_sanitize; "
         "assert 'probe' not in sys.modules, 'plugin copy pulled in probe'; "
         "assert sanitize.sanitize_event({'type': 'ai-title'}) is None; "
         "assert codex_sanitize.sanitize_event({'type': 'world_state'}) is None; "
         "assert pi_sanitize.sanitize_event({'type': 'session', 'cwd': '/x'})"
         "['subtype'] == 'session_meta'; "
+        "assert kimi_sanitize.sanitize_event({'type': 'llm.request'}) is None; "
         "print(transcript.MAX_BATCH_BYTES)"
     )
     result = subprocess.run(
@@ -123,12 +125,13 @@ def test_canonical_modules_import_without_tap() -> None:
     """
     probe_script = (
         "import sys; "
-        "from probe.tap_core import sanitize, codex_sanitize, transcript, pi_sanitize; "
+        "from probe.tap_core import sanitize, codex_sanitize, transcript, pi_sanitize, kimi_sanitize; "
         "assert 'tap' not in sys.modules, 'probe.tap_core pulled in tap'; "
         "assert transcript.chunk_lines([b'a'*10, b'b'*10], 15) "
         "== [[b'a'*10], [b'b'*10]]; "
         "assert pi_sanitize.sanitize_event({'type': 'session', 'cwd': '/x'})"
         "['subtype'] == 'session_meta'; "
+        "assert kimi_sanitize.sanitize_event({'type': 'metadata'})['subtype'] == 'session_meta'; "
         "print('ok')"
     )
     result = subprocess.run(

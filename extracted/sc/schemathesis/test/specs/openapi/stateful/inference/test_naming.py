@@ -35,7 +35,15 @@ from schemathesis.specs.openapi.stateful.dependencies import naming
         ("_slug", "/groups/{_slug}", None),
         ("id", "/users/{id}", "User"),
         ("_id", "/users/{_id}", None),
-        ("uid", "/users/{uid}", None),
+        ("identifier", "/images/{identifier}", "Image"),
+        ("uuid", "/accounts/{uuid}", "Account"),
+        ("guid", "/sessions/{guid}", "Session"),
+        ("pk", "/articles/{pk}", "Article"),
+        ("uid", "/users/{uid}", "User"),
+        ("key", "/objects/{key}", None),
+        ("code", "/statuses/{code}", None),
+        ("ref", "/commits/{ref}", None),
+        ("identifier", "/images", None),
         ("someRandom", "/users/{someRandom}", None),
         # Generic prefixes - should use path context when it's a path parameter
         ("item_id", "/api/groups/{item_id}", "Group"),
@@ -291,6 +299,12 @@ def test_strip_affixes(name, prefixes, suffixes, expected):
         # ID synonym matching
         pytest.param("user_id", "User", ["uuid", "name"], "uuid", id="id-synonym-uuid"),
         pytest.param("item_id", "Item", ["guid", "name"], "guid", id="id-synonym-guid"),
+        pytest.param("identifier", "Image", ["id", "identifier"], "identifier", id="identifier-exact"),
+        pytest.param("identifier", "Image", ["id", "title"], "id", id="identifier-to-id"),
+        pytest.param("uuid", "Image", ["id", "uuid"], "uuid", id="uuid-exact"),
+        pytest.param("uuid", "Image", ["id", "title"], "id", id="uuid-to-id"),
+        pytest.param("pk", "Image", ["id", "pk"], "pk", id="pk-exact"),
+        pytest.param("pk", "Image", ["id", "title"], "id", id="pk-to-id"),
         # Plural ids parameter resolves to the singular id field on the resource
         pytest.param("ids", "Person", ["id", "name"], "id", id="plural-ids-to-id"),
         # Resource-hint matching (parameter prefix hints at resource, suffix is field)
@@ -329,6 +343,48 @@ def test_strip_affixes(name, prefixes, suffixes, expected):
 )
 def test_find_matching_field(parameter, resource, fields, expected):
     assert naming.find_matching_field(parameter=parameter, resource=resource, fields=fields) == expected
+
+
+@pytest.mark.parametrize(
+    ["parameter", "resource", "fields", "expected"],
+    [
+        pytest.param("org-id-or-slug", "Org", ["name", "slug"], "slug", id="hyphen-id-or-slug-falls-back-to-slug"),
+        pytest.param("org_id_or_slug", "Org", ["name"], None, id="id-or-slug-without-id-or-slug-field"),
+        pytest.param("_name", "User", ["title"], None, id="leading-underscore-has-no-prefix"),
+    ],
+)
+def test_find_matching_field_fallbacks(parameter, resource, fields, expected):
+    assert naming.find_matching_field(parameter=parameter, resource=resource, fields=fields) == expected
+
+
+@pytest.mark.parametrize(
+    ["name", "expected"],
+    [
+        pytest.param("ABCDTO", "ABCDTO", id="uppercase-before-dto"),
+        pytest.param("XOut", "XOut", id="single-char-base-before-out"),
+    ],
+)
+def test_normalize_schema_name_keeps_names_without_lowercase_base(name, expected):
+    assert naming.normalize_schema_name(name) == expected
+
+
+@pytest.mark.parametrize(
+    ["raw_schema", "expected"],
+    [
+        pytest.param(
+            {
+                "paths": {"/v1/users/{id}": {}, 1: {}},
+                "components": {"schemas": {"UserOut": {}, "": {}, 2: {}}},
+                "definitions": {"Pet": {}},
+            },
+            frozenset({"Pet", "User", "UserOut"}),
+            id="skips-non-string-and-empty-names",
+        ),
+        pytest.param({"paths": ["/users"], "definitions": {"Pet": {}}}, frozenset({"Pet"}), id="non-dict-paths"),
+    ],
+)
+def test_collect_candidate_resource_names(raw_schema, expected):
+    assert naming.collect_candidate_resource_names(raw_schema) == expected
 
 
 @pytest.mark.parametrize(

@@ -84,9 +84,10 @@ def test_a_mid_turn_prompt_opens_a_daemon_turn_inside_the_agents_turn(tmp_path):
 
 
 def test_a_log_read_again_from_0_does_not_move_the_turn(tmp_path):
-    """A rewritten chat log is read again from offset 0 (`Worker._read_stream`):
-    the prompts already stored must not open turns again, or every event after
-    them, and every unasked message's age, would be off."""
+    """The same chat log lines stored again (their ids are already there): the
+    prompts already stored must not open turns again, or every event after them,
+    and every unasked message's age, would be off. (A log rewritten under the
+    cursor is not read again at all: test_daemon_transcript_rewrite.py.)"""
     w = _worker(tmp_path, _call(1) + [_correction()] + _call(2))
     assert w.store.current_turn() == 2
     again = []

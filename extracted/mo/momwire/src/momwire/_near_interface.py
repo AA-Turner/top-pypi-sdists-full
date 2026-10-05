@@ -1305,6 +1305,18 @@ class _SortedCodes:
         return out
 
 
+# A `KeyIndex` answers its first few small lookups by indexing the QUERIES
+# and passing every key through them (`_ids_reverse`), and builds the key
+# table only when a lookup is at least 1/ratio of the keys or the calls run
+# out: a crossing fill's few slow ends then never pay for it.
+_KEY_REVERSE_RATIO = 16
+_KEY_REVERSE_CALLS = 16
+# `KeyIndex._index` before its first lookup builds it, and `ProductSet._codes`
+# when lookups go through the groups (`ProductSet._group_lookup`).
+_LAZY_CODES = object()
+_BY_GROUP = object()
+
+
 class KeyIndex:
     """Exact-`==` lookup of a product's line KEYS (ρ_eff, z_line): `ids(r, zl)`
     is the global key id of each query pair — its index into `key_r` /
@@ -1325,11 +1337,13 @@ class KeyIndex:
             # are distinct pairs, so the stored row an exact-`==` query finds
             # IS its global key id, under the same equality as the searches
             # below (−0.0 with 0.0, NaN never). The ρ classes are then formed
-            # when `take_r_classes` asks, by the same `np.unique`.
-            self._index = _accel.acc.RowIndex(
-                [np.asarray(key_r, dtype=float), np.asarray(key_zl, dtype=float)]
-            )
+            # when `take_r_classes` asks, by the same `np.unique`. Built on
+            # the first `ids` (the crossing fill's tiles never ask, and the
+            # table is ~40 B a key beside the plan's own arrays).
+            self._index = _LAZY_CODES
+            self._key_zl = key_zl
             self._r_classes = None
+            self._reverse_left = _KEY_REVERSE_CALLS
             return
         self._index = None
         # Each key's two class numbers straight from the sorts (momwire#1224)
@@ -1353,6 +1367,29 @@ class KeyIndex:
         self._n_zl = zl_u.size
         self._key_ids = _SortedCodes(key_code)
 
+    def _ids_reverse(self, r, zl):
+        """`ids` for a few queries before the key table exists: the queries
+        are indexed instead, and every key looked up among them -- one pass
+        over the keys against a table the size of the queries. The same
+        equality both ways (-0.0 with 0.0, NaN never), so the same ids."""
+        rr, zz = r.ravel(), zl.ravel()
+        q_index = _accel.acc.RowIndex([rr, zz])
+        hit = q_index.find(
+            [
+                np.asarray(self._key_r, dtype=float),
+                np.asarray(self._key_zl, dtype=float),
+            ]
+        )
+        k = np.flatnonzero(hit >= 0)
+        # The keys are distinct pairs, so a query equals at most one key.
+        key_of = np.full(rr.size, -1, dtype=np.intp)
+        key_of[hit[k]] = k
+        canon = q_index.find([rr, zz])
+        out = np.full(rr.size, -1, dtype=np.intp)
+        ok = canon >= 0
+        out[ok] = key_of[canon[ok]]
+        return out.reshape(r.shape)
+
     def take_r_classes(self):
         """`np.unique(key_r, return_inverse=True)` (the inverse flat), from
         the construction the first time and formed again after that."""
@@ -1363,6 +1400,18 @@ class KeyIndex:
         return got
 
     def ids(self, r, zl):
+        if self._index is _LAZY_CODES:
+            r_b, zl_b = np.broadcast_arrays(np.asarray(r, float), np.asarray(zl, float))
+            if self._reverse_left > 0 and r_b.size * _KEY_REVERSE_RATIO <= self.n_key:
+                self._reverse_left -= 1
+                return self._ids_reverse(r_b, zl_b)
+            self._index = _accel.acc.RowIndex(
+                [
+                    np.asarray(self._key_r, dtype=float),
+                    np.asarray(self._key_zl, dtype=float),
+                ]
+            )
+            self._key_zl = None
         if self._index is not None:
             r, zl = np.broadcast_arrays(np.asarray(r, float), np.asarray(zl, float))
             kj = self._index.find([r.ravel(), zl.ravel()])
@@ -1431,6 +1480,7 @@ class ProductSet:
         kernels=KEYS,
         n_rows=None,
         key_index=None,
+        by_group=False,
     ):
         if slot not in ("z", "zp"):
             raise ValueError(f"slot must be 'z' or 'zp', got {slot!r}")
@@ -1472,6 +1522,13 @@ class ProductSet:
             # both factors by first appearance over that one group): the row
             # table is indexed by the global ids directly.
             self._codes = None
+        elif by_group:
+            # Looked up through the groups holding each asked z id
+            # (`_group_lookup`): the merged candidates' code table is
+            # O(candidates), and the lookups that reach a product are a few
+            # slow ends' rows.
+            self._codes = _BY_GROUP
+            self._zmap = None
         else:
             codes, vrow = [], []
             for tab, zi, kj in zip(rowtab, zid, kid):
@@ -1495,10 +1552,54 @@ class ProductSet:
         if self._codes is None:
             out[ok] = self.rowtab[0][zi[ok], kj[ok]]
             return out
+        if self._codes is _BY_GROUP:
+            idx = np.flatnonzero(ok)
+            out[idx] = self._group_lookup(zi[idx], kj[idx])
+            return out
         c = self._codes.ids(zi[ok].astype(np.int64) * self._n_key + kj[ok])
         hit = c >= 0
         idx = np.flatnonzero(ok)
         out[idx[hit]] = self._code_vrow[c[hit]]
+        return out
+
+    def _group_lookup(self, zi, kj):
+        """The value row of each (z id, key id) pair, −1 where no group holds
+        it: for each asked z id, the groups whose z factor holds it, and in
+        each the asked keys among its own (`kid[g]`, searched). A pair two
+        groups hold is ONE row (the plan merged them), so the first group
+        found answers what the code table answered."""
+        if self._zmap is None:
+            zmap = {}
+            for g, zg in enumerate(self.zid):
+                for zl, z in enumerate(zg.tolist()):
+                    zmap.setdefault(z, []).append((g, zl))
+            self._zmap = zmap
+        out = np.full(zi.size, -1, dtype=np.intp)
+        if zi.size == 0:
+            return out
+        o = np.argsort(zi, kind="stable")
+        zs = zi[o]
+        cuts = np.flatnonzero(zs[1:] != zs[:-1]) + 1
+        # A group's local key of global key k by a stamp per key (the group
+        # last marked, and the local id there): no per-group sort.
+        # Marking a group writes all its keys, so re-marking whenever the
+        # group changes keeps every stamp == g a key of g, with its local id.
+        stamp = np.full(self._n_key, -1, dtype=np.int64)
+        local = np.zeros(self._n_key, dtype=np.int64)
+        marked = -1
+        for sel in np.split(o, cuts):
+            for g, zl in self._zmap.get(int(zi[sel[0]]), ()):
+                todo = sel[out[sel] < 0]
+                if todo.size == 0:
+                    break
+                if marked != g:
+                    kg = self.kid[g]
+                    stamp[kg] = g
+                    local[kg] = np.arange(kg.size)
+                    marked = g
+                q = kj[todo]
+                hit = stamp[q] == g
+                out[todo[hit]] = self.rowtab[g][zl, local[q[hit]]]
         return out
 
     def values_of(self, vrows, key):
@@ -1733,11 +1834,14 @@ def _check_memo(memo):
         )
 
 
-def _designed_block(eps_t, k2, rows, rtol, lam_mult, memo, labels, keep=None):
+def _designed_block(
+    eps_t, k2, rows, rtol, lam_mult, memo, labels, keep=None, keep_mask=None
+):
     """`designed_tables` between its dedup and its scatter: the (m, 6) values
     of `rows` (distinct triples, first-appearance order), memo hits copied
     from the memo, the rest evaluated by `_evaluate_fresh` and inserted --
-    only those `keep` holds when a `keep` is given (`designed_rows`)."""
+    only those `keep` holds when a `keep` is given, or those `keep_mask`
+    marks (one bool per row of `rows`; `designed_rows`)."""
     if memo is None:
         # Every row is fresh and in order, so the block IS the evaluation's
         # answer: the copy `block[arange] = vals` into a second (m, 6) array
@@ -1759,7 +1863,10 @@ def _designed_block(eps_t, k2, rows, rtol, lam_mult, memo, labels, keep=None):
             plan=memo.sheet_plan,
         )
         block[fresh_pos] = vals
-        if keep is not None:
+        if keep_mask is not None:
+            ins = np.asarray(keep_mask, dtype=bool)[fresh_pos]
+            sub, vals = sub[ins], vals[ins]
+        elif keep is not None:
             ins = keep.contains(sub)
             sub, vals = sub[ins], vals[ins]
         memo.insert(sub, vals)
@@ -1768,7 +1875,14 @@ def _designed_block(eps_t, k2, rows, rtol, lam_mult, memo, labels, keep=None):
 
 
 def designed_rows(
-    eps_t, k2, rows, rtol=1e-10, lam_mult=_LAM_MULT, memo=None, keep=None
+    eps_t,
+    k2,
+    rows,
+    rtol=1e-10,
+    lam_mult=_LAM_MULT,
+    memo=None,
+    keep=None,
+    keep_mask=None,
 ):
     """`designed_tables` over rows that are ALREADY DISTINCT, as the (m, 6)
     block in `KEYS` column order — row i for `rows[i]` — with no dedup and no
@@ -1797,10 +1911,16 @@ def designed_rows(
     every triple any later call on `memo` will ask (`_crossing_fill.
     _chunked_point_tables`: the ends loop's), so those later calls see the
     same hits, and the memo does not retain ~136 B per row it will never
-    serve."""
+    serve.
+
+    `keep_mask` (momwire#1224 perf item 5): `keep.contains(rows)` already
+    asked, one bool per row -- the same rows inserted, without the lookup.
+    A caller that needed the answer before evaluating (`_crossing_fill`'s
+    tile schedule, which pins the key rows to its first tile) passes it
+    instead of `keep`."""
     _check_memo(memo)
     rows = np.asarray(rows, dtype=float)
-    return _designed_block(eps_t, k2, rows, rtol, lam_mult, memo, None, keep)
+    return _designed_block(eps_t, k2, rows, rtol, lam_mult, memo, None, keep, keep_mask)
 
 
 def column_batches(rho, max_rows):

@@ -14,13 +14,13 @@ $(document).ready(() => {
     const linkListTableColumnDefs = [
         {
             target: 4,
-            columnControl: _removeSearchFromColumnControl(),
+            columnControl: _removeSearchFromColumnControl()
         },
         {
             target: 5,
             columnControl: _removeColumnControl(),
             orderable: false
-        },
+        }
     ];
 
     if (hasPermissions) {
@@ -94,7 +94,7 @@ $(document).ready(() => {
     // Initialize modals
     [
         afatSettings.modal.cancelEsiFleetModal.element,
-        afatSettings.modal.deleteFatLinkModal.element,
+        afatSettings.modal.deleteFatLinkModal.element
     ].forEach((modalElement) => {
         _manageModal($(modalElement));
     });

@@ -1,12 +1,13 @@
-from app_utils.testdata_factories import UserMainFactory
 from django.test import TestCase
 from django.urls import reverse
+
+from aa_contacts.tests.factories import create_user_main
 
 
 class TestHooks(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.user = UserMainFactory()
+        cls.user = create_user_main()
 
     @classmethod
     def setUpClass(cls):

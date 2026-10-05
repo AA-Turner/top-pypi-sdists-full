@@ -1,12 +1,6 @@
 from unittest import mock
 
 from allianceauth.eveonline.models import EveCharacter
-from app_utils.testdata_factories import (
-    EveAllianceInfoFactory,
-    EveCharacterFactory,
-    EveCorporationInfoFactory,
-    UserMainFactory,
-)
 from django.contrib.messages.storage.fallback import FallbackStorage
 from django.test import RequestFactory, TestCase
 
@@ -20,6 +14,12 @@ from aa_contacts.charlink_hook import (
     corporation_scopes,
 )
 from aa_contacts.models import AllianceToken, CorporationToken
+from aa_contacts.tests.factories import (
+    create_eve_alliance,
+    create_eve_character,
+    create_eve_corporation,
+    create_user_main,
+)
 
 
 def _request_with_messages():
@@ -40,7 +40,7 @@ class TestAllianceLogin(TestCase):
 
     @mock.patch("aa_contacts.charlink_hook.update_alliance_contacts.delay")
     def test_creates_token_and_triggers_update(self, mock_delay):
-        user = UserMainFactory(main_character__scopes=alliance_scopes)
+        user = create_user_main(scopes=alliance_scopes)
         token = user.token_set.first()
         alliance = user.profile.main_character.alliance
 
@@ -54,10 +54,10 @@ class TestAllianceLogin(TestCase):
 
     @mock.patch("aa_contacts.charlink_hook.update_alliance_contacts.delay")
     def test_character_without_alliance(self, mock_delay):
-        char = EveCharacterFactory(corporation__create_alliance=False)
-        user = UserMainFactory(
-            main_character__character=char, main_character__scopes=alliance_scopes
+        char = create_eve_character(
+            corporation=create_eve_corporation(create_alliance=False)
         )
+        user = create_user_main(character=char, scopes=alliance_scopes)
         token = user.token_set.first()
 
         with self.assertRaises(AssertionError):
@@ -69,7 +69,7 @@ class TestAllianceLogin(TestCase):
 
     @mock.patch("aa_contacts.charlink_hook.update_alliance_contacts.delay")
     def test_alliance_already_has_token(self, mock_delay):
-        user = UserMainFactory(main_character__scopes=alliance_scopes)
+        user = create_user_main(scopes=alliance_scopes)
         token = user.token_set.first()
         alliance = user.profile.main_character.alliance
         AllianceToken.objects.create(alliance=alliance, token=token)
@@ -86,17 +86,17 @@ class TestAllianceLogin(TestCase):
     @mock.patch("aa_contacts.charlink_hook.update_alliance_contacts.delay")
     @mock.patch("aa_contacts.charlink_hook.EveAllianceInfo.objects.create_alliance")
     def test_creates_missing_alliance(self, mock_create, mock_delay):
-        new_alliance = EveAllianceInfoFactory()
+        new_alliance = create_eve_alliance()
         mock_create.return_value = new_alliance
 
         # ``alliance_id`` pointing at no existing ``EveAllianceInfo`` forces the
         # ``DoesNotExist`` fallback that fetches/creates it from ESI.
-        char = EveCharacterFactory(corporation__create_alliance=False)
+        char = create_eve_character(
+            corporation=create_eve_corporation(create_alliance=False)
+        )
         char.alliance_id = 99_888_777
         char.save()
-        user = UserMainFactory(
-            main_character__character=char, main_character__scopes=alliance_scopes
-        )
+        user = create_user_main(character=char, scopes=alliance_scopes)
         token = user.token_set.first()
 
         _alliance_login(self.request, token)
@@ -114,7 +114,7 @@ class TestCorporationLogin(TestCase):
 
     @mock.patch("aa_contacts.charlink_hook.update_corporation_contacts.delay")
     def test_creates_token_and_triggers_update(self, mock_delay):
-        user = UserMainFactory(main_character__scopes=corporation_scopes)
+        user = create_user_main(scopes=corporation_scopes)
         token = user.token_set.first()
         corporation = user.profile.main_character.corporation
 
@@ -130,7 +130,7 @@ class TestCorporationLogin(TestCase):
 
     @mock.patch("aa_contacts.charlink_hook.update_corporation_contacts.delay")
     def test_corporation_already_has_token(self, mock_delay):
-        user = UserMainFactory(main_character__scopes=corporation_scopes)
+        user = create_user_main(scopes=corporation_scopes)
         token = user.token_set.first()
         corporation = user.profile.main_character.corporation
         CorporationToken.objects.create(corporation=corporation, token=token)
@@ -151,15 +151,13 @@ class TestCorporationLogin(TestCase):
         "aa_contacts.charlink_hook.EveCorporationInfo.objects.create_corporation"
     )
     def test_creates_missing_corporation(self, mock_create, mock_delay):
-        new_corp = EveCorporationInfoFactory()
+        new_corp = create_eve_corporation()
         mock_create.return_value = new_corp
 
-        char = EveCharacterFactory()
+        char = create_eve_character()
         char.corporation_id = 98_777_666
         char.save()
-        user = UserMainFactory(
-            main_character__character=char, main_character__scopes=corporation_scopes
-        )
+        user = create_user_main(character=char, scopes=corporation_scopes)
         token = user.token_set.first()
 
         _corporation_login(self.request, token)
@@ -173,9 +171,9 @@ class TestCorporationLogin(TestCase):
 
 class TestUsersWithPerms(TestCase):
     def test_alliance_users_with_perms(self):
-        member = UserMainFactory(permissions=["aa_contacts.manage_alliance_contacts"])
-        outsider = UserMainFactory()
-        superuser = UserMainFactory(is_superuser=True)
+        member = create_user_main(permissions=["aa_contacts.manage_alliance_contacts"])
+        outsider = create_user_main()
+        superuser = create_user_main(is_superuser=True)
 
         result = _alliance_users_with_perms()
 
@@ -184,11 +182,11 @@ class TestUsersWithPerms(TestCase):
         self.assertNotIn(outsider, result)
 
     def test_corporation_users_with_perms(self):
-        member = UserMainFactory(
+        member = create_user_main(
             permissions=["aa_contacts.manage_corporation_contacts"]
         )
-        outsider = UserMainFactory()
-        superuser = UserMainFactory(is_superuser=True)
+        outsider = create_user_main()
+        superuser = create_user_main(is_superuser=True)
 
         result = _corporation_users_with_perms()
 
@@ -215,25 +213,25 @@ class TestAppImport(TestCase):
 
     def test_alliance_check_permissions(self):
         import_ = app_import.get("alliance")
-        member = UserMainFactory(permissions=["aa_contacts.manage_alliance_contacts"])
-        outsider = UserMainFactory()
+        member = create_user_main(permissions=["aa_contacts.manage_alliance_contacts"])
+        outsider = create_user_main()
 
         self.assertTrue(import_.check_permissions(member))
         self.assertFalse(import_.check_permissions(outsider))
 
     def test_corporation_check_permissions(self):
         import_ = app_import.get("corporation")
-        member = UserMainFactory(
+        member = create_user_main(
             permissions=["aa_contacts.manage_corporation_contacts"]
         )
-        outsider = UserMainFactory()
+        outsider = create_user_main()
 
         self.assertTrue(import_.check_permissions(member))
         self.assertFalse(import_.check_permissions(outsider))
 
     def test_alliance_is_character_added(self):
         import_ = app_import.get("alliance")
-        user = UserMainFactory(main_character__scopes=alliance_scopes)
+        user = create_user_main(scopes=alliance_scopes)
         char = user.profile.main_character
         token = user.token_set.first()
 
@@ -244,7 +242,7 @@ class TestAppImport(TestCase):
 
     def test_alliance_is_character_added_annotation(self):
         import_ = app_import.get("alliance")
-        user = UserMainFactory(main_character__scopes=alliance_scopes)
+        user = create_user_main(scopes=alliance_scopes)
         char = user.profile.main_character
         token = user.token_set.first()
         AllianceToken.objects.create(alliance=char.alliance, token=token)
@@ -258,7 +256,7 @@ class TestAppImport(TestCase):
 
     def test_corporation_is_character_added(self):
         import_ = app_import.get("corporation")
-        user = UserMainFactory(main_character__scopes=corporation_scopes)
+        user = create_user_main(scopes=corporation_scopes)
         char = user.profile.main_character
         token = user.token_set.first()
 
@@ -269,7 +267,7 @@ class TestAppImport(TestCase):
 
     def test_corporation_is_character_added_annotation(self):
         import_ = app_import.get("corporation")
-        user = UserMainFactory(main_character__scopes=corporation_scopes)
+        user = create_user_main(scopes=corporation_scopes)
         char = user.profile.main_character
         token = user.token_set.first()
         CorporationToken.objects.create(corporation=char.corporation, token=token)
@@ -282,10 +280,10 @@ class TestAppImport(TestCase):
         self.assertTrue(annotated.added)
 
     def test_get_users_with_perms_wired(self):
-        alliance_member = UserMainFactory(
+        alliance_member = create_user_main(
             permissions=["aa_contacts.manage_alliance_contacts"]
         )
-        corp_member = UserMainFactory(
+        corp_member = create_user_main(
             permissions=["aa_contacts.manage_corporation_contacts"]
         )
 

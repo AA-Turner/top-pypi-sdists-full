@@ -3,8 +3,10 @@ from __future__ import annotations
 import pytest
 from typer.testing import CliRunner
 
-from pgqueuer.adapters.cli import cli
+from pgqueuer.adapters.cli import cli, sql_cmd
 from pgqueuer.adapters.cli.cli import app
+from pgqueuer.domain.schema.model import Plan
+from pgqueuer.domain.settings import DBSettings
 
 SQL_COMMANDS = [
     (["sql", "install"], "CREATE TYPE"),
@@ -37,15 +39,16 @@ def test_sql_commands_emit_sql(args: list[str], marker: str) -> None:
 
 
 def test_sql_statements_are_left_aligned() -> None:
-    """Top-level statements start at column 0; qb's source-indentation artifact
-    is stripped while inner structure (columns, plpgsql body) keeps its indent."""
+    """Top-level statements start at column 0; only inner structure (columns,
+    plpgsql body) is indented."""
     uninstall = CliRunner().invoke(app, ["sql", "uninstall"]).output
     assert all(line.startswith("DROP") for line in uninstall.splitlines() if line.strip())
 
     install = CliRunner().invoke(app, ["sql", "install"]).output
-    assert install.startswith("CREATE TYPE")
+    assert install.startswith("-- pgqueuer ")
+    assert "\nCREATE TYPE" in install
     assert "\n    CREATE TABLE" not in install
-    assert "\n    id BIGSERIAL" in install  # column indentation preserved
+    assert "\n    id bigserial" in install  # column indentation preserved
 
 
 def test_sql_commands_are_deterministic() -> None:
@@ -72,16 +75,36 @@ def test_sql_install_respects_prefix_and_schema(monkeypatch: pytest.MonkeyPatch)
     assert "CREATE SCHEMA" not in no_create.output
 
 
-def test_sql_install_durability_option() -> None:
-    result = CliRunner().invoke(app, ["sql", "install", "-d", "volatile"])
+@pytest.mark.parametrize("command", ["install", "upgrade"])
+def test_sql_install_durability_option(command: str) -> None:
+    result = CliRunner().invoke(app, ["sql", command, "-d", "volatile"])
+    assert result.exit_code == 0, result.output
     assert "CREATE UNLOGGED TABLE" in result.output
 
 
 def test_sql_upgrade_widen_id_option() -> None:
+    """Assert on the widening itself; DO blocks guard other converge steps too."""
     with_widen = CliRunner().invoke(app, ["sql", "upgrade"]).output
     without_widen = CliRunner().invoke(app, ["sql", "upgrade", "--no-widen-id"]).output
-    assert "DO $$" in with_widen
-    assert "DO $$" not in without_widen
+    assert "ALTER COLUMN id TYPE BIGINT" in with_widen
+    assert "ALTER SEQUENCE %s AS BIGINT" in with_widen
+    assert "ALTER COLUMN id TYPE BIGINT" not in without_widen
+    assert "ALTER SEQUENCE %s AS BIGINT" not in without_widen
+
+
+def test_a_rendered_plan_is_headed_and_empty_when_there_is_nothing_to_do() -> None:
+    """A plan redirected to a file has to say which database it came from.
+
+    Empty in, empty out: a converged database leaves an empty file rather than
+    one holding a stray newline.
+    """
+    settings = DBSettings()
+    assert sql_cmd.render_plan((), settings) == ""
+
+    rendered = sql_cmd.render_plan(("ALTER TABLE pgqueuer ADD COLUMN slot bigint;",), settings)
+    assert rendered.startswith("-- pgqueuer ")
+    assert "'pgq sql upgrade'" in rendered
+    assert rendered.endswith("ALTER TABLE pgqueuer ADD COLUMN slot bigint;")
 
 
 def test_sql_autovac_rollback_option() -> None:
@@ -117,3 +140,34 @@ def test_dry_run_hidden_from_help(command: str) -> None:
     result = CliRunner().invoke(app, [command, "--help"])
     assert result.exit_code == 0
     assert "--dry-run" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("statements", "planned_only", "expected"),
+    [
+        ((), False, "PgQueuer schema is already up to date."),
+        (("CREATE INDEX a ON t (c);",), False, "Applied 1 statement."),
+        (("a;", "b;"), False, "Applied 2 statements."),
+        (("a;", "b;"), True, "Would apply 2 statements."),
+    ],
+)
+def test_report_upgrade_summarises_on_stderr(
+    capsys: pytest.CaptureFixture[str],
+    statements: tuple[str, ...],
+    planned_only: bool,
+    expected: str,
+) -> None:
+    """Summary and notes go to stderr so stdout carries only SQL."""
+    cli.report_upgrade(Plan(statements=statements), planned_only=planned_only)
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert expected in captured.err
+
+
+def test_report_upgrade_prefixes_notes(capsys: pytest.CaptureFixture[str]) -> None:
+    cli.report_upgrade(Plan(notes=("time_in_queue is unused",)), planned_only=False)
+
+    captured = capsys.readouterr()
+    assert "note: time_in_queue is unused" in captured.err
+    assert "already up to date" in captured.err

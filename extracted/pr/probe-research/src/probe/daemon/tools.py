@@ -89,13 +89,17 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: The commands whose every write goes through a route on the server's
 #: Idempotency-Key allowlist (research-os `app/core/idempotency.py` ALLOWLIST on
 #: main), checked against the routes this client sends them to: POST /v1/projects
-#: (project and experiment create), POST /v1/projects/{id}/groups, PATCH
+#: (project create), POST /v1/projects/{id}/groups, PATCH
 #: /v1/projects|runs|groups|artifacts|papers|views/{id}, POST
 #: /v1/artifacts/{id}/move, POST /v1/projects/{id}/papers|references, POST
 #: /v1/edges, POST /v1/runs/{id}/views, sub-notes. NOT here, on purpose:
 #: `artifact add` (presign / PUT / confirm), `notes push` and `notes sync` (their
 #: merge answers are not replayed), every delete, `artifact version-add`,
-#: `experiment freeze`, `version create`, `project code *`, `run end` (it may send
+#: `experiment freeze`, `version create`, `project code *`, `experiment create`,
+#: `experiment set` and `experiment move` (since light experiments R4 they write
+#: through `/v1/projects/{P}/experiments[/{E}]`, which the server's allowlist does
+#: not name yet: a replayed create would answer 409 for a write that landed),
+#: `run end` (it may send
 #: more than the one allowlisted PATCH), and `notes append` / `notes edit`: their
 #: entity routes are allowlisted, but each READS the note and sends a document
 #: built on what it read, so a retry after a write that landed builds a different
@@ -106,8 +110,8 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: and the model checks what landed before it tries again. Any other write is
 #: never retried: the CLI cannot say that nothing was written.
 IDEMPOTENT_COMMANDS = frozenset({
-    "project create", "experiment create", "group create",
-    "project set", "project tag", "project move", "experiment set", "experiment tag",
+    "project create", "group create",
+    "project set", "project tag", "project move",
     "run set", "run tag", "run move", "group set",
     "artifact set", "artifact move", "paper add", "paper update", "paper tag",
     "project reference add", "edge add", "views create", "views rename", "views update",

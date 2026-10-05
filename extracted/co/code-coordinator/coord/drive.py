@@ -5308,6 +5308,33 @@ def list_drive_sessions(*, host: TmuxHost = TmuxHost(None)) -> list[dict[str, An
     return sessions
 
 
+def _tail_last_nonempty_line(path: Path, max_bytes: int = 8192) -> str:
+    """The last non-blank line of *path*, reading at most the final
+    *max_bytes* bytes rather than the whole file (#3600 review round 1).
+
+    These per-issue run logs accumulate across every relaunch —
+    `Driver._append_run_log` only ever appends, nothing ever truncates — so
+    a long-lived issue's log can grow large by the time anything reads it
+    back. `launch_drive_in_tmux`'s post-launch verification only ever wants
+    the ONE line at the tail; seeking to the last *max_bytes* bytes first
+    (a plain ``read_text()`` when the file is smaller than that) keeps that
+    read cheap regardless of how big the file has gotten.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return ""
+    try:
+        with path.open("rb") as fh:
+            if size > max_bytes:
+                fh.seek(size - max_bytes)
+            data = fh.read()
+    except OSError:
+        return ""
+    text = data.decode("utf-8", errors="replace")
+    return next((ln for ln in reversed(text.splitlines()) if ln.strip()), "")
+
+
 def launch_drive_in_tmux(
     cmd: Sequence[str],
     *,
@@ -5404,8 +5431,33 @@ def launch_drive_in_tmux(
         if grew or not alive:
             break
     if not alive:
+        # #3600: the pane this dead session wrote to is already gone by the
+        # time anyone reads this message — `log_path` is the ONLY surviving
+        # record of why, and (since `Driver.run()` now appends its own
+        # `drive_exited` summary there, same file, on every exit) its last
+        # non-empty line names the real reason rather than the generic
+        # "never wrote anything"/"did write something" guess this used to
+        # settle for. That specific text (e.g. "no unpaused machine hosts
+        # ... — pass --machine") is what lets a caller distinguish "every
+        # host was paused/cordoned at launch time" from an ordinary crash.
+        tail = _tail_last_nonempty_line(log_path) if grew else ""
+        # #3600 review round 1 (non-blocking): the growth check above breaks
+        # the INSTANT the log changes — which is also the instant `Driver.
+        # run()`'s own start marker lands. A session that dies a beat later
+        # can still read as just that marker here, purely on timing: the
+        # `drive_exited` append this whole relay exists to surface hasn't
+        # landed on disk yet. One extra short wait, only in exactly this
+        # shape (dead, but the only thing on disk so far is the start
+        # marker), gives that in-flight append a chance to land before
+        # settling for the less useful marker-only tail.
+        if tail and "drive loop started for" in tail:
+            sleeper(verify_interval)
+            retail = _tail_last_nonempty_line(log_path)
+            if retail:
+                tail = retail
         detail = (
-            "it did write to its log before exiting" if grew
+            f"it exited after logging: {tail}" if tail
+            else "it did write to its log before exiting" if grew
             else "it never wrote anything to its log"
         )
         raise DriveError(
@@ -5518,6 +5570,20 @@ class Driver:
     # as opposed to a raised DriveError) still narrates WHY, not just the
     # bare exit code.
     _last_exit_message: str = field(default="", init=False, repr=False)
+    # #3600 review round 1: set by `_loop()`'s `action.is_exit` branch
+    # (`_die(...)`/`_succeed(...)`) right after it appends `action.message`
+    # to `_run_log` itself (#2712) — the SAME text `run()`'s own
+    # `drive_exited` summary would otherwise append a second time, since
+    # that summary's `reason` is just `_last_exit_message` (== `action.
+    # message`) re-wrapped. `run()` checks this to skip ITS append for
+    # that one path, instead of giving every run log two near-identical
+    # lines (one plain, one "drive exited for ... (exit_code=N): <same
+    # text>") for every ordinary `_die`/`_succeed` exit. Every OTHER
+    # terminal path (an uncaught exception, `EXIT_DEADLINE`, dry-run's
+    # `EXIT_OK`, `EXIT_SELF_STALE`) never sets this — `self.log`/`self.warn`
+    # only reach the tmux pane, not this file — so `run()`'s append stays
+    # the ONLY record for those, exactly as before.
+    _exit_action_logged: bool = field(default=False, init=False, repr=False)
     # #1844: the most recent `_spawn`ed subprocess's combined stdout+stderr —
     # the ONLY place the real text of a `coord assign`/`approve-plan`
     # refusal exists once the subprocess has exited (`_append_run_log`
@@ -5909,10 +5975,31 @@ class Driver:
             exit_code = self._loop()
         except BaseException as exc:  # noqa: BLE001 — narrate every exit, then re-raise unchanged
             summary, details = self._drive_exit_summary(None, exc)
+            # #3600: the audit row above lands in the audit DB, not this
+            # run's OWN log file — fine for a `coord drive` run attended at
+            # a terminal (the traceback/DriveError message already printed
+            # to stderr), but a `--tmux` launch's pane is gone the instant
+            # the session dies, which is exactly how quadraui#1102/#1103
+            # died silently: the log held only the "drive loop started"
+            # marker and nothing else. Appending the SAME summary here
+            # means `launch_drive_in_tmux`'s post-launch verification
+            # (which polls this file, not the pane) can read back why, and
+            # relay it to whatever actually launched this session.
+            self._append_run_log(f"{self._stamp()}  {summary}\n")
             self._record_drive_audit("drive_exited", summary, details=details)
             raise
         else:
             summary, details = self._drive_exit_summary(exit_code, None)
+            # #3600 review round 1: `_loop`'s `action.is_exit` branch already
+            # appended this exact `reason` (== `action.message`) to the run
+            # log itself (#2712) and set `_exit_action_logged` — appending
+            # the `drive_exited` summary here too would give every ordinary
+            # `_die`/`_succeed` exit two near-duplicate lines. Every OTHER
+            # non-exceptional terminal path (dry-run's `EXIT_OK`,
+            # `EXIT_DEADLINE`, `EXIT_SELF_STALE`) never sets the flag — for
+            # those this append stays the ONLY record, unchanged from before.
+            if not self._exit_action_logged:
+                self._append_run_log(f"{self._stamp()}  {summary}\n")
             self._record_drive_audit("drive_exited", summary, details=details)
             return exit_code
         finally:
@@ -6249,6 +6336,10 @@ class Driver:
                         for line in action.message.splitlines()
                     )
                 )
+                # #3600 review round 1: tells `run()` the reason this exit is
+                # about to carry (`_last_exit_message`, set just above) is
+                # ALREADY on disk — see `_exit_action_logged`'s own docstring.
+                self._exit_action_logged = True
                 if action.exit_code == EXIT_OK:
                     for line in action.message.splitlines():
                         self.log(line)

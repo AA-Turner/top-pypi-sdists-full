@@ -22537,7 +22537,7 @@ def percent_change():
         'ptext':'across unit',
     }
     }
-    fb=FormBuilder(data=fields,passThruText="Month to sum balances for")
+    fb=FormBuilder(data=fields,passThruText="Percent Change Across")
     if fb in BooleanAnswers.NONE:
         return
     mod=fod_()
@@ -22842,3 +22842,248 @@ basicFoodLog_menu={
 #TriedToWake
 def basicFoodLogLogger(Model=BasicFoodLog,short_view=basicFoodLog_short_view,menu=basicFoodLog_menu):
     return ModelLogger(Model=BasicFoodLog,short_view=basicFoodLog_short_view,menu=basicFoodLog_menu)
+
+
+def rcpl_of_time_x_1000():
+    fields={
+    'Time Value':{
+        'type':'float',
+        'default':2,
+        'help':"Amount of Time that has duressed",
+        'ptext':'Duressed Time',
+    },
+    'Time Unit':{
+        'type':'string',
+        'default':'minutes',
+        'help':"Unit for the Amount of Time that has duressed",
+        'ptext':'Duressed Time Unit',
+    },
+    'Time-To Unit':{
+        'type':'string',
+        'default':'hours',
+        'help':"Unit for the Amount of Time that has duressed to be converted to",
+        'ptext':'Time-To Unit',
+    },
+    'Multiplier':{
+        'type':'float',
+        'default':1000,
+        'help':"1 kilowatt hours is 1000 watt hours",
+        'ptext':'Multiplier',
+    },
+    }
+    fb=FormBuilder(data=fields,passThruText="Calculate (1/(time))*Multiplier")
+    if fb in BooleanAnswers.NONE:
+        return
+    mod=fod_()
+    timeX=mod(QTY(fb['Time Value'],fb['Time Unit']).to(fb['Time-To Unit']).magnitude)
+    rcpl_time=rcpl(timeX)
+    fValue=rcpl_time*mod(fb['Multiplier'])
+    return fValue
+
+def watts_x_rcpl_of_time_x_1000():
+    fields={
+    'Time Value':{
+        'type':'float',
+        'default':2,
+        'help':"Amount of Time that has duressed",
+        'ptext':'Duressed Time',
+    },
+    'Time Unit':{
+        'type':'string',
+        'default':'minutes',
+        'help':"Unit for the Amount of Time that has duressed",
+        'ptext':'Duressed Time Unit',
+    },
+    'WattHours Value':{
+        'type':'float',
+        'default':0,
+        'help':"Amount of KiloWattHours that were used",
+        'ptext':'Duressed KiloWattHours',
+    },
+    'WattHours Unit':{
+        'type':'string',
+        'default':'kWh',
+        'help':"Unit for the Amount of KiloWattHours that were used",
+        'ptext':'Duressed KiloWattHours Unit',
+    },
+    'Time-To Unit':{
+        'type':'string',
+        'default':'hours',
+        'help':"Unit for the Amount of Time that has duressed to be converted to",
+        'ptext':'Time-To Unit',
+    },
+    'Multiplier':{
+        'type':'float',
+        'default':1000,
+        'help':"1 kilowatt hours is 1000 watt hours",
+        'ptext':'Multiplier',
+    },
+    }
+    fb=FormBuilder(data=fields,passThruText="Calculate (1/(time))*Multiplier")
+    if fb in BooleanAnswers.NONE:
+        return
+    mod=fod_()
+    timeX=mod(QTY(fb['Time Value'],fb['Time Unit']).to(fb['Time-To Unit']).magnitude)
+    rcpl_time=rcpl(timeX)
+    fValue=rcpl_time*mod(fb['Multiplier'])
+    kilowatthours=mod(QTY(fb['WattHours Value'],fb['WattHours Unit']).magnitude)
+    watts=fValue*kilowatthours
+    fmla=f"((1/time)*Multiplier(1000))*kWh=Watts"
+    return watts
+    
+def energy_absorbed():
+    fields={
+    'Start Temperature Value':{
+        'type':'float',
+        'default':0,
+        'help':"Start Temperature",
+        'ptext':'Start Temperature',
+    },
+    'Start Temperature Unit':{
+        'type':'string',
+        'default':'degF',
+        'help':"Start Temperature Unit",
+        'ptext':'Start Temperature Unit',
+    },
+    'To-Start Temperature Unit':{
+        'type':'string',
+        'default':'degF',
+        'help':"To-Start Temperature Unit; use the same system units for correct values",
+        'ptext':'To-Start Temperature Unit',
+    },
+    'End Temperature Value':{
+        'type':'float',
+        'default':0,
+        'help':"End Temperature",
+        'ptext':'End Temperature',
+    },
+    'End Temperature Unit':{
+        'type':'string',
+        'default':'degF',
+        'help':"End Temperature Unit",
+        'ptext':'End Temperature Unit',
+    },
+    'To-End Temperature Unit':{
+        'type':'string',
+        'default':'degF',
+        'help':"To-End Temperature Unit; use the same system units for correct values",
+        'ptext':'To-End Temperature Unit',
+    },
+    'Specific Heat Value':{
+        'type':'float',
+        'default':1,
+        'help':"Specific Heat",
+        'ptext':'Specific Heat',
+    },
+    'Specific Heat Unit':{
+        'type':'string',
+        'default':'BTU / lb * delta_degF',
+        'help':"Specific Heat Unit",
+        'ptext':'Specific Heat Unit',
+    },
+    'To-Specific Heat Unit':{
+        'type':'string',
+        'default':'BTU / lb * delta_degF',
+        'help':"To-Specific Heat Unit; use the same system units for correct values",
+        'ptext':'To-Specific Heat Unit',
+    },
+    'Weight(Imperial)|Mass(Metric) Value':{
+        'type':'float',
+        'default':1,
+        'help':"Weight(Imperial)|Mass(Metric) Value to be Raised be raised by 1 deg",
+        'ptext':'Weight(Imperial)|Mass(Metric) Value to be Raised be raised by 1 deg',
+    },
+    'Weight(Imperial)|Mass(Metric) Unit':{
+        'type':'string',
+        'default':'pound',
+        'help':"Weight(Imperial)|Mass(Metric) Unit to be raised by 1 deg",
+        'ptext':'Weight(Imperial)|Mass(Metric) Unit to be raised by 1 deg',
+    },
+    'To-Weight(Imperial)|Mass(Metric) Unit':{
+        'type':'string',
+        'default':'pound',
+        'help':"To-Weight(Imperial)|Mass(Metric) Unit to be raised by 1 deg; use the same system units for correct values",
+        'ptext':'To-Weight(Imperial)|Mass(Metric) Unit to be raised by 1 deg',
+    },
+    }
+    fmla=f"(end_temp-start_temp)*(1 lb of water)=btus"
+    fb=FormBuilder(data=fields,passThruText=fmla)
+    if fb in BooleanAnswers.NONE:
+        return
+    mod=fod_()
+    start=mod(QTY(fb['Start Temperature Value'],fb['Start Temperature Unit']).to(fb['To-Start Temperature Unit']).magnitude)
+    end=mod(QTY(fb['End Temperature Value'],fb['End Temperature Unit']).to(fb['To-End Temperature Unit']).magnitude)
+    mass=mod(QTY(fb['Weight(Imperial)|Mass(Metric) Value'],fb['Weight(Imperial)|Mass(Metric) Unit']).to(fb['To-Weight(Imperial)|Mass(Metric) Unit']).magnitude)
+    specific_heat=mod(QTY(fb['Specific Heat Value'],fb['Specific Heat Unit']).to(fb['To-Specific Heat Unit']).magnitude)
+    tunit=(end-start)*specific_heat*mass
+    results={
+        'specific_heat':specific_heat,
+        'mass':mass,'end temp':end,
+        'start temp':start,
+        'energy':tunit,
+        'End Temperature Unit':fb['End Temperature Unit'],
+        'Start Temperature Unit':fb['Start Temperature Unit'],
+        'To-End Temperature Unit':fb['To-End Temperature Unit'],
+        'To-Start Temperature Unit':fb['To-Start Temperature Unit'],
+        'Weight(Imperial)|Mass(Metric) Unit':fb['Weight(Imperial)|Mass(Metric) Unit'],
+        'To-Weight(Imperial)|Mass(Metric) Unit':fb['To-Weight(Imperial)|Mass(Metric) Unit'],
+        'Specific Heat Value':fb['Specific Heat Value'],
+        'Specific Heat Unit':fb['Specific Heat Unit'],
+        'To-Specific Heat Unit':fb['To-Specific Heat Unit'],
+    }
+    return results_def(results)
+    
+
+def experimentName_power_useage():
+    fields={
+    'Recipe/Operation':{
+        'type':'string',
+        'default':'cooking mac and cheese (Kraft)',
+        'help':"Recipe/Operation",
+        'ptext':'Recipe/Operation',
+    },
+    'Machine/Appliance Used':{
+        'type':'string',
+        'default':'microwave oven',
+        'help':"Machine/Appliance Used",
+        'ptext':'Machine/Appliance Used',
+    },
+    'DTOE':{
+        'type':'datetime',
+        'default':datetime.now(),
+        'help':"DTOE",
+        'ptext':'DTOE',
+    },
+    'Duration (1/(Duration))':{
+        'type':'timedelta',
+        'default':timedelta(minutes=0),
+        'help':"Duration",
+        'ptext':'Duration',
+    },
+    'Kilo Watt Hour Value':{
+        'type':'float',
+        'default':0,
+        'help':"Kilo Watt Hour",
+        'ptext':'Kilo Watt Hour',
+    },
+    'Kilo Watt Hour Unit':{
+        'type':'string',
+        'default':'kWh',
+        'help':"Kilo Watt Hour Unit",
+        'ptext':'Kilo Watt Hour Unit',
+    },  
+    }
+    fmla=f"--- Experiment ---"
+    fb=FormBuilder(data=fields,passThruText=fmla)
+    if fb in BooleanAnswers.NONE:
+        return
+    #mod=fod_()
+    x=[]
+    cta=len(list(fb.keys()))
+    for num,k in enumerate(fb):
+        x.append(std_colorize(f"{k} = '{fb[k]}'",num,cta))
+    x='\n'.join(x)
+    x=f"""{fmla}\n{x}"""
+    
+    return x
+    

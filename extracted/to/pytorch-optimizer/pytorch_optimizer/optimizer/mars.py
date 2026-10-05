@@ -1,5 +1,5 @@
 import math
-from typing import Literal, Optional, Tuple
+from typing import Literal
 
 import torch
 
@@ -12,24 +12,25 @@ MARS_TYPE = Literal['adamw', 'lion', 'shampoo']
 
 
 class MARS(BaseOptimizer):
-    """Unleashing the Power of Variance Reduction for Training Large Models.
+    """Adaptive updates with variance reduced gradient corrections.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        gamma (float): The scaling parameter that controls the strength of gradient correction.
-        mars_type (MARS_TYPE): Type of MARS. Supported types are `adamw`, `lion`, `shampoo`.
-        optimize_1d (bool): Whether MARS should optimize 1D parameters.
-        lr_1d (float): Learning rate for AdamW when optimize_1d is set to False.
-        betas_1d (Betas): Coefficients for running averages of gradient and squared Hessian for 1D.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decay_1d (float): Weight decay for 1D parameters.
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        ams_bound (bool): Whether to use the AMSBound variant.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        gamma: The scaling parameter that controls the strength of gradient correction.
+        mars_type: Type of MARS. Supported types are `adamw`, `lion`, `shampoo`.
+        optimize_1d: Whether MARS should optimize 1D parameters.
+        lr_1d: Learning rate for AdamW when optimize_1d is set to False.
+        betas_1d: Decay rates for gradient momentum and squared gradients in the 1D AdamW groups.
+        weight_decay: Weight decay coefficient.
+        weight_decay_1d: Weight decay for 1D parameters.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        ams_bound: Use the running maximum of the second moment to bound adaptive updates.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
+        cautious: Mask momentum updates that disagree with the gradient sign.
 
     """
 
@@ -41,7 +42,7 @@ class MARS(BaseOptimizer):
         gamma: float = 0.025,
         mars_type: MARS_TYPE = 'adamw',
         optimize_1d: bool = False,
-        lr_1d: bool = 3e-3,
+        lr_1d: float = 3e-3,
         betas_1d: Betas = (0.9, 0.95),
         weight_decay: float = 0.0,
         weight_decay_1d: float = 1e-1,
@@ -117,8 +118,8 @@ class MARS(BaseOptimizer):
         last_grad: torch.Tensor,
         exp_avg: torch.Tensor,
         exp_avg_sq: torch.Tensor,
-        max_exp_avg_sq: Optional[torch.Tensor],
-        betas: Tuple[int, int],
+        max_exp_avg_sq: torch.Tensor | None,
+        betas: tuple[int, int],
         gamma: float,
         mars_type: MARS_TYPE,
         is_grad_2d: bool,
@@ -134,7 +135,7 @@ class MARS(BaseOptimizer):
         if c_t_norm > 1.0:
             c_t.div_(c_t_norm)
 
-        exp_avg.mul_(beta1).add_(c_t, alpha=1.0 - beta1)
+        exp_avg.lerp_(c_t, weight=1.0 - beta1)
 
         update = exp_avg.clone()
         if cautious:
@@ -165,8 +166,8 @@ class MARS(BaseOptimizer):
         grad: torch.Tensor,
         exp_avg: torch.Tensor,
         exp_avg_sq: torch.Tensor,
-        max_exp_avg_sq: Optional[torch.Tensor],
-        betas: Tuple[int, int],
+        max_exp_avg_sq: torch.Tensor | None,
+        betas: tuple[int, int],
         step: int,
         ams_bound: bool,
         cautious: bool,
@@ -177,7 +178,7 @@ class MARS(BaseOptimizer):
         bias_correction1: float = self.debias(beta1, step)
         bias_correction2_sq: float = math.sqrt(self.debias(beta2, step))
 
-        exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+        exp_avg.lerp_(grad, weight=1.0 - beta1)
         exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
         update = exp_avg.clone()

@@ -248,10 +248,14 @@ class ConditionSelector(ConditionItem):
         """
         Resolve all detection identifiers referenced by the selector.
         """
+        import sigma
+
+        policy = detections.policy
+        engine = (policy or sigma.default_policy).regex_engine
         if self.pattern == "them":
-            r = re.compile(".*")
+            r = engine.compile(".*")
         else:
-            r = re.compile(self.pattern.replace("*", ".*"))
+            r = engine.compile(self.pattern.replace("*", ".*"))
 
         # When a filter is applied to a rule its detection identifiers are renamed to
         # start with a `_filt_<random>_` prefix, and its condition patterns receive the
@@ -277,6 +281,11 @@ class ConditionSelector(ConditionItem):
         self.parent = parent
 
         ids = self.resolve_referenced_detections(detections)
+        if not ids:  # an empty selector would be dropped from the condition silently
+            raise SigmaConditionError(
+                f"Selector '{ self.args[0] } of { self.pattern }' doesn't match any detection",
+                source=source,
+            )
         cond = self.cond_class(
             cast(
                 list[
@@ -307,7 +316,8 @@ class ConditionValueExpression(ParentChainMixin):
     value: SigmaType
 
 
-identifier = Word(alphanums + "_-")
+identifier_chars = alphanums + "_-"
+identifier = Word(identifier_chars)
 identifier.set_parse_action(ConditionIdentifier.from_parsed)
 
 quantifier = Keyword("1") | Keyword("any") | Keyword("all")
@@ -319,9 +329,11 @@ operand = selector | identifier
 condition = infix_notation(  # type: ignore[no-untyped-call]
     operand,
     [
-        ("not", 1, opAssoc.RIGHT, ConditionNOT.from_parsed),
-        ("and", 2, opAssoc.LEFT, ConditionAND.from_parsed),
-        ("or", 2, opAssoc.LEFT, ConditionOR.from_parsed),
+        # Operators are keywords, not literals: otherwise identifiers starting with an
+        # operator name (e.g. "notsel", "notepad") are silently split ("not sel").
+        (Keyword("not", ident_chars=identifier_chars), 1, opAssoc.RIGHT, ConditionNOT.from_parsed),
+        (Keyword("and", ident_chars=identifier_chars), 2, opAssoc.LEFT, ConditionAND.from_parsed),
+        (Keyword("or", ident_chars=identifier_chars), 2, opAssoc.LEFT, ConditionOR.from_parsed),
     ],
 )
 

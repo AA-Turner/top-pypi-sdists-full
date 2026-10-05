@@ -1328,8 +1328,6 @@ class ConstrTypePrinter(IntEnumPrinter):
             output.print_node(node.cooked_expr if node.raw_expr is None else node.raw_expr)
         if node.is_no_inherit:
             output.swrite('NO INHERIT')
-        if not node.is_enforced:
-            output.swrite('NOT ENFORCED')
 
     def CONSTR_PRIMARY(self, node, output):
         output.swrite('PRIMARY KEY')
@@ -1491,7 +1489,9 @@ def constraint(node, output):
             output.print_name(node.indexspace)
         if node.skip_validation:
             output.write(' NOT VALID')
-        if node.contype == enums.ConstrType.CONSTR_FOREIGN and not node.is_enforced:
+        if (node.contype in (enums.ConstrType.CONSTR_CHECK,
+                             enums.ConstrType.CONSTR_FOREIGN)
+                and not node.is_enforced):
             output.write(' NOT ENFORCED')
 
 
@@ -1859,6 +1859,19 @@ def create_function_option(node, output):
     if option == 'set':
         output.separator()
         output.print_node(node.arg)
+        return
+
+    if option == 'transform':
+        output.newline()
+        output.write('TRANSFORM ')
+        first = True
+        for typ in node.arg:
+            if first:
+                first = False
+            else:
+                output.write(', ')
+            output.write('FOR TYPE ')
+            output.print_name(typ)
         return
 
     if option == 'window':

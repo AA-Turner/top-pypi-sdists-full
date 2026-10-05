@@ -11,7 +11,6 @@ from django.db import transaction
 from django.utils import timezone
 from esi.exceptions import HTTPNotModified
 from esi.models import Token
-from httpx import Response
 
 from .app_settings import TASK_JITTER
 from .models import (
@@ -32,6 +31,11 @@ if TYPE_CHECKING:
         CorporationsCorporationIdContactsGet,
         CorporationsCorporationIdContactsLabelsGet,
     )
+
+    try:
+        from httpx2 import Response
+    except ImportError:
+        from httpx import Response
 
     # https://github.com/sbdchd/celery-types
     classes = [
@@ -73,7 +77,7 @@ class BaseContactUpdater:
         cls, entity_id: int, token: Token, last_modified: timezone.datetime | None
     ) -> tuple[
         "AlliancesAllianceIdContactsLabelsGet | CorporationsCorporationIdContactsLabelsGet",
-        Response,
+        "Response",
     ]:
         raise NotImplementedError
 
@@ -82,7 +86,7 @@ class BaseContactUpdater:
         cls, entity_id: int, token: Token, last_modified: timezone.datetime | None
     ) -> tuple[
         "AlliancesAllianceIdContactsGet | CorporationsCorporationIdContactsGet",
-        Response,
+        "Response",
     ]:
         raise NotImplementedError
 

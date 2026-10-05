@@ -1,4 +1,3 @@
-from typing import List, Optional
 
 import torch
 
@@ -8,14 +7,14 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, Par
 
 
 class SRMM(BaseOptimizer):
-    """Stochastic regularized majorization-minimization with weakly convex and multi-convex surrogates.
+    """Stochastic regularized majorization-minimization with weakly convex and multi convex surrogates.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        beta (float): Adaptivity weight.
-        memory_length (Optional[int]): Internal memory length for moving average. None for no refreshing.
-        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        beta: Adaptivity weight.
+        memory_length: Internal memory length for moving average. None for no refreshing.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -24,7 +23,7 @@ class SRMM(BaseOptimizer):
         params: ParamsT,
         lr: float = 0.01,
         beta: float = 0.5,
-        memory_length: Optional[int] = 100,
+        memory_length: int | None = 100,
         maximize: bool = False,
         **kwargs,
     ):
@@ -37,7 +36,7 @@ class SRMM(BaseOptimizer):
 
         super().__init__(params, defaults)
 
-        self.base_lrs: List[float] = [group['lr'] for group in self.param_groups]
+        self.base_lrs: list[float] = [group['lr'] for group in self.param_groups]
 
     def __str__(self) -> str:
         return 'SRMM'
@@ -90,8 +89,8 @@ class SRMM(BaseOptimizer):
 
                 mov_avg_grad, mov_avg_param = state['mov_avg_grad'], state['mov_avg_param']
 
-                mov_avg_grad.mul_(1.0 - w_t).add_(grad, alpha=w_t)
-                mov_avg_param.mul_(1.0 - w_t).add_(p, alpha=w_t)
+                mov_avg_grad.lerp_(grad, weight=w_t)
+                mov_avg_param.lerp_(p, weight=w_t)
 
                 mov_avg_param.add_(mov_avg_grad, alpha=-group['lr'])
 

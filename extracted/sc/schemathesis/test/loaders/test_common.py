@@ -12,6 +12,7 @@ from flask import Flask, jsonify
 import schemathesis
 from schemathesis.core.errors import LoaderError
 from schemathesis.core.transport import USER_AGENT
+from test.utils import graphql_url, openapi_url
 
 
 @pytest.mark.parametrize(
@@ -30,19 +31,11 @@ def test_absolute_urls_for_apps(loader):
         loader("http://127.0.0.1:1/schema.json", app=None)  # actual app doesn't matter here
 
 
-def _openapi_url(ctx):
-    return ctx.openapi.apps.success().schema_url
-
-
-def _graphql_url(ctx):
-    return ctx.graphql.apps.books().schema_url
-
-
 @pytest.mark.parametrize(
     ("loader", "make_url"),
     [
-        (schemathesis.openapi.from_url, _openapi_url),
-        (schemathesis.graphql.from_url, _graphql_url),
+        (schemathesis.openapi.from_url, openapi_url),
+        (schemathesis.graphql.from_url, graphql_url),
     ],
 )
 @pytest.mark.parametrize("base_url", ["http://example.com/", "http://example.com"])
@@ -155,6 +148,18 @@ def test_django_disallowed_host_with_debug(django_settings):
         host="testserver",
         allowed_hosts="[] (empty with DEBUG on, which allows only '.localhost', '127.0.0.1' and '[::1]')",
     )
+
+
+def test_server_error_is_not_explained_as_disallowed_host():
+    app = Flask("test_app")
+
+    @app.route("/schema")
+    def schema():
+        return "", 500
+
+    with pytest.raises(LoaderError) as exc:
+        schemathesis.openapi.from_wsgi("/schema", app)
+    assert str(exc.value) == "Failed to load schema due to server error (HTTP 500 Internal Server Error)"
 
 
 def make_flask_bad_request_app():

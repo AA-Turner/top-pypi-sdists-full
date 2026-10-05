@@ -139,8 +139,9 @@ def test_installable_agent_sources_includes_pi_via_pi_config_not_a_marketplace()
     It must still be a real entry in AGENT_LABELS for every other helper
     (agent_label, menu_copy, authorize's confirmation message) that names a
     capture source rather than installs one -- unaffected by this change."""
-    assert set(setup.INSTALLABLE_AGENT_SOURCES) == {"claude_code", "codex", "pi"}
+    assert set(setup.INSTALLABLE_AGENT_SOURCES) == {"claude_code", "codex", "pi", "kimi_code"}
     assert setup.AGENT_LABELS["pi"] == "pi"
+    assert setup.AGENT_LABELS["kimi_code"] == "Kimi Code"
 
 
 def test_agent_row_detail_is_per_source_and_pi_does_not_claim_a_marketplace():
@@ -148,8 +149,9 @@ def test_agent_row_detail_is_per_source_and_pi_does_not_claim_a_marketplace():
     and pair source-bound capture." -- accurate for claude_code/codex, wrong
     for pi the moment pi could appear in this picker: pi's install is one
     settings.json entry, never a plugin marketplace."""
-    assert set(setup.AGENT_ROW_DETAIL) == {"claude_code", "codex", "pi"}
+    assert set(setup.AGENT_ROW_DETAIL) == {"claude_code", "codex", "pi", "kimi_code"}
     assert setup.AGENT_ROW_DETAIL["claude_code"] == setup.AGENT_ROW_DETAIL["codex"]
+    assert setup.AGENT_ROW_DETAIL["kimi_code"] == setup.AGENT_ROW_DETAIL["codex"]
     pi_detail = " ".join(setup.AGENT_ROW_DETAIL["pi"])
     assert "plugin" not in pi_detail.lower()
     assert "settings.json" in pi_detail
@@ -1982,7 +1984,7 @@ def test_agent_flag_accepts_pi_and_still_rejects_garbage():
     cli_main = sys.modules["probe.cli.main"]
     result = CliRunner().invoke(cli_main.app, ["wizard", "--agent", "bogus"])
     assert result.exit_code != 0
-    assert "must be claude, codex, pi, or both" in result.output
+    assert "must be claude, codex, pi, kimi, or both" in result.output
 
 
 def test_agent_both_still_means_exactly_claude_and_codex_not_pi(monkeypatch):
@@ -4483,7 +4485,7 @@ def _agents_env(tmp_path, *present):
             encoding="utf-8",
         )
         stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
-    absent = tuple(name for name in ("claude", "codex", "pi") if name not in present)
+    absent = tuple(name for name in ("claude", "codex", "pi", "kimi") if name not in present)
     real_path = _filtered_real_path(exclude=absent)
     return {"PATH": f"{tmp_path}{os.pathsep}{real_path}"}
 

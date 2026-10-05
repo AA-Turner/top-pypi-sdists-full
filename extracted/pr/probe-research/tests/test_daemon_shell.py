@@ -503,6 +503,9 @@ def test_hidden_folders_and_the_harness_files(box: Box) -> None:
         home / ".claude" / "skills" / "probe" / ".env",
         home / ".codex" / "AGENTS.md",
         home / ".pi" / "agent" / "AGENTS.md",
+        home / ".kimi-code" / "AGENTS.md",
+        home / ".kimi-code" / "config.toml",
+        work / ".kimi-code" / "AGENTS.md",
     ]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("x\n")
@@ -514,11 +517,30 @@ def test_hidden_folders_and_the_harness_files(box: Box) -> None:
     assert box.safe("cat ~/.claude/skills/probe/SKILL.md")
     assert box.safe("cat ~/.codex/AGENTS.md")
     assert box.safe("cat ~/.pi/agent/AGENTS.md")
+    assert box.safe("cat ~/.kimi-code/AGENTS.md")
+    assert box.safe("cat .kimi-code/AGENTS.md")  # a project's own, inside its hidden folder
+    assert "outside" in box.verdict("cat ~/.kimi-code/config.toml").reason
     assert "hidden folder (.venv)" in box.verdict("cat .venv/pyvenv.cfg").reason
     assert "hidden folder (.venv)" in box.verdict("ls .venv").reason
     assert "outside" in box.verdict("cat ~/.claude/settings.json").reason
     assert "outside" in box.verdict("cat ~/.claude/.credentials.json").reason
     assert "credential" in box.verdict("cat ~/.claude/skills/probe/.env").reason
+
+
+def test_a_harness_home_moved_by_its_variable_keeps_its_instruction_file_readable(
+    box: Box, monkeypatch
+) -> None:
+    """`$KIMI_CODE_HOME/AGENTS.md` is Kimi Code's own instructions wherever the
+    variable puts its home -- that one file, nothing else there."""
+    moved = box.outside / "kimi-home"
+    moved.mkdir()
+    (moved / "AGENTS.md").write_text("x\n")
+    (moved / "config.toml").write_text("x\n")
+    monkeypatch.delenv("KIMI_CODE_HOME", raising=False)
+    assert "outside" in box.verdict(f"cat {moved / 'AGENTS.md'}").reason
+    monkeypatch.setenv("KIMI_CODE_HOME", str(moved))
+    assert box.safe(f"cat {moved / 'AGENTS.md'}")
+    assert "outside" in box.verdict(f"cat {moved / 'config.toml'}").reason
 
 
 def test_credential_shapes_inside_the_folder(box: Box, monkeypatch) -> None:

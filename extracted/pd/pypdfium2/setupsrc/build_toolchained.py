@@ -110,6 +110,8 @@ def patch_pdfium(build_ver, target_cpu, target_os, patch_clang, prefer_gcc):
     # TODO in the future, we might want to extract separate DLLs for the imaging libraries (e.g. libjpeg, libpng)
     
     shared_autopatches(PDFiumDir)
+    if PORTABLE_MODE:
+        bin_autopatch(PDFiumDir)
     
     if sys.platform.startswith("win32"):
         git_apply_patch(PatchDir/"win"/"use_resources_rc.patch", PDFiumDir)
@@ -133,8 +135,6 @@ def patch_pdfium(build_ver, target_cpu, target_os, patch_clang, prefer_gcc):
             git_apply_patch(PatchDir/"no_libclang_rt.patch", PDFiumDir_build)
         if PORTABLE_MODE and patch_clang:
             git_apply_patch(PatchDir/"clang_22_compat.patch", PDFiumDir_build)
-        if PORTABLE_MODE or prefer_gcc:
-            git_apply_patch(PatchDir/"gcc_toolchain.patch", PDFiumDir_build)
 
 
 def _get_tool(name):
@@ -150,7 +150,7 @@ def configure(config):
 
 def build(target):
     ninja = _get_tool("ninja")
-    run_cmd([ninja, "-C", PDFiumOutDir, target], cwd=PDFiumDir)
+    run_cmd([ninja, "-v", "-C", PDFiumOutDir, target], cwd=PDFiumDir)
 
 
 def handle_portable_mode(config, use_sysroot, clang_path):
@@ -196,7 +196,7 @@ def handle_windows(win_sdk_dir):
     if win_sdk_dir is None:
         # Current GH Actions windows-latest
         sdk_cpu = "arm64" if Host._raw_machine == "arm64" else "x64"
-        win_sdk_dir = Path(fR"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\{sdk_cpu}")
+        win_sdk_dir = Path(fR"C:\Program Files (x86)\Windows Kits\10\bin\10.0.28000.0\{sdk_cpu}")
     assert win_sdk_dir.exists()
     env_append("PATH", str(win_sdk_dir), os.pathsep)  # ... prepend?
     os.environ["DEPOT_TOOLS_WIN_TOOLCHAIN"] = "0"

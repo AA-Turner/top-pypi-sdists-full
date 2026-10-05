@@ -13,9 +13,9 @@ import urllib.request as url_request
 
 # local
 from base import *
-from stl import cached_property
 from _build_helpers import *
 import _pyodide as pyodide_utils
+from stl import cached_property, ArgparseCompatParser
 
 _CR_PREFIX = "https://chromium.googlesource.com/"
 DEPS_URLS = dict(
@@ -36,19 +36,16 @@ DEPS_URLS = dict(
     libpng      = _CR_PREFIX + "chromium/src/third_party/libpng",
     zlib        = _CR_PREFIX + "chromium/src/third_party/zlib",
     harfbuzz    = _CR_PREFIX + "external/github.com/harfbuzz/harfbuzz",
+    dragonbox   = _CR_PREFIX + "external/github.com/jk-jeon/dragonbox",
     # unittests
     gtest      = _CR_PREFIX + "external/github.com/google/googletest",
     test_fonts = _CR_PREFIX + "chromium/src/third_party/test_fonts",
-    # opt-in dependencies
-    partition_allocator = _CR_PREFIX + "chromium/src/base/allocator/partition_allocator",
-    #catapult = _CR_PREFIX + "catapult",  # android
 )
 SOURCES_DIR = ProjectDir / "sbuild" / "native"
 PDFIUM_DIR = SOURCES_DIR / "pdfium"
 PDFIUM_DIR_build = PDFIUM_DIR / "build"
 PDFIUM_3RDPARTY = PDFIUM_DIR / "third_party"
 CUSTOM_TOOLCHAIN_DIR = PDFIUM_DIR_build/"toolchain"/"linux"/"custom"
-USE_PA = bool(int( os.environ.get("USE_PARTITION_ALLOC", "0") ))
 
 DefaultConfig = {
     "is_debug": False,
@@ -142,11 +139,7 @@ class _DeferredDeps:
 
 def handle_deps(config, vendor_deps, with_tests):
     
-    deps_fields = ["build", "abseil", "fast_float", "simdutf"]
-    if USE_PA:
-        deps_fields.append("partition_allocator")
-    # if IS_ANDROID:
-    #     deps_fields.append("catapult")
+    deps_fields = ["build", "abseil", "fast_float", "simdutf", "dragonbox"]
     
     if "libc++" in vendor_deps:
         deps_fields += ("buildtools", "libcxx", "libcxxabi", "llvm_libc")
@@ -221,6 +214,7 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     do_patches = df.fetch("pdfium", PDFIUM_DIR, reset=reset)
     if do_patches:
         shared_autopatches(PDFIUM_DIR, nonstatic=(not is_pyodide))
+        bin_autopatch(PDFIUM_DIR)
         autopatch(
             PDFIUM_DIR/"testing"/"BUILD.gn",
             r'(\s*)("//third_party/test_fonts")', r"\1# \2",
@@ -234,6 +228,11 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     
     df = DepsFetcher(deps_info)
     do_patches = df.fetch("build", PDFIUM_DIR_build, reset=reset)
+    # Create pseudo gclient config included by //build
+    (PDFIUM_DIR_build/"config"/"gclient_args.gni").write_text("""\
+build_with_chromium = false
+checkout_libpng = true\
+""")
     if compiler is Compiler.gcc:  # regardless of do_patches
         # declare custom GCC toolchain
         mkdir(CUSTOM_TOOLCHAIN_DIR)
@@ -245,9 +244,6 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         # > Extra flags to be appended when compiling both C and C++ files. "CPP" stands for "C PreProcessor" in this context, although it can be used for non-preprocessor flags as well. Not to be confused with "CXX" (which follows).
         env_append("CPPFLAGS", "-ffp-contract=off", " ")
     if do_patches:
-        if full_ver.build <= 7928:
-            # it says gcc_toolchain but actually needed for clang as well
-            git_apply_patch(PatchDir/"gcc_toolchain.patch", cwd=PDFIUM_DIR_build)
         if is_pyodide:
             git_apply_patch(PatchDir/"wasm"/"build.patch", cwd=PDFIUM_DIR_build)
             wasm_config_dir = PDFIUM_DIR_build/"config"/"wasm"
@@ -285,17 +281,12 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
                         is_regex=False,
                     )
                 # confirm there have been a couple of substitutions
-                assert n_subs > 3  # likely much more than that
-        # Create pseudo gclient config included by //build
-        (PDFIUM_DIR_build/"config"/"gclient_args.gni").write_text("build_with_chromium = false")
+                assert n_subs > 3  # probably more
     
     df.fetch("abseil", PDFIUM_3RDPARTY/"abseil-cpp")
     df.fetch("fast_float", PDFIUM_3RDPARTY/"fast_float"/"src")
     df.fetch("simdutf", PDFIUM_3RDPARTY/"simdutf")
-    if USE_PA:
-        df.fetch("partition_allocator", PDFIUM_DIR/"base"/"allocator"/"partition_allocator")
-    # if IS_ANDROID:
-    #     df.fetch("catapult", PDFIUM_3RDPARTY/"catapult")
+    df.fetch("dragonbox", PDFIUM_3RDPARTY/"dragonbox"/"src")
     
     if "libc++" in vendor_deps:
         df.fetch("buildtools", PDFIUM_DIR/"buildtools")
@@ -304,6 +295,7 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
         df.fetch("llvm_libc", PDFIUM_3RDPARTY/"llvm-libc"/"src")
     
     if "icu" in vendor_deps:
+        # NOTE If an unbundled build was made previously, need to manually remove //third_party/icu
         df.fetch("icu", PDFIUM_3RDPARTY/"icu")
     else:
         # unbundle (alternatively, we could call build/linux/unbundle/replace_gn_files.py --system-libraries icu)
@@ -347,8 +339,6 @@ def configure(config, compiler, clang_ver, clang_path, is_pyodide):
     else:
         assert False, f"Unhandled compiler {compiler}"
     
-    if USE_PA:
-        config["pdf_use_partition_alloc"] = True
     if is_pyodide:
         pyodide_utils.configure(config, compiler)
 
@@ -390,7 +380,7 @@ def build(build_dir, config_dict, with_tests, n_jobs, is_pyodide):
     config_str = serialize_gn_config(config_dict)
     (build_dir/"args.gn").write_text(config_str)
     
-    ninja_args = []
+    ninja_args = ["-v"]
     if n_jobs is not None:
         ninja_args.extend(["-j", str(n_jobs)])
     targets = ["pdfium"]
@@ -436,8 +426,6 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
     if vendor_deps is None:
         vendor_deps = set()
     
-    if is_pyodide:
-        pyodide_utils.info(compiler)
     if compiler is None:
         if is_pyodide:
             compiler = Compiler.clang
@@ -484,7 +472,7 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
 
 def parse_args(argv):
     
-    parser = argparse.ArgumentParser(
+    parser = ArgparseCompatParser(
         formatter_class = argparse.RawTextHelpFormatter,
         description = """\
 Build PDFium from source natively with a self-managed checkout and system tools/libraries (depending on config).
@@ -497,17 +485,15 @@ Note that pdfium is picky about the GN version, and requires newer GN than what 
 We suggest that you `pip install --group gn` which will install an appropriate version of gn-dist from PyPI. gn-dist is also maintained by the pypdfium2 authors.
 
 Likewise, clang users should note that pdfium expects a very recent version of clang.
-Upstream does not aim for compatibility with clang older than the version they currently use.
+Upstream do not aim for compatibility with clang older than the version they currently use.
 pypdfium2 patches pdfium for compatibility with clang 22. For versions older than that, --clang-as-gcc mode is implicitly enabled.
 
 In GCC build mode, the usual environment variables are respected: CC, CXX, CFLAGS, CPPFLAGS, CXXFLAGS, LDFLAGS. Also, a TOOLPREFIX can be set for ar/nm/readelf.
 In clang mode, --clang-path lets you choose the clang build used, but flags are not honored yet.
 
 Some params take a default from an environment variable, for easy passthrough with cibuildwheel.\
-""",
+"""
     )
-    if ExtendAction is not None:  # from base.py
-        parser.register("action", "extend", ExtendAction)
     
     parser.add_argument(
         "--version",
@@ -580,7 +566,7 @@ Some params take a default from an environment variable, for easy passthrough wi
         dest = "is_pyodide",
         action = "store_true",
         default = bool(os.environ.get("PYODIDE")),
-        help = "Indicate that build_native.py is running in an emscripten cross environment as provided by `pyodide build`, and should target WASM. Automatically enabled if $PYODIDE is set.",
+        help = "Indicate that build_native.py is running in an emscripten cross environment as provided by `pyodide build`, and should target WASM. Automatically enabled if $PYODIDE is set. WARNING: Pyodide support is experimental.",
     )
     
     args = parser.parse_args(argv)

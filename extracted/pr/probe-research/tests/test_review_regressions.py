@@ -173,8 +173,10 @@ def test_run_start_uses_the_active_project(wired, client, capsys):
     run_id = capsys.readouterr().out.strip()
     exp = client.get_experiment(client.get_run(run_id)["experiment_id"])
     assert exp["project_id"] == proj["id"]
-    # And no junk project was conjured from the id.
-    assert [p["slug"] for p in client.list_projects().items] == ["ambient"]
+    # And no junk project was conjured from the id. (The fixture's seeded
+    # experiment is filed under a project of its own; that one is the fake's.)
+    listed = [p for p in client.list_projects().items if p["id"] not in wired.seeded_home_projects]
+    assert [p["slug"] for p in listed] == ["ambient"]
 
 
 def test_run_start_refuses_an_experiment_from_another_project(wired, client, capsys):

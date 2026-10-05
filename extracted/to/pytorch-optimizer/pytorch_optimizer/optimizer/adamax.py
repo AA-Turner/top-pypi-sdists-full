@@ -6,17 +6,17 @@ from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGro
 
 
 class AdaMax(BaseOptimizer):
-    """An Adaptive and Momental Bound Method for Stochastic Learning.
+    """Adam with an exponentially weighted infinity norm denominator.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
-        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the gradient mean and exponentially weighted infinity norm.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -126,13 +126,9 @@ class AdaMax(BaseOptimizer):
                     r=group.get('adanorm_r', None),
                 )
 
-                exp_avg.mul_(beta1).add_(s_grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(s_grad, weight=1.0 - beta1)
 
-                norm_buf = torch.cat(
-                    (exp_inf.mul_(beta2).unsqueeze(0), grad.abs().add_(group['eps']).unsqueeze_(0)),
-                    dim=0,
-                )
-                torch.max(norm_buf, dim=0, keepdim=False, out=(exp_inf, exp_inf.new().long()))
+                torch.maximum(exp_inf.mul_(beta2), grad.abs().add_(group['eps']), out=exp_inf)
 
                 p.addcdiv_(exp_avg, exp_inf, value=-step_size)
 

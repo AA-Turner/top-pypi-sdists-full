@@ -66,7 +66,7 @@ def select(
     gotten from a fileno() method call on one of those.
 
     The optional 4th argument specifies a timeout in seconds; it may be
-    a floating-point number to specify fractions of seconds.  If it is absent
+    a non-integer to specify fractions of seconds.  If it is absent
     or None, the call will never time out.
 
     The return value is a tuple of three lists corresponding to the first
@@ -152,7 +152,7 @@ if sys.platform != "linux" and sys.platform != "win32":
               The maximum number of events that the kernel will return.
             timeout
               The maximum time to wait in seconds, or else None to wait forever.
-              This accepts floats for smaller timeouts, too.
+              This accepts non-integers for smaller timeouts, too.
             """
             ...
         def fileno(self) -> int:

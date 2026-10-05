@@ -118,6 +118,18 @@ def _exit_code(saved: bool, already: bool) -> int:
     return 0 if (saved or already) else 2
 
 
+GATE_DECISIONS = ("proceed", "send_back")
+GATE_DECISION_KEYS = ("gate_id", "decision", "decided_by", "note", "decided_at")
+
+
+def _gate_decision(ctx: Mapping[str, Any]) -> Optional[dict[str, Any]]:
+    """確認の決定を受けた起動なら、その決定（frontのcontextの`gate_decision`）。形が合わなければ渡さない。"""
+    gd = ctx.get("gate_decision")
+    if not isinstance(gd, dict) or gd.get("decision") not in GATE_DECISIONS or not isinstance(gd.get("gate_id"), str):
+        return None
+    return {key: gd[key] if isinstance(gd.get(key), str) else None for key in GATE_DECISION_KEYS}
+
+
 def validate_env(env: Mapping[str, str]) -> dict[str, str]:
     missing = [k for k in REQUIRED_ENV if not env.get(k)]
     if missing:
@@ -546,7 +558,7 @@ class WorkflowRunner:
     def _manifest(self, ctx: dict[str, Any]) -> dict[str, Any]:
         lr = ctx.get("launch_request") or {}
         contract = ctx.get("contract") or {}
-        return {
+        manifest = {
             "protocol": PROTOCOL,
             "execution_id": self.execution_id,
             "root_execution_id": ctx.get("root_execution_id"),
@@ -561,6 +573,11 @@ class WorkflowRunner:
             "input_manifest": ctx.get("input_manifest") or [],
             "deadlines": ctx.get("deadlines") or {},
         }
+        gd = _gate_decision(ctx)
+        if gd:
+            # 理由・コメントは人が書いた本文なので、監査に残す記録には入れない
+            manifest["gate_decision"] = {key: gd[key] for key in ("gate_id", "decision", "decided_by")}
+        return manifest
 
     async def _persist_manifest(self, state: _State, manifest: dict[str, Any]) -> bool:
         """context.manifest を durable に保存してから Agent を開始する（ack 無しでは開始しない）。
@@ -616,7 +633,7 @@ class WorkflowRunner:
             "effect_mode": (ctx.get("contract") or {}).get("effect_mode") or "read_only",
             "parameters": ctx.get("parameters") or {}, "connections": ctx.get("connections") or {},
             "input_dir": str(input_dir), "work_dir": str(work_dir), "output_dir": str(output_dir),
-            "manifest": manifest, "deadlines": ctx.get("deadlines") or {},
+            "manifest": manifest, "deadlines": ctx.get("deadlines") or {}, "gate_decision": _gate_decision(ctx),
             "agent_deadline": self._agent_deadline.isoformat() if self._agent_deadline else None,
         }
         # 制御チャネル: 親→子（spec + 応答）、子→親（要求）。stdio は Agent の通常出力のまま。

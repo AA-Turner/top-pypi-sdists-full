@@ -34,11 +34,15 @@ ModelOrSnapshotOrTestOrSeedNode = t.Union[
     ModelNode, SnapshotNode, GenericTestNode, SingularTestNode, SeedNode
 ]
 
-MODEL_OR_SNAPSHOT_OR_TEST_OR_SEED_NODE = (
+MODEL_OR_SNAPSHOT_OR_TEST_NODE: t.Tuple = (
     ModelNode,
     SnapshotNode,
     GenericTestNode,
     SingularTestNode,
+)
+
+MODEL_OR_SNAPSHOT_OR_TEST_OR_SEED_NODE: t.Tuple = (
+    *MODEL_OR_SNAPSHOT_OR_TEST_NODE,
     SeedNode,
 )
 

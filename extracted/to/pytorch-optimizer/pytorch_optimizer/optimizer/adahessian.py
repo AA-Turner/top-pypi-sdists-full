@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
@@ -8,23 +6,24 @@ from pytorch_optimizer.base.type import Betas, Closure, Defaults, HutchinsonG, L
 
 
 class AdaHessian(BaseOptimizer):
-    """An Adaptive Second Order Optimizer for Machine Learning.
+    """Adaptive second-order updates using Hutchinson Hessian estimates.
 
-    Requires `loss.backward(create_graph=True)` in order to calculate Hessians.
+    Use `loss.backward(create_graph=True)` for internal Hessian estimation, or supply
+    external estimates through `step(hessian=...)`.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        hessian_power (float): Exponent applied to the Hessian trace for scaling updates.
-        update_period (int): Number of steps after which to apply the Hessian approximation.
-        num_samples (int): Number of times to sample `z` when approximating the Hessian trace.
-        hessian_distribution (HutchinsonG): Type of distribution used to initialize the Hutchinson trace estimator.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the gradient mean and squared Hessian diagonal estimates.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        hessian_power: Exponent applied to the root mean square Hessian diagonal estimate.
+        update_period: Number of steps after which to apply the Hessian approximation.
+        num_samples: Number of noise samples for each Hessian diagonal estimate.
+        hessian_distribution: Type of distribution used to initialize the Hutchinson trace estimator.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -93,17 +92,21 @@ class AdaHessian(BaseOptimizer):
                 state['exp_hessian_diag_sq'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: Closure = None, hessian: Optional[List[torch.Tensor]] = None) -> Loss:
+    def step(self, closure: Closure = None, hessian: list[torch.Tensor] | None = None) -> Loss:
         loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
-        step: int = self.param_groups[0].get('step', 1)
+        for group in self.param_groups:
+            self.init_group(group)
+
+        step: int = self.param_groups[0]['step'] + 1
+        update_hessian = hessian is not None or (step - 1) % self.update_period == 0
 
         if hessian is not None:
             self.set_hessian(self.param_groups, self.state, hessian)
-        elif step % self.update_period == 0:
+        elif update_hessian:
             self.zero_hessian(self.param_groups, self.state)
             self.compute_hutchinson_hessian(
                 param_groups=self.param_groups,
@@ -113,7 +116,6 @@ class AdaHessian(BaseOptimizer):
             )
 
         for group in self.param_groups:
-            self.init_group(group)
             group['step'] += 1
 
             beta1, beta2 = group['betas']
@@ -143,9 +145,9 @@ class AdaHessian(BaseOptimizer):
                 )
 
                 exp_avg, exp_hessian_diag_sq = state['exp_avg'], state['exp_hessian_diag_sq']
-                exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(grad, weight=1.0 - beta1)
 
-                if 'hessian' in state and (group['step'] % self.update_period == 0 or hessian is not None):
+                if 'hessian' in state and update_hessian:
                     exp_hessian_diag_sq.mul_(beta2).addcmul_(state['hessian'], state['hessian'], value=1.0 - beta2)
 
                 de_nom = (exp_hessian_diag_sq / bias_correction2).pow_(group['hessian_power'] / 2).add_(group['eps'])

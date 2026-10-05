@@ -1,12 +1,13 @@
 import copy
 import pprint
 from itertools import chain
+
 import numpy as np
 from shapely import geometry
-from .dedup import Dedup
+
 from ..ops import is_ccw
-from ..utils import serialize_as_svg
-from ..utils import serialize_as_json
+from ..utils import serialize_as_json, serialize_as_svg
+from .dedup import Dedup
 
 
 class Hashmap(Dedup):
@@ -14,7 +15,7 @@ class Hashmap(Dedup):
     hash arcs based on their type
     """
 
-    def __init__(self, data, options={}):
+    def __init__(self, data, options=None):
         # execute previous step
         super().__init__(data, options)
 
@@ -22,7 +23,7 @@ class Hashmap(Dedup):
         self.output = self._hashmapper(self.output)
 
     def __repr__(self):
-        return "Hashmap(\n{}\n)".format(pprint.pformat(self.output))
+        return f"Hashmap(\n{pprint.pformat(self.output)}\n)"
 
     def to_dict(self):
         """
@@ -87,6 +88,9 @@ class Hashmap(Dedup):
 
         # make data available within class
         self._data = data
+
+        # set for fast membership tests of shared arcs in _backward_arcs
+        self._shared_arcs = set(data["bookkeeping_shared_arcs"])
 
         # resolve bookkeeping to arcs in objects, including backward check of arcs
         # resolve bookkeeping of coordinates in objects, including delta-encoding
@@ -211,7 +215,11 @@ class Hashmap(Dedup):
             description of output
         """
 
-        shared_bool = np.isin(arc_ids, self._data["bookkeeping_shared_arcs"])
+        shared_bool = np.fromiter(
+            (arc_id in self._shared_arcs for arc_id in arc_ids),
+            dtype=bool,
+            count=len(arc_ids),
+        )
         order_of_arc, split_arc_ids = self._hash_order(arc_ids, shared_bool)
 
         for idx_outer, split_arc in enumerate(split_arc_ids):
@@ -296,11 +304,12 @@ class Hashmap(Dedup):
         if order == 3:
             # since alignment is done based on the first two arcs, need a double-check
             # if it follows the required order of the ring
-            if self._inner and self.options.winding_order == "CCW_CW":
-                need_ccw = False
-            elif not self._inner and (
-                self.options.winding_order == "CW_CCW"
-                or self.options.winding_order is None
+            if (self._inner and self.options.winding_order == "CCW_CW") or (
+                not self._inner
+                and (
+                    self.options.winding_order == "CW_CCW"
+                    or self.options.winding_order is None
+                )
             ):
                 need_ccw = False
             else:
@@ -347,9 +356,11 @@ class Hashmap(Dedup):
             arcs_in_geom = copy.copy(self._data[bk_objects][geom])
             for idx_arc, arc_ref in enumerate(arcs_in_geom):
                 arc_ids = self._data[bk_element][arc_ref]
-                # check if the shared arcs in geom should be backward
-                if len(arc_ids) > 1 and key != "coordinates":
-                    self._inner = True if idx_arc > 0 else False
+                # check if the shared arcs in geom should be backward; without merges
+                # Dedup has set the direction already
+                merged = self.options.shared_coords
+                if len(arc_ids) > 1 and key != "coordinates" and merged:
+                    self._inner = idx_arc > 0
                     arc_ids = self._backward_arcs(arc_ids)
 
                 arcs_in_geom[idx_arc] = arc_ids

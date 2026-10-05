@@ -3,6 +3,7 @@
 
 import sys
 
+
 # See also
 # https://gist.github.com/mara004/f2926b1fcc8847a69e0af6f4e33934fd (comments)
 # https://gist.github.com/mara004/076e3110aba8e8a3f8a6f2c84af350ee
@@ -58,16 +59,15 @@ class keydefaultdict (dict):
         super().__init__()
     
     def __missing__(self, key):
-        value = self.default_factory(key)
-        self[key] = value
+        self[key] = value = self.default_factory(key)
         return value
 
 
+import argparse
+
 if sys.version_info >= (3, 9):
     from argparse import BooleanOptionalAction
-
 else:
-    import argparse
     # backport, adapted from argparse sources
     class BooleanOptionalAction (argparse.Action):
         def __init__(self, option_strings, dest, **kwargs):
@@ -88,3 +88,19 @@ else:
         
         def format_usage(self):
             return ' | '.join(self.option_strings)
+
+
+if sys.version_info < (3, 8):
+    class _ExtendAction (argparse.Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            items = getattr(namespace, self.dest) or []
+            items.extend(values)
+            setattr(namespace, self.dest, items)
+    
+    class ArgparseCompatParser (argparse.ArgumentParser):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.register("action", "extend", _ExtendAction)
+    
+else:
+    ArgparseCompatParser = argparse.ArgumentParser

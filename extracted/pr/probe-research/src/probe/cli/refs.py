@@ -229,7 +229,9 @@ def from_ambient(value: str | None) -> str | None:
     return f"{ID_PREFIX}{bare}"
 
 
-def resolve(client, kind: str, ref: str, *, verify: bool = True) -> Ref:
+def resolve(
+    client, kind: str, ref: str, *, verify: bool = True, project_hint: str | None = None
+) -> Ref:
     """Resolve a project/experiment ref to its id.
 
     Bare -> slug. ``id:`` -> id. There is no third case and no guessing.
@@ -238,6 +240,10 @@ def resolve(client, kind: str, ref: str, *, verify: bool = True) -> Ref:
     were never a gate (the artifact anchors) and let the server answer a bad ref.
     It makes an ``id:`` ref cost zero requests, which matters on the path an agent
     filing thousands of artifacts pays for.
+
+    ``project_hint`` (an experiment slug only): the project id to look in FIRST
+    -- the active project -- which answers in one request. A miss there falls
+    back to the tenant-wide lookup, so a hint can never hide an experiment.
     """
     if kind not in SLUG_KINDS:  # pragma: no cover -- guards a caller typo
         raise ValueError(f"{kind!r} has no slug form; use resolve_run/an id")
@@ -259,6 +265,13 @@ def resolve(client, kind: str, ref: str, *, verify: bool = True) -> Ref:
     # strict: a MISS is about to become an error, so it has to be a real miss and
     # not an older backend quietly ignoring ?slug=.
     resolver = getattr(client, f"resolve_{kind}")
+    if project_hint and kind == "experiment":
+        try:
+            hinted = resolver(bare, project_id=project_hint)
+        except TypeError:
+            hinted = None  # a stub, or a client predating the keyword
+        if hinted is not None:
+            return Ref(str(hinted["id"]), describe(kind, hinted), hinted)
     try:
         row = resolver(bare, strict=True)
     except TypeError:

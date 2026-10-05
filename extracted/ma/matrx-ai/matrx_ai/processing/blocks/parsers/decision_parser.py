@@ -22,7 +22,12 @@ import re
 
 from matrx_ai.processing.blocks.models.decision import DecisionBlockData, DecisionOption
 
-_OPTION_RE = re.compile(r'<option\s+label="([^"]*)">([\s\S]*?)</option>', re.DOTALL)
+# Tolerant option grammar — LOCKSTEP with the client's
+# components/mardown-display/blocks/inline-decision/decision-options.ts.
+# Accepts extra attributes (id before/after label), single or double quotes,
+# indentation/blank lines, and self-describing options with no label attribute.
+_OPTION_RE = re.compile(r"<option\b([^>]*)>([\s\S]*?)</option\s*>", re.IGNORECASE)
+_ATTR_RE = re.compile(r"""([\w-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
 
 
 def parse_decision(
@@ -42,14 +47,15 @@ def parse_decision(
         DecisionBlockData if at least one option was found, else None.
     """
     options: list[DecisionOption] = []
-    for idx, match in enumerate(_OPTION_RE.finditer(inner_content)):
-        options.append(
-            DecisionOption(
-                id=f"opt-{idx}",
-                label=match.group(1),
-                text=match.group(2).strip(),
-            )
-        )
+    for match in _OPTION_RE.finditer(inner_content):
+        opt_attrs = _parse_xml_attributes(match.group(1))
+        text = match.group(2).strip()
+        label = (opt_attrs.get("label") or opt_attrs.get("title") or opt_attrs.get("name") or "").strip()
+        if not label:
+            label = text.split("\n")[0].strip()
+        if not label:
+            continue
+        options.append(DecisionOption(id=f"opt-{len(options)}", label=label, text=text))
 
     if not options:
         return None
@@ -85,6 +91,6 @@ def parse_decision_from_raw_xml(full_xml: str, block_index: int = 0) -> Decision
 def _parse_xml_attributes(attr_string: str) -> dict[str, str]:
     """Extract key="value" pairs from an attribute string."""
     attrs: dict[str, str] = {}
-    for match in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', attr_string):
-        attrs[match.group(1)] = match.group(2)
+    for match in _ATTR_RE.finditer(attr_string):
+        attrs[match.group(1)] = match.group(2) if match.group(2) is not None else match.group(3)
     return attrs

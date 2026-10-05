@@ -32,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class Header:
-    __slots__ = ("_packet", "_start", "__dict__")
+    __slots__ = ("_packet", "_start")
 
     def __init__(self, packet: Packet, start: int = 0) -> None:
         self._packet = packet
@@ -50,9 +50,10 @@ class Header:
         if len(val) == len(self.raw):
             self.raw[:] = val
         else:
-            self._packet.raw = memoryview(bytearray(self._packet.raw[: self._start].tobytes() + val))
+            self._packet.raw = memoryview(bytearray(self._packet.raw[: self._start].tobytes() + bytes(val)))
             if self._packet.ip:
                 self._packet.ip.packet_len = len(self._packet.raw)
+        self._packet._invalidate_checksums()
 
 
 class RawProtocol:
@@ -82,7 +83,7 @@ class PayloadMixin(RawProtocol):
         if len(val) == len(self.raw) - self.header_len:
             self.raw[self.header_len :] = val
         else:
-            self.raw = self.raw[: self.header_len].tobytes() + val
+            self.raw = self.raw[: self.header_len].tobytes() + bytes(val)
 
 
 class PortMixin(RawProtocol):

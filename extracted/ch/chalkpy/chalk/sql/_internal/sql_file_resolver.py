@@ -22,6 +22,7 @@ from typing import (
     Optional,
     ParamSpec,
     Sequence,
+    Tuple,
     Type,
     TypeAlias,
     TypeVar,
@@ -58,7 +59,7 @@ from chalk.streams import KafkaSource, get_resolver_error_builder
 from chalk.streams.base import StreamSource
 from chalk.streams.types import StreamResolverSignature
 from chalk.utils import MachineType, notebook
-from chalk.utils.collections import get_unique_item, get_unique_item_if_exists
+from chalk.utils.collections import FrozenOrderedSet, OrderedSet, get_unique_item, get_unique_item_if_exists
 from chalk.utils.duration import CronTab, Duration, parse_chalk_duration, parse_chalk_duration_s, timedelta_to_duration
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.missing_dependency import missing_dependency_exception
@@ -72,7 +73,7 @@ FeatureReference: TypeAlias = Union[str, Any]
 if TYPE_CHECKING:
     import sqlglot.expressions
     from pydantic import BaseModel, ValidationError
-    from sqlglot.lineage import Node
+    from sqlglot.optimizer.scope import Scope
 
     from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
 
@@ -955,122 +956,193 @@ def _get_sql_string(path: str) -> SQLStringResult:
 
 
 # {table_name: {output_column: [input_columns]}}
-_DataLineageGraphIntermediate = Dict[str, Dict[str, set[str]]]
 DataLineageResult = Dict[str, Dict[str, List[str]]]
 
 
-def _merge_lineage(target: _DataLineageGraphIntermediate, source: _DataLineageGraphIntermediate):
-    for table, columns in source.items():
-        if table not in target:
-            target[table] = {}
-        for output_col, input_cols in columns.items():
-            if output_col not in target[table]:
-                target[table][output_col] = set()
-            target[table][output_col].update(input_cols)
-
-
-def _recurse_build_lineage(node: Node, toplevelcolumn: str) -> _DataLineageGraphIntermediate:
-    # no need for try catch because _get_data_lineage handles it
+def _first_from_table(query: sqlglot.expressions.Expression) -> sqlglot.expressions.Table | None:
+    """The table unresolved columns and bare aggregates are attributed to: the first table in the FROM."""
     from sqlglot import exp
 
-    # no more downstream means we have hit a leaf node
-    if not node.downstream:
-        # hit a table
-        if isinstance(node.expression, exp.Table):
-            input_col: str
-            # if name is * or star we just use the toplevel column name
-            if node.name in ("*", "", None):
-                input_col = toplevelcolumn
-            else:
-                # split to get ride of table name in front
-                input_col = node.name.rsplit(".", 1)[-1]
-            return {node.expression.this.name: {toplevelcolumn: {input_col}}}
-        # hit an aggregation function that has no actual input like count(*)
-        elif isinstance(node.expression.this, exp.AggFunc):
-            # verify we are not using NONE
-            from_clause = node.source.find(exp.From)
-            if from_clause is None:
-                return {}
-            table = from_clause.find(exp.Table)
-            if table is None:
-                return {}
-            return {table.this.name: {toplevelcolumn: {node.expression.this.sql(dialect="")}}}
+    from_clause = query.args.get("from") if isinstance(query, exp.Select) else None
+    if from_clause is None:
+        from_clause = query.find(exp.From)
+    if from_clause is None:
+        return None
+    return from_clause.find(exp.Table)
+
+
+class _LineageWalker:
+    """Traces projections of a qualified query to the source table columns they read.
+
+    Mirrors ``sqlglot.lineage.lineage`` but walks one scope tree for every output column instead of
+    re-qualifying and copying the query per column, and memoizes each (scope, column) result so a CTE
+    referenced from many places is traced once. Without the memo, each level of a CTE that reads the
+    previous level twice (self-join, UNION ALL, diamond) doubles the work.
+    """
+
+    # Leaf marker for a plain ``*`` passthrough: reported under the top-level output column's name.
+    STAR = "\0*"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._memo: Dict[Tuple[int, Union[str, int]], FrozenOrderedSet[Tuple[str, str]]] = {}
+        self._active: set[Tuple[int, Union[str, int]]] = set()
+
+    def column(self, column: Union[str, int], scope: Scope) -> FrozenOrderedSet[Tuple[str, str]]:
+        """Returns the (table, input column) pairs that ``column`` (a name or projection index) reads."""
+        key = (id(scope), column)
+        cached = self._memo.get(key)
+        if cached is not None:
+            return cached
+        if key in self._active:
+            # Recursive CTE: its recursive branch reads itself; the anchor branch carries the lineage.
+            return FrozenOrderedSet()
+        self._active.add(key)
+        try:
+            result = FrozenOrderedSet(self._trace(column, scope))
+        finally:
+            self._active.discard(key)
+        self._memo[key] = result
+        return result
+
+    def _trace(self, column: Union[str, int], scope: Scope) -> OrderedSet[Tuple[str, str]]:
+        from sqlglot import exp
+        from sqlglot.optimizer.scope import Scope, find_all_in_scope
+
+        query = scope.expression
+        if isinstance(query, exp.Lateral) and isinstance(query.this, exp.Subquery):
+            # LATERAL (SELECT ...): projections live in the inner query's scope, and correlated
+            # references in its WHERE are filters rather than sources.
+            inner = next(
+                (s for s in scope.sources.values() if isinstance(s, Scope) and s.expression is query.this.this), None
+            )
+            if inner is not None:
+                return OrderedSet(self.column(column, inner))
+
+        if isinstance(column, int):
+            select = query.selects[column]
         else:
-            # other cases like literals
-            # they don't come from a table so we just return empty
-            # note other cases like functions/generated columns might be here?
-            return {}
+            select = next(
+                (s for s in query.selects if s.alias_or_name == column),
+                exp.Star() if query.is_star else query,
+            )
 
-    target_lineage: _DataLineageGraphIntermediate = {}
-    # there are sources to parse through
-    for dnode in node.downstream:
-        # if statement for case where we have unresolved column (column where we don't know which table it came from)
-        # just assign to the first table in the from clause
-        if isinstance(dnode.expression, exp.Placeholder) and not dnode.downstream:
-            from_table = node.source.find(exp.From)
-            if from_table:
-                # Also check that can do .find
-                table = from_table.find(exp.Table)
-                if table is None:
-                    continue
-                table_name = table.this.name
-                # also getting rid of table name from field
-                input_col = dnode.name.rsplit(".", 1)[-1]
-                _merge_lineage(target_lineage, {table_name: {toplevelcolumn: {input_col}}})
-        # if there is a real source we recursively go find it
-        else:
-            sub_lineage: _DataLineageGraphIntermediate = _recurse_build_lineage(dnode, toplevelcolumn)
-            _merge_lineage(target_lineage, sub_lineage)
+        if isinstance(query, exp.Union):
+            # Set operation branches line up by position, not by name.
+            index = (
+                column
+                if isinstance(column, int)
+                else next((i for i, s in enumerate(query.selects) if s.alias_or_name == column or s.is_star), -1)
+            )
+            if index == -1:
+                raise ValueError(f"Could not find {column} in {query}")
+            leaves: OrderedSet[Tuple[str, str]] = OrderedSet()
+            for union_scope in scope.union_scopes:
+                leaves.update(self.column(index, union_scope))
+            return leaves
 
-    # lineage is {tablenames: {output features: [input features]}}
-    return target_lineage
+        leaves = OrderedSet()
+        has_inputs = False
+
+        subquery_scopes = {id(s.expression): s for s in scope.subquery_scopes}
+        for subquery in find_all_in_scope(select, exp.Subqueryable):
+            subquery_scope = subquery_scopes.get(id(subquery))
+            if subquery_scope is None:
+                continue
+            for name in subquery.named_selects:
+                has_inputs = True
+                leaves.update(self.column(name, subquery_scope))
+
+        excluded: set[int] = set()
+        if select.is_star:
+            star = select if isinstance(select, exp.Star) else select.this
+            star_table = select.table if isinstance(select, exp.Column) else ""
+            # * EXCEPT/EXCLUDE (...) lists the columns that are dropped, not read.
+            if isinstance(star, exp.Star):
+                for dropped in star.args.get("except") or []:
+                    excluded.update(id(c) for c in dropped.find_all(exp.Column))
+            for source_name, source in scope.sources.items():
+                if star_table and source_name != star_table:
+                    continue  # t.* only reads from t
+                has_inputs = True
+                if isinstance(source, exp.Table):
+                    leaves.add((source.this.name, self.STAR if isinstance(select, exp.Star) else "*"))
+
+        source_columns = OrderedSet(c for c in find_all_in_scope(select, exp.Column) if id(c) not in excluded)
+        if isinstance(query, exp.UDTF):
+            # Columns used to generate a table function's rows (e.g. UNNEST(t.items)) feed its outputs.
+            source_columns.update(query.find_all(exp.Column))
+
+        for c in source_columns:
+            has_inputs = True
+            source = scope.sources.get(c.table)
+            if isinstance(source, Scope):
+                leaves.update(self.column(c.name, source))
+                continue
+            # Without a schema, a column whose table can't be resolved is assigned to the first FROM table.
+            table = source if isinstance(source, exp.Table) else _first_from_table(query)
+            if table is not None:
+                leaves.add((table.this.name, c.sql(comments=False).rsplit(".", 1)[-1]))
+
+        # An aggregate with no column inputs, like COUNT(*), is recorded against the FROM table.
+        if not has_inputs and isinstance(select.this, exp.AggFunc):
+            table = _first_from_table(query)
+            if table is not None:
+                leaves.add((table.this.name, select.this.sql(dialect="", comments=False)))
+        return leaves
 
 
-def _get_data_lineage(sql: str) -> DataLineageResult:
-    """Build lineage from a fully qualified query, preserving aliases and positional references."""
+def _get_data_lineage(sql: str, dialect: str | None = None) -> DataLineageResult:
+    """Map each named output column to the source table columns it reads: {table: {output: [inputs]}}.
+
+    ``dialect`` is the sqlglot dialect the resolver's source is written in. Only parsing uses it; names are
+    normalized to lowercase like the dialect-less path so lineage keys don't depend on the source.
+    """
     try:
         import sqlglot
         from sqlglot import exp
-        from sqlglot.lineage import lineage
         from sqlglot.optimizer.qualify import qualify
+        from sqlglot.optimizer.scope import build_scope
     except ImportError:
         raise missing_dependency_exception("chalkpy[runtime]")
 
     try:
-        # Parse the SQL into an abstract syntax tree (AST)
-        ast = sqlglot.parse_one(sql)
-        lineage_ast = qualify(sqlglot.parse_one(sql.lower()), validate_qualify_columns=False, identify=False)
-
-        # get all top level columns from select statement
-        select = ast.find(exp.Select)
-        if select is None:
+        # The original parse keeps output names as written; the lowercased one is what gets traced.
+        ast = sqlglot.parse_one(sql, read=dialect)
+        outputs = ast.selects if isinstance(ast, (exp.Select, exp.Union)) else []
+        if not outputs:
+            return {}
+        qualified = qualify(
+            sqlglot.parse_one(sql.lower(), read=dialect), validate_qualify_columns=False, identify=False
+        )
+        scope = build_scope(qualified)
+        if scope is None:
             return {}
 
-        result_lineage: _DataLineageGraphIntermediate = {}
+        projections = scope.expression.selects
+        if len(projections) == len(outputs):
+            # Match outputs by position: qualify renames unaliased expressions (`a + b` becomes `_col_0`), and
+            # duplicate aliases each need their own projection. An unaliased `COUNT(*)` is named "*" but has
+            # no output name to attach lineage to, so it is skipped like `a + b`.
+            names = [o.alias_or_name if o.alias_or_name != "*" or o.is_star else "" for o in outputs]
+        else:
+            # qualify expanded a `*` over a CTE or subquery with known columns into one projection per column.
+            spelled = {o.alias_or_name.lower(): o.alias_or_name for o in outputs}
+            names = [
+                spelled.get(p.alias_or_name, "" if p.alias_or_name.startswith("_col_") else p.alias_or_name)
+                for p in projections
+            ]
 
-        # Qualify the full query first so aliases and positional references are resolved.
-        # Then narrow SELECT roots before copying: lineage() still normalizes, builds
-        # scopes, and copies its input even with qualify_columns=False. Set operations
-        # keep every projection because their branches match columns by position.
-        lineage_projections = list(lineage_ast.expressions) if isinstance(lineage_ast, exp.Select) else []
-        projections_by_name: dict[str, exp.Expression] = {}
-        for projection in lineage_projections:
-            projections_by_name.setdefault(projection.alias_or_name, projection)
+        walker = _LineageWalker()
+        result: Dict[str, Dict[str, OrderedSet[str]]] = {}
+        for index, name in enumerate(names):
+            if not name:
+                continue
+            for table, input_col in walker.column(index, scope):
+                inputs = result.setdefault(table, {}).setdefault(name, OrderedSet())
+                inputs.add(name if input_col == _LineageWalker.STAR else input_col)
 
-        # loop through each top level column
-        for expr in select.expressions:
-            column_name = expr.alias_or_name.lower()
-            if isinstance(lineage_ast, exp.Select):
-                projection = projections_by_name.get(column_name)
-                lineage_ast.set("expressions", [projection] if projection is not None else lineage_projections)
-            node = lineage(column_name, lineage_ast.copy(), qualify_columns=False)
-            # recursively go get each
-            sub_lineage: _DataLineageGraphIntermediate = _recurse_build_lineage(node, expr.alias_or_name)
-            _merge_lineage(result_lineage, sub_lineage)
-
-        return {
-            table: {col: list(inputs) for col, inputs in columns.items()} for table, columns in result_lineage.items()
-        }
+        return {table: {col: list(inputs) for col, inputs in columns.items()} for table, columns in result.items()}
 
     except Exception:
         return {}
@@ -1688,10 +1760,16 @@ def _parse_glot(
         )
         errors.append(ResolverError(display=message, path=path, parameter=namespace))
 
-    stripped_sql = _remove_comments(glot_result.sql_string)
     lineage: DataLineageResult | None = None
     if env_var_bool("CHALK_SQL_RESOLVER_PARSE_LINEAGE", True):
-        lineage = _get_data_lineage(stripped_sql)
+        # sqlglot tokenizes comments itself; pre-stripping them corrupts `//` inside literals and comments.
+        if source is None:
+            lineage_dialect = CHALK_SQL_SQLGLOT_DIALECT
+        elif isinstance(source, StreamSource):
+            lineage_dialect = None
+        else:
+            lineage_dialect = source.get_sqlglot_dialect()
+        lineage = _get_data_lineage(glot_result.sql_string, dialect=lineage_dialect)
     # FIXME: @melrchen: need to make a name for unnamed datasources
     source_name = glot_result.source.name or "" if glot_result.source is not None else ""
     namespaced_lineage = (

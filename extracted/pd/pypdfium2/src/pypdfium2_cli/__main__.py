@@ -8,8 +8,12 @@ import sys
 import argparse
 from os.path import basename
 from importlib import import_module
-from pypdfium2_cfg.stl import cached_property, keydefaultdict
 from pypdfium2_cli._setup import setup_logging
+from pypdfium2_cfg.stl import (
+    cached_property,
+    keydefaultdict,
+    ArgparseCompatParser,
+)
 
 ModuleLoader = keydefaultdict(import_module)
 
@@ -40,7 +44,7 @@ SubCommands = {
 
 def get_parser(argv):
     
-    main_parser = argparse.ArgumentParser(
+    main_parser = ArgparseCompatParser(
         prog = "pypdfium2",
         formatter_class = argparse.RawTextHelpFormatter,
         description = """\
@@ -54,8 +58,9 @@ There are no API stability promises; backward incompatible changes may be made.
 Environment variables:
 - PYPDFIUM_LOGLEVEL {debug,info,warning,error,critical} = debug
   Controls the logging level.
-- DEBUG_AUTOCLOSE {debug,warning,critical} = warning
-  How much info to print about (auto-)closing of PDFium objects.
+- DEBUG_AUTOCLOSE {-1,0,1} = 0
+  Whether to print info about (auto-)closing of PDFium objects.
+  Defaults to 0, which means warnings only. 1 enables debugging. -1 silences even warnings.
 - DEBUG_UNSUPPORTED {0,1} = 1
   Whether to enable or disable the unsupported feature handler.
 - DEBUG_SYSFONTS {0,1} = 0

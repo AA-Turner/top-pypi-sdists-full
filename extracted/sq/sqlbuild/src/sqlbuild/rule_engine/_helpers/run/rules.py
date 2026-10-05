@@ -60,6 +60,7 @@ from sqlbuild.rule_engine._helpers.engine.native import (
 )
 from sqlbuild.rule_engine._helpers.run.findings import group_unevaluated_findings
 from sqlbuild.rule_engine._helpers.run.literal_duplicates import with_duplicate_literal_hints
+from sqlbuild.rule_engine._helpers.run.memory import release_freed_memory
 from sqlbuild.rule_engine.constants import TYPE_PROOF_RULE_CODES
 from sqlbuild.rule_engine.exceptions import RulesError
 from sqlbuild.rule_engine.main.load_config import load_rules_config
@@ -106,6 +107,7 @@ def evaluate_rules(
     no_sql_analysis: bool = False,
 ) -> RulesRunResult:
     """Evaluate independent rule phases concurrently, then finalize their combined findings."""
+    release_freed_memory()
     effective_config: RulesConfig = resolve_rule_ignore_selectors(
         config=config, project=graph.project
     )
@@ -178,6 +180,7 @@ def evaluate_rules(
             codes=_sql_rule_codes(native_rules),
             thresholds=effective_config.thresholds,
             relation_keys=compiled_relation_keys(graph.project),
+            allow_suppressions=effective_config.allow_exceptions,
         )
         sql_rule_inputs: _SqlRuleInputs = _prepare_sql_rule_inputs(
             rules=native_rules,
@@ -185,6 +188,7 @@ def evaluate_rules(
             dialect=_lint_identity(lint_config),
             project_dir=resolved_project_dir,
             collect_files=prepared_sql is None and model_paths is None,
+            discovered_inputs=discovered_inputs,
         )
         sql_started: float = time.monotonic()
         sql_result: _SqlRulesEvaluation = _run_sql_rules(
@@ -239,6 +243,7 @@ def _prepare_sql_rule_inputs(
     dialect: str,
     project_dir: Path,
     collect_files: bool,
+    discovered_inputs: DiscoveredProjectInputs,
 ) -> _SqlRuleInputs:
     """Hash SQL and read the project files on the caller while built-in rules evaluate natively."""
 
@@ -248,7 +253,9 @@ def _prepare_sql_rule_inputs(
     return _SqlRuleInputs(
         identities=identities,
         project_files=(
-            collect_project_files(project_dir=project_dir, selected_paths=None)
+            collect_project_files(
+                project_dir=project_dir, selected_paths=None, discovered_inputs=discovered_inputs
+            )
             if identities and collect_files
             else None
         ),
@@ -294,6 +301,7 @@ def prepare_sql_rules(
                 dialect=dialect,
                 codes=codes,
                 thresholds=config.thresholds,
+                allow_suppressions=config.allow_exceptions,
                 relation_keys=declared_relation_keys(
                     relations=(
                         *(
@@ -529,7 +537,11 @@ def _run_sql_rules(
             project_files = (
                 prepared_inputs.project_files
                 if prepared_inputs is not None and prepared_inputs.project_files is not None
-                else collect_project_files(project_dir=project_dir, selected_paths=None)
+                else collect_project_files(
+                    project_dir=project_dir,
+                    selected_paths=None,
+                    discovered_inputs=discovered_inputs,
+                )
             )
         file_path: Path
         contents: str
@@ -671,6 +683,7 @@ def sql_lint_config(
     codes: tuple[str, ...],
     thresholds: dict[str, int],
     relation_keys: RelationKeys,
+    allow_suppressions: bool,
 ) -> LintConfig:
     """Build the native SQL lint configuration that SQL Rules run with."""
 
@@ -683,6 +696,7 @@ def sql_lint_config(
             MAX_RANKING_ORDER_BY_THRESHOLD, DEFAULT_MAX_RANKING_ORDER_BY
         ),
         relation_keys=relation_keys,
+        allow_suppressions=allow_suppressions,
     )
 
 
@@ -695,6 +709,7 @@ def _lint_identity(config: LintConfig) -> str:
             config.max_literal_length,
             config.max_ranking_order_by,
             sorted(config.relation_keys.items()),
+            config.allow_suppressions,
         ],
         separators=(",", ":"),
     )
@@ -725,7 +740,7 @@ def _sql_model_rule_identities(
 
 
 def _sql_rule_identity(*, model: CompiledModel, codes: tuple[str, ...], dialect: str) -> str:
-    digest: Any = hashlib.sha256()
+    digest: Any = hashlib.blake2b(digest_size=32)
     digest.update(_SQL_RULE_CACHE_VERSION.encode())
     digest.update(_RULES_BUILD_IDENTITY.encode())
     digest.update(dialect.encode())
@@ -761,7 +776,7 @@ def _sql_file_rule_identity(
         or file_path in sql_expansions
     ):
         return None
-    digest: Any = hashlib.sha256()
+    digest: Any = hashlib.blake2b(digest_size=32)
     for value in (
         _SQL_RULE_CACHE_VERSION,
         "file",

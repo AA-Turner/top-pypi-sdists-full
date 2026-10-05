@@ -25,8 +25,8 @@ THE STEPS (named receipts, §3.3 steps 3-10; steps 1-2 are the request path):
     install   ``uv tool install [--force] --refresh local-operator==<tag>`` | ``lop-update <tag>``
     join      identity + ``lop network join @<token> --automated``
     anchor    ``lop operator anchor export`` → node → ``install --from`` (F4b)
-    grants    ``lop network member grant <net> <mac> approve unattended``
     relay     install/start the relay service; linger check (OQ11)
+    grants    ``lop network member grant <net> <mac> approve unattended``
     verify    ``doctor``/``ready``/``peers`` → the record folds to ``connected``
 
 CREDENTIAL HANDLING (§3.2). The record stores a REFERENCE, never material. The
@@ -59,7 +59,7 @@ import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Protocol, Sequence
+from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from local_operator.network import onboard_approvals as approvals_adapter
 from local_operator.network.types import MeshRefusal
@@ -71,14 +71,25 @@ from local_operator.network.types import MeshRefusal
 #: Step names, in order. These ARE the interface (§6 row (b): "runner step
 #: names" are frozen): the record's receipts and the run payload both carry
 #: them, and the drill's matrix asserts them.
+#:
+#: ``relay`` PRECEDES ``grants`` ON PURPOSE (F7b). ``step_relay``'s restart is
+#: what rolls a relay that is already running onto the build the ``install``
+#: step landed, and the ``grants`` write is the node's own relay to execute
+#: whenever one answers — ``_apply_capability_change`` prefers the relay and
+#: only a MISSING answer falls back in-process. A relay still on the previous
+#: build answers with a refusal that does not fall back, so with ``grants``
+#: first a gate shipped in the same release could never be in effect in the
+#: pre-run process: the write settled as ``applied:false, reason:not_admin``
+#: and nothing re-attempted it after the relay moved. Pinned by
+#: ``test_the_relay_step_runs_before_the_grants_step``.
 STEP_NAMES: tuple[str, ...] = (
     "invite",
     "pre_read",
     "install",
     "join",
     "anchor",
-    "grants",
     "relay",
+    "grants",
     "verify",
 )
 
@@ -764,6 +775,25 @@ def _json_from(text: str) -> dict[str, Any] | None:
     return loaded if isinstance(loaded, dict) else None
 
 
+def _verify_failure_names(rows: Sequence[Mapping[str, Any]]) -> list[str]:
+    """The named checks a failed onboarding fold reads as.
+
+    A capability row is named by its ``capability`` — the F8 fix: this list used
+    to print the generic kind, "readiness", for every capability row — and a
+    reachability row by its endpoint, because a pair can have several.
+    """
+    names: list[str] = []
+    for row in rows:
+        kind = str(row.get("check") or "")
+        if kind == "readiness":
+            names.append(str(row.get("capability") or kind))
+        elif kind == "reachability" and row.get("endpoint"):
+            names.append(f"reachability {row['endpoint']}")
+        else:
+            names.append(kind or "?")
+    return names
+
+
 def _invite_network_label(
     token_path: Any, *, network_id: str = "", network_name: str = ""
 ) -> tuple[str, str] | None:
@@ -1372,7 +1402,7 @@ class OnboardRun:
             # §3.4 names `lop-update` for an existing build; a node with a build
             # but no updater script still has uv, and a pinned reinstall is the
             # remaining documented spelling. The running relay picks the new
-            # build up at step 9's restart. `--refresh` as at the fresh-install
+            # build up at step 8's restart. `--refresh` as at the fresh-install
             # branch: a cached index can hide the release this run is for.
             command = f"uv tool install --force --refresh local-operator=={shlex.quote(tag)}"
             method = "uv-tool-reinstall"
@@ -1789,16 +1819,22 @@ class OnboardRun:
         (a)), and HERE, before planting — are the design, not decoration: the
         runner re-derives ``{key_id, spki_fp, statement_digest}`` from the local
         store, refuses on any difference from the record, and ships the exact
-        bytes whose digest it checked.
+        bytes whose digest it checked. The source is ONE function
+        (``trust.load_local_anchor``: the installed, usable anchor; else the
+        staged statement) and the values come from ONE builder
+        (``trust.anchor_trio``), so "the local store" cannot mean two different
+        files — or two different truncations — on the two sides of the
+        handshake (F5).
         """
-        from local_operator.operator import anchor_bytes, load_anchor
-        from local_operator.operator.trust import load_staged_anchor, statement_digest
-        from local_operator.operator.verify import key_id_for, spki_fp
+        from local_operator.operator import anchor_bytes
+        from local_operator.operator.trust import (
+            TRIO_LABELS,
+            anchor_trio,
+            load_local_anchor,
+        )
         from local_operator.paths import config_dir
 
-        anchor = load_staged_anchor(config_dir())
-        if anchor is None:
-            anchor = load_anchor().anchor
+        anchor = load_local_anchor(config_dir())
         if anchor is None:
             return _StepOutcome(
                 False,
@@ -1806,11 +1842,7 @@ class OnboardRun:
                 "anchor to install on the machine being onboarded",
             )
         payload = anchor_bytes(anchor)
-        trio = {
-            "key_id": key_id_for(anchor.spki),
-            "spki_fp": spki_fp(anchor.spki),
-            "statement_digest": statement_digest(anchor),
-        }
+        trio = anchor_trio(anchor)
         want = self.view.what.get("anchor") or {}
         mismatched = [
             field_name
@@ -1818,11 +1850,30 @@ class OnboardRun:
             if str(want.get(field_name) or "") != trio[field_name]
         ]
         if mismatched:
+            # The human clause says "key fingerprint" where ``data.mismatch``
+            # keeps ``spki_fp`` (F5 review, D3): the ledger token is for
+            # machines, the label is the one ``anchor export`` prints.
+            labels = ", ".join(TRIO_LABELS.get(field_name, field_name) for field_name in mismatched)
             return _StepOutcome(
                 False,
                 "the anchor this machine holds does not match the one the request "
-                f"approved ({', '.join(mismatched)}); nothing was planted",
-                {"mismatch": mismatched},
+                f"approved ({labels}); nothing was planted",
+                {
+                    "mismatch": mismatched,
+                    # BOTH ends beside the field names (F5): a report that names
+                    # only the fields costs the next reader the two values it
+                    # exists to show. The values are the RUN's evidence — this
+                    # step's payload (``approvals run --json``) carries them; the
+                    # record keeps the frozen six fields (see
+                    # ``onboard_approvals.append_receipt``), so they do not reach
+                    # the card or a human line (F5 review, D4). Public
+                    # fingerprints only; never key material.
+                    "held": {key: trio[key] for key in ("key_id", "spki_fp", "statement_digest")},
+                    "approved": {
+                        key: str(want.get(key) or "")
+                        for key in ("key_id", "spki_fp", "statement_digest")
+                    },
+                },
             )
         staging = Path(tempfile.mkdtemp(prefix="lop-onboard-anchor-"))
         try:
@@ -1858,7 +1909,10 @@ class OnboardRun:
                     )
                 return _StepOutcome(
                     True,
-                    f"operator anchor {trio['key_id']} installed and trusted",
+                    # The fingerprint is the value export tells the operator to
+                    # compare, so the success line carries it too (F5 review, D5).
+                    f"operator anchor {trio['key_id']} installed and trusted "
+                    f"(fingerprint {trio['spki_fp']})",
                     {
                         "key_id": trio["key_id"],
                         "spki_fp": trio["spki_fp"],
@@ -1909,12 +1963,16 @@ class OnboardRun:
         )
 
     def step_grants(self) -> _StepOutcome:
-        """§3.3 step 8: what the node lets THIS device do, granted per scope.
+        """§3.3 step 9: what the node lets THIS device do, granted per scope.
 
         Each device decides what a peer may do on IT, so both the ``approve``
         scope ("answer approval prompts for sessions here") and the
         ``unattended`` scope ("start sessions here without approval prompts")
-        are grants the NODE holds about the operator's device id.
+        are grants the NODE holds about the operator's device id. Runs AFTER
+        :meth:`step_relay` (F7b): when a relay answers on the node, the relay
+        executes this write from its own loaded build, so a write attempted
+        before the relay moved would meet the pre-run build's gate — and that
+        refusal settles where it lands rather than falling back.
         """
         caps = [str(cap) for cap in (self.view.what.get("grant") or []) if cap]
         if bool(self.view.what.get("unattended")):
@@ -1951,6 +2009,36 @@ class OnboardRun:
         )
         result = self._remote_lop(command, timeout=self._step_timeout("grants"))
         payload = _json_from(result.stdout or "")
+        if isinstance(payload, dict) and payload.get("code") == "not_admin":
+            # A CORRECT REFUSAL IS NOT AN EXECUTION FAILURE (F7 slice 1). The node
+            # keeps this change to an admin device, so nothing was applied and
+            # nothing will be until the deciding device's own build can record it —
+            # folding that to `failed`/`next: grants` made the drill chase a retry
+            # that cannot succeed and a remedy no wire op can deliver. The
+            # satisfied shape (the #1967 join precedent) states only what is true:
+            # not applied, why, and that the scopes are not in effect; it claims no
+            # grant and promises no remedy.
+            where = str(self.view.device.get("name") or "").strip() or "that machine"
+            reason = " ".join(str(payload.get("message") or "").split())
+            if not reason:
+                reason = "only an admin device can change what a peer may do"
+            return _StepOutcome(
+                True,
+                # Review round 1 (D2/D3/N1): lead with the SETTLED fact (the #1967
+                # join shape) and mark the node's reason as its own words — "this
+                # device" inside it belongs to the node speaking, while the reader
+                # sits on another machine.
+                f"{where} granted nothing and this step is settled — nothing was "
+                f'applied: {where} answers "{reason}" — the requested scopes are '
+                "not in effect there",
+                {
+                    "device_id": mac.device_id,
+                    "network": network_name,
+                    "capabilities": caps,
+                    "applied": False,
+                    "reason": str(payload.get("code") or "not_admin"),
+                },
+            )
         if result.rc != 0 or not payload or not payload.get("ok"):
             tail = (result.stderr or result.stdout or "").strip().splitlines()
             return _StepOutcome(
@@ -1978,14 +2066,18 @@ class OnboardRun:
         )
 
     def step_relay(self) -> _StepOutcome:
-        """§3.3 step 9 (+ OQ11): supervision via the service arm; linger caveat.
+        """§3.3 step 8 (+ OQ11): supervision via the service arm; linger caveat.
 
         ``lop network restart`` is the one job: after the build step it also
         moves a running relay onto the new build, and on Linux it installs the
         systemd ``--user`` unit when the host has none (both arms live in
-        ``network/relay.py``'s supervision block). Linger absence does NOT fail
-        the onboard — it is recorded, because OQ11's default is the caveat and
-        an onboarded device that drops its relay at logout is still onboarded.
+        ``network/relay.py``'s supervision block). It runs BEFORE
+        :meth:`step_grants` (F7b): with a relay answering on the node, the grant
+        write is the relay's own to execute, and a relay still on the previous
+        build refuses it without falling back — so the move must precede the
+        write and nothing later re-attempts it. Linger absence does NOT fail the
+        onboard — it is recorded, because OQ11's default is the caveat and an
+        onboarded device that drops its relay at logout is still onboarded.
         """
         restart = self._remote_lop(
             "lop network restart --json", timeout=self._step_timeout("relay")
@@ -2053,8 +2145,15 @@ class OnboardRun:
 
         The Mac-side ``lop network ready --peer <device>`` is the acceptance
         surface (its rows are what the operator sees); the node-side ``doctor``
-        and ``peers`` are recorded alongside. ``verify`` fails on a ready
-        payload that says it is not ok, and on a member row that never appeared.
+        and ``peers`` are recorded alongside.
+
+        THE FOLD IS THE ONBOARDING FOLD, NOT ``ready``'s OWN ``ok`` (F8 ruling,
+        2026-10-04): "the device is onboarded" and "every declared MCP server is
+        signed in" are different questions. A failed MCP row is REPORTED —
+        named in the receipt through ``readiness.equipment_note`` — but cannot
+        fail the flow; the sites that need an MCP login refuse at their own
+        point of use. A failing admission row (or a still-gating equipment row,
+        e.g. operator authority) fails the step, each named by its own key.
         """
         name = str(self.view.device.get("name") or "")
         device_id = ""
@@ -2065,7 +2164,10 @@ class OnboardRun:
         doctor = self._node_json("lop network doctor", timeout=self._step_timeout("verify"))
         peers = self._remote_lop("lop network peers --json", timeout=60.0)
         ready: dict[str, Any] | None = None
+        note = ""
         if name or device_id:
+            from local_operator.network import readiness as readiness_mod
+
             peer = name or device_id
             ready_result = self.run_local(
                 [*self.local_cli, "network", "ready", "--peer", peer, "--json"],
@@ -2080,27 +2182,44 @@ class OnboardRun:
                     + (tail[-1][:200] if tail else "no output"),
                     {"peer": peer},
                 )
-            if not ready.get("ok"):
-                failing = [
-                    str(row.get("check") or row.get("name") or "?")
-                    for row in (ready.get("rows") or ready.get("checks") or [])
-                    if not (row.get("ok") if isinstance(row, dict) else True)
-                ]
+            rows = ready.get("rows") or ready.get("checks") or []
+            failures = list(readiness_mod.onboarding_failures(rows))
+            # THE COMPOSER ALREADY PLACED AN IDENTITY ROW when it is missing
+            # (QA round 1, Q-1): inserting a second one made the receipt read
+            # "identity, identity". The insert stands only for a payload whose
+            # fold did not carry the row.
+            if not ready.get("identity_present", True) and not any(
+                str(row.get("check") or "") == "identity" for row in failures
+            ):
+                failures.insert(0, {"check": "identity", "ok": False})
+            failing = _verify_failure_names(failures)
+            if failing or (not rows and not ready.get("ok")):
                 return _StepOutcome(
                     False,
                     "the machine is not ready yet"
                     + (f" — these checks still fail: {', '.join(failing)}" if failing else ""),
                     {"peer": peer, "ready": {"ok": ready.get("ok")}},
                 )
+            note = readiness_mod.equipment_note(rows)
         else:
             return _StepOutcome(
                 False,
                 "the request names no device to verify against; the join step must "
                 "have recorded one",
             )
+        detail = "every readiness check passed" + (" for " + name if name else "")
+        if note:
+            # REPORTED, NOT HIDDEN (F8): the MCP logins ride the receipt even
+            # when they did not hold the step — the operator is told the login
+            # is a convenience, not a blocker.
+            detail = (
+                "every readiness check needed for onboarding passed"
+                + (" for " + name if name else "")
+                + f"; {note}"
+            )
         return _StepOutcome(
             True,
-            "every readiness check passed" + (" for " + name if name else ""),
+            detail,
             {
                 "peer": name or device_id,
                 "ready_ok": bool(ready and ready.get("ok")),
@@ -2136,10 +2255,12 @@ def _receipt(
 
     §2.2 freezes ``{run_id, step, at, ok, detail, digest}``; ``data`` rides
     beside them because the runner READS ITS OWN RECEIPTS BACK (the retry's
-    contradiction check, the verify step's device id) and because a receipt the
-    UI can open is worth more than a sentence it cannot. The ``digest`` binds
-    the data — sha256 of its canonical JSON — so a receipt cannot be re-worded
-    without the digest disagreeing, and slice (a)'s writer appends rows verbatim.
+    contradiction check, the verify step's device id) and because a run payload
+    that names its facts is worth more than a sentence that cannot. The
+    ``digest`` binds the data — sha256 of its canonical JSON — so a receipt
+    cannot be re-worded without the digest disagreeing; the record keeps the
+    frozen six fields only, and ``data`` stays on the run payload the CLI returns
+    (F5 review, D4; ``onboard_approvals.append_receipt`` states the fold).
     """
     digest = (
         "sha256:"

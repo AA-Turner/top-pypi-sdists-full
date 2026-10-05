@@ -6,8 +6,9 @@ import pytest
 import requests
 from _pytest.main import ExitCode
 from flask import jsonify
-from hypothesis import HealthCheck, Phase, given, seed, settings
+from hypothesis import HealthCheck, Phase, find, given, seed, settings
 from hypothesis import strategies as st
+from hypothesis.errors import NoSuchExample
 from jsonschema_rs import canonical
 
 import schemathesis
@@ -658,6 +659,39 @@ def test_optional_query_param_negation(ctx):
         assert urlparse(request.url).query != ""
 
     test()
+
+
+@pytest.mark.parametrize(
+    "parameter_schema",
+    [{"type": "boolean"}, {"type": "string", "enum": ["asc"]}, {"type": "string", "minLength": 1}],
+    ids=["boolean", "enum", "min-length"],
+)
+def test_allow_empty_value_is_not_generated_as_negative(ctx, parameter_schema):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "filter",
+                            "in": "query",
+                            "required": True,
+                            "allowEmptyValue": True,
+                            "schema": parameter_schema,
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+
+    with pytest.raises(NoSuchExample):
+        find(
+            schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE),
+            lambda case: case.query == {"filter": ""},
+            settings=settings(max_examples=100, deadline=None),
+        )
 
 
 @pytest.mark.hypothesis_nested
@@ -1669,6 +1703,37 @@ def test_unnegatable_path_falls_back_to_positive(ctx):
 def test_path_keywords_for_other_types_leave_nothing_to_negate(ctx, path_schema):
     # Keywords for other types never apply to a string value, so they leave nothing to negate.
     operation = _operation_with_parameters(ctx, [{**PLAIN_STRING_PARAMETER, "schema": path_schema}], version="3.1.0")
+    operation.schema.config.generation.update(modes=[GenerationMode.NEGATIVE])
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=1, database=None)
+    def test(case):
+        pass
+
+    with pytest.raises(SkipTest, match="Impossible to generate negative test cases"):
+        test()
+
+
+def test_untyped_path_object_is_negated_through_its_properties(ctx):
+    # Without a `type` the path value may be an object, so a property constraint is something to violate.
+    operation = _operation_with_parameters(
+        ctx, [{**PLAIN_STRING_PARAMETER, "schema": {"properties": {"x": {"minLength": 2}}}}]
+    )
+    modes = []
+
+    @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))
+    @settings(max_examples=10, suppress_health_check=list(HealthCheck), database=None)
+    def test(case):
+        modes.append(case.meta.components[ParameterLocation.PATH].mode)
+
+    test()
+    assert set(modes) == {GenerationMode.NEGATIVE}
+
+
+def test_untyped_path_object_with_min_length_one_property_has_nothing_to_negate(ctx):
+    operation = _operation_with_parameters(
+        ctx, [{**PLAIN_STRING_PARAMETER, "schema": {"properties": {"x": {"minLength": 1}}}}]
+    )
     operation.schema.config.generation.update(modes=[GenerationMode.NEGATIVE])
 
     @given(case=operation.as_strategy(generation_mode=GenerationMode.NEGATIVE))

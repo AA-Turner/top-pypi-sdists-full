@@ -53,10 +53,13 @@ from matrx_ai.schema.rules import (
 # gemini-2.5+ ``OFF`` is already the per-category default. We set it EXPLICITLY
 # so older / non-2.5 models (whose default is BLOCK_MEDIUM_AND_ABOVE) get the
 # same treatment — that mismatch is exactly what caused the silent research
-# failures. Only the four universally-adjustable categories are listed;
-# CIVIC_INTEGRITY is no longer filtered and the image/jailbreak categories are
-# model-specific opt-INs, so listing them risks a 400 on models that lack them.
-# Built-in core protections (e.g. child safety) are never adjustable and remain.
+# failures. OWNER RULE (Arman, 2026-10-04): every safety control goes out at the
+# provider's absolute minimum. Probed live 2026-10-04 on every available Gemini
+# text, native-image and Lyria offering: all SIX categories below accept OFF
+# (CIVIC_INTEGRITY and JAILBREAK included); the HARM_CATEGORY_IMAGE_* categories
+# answer 400 "Invalid value" on the Gemini API, so they are not sent. Guard:
+# scripts/check_minimum_safety.py. Built-in core protections (e.g. child safety)
+# are never adjustable and remain.
 _LOWEST_SAFETY_SETTINGS: list[types.SafetySetting] = [
     types.SafetySetting(
         category=types.HarmCategory.HARM_CATEGORY_HARASSMENT,
@@ -72,6 +75,14 @@ _LOWEST_SAFETY_SETTINGS: list[types.SafetySetting] = [
     ),
     types.SafetySetting(
         category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+        threshold=types.HarmBlockThreshold.OFF,
+    ),
+    types.SafetySetting(
+        category=types.HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY,
+        threshold=types.HarmBlockThreshold.OFF,
+    ),
+    types.SafetySetting(
+        category=types.HarmCategory.HARM_CATEGORY_JAILBREAK,
         threshold=types.HarmBlockThreshold.OFF,
     ),
 ]

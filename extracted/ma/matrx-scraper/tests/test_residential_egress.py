@@ -13,7 +13,7 @@ Two halves, both real:
   fake gateway and the local origin, so "one residential retry happened" is a
   fact about the wire, not about a mock's call count.
 
-Contract: `common-docs/systems/architecture/residential-egress/FEATURE.md`.
+Contract: `common-docs/systems/web/residential-egress/FEATURE.md`.
 """
 
 from __future__ import annotations

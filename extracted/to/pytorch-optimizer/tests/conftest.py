@@ -1,11 +1,9 @@
-from typing import Tuple
-
 import numpy as np
 import pytest
 import torch
 
-from pytorch_optimizer.optimizer import AdamW
-from tests.utils import Example, simple_parameter
+from tests.fixtures import make_parameter
+from tests.utils import build_optimizer
 
 
 @pytest.fixture(scope='session')
@@ -23,7 +21,7 @@ def pytest_addoption(parser):
 @pytest.fixture(scope='session')
 def environment(
     device: torch.device, num_samples: int = 100, dims: int = 2, seed: int = 42
-) -> Tuple[torch.Tensor, torch.Tensor]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     torch.manual_seed(42)
     rng = np.random.RandomState(seed)
 
@@ -39,13 +37,13 @@ def environment(
 
 
 @pytest.fixture
-def optimizer_factory():
-    return AdamW(Example().parameters())
+def scheduler_optimizer():
+    return build_optimizer('adamw', [make_parameter(grad=None)])
 
 
 @pytest.fixture
 def param_groups():
-    return [{'params': simple_parameter()}]
+    return [{'params': make_parameter()}]
 
 
 @pytest.fixture

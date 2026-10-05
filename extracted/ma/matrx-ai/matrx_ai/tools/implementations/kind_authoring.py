@@ -90,6 +90,13 @@ from matrx_ai.tools.implementations.kind_shared import (
     validate_kind_slug_format,
     writing_as_the_person,
 )
+from matrx_ai.tools.implementations.kind_skill_generation import (
+    RefreshDecision,
+    decide_refresh,
+    generated_metadata,
+    render_skill_body,
+    skill_description,
+)
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 
 logger = logging.getLogger(__name__)
@@ -1232,45 +1239,8 @@ async def kind_add_example(args: dict[str, Any], ctx: ToolContext) -> ToolResult
 
 
 def _default_skill_body(kd: Any, canonical_example: Any, extra_guidance: str | None) -> str:
-    """House-format render_block skill body (same shape as the shipped
-    kind_* skills, e.g. kind_mermaid_diagram): what it is, the shape with a
-    real example, field notes, and the JSON syntax rules."""
-    example_obj = {"__kind": kd.kind}
-    if isinstance(canonical_example, dict):
-        example_obj.update(canonical_example)
-    example_json = json.dumps(example_obj, indent=2, ensure_ascii=False)
-
-    schema = kd.emitted_json_schema if isinstance(kd.emitted_json_schema, dict) else {}
-    props = schema.get("properties") or {}
-    required = set(schema.get("required") or [])
-    field_rows = "\n".join(
-        f"| `{name}` | {spec.get('type', 'any') if isinstance(spec, dict) else 'any'} | "
-        f"{'yes' if name in required else 'no'} |"
-        for name, spec in props.items()
-    )
-    field_table = (
-        f"| Field | Type | Required |\n|---|---|---|\n| `__kind` | string | yes |\n{field_rows}\n"
-        if field_rows
-        else ""
-    )
-    guidance = f"\n## Additional guidance\n\n{extra_guidance}\n" if extra_guidance else ""
-    return (
-        f"# {kd.label} (structured __kind JSON)\n\n"
-        f"You can emit a **{kd.label}** as a single JSON object marked with\n"
-        f'`"__kind": "{kd.kind}"`. It renders through the platform kind registry as a\n'
-        f"live, custom component.\n\n"
-        f"## The shape\n\n```json\n{example_json}\n```\n\n"
-        f"{field_table}\n"
-        f"## Syntax rules\n\n"
-        f'1. `"__kind"` is always the literal `"{kd.kind}"` and must be the first key.\n'
-        f"2. Valid JSON only: double-quoted keys/strings, no trailing commas, no comments.\n"
-        f"3. Emit the COMPLETE object every time — when editing, return the full updated\n"
-        f"   object, never a fragment or a diff.\n"
-        f"4. One object per instance. Two ideas = two `{kd.kind}` objects with a sentence\n"
-        f"   between them.\n"
-        f"5. Match the schema exactly — include every required field; do not invent keys.\n"
-        f"{guidance}"
-    )
+    """House-format render_block skill body — see kind_skill_generation."""
+    return render_skill_body(kd, canonical_example, extra_guidance)
 
 
 async def _render_block_category_id() -> str | None:
@@ -1304,6 +1274,63 @@ async def _content_block_category_id() -> str | None:
         if (r.name or "").strip().lower() == "agent skills":
             return str(r.id)
     return str(live[0].id) if live else None
+
+
+async def create_generated_skill(
+    kd: Any,
+    canonical_data: Any,
+    *,
+    extra_guidance: str | None,
+    body_override: str | None,
+    created_by: str | None,
+    ctx: ToolContext | None,
+    system_job: bool = False,
+) -> tuple[Any, str]:
+    """Write the generated ``kind_<slug>`` skill for a shape. The ONE write path for
+    kind_create_skill, activation auto-create and the weekly refresh. Raises WriteRefused."""
+    body = body_override or render_skill_body(kd, canonical_data, extra_guidance)
+    description = skill_description(kd)
+    SklDefinition = get_db_model("SklDefinition")
+    async with writing_as_the_person(ctx, system_job=system_job):
+        created = await SklDefinition.create_item(
+            skill_id=f"kind_{kd.kind}",
+            label=f"{kd.label} (structured)",
+            description=description,
+            skill_type="render_block",
+            body=body,
+            icon_name="Shapes",
+            category_id=await _render_block_category_id(),
+            is_active=True,
+            is_system=False,
+            organization_id=str(kd.organization_id),
+            created_by=created_by,
+            metadata=generated_metadata(
+                kd,
+                body,
+                extra_guidance=extra_guidance,
+                body_override=bool(body_override),
+                description=description,
+            ),
+        )
+    return created, body
+
+
+async def refresh_generated_skill(
+    existing: Any, kd: Any, canonical_data: Any, ctx: ToolContext | None, *, system_job: bool = False
+) -> RefreshDecision:
+    """Apply the regeneration rule to one existing skill; writes only when it may."""
+    decision = decide_refresh(existing, kd, canonical_data)
+    if decision.action in ("regenerate", "stamp"):
+        await update_as_the_person(
+            get_db_model("SklDefinition"),
+            str(existing.id),
+            ctx,
+            system_job=system_job,
+            body=decision.body,
+            description=decision.description,
+            metadata=decision.metadata,
+        )
+    return decision
 
 
 async def kind_create_skill(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
@@ -1356,30 +1383,15 @@ async def kind_create_skill(args: dict[str, Any], ctx: ToolContext) -> ToolResul
                 "Edit the existing skill instead of creating a duplicate.",
             )
 
-        body = body_override or _default_skill_body(
-            kd, canonical.data if canonical else None, extra_guidance
-        )
-        # skill.definition is certified: written AS THE PERSON (RLS decides).
         try:
-            async with writing_as_the_person(ctx):
-                created = await SklDefinition.create_item(
-                    skill_id=skill_id,
-                    label=f"{kd.label} (structured)",
-                    description=(
-                        f"How and when to emit a {kd.kind} render block as canonical "
-                        f'{{"__kind": "{kd.kind}"}} JSON: the exact shape, required fields, '
-                        "and JSON syntax rules."
-                    ),
-                    skill_type="render_block",
-                    body=body,
-                    icon_name="Shapes",
-                    category_id=await _render_block_category_id(),
-                    is_active=True,
-                    is_system=False,
-                    organization_id=str(kd.organization_id),
-                    created_by=ctx_user_id(ctx),
-                    metadata={"kind_definition_id": str(kd.id), "created_via": "kind_create_skill"},
-                )
+            created, body = await create_generated_skill(
+                kd,
+                canonical.data if canonical else None,
+                extra_guidance=extra_guidance,
+                body_override=body_override,
+                created_by=ctx_user_id(ctx),
+                ctx=ctx,
+            )
         except WriteRefused as exc:
             return refused("the skill for kind", str(kd.id), exc)
         from matrx_ai.tools.kinds.kind_authoring import KindSkillResult

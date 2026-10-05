@@ -79,6 +79,18 @@ def make_source(root: Path, *, cli="0.72.0", plugin="0.17.0", tap="0.2.1") -> Pa
             ],
         },
     )
+    # Kimi Code reads `id` + a string `source`, resolved from the marketplace
+    # file's own folder, so its marketplace sits at the root.
+    _write_json(
+        agent / "kimi-marketplace.json",
+        {
+            "version": "1",
+            "plugins": [
+                {"id": name, "name": name, "source": f"./plugins/{name}"}
+                for name in ("probe-research", "probe-research-daemon", "probe-research-tap")
+            ],
+        },
+    )
     _write_json(
         agent / "client-version.json",
         {

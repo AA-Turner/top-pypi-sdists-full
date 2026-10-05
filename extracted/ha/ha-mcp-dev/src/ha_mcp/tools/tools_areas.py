@@ -22,10 +22,11 @@ from .area_messages import (
     build_area_update_message,
     build_floor_create_message,
     build_floor_update_message,
+    resolve_clearable,
     validate_cross_kind_params,
 )
 from .auto_backup import with_auto_backup
-from .coercion import JSON_STRING_COERCION, parse_string_list_param
+from .coercion import JSON_STRING_COERCION, UNSET, parse_string_list_param
 from .component_registries import fetch_registries_via_component
 from .config_helpers.registry import validate_registry_ids
 from .helpers import (
@@ -36,6 +37,7 @@ from .helpers import (
     validate_identifier_not_empty,
 )
 from .response_helpers import project_fields, project_records, result_fields_warning
+from .tool_hints import read_only_hints, write_hints
 
 logger = logging.getLogger(__name__)
 
@@ -134,12 +136,7 @@ class AreaTools:
     @tool(
         name="ha_list_floors_areas",
         tags={"Areas & Floors"},
-        annotations={
-            "openWorldHint": False,
-            "idempotentHint": True,
-            "readOnlyHint": True,
-            "title": "List Floors and Areas",
-        },
+        annotations=read_only_hints("List Floors and Areas", open_world=False),
     )
     @log_tool_usage
     async def ha_list_floors_areas(
@@ -590,11 +587,12 @@ class AreaTools:
     @tool(
         name="ha_set_area_or_floor",
         tags={"Areas & Floors"},
-        annotations={
-            "openWorldHint": False,
-            "destructiveHint": True,
-            "title": "Create or Update Area or Floor",
-        },
+        annotations=write_hints(
+            "Create or Update Area or Floor",
+            destructive=True,
+            idempotent=False,
+            open_world=False,
+        ),
     )
     @with_auto_backup(
         domain="area_or_floor",
@@ -631,10 +629,9 @@ class AreaTools:
         floor_id: Annotated[
             str | None,
             Field(
-                description="Floor assignment when kind='area' (use empty string to clear).",
-                default=None,
+                description="Floor assignment when kind='area' (null or empty string to clear; omit to leave unchanged).",
             ),
-        ] = None,
+        ] = Field(default_factory=lambda: UNSET),
         level: Annotated[
             int | None,
             Field(
@@ -645,10 +642,9 @@ class AreaTools:
         icon: Annotated[
             str | None,
             Field(
-                description="Material Design Icon (e.g., 'mdi:sofa', 'mdi:home-floor-1', empty string to remove)",
-                default=None,
+                description="Material Design Icon (e.g., 'mdi:sofa', 'mdi:home-floor-1'; null or empty string to remove; omit to leave unchanged)",
             ),
-        ] = None,
+        ] = Field(default_factory=lambda: UNSET),
         aliases: Annotated[
             str | list[str] | None,
             JSON_STRING_COERCION,
@@ -660,10 +656,9 @@ class AreaTools:
         picture: Annotated[
             str | None,
             Field(
-                description="Picture URL when kind='area' (empty string to remove).",
-                default=None,
+                description="Picture URL when kind='area' (null or empty string to remove; omit to leave unchanged).",
             ),
-        ] = None,
+        ] = Field(default_factory=lambda: UNSET),
         labels: Annotated[
             str | list[str] | None,
             JSON_STRING_COERCION,
@@ -681,23 +676,21 @@ class AreaTools:
             Field(
                 description=(
                     "Sensor the area reports temperature from, when kind='area' "
-                    "(a sensor.* entity with device_class temperature; empty "
-                    "string to clear). Omit to leave unchanged."
+                    "(a sensor.* entity with device_class temperature; null or "
+                    "empty string to clear). Omit to leave unchanged."
                 ),
-                default=None,
             ),
-        ] = None,
+        ] = Field(default_factory=lambda: UNSET),
         humidity_entity_id: Annotated[
             str | None,
             Field(
                 description=(
                     "Sensor the area reports humidity from, when kind='area' "
-                    "(a sensor.* entity with device_class humidity; empty "
-                    "string to clear). Omit to leave unchanged."
+                    "(a sensor.* entity with device_class humidity; null or "
+                    "empty string to clear). Omit to leave unchanged."
                 ),
-                default=None,
             ),
-        ] = None,
+        ] = Field(default_factory=lambda: UNSET),
     ) -> dict[str, Any]:
         """Create or update a Home Assistant area or floor.
 
@@ -710,7 +703,7 @@ class AreaTools:
         ha_set_area_or_floor(kind="area", name="Kitchen")
         ha_set_area_or_floor(kind="area", id="kitchen", floor_id="ground_floor")
         ha_set_area_or_floor(kind="area", id="kitchen", labels=["site_home"])
-        ha_set_area_or_floor(kind="area", id="kitchen", temperature_entity_id="sensor.kitchen_temp", humidity_entity_id="")
+        ha_set_area_or_floor(kind="area", id="kitchen", temperature_entity_id="sensor.kitchen_temp", humidity_entity_id=None)
         ha_set_area_or_floor(kind="floor", name="Basement", level=-1)
         ha_set_area_or_floor(kind="floor", id="ground_floor", level=0)
         """
@@ -735,6 +728,14 @@ class AreaTools:
                         f"Invalid labels parameter: {e}",
                     )
                 )
+
+            # Explicit null clears (some MCP clients cannot send ""); omitted
+            # (UNSET) leaves the field alone. Builders keep their None/"" idiom.
+            floor_id = resolve_clearable(floor_id)
+            icon = resolve_clearable(icon)
+            picture = resolve_clearable(picture)
+            temperature_entity_id = resolve_clearable(temperature_entity_id)
+            humidity_entity_id = resolve_clearable(humidity_entity_id)
 
             validate_cross_kind_params(
                 kind,
@@ -853,12 +854,9 @@ class AreaTools:
     @tool(
         name="ha_remove_area_or_floor",
         tags={"Areas & Floors"},
-        annotations={
-            "openWorldHint": False,
-            "destructiveHint": True,
-            "idempotentHint": True,
-            "title": "Remove Area or Floor",
-        },
+        annotations=write_hints(
+            "Remove Area or Floor", destructive=True, idempotent=True, open_world=False
+        ),
     )
     @with_auto_backup(
         domain="area_or_floor",

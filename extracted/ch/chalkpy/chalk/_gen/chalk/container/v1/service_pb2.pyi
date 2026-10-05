@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.container.v1 import snapshot_compatibility_pb2 as _snapshot_compatibility_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -166,6 +167,7 @@ class ChalkContainerSpec(_message.Message):
         "chalk_workload_identity",
         "managed_ssh",
         "restore_from_snapshot_id",
+        "snapshot_requirements",
         "host_placement",
     )
     class TagsEntry(_message.Message):
@@ -217,6 +219,7 @@ class ChalkContainerSpec(_message.Message):
     CHALK_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
     MANAGED_SSH_FIELD_NUMBER: _ClassVar[int]
     RESTORE_FROM_SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
+    SNAPSHOT_REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
     HOST_PLACEMENT_FIELD_NUMBER: _ClassVar[int]
     name: str
     image: str
@@ -241,6 +244,7 @@ class ChalkContainerSpec(_message.Message):
     chalk_workload_identity: ChalkWorkloadIdentity
     managed_ssh: _containers.MessageMap[str, ManagedSshDestination]
     restore_from_snapshot_id: str
+    snapshot_requirements: _snapshot_compatibility_pb2.SnapshotCompatibilityRequirements
     host_placement: HostPlacementOptions
     def __init__(
         self,
@@ -267,6 +271,9 @@ class ChalkContainerSpec(_message.Message):
         chalk_workload_identity: _Optional[_Union[ChalkWorkloadIdentity, _Mapping]] = ...,
         managed_ssh: _Optional[_Mapping[str, ManagedSshDestination]] = ...,
         restore_from_snapshot_id: _Optional[str] = ...,
+        snapshot_requirements: _Optional[
+            _Union[_snapshot_compatibility_pb2.SnapshotCompatibilityRequirements, _Mapping]
+        ] = ...,
         host_placement: _Optional[_Union[HostPlacementOptions, _Mapping]] = ...,
     ) -> None: ...
 

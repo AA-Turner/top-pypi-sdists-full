@@ -23,9 +23,11 @@ pub mod agent_launch;
 pub mod agent_name_template;
 pub mod agent_ownership;
 pub mod agent_publication_batches;
+pub mod agent_publication_recovery;
 pub mod agent_runtime;
 pub mod agent_scan;
 pub mod agent_session;
+pub mod agent_session_manifest;
 pub mod agent_stats;
 pub mod agent_tab;
 pub mod agent_tribe;
@@ -381,6 +383,15 @@ pub use agent_session::{
     AgentSessionParentCandidateWire, AgentSessionParentResolutionRequestWire,
     AgentSessionParentResolutionWire,
     AGENT_SESSION_RESOLUTION_WIRE_SCHEMA_VERSION,
+};
+pub use agent_session_manifest::{
+    canonical_session_manifest_files, classify_session_manifest_files,
+    SessionManifestClassifyRequestWire, SessionManifestClassifyResponseWire,
+    SessionManifestContainerWire, SessionManifestError,
+    SessionManifestSnapshotWire, SESSION_MANIFEST_CLASS_CURRENT,
+    SESSION_MANIFEST_CLASS_INVALID, SESSION_MANIFEST_CLASS_SLIM,
+    SESSION_MANIFEST_CLASS_SUPPORTED_LEGACY,
+    SESSION_MANIFEST_WIRE_SCHEMA_VERSION,
 };
 /// Legacy Rust alias retained for compatibility with older stats callers.
 pub use agent_stats::AgentChangeSpecWorkStatsWire;
@@ -800,13 +811,17 @@ pub use editor::{
     is_slash_skill_like_token as editor_is_slash_skill_like_token,
     is_snippet_trigger_token as editor_is_snippet_trigger_token,
     is_vcs_project_trigger_token as editor_is_vcs_project_trigger_token,
+    map_normalized_byte_offset_to_actual as editor_map_normalized_byte_offset_to_actual,
+    map_normalized_range_to_actual as editor_map_normalized_range_to_actual,
     model_shortcut_context as editor_model_shortcut_context,
     model_shortcut_edit as editor_model_shortcut_edit,
     named_args_skeleton as editor_named_args_skeleton,
+    normalize_xprompt_spacer_transition as editor_normalize_xprompt_spacer_transition,
     placeholder_input_names as editor_placeholder_input_names,
     plan_argument_colon_to_parentheses_edit as editor_plan_argument_colon_to_parentheses_edit,
     plan_argument_double_colon_to_parentheses_edit as editor_plan_argument_double_colon_to_parentheses_edit,
     plan_model_alias_shortcut_edit as editor_plan_model_alias_shortcut_edit,
+    plan_xprompt_completion_spacer_to_parentheses_edit as editor_plan_xprompt_completion_spacer_to_parentheses_edit,
     queue_directive_diagnostics as editor_queue_directive_diagnostics,
     rank_and_filter_bead_entries as editor_rank_and_filter_bead_entries,
     raw_placeholder_fields as editor_raw_placeholder_fields,
@@ -838,10 +853,10 @@ pub use editor::{
     PlaceholderSpan, RawPlaceholderField, TokenInfo, VcsNamespaceEntry,
     VcsProjectEntry, VcsRefTrigger, VcsRepoCatalogRequest,
     VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger,
-    AGENT_CATALOG_SCHEMA_VERSION, AT_REFERENCE_MAX_GROUP_ROWS,
-    BEAD_COMPLETION_LIMIT, DIRECTIVES as EDITOR_DIRECTIVES,
-    EDITOR_WIRE_SCHEMA_VERSION, FINALIZER_CATALOG_SCHEMA_VERSION,
-    MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
+    XpromptCompletionSpacerWire, AGENT_CATALOG_SCHEMA_VERSION,
+    AT_REFERENCE_MAX_GROUP_ROWS, BEAD_COMPLETION_LIMIT,
+    DIRECTIVES as EDITOR_DIRECTIVES, EDITOR_WIRE_SCHEMA_VERSION,
+    FINALIZER_CATALOG_SCHEMA_VERSION, MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
     MODEL_SHORTCUT_WIRE_SCHEMA_VERSION, PLACEHOLDER_MAX_INNER_CHARS,
     VCS_REPO_CATALOG_SCHEMA_VERSION,
 };

@@ -18,7 +18,7 @@ from _build_helpers import install_buildtools
 def _repr_info(version, flags):
     return str(version) + (f":{','.join(flags)}" if flags else "")
 
-def _get_pdfium_with_cache(pl_name, req_ver, req_flags):
+def _get_pdfium_with_cache(pl_name, version, req_flags):
     
     # TODO turn platform and system into proper objects, so the libname could be accessed like plat.system.libname, which is much cleaner than a chain of string function calls
     
@@ -29,27 +29,27 @@ def _get_pdfium_with_cache(pl_name, req_ver, req_flags):
     
     if all(f.exists() for f in (binary, binary_ver)):
         prev_info = read_json(binary_ver)
-        update_binary = prev_info["build"] != req_ver or set(prev_info["flags"]) != set(req_flags)
+        update_binary = prev_info["build"] != version or set(prev_info["flags"]) != set(req_flags)
     else:
         update_binary = True
     
-    req_repr = _repr_info(req_ver, req_flags)
+    req_repr = _repr_info(version, req_flags)
     if update_binary:
         log(f"Downloading binary {req_repr} ...")
-        update_pdfium.main([pl_name], version=req_ver, use_v8=("V8" in req_flags))
+        version = update_pdfium.main([pl_name], version=version, use_v8=("V8" in req_flags))
     else:
         log(f"Using cached binary {req_repr}")
     
     # build_pdfium_bindings() has its own cache logic, so always call to ensure bindings match
     ct_paths = (DataDir/Host.platform/CTG_LIBPATTERN, ) if pl_name == Host.platform else ()
     windows_cross = pl_name.startswith(SysNames.windows+"_")
-    build_pdfium_bindings(req_ver, flags=req_flags, ct_paths=ct_paths, windows_cross=windows_cross)
+    build_pdfium_bindings(version, flags=req_flags, ct_paths=ct_paths, windows_cross=windows_cross)
 
 def _end_subtargets(sub_target, pdfium_ver):
     if sub_target:
         assert False, sub_target
     else:
-        log("No sub-target set, will use existing data files.")
+        log("No sub-target set, will consume existing data files.")
         if pdfium_ver:
             raise ValueError(f"Pdfium version {pdfium_ver} was passed, but this does not make sense with caller-provided data files.")
 
@@ -57,18 +57,11 @@ def _end_subtargets(sub_target, pdfium_ver):
 def stage_platfiles(pl_name, sub_target, pdfium_ver, flags, default_build_params=""):
     
     if pl_name == ExtPlats.system:
-        pl_dir = DataDir/pl_name
-        if sub_target:
-            mkdir_clean(pl_dir)
         if sub_target == "search":
+            pl_dir = DataDir/pl_name
+            mkdir_clean(pl_dir)
             full_ver = PdfiumVer.to_full(pdfium_ver) if pdfium_ver else None
             full_ver = system_pdfium.main(full_ver, flags=flags)
-        elif sub_target == "generate":
-            assert pdfium_ver, "system-generate target requires pdfium build version from caller"
-            build_pdfium_bindings(pdfium_ver, flags=flags, guard_symbols=True, windows_cross=True, rt_paths=())
-            shutil.copyfile(BindingsFile, pl_dir/BindingsFN)
-            full_ver = PdfiumVer.to_full(pdfium_ver)
-            write_pdfium_info(pl_dir, full_ver, origin="system-generate", flags=flags)
         else:
             _end_subtargets(sub_target, pdfium_ver)
     
@@ -106,12 +99,9 @@ def stage_platfiles(pl_name, sub_target, pdfium_ver, flags, default_build_params
                 raise RuntimeError("-> sourcebuild failed. Manual action may be needed, such as installing system dependencies, or possibly patching the sources. See pypdfium2's README.md for more information.")
     
     else:
-        if not pdfium_ver or pdfium_ver == "pinned":
+        if not pdfium_ver:
             pdfium_ver = PdfiumVer.pinned
             log(f"Using pinned pdfium version {pdfium_ver!r}. If this is not intentional, set e.g. {PlatSpec_EnvVar}=auto:latest to use the latest version instead.")
-        elif pdfium_ver == "latest":
-            pdfium_ver = PdfiumVer.get_latest()
-            log(f"Using latest pdfium-binaries version {pdfium_ver!r}.")
         assert pl_name and hasattr(PlatNames, pl_name)
         _get_pdfium_with_cache(pl_name, pdfium_ver, flags)
     

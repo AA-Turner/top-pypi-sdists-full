@@ -1,4 +1,4 @@
-from typing import Callable, Dict
+from collections.abc import Callable
 
 import torch
 from torch.optim import Optimizer
@@ -8,18 +8,16 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, OptimizerInstan
 
 
 class OrthoGrad(BaseOptimizer):
-    """Grokking at the Edge of Numerical Stability.
-
-    A wrapper optimizer that projects gradients to be orthogonal to the current parameters before performing an update.
+    """Wrap an optimizer with gradients orthogonal to the current parameters.
 
     Args:
-        optimizer (OptimizerInstanceOrClass): Base optimizer.
+        optimizer: Base optimizer.
 
     """
 
     def __init__(self, optimizer: OptimizerInstanceOrClass, **kwargs) -> None:
-        self._optimizer_step_pre_hooks: Dict[int, Callable] = {}
-        self._optimizer_step_post_hooks: Dict[int, Callable] = {}
+        self._optimizer_step_pre_hooks: dict[int, Callable] = {}
+        self._optimizer_step_post_hooks: dict[int, Callable] = {}
         self.eps: float = 1e-30
 
         self.optimizer: Optimizer = self.load_optimizer(optimizer, **kwargs)

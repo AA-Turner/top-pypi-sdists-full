@@ -50,8 +50,14 @@ class AgxDefinitionManager(AgxDefinitionBase):
         pass
 
     async def to_config(self, agent_id: str) -> AgentConfig:
+        from matrx_ai.agents.follow_source import resolve_followed_row
+
         agent: AgxDefinition = await self.load_by_id(agent_id)
-        return _row_to_config(agent)
+        # A template copy with follows_source runs its source's current content.
+        return _row_to_config(await resolve_followed_row(agent, self._load_source_or_none))
+
+    async def _load_source_or_none(self, source_id: str) -> AgxDefinition | None:
+        return await self.load_by_id_or_none(source_id)
 
 
 class AgxDefinitionVersionManager(AgxDefinitionVersionBase):

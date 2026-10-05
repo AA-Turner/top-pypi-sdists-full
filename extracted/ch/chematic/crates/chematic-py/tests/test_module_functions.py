@@ -216,13 +216,22 @@ def test_run_smirks_checked_does_not_hide_filtered_product():
     assert report["products"] == []
 
 
-def test_run_smirks_checked_rdkit_profile_declines_chiral_reactants():
-    alanine = chematic.from_smiles("N[C@@H](C)C(=O)O")
-    smirks = "[N:1][C@@H:2](C)C(=O)O>>[N:1].[C@@H:2](C)C(=O)O"
+def test_run_smirks_checked_rdkit_profile_follows_rdkit_reaction_stereo():
+    # RDKit 2026.03.6 gives D-alanine for this L-alanine spelling under the
+    # identity template (it copies the raw tag); the profile reproduces it.
+    smirks = "[N:1][C@@H:2](C)C(=O)O>>[N:1][C@@H:2](C)C(=O)O"
+    alanine = chematic.from_smiles("C[C@H](N)C(=O)O")
     report = chematic.run_smirks_checked(smirks, [alanine], rdkit_compat=True)
-    assert report["status"] == "typed_unsupported"
-    assert report["reason"] == "chiral_reactant_template_semantics"
-    assert report["products"] == []
+    assert report["status"] == "products"
+    d_alanine = chematic.from_smiles("C[C@@H](N)C(=O)O").smiles
+    assert [p.smiles for p in report["products"][0]] == [d_alanine]
+    ambiguous = chematic.run_smirks_checked(
+        "[CH3:1][C@:2]([CH2:3])([CH2:4])[CH:5]>>[CH3:1][C@:2](O)(N)F",
+        [chematic.from_smiles("C[C@]12CCC[C@H]1CCC2")],
+        rdkit_compat=True,
+    )
+    assert ambiguous["status"] == "typed_unsupported"
+    assert ambiguous["reason"] == "ambiguous_stereo_bond_order"
     ordinary = chematic.run_smirks_checked(smirks, [alanine])
     assert ordinary["status"] != "typed_unsupported"
 
@@ -458,6 +467,30 @@ def test_reaction_smarts_invalid_rxn_smiles():
 # ---------------------------------------------------------------------------
 # from_mol_block
 # ---------------------------------------------------------------------------
+
+def test_to_mol_block_stereo_report_and_strict():
+    mol = chematic.from_smiles("N[C@@H](C)C(=O)O")
+    block, report = mol.to_mol_block_with_report()
+    assert block == mol.to_mol_block() == mol.to_mol_block(strict=True)
+    assert report == {
+        "centres": [],
+        "double_bonds": [],
+        "non_tetrahedral_centres": [],
+        "stereo_groups_dropped": False,
+    }
+    # Every atom on one line: no wedge can express the centre.
+    line = [[1.5 * i, 0.0] for i in range(mol.heavy_atoms)]
+    assert "M  END" in mol.to_mol_block_2d(line)
+    with pytest.raises(ValueError, match="without a wedge"):
+        mol.to_mol_block_2d(line, strict=True)
+    with pytest.raises(ValueError, match="without a wedge"):
+        mol.to_mol_v3000(line, strict=True)
+    square_planar = chematic.from_smiles("F[Pt@SP1](Cl)(Br)I")
+    _, report = square_planar.to_mol_block_with_report()
+    assert report["non_tetrahedral_centres"] == [1]
+    with pytest.raises(ValueError, match="square-planar"):
+        square_planar.to_mol_block(strict=True)
+
 
 def test_from_mol_block_basic():
     # Minimal V2000 MOL block for methane

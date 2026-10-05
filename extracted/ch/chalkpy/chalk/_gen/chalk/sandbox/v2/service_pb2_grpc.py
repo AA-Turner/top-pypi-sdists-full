@@ -317,12 +317,23 @@ class SandboxResourceServiceStub(object):
             request_serializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesRequest.SerializeToString,
             response_deserializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesResponse.FromString,
         )
+        self.RecordSandboxResource = channel.unary_unary(
+            "/chalk.sandbox.v2.SandboxResourceService/RecordSandboxResource",
+            request_serializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.RecordSandboxResourceRequest.SerializeToString,
+            response_deserializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.RecordSandboxResourceResponse.FromString,
+        )
 
 
 class SandboxResourceServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def ListSandboxResources(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def RecordSandboxResource(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -335,6 +346,11 @@ def add_SandboxResourceServiceServicer_to_server(servicer, server):
             servicer.ListSandboxResources,
             request_deserializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesRequest.FromString,
             response_serializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesResponse.SerializeToString,
+        ),
+        "RecordSandboxResource": grpc.unary_unary_rpc_method_handler(
+            servicer.RecordSandboxResource,
+            request_deserializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.RecordSandboxResourceRequest.FromString,
+            response_serializer=chalk_dot_sandbox_dot_v2_dot_service__pb2.RecordSandboxResourceResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -366,6 +382,35 @@ class SandboxResourceService(object):
             "/chalk.sandbox.v2.SandboxResourceService/ListSandboxResources",
             chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesRequest.SerializeToString,
             chalk_dot_sandbox_dot_v2_dot_service__pb2.ListSandboxResourcesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def RecordSandboxResource(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.sandbox.v2.SandboxResourceService/RecordSandboxResource",
+            chalk_dot_sandbox_dot_v2_dot_service__pb2.RecordSandboxResourceRequest.SerializeToString,
+            chalk_dot_sandbox_dot_v2_dot_service__pb2.RecordSandboxResourceResponse.FromString,
             options,
             channel_credentials,
             insecure,

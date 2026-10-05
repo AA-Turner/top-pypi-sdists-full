@@ -6,10 +6,10 @@ Once you have a device via :ref:`Discovery <discover_target>` or
 >>> from kasa import Discover
 >>>
 >>> dev = await Discover.discover_single(
->>>     "127.0.0.2",
->>>     username="user@example.com",
->>>     password="great_password"
->>> )
+...     "127.0.0.2",
+...     username="user@example.com",
+...     password="great_password"
+... )
 >>>
 
 Most devices can be turned on and off
@@ -46,7 +46,8 @@ Devices support different functionality that are exposed via
 :ref:`modules <module_target>` that you can access via :attr:`~kasa.Device.modules`:
 
 >>> for module_name in dev.modules:
->>>     print(module_name)
+...     print(module_name)
+homekit
 Energy
 schedule
 usage
@@ -80,11 +81,12 @@ They are useful if you want write code that dynamically adapts as new features a
 added to the API.
 
 >>> for feature_name in dev.features:
->>>     print(feature_name)
+...     print(feature_name)
 state
 rssi
 on_since
 reboot
+...
 current_consumption
 consumption_today
 consumption_this_month
@@ -136,15 +138,18 @@ class WifiNetwork:
     """Wifi network container."""
 
     ssid: str
-    key_type: int
+    # This is available on both netif and on softaponboarding
+    key_type: int | None = None
     # These are available only on softaponboarding
     cipher_type: int | None = None
-    bssid: str | None = None
     channel: int | None = None
+    # These are available on softaponboarding, SMART, and SMARTCAM devices
+    bssid: str | None = None
     rssi: int | None = None
-
-    # For SMART devices
+    # These are available on both SMART and SMARTCAM devices
     signal_level: int | None = None
+    auth: int | None = None
+    encryption: int | None = None
 
 
 _LOGGER = logging.getLogger(__name__)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drf-yasg
-Version: 1.21.15
+Version: 1.21.17
 Summary: Automated generation of real Swagger/OpenAPI 2.0 schemas from Django Rest Framework code.
 Author-email: "Cristi V." <cristi@cvjd.me>
 License-Expression: BSD-3-Clause
@@ -9,7 +9,7 @@ Project-URL: Documentation, https://drf-yasg.readthedocs.io/en/stable/
 Project-URL: Homepage, https://github.com/axnsan12/drf-yasg
 Project-URL: Issues, https://github.com/axnsan12/drf-yasg/issues
 Project-URL: Repository, https://github.com/axnsan12/drf-yasg
-Keywords: codegen,django,django-rest-framework,django-rest-swagger,documentation,drf,drf-openapi,drf-yasg,openapi,schema,swagger,swagger-codegen
+Keywords: codegen,django-rest-framework,django-rest-swagger,django,documentation,drf-openapi,drf-yasg,drf,openapi,schema,swagger-codegen,swagger
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -23,7 +23,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -31,7 +30,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Code Generators
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.rst
 Requires-Dist: django>=4.0
@@ -40,12 +39,8 @@ Requires-Dist: inflection>=0.3.1
 Requires-Dist: packaging>=21.0
 Requires-Dist: pytz>=2021.1
 Requires-Dist: pyyaml>=5.1
+Requires-Dist: swagger-spec-validator>=2.1.0
 Requires-Dist: uritemplate>=3.0.0
-Provides-Extra: coreapi
-Requires-Dist: coreapi>=2.3.3; extra == "coreapi"
-Requires-Dist: coreschema>=0.0.4; extra == "coreapi"
-Provides-Extra: validation
-Requires-Dist: swagger-spec-validator>=2.1.0; extra == "validation"
 Dynamic: license-file
 
 .. role:: python(code)
@@ -61,9 +56,9 @@ Generate **real** Swagger/OpenAPI 2.0 specifications from a Django Rest Framewor
 
 Compatible with
 
-- **Django Rest Framework**: 3.13, 3.14, 3.15
-- **Django**: 4.0, 4.1, 4.2, 5.0, 5.1, 5.2
-- **Python**: 3.9, 3.10, 3.11, 3.12, 3.13
+- **Django Rest Framework**: 3.13+
+- **Django**: 4.0+
+- **Python**: 3.10+
 
 Only the latest patch version of each ``major.minor`` series of Python, Django and Django REST Framework is supported.
 

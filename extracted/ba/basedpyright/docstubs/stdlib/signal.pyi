@@ -210,7 +210,7 @@ else:
             """
             Like sigwaitinfo(), but with a timeout.
 
-            The timeout is specified in seconds, with floating-point numbers allowed.
+            The timeout is specified in seconds, rounded up to nanoseconds.
             """
             ...
         def sigwaitinfo(sigset: Iterable[int], /) -> struct_siginfo:

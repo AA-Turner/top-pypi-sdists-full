@@ -29,6 +29,7 @@ from coord.drive import (
     Driver,
     DriveError,
     DriveOptions,
+    _tail_last_nonempty_line,
     drive_session_name,
     launch_drive_in_tmux,
     list_drive_sessions,
@@ -124,6 +125,46 @@ class TestListDriveSessions:
             assert list_drive_sessions() == []
 
 
+# ── _tail_last_nonempty_line (#3600 review round 1 nit) ──────────────────────
+
+
+class TestTailLastNonemptyLine:
+    """Per-issue run logs accumulate across every relaunch — nothing ever
+    truncates them — so `launch_drive_in_tmux`'s post-launch verification
+    must not `read_text()` the WHOLE file just to find the one line at the
+    tail. These pin down that the bounded read still finds the right line,
+    including when the file is bigger than the read window."""
+
+    def test_missing_file_returns_empty(self, tmp_path: Path) -> None:
+        assert _tail_last_nonempty_line(tmp_path / "nope.log") == ""
+
+    def test_single_line_file(self, tmp_path: Path) -> None:
+        log = tmp_path / "x.log"
+        log.write_text("drive loop started for myrepo#42\n")
+        assert _tail_last_nonempty_line(log) == "drive loop started for myrepo#42"
+
+    def test_trailing_blank_lines_are_skipped(self, tmp_path: Path) -> None:
+        log = tmp_path / "x.log"
+        log.write_text("line one\nline two\n\n   \n")
+        assert _tail_last_nonempty_line(log) == "line two"
+
+    def test_file_larger_than_the_read_window_still_finds_the_tail(
+        self, tmp_path: Path
+    ) -> None:
+        log = tmp_path / "x.log"
+        # Each padding line is well under `max_bytes` on its own, but there
+        # are enough of them that the file as a whole is not — the seek
+        # must land somewhere mid-file and still recover a whole line.
+        padding = "x" * 100
+        lines = [f"{padding} {i}" for i in range(200)]
+        lines.append("drive exited for myrepo#42: no unpaused machine hosts")
+        log.write_text("\n".join(lines) + "\n")
+        assert log.stat().st_size > 8192
+        assert _tail_last_nonempty_line(log, max_bytes=8192) == (
+            "drive exited for myrepo#42: no unpaused machine hosts"
+        )
+
+
 # ── launch_drive_in_tmux ───────────────────────────────────────────────────────
 
 
@@ -200,6 +241,83 @@ class TestLaunchDriveInTmux:
                     ["coord", "drive", "myrepo", "42"], repo="myrepo", issue=42,
                     verify_checks=1, sleeper=lambda _: None,
                 )
+
+    def test_session_dies_after_logging_relays_the_real_reason(
+        self, tmp_path: Path
+    ) -> None:
+        """#3600: when the dead session DID write something before exiting
+        (`Driver.run()`'s `except BaseException` handler now appends its own
+        `drive_exited` summary to the run log — see `coord/drive.py`), the
+        raised `DriveError` must relay that line verbatim rather than the
+        old generic "it did write to its log before exiting" — this is the
+        ONLY channel that survives once the tmux pane is gone, and it is
+        what lets a caller (the drive queue's launcher) distinguish "every
+        host was paused/cordoned at launch time" from an ordinary crash."""
+        log_path = tmp_path / "myrepo-42.log"
+
+        def fake_sleeper(_: float) -> None:
+            log_path.write_text(
+                "12:00:00  drive loop started for myrepo#42\n"
+                "12:00:01  drive exited for myrepo#42: no unpaused machine "
+                "hosts myrepo — pass --machine (exit_code=2)\n"
+            )
+
+        with (
+            patch("coord.drive.tmux_available", return_value=True),
+            patch("coord.drive.tmux_session_alive", side_effect=[False, False]),
+            patch("coord.drive.scratch_dir", return_value=tmp_path),
+            patch("coord.drive.subprocess.run", return_value=_completed(0)),
+        ):
+            with pytest.raises(DriveError, match="no unpaused machine hosts myrepo"):
+                launch_drive_in_tmux(
+                    ["coord", "drive", "myrepo", "42"], repo="myrepo", issue=42,
+                    verify_checks=1, sleeper=fake_sleeper,
+                )
+
+    def test_a_death_racing_the_exit_summary_gets_one_extra_poll(
+        self, tmp_path: Path
+    ) -> None:
+        """#3600 review round 1 (non-blocking): the verify loop breaks the
+        INSTANT the log's mtime changes — which is also the instant the
+        "drive loop started" marker itself lands. A session that dies a
+        beat later than that can still read as "only the marker is on disk"
+        here, purely on timing, even though `Driver.run()`'s own
+        `drive_exited` append is genuinely about to land. One extra short
+        wait (only in exactly this shape) must give that in-flight append
+        the chance to land rather than settling for the marker-only tail."""
+        log_path = tmp_path / "myrepo-42.log"
+        calls = {"n": 0}
+
+        def fake_sleeper(_: float) -> None:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                # The verify loop's own sleep — only the start marker has
+                # landed so far, which is what makes the loop's mtime check
+                # fire and break immediately (combined with `alive=False`
+                # below).
+                log_path.write_text("12:00:00  drive loop started for myrepo#42\n")
+            else:
+                # The extra poll this fix adds: the real exit reason lands
+                # just now, a beat after the marker.
+                log_path.write_text(
+                    "12:00:00  drive loop started for myrepo#42\n"
+                    "12:00:01  drive exited for myrepo#42: no unpaused "
+                    "machine hosts myrepo — pass --machine (exit_code=2)\n"
+                )
+
+        with (
+            patch("coord.drive.tmux_available", return_value=True),
+            # pre-check: not already driving; verify loop: already dead.
+            patch("coord.drive.tmux_session_alive", side_effect=[False, False]),
+            patch("coord.drive.scratch_dir", return_value=tmp_path),
+            patch("coord.drive.subprocess.run", return_value=_completed(0)),
+        ):
+            with pytest.raises(DriveError, match="no unpaused machine hosts myrepo"):
+                launch_drive_in_tmux(
+                    ["coord", "drive", "myrepo", "42"], repo="myrepo", issue=42,
+                    verify_checks=1, sleeper=fake_sleeper,
+                )
+        assert calls["n"] == 2, "the extra poll must actually have fired"
 
     def test_session_alive_but_log_never_grows_raises(self, tmp_path: Path) -> None:
         """#1606: still tmux-alive but never wrote a single log line within

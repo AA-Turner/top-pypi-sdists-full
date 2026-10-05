@@ -88,7 +88,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Iterable
+from typing import TYPE_CHECKING, Callable, Iterable, Sequence
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -536,9 +536,21 @@ def partition_capability_requirements(
     docstring's GTK+Windows / macOS example, where greedy already finds the
     2-partition optimum).
 
-    Rules with an empty `requires` never enter this — they mean "no extra
-    capability needed", already handled by the existing any-capable-machine
-    path in `dispatch_smoke`, not a partition of their own.
+    Rules with an empty `requires` AND an empty `platforms` never enter this
+    — they mean "no extra capability needed", already handled by the
+    existing any-capable-machine path in `dispatch_smoke`, not a partition
+    of their own.
+
+    #3581: a rule's `platforms` (e.g. `["linux", "macos"]`) produces ONE KEY
+    PER PLATFORM — `frozenset(rule.requires) | {platform}` — instead of the
+    single `frozenset(rule.requires)` key a plain rule produces. This is
+    what makes a `tui-pty`-style rule (one `UnixPtyChild` suite, two OSes)
+    land in two separate partitions rather than one union a single machine
+    would need to satisfy alone: no configured machine ever declares two
+    OS capabilities together, so `capable_for` naturally keeps them from
+    merging back into one partition below — no extra guard needed. A rule
+    with no `platforms` (the default, every rule declared before #3581)
+    produces exactly the one key it always has.
 
     #3298: each returned :class:`SmokePartition` also carries `files` — the
     touched paths matched by whichever rule(s) contributed its capabilities
@@ -557,15 +569,22 @@ def partition_capability_requirements(
     seen: dict[frozenset[str], list[int]] = {}
     order: list[frozenset[str]] = []
     for i, rule in enumerate(rules):
-        if not rule.requires:
+        if not rule.requires and not rule.platforms:
             continue
         if not _rule_matches(touched_files, rule):
             continue
-        key = frozenset(rule.requires)
-        if key not in seen:
-            seen[key] = []
-            order.append(key)
-        seen[key].append(i)
+        # #3581: one key per platform when `platforms` is set; otherwise the
+        # original single-key behaviour (`platform_values = [None]`).
+        platform_values: Sequence[str | None] = rule.platforms if rule.platforms else [None]
+        for platform in platform_values:
+            caps = set(rule.requires)
+            if platform:
+                caps.add(platform)
+            key = frozenset(caps)
+            if key not in seen:
+                seen[key] = []
+                order.append(key)
+            seen[key].append(i)
 
     groups: list[set[str]] = []
     group_rule_indices: list[list[int]] = []
@@ -964,18 +983,21 @@ def rank_smoke_machines(
 
     Returns an empty list when capabilities can't be matched.
 
-    #2636: candidates are also filtered through ``follow_on_paused_set`` —
-    **not** ``paused_set`` — before ranking. A smoke leg is the tail of work
-    already in flight (the Test stage that certifies a `done` work row), the
-    same shape #2240 established for a review leg, so a release cordon
-    ("route no NEW work here") must not filter its host out — that would
-    reproduce the 2026-08-14 drain deadlock, just in the Test stage instead
-    of Review. An explicit `coord pause` and a `quiet_hours` window both
-    still apply in full: the incident this closes was a smoke leg landing on
-    elitebook 82 minutes into its declared quiet-hours window, ten minutes
-    before the operator suspended it.
+    #2636: candidates are also filtered through pause/cordon state before
+    ranking. #2636 originally routed this through ``follow_on_paused_set``
+    (cordon-exempt), on the #2240 theory that a smoke leg is the tail of
+    work already in flight and so must not be filtered by a release cordon.
+    #3599 (2026-10-04) reverted that: a cordoned host kept getting fed
+    smoke/review/fix legs round after round of a multi-leg drive, which is
+    exactly what stopped it from ever draining. This now uses the FULL
+    ``paused_set`` — a release cordon filters a smoke candidate out same as
+    any other pause, routing to another capable, uncordoned machine or
+    leaving the row to wait. An explicit `coord pause` and a `quiet_hours`
+    window both still apply in full: the incident #2636 closed was a smoke
+    leg landing on elitebook 82 minutes into its declared quiet-hours
+    window, ten minutes before the operator suspended it.
 
-    *now* (#2636) is forwarded to ``follow_on_paused_set`` untouched —
+    *now* (#2636) is forwarded to ``paused_set`` untouched —
     ``None`` (the default, and every production call site) evaluates quiet
     hours against the real clock. The seam exists purely so a test can pin a
     specific wall-clock moment instead of depending on whatever instant the
@@ -985,9 +1007,9 @@ def rank_smoke_machines(
     if not candidates:
         return []
 
-    from coord.machine_pause import follow_on_paused_set  # noqa: PLC0415
+    from coord.machine_pause import paused_set  # noqa: PLC0415
 
-    paused = follow_on_paused_set(config.machines, now=now)
+    paused = paused_set(config.machines, now=now)
     candidates = [m for m in candidates if m.name not in paused]
     if not candidates:
         return []
@@ -1862,12 +1884,39 @@ class SmokeAttempt:
         return f"{self.machine_name}: {self.reason}"
 
 
+def _describe_cordoned_capable(names: list[str]) -> str:
+    """Human detail for cordoned machine *names* — ``"name (cordoned:
+    draining for v0.5.598)"`` pairs, so the operator-facing reason names the
+    cordon's own `reason`/`target_version` instead of leaving a release
+    cordon reading like an indistinguishable `coord pause` (#3599 review).
+
+    Display only: a failure to read the cordon store degrades to the bare
+    name, never raises, and never affects the dispatch decision itself —
+    that was already made by the caller before this is reached.
+    """
+    if not names:
+        return ""
+    try:
+        from coord.machine_pause import cordons  # noqa: PLC0415
+
+        records = cordons()
+    except Exception:  # noqa: BLE001 — display only, never block on this
+        records = {}
+    parts = []
+    for name in names:
+        record = records.get(name)
+        describe = getattr(record, "describe", None)
+        parts.append(f"{name} ({describe()})" if callable(describe) else name)
+    return ", ".join(parts)
+
+
 def _report_unroutable_smoke(
     completed: Assignment,
     required_caps: list[str],
     attempts: list[SmokeAttempt],
     *,
     paused_capable: list[str] | None = None,
+    cordon_only_capable: list[str] | None = None,
 ) -> None:
     """Report — once — that the Test stage has no machine it can run on.
 
@@ -1892,43 +1941,86 @@ def _report_unroutable_smoke(
     host — the #1616 failure shape again: the pipeline stops and the product
     says nothing.
 
-    Two outcomes, split on whether the condition can clear by itself:
+    Three outcomes, split on whether the condition can clear by itself:
 
     * **Durable** (every candidate hard-refused, there were no candidates at
-      all, or every capability-matched candidate was paused/quiet-covered —
-      see *paused_capable*) — record ``test_state=TEST_STATE_BLOCKED`` with
-      the full reason on the parent work row. That is board state: `coord
-      gates` prints it, the TUI reads it off the row, and
-      `record_test_verdict` writes an ``test_blocked`` audit row. It also
-      ends the spin, because `dispatch_pending_smoke` skips rows that
-      already carry a verdict — the escalation happens once, not every tick.
-    * **Transient** (at least one candidate failed only on connectivity) — do
-      NOT poison the row. A machine that is rebooting comes back, and marking
-      the row blocked would demand a manual `coord diagnose --reset` for what
-      the next tick would have fixed for free. Log it once per process
-      instead, and leave the row re-dispatchable.
+      all, or every capability-matched candidate was explicitly
+      paused/quiet-covered — see *paused_capable*) — record
+      ``test_state=TEST_STATE_BLOCKED`` with the full reason on the parent
+      work row. That is board state: `coord gates` prints it, the TUI reads
+      it off the row, and `record_test_verdict` writes an ``test_blocked``
+      audit row. It also ends the spin, because `dispatch_pending_smoke`
+      skips rows that already carry a verdict — the escalation happens
+      once, not every tick.
+    * **Transient-connectivity** (at least one candidate failed only on
+      connectivity) — do NOT poison the row. A machine that is rebooting
+      comes back, and marking the row blocked would demand a manual
+      `coord diagnose --reset` for what the next tick would have fixed for
+      free. Log it once per process instead, and leave the row
+      re-dispatchable.
+    * **Transient-cordon** (#3599 — see *cordon_only_capable*): every
+      capable candidate was filtered SOLELY by an active release cordon,
+      with no explicit pause and no quiet-hours window in the mix. A cordon
+      is this fleet's own bounded drain mechanism (it expires, or is lifted
+      the moment the roll lands) — unlike an explicit pause, it is not an
+      operator decision that needs a human to undo. Durably blocking here
+      would wedge the row until a manual `coord diagnose --stage test
+      --reset`, converting the TTL-bounded cordon wait into an unbounded
+      one — exactly the #3599 failure this carve-out closes. Logged once
+      and left re-dispatchable, same as transient-connectivity.
 
     *paused_capable* (#2636): machine names that matched capability but were
-    filtered out of `rank_smoke_machines`'s ranking by `follow_on_paused_set`
-    — an explicit `coord pause` or a `quiet_hours` window — before
-    `dispatch_smoke` ever got to try them, so `attempts` is empty for a
-    reason that has nothing to do with capability. Naming that here keeps the
-    recorded reason from reading as "no capable machine" while capable
-    machines are sitting right there, merely unavailable right now — #1678's
-    failure mode by a different route. Always durable: cleared the same way
-    (`coord diagnose --stage test --reset`) once the machine is unpaused or
-    its quiet-hours window ends, same as any other exhausted candidate list.
+    filtered out of `rank_smoke_machines`'s ranking by `paused_set` — an
+    explicit `coord pause`, a `quiet_hours` window, or (#3599) a release
+    cordon — before `dispatch_smoke` ever got to try them, so `attempts` is
+    empty for a reason that has nothing to do with capability. Naming that
+    here keeps the recorded reason from reading as "no capable machine"
+    while capable machines are sitting right there, merely unavailable
+    right now — #1678's failure mode by a different route.
+
+    *cordon_only_capable* (#3599): the subset of *paused_capable* whose SOLE
+    reason for being filtered is an active release cordon — i.e. none of
+    them are also in `follow_on_paused_set()` (explicit pause ∪ quiet
+    hours). When this is a non-empty subset of *paused_capable* that covers
+    it entirely, the whole dead end is attributable to the cordon alone and
+    is treated as transient (see above). When it is a STRICT subset (some
+    capable machines are cordoned, others genuinely paused/quiet), the
+    durable branch still applies — lifting the cordon alone would not make
+    the row dispatchable, so a human still needs to look at the
+    non-cordoned ones.
 
     Never raises: a board-write failure must not take the caller down.
     """
     transient = any(a.transient for a in attempts)
+    cordon_only_capable = cordon_only_capable or []
+    cordon_fully_explains = bool(paused_capable) and set(paused_capable) <= set(
+        cordon_only_capable
+    )
     caps = ", ".join(required_caps) if required_caps else "(none — any capable machine)"
-    if paused_capable:
+    if paused_capable and cordon_fully_explains:
+        message = (
+            f"Test stage cannot be routed: every machine that declares "
+            f"capability [{caps}] for repo {completed.repo_name!r} is "
+            f"cordoned for a release right now: "
+            f"{_describe_cordoned_capable(cordon_only_capable)}. (#3599)"
+        )
+    elif paused_capable:
+        # #3599 non-blocking review note: keep the pre-existing substring
+        # ("paused or inside its quiet-hours window right now") byte-for-
+        # byte so this stays backward compatible with #2636's own test —
+        # only APPEND the cordon detail, parenthetically, when some (but
+        # not all — see `cordon_fully_explains` above) of the capable
+        # machines are cordoned rather than paused/quiet.
+        cordon_note = (
+            f" (cordoned for a release: {_describe_cordoned_capable(cordon_only_capable)})"
+            if cordon_only_capable
+            else ""
+        )
         message = (
             f"Test stage cannot be routed: every machine that declares "
             f"capability [{caps}] for repo {completed.repo_name!r} is "
             f"paused or inside its quiet-hours window right now: "
-            f"{', '.join(paused_capable)}. (#2636)"
+            f"{', '.join(paused_capable)}{cordon_note}. (#2636)"
         )
     elif attempts:
         message = (
@@ -1965,6 +2057,16 @@ def _report_unroutable_smoke(
             level, "dispatch_smoke: %s#%s — %s",
             completed.repo_name, completed.issue_number, text,
         )
+
+    if cordon_fully_explains:
+        _log_once(
+            logging.WARNING,
+            f"{message} A release cordon is this fleet's own bounded drain "
+            "mechanism, not an operator pause — leaving the row "
+            "re-dispatchable; it retries once the cordon lifts or expires "
+            "(#3599).",
+        )
+        return
 
     if transient:
         _log_once(
@@ -2465,15 +2567,50 @@ def _dispatch_smoke_legs(
         touched, smoke_cfg.capability_rules, _capable_for
     )
 
-    if unroutable:
-        # A config error (a rule asks for a capability NO machine declares at
-        # all), never a routing puzzle — fails LOUDLY at dispatch time,
-        # naming the capability and the rule, rather than looping every tick
-        # against hardware that will never appear (#1678's shape).
+    if not partitions and unroutable:
+        # Nothing is routable at all — every matched rule's capability set
+        # (a config error: a rule asks for a capability NO machine declares
+        # at all) has no capable host, so there is no sibling partition to
+        # protect. Fails LOUDLY at dispatch time, naming the capability and
+        # the rule, rather than looping every tick against hardware that
+        # will never appear (#1678's shape).
+        #
+        # Deliberately NOT just `if not partitions:` — `partitions` is also
+        # empty, with `unroutable` ALSO empty, whenever no matched rule
+        # contributes a `requires`/`platforms` at all (the ordinary, far
+        # more common case: no capability-rule-worthy file was touched).
+        # That case must fall through to the single-leg path below exactly
+        # as it always has — it is not an unroutable diagnosis at all.
         _report_unroutable_partitions(completed, unroutable)
         return []
 
-    if len(partitions) <= 1:
+    # #3581 fix-round-1: a non-empty `unroutable` alongside at least one
+    # routable partition must NOT abort the routable ones — that was exactly
+    # this review's blocking finding. A `platforms`-bearing rule where only
+    # SOME platforms have a capable host (the issue's own rollout scenario:
+    # macOS not onboarded yet) used to report-and-return here, silently
+    # dropping the Linux leg that was perfectly routable. `_dispatch_smoke_
+    # fanout` already has the "report, don't drop, don't abort siblings"
+    # shape for its own per-partition `blocking`/`unconfigured` cases — route
+    # `unroutable` through it too instead of handling it here, so the
+    # STILL-unroutable capability set is reported at the SAME point in the
+    # fan-out (before the "running" stamp, so a mixed round correctly lands
+    # on TEST_STATE_BLOCKED rather than a misleadingly clean "running").
+    #
+    # #3581: a `platforms`-bearing rule must always take the per-partition
+    # path below, even when exactly one partition survives (e.g. a
+    # single-element `platforms` list, or every-but-one platform being
+    # unroutable). The single-leg path resolves its capabilities via
+    # `required_capabilities`/`match_rules`, which know nothing about
+    # `platforms` and would route on `rule.requires` alone — silently
+    # losing the OS constraint `partition_capability_requirements` already
+    # baked into this partition's own `SmokePartition.capabilities`.
+    has_platform_rule = any(
+        rule.platforms and _rule_matches(touched, rule)
+        for rule in smoke_cfg.capability_rules
+    )
+
+    if len(partitions) <= 1 and not has_platform_rule and not unroutable:
         # Exactly today's behaviour — the pre-#3182 single-leg path.
         leg = _dispatch_smoke_single_leg(
             completed, board, config, touched=touched,
@@ -2483,6 +2620,7 @@ def _dispatch_smoke_legs(
 
     return _dispatch_smoke_fanout(
         completed, board, config, touched=touched, partitions=partitions,
+        unroutable=unroutable,
         http_client=http_client, now=now,
     )
 
@@ -2632,17 +2770,35 @@ def _dispatch_smoke_single_leg(
     # capability-only set (cheap: config-only, no network) so a downstream
     # unroutable report can name the real cause instead of the generic
     # "no capable machine" message while capable machines sit idle behind a
-    # pause or a quiet-hours window.
+    # pause, a quiet-hours window, or (#3599) a release cordon.
     paused_capable: list[str] = []
+    cordon_only_capable: list[str] = []
     if not candidates:
         capable = _capability_matched_machines(
             required_caps, completed.repo_name, config
         )
         if capable:
-            from coord.machine_pause import follow_on_paused_set  # noqa: PLC0415
+            from coord.machine_pause import (  # noqa: PLC0415
+                follow_on_paused_set,
+                paused_set,
+            )
 
-            paused = follow_on_paused_set(config.machines)
+            paused = paused_set(config.machines)
             paused_capable = sorted(m.name for m in capable if m.name in paused)
+            if paused_capable:
+                # #3599: of the capable machines filtered out above, which
+                # ones are filtered SOLELY by an active release cordon — not
+                # also by an explicit pause or a quiet-hours window.
+                # `follow_on_paused_set` is exactly `paused_set` minus
+                # cordons, so a name present in `paused` but absent here has
+                # no OTHER reason to be unavailable; see
+                # `_report_unroutable_smoke`'s docstring for how this
+                # distinguishes a bounded, self-clearing dead end from a
+                # genuine one.
+                non_cordon_paused = follow_on_paused_set(config.machines)
+                cordon_only_capable = sorted(
+                    name for name in paused_capable if name not in non_cordon_paused
+                )
 
     # #2168: pin the Test stage's model to avoid the agent falling through to
     # the machine's ambient `claude -p` default (Opus). Mirrors the review
@@ -2687,6 +2843,7 @@ def _dispatch_smoke_single_leg(
         # can show it, exactly once — never the silent 30 s spin of #1678.
         _report_unroutable_smoke(
             completed, required_caps, attempts, paused_capable=paused_capable,
+            cordon_only_capable=cordon_only_capable,
         )
         return None
 
@@ -2835,6 +2992,7 @@ def _dispatch_smoke_fanout(
     *,
     touched: list[str],
     partitions: list[SmokePartition],
+    unroutable: Sequence[UnroutableCapability] = (),
     http_client: httpx.Client | None = None,
     now: float | None = None,
 ) -> list[Assignment]:
@@ -2857,6 +3015,20 @@ def _dispatch_smoke_fanout(
     probe contradiction, a missing `repo_paths` entry) is reported exactly
     like the single-leg unroutable case (`_report_unroutable_smoke`), naming
     that capability set — never a silent retry (#1678).
+
+    *unroutable* (#3581 fix-round-1) is the OTHER, static flavour of the same
+    "don't abort routable siblings" rule: capability sets that
+    `partition_capability_requirements` could not even turn into a
+    `SmokePartition` because NO configured machine declares them at all — the
+    rollout-gap case the issue is named for (a `platforms`-bearing route with
+    one OS not yet onboarded). `_dispatch_smoke_legs` used to report these and
+    return `[]` BEFORE this function ever ran, which silently dropped every
+    sibling platform partition that WAS routable too. Reported here instead,
+    after every routable *partitions* entry above has already been
+    dispatched — same place, same "report, don't drop" shape as the
+    `blocking`/`unconfigured` loops below, and before the "running" stamp so
+    a mixed round correctly lands on `TEST_STATE_BLOCKED` rather than a
+    misleadingly clean "running" (see the comment above that stamp).
 
     #3298: the Test-stage command is resolved ONCE PER PARTITION, scoped to
     that partition's own `SmokePartition.files` — not once, up front, against
@@ -3083,6 +3255,15 @@ def _dispatch_smoke_fanout(
     for caps in unconfigured:
         _report_unconfigured_smoke_command(completed, caps)
 
+    # #3581 fix-round-1: capability sets `partition_capability_requirements`
+    # found NO configured machine for at all (e.g. a `platforms` entry with
+    # no capable host for that OS) — reported here, AFTER every routable
+    # partition above has already been dispatched, so this never drops the
+    # sibling partitions that WERE routable. One report, same idempotent
+    # once-per-row guard `_report_unroutable_partitions` already has.
+    if unroutable:
+        _report_unroutable_partitions(completed, list(unroutable))
+
     # Stamp the parent's aggregate "running" — carrying the manifest so
     # `finalize_smoke_fanout` can find every leg again from just this row —
     # covering EVERY known partition so far, even on a partial round (some
@@ -3090,9 +3271,11 @@ def _dispatch_smoke_fanout(
     # verdict already on the row. TEST_STATE_BLOCKED is included alongside
     # ("passed", "skipped", "failed") — NOT just those three — because a
     # mixed round (one partition durably unroutable via
-    # `_report_unroutable_smoke` above, a sibling partition dispatched fine)
-    # leaves `completed.test_state` freshly set to TEST_STATE_BLOCKED by that
-    # very call, a few lines up, in this same synchronous invocation. Without
+    # `_report_unroutable_smoke`, or one capability set no machine declares
+    # at all via `_report_unroutable_partitions` — #3581 — either above, a
+    # sibling partition dispatched fine) leaves `completed.test_state`
+    # freshly set to TEST_STATE_BLOCKED by that very call, a few lines up, in
+    # this same synchronous invocation. Without
     # this exclusion the unconditional "running" stamp below would silently
     # clobber that blocked verdict back to "running" on the very next line,
     # AND the blocked partition is never added to `leg_manifest` (only

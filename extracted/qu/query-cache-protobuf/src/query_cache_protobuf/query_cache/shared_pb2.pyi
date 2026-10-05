@@ -142,6 +142,45 @@ class TableModifiedInfo(google.protobuf.message.Message):
 global___TableModifiedInfo = TableModifiedInfo
 
 @typing.final
+class ColumnInfo(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    NAME_FIELD_NUMBER: builtins.int
+    TYPE_FIELD_NUMBER: builtins.int
+    name: builtins.str
+    type: builtins.str
+    def __init__(
+        self,
+        *,
+        name: builtins.str = ...,
+        type: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["name", b"name", "type", b"type"]) -> None: ...
+
+global___ColumnInfo = ColumnInfo
+
+@typing.final
+class TableSchema(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    NAME_FIELD_NUMBER: builtins.int
+    COLUMNS_FIELD_NUMBER: builtins.int
+    name: builtins.str
+    @property
+    def columns(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ColumnInfo]:
+        """a repeated field (not a map) so column order is deterministic"""
+
+    def __init__(
+        self,
+        *,
+        name: builtins.str = ...,
+        columns: collections.abc.Iterable[global___ColumnInfo] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["columns", b"columns", "name", b"name"]) -> None: ...
+
+global___TableSchema = TableSchema
+
+@typing.final
 class QueryDependency(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 

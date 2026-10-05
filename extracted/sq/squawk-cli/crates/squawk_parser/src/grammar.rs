@@ -2125,14 +2125,14 @@ fn postfix_expr(p: &mut Parser<'_>, mut lhs: CompletedMarker) -> CompletedMarker
     lhs
 }
 
-enum ListItems {
+pub(crate) enum ListItems {
     Required,
     Optional,
 }
 
 /// The `parser` passed this is required to at least consume one token if it returns `true`.
 /// If the `parser` returns false, parsing will stop.
-fn delimited(
+pub(crate) fn delimited(
     p: &mut Parser<'_>,
     bra: SyntaxKind,
     ket: SyntaxKind,
@@ -2182,7 +2182,7 @@ fn delimited(
 
 /// This is essentially the same as [delimited] but without the wrapping
 /// tokens, i.e., `(` `)`
-fn separated(
+pub(crate) fn separated(
     p: &mut Parser<'_>,
     delim: SyntaxKind,
     unexpected_delim_message: impl Fn() -> String,
@@ -2209,7 +2209,7 @@ fn separated(
         }
         if p.at(delim) && (p.nth_at(1, EOF) || p.nth_at(1, SEMICOLON) || p.nth_at_ts(1, follow_set))
         {
-            p.err_and_bump("unexpected trailing comma");
+            p.err_and_bump(&unexpected_delim_message());
             break;
         }
         if !p.eat(delim) {
@@ -3400,6 +3400,10 @@ fn with_query_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
     let m = p.start();
     p.expect(WITH_KW);
     p.eat(RECURSIVE_KW);
+    if p.at_ts(WITH_FOLLOW) {
+        p.error("expected common table expression");
+        return Some(m.complete(p, WITH_CLAUSE));
+    }
     while !p.at(EOF) {
         with_query(p);
         if p.at(COMMA) && p.nth_at_ts(1, WITH_FOLLOW) {
@@ -3409,8 +3413,11 @@ fn with_query_clause(p: &mut Parser<'_>) -> Option<CompletedMarker> {
         if !p.eat(COMMA) {
             if p.at_ts(WITH_FOLLOW) || (p.at(L_PAREN) && p.nth_at_ts(1, PAREN_SELECT_FIRST)) {
                 break;
-            } else {
+            } else if p.at_ts(NAME_REF_FIRST) {
                 p.error("missing comma");
+            } else {
+                p.err_and_bump("missing comma");
+                break;
             }
         }
     }
@@ -6391,7 +6398,7 @@ const FUNC_KEYWORDS: TokenSet = TokenSet::new(&[
 
 const NAME_REF_FIRST: TokenSet = TYPE_KEYWORDS.union(IDENTS);
 
-const EXPR_FIRST: TokenSet = LHS_FIRST;
+pub(crate) const EXPR_FIRST: TokenSet = LHS_FIRST;
 
 const TARGET_FOLLOW: TokenSet = TokenSet::new(&[
     SELECT_KW,
@@ -15462,8 +15469,8 @@ fn opt_set_scope(p: &mut Parser<'_>) {
     m.complete(p, kind);
 }
 
-// SET [ SESSION | LOCAL ] ROLE role_name
-// SET [ SESSION | LOCAL ] ROLE NONE
+// SET [ SESSION | LOCAL ] ROLE [ TO ] role_name
+// SET [ SESSION | LOCAL ] ROLE [ TO ] NONE
 // RESET ROLE
 fn set_role(p: &mut Parser<'_>) -> CompletedMarker {
     assert!(p.at(SET_KW));
@@ -15471,6 +15478,7 @@ fn set_role(p: &mut Parser<'_>) -> CompletedMarker {
     p.bump(SET_KW);
     opt_set_scope(p);
     p.expect(ROLE_KW);
+    p.eat(TO_KW);
     if p.at(NONE_KW) {
         let target = p.start();
         p.bump(NONE_KW);

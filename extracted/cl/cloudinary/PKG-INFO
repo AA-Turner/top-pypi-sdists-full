@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cloudinary
-Version: 1.46.2
+Version: 1.46.3
 Summary: Upload, transform, optimize, and manage images and videos with Cloudinary from Python or Django.
 Author-email: Cloudinary <info@cloudinary.com>
 License: MIT License

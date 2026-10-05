@@ -211,10 +211,24 @@ def manual_steps(
     marketplace_commands: list[str] = []
     install_commands: list[str] = []
     login_commands: list[str] = []
-    marketplace_harnesses = [h for h in harnesses if h.family == FAMILY_HOOK_PLUGIN]
+    marketplace_harnesses = [
+        h for h in harnesses if h.family == FAMILY_HOOK_PLUGIN and h.id != plugin_cli.KIMI
+    ]
     for harness in harnesses:
         heading = [f"# {harness.label}"] if len(harnesses) > 1 else []
-        if harness.family == FAMILY_HOOK_PLUGIN:
+        if harness.id == plugin_cli.KIMI:
+            # Kimi Code has no shell command to install a plugin: its plugins
+            # are installed from inside a Kimi session, from a mirror checkout.
+            install_commands.extend(
+                (
+                    *heading,
+                    f"git clone https://github.com/{MARKETPLACE_REPO} ~/research-os-agent",
+                    "# then, inside Kimi Code:",
+                    "/plugins install ~/research-os-agent/plugins/probe-research       # research tracking + MCP",
+                    "/plugins install ~/research-os-agent/plugins/probe-research-tap   # session capture",
+                )
+            )
+        elif harness.family == FAMILY_HOOK_PLUGIN:
             if len(marketplace_harnesses) > 1:
                 marketplace_commands.append(f"# {harness.label}")
             marketplace_commands.extend(

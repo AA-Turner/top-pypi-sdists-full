@@ -141,7 +141,7 @@ class User(metaclass=UserMeta):
         self._greenlet: greenlet.Greenlet | None = None
         self._group: Group
         self._taskset_instance: TaskSet | None = None
-        self._cp_last_run: float = time.time()  # used by constant_pacing wait_time
+        self._cp_last_run: float = time.perf_counter()  # used by constant_pacing wait_time
         self._cp_last_wait_time: float = 0  # used by constant_pacing wait_time
 
     def on_start(self) -> None:
@@ -275,7 +275,7 @@ class RestMixin(Generic[RestResponseT]):
         * Sets ``catch_response=True`` (so always use a :ref:`with-block <catch-response>`)
         * Catches any unhandled exceptions thrown inside your with-block, marking the sample as failed (instead of exiting the task immediately without even firing the request event)
         """
-        headers = headers or {}
+        headers = dict(headers) if headers else {}
         if not ("Content-Type" in headers or "content-type" in headers):
             headers["Content-Type"] = "application/json"
         if not ("Accept" in headers or "accept" in headers):

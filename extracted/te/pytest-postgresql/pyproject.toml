@@ -4,7 +4,7 @@ requires = ["uv-build>=0.11,<0.13"]
 
 [project]
 name = "pytest-postgresql"
-version = "9.1.0"
+version = "9.1.1"
 description = "Postgresql fixtures and fixture factories for Pytest."
 readme = "README.rst"
 keywords = [
@@ -55,7 +55,7 @@ async = [
 [project.urls]
 Source = "https://github.com/dbfixtures/pytest-postgresql"
 "Bug Tracker" = "https://github.com/dbfixtures/pytest-postgresql/issues"
-Changelog = "https://github.com/dbfixtures/pytest-postgresql/blob/v9.1.0/CHANGES.rst"
+Changelog = "https://github.com/dbfixtures/pytest-postgresql/blob/v9.1.1/CHANGES.rst"
 
 [project.entry-points.pytest11]
 pytest_postgresql = "pytest_postgresql.plugin"
@@ -63,18 +63,18 @@ pytest_postgresql = "pytest_postgresql.plugin"
 [dependency-groups]
 dev = [
     "aiofiles==25.1.0",
-    "coverage==7.15.4",
-    "mirakuru==3.0.2",
+    "coverage==7.16.1",
+    "mirakuru==3.0.3",
     "mock==5.2.0",
     "mypy==2.3.1; implementation_name=='cpython'",
     "packaging==26.3",
-    "port-for==1.0.0",
-    "psycopg==3.3.4",
-    "psycopg-binary==3.3.4; implementation_name=='cpython' and python_version<'3.15'",
+    "port-for==1.1.0",
+    "psycopg==3.3.6",
+    "psycopg-binary==3.3.6; implementation_name=='cpython' and python_version<'3.15'",
     "pytest==9.1.1",
     "pytest-asyncio==1.4.0",
     "pytest-xdist==3.8.0",
-    "towncrier==25.8.0",
+    "towncrier==26.9.0",
     "types-aiofiles==25.1.0.20260518",
 ]
 release = ["tbump==6.11.0"]
@@ -90,11 +90,11 @@ line-length = 120
 
 [tool.ruff.lint]
 select = [
+    "D",
     "E",
     "F",
-    "I",
-    "D",
     "FBT",
+    "I",
     "PT",
 ]
 
@@ -163,7 +163,7 @@ message_template = "Release {new_version}"
 tag_template = "v{new_version}"
 
 [tool.tbump.version]
-current = "9.1.0"
+current = "9.1.1"
 regex = '''
   (?P<major>\d+)
   \.

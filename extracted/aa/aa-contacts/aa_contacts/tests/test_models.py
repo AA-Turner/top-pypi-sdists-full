@@ -7,13 +7,6 @@ from allianceauth.eveonline.models import (
     EveCorporationInfo,
     EveFactionInfo,
 )
-from app_utils.testdata_factories import (
-    EveAllianceInfoFactory,
-    EveCharacterFactory,
-    EveCorporationInfoFactory,
-    UserMainFactory,
-)
-from app_utils.testing import add_character_to_user
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db.models import Q
@@ -27,24 +20,31 @@ from aa_contacts.models import (
     CorporationContact,
     StandingFilter,
 )
+from aa_contacts.tests.factories import (
+    add_character_to_user,
+    create_eve_alliance,
+    create_eve_character,
+    create_eve_corporation,
+    create_user_main,
+)
 
 
 class TestStandingFilter(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.corp_red = EveCorporationInfoFactory()
-        cls.corp_blue = EveCorporationInfoFactory()
-        cls.alliance_red = EveAllianceInfoFactory()
-        cls.alliance_blue = EveAllianceInfoFactory()
-        corp_in_red = EveCorporationInfoFactory(alliance=cls.alliance_red)
-        corp_in_blue = EveCorporationInfoFactory(alliance=cls.alliance_blue)
+        cls.corp_red = create_eve_corporation()
+        cls.corp_blue = create_eve_corporation()
+        cls.alliance_red = create_eve_alliance()
+        cls.alliance_blue = create_eve_alliance()
+        cls.corp_in_red = create_eve_corporation(alliance=cls.alliance_red)
+        corp_in_blue = create_eve_corporation(alliance=cls.alliance_blue)
 
-        cls.char_red_corp = EveCharacterFactory(corporation=cls.corp_red)
-        cls.char_blue_corp = EveCharacterFactory(corporation=cls.corp_blue)
-        cls.char_red_alliance = EveCharacterFactory(corporation=corp_in_red)
-        cls.char_blue_alliance = EveCharacterFactory(corporation=corp_in_blue)
+        cls.char_red_corp = create_eve_character(corporation=cls.corp_red)
+        cls.char_blue_corp = create_eve_character(corporation=cls.corp_blue)
+        cls.char_red_alliance = create_eve_character(corporation=cls.corp_in_red)
+        cls.char_blue_alliance = create_eve_character(corporation=corp_in_blue)
 
-        cls.user = UserMainFactory()
+        cls.user = create_user_main()
 
         cls.corp_user = cls.user.profile.main_character.corporation
         cls.alliance_user = cls.user.profile.main_character.alliance
@@ -124,9 +124,7 @@ class TestStandingFilter(TestCase):
         )
         filter_red.alliances.add(self.alliance_user)
 
-        user_blue_and_red = UserMainFactory(
-            main_character__character=self.char_red_alliance
-        )
+        user_blue_and_red = create_user_main(character=self.char_red_alliance)
         add_character_to_user(user_blue_and_red, self.char_blue_alliance)
 
         self.assertTrue(
@@ -141,7 +139,7 @@ class TestStandingFilter(TestCase):
             )[user_blue_and_red.pk]["check"]
         )
 
-        user_blue = UserMainFactory(main_character__character=self.char_blue_alliance)
+        user_blue = create_user_main(character=self.char_blue_alliance)
 
         self.assertTrue(
             standing_filter.audit_filter(
@@ -176,9 +174,7 @@ class TestStandingFilter(TestCase):
         )
         filter_red.alliances.add(self.alliance_user)
 
-        user_blue_and_red = UserMainFactory(
-            main_character__character=self.char_red_alliance
-        )
+        user_blue_and_red = create_user_main(character=self.char_red_alliance)
         add_character_to_user(user_blue_and_red, self.char_blue_alliance)
 
         self.assertFalse(
@@ -214,9 +210,7 @@ class TestStandingFilter(TestCase):
         filter_red.alliances.add(self.alliance_user)
         filter_red.corporations.add(self.corp_user)
 
-        user_blue_and_red = UserMainFactory(
-            main_character__character=self.char_red_alliance
-        )
+        user_blue_and_red = create_user_main(character=self.char_red_alliance)
         add_character_to_user(user_blue_and_red, self.char_blue_alliance)
 
         self.assertFalse(
@@ -231,7 +225,7 @@ class TestStandingFilter(TestCase):
             )[user_blue_and_red.pk]["check"]
         )
 
-        user_blue = UserMainFactory(main_character__character=self.char_blue_alliance)
+        user_blue = create_user_main(character=self.char_blue_alliance)
         add_character_to_user(user_blue, self.char_blue_corp)
 
         self.assertTrue(
@@ -246,7 +240,9 @@ class TestStandingFilter(TestCase):
             )[user_blue.pk]["check"]
         )
 
-        user_red = UserMainFactory(main_character__character=self.char_red_alliance)
+        user_red = create_user_main(
+            character=create_eve_character(corporation=self.corp_in_red)
+        )
         add_character_to_user(user_red, self.char_red_corp)
 
         self.assertFalse(
@@ -284,9 +280,7 @@ class TestStandingFilter(TestCase):
         filter_red.alliances.add(self.alliance_user)
         filter_red.corporations.add(self.corp_user)
 
-        user_blue_and_red = UserMainFactory(
-            main_character__character=self.char_red_alliance
-        )
+        user_blue_and_red = create_user_main(character=self.char_red_alliance)
         add_character_to_user(user_blue_and_red, self.char_blue_alliance)
 
         self.assertFalse(
@@ -301,7 +295,7 @@ class TestStandingFilter(TestCase):
             )[user_blue_and_red.pk]["check"]
         )
 
-        user_blue = UserMainFactory(main_character__character=self.char_blue_alliance)
+        user_blue = create_user_main(character=self.char_blue_alliance)
         add_character_to_user(user_blue, self.char_red_corp)
 
         self.assertTrue(
@@ -337,9 +331,7 @@ class TestStandingFilter(TestCase):
         filter_red.alliances.add(self.alliance_user)
         filter_red.corporations.add(self.corp_user)
 
-        user_blue_and_red = UserMainFactory(
-            main_character__character=self.char_red_alliance
-        )
+        user_blue_and_red = create_user_main(character=self.char_red_alliance)
         add_character_to_user(user_blue_and_red, self.char_blue_alliance)
 
         self.assertFalse(
@@ -354,7 +346,7 @@ class TestStandingFilter(TestCase):
             )[user_blue_and_red.pk]["check"]
         )
 
-        user_blue = UserMainFactory(main_character__character=self.char_blue_alliance)
+        user_blue = create_user_main(character=self.char_blue_alliance)
         add_character_to_user(user_blue, self.char_blue_corp)
 
         self.assertFalse(
@@ -369,7 +361,9 @@ class TestStandingFilter(TestCase):
             )[user_blue.pk]["check"]
         )
 
-        user_red = UserMainFactory(main_character__character=self.char_red_alliance)
+        user_red = create_user_main(
+            character=create_eve_character(corporation=self.corp_in_red)
+        )
         add_character_to_user(user_red, self.char_red_corp)
 
         self.assertTrue(
@@ -407,9 +401,7 @@ class TestStandingFilter(TestCase):
         filter_red.alliances.add(self.alliance_user)
         filter_red.corporations.add(self.corp_user)
 
-        user_blue_and_red = UserMainFactory(
-            main_character__character=self.char_red_alliance
-        )
+        user_blue_and_red = create_user_main(character=self.char_red_alliance)
         add_character_to_user(user_blue_and_red, self.char_blue_alliance)
 
         self.assertTrue(
@@ -459,7 +451,7 @@ class TestContactImageSrc(TestCase):
 class TestContactName(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.alliance = EveAllianceInfoFactory()
+        cls.alliance = create_eve_alliance()
 
     def _contact(self, contact_type, contact_id):
         return AllianceContact.objects.create(
@@ -470,19 +462,19 @@ class TestContactName(TestCase):
         )
 
     def test_load_contact_name_character(self):
-        char = EveCharacterFactory()
+        char = create_eve_character()
         contact = self._contact(Contact.ContactTypeOptions.CHARACTER, char.character_id)
         self.assertEqual(contact._load_contact_name, char.character_name)
 
     def test_load_contact_name_corporation(self):
-        corp = EveCorporationInfoFactory()
+        corp = create_eve_corporation()
         contact = self._contact(
             Contact.ContactTypeOptions.CORPORATION, corp.corporation_id
         )
         self.assertEqual(contact._load_contact_name, corp.corporation_name)
 
     def test_load_contact_name_alliance(self):
-        alliance = EveAllianceInfoFactory()
+        alliance = create_eve_alliance()
         contact = self._contact(
             Contact.ContactTypeOptions.ALLIANCE, alliance.alliance_id
         )
@@ -529,7 +521,7 @@ class TestContactName(TestCase):
         mock_create.assert_called_once_with(1_999_999_004)
 
     def test_contact_name_prefers_annotation(self):
-        char = EveCharacterFactory()
+        char = create_eve_character()
         contact = AllianceContact(
             contact_type=Contact.ContactTypeOptions.CHARACTER,
             contact_id=char.character_id,
@@ -538,7 +530,7 @@ class TestContactName(TestCase):
         self.assertEqual(contact.contact_name, "Annotated Name")
 
     def test_contact_name_falls_back_when_annotation_empty(self):
-        char = EveCharacterFactory()
+        char = create_eve_character()
         contact = AllianceContact(
             contact_type=Contact.ContactTypeOptions.CHARACTER,
             contact_id=char.character_id,
@@ -547,7 +539,7 @@ class TestContactName(TestCase):
         self.assertEqual(contact.contact_name, char.character_name)
 
     def test_contact_name_falls_back_without_annotation(self):
-        char = EveCharacterFactory()
+        char = create_eve_character()
         contact = AllianceContact(
             contact_type=Contact.ContactTypeOptions.CHARACTER,
             contact_id=char.character_id,
@@ -555,7 +547,7 @@ class TestContactName(TestCase):
         self.assertEqual(contact.contact_name, char.character_name)
 
     def test_with_contact_name_populates_annotation(self):
-        char = EveCharacterFactory()
+        char = create_eve_character()
         self._contact(Contact.ContactTypeOptions.CHARACTER, char.character_id)
         contact = AllianceContact.objects.with_contact_name().get(
             contact_id=char.character_id
@@ -569,7 +561,7 @@ class TestFilterMissingContactName(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.alliance = EveAllianceInfoFactory()
+        cls.alliance = create_eve_alliance()
 
     def _contact(self, contact_type, contact_id):
         return AllianceContact.objects.create(
@@ -580,8 +572,8 @@ class TestFilterMissingContactName(TestCase):
         )
 
     def test_returns_only_contacts_without_eve_object(self):
-        char = EveCharacterFactory()
-        corp = EveCorporationInfoFactory()
+        char = create_eve_character()
+        corp = create_eve_corporation()
 
         existing_char = self._contact(
             Contact.ContactTypeOptions.CHARACTER, char.character_id
@@ -615,13 +607,13 @@ class TestAllianceContactPermissions(TestCase):
     def test_can_view_notes(self):
         self.assertTrue(
             AllianceContact.can_view_notes(
-                UserMainFactory(permissions=["aa_contacts.view_alliance_notes"])
+                create_user_main(permissions=["aa_contacts.view_alliance_notes"])
             )
         )
-        self.assertFalse(AllianceContact.can_view_notes(UserMainFactory()))
+        self.assertFalse(AllianceContact.can_view_notes(create_user_main()))
 
     def test_can_edit_notes_requires_manage_and_view(self):
-        full = UserMainFactory(
+        full = create_user_main(
             permissions=[
                 "aa_contacts.manage_alliance_contacts",
                 "aa_contacts.view_alliance_notes",
@@ -629,24 +621,24 @@ class TestAllianceContactPermissions(TestCase):
         )
         self.assertTrue(AllianceContact.can_edit_notes(full))
 
-        manage_only = UserMainFactory(
+        manage_only = create_user_main(
             permissions=["aa_contacts.manage_alliance_contacts"]
         )
         self.assertFalse(AllianceContact.can_edit_notes(manage_only))
 
-        view_only = UserMainFactory(permissions=["aa_contacts.view_alliance_notes"])
+        view_only = create_user_main(permissions=["aa_contacts.view_alliance_notes"])
         self.assertFalse(AllianceContact.can_edit_notes(view_only))
 
     def test_can_view_server_links(self):
         self.assertTrue(
             AllianceContact.can_view_server_links(
-                UserMainFactory(permissions=["aa_contacts.view_alliance_server_links"])
+                create_user_main(permissions=["aa_contacts.view_alliance_server_links"])
             )
         )
-        self.assertFalse(AllianceContact.can_view_server_links(UserMainFactory()))
+        self.assertFalse(AllianceContact.can_view_server_links(create_user_main()))
 
     def test_can_manage_server_links_requires_manage_and_view(self):
-        full = UserMainFactory(
+        full = create_user_main(
             permissions=[
                 "aa_contacts.manage_alliance_contacts",
                 "aa_contacts.view_alliance_server_links",
@@ -654,12 +646,12 @@ class TestAllianceContactPermissions(TestCase):
         )
         self.assertTrue(AllianceContact.can_manage_server_links(full))
 
-        manage_only = UserMainFactory(
+        manage_only = create_user_main(
             permissions=["aa_contacts.manage_alliance_contacts"]
         )
         self.assertFalse(AllianceContact.can_manage_server_links(manage_only))
 
-        view_only = UserMainFactory(
+        view_only = create_user_main(
             permissions=["aa_contacts.view_alliance_server_links"]
         )
         self.assertFalse(AllianceContact.can_manage_server_links(view_only))
@@ -669,13 +661,13 @@ class TestCorporationContactPermissions(TestCase):
     def test_can_view_notes(self):
         self.assertTrue(
             CorporationContact.can_view_notes(
-                UserMainFactory(permissions=["aa_contacts.view_corporation_notes"])
+                create_user_main(permissions=["aa_contacts.view_corporation_notes"])
             )
         )
-        self.assertFalse(CorporationContact.can_view_notes(UserMainFactory()))
+        self.assertFalse(CorporationContact.can_view_notes(create_user_main()))
 
     def test_can_edit_notes_requires_manage_and_view(self):
-        full = UserMainFactory(
+        full = create_user_main(
             permissions=[
                 "aa_contacts.manage_corporation_contacts",
                 "aa_contacts.view_corporation_notes",
@@ -683,26 +675,26 @@ class TestCorporationContactPermissions(TestCase):
         )
         self.assertTrue(CorporationContact.can_edit_notes(full))
 
-        manage_only = UserMainFactory(
+        manage_only = create_user_main(
             permissions=["aa_contacts.manage_corporation_contacts"]
         )
         self.assertFalse(CorporationContact.can_edit_notes(manage_only))
 
-        view_only = UserMainFactory(permissions=["aa_contacts.view_corporation_notes"])
+        view_only = create_user_main(permissions=["aa_contacts.view_corporation_notes"])
         self.assertFalse(CorporationContact.can_edit_notes(view_only))
 
     def test_can_view_server_links(self):
         self.assertTrue(
             CorporationContact.can_view_server_links(
-                UserMainFactory(
+                create_user_main(
                     permissions=["aa_contacts.view_corporation_server_links"]
                 )
             )
         )
-        self.assertFalse(CorporationContact.can_view_server_links(UserMainFactory()))
+        self.assertFalse(CorporationContact.can_view_server_links(create_user_main()))
 
     def test_can_manage_server_links_requires_manage_and_view(self):
-        full = UserMainFactory(
+        full = create_user_main(
             permissions=[
                 "aa_contacts.manage_corporation_contacts",
                 "aa_contacts.view_corporation_server_links",
@@ -710,12 +702,12 @@ class TestCorporationContactPermissions(TestCase):
         )
         self.assertTrue(CorporationContact.can_manage_server_links(full))
 
-        manage_only = UserMainFactory(
+        manage_only = create_user_main(
             permissions=["aa_contacts.manage_corporation_contacts"]
         )
         self.assertFalse(CorporationContact.can_manage_server_links(manage_only))
 
-        view_only = UserMainFactory(
+        view_only = create_user_main(
             permissions=["aa_contacts.view_corporation_server_links"]
         )
         self.assertFalse(CorporationContact.can_manage_server_links(view_only))
@@ -725,7 +717,7 @@ class TestContactBasePermissionsNotImplemented(TestCase):
     """The abstract ``Contact`` base leaves permission checks to subclasses."""
 
     def test_permission_methods_raise(self):
-        user = UserMainFactory()
+        user = create_user_main()
         for method in (
             Contact.can_view_notes,
             Contact.can_edit_notes,

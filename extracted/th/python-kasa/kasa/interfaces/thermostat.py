@@ -15,7 +15,9 @@ class ThermostatState(Enum):
     Heating = "heating"
     Calibrating = "progress_calibration"
     Idle = "idle"
+    Hold = "hold_on"
     Off = "off"
+    Shutdown = "shutdown"
     Unknown = "unknown"
 
 

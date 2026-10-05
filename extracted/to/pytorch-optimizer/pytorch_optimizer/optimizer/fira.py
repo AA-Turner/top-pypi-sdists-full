@@ -9,15 +9,18 @@ from pytorch_optimizer.optimizer.galore_utils import GaLoreProjector
 
 
 class Fira(BaseOptimizer):
-    """Can We Achieve Full-rank Training of LLMs Under Low-rank Constraint? Fira with AdamW optimizer.
+    """AdamW with low rank updates and full rank gradient compensation.
+
+    Add `rank`, `update_proj_gap`, `scale`, and `projection_type` to parameter groups
+    containing matrix weights to enable projection.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        weight_decay: Weight decay coefficient.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -94,6 +97,8 @@ class Fira(BaseOptimizer):
 
                 state = self.state[p]
 
+                full_grad = grad
+
                 if 'rank' in group and p.dim() == 2:
                     if 'projector' not in state:
                         state['projector'] = GaLoreProjector(
@@ -110,7 +115,7 @@ class Fira(BaseOptimizer):
                     state['exp_avg_sq'] = torch.zeros_like(grad)
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
-                exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(grad, weight=1.0 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                 de_nom = exp_avg_sq.sqrt().add_(group['eps'])
@@ -126,7 +131,7 @@ class Fira(BaseOptimizer):
                     if norm_dim == 1:
                         scaling_factor = scaling_factor.unsqueeze(1)
 
-                    scaling_grad = grad.sub(sub_grad).mul_(scaling_factor)
+                    scaling_grad = full_grad.sub(sub_grad).mul_(scaling_factor)
 
                     if 'scaling_grad' in state:
                         scaling_grad_norm = torch.norm(scaling_grad)

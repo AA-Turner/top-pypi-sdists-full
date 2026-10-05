@@ -216,7 +216,7 @@ class ScrapeResult:
     #: WHERE this page was fetched FROM — `datacenter` (our proxy pool),
     #: `direct` (this server's own address) or `residential` (the person's own
     #: computer, after a site blocked our servers). Never silent about it:
-    #: contract `common-docs/systems/architecture/residential-egress/FEATURE.md`.
+    #: contract `common-docs/systems/web/residential-egress/FEATURE.md`.
     egress: str = EGRESS_DATACENTER
     #: The computer the page came through, in the person's own words
     #: ("Arman's MacBook Pro"). Set only when `egress == "residential"`.
@@ -710,7 +710,7 @@ def _ladder_reason(result: ScrapeResult) -> str | None:
 
 # ── Residential egress: the person's own computer as the exit ───────────────
 #
-# THE RULE (contract: `common-docs/systems/architecture/residential-egress/FEATURE.md`):
+# THE RULE (contract: `common-docs/systems/web/residential-egress/FEATURE.md`):
 # never by default, only that user's own computer, only after a site blocked our
 # servers, only for the retry of that same page — and the result always SAYS so,
 # including when the retry could not happen and why.
@@ -1133,7 +1133,7 @@ async def scrape(
     block, this page gets exactly one retry through a computer THAT PERSON
     registered, and never through anyone else's. A run with no acting user (a
     schedule, a service token) gets no retry and the trail says so. Contract:
-    `common-docs/systems/architecture/residential-egress/FEATURE.md`.
+    `common-docs/systems/web/residential-egress/FEATURE.md`.
     """
     ladder_policy = ladder_policy or LadderPolicy()
     user_agent = normalize_user_agent(user_agent)

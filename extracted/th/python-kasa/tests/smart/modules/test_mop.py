@@ -20,7 +20,9 @@ mop = parametrize("has mop", component_filter="mop", protocol_filter={"SMART"})
         ("mop_waterlevel", "waterlevel", str),
     ],
 )
-async def test_features(dev: SmartDevice, feature: str, prop_name: str, type: type):
+async def test_features(
+    dev: SmartDevice, feature: str, prop_name: str, type: type
+) -> None:
     """Test that features are registered and work as expected."""
     mod = next(get_parent_and_child_modules(dev, Module.Mop))
     assert mod is not None
@@ -34,7 +36,7 @@ async def test_features(dev: SmartDevice, feature: str, prop_name: str, type: ty
 
 
 @mop
-async def test_mop_waterlevel(dev: SmartDevice, mocker: MockerFixture):
+async def test_mop_waterlevel(dev: SmartDevice, mocker: MockerFixture) -> None:
     """Test dust mode."""
     mop_module = next(get_parent_and_child_modules(dev, Module.Mop))
     call = mocker.spy(mop_module, "call")
@@ -45,10 +47,9 @@ async def test_mop_waterlevel(dev: SmartDevice, mocker: MockerFixture):
     new_level = Waterlevel.High
     await mop_module.set_waterlevel(new_level.name)
 
-    params = mop_module._settings.copy()
-    params["cistern"] = new_level.value
-
-    call.assert_called_with("setCleanAttr", params)
+    call.assert_called_with(
+        "setCleanAttr", {"cistern": new_level.value, "type": "global"}
+    )
 
     await dev.update()
 

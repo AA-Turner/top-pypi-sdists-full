@@ -9,7 +9,10 @@ capture, the SDK and the daemon share, R4), so `session(op=search)` and
                noticed it (the ~2-minute trigger counts from then)
     events_fts full-text index over event text and commands (`session(op=search)`)
     cursors    per stream: the byte offset read so far (a re-read is idempotent:
-               event ids are `<stream>:<offset>:<index>`)
+               event ids are `<stream>:<offset>:<index>`), and the file's inode
+               and a hash of the bytes just before that offset, so a file
+               rewritten under the cursor is noticed, never read on (the worker's
+               `_read_stream`)
     bites      one row per model call sequence: trigger, what it covered, tokens,
                outcome
     writes     the logbook: every `probe` command the daemon ran or was refused,
@@ -90,7 +93,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(
 CREATE TRIGGER IF NOT EXISTS events_ai AFTER INSERT ON events BEGIN
     INSERT INTO events_fts (rowid, text, command) VALUES (new.seq, new.text, coalesce(new.command, ''));
 END;
-CREATE TABLE IF NOT EXISTS cursors (stream TEXT PRIMARY KEY, path TEXT NOT NULL, offset INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS cursors (stream TEXT PRIMARY KEY, path TEXT NOT NULL, offset INTEGER NOT NULL,
+                                     inode INTEGER, tail_hash TEXT, tail_at INTEGER);
 CREATE TABLE IF NOT EXISTS bites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     started REAL NOT NULL,
@@ -411,6 +415,8 @@ class Store:
         self.db.execute("PRAGMA busy_timeout=30000")
         self.db.executescript(_SCHEMA)
         self._add_column("conversations", "fingerprint", "TEXT")
+        for column, kind in (("inode", "INTEGER"), ("tail_hash", "TEXT"), ("tail_at", "INTEGER")):
+            self._add_column("cursors", column, kind)
         version = self.meta("format_version")
         if version is None:
             self.set_meta("format_version", str(FORMAT_VERSION))
@@ -467,10 +473,28 @@ class Store:
         row = self.db.execute("SELECT path, offset FROM cursors WHERE stream = ?", (stream,)).fetchone()
         return (row["path"], row["offset"]) if row else (None, 0)
 
-    def set_cursor(self, stream: str, path: str, offset: int) -> None:
-        self.db.execute("INSERT INTO cursors (stream, path, offset) VALUES (?, ?, ?) "
-                        "ON CONFLICT(stream) DO UPDATE SET path = excluded.path, offset = excluded.offset",
-                        (stream, path, offset))
+    def set_cursor(self, stream: str, path: str, offset: int, *, inode: int | None = None,
+                   tail_hash: str | None = None) -> None:
+        """`inode` and `tail_hash` (the file's, and a hash of the bytes just before
+        `offset`) are what the next read checks the file against; `tail_at`
+        records the offset they hold for. A CLI from before them updates only the
+        offset, which leaves `tail_at` behind: the guard then no longer applies."""
+        tail_at = offset if tail_hash is not None else None
+        self.db.execute("INSERT INTO cursors (stream, path, offset, inode, tail_hash, tail_at) "
+                        "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(stream) DO UPDATE SET path = excluded.path, "
+                        "offset = excluded.offset, inode = excluded.inode, tail_hash = excluded.tail_hash, "
+                        "tail_at = excluded.tail_at",
+                        (stream, path, offset, inode, tail_hash, tail_at))
+
+    def cursor_guard(self, stream: str) -> tuple[int | None, str | None]:
+        """The `(inode, tail_hash)` the stream's cursor was saved with, or `(None,
+        None)` when there is none for its current offset (a store from before the
+        guard, or a cursor an older CLI moved since)."""
+        row = self.db.execute("SELECT offset, inode, tail_hash, tail_at FROM cursors WHERE stream = ?",
+                              (stream,)).fetchone()
+        if row is None or row["tail_hash"] is None or row["tail_at"] != row["offset"]:
+            return None, None
+        return row["inode"], row["tail_hash"]
 
     # -- events --
     def current_turn(self) -> int:

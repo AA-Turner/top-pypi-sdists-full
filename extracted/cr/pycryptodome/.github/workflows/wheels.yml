@@ -10,9 +10,9 @@ jobs:
     name: Build source package
     runs-on: [ ubuntu-latest ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         name: Install Python
         with:
           python-version: '3.x'
@@ -22,7 +22,7 @@ jobs:
           python -m pip install setuptools
           python setup.py sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: source-${{ github.ref_name }}
           path: ./dist/*.tar.gz
@@ -32,31 +32,31 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, windows-2019, macos-13, ubuntu-22.04-arm, windows-11-arm]
+        os: [ubuntu-22.04, windows-2022, macos-15, ubuntu-22.04-arm, windows-11-arm]
 
     if: github.actor == 'Legrandin'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Select architecture for MacOS
         run: |
           echo 'CIBW_ARCHS=x86_64 universal2' >> $GITHUB_ENV
         if: runner.os == 'macOS'
 
-      - uses: pypa/cibuildwheel@v2.22.0
+      - uses: pypa/cibuildwheel@v3.3.1
         name: Build wheels
         env:
           # cibuildwheel will build wheel once and test it for each CPython version
-          # and for PyPy > 3.8.
-          CIBW_BUILD: "cp37-* cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp313t-* pp39-* pp310-*"
+          # and for PyPy >= 3.10
+          CIBW_BUILD: "cp38-* cp39-* cp310-* cp311-* cp312-* cp313-* cp313t-* cp314-* cp314t-* pp310-* pp311-*"
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
           CIBW_MANYLINUX_I686_IMAGE: "manylinux2014"
           CIBW_MANYLINUX_AARCH64_IMAGE: "manylinux2014"
           CIBW_MANYLINUX_PYPY_X86_64_IMAGE: "manylinux2014"
           CIBW_MANYLINUX_PYPY_I686_IMAGE: "manylinux2014"
           CIBW_MANYLINUX_PYPY_AARCH64_IMAGE: "manylinux2014"
-          CIBW_ENABLE: "cpython-freethreading pypy"
+          CIBW_ENABLE: "cpython-freethreading pypy pypy-eol"
           CIBW_BEFORE_TEST_LINUX: "(ldd /bin/ls | grep -q musl && apk add gmp) || true"
 
           # Set pycryptodome/x test command according to built package
@@ -70,7 +70,7 @@ jobs:
         run: |
           rm -f wheelhouse/*-manylinux1_*.whl
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wheels-python3-${{ matrix.os }}-${{ github.ref_name }}
           overwrite: true
@@ -81,22 +81,22 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-22.04, windows-2019, macos-13 ]
+        os: [ ubuntu-22.04, windows-2022 ]
         arch: [ multi-arch ]
         # Python 2 on Windows requires manual toolchain setup (per-arch) due to newer MSVC used here
         exclude:
-          - os: windows-2019
+          - os: windows-2022
             arch: multi-arch
         include:
-          - os: windows-2019
+          - os: windows-2022
             arch: x86
-          - os: windows-2019
+          - os: windows-2022
             arch: x64
 
     if: github.actor == 'Legrandin'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install MSVC
         if: runner.os == 'Windows'
@@ -140,7 +140,7 @@ jobs:
         run: |
           rm -f wheelhouse/*-manylinux1_*.whl
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wheels-legacy-${{ matrix.os }}-${{ github.ref_name }}
           overwrite: true

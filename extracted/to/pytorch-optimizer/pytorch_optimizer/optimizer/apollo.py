@@ -1,5 +1,5 @@
 import math
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import torch
@@ -13,19 +13,19 @@ SCALE_TYPE = Literal['channel', 'tensor']
 
 
 class ApolloDQN(BaseOptimizer):
-    """An Adaptive Parameter-wise Diagonal Quasi-Newton Method for Nonconvex Stochastic Optimization.
+    """Adaptive updates with a diagonal quasi-Newton preconditioner.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        init_lr (Optional[float]): Initial learning rate (default lr / 1000).
-        beta (float): Coefficient used for computing running averages of gradient.
-        rebound (str): Rectified bound for diagonal Hessian. Options: 'constant', 'belief'.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decay_type (str): Type of weight decay. Options: 'l2', 'decoupled', 'stable'.
-        warmup_steps (int): Number of warmup steps.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        init_lr: Initial learning rate (default lr / 1000).
+        beta: Coefficient used for computing running averages of gradient.
+        rebound: Rectified bound for diagonal Hessian. Options: 'constant', 'belief'.
+        weight_decay: Weight decay coefficient.
+        weight_decay_type: Type of weight decay. Options: 'l2', 'decoupled', 'stable'.
+        warmup_steps: Number of warmup steps.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -33,7 +33,7 @@ class ApolloDQN(BaseOptimizer):
         self,
         params: ParamsT,
         lr: float = 1e-2,
-        init_lr: Optional[float] = 1e-5,
+        init_lr: float | None = 1e-5,
         beta: float = 0.9,
         rebound: str = 'constant',
         weight_decay: float = 0.0,
@@ -164,18 +164,19 @@ class ApolloDQN(BaseOptimizer):
 
 
 class APOLLO(BaseOptimizer):
-    """SGD-like Memory, AdamW-level Performance.
+    """AdamW with low rank gradient projection and norm based update scaling.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
-        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
-        correct_bias (bool): Whether to correct bias in Adam.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        scale_type: Compute update scaling per `'tensor'` or per `'channel'`.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        correct_bias: Whether to correct bias in Adam.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -279,7 +280,7 @@ class APOLLO(BaseOptimizer):
 
                     grad = state['projector'].project(grad, group['step'], from_random_matrix=True)
 
-                exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(grad, weight=1.0 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                 de_nom = exp_avg_sq.sqrt().add_(group['eps'])

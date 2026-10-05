@@ -37,7 +37,7 @@ PAGESIZE: Final[int]
 @disjoint_base
 class mmap:
     """
-    Windows: mmap(fileno, length[, tagname[, access[, offset]]])
+    Windows: mmap(fileno, length[, tagname[, access[, offset[, trackfd]]]])
 
     Maps length bytes from the file specified by the file handle fileno,
     and returns a mmap object.  If length is larger than the current size

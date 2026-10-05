@@ -39,12 +39,19 @@ docs = [
     'sphinx-autobuild',
     'sphinx-copybutton',
 ]
+tests = [
+    'coverage[toml]',
+    'diff-cover',
+    'pytest',
+    'importlib_resources; python_version < "3.12"',
+    'sybil[pytest]',
+]
 
 [project.urls]
 'Home Page' = 'https://fluflbounce.readthedocs.io'
 'Documentation' = 'https://fluflbounce.readthedocs.io'
 'Source Code' = 'https://gitlab.com/flufl/flufl.bounce.git'
-'Bug Tracker' = 'https://gitlab.com/flufl/flufl.bounce/issues'
+'Bug Tracker' = 'https://gitlab.com/flufl/flufl.bounce/-/work_items'
 
 [tool.hatch.version]
 path = 'src/flufl/bounce/__init__.py'
@@ -59,65 +66,58 @@ include = [
     'src/flufl/',
     'docs/',
     'tests/',
+    'tools/',
     'conftest.py',
 ]
 
 [tool.hatch.envs.default]
+installer = 'uv'
 
 [tool.hatch.envs.default.scripts]
 all = [
-    'hatch test --all',
+    'hatch run test:run',
     'hatch run qa:qa',
     'hatch run docs:docs',
 ]
-
-[tool.hatch.envs.hatch-test]
-default-args = ['tests', 'docs']
-extra-dependencies = [
-    'diff-cover',
-    'importlib_resources; python_version < "3.12"',
-    'sybil',
+# Create the release tag locally; pushing it is left to you.
+tag = [
+    'tools/tag.py {args}',
 ]
 
-[tool.hatch.envs.hatch-test.scripts]
+[tool.hatch.envs.test]
+dependency-groups = [
+    'tests',
+]
+
+[tool.hatch.envs.test.scripts]
 run = [
-    'coverage run -m pytest{env:HATCH_TEST_ARGS:} {args}',
+    'coverage run -m pytest {args}',
     'coverage combine',
     'coverage report',
     'coverage xml',
     '- diff-cover coverage.xml',
 ]
-run-cov = 'hatch test'
-cov-combine = ''
-cov-report = ''
 
-[[tool.hatch.envs.hatch-test.matrix]]
+[[tool.hatch.envs.test.matrix]]
 python = ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
 
 [tool.hatch.envs.qa]
-dependencies = [
-    'ruff',
-    'pyrefly',
-]
-
-[tool.hatch.envs.qa.env-vars]
-MODULE_NAME = '{env:MODULE_NAME:flufl.bounce}'
-MODULE_PATH = '{env:MODULE_PATH:src/flufl/bounce}'
+# No dependencies: each `hatch check` subcommand runs in its own internal environment with its own
+# pinned tool, so ruff and pyrefly no longer have to be installed here.
 
 [tool.hatch.envs.qa.scripts]
 qa = [
-    'hatch fmt --check src',
-    'pyrefly check',
+    # Backed by ruff
+    'hatch check code {args:src tools}',
+    'hatch check fmt {args:src tools}',
+    # Backed by pyrefly
+    'hatch check types {args:src tools}',
 ]
 fix = [
-    'hatch fmt src',
+    # Lint fixes first; the formatter gets the last word on layout.
+    'hatch check code --fix {args:src tools}',
+    'hatch check fmt --fix {args:src tools}',
 ]
-preview = [
-    'hatch fmt --diff src',
-]
-
-[tool.hatch.envs.hatch-static-analysis]
-config-path = 'none'
 
 [tool.hatch.envs.docs]
 dependency-groups = [
@@ -130,6 +130,28 @@ docs = [
 ]
 serve = [
     'sphinx-autobuild docs build/html --port 9000 --open-browser',
+]
+# Verify that every external link in the docs still resolves, including the ones the :GL: role
+# builds.  This one needs the network, so it is deliberately not part of the test run.
+linkcheck = [
+    'sphinx-build -b linkcheck docs build/linkcheck',
+]
+
+[tool.pytest.ini_options]
+# The documentation is collected alongside the tests because Sybil turns the examples in it into
+# real test cases.  Naming both here means a bare `pytest` run does the same thing the hatch
+# scripts do, rather than walking the whole tree and picking up whatever it finds.
+testpaths = [
+    'tests',
+    'docs',
+]
+# Sybil collects every doctest in this project, so pytest's own doctest plugin has nothing to
+# contribute.  Left enabled it duplicates the work: naming a document explicitly, as in `pytest
+# docs/using.rst`, makes the plugin collect the whole file as one extra doctest, because it takes
+# any .rst named on the command line regardless of --doctest-glob.  That copy runs outside Sybil's
+# scaffolding, so the namespace it needs isn't there, and it fails on the first line that uses it.
+addopts = [
+    '-p', 'no:doctest',
 ]
 
 [tool.coverage.run]
@@ -148,28 +170,67 @@ exclude_also = [
 line-length = 100
 src = ['src']
 
-[tool.ruff.format]
-quote-style = 'single'
+[tool.ruff.lint]
+# Hatch's curated set selects no pydocstyle rules, so docstring linting is an explicit choice.
+# The `convention` setting below only takes effect once these are selected.
+extend-select = ['D']
+# TODO: Temporary, for the 5.1 release only.  Each of these rules fires somewhere in src/ today,
+# and fixing them is deferred to 6.0.  Most come from Hatch's curated set, which the old
+# configuration had switched off, rather than from the D rules selected above.  6.0 fixes the
+# offending code and deletes this whole list.
+extend-ignore = [
+    'D202',
+    'D205',
+    'D400',
+    'G004',
+    'I001',
+    'PLW2901',
+    'SIM102',
+    'TC006',
+    'TD004',
+]
 
 [tool.ruff.lint.extend-per-file-ignores]
 # Essentially, ignore all lint warnings in these configuration files.
 'conftest.py' = [
     'ARG002',
+    'D',
     'I001',
     'S101',
 ]
 'docs/conf.py' = [
     'A',
+    'D',
     'DTZ',
     'E',
     'I',
     'UP',
 ]
+'docs/_ext/**.py' = [
+    'INP001',                   # Standalone Sphinx extension, not an importable package
+]
+'tools/**.py' = [
+    'INP001',                   # Standalone scripts, not an importable package
+    'S607',                     # Find git on PATH; its location isn't ours to assume
+    'T201',                     # print() is how a command line script talks
+]
+'**/tests/**.py' = [
+    'D100',                     # A test module's name and contents are the documentation
+    'D103',                     # ...and so is a test function's name
+    'D104',                     # ...and a tests package marker has nothing to say at all
+]
+
+[tool.ruff.format]
+quote-style = 'single'
 
 [tool.ruff.lint.pydocstyle]
 convention = 'pep257'
 
 [tool.ruff.lint.isort]
+# tomllib joined the standard library in 3.11, so with a 3.10 floor ruff files it under
+# third-party.  Only tools/ imports it, and that script declares its own >=3.11 floor in its
+# PEP 723 metadata, which ruff does not read from here.
+extra-standard-library = ['tomllib']
 case-sensitive = true
 forced-separate = ['docutils', 'sphinx']
 known-first-party = ['flufl.bounce']
@@ -177,7 +238,9 @@ length-sort-straight = true
 lines-after-imports = 2
 lines-between-types = 1
 order-by-type = true
-section-order = ['standard-library', 'third-party', 'local-folder', 'first-party']
+# A custom section order has to name `future` itself.  Leave it out and isort files `from __future__
+# import annotations` as third-party and sorts it below the stdlib imports, which is a SyntaxError.
+section-order = ['future', 'standard-library', 'third-party', 'local-folder', 'first-party']
 
 [tool.pyrefly]
 project-includes = ['src']

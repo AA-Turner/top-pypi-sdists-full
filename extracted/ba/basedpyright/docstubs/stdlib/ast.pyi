@@ -777,7 +777,9 @@ class Import(stmt):
         def __init__(self, names: list[alias], **kwargs: Unpack[_Attributes]) -> None: ...
 
     if sys.version_info >= (3, 15):
-        def __replace__(self, *, names: list[alias] = ..., is_lazy: bool | None = ..., **kwargs: Unpack[_Attributes]) -> Self: ...
+        def __replace__(self, *, names: list[alias] = ..., is_lazy: bool | None = ..., **kwargs: Unpack[_Attributes]) -> Self:
+            """Return a copy of the AST node with new values for the specified fields."""
+            ...
 
     elif sys.version_info >= (3, 14):
         def __replace__(self, *, names: list[alias] = ..., **kwargs: Unpack[_Attributes]) -> Self:
@@ -833,7 +835,9 @@ class ImportFrom(stmt):
             level: int = ...,
             is_lazy: bool | None = ...,
             **kwargs: Unpack[_Attributes],
-        ) -> Self: ...
+        ) -> Self:
+            """Return a copy of the AST node with new values for the specified fields."""
+            ...
 
     elif sys.version_info >= (3, 14):
         def __replace__(
@@ -1057,7 +1061,9 @@ class DictComp(expr):
             value: expr | None = ...,
             generators: list[comprehension] = ...,
             **kwargs: Unpack[_Attributes],
-        ) -> Self: ...
+        ) -> Self:
+            """Return a copy of the AST node with new values for the specified fields."""
+            ...
     elif sys.version_info >= (3, 14):
         def __replace__(
             self, *, key: expr = ..., value: expr = ..., generators: list[comprehension] = ..., **kwargs: Unpack[_Attributes]

@@ -1,22 +1,19 @@
-import json
 import copy
+import json
 import logging
 import pprint
+
 import numpy as np
 from shapely import geometry
-from ..utils import instance
-from ..utils import serialize_as_svg
-from ..utils import TopoOptions
+from shapely.errors import GeometryTypeError
+
 from ..ops import winding_order
-from ..ops import ignore_shapely2_warnings
+from ..utils import TopoOptions, instance, serialize_as_svg
 
-try:
-    from shapely.errors import GeometryTypeError
-except ImportError:
-    GeometryTypeError = ValueError
+logger = logging.getLogger(__name__)
 
 
-class Extract(object):
+class Extract:
     """
     This class targets the following objectives:
     1. Detection of geometrical type of the object
@@ -50,7 +47,7 @@ class Extract(object):
         object created including the keys `type`, `linestrings`, `coordinates` `bookkeeping_geoms`, `bookkeeping_coords`, `objects`
     """
 
-    def __init__(self, data, options={}):
+    def __init__(self, data, options=None):
         # initiation topology options
         if isinstance(options, TopoOptions):
             self.options = options
@@ -70,7 +67,7 @@ class Extract(object):
         self.output = self._extractor(data)
 
     def __repr__(self):
-        return "Extract(\n{}\n)".format(pprint.pformat(self.output))
+        return f"Extract(\n{pprint.pformat(self.output)}\n)"
 
     def to_dict(self):
         """
@@ -135,14 +132,14 @@ class Extract(object):
 
         # show the number of invalid geometries have been removed if any
         if self._invalid_geoms > 0:
-            logging.warning(
+            logger.warning(
                 "removed {} invalid geometric object{}".format(
                     self._invalid_geoms, "" if self._invalid_geoms == 1 else "s"
                 )
             )
             self._invalid_geoms = 0
         if self._tried_geojson:
-            logging.warning(
+            logger.warning(
                 "Objects might be recognized if python package `geojson` is installed."
             )
         return data
@@ -216,7 +213,7 @@ class Extract(object):
             if hasattr(self._data, "__geo_interface__"):
                 data = copy.deepcopy(self._data.__geo_interface__)
                 # convert type _Array or array to list
-                for key in data.keys():
+                for key in data:
                     if str(type(data[key]).__name__).startswith(("_Array", "array")):
                         data[key] = data[key].tolist()
                 # convert (nested) tuples to lists
@@ -224,7 +221,7 @@ class Extract(object):
                 self._data = [data]
                 self._extract_list([data])
             else:
-                return print("error: {} cannot be mapped".format(geom))
+                return print(f"error: {geom} cannot be mapped")
 
     def _extract_line(self, geom):
         """
@@ -458,14 +455,14 @@ class Extract(object):
 
             feature_dict = {
                 **(feature.get("properties") if feature.get("properties") else {}),
-                **{"geometry": geometry.shape(feature["geometry"])},
+                "geometry": geometry.shape(feature["geometry"]),
             }
 
             if feature["type"] == "GeometryCollection":
                 feature_dict["geometries"] = feature["geometry"]["geometries"]
 
             if self.options.ignore_index or not feature.get("id"):
-                data["feature_{}".format(str(idx).zfill(zfill_value))] = feature_dict
+                data[f"feature_{str(idx).zfill(zfill_value)}"] = feature_dict
             else:
                 data[feature.get("id")] = feature_dict  # feature
 
@@ -518,10 +515,10 @@ class Extract(object):
         """
         try:
             import geojson
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "To parse a `fiona.Collection`, you'll need the python package `geojson`"
-            )
+            ) from err
         # convert Fiona Collection into a GeoJSON Feature Collection
         # Use geojson.Feature to properly convert Fiona features to GeoJSON format
         features = [
@@ -546,10 +543,10 @@ class Extract(object):
         """
         try:
             import geojson
-        except ImportError:
+        except ImportError as err:
             raise ImportError(
                 "To parse a `fiona.model.Feature`, you'll need the python package `geojson`"
-            )
+            ) from err
         # convert Fiona Feature into a GeoJSON Feature
         geojson_feat = geojson.Feature(
             geometry=geom["geometry"], properties=dict(geom["properties"])
@@ -574,7 +571,7 @@ class Extract(object):
             self._data = geom.to_dict(orient="index")
         else:
             self._data = dict(enumerate(geom.to_dict(orient="records")))
-        self._extract_dictionary(self._data)
+        self._extract_records()
 
     def _extract_geopandas_geoseries(self, geom):
         """
@@ -587,7 +584,7 @@ class Extract(object):
         """
 
         self._data = geom.to_dict()
-        self._extract_dictionary(self._data)
+        self._extract_records()
 
     def _extract_list(self, geom):
         """
@@ -606,10 +603,7 @@ class Extract(object):
                 raise LookupError(
                     "the number of data objects does not match the number of object_name"
                 )
-            geom = [
-                subgeom["features"] if "features" in subgeom else subgeom
-                for subgeom in geom
-            ]
+            geom = [subgeom.get("features", subgeom) for subgeom in geom]
             geom_offset = np.cumsum([len(subgeom) for subgeom in geom]).tolist()
             geom_offset.pop()
             geom_offset.insert(0, 0)
@@ -667,10 +661,10 @@ class Extract(object):
                 import geojson
 
                 data = geojson.loads(geom)
-            except ImportError:
+            except ImportError as err:
                 raise ImportError(
                     "String was tried to read with the Python package `geojson`, but it is not installed."
-                )
+                ) from err
         self._extractor(data)
 
     def _extract_dictionary(self, geom):
@@ -684,13 +678,20 @@ class Extract(object):
         """
 
         self._is_single = False
-        if (
-            "type" in geom.keys()
-            and geom["type"].casefold() == "FeatureCollection".casefold()
-        ):
+        if "type" in geom and geom["type"].casefold() == "FeatureCollection".casefold():
             return self._extract_featurecollection(geom)
+        # the objects are changed in place, so work on a copy of the input
         self._data = copy.deepcopy(self._data)
+        self._extract_records()
 
+    def _extract_records(self):
+        """
+        This function extracts the objects of `self._data`, a dictionary of the
+        objects that is changed in place: a copy of the input or a new dictionary
+        made from it, such as `GeoDataFrame.to_dict()`.
+        """
+
+        self._is_single = False
         # iterate over the input dictionary or geographical object
         for key in list(self._data):
             # based on the geom type the right function is serialized
@@ -704,7 +705,8 @@ class Extract(object):
                     self._obj = geom.__geo_interface__
                     self._data[self._key] = self._obj
                 # detect if object contains shapely supported geometries:
-                elif "geometry" in self._obj.keys() and hasattr(
+                # .keys() raises on an object that is not a mapping: it is removed
+                elif "geometry" in self._obj.keys() and hasattr(  # noqa: SIM118
                     self._obj["geometry"], "geom_type"
                 ):
                     # extract geometry and collect type and properties
@@ -712,8 +714,11 @@ class Extract(object):
                     self._obj.pop("geometry", None)
 
                     if geom.geom_type == "GeometryCollection":
-                        geometries = self._obj["geometries"]
-                        self._obj.pop("geometries", None)
+                        # a GeoJSON Feature brings its own geometries, a row of a
+                        # GeoDataFrame or GeoSeries only has the shapely geometry
+                        geometries = self._obj.pop("geometries", None)
+                        if geometries is None:
+                            geometries = geom.__geo_interface__["geometries"]
                         self._obj = {
                             "properties": self._obj,
                             "type": geom.geom_type,
@@ -732,8 +737,7 @@ class Extract(object):
                     # then the object might be a GeoJSON Feature or FeatureCollection. If
                     # this fails as well then the object is not recognized and removed.
                     try:
-                        with ignore_shapely2_warnings():
-                            geom = geometry.shape(self._obj)
+                        geom = geometry.shape(self._obj)
                         # object can be mapped, but may not be valid. remove invalid objects
                         # and continue
                         if not geom.is_valid:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from .candidate import GridCellSpec, build_candidate
@@ -1243,7 +1243,23 @@ def _physical_row_dense_baseline_pairs(
         )
 
     ambiguous_pairs: list[dict[str, object]] = []
+    text_rows_by_index = {row.row_index: row for row in text.rows}
+    # 首行两个答题列的双行列名不是漏行：后面至少三行仅有左侧行名，两列答案全空且列名不含数值。
+    blank_answer_header = (
+        cols == 3
+        and len(rows_by_band) >= 4
+        and len(rows_by_band[0]) == 2
+        and all(entry[1] == (1, 2) for entry in rows_by_band[0])
+        and sum(bool(entries) for band, entries in rows_by_band.items() if band) >= 3
+        and all(not entries or all(entry[1] == (0,) for entry in entries) for band, entries in rows_by_band.items() if band)
+        and all(
+            not any(char.isdigit() for token in text_rows_by_index[index].tokens for char in token.text)
+            for index, _cols in rows_by_band[0]
+        )
+    )
     for band, entries in rows_by_band.items():
+        if band == 0 and blank_answer_header:
+            continue
         nonempty_entries = [entry for entry in entries if entry[1]]
         if (
             len(nonempty_entries) < 2
@@ -2001,6 +2017,45 @@ def _build_vector_candidate(
     return _materialize_vector_candidate(tracks, topology, text, evidence_label, diagnostics)
 
 
+def _without_empty_edge_decorations(table_input: NativeTableInput, text: NativeTableText) -> NativeTableInput:
+    """删除近外框的短装饰竖线；须有空白外带或该伪轨道横切正文字形。"""
+
+    width, height = table_local_size(table_input.table_bbox, normalize_angle(table_input.angle))
+    tolerance = max(0.5, 0.08 * text.median_glyph_height)
+    local_rules = [
+        (rule, page_bbox_to_table_local(rule.bbox, table_input.table_bbox, normalize_angle(table_input.angle)))
+        for rule in table_input.drawing_lines
+    ]
+    vertical = [(rule, box) for rule, box in local_rules if box and box[3] - box[1] > box[2] - box[0]]
+    removed = set()
+    for rule, box in vertical:
+        coordinate = (box[0] + box[2]) / 2
+        distance = min(coordinate, width - coordinate)
+        if not tolerance < distance < min(0.05 * width, 2 * text.median_glyph_height):
+            continue
+        intervals = [(other[1], other[3]) for _, other in vertical if abs((other[0] + other[2]) / 2 - coordinate) <= tolerance]
+        if covered_interval_ratio(intervals, 0.0, height) >= 0.30:
+            continue
+        outside = (
+            [glyph for glyph in text.glyphs if (glyph.bbox[0] + glyph.bbox[2]) / 2 < coordinate]
+            if coordinate < width / 2
+            else [glyph for glyph in text.glyphs if (glyph.bbox[0] + glyph.bbox[2]) / 2 > coordinate]
+        )
+        # 短线所在高度之外横切完整字形，说明它不能延伸为全表列界。
+        cuts_body = any(
+            glyph.bbox[0] + tolerance < coordinate < glyph.bbox[2] - tolerance
+            and all(glyph.bbox[3] < start - tolerance or glyph.bbox[1] > end + tolerance for start, end in intervals)
+            for glyph in text.glyphs
+        )
+        if not outside or cuts_body:
+            removed.add(rule)
+    return (
+        replace(table_input, drawing_lines=tuple(rule for rule in table_input.drawing_lines if rule not in removed))
+        if removed
+        else table_input
+    )
+
+
 def build_vector_candidates(
     table_input: NativeTableInput,
     text: NativeTableText,
@@ -2010,9 +2065,10 @@ def build_vector_candidates(
 
     candidates: list[NativeTableCandidate] = []
     rule_cache: dict[tuple[bool, bool, float], _RulePreparation] = {}
+    line_input = _without_empty_edge_decorations(table_input, text)
     raw_line_diagnostics: dict[str, Any] | None = {} if diagnostics is not None else None
     line_candidate = _build_vector_candidate(
-        table_input,
+        line_input,
         text,
         include_drawing=True,
         include_rectangles=False,
@@ -2022,10 +2078,12 @@ def build_vector_candidates(
     )
     line_hypotheses = [raw_line_diagnostics] if raw_line_diagnostics is not None else []
     selected_line_diagnostics = raw_line_diagnostics
-    if line_candidate is None and len(line_hypotheses) < MAX_TRACK_HYPOTHESES:
+    # 高分也可能由大量真实格稀释装饰线歧义；非零歧义仍须验证支持轨道。
+    ambiguous = line_candidate is not None and "ambiguous_separator_ratio=0.0000" not in line_candidate.issues
+    if (line_candidate is None or line_candidate.score < 0.95 or ambiguous) and len(line_hypotheses) < MAX_TRACK_HYPOTHESES:
         supported_line_diagnostics: dict[str, Any] | None = {} if diagnostics is not None else None
         supported_line_candidate = _build_vector_candidate(
-            table_input,
+            line_input,
             text,
             include_drawing=True,
             include_rectangles=False,
@@ -2042,7 +2100,7 @@ def build_vector_candidates(
             if removed_tracks:
                 line_hypotheses.append(supported_line_diagnostics)
                 selected_line_diagnostics = supported_line_diagnostics
-        if supported_line_candidate is not None:
+        if supported_line_candidate is not None and (line_candidate is None or supported_line_candidate.score >= 0.95):
             line_candidate = supported_line_candidate
             selected_line_diagnostics = supported_line_diagnostics
     if diagnostics is not None and selected_line_diagnostics is not None:

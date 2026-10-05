@@ -155,8 +155,8 @@ class GoogleVideoGeneration(BaseMediaGeneration):
         # accept ALLOW_ALL for text-to-video and ALLOW_ADULT for image-driven
         # modes. Pin those least-restrictive supported values instead of
         # accepting a provider default or a stricter catalog override.
-        video_config_kwargs["person_generation"] = (
-            "ALLOW_ADULT" if (first_image is not None or reference_images) else "ALLOW_ALL"
+        video_config_kwargs["person_generation"] = veo_person_generation(
+            image_driven=first_image is not None or bool(reference_images)
         )
 
         # The SDK refuses `source` beside a top-level prompt/image/video
@@ -231,3 +231,10 @@ class GoogleVideoGeneration(BaseMediaGeneration):
         from matrx_ai.providers.errors import classify_google_error
 
         return classify_google_error(exc)
+
+
+def veo_person_generation(*, image_driven: bool) -> str:
+    """Veo's one permissiveness control at its provider minimum (owner rule
+    2026-10-04: minimum safety for all). Text-to-video accepts ALLOW_ALL;
+    image-driven modes accept only ALLOW_ADULT. Guard: check_minimum_safety.py."""
+    return "ALLOW_ADULT" if image_driven else "ALLOW_ALL"

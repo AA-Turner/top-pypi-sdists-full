@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.server.v1 import cloud_components_pb2 as _cloud_components_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -46,6 +47,7 @@ class HostPoolSpec(_message.Message):
         "machine_family",
         "compute_class",
         "gpu",
+        "maintenance_window",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     MIN_HOSTS_FIELD_NUMBER: _ClassVar[int]
@@ -56,6 +58,7 @@ class HostPoolSpec(_message.Message):
     MACHINE_FAMILY_FIELD_NUMBER: _ClassVar[int]
     COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
     GPU_FIELD_NUMBER: _ClassVar[int]
+    MAINTENANCE_WINDOW_FIELD_NUMBER: _ClassVar[int]
     name: str
     min_hosts: int
     max_hosts: int
@@ -65,6 +68,7 @@ class HostPoolSpec(_message.Message):
     machine_family: str
     compute_class: str
     gpu: str
+    maintenance_window: _cloud_components_pb2.MaintenanceWindow
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -76,6 +80,7 @@ class HostPoolSpec(_message.Message):
         machine_family: _Optional[str] = ...,
         compute_class: _Optional[str] = ...,
         gpu: _Optional[str] = ...,
+        maintenance_window: _Optional[_Union[_cloud_components_pb2.MaintenanceWindow, _Mapping]] = ...,
     ) -> None: ...
 
 class HostPool(_message.Message):

@@ -148,6 +148,31 @@ log = logging.getLogger(__name__)
 # budget.
 _LAUNCH_TIMEOUT_SECONDS = 120.0
 
+# #3600 review round 1: a ceiling on `target.deferrals` past which the
+# launch-time free pass below (a race between the tick's own
+# `no_eligible_host` precheck and the actual `coord drive --tmux`
+# resolution a few hundred ms later) stops excusing a failed launch, even
+# when the post-launch re-observation confirms the fleet is still
+# genuinely ineligible. Without this, a condition that happens to stay
+# true for a long time (an extended release cordon left in place for
+# hours, a fleet-health flap that never recovers) would free-pass
+# FOREVER: the entry never leaves `waiting`, so `attempts` never reaches
+# `DEFAULT_MAX_ATTEMPTS`, it never reaches `blocked`, and nothing
+# escalates — the exact "a gate must be able to fail" shape #2096 warns
+# about, just moved one layer down instead of removed. `deferrals` is the
+# SAME counter every other benign-deferral path in this module bumps (see
+# `coord.drive_queue.plan_tick`'s `Deferral`-driven writes) — reusing it
+# here rather than inventing a parallel per-reason streak means a row
+# that has genuinely been passed over a lot, for whatever mix of benign
+# reasons, eventually gets charged regardless of which reason fired most
+# recently. 20 mirrors `coord.drive_queue.ROLL_PENDING_DEFAULT_MAX_DEFERRALS`'s
+# own reasoning: `coord-drive-queue.timer` fires roughly every 3 minutes in
+# production, so 20 deferrals is ~an hour of ticks — generous enough to ride
+# out an ordinary release roll, but not unbounded. Once crossed, the entry
+# falls through to the normal attempt-charging path below, same as any
+# other launch failure.
+_NO_ELIGIBLE_HOST_FREE_PASS_MAX_DEFERRALS = 20
+
 # Wall-clock ceiling for the tick's own `coord merge --only` attempt
 # (#2350's fast path, `_run_merge_only_candidates`).  Deliberately its OWN
 # constant, not a reuse of `_LAUNCH_TIMEOUT_SECONDS` above: that one is
@@ -3475,6 +3500,77 @@ def _fetch_cordons() -> dict[str, str]:
         click.echo(f"warning: could not read release cordons ({exc}) — "
                    "treating the fleet as uncordoned", err=True)
         return {}
+
+
+def _fetch_no_eligible_host(
+    entries: Sequence[QueueEntry], config_path: Path,
+) -> dict[str, str]:
+    """``{repo: "every host that can run REPO is paused, cordoned, or
+    unreachable..."}`` for every repo with at least one UNPINNED entry
+    among *entries* (whatever its `state` — only a `waiting` entry can
+    actually be deferred off the back of this, so computing it for a
+    `running`/`blocked`/`done` row too is harmless, just unused), when NONE
+    of its capable machines currently survive
+    `coord.drive_state.eligible_hosts_for_repo` (#3600).
+
+    Restricted to repos actually present among *entries* with an unpinned
+    row — a fleet with none costs nothing beyond building that set.
+    Delegates the actual routability question to
+    `coord.drive_state.eligible_hosts_for_repo` — the SAME function
+    `coord.drive_state.pick_machine_choice` calls to build its own
+    candidate list at actual-launch time (#2096/#2085, "one question, one
+    answer"; before this both surfaces re-derived the question their own
+    way — this one filtered on `can_work_on(repo)` + `paused_set()` only,
+    so it silently disagreed with `pick_machine_choice`'s fuller filter
+    the moment #2807's unreachable exclusion, or a credential_fetcher,
+    fired). Provider capability is deliberately NOT part of that shared
+    predicate — a provider mismatch is a *configuration* defect (#1906),
+    not a "nothing survived pause/health filtering" condition, and must
+    keep burning attempts/escalating rather than free-passing forever.
+
+    Fail-SOFT exactly like `_fetch_cordons` just above, for the identical
+    reason its own docstring gives: a missed defer here costs one burned
+    attempt (the pre-#3600 status quo), whereas failing the whole tick
+    closed on an unreadable config/pause/board read would stop the queue
+    outright on a transient blip — worse than the thing #3600 exists to fix.
+    """
+    repos = {e.repo for e in entries if not e.machine}
+    if not repos:
+        return {}
+    try:
+        from coord.commands._common import _load_config  # noqa: PLC0415
+        from coord.drive_state import BoardFetcher, eligible_hosts_for_repo  # noqa: PLC0415
+
+        cfg = _load_config(config_path)
+        payload = BoardFetcher().fetch()
+    except Exception as exc:  # noqa: BLE001 — see docstring
+        click.echo(
+            f"warning: could not resolve eligible hosts ({exc}) — "
+            "treating every repo as having an eligible host", err=True,
+        )
+        return {}
+
+    out: dict[str, str] = {}
+    for repo in repos:
+        declared = [m for m in cfg.machines if m.can_work_on(repo)]
+        if not declared:
+            # Unrelated to #3600: no machine declares this repo at all.
+            # `coord.drive_state.pick_machine_choice`'s own "no unpaused
+            # machine hosts {repo}" message already distinguishes that from
+            # a cordon/pause — conflating the two here would blame the
+            # wrong knob.
+            continue
+        hosts, _pause_read_error = eligible_hosts_for_repo(
+            payload, repo, cfg,
+        )
+        if hosts:
+            continue
+        out[repo] = (
+            f"every host that can run {repo} is paused, cordoned, or "
+            "unreachable right now — deferring rather than launching into a "
+            "`coord drive` that would resolve zero candidates (#3600)"
+        )
+    return out
 
 
 def _fetch_editable_drift() -> tuple[str, str] | None:
@@ -7148,6 +7244,16 @@ def drive_queue_tick(
         # a rollable state.
         cordons = _fetch_cordons()
 
+        # #3600: for every UNPINNED waiting entry, is EVERY machine capable
+        # of its repo currently paused or cordoned? Before this, only a
+        # PINNED entry's own cordon was checked (`_cordon_reason` above) —
+        # an unpinned entry launched unconditionally and discovered the
+        # empty candidate list only at actual `coord drive --tmux` launch
+        # time, dying within its startup grace window having burned an
+        # attempt (quadraui#1102/#1103, both went `blocked` during a
+        # fleet-wide release cordon).
+        no_eligible_host = _fetch_no_eligible_host(entries, config_path)
+
         # #2314: is THIS host's own `coord` a drifted editable checkout?
         # Escalates `coord.cli._warn_if_editable_checkout_moved` from an
         # advisory-only startup warning (nothing unattended ever reads) to
@@ -7180,6 +7286,7 @@ def drive_queue_tick(
             exit_dead_end=exit_dead_end,
             gate_a_pending=gate_a_pending,
             cordons=cordons,
+            no_eligible_host=no_eligible_host,
             live_ci_gate=live_ci_gate,
             live_ci_gate_reason=live_ci_gate_reason,
             live_blocked_gate=live_blocked_gate,
@@ -7577,10 +7684,72 @@ def drive_queue_tick(
                 timeout=_LAUNCH_TIMEOUT_SECONDS,
             )
             returncode = result.returncode
-            detail = (result.stderr or result.stdout or "").strip().splitlines()
+            full_output = (result.stderr or result.stdout or "").strip()
+            detail = full_output.splitlines()
             message = detail[-1] if detail else ""
         except (subprocess.SubprocessError, OSError) as exc:
             returncode, message = 1, str(exc)
+            full_output = message
+
+        # #3600 review round 1: a failed launch used to earn a free pass off
+        # a bare substring match ("no unpaused machine" in the subprocess's
+        # captured output) — a verdict derived from the SHAPE of an error
+        # string, not from any observation of the fleet taken AFTER the
+        # launch (epic #2096: "a verdict must come from a post-action
+        # observation"). That substring also matches `coord.drive.preflight`'s
+        # OTHER raise ("no unpaused machine advertises provider ... for
+        # {repo}" — the #1906 provider-mismatch case, a *configuration*
+        # defect that must keep burning attempts, not skate past them) and
+        # conflated every cause of an empty `hosts` list ("no unpaused
+        # machine hosts {repo}"), not just the #3600 pause/cordon/
+        # unreachable one. RE-OBSERVE instead: ask the exact same question
+        # `plan_tick`'s own precheck asked at the top of this tick
+        # (`_fetch_no_eligible_host`, now built on
+        # `coord.drive_state.eligible_hosts_for_repo` — the real predicate
+        # `pick_machine_choice` filters its candidates against, see that
+        # function's docstring), AGAIN, right now, for just this one target.
+        # If it STILL reports this repo as hostless, the race #3600 exists to
+        # excuse genuinely just happened a second ago; a provider mismatch or
+        # any other launch failure never gets flagged by that function in
+        # the first place, so this can never misfire the way the substring
+        # match did.
+        no_eligible_host_now = (
+            _fetch_no_eligible_host([target], config_path)
+            if returncode != 0
+            else {}
+        )
+        if (
+            returncode != 0
+            and target.repo in no_eligible_host_now
+            and target.deferrals < _NO_ELIGIBLE_HOST_FREE_PASS_MAX_DEFERRALS
+        ):
+            # Charging an attempt for a condition no retry could have
+            # avoided is exactly the #3600 incident (quadraui#1102/#1103
+            # going `blocked` on attempts=2 while a `--dry-run` moments
+            # later, once the cordon lifted, resolved cleanly) — stay
+            # `waiting`, attempts untouched, same posture as the benign
+            # deferrals `plan_tick` itself never charges. `deferrals` DOES
+            # move here (review non-blocking finding: the free pass used to
+            # leave it untouched, unlike every `plan_tick` deferral, so
+            # nothing could answer "how long has this been happening?"), and
+            # is also what bounds `_NO_ELIGIBLE_HOST_FREE_PASS_MAX_DEFERRALS`
+            # above — see that constant's docstring.
+            reason = (
+                f"no eligible host at launch time for {target.key} — "
+                f"{no_eligible_host_now[target.repo]} "
+                "(not counted against attempts — #3600)"
+            )
+            update_drive_queue_entry(
+                target.repo,
+                target.issue,
+                state=STATE_WAITING,
+                deferrals=target.deferrals + 1,
+                last_reason=reason,
+            )
+            click.echo(
+                f"no launch for {target.key}: {reason}"
+            )
+            return
 
         if returncode == 0:
             from coord.drive import drive_session_name  # noqa: PLC0415

@@ -15,7 +15,7 @@ import httpx
 import pytest
 
 from probe import errors
-from probe._generated.models import ExperimentCreate, IngestRunRequest
+from probe._generated.models import IngestRunRequest, ProjectExperimentCreate
 from tests.conftest import open_run
 
 
@@ -51,7 +51,9 @@ def test_creating_a_taken_slug_raises_instead_of_returning_the_existing_one(clie
     able to conjure a chain — so the conflict has to surface."""
     app.experiment_conflict_id = "existing-123"
     with pytest.raises(errors.ConflictError):
-        client.create_experiment("dockq", "DockQ", question="h", project_id="p")
+        client.create_experiment(
+            "dockq", "DockQ", question="h", project_id="00000000-0000-4000-8000-0000000000a1"
+        )
 
 
 def test_log_metrics(client, app):
@@ -1519,9 +1521,13 @@ def test_ingest_requires_project_and_removed_question_keyword(client):
 
 
 def test_generated_contract_requires_projects_and_removes_ingest_question():
-    experiment = ExperimentCreate.model_json_schema()
+    # The experiment API files an experiment under the project in its PATH
+    # (`POST /v1/projects/{project_id}/experiments`); the body names no project,
+    # and it cannot be created without a question.
+    experiment = ProjectExperimentCreate.model_json_schema()
     ingest = IngestRunRequest.model_json_schema()
-    assert "project_id" in experiment["required"]
+    assert {"slug", "question"} <= set(experiment["required"])
+    assert "project_id" not in experiment["properties"]
     assert "project_slug" in ingest["required"]
     assert "experiment_question" not in ingest["properties"]
 
@@ -1551,7 +1557,8 @@ def test_error_mapping_409(app, tmp_path):
     c = make_client(app, tmp_spool=tmp_path / "spool")
     app.experiment_conflict_id = "e-9"
     with pytest.raises(errors.ConflictError) as caught:
-        c.create_experiment("dup", "Dup", question="h", project_id="p")
+        # The experiment API takes the project's uuid (a slug there is a 422).
+        c.create_experiment("dup", "Dup", question="h", project_id="00000000-0000-4000-8000-0000000000a1")
     assert caught.value.existing_id == "e-9"
 
 

@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
+from chalk._gen.chalk.container.v1 import snapshot_compatibility_pb2 as _snapshot_compatibility_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -55,12 +56,19 @@ class GKEPodSnapshot(_message.Message):
     def __init__(self, storage_bucket: _Optional[str] = ..., storage_path: _Optional[str] = ...) -> None: ...
 
 class HypervisorSnapshot(_message.Message):
-    __slots__ = ("storage_uri", "snapshot_id")
+    __slots__ = ("storage_uri", "snapshot_id", "compatibility")
     STORAGE_URI_FIELD_NUMBER: _ClassVar[int]
     SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
+    COMPATIBILITY_FIELD_NUMBER: _ClassVar[int]
     storage_uri: str
     snapshot_id: str
-    def __init__(self, storage_uri: _Optional[str] = ..., snapshot_id: _Optional[str] = ...) -> None: ...
+    compatibility: _snapshot_compatibility_pb2.SnapshotCompatibility
+    def __init__(
+        self,
+        storage_uri: _Optional[str] = ...,
+        snapshot_id: _Optional[str] = ...,
+        compatibility: _Optional[_Union[_snapshot_compatibility_pb2.SnapshotCompatibility, _Mapping]] = ...,
+    ) -> None: ...
 
 class SandboxSnapshotSpec(_message.Message):
     __slots__ = ("gke_pod_snapshot", "hypervisor_snapshot")

@@ -64,6 +64,7 @@ class DeploymentBuildProfile(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_DEBIAN_PROFILING: _ClassVar[DeploymentBuildProfile]
     DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_NO_PROFILING: _ClassVar[DeploymentBuildProfile]
     DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_PROFILING: _ClassVar[DeploymentBuildProfile]
+    DEPLOYMENT_BUILD_PROFILE_MODERN: _ClassVar[DeploymentBuildProfile]
 
 class DiscoveredBucketSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -127,6 +128,7 @@ DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_DEBIAN_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O3_BAZEL_DEBIAN_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_NO_PROFILING: DeploymentBuildProfile
 DEPLOYMENT_BUILD_PROFILE_O2_BAZEL_DEBIAN_PROFILING: DeploymentBuildProfile
+DEPLOYMENT_BUILD_PROFILE_MODERN: DeploymentBuildProfile
 DISCOVERED_BUCKET_SOURCE_UNSPECIFIED: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_ENGINE: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_METADATA_PLANE: DiscoveredBucketSource

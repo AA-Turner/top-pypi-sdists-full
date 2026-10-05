@@ -12,10 +12,11 @@ import socket
 import time
 import zlib
 from base64 import b64encode
+from contextlib import contextmanager
 from http.cookiejar import CookieJar
 from ssl import SSLError
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import unquote, urlparse, urlunparse
 
 import gevent
 from charset_normalizer import detect
@@ -111,6 +112,11 @@ class FastHttpSession:
         self.request_event = request_event
         self.cookiejar = CookieJar()
         self.user = user
+
+        # Requests can be grouped under a common name by setting request_name, or by using the rename_request context manager
+        # This is an alternative to passing in the "name" parameter to the requests function
+        self.request_name: str | None = None
+
         if not ssl_context_factory:
             if insecure:
                 ssl_context_factory = insecure_ssl_context_factory
@@ -128,11 +134,8 @@ class FastHttpSession:
         if self.base_url:
             parsed_url = urlparse(self.base_url)
             if parsed_url.username and parsed_url.password:
-                netloc = parsed_url.hostname or ""
-                if parsed_url.port:
-                    netloc += ":%d" % parsed_url.port
-
-                # remove username and password from the base_url
+                # remove username and password from the base_url (keeping e.g. the brackets of an IPv6 host)
+                netloc = parsed_url.netloc.rpartition("@")[2]
                 self.base_url = str(
                     urlunparse(
                         (
@@ -146,7 +149,8 @@ class FastHttpSession:
                     )
                 )
                 # store authentication header (we construct this by using _basic_auth_str() function from requests.auth)
-                self.auth_header = _construct_basic_auth_str(parsed_url.username, parsed_url.password)
+                # (credentials in a URL are percent-encoded)
+                self.auth_header = _construct_basic_auth_str(unquote(parsed_url.username), unquote(parsed_url.password))
 
     def _build_url(self, path: str) -> str:
         """prepend url with hostname unless it's already an absolute URL"""
@@ -154,6 +158,16 @@ class FastHttpSession:
             return path
         else:
             return f"{self.base_url}{path}"
+
+    @contextmanager
+    def rename_request(self, name: str) -> Generator[None]:
+        """Group requests using the "with" keyword"""
+
+        self.request_name = name
+        try:
+            yield
+        finally:
+            self.request_name = None
 
     def _send_request_safe_mode(self, method: str, url: str, **kwargs) -> FastResponse:
         """
@@ -223,6 +237,10 @@ class FastHttpSession:
         :return: A :py:class:`FastResponse <locust.contrib.fasthttp.FastResponse>` object if catch_response is False, and
             :py:class:`ResponseContextManager <locust.contrib.fasthttp.ResponseContextManager>` if True.
         """
+        # if group name has been set and no name parameter has been passed in; set the name parameter to group_name
+        if self.request_name and not name:
+            name = self.request_name
+
         # prepend url with hostname unless it's already an absolute URL
         built_url = self._build_url(url)
 
@@ -231,7 +249,7 @@ class FastHttpSession:
         if self.user:
             context = {**self.user.context(), **context}
 
-        headers = headers or {}
+        headers = dict(headers) if headers else {}
         if auth:
             headers["Authorization"] = _construct_basic_auth_str(auth[0], auth[1])
         elif self.auth_header:
@@ -248,7 +266,7 @@ class FastHttpSession:
 
         if not allow_redirects:
             old_redirect_resonse_codes = self.client.redirect_resonse_codes
-            self.client.redirect_resonse_codes = frozenset()
+            self.client.redirect_resonse_codes = self.client.redirect_response_codes = frozenset()
 
         start_perf_counter = time.perf_counter()
         # send request, and catch any exceptions
@@ -264,7 +282,7 @@ class FastHttpSession:
         }
 
         if not allow_redirects:
-            self.client.redirect_resonse_codes = old_redirect_resonse_codes
+            self.client.redirect_resonse_codes = self.client.redirect_response_codes = old_redirect_resonse_codes
 
         request_meta["response_length"] = 0  # default value, if length cannot be determined
 
@@ -605,6 +623,7 @@ class LocustUserAgent(UserAgent):
     request_type = FastRequest
     valid_response_codes = frozenset([200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 301, 302, 303, 304, 307, 308])
     redirect_resonse_codes = frozenset([301, 302, 303, 307, 308])
+    redirect_response_codes = redirect_resonse_codes  # geventhttpclient 2.5+ spelling
 
     def __init__(self, client_pool: HTTPClientPool | None = None, **kwargs):
         super().__init__(**kwargs)

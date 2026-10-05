@@ -218,8 +218,7 @@ def resolve_param_help(param: click.Parameter, ctx: click.Context) -> str | None
     Reading `param.help` covers the options that carry a static string, and
     misses the ones that compute their help from the context: Click Extra's own
     `-v` / `-q` derive theirs from the resolved base verbosity, and leave the
-    attribute at `None` (see
-    {meth}`~click_extra.logging.VerboseOption.get_help_record`). Falling back to
+    attribute at `None` (see `VerboseOption.get_help_record()`). Falling back to
     the help record picks those up.
 
     The record also carries Click's bracket fields (`[default: …]`,
@@ -482,6 +481,35 @@ class Option(_ParameterMixin, cloup.Option):
         of the two produced it.
         """
         return " / ".join(param_spellings(self))
+
+    def get_error_hint(self, ctx: click.Context | None) -> str:
+        """Like parent's `get_error_hint`, but naming each environment variable.
+
+        Click appends `(env var: '…')` to the hint of an option showing its
+        variables, and formats the `envvar` attribute as is. A string reads well
+        there. Click Extra gives every parameter a tuple (see
+        {func}`~click_extra.envvar.param_envvar_ids`), which Click prints as its
+        Python `repr`: `(env var: '('WEATHER_UNITS',)')`.
+
+        Each name is quoted on its own here, so one variable reads as Click
+        prints a string, `(env var: 'WEATHER_UNITS')`, and several are separated
+        by commas. Only that suffix is rewritten: the rest of the hint is Click's.
+        An option of another class, like a plain `click.Option` added to a Click
+        Extra command, keeps Click's rendering.
+
+        ```{todo}
+        Delete this override once Click names each variable of a sequence
+        `envvar` in `click.Option.get_error_hint`.
+        ```
+        """
+        hint = super().get_error_hint(ctx)
+        if self.envvar is None or isinstance(self.envvar, str):
+            return hint
+        raw = f" (env var: '{self.envvar}')"
+        if hint.endswith(raw):
+            names = ", ".join(f"'{name}'" for name in self.envvar)
+            hint = f"{hint.removesuffix(raw)} (env var: {names})"
+        return hint
 
 
 class ExtraOption(Option):

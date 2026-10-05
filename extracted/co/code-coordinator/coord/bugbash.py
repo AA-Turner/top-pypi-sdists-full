@@ -18,6 +18,28 @@ then queued through ``coord drive-queue add --machine <lane host>``
 (:func:`run_bugbash`) until a round finds nothing new, or a round/cost cap
 fires.
 
+**#3580: a repo-supplied behaviour catalogue replaces the hardcoded
+checklist when one exists.** :data:`EXPLORATION_CHECKLIST` is a cross-
+backend differential tester with no product knowledge — it can never find
+a bug every backend shares, and it can't judge editing behaviour at all.
+When the app repo has a ``tests/smoke-spec/catalogue.yaml`` (schema in the
+issue body; parsed by :func:`parse_catalogue` into :class:`Journey`
+objects), :func:`build_exploration_briefing` walks that lane's journeys
+instead — filtered by :attr:`BugbashLane.driver_kind`, ordered by
+``priority`` (:func:`journeys_for_lane`), each with its own declared
+``expected``/``reference``/``reference_detail`` given to the worker
+verbatim. A ``reference: nvim`` journey's expected outcome must be
+established by actually running the same keystrokes through
+``nvim --headless`` (never reasoned from memory); a ``mode: vscode``
+journey must be run after switching the app into that mode. A missing or
+invalid catalogue falls back to :data:`EXPLORATION_CHECKLIST` with a
+visible ``NOTE:`` in the briefing — never silently, never crashing the
+run. Findings may carry an optional :attr:`Finding.journey_id`, and every
+lane worker also reports per-journey coverage
+(:data:`COVERAGE_FENCE`/:func:`parse_coverage_block`/
+:class:`CoverageSummary`) so a clean round reads as "N journeys passed,"
+not "nothing was reported."
+
 Two seams keep the engine (this module) testable without a live fleet:
 
 - **Explorer** (``Callable[[BugbashLane, int], ExploreOutcome]``) — "go run
@@ -73,6 +95,21 @@ but Accessibility trust denied, or Screen Recording denied) is skipped
 rather than picked, so ``coord bugbash`` refuses to route to it the same way
 ``dispatch_smoke`` already does — not just in `/health`'s own JSON, but in
 the machine selection that actually dispatches a worker.
+
+**#3581: a route can ask to run once per OS, not once on any capable
+machine.** Before this, lane discovery picked exactly ONE machine per
+driver ``kind`` — fine for ``win-native``/``mac-native``/``gtk-native``
+(genuinely one OS each), but wrong for ``tui-pty``: its ``UnixPtyChild``
+covers BOTH Linux and macOS, declared via a single ``capability: rust``, so
+discovery always landed on whichever Rust box sorted first (in practice
+always the Linux one) and macOS never got a lane at all. A route now
+declares :attr:`coord.config.AcceptanceDriverConfig.platforms` (e.g.
+``[linux, macos]``) to get one :class:`BugbashLane` per listed platform,
+labelled ``f"{kind}:{os_name}"`` (e.g. ``"tui-pty:macos"``) so dedupe/
+titles never conflate a macOS-only finding with a Linux one. A listed
+platform with no capable machine is reported as an :class:`UnavailableLane`
+rather than silently omitted (see :func:`discover_lanes`). A route that
+doesn't set ``platforms`` is completely unaffected.
 """
 
 from __future__ import annotations
@@ -80,9 +117,13 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Sequence
+
+import yaml
 
 from coord.bug_intake import format_bug_report
 
@@ -100,6 +141,72 @@ LANE_DRIVER_KINDS: tuple[str, ...] = (
     "tui-pty", "win-native", "mac-native", "gtk-native",
 )
 
+#: #3590: `coord app-drive`'s CLI puts the `kind` argument INSIDE each
+#: subcommand (`_KIND_ARG` in `coord/commands/app_drive.py` is applied to
+#: `open` and `run-spec` individually), so the real invocation order is
+#: ``coord app-drive open KIND ...`` / ``coord app-drive run-spec KIND
+#: SPEC ...`` — never ``coord app-drive KIND open ...``. These three
+#: helpers build that order directly from `driver_kind`, computed, not
+#: hand-maintained per kind, so a new :data:`LANE_DRIVER_KINDS` entry is
+#: automatically runnable with no parallel table to keep in sync (closing
+#: the exact drift #3590 reports: a briefing that reversed the argument
+#: order, or named a DIFFERENT lane's driver). `build_exploration_briefing`'s
+#: HARD RULE/usage example AND `coord bugbash REPO --dry-run`'s per-lane
+#: preview (:func:`driver_command_for_lane`, :mod:`coord.commands.bugbash`)
+#: both call these, so the two surfaces can never name two different
+#: commands for the same lane (#2096 "one question, one answer").
+def app_drive_open_usage(driver_kind: str) -> str:
+    """The exact, runnable ``coord app-drive open KIND ...`` invocation for
+    *driver_kind*."""
+    return f"coord app-drive open {driver_kind} --launch '<app launch command>' --cwd '<repo checkout dir>'"
+
+
+def app_drive_run_spec_usage(driver_kind: str) -> str:
+    """The exact, runnable ``coord app-drive run-spec KIND SPEC ...``
+    invocation for *driver_kind*."""
+    return (
+        f"coord app-drive run-spec {driver_kind} <spec-file> "
+        "--launch '<app launch command>' --cwd '<repo checkout dir>'"
+    )
+
+
+#: The second usage line (sending one input event to an already-open
+#: session). `send`/`screen`/`probe`/`close`/`wait-idle` are all SIBLING
+#: subcommands of `coord app-drive` (none of them take `kind` — the open
+#: session file already carries it), so this line is identical for every
+#: lane kind; it is not a per-kind table. `--screen`/`--probe`/`--close`
+#: are NOT options of `send` (they are the separate subcommands named in
+#: the trailing comment) — advertising them as `send` flags was the other
+#: half of #3590's unrunnable-command bug.
+_APP_DRIVE_SEND_USAGE_LINE = (
+    "coord app-drive send --session <id> --key Enter   # or --text/--click; "
+    "see also: screen/probe/close --session <id>"
+)
+
+
+def driver_command_for_lane(lane: "BugbashLane") -> str:
+    """The exact, runnable `coord app-drive` command this lane's worker
+    opens a session with — e.g. ``"coord app-drive open tui-pty --launch "
+    "'<app launch command>' --cwd '<repo checkout dir>'"`` for a
+    ``driver_kind="tui-pty"`` lane (#3590). The ONE function both
+    :func:`build_exploration_briefing`'s HARD RULE and ``coord bugbash REPO
+    --dry-run``'s per-lane preview (:mod:`coord.commands.bugbash`) call, so
+    the two surfaces can never drift apart (#2096 "one question, one
+    answer") — fixing the bug this issue reports: a briefing that named a
+    DIFFERENT lane's driver module, reversed `open`/`kind` argument order,
+    or named no runnable command at all.
+    """
+    return app_drive_open_usage(lane.driver_kind)
+
+
+def _app_drive_usage_lines(driver_kind: str) -> tuple[str, str]:
+    """The 2-line usage example for *driver_kind*: open the lane's own
+    kind, then send one input event to the resulting session. Built
+    directly from `driver_kind` (see the helpers above) — never a by-hand
+    per-kind table, so there is nothing to fall out of sync."""
+    return app_drive_open_usage(driver_kind), _APP_DRIVE_SEND_USAGE_LINE
+
+
 #: The exploration checklist every lane walks on top of the repo's Tier-2
 #: smoke spec (issue #3487's "panels, menus, extension install flow,
 #: terminal, splits, themes, idle stability"). Ordered so a worker that runs
@@ -108,6 +215,37 @@ EXPLORATION_CHECKLIST: tuple[str, ...] = (
     "panels", "menus", "extension install flow", "terminal", "splits",
     "themes", "idle stability",
 )
+
+#: Repo-root-relative path of the optional behaviour catalogue this module
+#: walks instead of :data:`EXPLORATION_CHECKLIST` when the app repo supplies
+#: one (#3580) — the shared contract between claude-coordinator and the app
+#: repo, documented in this module's own docstring and the issue body.
+CATALOGUE_PATH = "tests/smoke-spec/catalogue.yaml"
+
+#: The only catalogue schema version this module understands (#3580). A
+#: catalogue naming any other value is treated as invalid (falls back to
+#: :data:`EXPLORATION_CHECKLIST`, never guessed at) rather than parsed
+#: best-effort against a schema it might not actually match.
+CATALOGUE_VERSION = 1
+
+#: ``reference`` values whose expected outcome requires establishing it by
+#: running the SAME keystrokes through a live oracle rather than reasoning
+#: from memory — currently just ``"nvim"`` (#3580 requirement 3). Kept as
+#: its own constant (rather than a literal string check) so a future
+#: oracle-backed reference doesn't require hunting down every place
+#: ``"nvim"`` is compared.
+ORACLE_BACKED_REFERENCES: tuple[str, ...] = ("nvim",)
+
+#: Fenced-code-block language tag a lane worker's final message must use to
+#: report its PER-JOURNEY coverage (#3580 requirement 5) — attempted/passed/
+#: found/skipped, so a bugbash run summary can report "N journeys passed"
+#: instead of inferring coverage from the findings list alone (a lane that
+#: silently skipped half its journeys would otherwise look identical to one
+#: that ran everything and found nothing wrong). Reported for every item the
+#: worker walked, whether it came from a repo catalogue journey or the
+#: fallback :data:`EXPLORATION_CHECKLIST` (using the checklist item's own
+#: text as its id) — see :func:`build_exploration_briefing`.
+COVERAGE_FENCE = "bugbash-coverage"
 
 #: Fenced-code-block language tag a lane worker's final message must use to
 #: report its findings — mirrors how :mod:`coord.acceptance_drivers` forces
@@ -173,6 +311,18 @@ class Finding:
     #: missing/blank in the raw JSON entry this finding was built from —
     #: empty whenever :attr:`incomplete` is ``False``.
     missing_fields: tuple[str, ...] = ()
+    #: #3580 requirement 2: the catalogue :class:`Journey` id this finding
+    #: relates to, when the lane worker was walking a repo-supplied
+    #: catalogue rather than the generic checklist — ``""`` when there was
+    #: no catalogue, the journey didn't come from one (fallback checklist
+    #: item), or the worker simply didn't name one. Optional — never
+    #: required, never defaulted to a placeholder (unlike
+    #: :data:`_REQUIRED_FINDING_FIELDS`), since plenty of real findings
+    #: genuinely have no journey to cite. Round-trips verbatim into the
+    #: filed issue body (:func:`_evidence_with_acceptance`) so the fixer
+    #: knows which journey — and therefore which reference oracle — the
+    #: expected behaviour came from.
+    journey_id: str = ""
 
 
 @dataclass(frozen=True)
@@ -286,6 +436,7 @@ def _finding_from_entry(entry: dict, *, platform: str, repo: str) -> Finding:
         repro=repro,
         evidence=evidence,
         captures=captures,
+        journey_id=str(entry.get("journey_id", "")).strip(),
         incomplete=bool(missing),
         missing_fields=tuple(missing),
     )
@@ -596,13 +747,269 @@ def dedupe_finding(
     return DedupeResult(verdict=DedupeVerdict.NEW)
 
 
+# ── behaviour catalogue (#3580) ─────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class Journey:
+    """One journey declared in a repo's :data:`CATALOGUE_PATH` (#3580's
+    catalogue schema v1). Every field here mirrors the YAML schema in the
+    issue body exactly — this is the shared contract between
+    claude-coordinator and the app repo, so field names must never drift
+    from what a repo's ``catalogue.yaml`` actually writes.
+    """
+
+    id: str
+    area: str = ""
+    #: ``"vim"`` | ``"vscode"`` | ``"any"``.
+    mode: str = "any"
+    lanes: tuple[str, ...] = ()
+    #: ``"nvim"`` | ``"vscode"`` | ``"platform"`` | ``"spec"`` — where
+    #: ``expected`` comes from. See :data:`ORACLE_BACKED_REFERENCES`.
+    reference: str = ""
+    reference_detail: str = ""
+    steps: str = ""
+    expected: str = ""
+    #: 1 = must work for the release, 3 = nice to have. Lower sorts first
+    #: (:func:`journeys_for_lane`) so a worker that runs out of budget
+    #: mid-walk still covered the highest-priority journeys first.
+    priority: int = 3
+
+
+@dataclass(frozen=True)
+class CatalogueResult:
+    """What :func:`parse_catalogue` extracted from a repo's
+    ``catalogue.yaml`` text (#3580).
+
+    ``warning`` is non-empty for EVERY problem short of a perfectly clean
+    catalogue — missing/blank text, unparseable YAML, the wrong top-level
+    shape, an unsupported ``version``, a catalogue with no valid journeys
+    at all, or (non-fatally) one or more individual journey entries that
+    had to be dropped for missing a required field. ``journeys`` is never
+    partially trusted silently: either the catalogue produced at least one
+    valid journey (``journeys`` non-empty, ``warning`` possibly still
+    non-empty if SOME entries were dropped) or it produced none at all
+    (``journeys == ()``, ``warning`` always non-empty) — a caller never has
+    to guess which case it's in, since checking ``bool(journeys)`` alone is
+    always the right test for "do I have anything to walk."
+    """
+
+    journeys: tuple[Journey, ...] = ()
+    warning: str = ""
+    #: :data:`CATALOGUE_PATH` when at least one journey parsed successfully
+    #: (even if the catalogue carries other problems); ``""`` otherwise —
+    #: lets a caller distinguish "used the catalogue" from "fell back"
+    #: without re-deriving that from ``journeys``/``warning`` itself.
+    source: str = ""
+
+
+#: Per-journey-entry fields with no reasonable default — an entry missing
+#: any of these is dropped (not fatal to the rest of the catalogue) by
+#: :func:`parse_catalogue`.
+_REQUIRED_JOURNEY_FIELDS: tuple[str, ...] = ("id", "lanes", "reference", "expected")
+
+
+def parse_catalogue(yaml_text: str | None) -> CatalogueResult:
+    """Parse and validate a repo's :data:`CATALOGUE_PATH` text (#3580).
+
+    NEVER raises — every failure mode (missing/blank text, invalid YAML,
+    the wrong top-level shape, an unsupported ``version``, individual
+    journey entries missing a required field, a catalogue with zero valid
+    journeys) becomes a non-empty :attr:`CatalogueResult.warning` with
+    ``journeys=()`` (or, for a per-entry drop, journeys minus the dropped
+    entries) rather than a crash or a silent empty catalogue indistinguishable
+    from "repo declared zero journeys on purpose." :func:`build_exploration_briefing`
+    is the sole caller that turns a non-empty ``warning``/empty ``journeys``
+    into the :data:`EXPLORATION_CHECKLIST` fallback — this function only
+    decides what's valid, never what to do about it.
+    """
+    if not yaml_text or not yaml_text.strip():
+        return CatalogueResult(
+            warning=f"no catalogue found at {CATALOGUE_PATH}",
+        )
+    try:
+        raw = yaml.safe_load(yaml_text)
+    except yaml.YAMLError as e:
+        return CatalogueResult(warning=f"{CATALOGUE_PATH} failed to parse as YAML: {e}")
+    if not isinstance(raw, dict):
+        return CatalogueResult(
+            warning=f"{CATALOGUE_PATH} must be a YAML mapping at the top level, "
+            f"got {type(raw).__name__}",
+        )
+    version = raw.get("version")
+    if version != CATALOGUE_VERSION:
+        return CatalogueResult(
+            warning=f"{CATALOGUE_PATH} version {version!r} is not supported "
+            f"(expected {CATALOGUE_VERSION})",
+        )
+    raw_journeys = raw.get("journeys")
+    if not isinstance(raw_journeys, list) or not raw_journeys:
+        return CatalogueResult(warning=f"{CATALOGUE_PATH} has no `journeys` list")
+
+    journeys: list[Journey] = []
+    dropped: list[str] = []
+    seen_ids: set[str] = set()
+    for entry in raw_journeys:
+        if not isinstance(entry, dict):
+            dropped.append("<non-mapping journey entry>")
+            continue
+        jid = str(entry.get("id", "")).strip()
+        lanes_raw = entry.get("lanes")
+        missing = [
+            f for f in _REQUIRED_JOURNEY_FIELDS
+            if not (
+                str(entry.get(f, "")).strip()
+                if f != "lanes" else isinstance(lanes_raw, list) and lanes_raw
+            )
+        ]
+        if missing:
+            dropped.append(f"{jid or '<missing id>'} (missing: {', '.join(missing)})")
+            continue
+        if jid in seen_ids:
+            dropped.append(f"{jid} (duplicate id)")
+            continue
+        seen_ids.add(jid)
+        try:
+            priority = int(entry.get("priority", 3))
+        except (TypeError, ValueError):
+            priority = 3
+        journeys.append(
+            Journey(
+                id=jid,
+                area=str(entry.get("area", "")).strip(),
+                mode=str(entry.get("mode", "any")).strip() or "any",
+                lanes=tuple(str(l) for l in lanes_raw),
+                reference=str(entry.get("reference", "")).strip(),
+                reference_detail=str(entry.get("reference_detail", "")).strip(),
+                steps=str(entry.get("steps", "")).strip(),
+                expected=str(entry.get("expected", "")).strip(),
+                priority=priority,
+            )
+        )
+
+    if not journeys:
+        return CatalogueResult(
+            warning=f"{CATALOGUE_PATH} had no valid journeys (all "
+            f"{len(dropped)} entr{'y' if len(dropped) == 1 else 'ies'} invalid/dropped)",
+        )
+    warning = ""
+    if dropped:
+        warning = (
+            f"{CATALOGUE_PATH}: dropped {len(dropped)} invalid journey "
+            f"entr{'y' if len(dropped) == 1 else 'ies'}: {'; '.join(dropped)}"
+        )
+    return CatalogueResult(journeys=tuple(journeys), warning=warning, source=CATALOGUE_PATH)
+
+
+def journeys_for_lane(journeys: Sequence[Journey], driver_kind: str) -> list[Journey]:
+    """Journeys from *journeys* applicable to *driver_kind*, in priority
+    order (1 first), ties broken by ``id`` for a deterministic walk order
+    (#3580 requirement 1: "a worker that runs out of budget has covered
+    priority 1 first")."""
+    matching = [j for j in journeys if driver_kind in j.lanes]
+    return sorted(matching, key=lambda j: (j.priority, j.id))
+
+
+@dataclass(frozen=True)
+class JourneyOutcome:
+    """One line of a lane worker's per-journey coverage report
+    (:data:`COVERAGE_FENCE`, #3580 requirement 5)."""
+
+    journey_id: str
+    #: ``"passed"`` | ``"found"`` | ``"skipped"``.
+    status: str
+    #: Required (by convention of the briefing, not enforced here) when
+    #: ``status == "skipped"`` — e.g. ``"no nvim"`` (#3580 requirement 3).
+    reason: str = ""
+
+
+_VALID_JOURNEY_STATUSES: tuple[str, ...] = ("passed", "found", "skipped")
+
+_COVERAGE_FENCE_RE = re.compile(
+    rf"```{re.escape(COVERAGE_FENCE)}\s*\n(.*?)```", re.DOTALL,
+)
+
+
+def parse_coverage_block(text: str) -> tuple[JourneyOutcome, ...]:
+    """Extract the ```` ```bugbash-coverage ```` fenced JSON array from a
+    lane worker's final message (#3580 requirement 5).
+
+    Deliberately lenient — unlike :func:`parse_findings_block`, a missing or
+    malformed coverage block is NOT a protocol error: the findings fence
+    remains the authoritative "did this lane produce a trustworthy report"
+    signal, and coverage is purely an informational summary layered on top.
+    A missing fence, invalid JSON, a non-list payload, or an individual
+    entry missing ``journey_id``/a recognised ``status`` simply contributes
+    nothing to the summary rather than failing the round. Never raises.
+    """
+    match = _COVERAGE_FENCE_RE.search(text)
+    if match is None:
+        return ()
+    try:
+        raw = json.loads(match.group(1))
+    except (ValueError, TypeError):
+        return ()
+    if not isinstance(raw, list):
+        return ()
+    outcomes: list[JourneyOutcome] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        journey_id = str(entry.get("journey_id", "")).strip()
+        status = str(entry.get("status", "")).strip().lower()
+        if not journey_id or status not in _VALID_JOURNEY_STATUSES:
+            continue
+        outcomes.append(
+            JourneyOutcome(
+                journey_id=journey_id,
+                status=status,
+                reason=str(entry.get("reason", "")).strip(),
+            )
+        )
+    return tuple(outcomes)
+
+
+@dataclass(frozen=True)
+class CoverageSummary:
+    """Per-lane journey coverage counts (#3580 requirement 5) — "N journeys
+    passed" instead of inferring coverage from the findings list alone."""
+
+    attempted: int = 0
+    passed: int = 0
+    found: int = 0
+    skipped: int = 0
+    #: One entry per skipped journey, in report order — e.g. ``("no nvim",)``
+    #: — so an operator can see WHY without cross-referencing the raw
+    #: transcript.
+    skip_reasons: tuple[str, ...] = ()
+
+    @classmethod
+    def from_outcomes(cls, outcomes: Sequence[JourneyOutcome]) -> "CoverageSummary":
+        skipped_outcomes = [o for o in outcomes if o.status == "skipped"]
+        return cls(
+            attempted=len(outcomes),
+            passed=sum(1 for o in outcomes if o.status == "passed"),
+            found=sum(1 for o in outcomes if o.status == "found"),
+            skipped=len(skipped_outcomes),
+            skip_reasons=tuple(o.reason or "no reason recorded" for o in skipped_outcomes),
+        )
+
+
 # ── lanes ────────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
 class BugbashLane:
     """One platform lane: a native/PTY acceptance driver paired with a
-    specific capable machine to run it on."""
+    specific capable machine to run it on.
+
+    ``platform`` is the lane's display/dedupe label — ``driver_kind`` for a
+    single-platform driver (today's behaviour, unchanged), or
+    ``f"{driver_kind}:{os_name}"`` (e.g. ``"tui-pty:macos"``) for one lane
+    of a :attr:`coord.config.AcceptanceDriverConfig.platforms`-bearing
+    route (#3581) — so a macOS-only finding from a route that also runs on
+    Linux is never deduped/titled as if it were the same lane.
+    """
 
     platform: str
     driver_kind: str
@@ -611,8 +1018,35 @@ class BugbashLane:
     reference: bool = False
 
 
+@dataclass(frozen=True)
+class UnavailableLane:
+    """A :attr:`coord.config.AcceptanceDriverConfig.platforms` (#3581) entry
+    with no configured machine that both claims *capability* AND that OS —
+    discovery-time absence, reported through :func:`discover_lanes`'s
+    *unavailable_out* rather than silently dropped the way a plain
+    (non-``platforms``) route with no capable machine always has been
+    (there, "no lane" already fully describes the situation; here, the
+    sibling platform DOES have a lane, so silently omitting this one would
+    read as "every platform was checked" when one never was)."""
+
+    driver_kind: str
+    os_name: str
+    capability: str
+
+    @property
+    def platform(self) -> str:
+        """Same ``driver_kind:os_name`` label a resolved lane for this same
+        route/platform would have carried, had a machine been found."""
+        return f"{self.driver_kind}:{self.os_name}"
+
+
 def discover_lanes(
-    config: Any, repo_name: str, *, reference_backend: str = "", http_client: Any = None,
+    config: Any,
+    repo_name: str,
+    *,
+    reference_backend: str = "",
+    http_client: Any = None,
+    unavailable_out: "list[UnavailableLane] | None" = None,
 ) -> list[BugbashLane]:
     """Derive *repo_name*'s bugbash lanes from its acceptance drivers,
     routed to a capable machine the same way
@@ -630,6 +1064,21 @@ def discover_lanes(
     lane's ``reference=True``. *http_client*, when given, is forwarded to
     the ``/health`` cross-check (tests inject a fake; production leaves it
     ``None`` and gets a real ``httpx`` call).
+
+    **#3581: a route declaring ``platforms`` (e.g. ``[linux, macos]``)
+    yields one lane PER listed platform**, each independently resolved to a
+    machine claiming BOTH the route's ``capability`` and that platform name
+    (the same free-string capability vocabulary every other capability
+    already uses — see :class:`coord.config.SmokeRule.platforms`'s
+    docstring for why this doesn't invent a second "what OS is this
+    machine" mechanism). A platform with no such machine is NOT silently
+    dropped — unlike every other gap in this function, it is reported via
+    *unavailable_out* (when the caller passes a list; appended to, never
+    replaced) as an :class:`UnavailableLane`, since its sibling platform(s)
+    DO get a lane and a caller needs to be able to tell "every platform ran"
+    from "one platform silently never got picked." A route with an empty
+    (the default) ``platforms`` behaves exactly as before #3581 — one lane,
+    ``platform == driver_kind``.
     """
     entry = config.acceptance.drivers.get(repo_name)
     if entry is None:
@@ -640,28 +1089,58 @@ def discover_lanes(
     for cfg in candidates:
         if cfg.kind not in LANE_DRIVER_KINDS:
             continue
-        machine = _pick_lane_machine(config, repo_name, cfg.capability, http_client=http_client)
-        if machine is None:
-            continue
-        lanes.append(
-            BugbashLane(
-                platform=cfg.kind,
-                driver_kind=cfg.kind,
-                machine=machine,
-                capability=cfg.capability,
-                reference=(cfg.kind == reference_backend),
+        platforms = getattr(cfg, "platforms", None) or ()
+        if not platforms:
+            machine = _pick_lane_machine(
+                config, repo_name, cfg.capability, http_client=http_client,
             )
-        )
+            if machine is None:
+                continue
+            lanes.append(
+                BugbashLane(
+                    platform=cfg.kind,
+                    driver_kind=cfg.kind,
+                    machine=machine,
+                    capability=cfg.capability,
+                    reference=(cfg.kind == reference_backend),
+                )
+            )
+            continue
+        for os_name in platforms:
+            machine = _pick_lane_machine(
+                config, repo_name, cfg.capability,
+                os_name=os_name, http_client=http_client,
+            )
+            label = f"{cfg.kind}:{os_name}"
+            if machine is None:
+                if unavailable_out is not None:
+                    unavailable_out.append(
+                        UnavailableLane(
+                            driver_kind=cfg.kind, os_name=os_name, capability=cfg.capability,
+                        )
+                    )
+                continue
+            lanes.append(
+                BugbashLane(
+                    platform=label,
+                    driver_kind=cfg.kind,
+                    machine=machine,
+                    capability=cfg.capability,
+                    reference=(label == reference_backend),
+                )
+            )
     return lanes
 
 
 def _pick_lane_machine(
-    config: Any, repo_name: str, capability: str, *, http_client: Any = None,
+    config: Any, repo_name: str, capability: str, *, os_name: str = "", http_client: Any = None,
 ) -> str | None:
-    """The first configured machine that both claims *capability* in
-    ``coordinator.yml`` AND repo-membership for *repo_name* — cross-checked
-    against that machine's own live ``/health`` tool probes (#3566) before
-    it's picked, not just the static claim.
+    """The first configured machine that both claims *capability* (and, when
+    given, *os_name* — #3581's one-lane-per-OS field, just another entry in
+    the same capability vocabulary) in ``coordinator.yml`` AND
+    repo-membership for *repo_name* — cross-checked against that machine's
+    own live ``/health`` tool probes (#3566) before it's picked, not just
+    the static claim.
 
     Before this fix, this function (and therefore every ``coord bugbash``
     dispatch) only ever asked ``capability in m.capabilities`` — a
@@ -683,12 +1162,13 @@ def _pick_lane_machine(
     """
     from coord.smoke import _capability_probe_reasons  # noqa: PLC0415 — avoid an import cycle
 
+    required = [c for c in (capability, os_name) if c]
     for m in config.machines:
         if repo_name not in m.repos:
             continue
-        if capability and capability not in m.capabilities:
+        if required and not all(c in m.capabilities for c in required):
             continue
-        if capability and _capability_probe_reasons(m, [capability], http_client=http_client):
+        if required and _capability_probe_reasons(m, required, http_client=http_client):
             continue  # declared but the machine's own /health probe denies it
         return m.name
     return None
@@ -699,41 +1179,126 @@ def build_exploration_briefing(
     *,
     reference_backend: str,
     checklist: Sequence[str] = EXPLORATION_CHECKLIST,
+    catalogue_text: str | None = None,
 ) -> str:
     """Compose the seed briefing for a lane's headless exploration worker.
 
     Tells the worker to run the repo's Tier-2 smoke spec first, then walk
-    *checklist* against the real app, comparing behaviour to
-    *reference_backend* and capturing evidence through the native driver's
-    own probes. Ends with the exact contract :func:`parse_findings_block`
-    parses back out, so the briefing and the parser can never silently
-    drift apart (one constant, :data:`FINDINGS_FENCE`, used by both).
+    either this lane's slice of a repo-supplied behaviour catalogue
+    (#3580) or, absent/invalid one, the generic *checklist* — comparing
+    behaviour to *reference_backend* (for checklist items) or to each
+    journey's own declared ``reference``/``reference_detail`` (for
+    catalogue journeys) and capturing evidence through the native driver's
+    own probes. Ends with the exact contracts :func:`parse_findings_block`/
+    :func:`parse_coverage_block` parse back out, so the briefing and the
+    parsers can never silently drift apart (:data:`FINDINGS_FENCE`/
+    :data:`COVERAGE_FENCE`, each used by both).
+
+    *catalogue_text* is the raw text of the repo's :data:`CATALOGUE_PATH`
+    (``None`` when the repo has none, or the fetch failed — see
+    :func:`coord.commands.bugbash._fetch_catalogue_text`). Parsed via
+    :func:`parse_catalogue` and filtered/ordered for this lane via
+    :func:`journeys_for_lane`. Whenever that yields zero journeys — no
+    *catalogue_text* at all, invalid YAML, a valid catalogue with no
+    journey declaring this lane's :attr:`BugbashLane.driver_kind` in its
+    ``lanes`` — this falls back to *checklist* (#3580's "A missing or
+    invalid catalogue falls back to the current checklist with a visible
+    warning. It must never fail silently or crash the run."): a ``NOTE:``
+    line naming the reason is always included in that case, never a quiet
+    substitution.
     """
+    catalogue_warning = ""
+    lane_journeys: list[Journey] = []
+    if catalogue_text is not None:
+        catalogue = parse_catalogue(catalogue_text)
+        catalogue_warning = catalogue.warning
+        if catalogue.journeys:
+            lane_journeys = journeys_for_lane(catalogue.journeys, lane.driver_kind)
+            if not lane_journeys:
+                no_lane_note = (
+                    f"{CATALOGUE_PATH} has no journey declaring lane "
+                    f"{lane.driver_kind!r} — falling back to the generic checklist"
+                )
+                catalogue_warning = (
+                    f"{catalogue_warning}; {no_lane_note}" if catalogue_warning
+                    else no_lane_note
+                )
+
+    usage_line_1, usage_line_2 = _app_drive_usage_lines(lane.driver_kind)
+    run_spec_usage = app_drive_run_spec_usage(lane.driver_kind)
     lines = [
         f"=== coord bugbash: {lane.platform} lane ===",
         "",
         f"Reference backend for comparison: {reference_backend or '(none configured)'}",
         "",
-        "HARD RULE — drive the app ONLY through this lane's own driver "
-        "(coord.mac_native_driver / coord.win_native_driver / "
-        "coord.gtk_native_driver, whichever this lane is). Never use "
-        "osascript, System Events, a Terminal/iTerm `do script`, a "
-        "home-made input-injection helper, or System Settings. If a "
-        "required permission (Accessibility, Screen Recording, a locked/"
-        "absent GUI session, ...) is missing, STOP IMMEDIATELY and report "
-        "the lane unavailable (see below) — do NOT improvise a workaround, "
-        "and do NOT send any key or click to recover (#3566).",
+        f"HARD RULE — drive the app ONLY through `coord app-drive` for kind "
+        f"`{lane.driver_kind}` (this lane's own sanctioned entry point — see "
+        "`coord app-drive --help` for the full verb list: "
+        "open/send/wait-idle/screen/probe/close/run-spec). Never use "
+        "osascript, System Events, a Terminal/iTerm `do script`, "
+        "xdotool/AppleScript/win32 calls run directly, a home-made "
+        "input-injection helper, or System Settings. Two-line usage "
+        f"example:\n  {usage_line_1}\n  {usage_line_2}\nIf a required "
+        "permission (Accessibility, Screen Recording, a locked/absent GUI "
+        "session, ...) is missing, STOP IMMEDIATELY and report the lane "
+        "unavailable (see below) — do NOT improvise a workaround, and do "
+        "NOT send any key or click to recover (#3566).",
         "",
-        "1. Run this repo's Tier-2 smoke spec for this driver to completion.",
-        "2. Then walk the exploration checklist below on the real app, using "
-        "the native driver's own probes/captures as evidence:",
+        f"1. Run this repo's Tier-2 smoke spec for this driver to completion "
+        f"(`{run_spec_usage}` runs it end to end in one command).",
     ]
-    for item in checklist:
-        lines.append(f"   - {item}")
+    if catalogue_warning:
+        lines += ["", f"NOTE: {catalogue_warning}"]
+
+    if lane_journeys:
+        lines += [
+            "",
+            f"2. Then walk the {len(lane_journeys)} journey(s) below from "
+            f"{CATALOGUE_PATH}, in this exact (priority) order, using the "
+            "native driver's own probes/captures as evidence:",
+        ]
+        for j in lane_journeys:
+            lines.append(f"   - [{j.id}] (priority {j.priority}, area: {j.area or 'unspecified'})")
+            lines.append(f"     steps: {j.steps}")
+            lines.append(f"     expected: {j.expected}")
+            ref_line = f"     reference ({j.reference})"
+            if j.reference_detail:
+                ref_line += f": {j.reference_detail}"
+            lines.append(ref_line)
+            if j.reference in ORACLE_BACKED_REFERENCES:
+                lines.append(
+                    "     ORACLE: establish the expected outcome by running these "
+                    "exact keystrokes through `nvim --headless` on the same buffer "
+                    "and comparing buffer text and cursor — do NOT reason from "
+                    "memory about what real Neovim does. If `nvim` is not "
+                    "available on this host, do NOT guess: report this journey's "
+                    'coverage as `"skipped"` with reason `"no nvim"` (#3580).'
+                )
+            if j.mode == "vscode":
+                lines.append(
+                    "     MODE: run this journey only after switching the app "
+                    "into VS Code mode (Alt-M, or the `editor_mode` setting in "
+                    "this lane's isolated settings.json)."
+                )
+            elif j.mode == "vim":
+                lines.append(
+                    "     MODE: run this journey in the app's default Vim mode."
+                )
+    else:
+        lines += [
+            "",
+            "2. Then walk the exploration checklist below on the real app, using "
+            "the native driver's own probes/captures as evidence:",
+        ]
+        for item in checklist:
+            lines.append(f"   - {item}")
+
     lines += [
         "",
-        "For anything that behaves differently from the reference backend, "
-        "or crashes, hangs, or renders wrong, report it as a finding.",
+        "For anything that behaves differently from the reference backend "
+        "(checklist items) or from a journey's own declared `expected` "
+        "outcome, or crashes, hangs, or renders wrong, report it as a "
+        "finding.",
         "",
         "If the HARD RULE above fires (a required permission/session is "
         "missing), skip the findings fence entirely and end your final "
@@ -749,8 +1314,22 @@ def build_exploration_briefing(
         "claude-coordinator, if the bug is actually in this bugbash driver "
         "or its WSL/native bridge rather than in the app under test), "
         "captures (list of "
-        "capture paths/descriptions, may be empty). An empty array means "
-        "zero findings this round.",
+        "capture paths/descriptions, may be empty), journey_id (the id of "
+        "the catalogue journey above this finding relates to, if any — "
+        "omit/blank if there was no catalogue or this finding doesn't come "
+        "from one of its journeys). An empty array means zero findings "
+        "this round.",
+        "",
+        f"ALSO end your final message with a fenced ```{COVERAGE_FENCE}``` "
+        "block: a JSON array covering EVERY item you walked above (every "
+        "journey, or every checklist item), each as "
+        '{"journey_id": <the id above, or the checklist item\'s own text>, '
+        '"status": "passed" | "found" | "skipped", "reason": <non-empty '
+        'when status is "skipped", e.g. "no nvim">}. Use "found" for an '
+        "item you filed a finding for above, \"passed\" for one that "
+        "behaved as expected, \"skipped\" for one you could not actually "
+        "run (missing oracle, unreachable mode, etc. — never guess at "
+        "what would have happened).",
     ]
     return "\n".join(lines)
 
@@ -823,6 +1402,12 @@ class ExploreOutcome:
     ok: bool = True
     unavailable: bool = False
     protocol_error: str = ""
+    #: #3580 requirement 5: this lane's per-journey coverage report
+    #: (:func:`parse_coverage_block`'s output) — informational, never part
+    #: of the ``ok``/``unavailable``/``protocol_error`` trust decision.
+    #: Empty when the worker's message carried no (or an unparseable)
+    #: ```` ```bugbash-coverage ```` block.
+    journey_outcomes: tuple["JourneyOutcome", ...] = ()
 
 
 #: ``(lane, round_num) -> ExploreOutcome`` — "go run this lane's
@@ -867,6 +1452,12 @@ def _evidence_with_acceptance(finding: Finding, dedupe: DedupeResult) -> str:
     parts = [finding.evidence.strip()] if finding.evidence.strip() else []
     if finding.captures:
         parts.append("Captures: " + ", ".join(finding.captures))
+    if finding.journey_id:
+        # #3580 requirement 2: name the catalogue journey this finding
+        # relates to, so a fixer can go find its `reference`/`reference_detail`
+        # in tests/smoke-spec/catalogue.yaml rather than guessing where the
+        # expected behaviour came from.
+        parts.append(f"Journey: {finding.journey_id} (see {CATALOGUE_PATH})")
     if finding.incomplete:
         # #3517: a finding filed from a lane report missing one or more
         # required fields must say so on the issue itself, not just in the
@@ -1083,6 +1674,14 @@ class RoundReport:
     #: reporting contract, so it must never be read as "zero findings
     #: observed" (that silent collapse is exactly bug #3517).
     protocol_error_lanes: dict[str, str] = field(default_factory=dict)
+    #: ``{platform: CoverageSummary}`` for every lane explored this round
+    #: whose :attr:`ExploreOutcome.journey_outcomes` was non-empty (#3580
+    #: requirement 5) — "N journeys passed" instead of inferring coverage
+    #: from the findings list alone. Absent for a lane whose worker didn't
+    #: report a (parseable) coverage block at all — never defaulted to a
+    #: zeroed :class:`CoverageSummary`, which would misrepresent "no
+    #: coverage report" as "zero journeys attempted."
+    lane_coverage: dict[str, "CoverageSummary"] = field(default_factory=dict)
 
     @property
     def explored_lanes(self) -> set[str]:
@@ -1226,6 +1825,12 @@ def _apply_outcome_to_round(report: RoundReport, lane: BugbashLane, outcome: Exp
         # is exactly what let a real finding disappear and pass the #3488
         # release gate).
         report.protocol_error_lanes[lane.platform] = outcome.protocol_error
+    if outcome.journey_outcomes:
+        # #3580 requirement 5: purely informational — never gates the
+        # round's termination reason, just the coverage summary.
+        report.lane_coverage[lane.platform] = CoverageSummary.from_outcomes(
+            outcome.journey_outcomes
+        )
 
 
 def _dedupe_and_file_round(
@@ -1390,6 +1995,165 @@ def harvest_outcome(
     return report
 
 
+def _group_lanes_by_host(lanes: Sequence[BugbashLane]) -> dict[str, list[BugbashLane]]:
+    """Groups *lanes* by :attr:`BugbashLane.machine`, preserving each
+    lane's original relative order within its own host's list — the exact
+    order :func:`_explore_round_lanes` explores that host's lanes in,
+    unchanged from the old strictly-sequential loop. Different hosts' lists
+    are explored concurrently (#3602); lanes within the SAME list never
+    are — dict iteration order is insertion order (first lane seen for a
+    new ``machine``), so this is also deterministic given *lanes*' order."""
+    groups: dict[str, list[BugbashLane]] = {}
+    for lane in lanes:
+        groups.setdefault(lane.machine, []).append(lane)
+    return groups
+
+
+@dataclass
+class _RoundExploreState:
+    """Mutable cross-host bookkeeping for one round's
+    :func:`_explore_round_lanes` call — bundles what used to be three
+    separate parameters (``lane_cost``, a ``total_cost`` mutable cell, and
+    the lock guarding both) behind one name (#3602 review round 1 nit).
+    ``lane_cost`` is keyed by :attr:`BugbashLane.platform` — pre-existing
+    from before #3602, and still true under concurrency: two lanes sharing
+    a platform on DIFFERENT hosts (the real fleet's two ``win-native``
+    lanes) share one bucket and one per-lane cap. See
+    :func:`_explore_round_lanes`'s docstring for exactly what that costs
+    under concurrency that it didn't cost sequentially."""
+
+    lane_cost: dict[str, float]
+    total_cost: float = 0.0
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+
+def _explore_round_lanes(
+    lanes: Sequence[BugbashLane],
+    lanes_by_host: dict[str, list[BugbashLane]],
+    round_num: int,
+    explorer: Explorer,
+    report: RoundReport,
+    state: _RoundExploreState,
+    cost_cap_per_lane: float,
+    cost_cap_total: float,
+) -> None:
+    """Explores every lane configured for this round, one worker thread per
+    HOST (#3602) — a host's own lanes run strictly in the order given (the
+    thread blocks on each lane's :data:`Explorer` call before starting the
+    next lane on that SAME host, since two GUI lanes on one desktop would
+    fight over focus and a host like ``macmini`` has ``max_workers: 1``
+    anyway), but different hosts' threads run concurrently — so a round's
+    wall-clock cost is the slowest HOST's own lane chain, never the sum
+    over every lane.
+
+    Both cost caps are read and updated only under *state*'s lock, with the
+    :data:`Explorer` call itself made OUTSIDE the lock (a real lane can take
+    many minutes) — so the "check cap, then mark started" step is atomic
+    across hosts. The only overshoot the TOTAL cap can ever see is from
+    lane(s) ALREADY in flight (their :data:`Explorer` call already started)
+    at the moment a sibling's completion pushes the running total to/over
+    the cap — a lane that hasn't started yet always sees the tripped cap
+    under the same lock its sibling just wrote through, and is skipped
+    (recorded in ``skip_reasons``, same as a per-lane cap skip) rather than
+    started.
+
+    The PER-LANE cap is weaker under concurrency than it was sequentially
+    for two lanes sharing a platform on different hosts (``lane_cost`` is
+    keyed by platform, see :class:`_RoundExploreState`): sequentially, the
+    second such lane always saw the first one's already-applied cost.
+    Concurrently, both can read the same pre-update value under the lock
+    before either has run its :data:`Explorer` call, so both start — the
+    per-lane cap can be overshot by a whole sibling lane's cost on top of
+    the triggering lane's own. Not fixed here (it would mean keying every
+    per-platform ``RoundReport`` bucket — ``lane_cost``, ``lane_failures``,
+    ``unavailable_lanes``, ``protocol_error_lanes``, ``lane_coverage`` — by
+    lane identity instead, a much larger, pre-existing-schema change);
+    operators relying on a tight per-lane budget for a platform run on
+    multiple hosts should account for this extra headroom.
+
+    *lanes* is *lanes_by_host*'s own input, flattened back into its
+    ORIGINAL configured order — the order every outcome is replayed onto
+    *report* in once every host's thread has joined, below. A host thread
+    only ever decides WHETHER a lane ran (the cap check has to happen live,
+    interleaved with every other host, under the lock); it never writes an
+    outcome straight onto the shared *report* itself, because thread-
+    completion order is not deterministic and both
+    :func:`_dedupe_round_findings` (which of two lanes' duplicate findings
+    this round wins and gets filed, into which repo) and an operator
+    reading ``skipped_lanes``/``skip_reasons`` depend on seeing *report* in
+    *lanes*' own configured order — unchanged from before #3602 (#3602
+    review round 1).
+
+    A ``KeyboardInterrupt`` raised while this is running still has to wait
+    for every lane ALREADY in flight on every host before it can
+    propagate — there is no mid-lane cancellation, and with
+    ``max_workers == len(lanes_by_host)`` every host's thread starts
+    immediately on submission, so there is nothing queued at the pool level
+    left to drop either. An operator who needs to abort a bugbash run
+    promptly still has to wait out the slowest lane's own timeout, same as
+    before this changed lanes to run one thread per host instead of one
+    thread total.
+    """
+    # Buffered per-lane results, replayed onto *report* in *lanes*' own
+    # order after the pool joins (see docstring above). Keyed by `id(lane)`
+    # rather than `lane.platform` — two lanes CAN share a platform on
+    # different hosts (the real fleet's two `win-native` lanes), and each
+    # one's own outcome must still reach `report` even though they'd
+    # collide on a platform-keyed dict.
+    results: dict[int, tuple[str, str] | tuple[str, ExploreOutcome]] = {}
+
+    def run_host(host_lanes: list[BugbashLane]) -> None:
+        for lane in host_lanes:
+            with state.lock:
+                if state.lane_cost[lane.platform] >= cost_cap_per_lane:
+                    results[id(lane)] = (
+                        "skip",
+                        f"cumulative cost {state.lane_cost[lane.platform]:.2f} already "
+                        f">= per-lane cap {cost_cap_per_lane:.2f}",
+                    )
+                    continue
+                if state.total_cost >= cost_cap_total:
+                    results[id(lane)] = (
+                        "skip",
+                        f"total cost {state.total_cost:.2f} already >= total cap "
+                        f"{cost_cap_total:.2f} (cap already tripped by another lane "
+                        "this round)",
+                    )
+                    continue
+            outcome = explorer(lane, round_num)
+            with state.lock:
+                state.lane_cost[lane.platform] += outcome.cost
+                state.total_cost += outcome.cost
+                results[id(lane)] = ("explored", outcome)
+
+    if not lanes_by_host:
+        return
+    with ThreadPoolExecutor(max_workers=len(lanes_by_host)) as pool:
+        futures = [pool.submit(run_host, host_lanes) for host_lanes in lanes_by_host.values()]
+        for future in futures:
+            future.result()  # re-raise any exception from a host's thread
+
+    for lane in lanes:
+        result = results.get(id(lane))
+        if result is None:
+            # A host thread raised before reaching this lane — already
+            # re-raised by `future.result()` above, so this round never
+            # gets this far for that lane. Defensive only.
+            continue
+        kind, payload = result
+        if kind == "skip":
+            report.skipped_lanes.append(lane.platform)
+            report.skip_reasons[lane.platform] = payload  # type: ignore[assignment]
+        else:
+            report.lane_cost[lane.platform] = state.lane_cost[lane.platform]
+            # #3569: the SAME bucketing `coord bugbash harvest`'s
+            # `harvest_outcome` uses for a late-arriving explorer — one
+            # question ("how does this ExploreOutcome classify"), one
+            # answer, whether it's observed inline here or recovered
+            # after the fact.
+            _apply_outcome_to_round(report, lane, payload)  # type: ignore[arg-type]
+
+
 def run_bugbash(
     config: BugbashConfig,
     *,
@@ -1402,9 +2166,18 @@ def run_bugbash(
     """Run the find -> dedupe -> file -> queue loop for one repo until a
     round yields zero new findings, or a round/cost cap fires (#3487).
 
-    Each round: every lane is explored (unless it has already exceeded
-    ``cost_cap_per_lane``, in which case it is skipped and recorded in
-    ``skipped_lanes``/``skip_reasons`` — never silently dropped), findings
+    Each round: every lane is explored CONCURRENTLY ACROSS HOSTS (#3602,
+    see :func:`_explore_round_lanes`) — lanes sharing a host (e.g. two
+    routes both landing on ``macmini``) are still run strictly one after
+    another, but lanes on different hosts overlap, so a round's wall-clock
+    time is the slowest HOST's own lane chain, not the sum over every lane.
+    A lane is skipped (never silently dropped — recorded in
+    ``skipped_lanes``/``skip_reasons``) when it has already exceeded
+    ``cost_cap_per_lane``, OR when ``cost_cap_total`` was already tripped by
+    a sibling lane earlier in THIS round (mid-round, not just at the round
+    boundary — see :func:`_explore_round_lanes`'s docstring for exactly how
+    much overshoot that still allows). Once every host's lanes for the
+    round have reported, findings
     are deduped via :func:`_dedupe_round_findings` against a FRESH fetch of
     open/closed issues MERGED with every issue THIS RUN has already filed
     (#3546: a finding filed earlier in the same run — this round or an
@@ -1457,9 +2230,17 @@ def run_bugbash(
     """
     lane_cost: dict[str, float] = {lane.platform: 0.0 for lane in config.lanes}
     lanes_by_platform: dict[str, BugbashLane] = {lane.platform: lane for lane in config.lanes}
-    total_cost = 0.0
+    lanes_by_host = _group_lanes_by_host(config.lanes)
+    state = _RoundExploreState(lane_cost=lane_cost)
     rounds: list[RoundReport] = []
     reason = "round_cap"
+    # Bound even when `config.max_rounds <= 0` skips the loop below entirely
+    # (reachable from the CLI: `--max-rounds` has no lower bound) — the
+    # round loop's own `total_cost = state.total_cost` re-binds this every
+    # iteration, but the final `return` needs a value regardless of
+    # whether any round ever ran (#3602 review round 1: this used to be an
+    # `UnboundLocalError` for `--max-rounds 0`).
+    total_cost = 0.0
     # #3546: every issue THIS RUN has actually filed into config.repo,
     # across every round so far — consulted alongside each round's FRESH
     # open-issues fetch so a finding matching an issue this run itself
@@ -1475,24 +2256,17 @@ def run_bugbash(
     for round_num in range(1, config.max_rounds + 1):
         report = RoundReport(round_num=round_num)
 
-        for lane in config.lanes:
-            if lane_cost[lane.platform] >= config.cost_cap_per_lane:
-                report.skipped_lanes.append(lane.platform)
-                report.skip_reasons[lane.platform] = (
-                    f"cumulative cost {lane_cost[lane.platform]:.2f} already "
-                    f">= per-lane cap {config.cost_cap_per_lane:.2f}"
-                )
-                continue
-            outcome = explorer(lane, round_num)
-            lane_cost[lane.platform] += outcome.cost
-            report.lane_cost[lane.platform] = lane_cost[lane.platform]
-            total_cost += outcome.cost
-            # #3569: the SAME bucketing `coord bugbash harvest`'s
-            # `harvest_outcome` uses for a late-arriving explorer — one
-            # question ("how does this ExploreOutcome classify"), one
-            # answer, whether it's observed inline here or recovered after
-            # the fact.
-            _apply_outcome_to_round(report, lane, outcome)
+        _explore_round_lanes(
+            config.lanes,
+            lanes_by_host,
+            round_num,
+            explorer,
+            report,
+            state,
+            config.cost_cap_per_lane,
+            config.cost_cap_total,
+        )
+        total_cost = state.total_cost
 
         # #3546: merge the fresh fetch with every issue THIS RUN has already
         # filed — a finding matching one of this run's own earlier filings

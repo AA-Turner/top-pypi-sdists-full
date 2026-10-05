@@ -60,6 +60,8 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     allow_clones: t.Optional[bool] = None
     is_defer_to_profile: bool = False
     defer_enabled: bool = False
+    table_schemas: t.List[shared_models.TableSchema] = field(default_factory=list)
+    compare_selected_columns: bool = False
 
 
 @proto_dataclass(sql_service_pb2.ReadyToExecuteResponse)

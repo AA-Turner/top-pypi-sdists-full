@@ -163,6 +163,14 @@ pub(crate) use sase_core::agent_publication_batches::{
     plan_agent_publication_batches as core_plan_agent_publication_batches,
     AgentPublicationPathRecordWire,
 };
+pub(crate) use sase_core::agent_publication_recovery::{
+    classify_deferred_prompt_obligation as core_classify_deferred_prompt_obligation,
+    decide_publication_request_completion as core_decide_publication_request_completion,
+    select_publication_retries as core_select_publication_retries,
+    DeferredPromptClassifyRequestWire, PublicationCompletionRequestWire,
+    PublicationRetrySelectionRequestWire,
+    PUBLICATION_RECOVERY_WIRE_SCHEMA_VERSION,
+};
 pub(crate) use sase_core::agent_runtime::{
     aggregate_clan_runtime as core_aggregate_clan_runtime,
     ClanRuntimeMemberWire,
@@ -205,6 +213,10 @@ pub(crate) use sase_core::agent_scan::{
 pub(crate) use sase_core::agent_session::{
     resolve_agent_session_parent as core_resolve_agent_session_parent,
     AgentSessionParentResolutionRequestWire,
+};
+pub(crate) use sase_core::agent_session_manifest::{
+    classify_session_manifest_files as core_classify_session_manifest_files,
+    SessionManifestClassifyRequestWire, SESSION_MANIFEST_WIRE_SCHEMA_VERSION,
 };
 pub(crate) use sase_core::agent_stats::{
     query_activity_stats as core_query_activity_stats,
@@ -1099,6 +1111,7 @@ pub(crate) use sase_core::{
     editor_plan_argument_colon_to_parentheses_edit as core_plan_argument_colon_to_parentheses_edit,
     editor_plan_argument_double_colon_to_parentheses_edit as core_plan_argument_double_colon_to_parentheses_edit,
     editor_plan_model_alias_shortcut_edit as core_plan_model_alias_shortcut_edit,
+    editor_plan_xprompt_completion_spacer_to_parentheses_edit as core_plan_xprompt_completion_spacer_to_parentheses_edit,
     filter_model_completion_entries as core_filter_model_completion_entries,
     load_editor_snippet_catalog as core_load_editor_snippet_catalog,
     validate_snippet_trigger as core_validate_snippet_trigger, EditorPosition,

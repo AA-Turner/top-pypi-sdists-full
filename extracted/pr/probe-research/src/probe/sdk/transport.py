@@ -1124,21 +1124,26 @@ class Transport:
             detail = body.get("detail")
             if body.get("code") == errors.CLIENT_TOO_OLD:
                 min_version = body.get("min_version")
+                min_version = min_version if isinstance(min_version, str) else None
                 return errors.ClientTooOldError(
-                    errors._detail_message(detail),
+                    errors.upgrade_message(errors._detail_message(detail), min_version),
                     status=resp.status_code,
                     detail=detail,
-                    min_version=min_version if isinstance(min_version, str) else None,
+                    min_version=min_version,
                 )
             # A run, group, experiment or project in the server's TRASH answers
             # 410 with a fixed token and the notice beside it ("in the trash
             # since ..., Probe can restore it until ..."). The sentence is what a
             # person or an agent needs to read; the token alone says nothing.
-            if detail == "in_trash" and isinstance(body.get("message"), str):
+            in_trash = detail == "in_trash"
+            if in_trash and isinstance(body.get("message"), str):
                 detail = body["message"]
         except (json.JSONDecodeError, ValueError, AttributeError):
-            detail = resp.text
-        return _with_retry_after(errors.error_for(resp.status_code, detail), resp)
+            detail, in_trash = resp.text, False
+        error = errors.error_for(resp.status_code, detail)
+        if in_trash:
+            error.in_trash = True
+        return _with_retry_after(error, resp)
 
     # -- typed helpers ------------------------------------------------------
     def get(self, path: str, *, params: dict[str, Any] | None = None) -> Any:

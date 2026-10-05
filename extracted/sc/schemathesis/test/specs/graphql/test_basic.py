@@ -55,6 +55,25 @@ def test_tags(ctx):
     assert schema["Query"]["getBooks"].tags is None
 
 
+@pytest.mark.parametrize(
+    ("type_name", "field_name", "is_query", "is_mutation"),
+    [("Query", "getBooks", True, False), ("Mutation", "addBook", False, True)],
+    ids=["query", "mutation"],
+)
+def test_definition_root_type_flags(ctx, type_name, field_name, is_query, is_mutation):
+    definition = _books_schema(ctx)[type_name][field_name].definition
+    assert (definition.is_query, definition.is_mutation) == (is_query, is_mutation)
+
+
+def test_operation_id_filter_selects_nothing(ctx):
+    schema = _books_schema(ctx).include(operation_id="getBooks")
+    assert list(schema.get_all_operations()) == []
+
+
+def test_no_strategies_from_examples(ctx):
+    assert _books_schema(ctx)["Query"]["getBooks"].get_strategies_from_examples() == []
+
+
 @pytest.mark.hypothesis_nested
 def test_operation_strategy(ctx):
     schema = _books_schema(ctx)
@@ -959,7 +978,7 @@ def test_classify_call_outcome(ctx, response_factory, content, expected):
     assert schema.classify_call_outcome(response_factory.requests(content=content)) is expected
 
 
-@pytest.mark.parametrize("status_code", [401, 403, 500])
+@pytest.mark.parametrize("status_code", [401, 403, 429, 500])
 def test_classify_call_outcome_ignores_uninformative_responses(ctx, response_factory, status_code):
     schema = _books_schema(ctx)
     response = response_factory.requests(status_code=status_code, content=b'{"errors": [{"message": "Nope"}]}')

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Literal
 
-from typing_extensions import Self
+from typing import Self
 from typing import ClassVar, cast
 from pyparsing import (
     Word,
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from sigma.collection import SigmaCollection
+    from sigma.policy import SigmaPolicy
 
 
 class SigmaCorrelationType(EnumLowercaseStringMixin, Enum):
@@ -103,7 +105,7 @@ class SigmaCorrelationConditionOperator(Enum):
 @dataclass
 class SigmaCorrelationCondition:
     op: SigmaCorrelationConditionOperator
-    count: int
+    count: int | float
     fieldref: str | list[str] | None = field(default=None)
     percentile: int | None = field(default=None)
     source: SigmaRuleLocation | None = field(default=None, compare=False)
@@ -135,9 +137,18 @@ class SigmaCorrelationCondition:
         ):  # It's already tested above if there's an operator.
             if op in d:
                 cond_op = SigmaCorrelationConditionOperator[op.upper()]
+                cond_count: int | float
                 try:
-                    cond_count = int(d[op])
-                except (ValueError, OverflowError):
+                    # integers stay exact; fractions are for metric thresholds
+                    if isinstance(d[op], int):
+                        cond_count = int(d[op])
+                    else:
+                        cond_count = float(d[op])
+                        if not math.isfinite(cond_count):
+                            raise ValueError
+                        if cond_count.is_integer():
+                            cond_count = int(cond_count)
+                except (TypeError, ValueError):
                     raise sigma_exceptions.SigmaCorrelationConditionError(
                         f"'{ d[op] }' is no valid Sigma correlation condition count", source=source
                     )
@@ -545,14 +556,26 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             )
 
     @classmethod
-    def from_dict(
+    def from_dict(  # type: ignore[override]
         cls,
         rule: dict[str, Any],
         collect_errors: bool = False,
         source: SigmaRuleLocation | None = None,
+        policy: "SigmaPolicy | None" = None,
     ) -> Self:
-        kwargs, errors = super().from_dict_common_params(rule, collect_errors, source)
-        correlation_rule = rule.get("correlation", dict())
+        kwargs, errors = super().from_dict_common_params(
+            rule, collect_errors, source, policy=policy
+        )
+        correlation_rule: Any = rule.get("correlation", dict())
+        if not isinstance(correlation_rule, dict):
+            errors.append(
+                sigma_exceptions.SigmaCorrelationRuleError(
+                    "Sigma correlation rule 'correlation' field must be a dict", source=source
+                )
+            )
+            if not collect_errors:
+                raise errors[0]
+            correlation_rule = dict()
 
         # Correlation type
         correlation_type = correlation_rule.get("type")
@@ -655,7 +678,9 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
 
         # Condition - can be either a dict (basic condition) or a string (extended condition)
         condition_value = correlation_rule.get("condition")
-        condition: SigmaCorrelationCondition | SigmaExtendedCorrelationCondition
+        condition: SigmaCorrelationCondition | SigmaExtendedCorrelationCondition = (
+            SigmaCorrelationCondition(SigmaCorrelationConditionOperator.GTE, 1)
+        )
 
         if condition_value is not None:
             if isinstance(condition_value, dict):
@@ -732,9 +757,11 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         )
 
     @classmethod
-    def from_yaml(cls, rule: str, collect_errors: bool = False) -> Self:
+    def from_yaml(
+        cls, rule: str, collect_errors: bool = False, policy: "SigmaPolicy | None" = None
+    ) -> Self:
         """Convert YAML input string with single document into SigmaCorrelationRule object."""
-        return super().from_yaml(rule, collect_errors)
+        return super().from_yaml(rule, collect_errors, policy=policy)
 
     def to_dict(self: Self) -> dict[str, Any]:
         d = super().to_dict()

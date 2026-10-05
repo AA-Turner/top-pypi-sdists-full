@@ -7,11 +7,13 @@ import sys
 import time
 from datetime import timedelta
 
+import psycopg
 import pytest
 from typer.testing import CliRunner
 
 from pgqueuer.adapters.cli import supervisor
 from pgqueuer.adapters.cli.cli import app
+from pgqueuer.domain.settings import DBSettings
 from test.helpers import env_from_dsn
 
 
@@ -103,8 +105,7 @@ def test_cli_install_upgrade_uninstall_cycle(dsn: str) -> None:
     runner = CliRunner()
 
     # Build base PG* env for each CLI invocation
-    base_env = os.environ.copy()
-    base_env.update(env_from_dsn(dsn))
+    base_env = env_from_dsn(dsn)
 
     # Helper to invoke and assert success
     def invoke_ok(args: list[str], env: dict[str, str]) -> str:
@@ -151,6 +152,62 @@ def test_cli_install_upgrade_uninstall_cycle(dsn: str) -> None:
     invoke_ok(["verify", "--expect", "absent"], base_env)
 
 
+def test_cli_install_refuses_an_installed_database(dsn: str) -> None:
+    """Re-running install used to surface a raw DuplicateObjectError traceback.
+
+    The dsn fixture arrives with PgQueuer already installed, which is the state
+    a provisioning script that runs install twice would find.
+    """
+    env = env_from_dsn(dsn)
+
+    result = CliRunner().invoke(app, ["install"], env=env)
+
+    assert result.exit_code == 1
+    assert "already installed" in result.stderr
+    assert "pgq upgrade" in result.stderr
+
+
+def test_cli_upgrade_reports_drift_without_a_traceback(dsn: str) -> None:
+    """Drift is the one failure here addressed to an operator, not a developer.
+
+    It used to arrive on line 145 of a rich traceback through uvloop and asyncpg.
+    """
+    env = env_from_dsn(dsn)
+    with psycopg.connect(dsn, autocommit=True) as connection:
+        table = DBSettings().queue_table
+        connection.execute(f"ALTER TABLE {table} ALTER COLUMN payload TYPE text".encode())
+
+    result = CliRunner().invoke(app, ["upgrade"], env=env)
+
+    assert result.exit_code == 1
+    assert "Traceback" not in result.stderr
+    assert "no supported conversion" in result.stderr
+    assert result.stdout.strip() == ""
+
+
+@pytest.mark.parametrize(
+    ("extra_args", "warned"),
+    [([], False), (["--durability", "volatile"], True), (["-d", "volatile"], True)],
+)
+def test_cli_upgrade_ignores_a_durability_flag(
+    dsn: str,
+    extra_args: list[str],
+    warned: bool,
+) -> None:
+    """v1.4.0 scripts pass it; it never applied, so it warns and the upgrade runs.
+
+    No ``note:`` means the declared level stayed durable rather than volatile.
+    """
+    env = env_from_dsn(dsn)
+
+    result = CliRunner().invoke(app, ["upgrade", *extra_args], env=env)
+
+    assert result.exit_code == 0
+    assert ("--durability is ignored" in result.stderr) is warned
+    assert "note:" not in result.stderr
+    assert "already up to date" in result.stderr
+
+
 @pytest.mark.parametrize(
     ("extra_args", "expected"),
     [
@@ -173,3 +230,32 @@ def test_cli_run_forwards_heartbeat_timeout(
     result = CliRunner().invoke(app, ["run", "examples.consumer:main", *extra_args])
     assert result.exit_code == 0, result.output
     assert captured["heartbeat_timeout"] == expected
+
+
+def test_cli_upgrade_reports_converged_and_plans_the_delta(dsn: str) -> None:
+    """`pgq upgrade` reports what it did on stderr; `--plan` prints only the delta on stdout."""
+    runner = CliRunner()
+    env = env_from_dsn(dsn)
+
+    converged = runner.invoke(app, ["upgrade"], env=env)
+    assert converged.exit_code == 0, converged.stdout
+    assert "already up to date" in converged.stderr
+    assert converged.stdout.strip() == ""
+
+    name = f"{DBSettings().queue_table}_ep_ea_idx"
+    with psycopg.connect(dsn, autocommit=True) as connection:
+        connection.execute(f"DROP INDEX {name}".encode())
+
+    planned = runner.invoke(app, ["upgrade", "--plan"], env=env)
+    assert planned.exit_code == 0, planned.stdout
+    assert planned.stdout.count("CREATE INDEX") == 1
+    assert name in planned.stdout
+    assert planned.stdout.startswith("-- pgqueuer ")
+    assert "Would apply 1 statement." in planned.stderr
+
+    applied = runner.invoke(app, ["upgrade"], env=env)
+    assert applied.exit_code == 0, applied.stdout
+    assert "Applied 1 statement." in applied.stderr
+    assert applied.stdout.strip() == ""
+
+    assert "already up to date" in runner.invoke(app, ["upgrade"], env=env).stderr

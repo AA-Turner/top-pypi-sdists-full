@@ -1,5 +1,5 @@
 import math
-from typing import List, Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
 
 import torch
 
@@ -10,42 +10,35 @@ from pytorch_optimizer.optimizer.foreach_utils import foreach_rsqrt
 
 
 class AdaFactor(BaseOptimizer):
-    """Adaptive Learning Rates with Sublinear Memory Cost with some tweaks.
-
-    PyTorch implementation of BigVision's AdaFactor variant
+    """Factored adaptive updates with the BigVision AdaFactor variant.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Union[Tuple[None, float], Tuple[float, float], Tuple[float, float, float]]): Coefficients used for
-            computing running averages of gradient and the squared Hessian trace.
-            If beta1 is None, first momentum will be skipped. beta2 is an upper bound cap.
-        decay_rate (float): Coefficient used to compute running averages of squared gradient.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        clip_threshold (float): Threshold of root-mean-square of final gradient update.
-        ams_bound (bool): Whether to use the AMSBound variant.
-        scale_parameter (bool): If True, the learning rate is scaled by root-mean-square of parameter.
-        relative_step (bool): If True, time-dependent learning rate is computed instead of external learning rate.
-        warmup_init (bool): Time-dependent learning rate computation depends on whether warm-up initialization is
-            being used.
-        eps1 (float): Term added to the denominator to improve numerical stability.
-        eps2 (float): Term added to the denominator to improve numerical stability.
-        momentum_dtype (torch.dtype): Type of momentum variable. In the ViT paper, it was observed that storing
-            momentum in half-precision (bfloat16 type) does not affect training dynamics and reduces optimizer
-            overhead from 2-fold to 1.5-fold.
-        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
-            None means auto-detect based on device (True for CUDA, False otherwise).
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Update momentum decay and second moment decay cap. Set the first value to `None` to disable
+            momentum.
+        decay_rate: Exponent controlling the step-dependent second moment decay.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        clip_threshold: Maximum root mean square of the preconditioned update.
+        ams_bound: Use the running maximum of the second moment to bound adaptive updates.
+        scale_parameter: If True, the learning rate is scaled by root mean square of parameter.
+        relative_step: If True, time dependent learning rate is computed instead of external learning rate.
+        warmup_init: Warm up the relative step size from `1e-6 * step`.
+        eps1: Stability constant added to squared gradients.
+        eps2: Lower bound for parameter RMS scaling.
+        momentum_dtype: Data type for the optional momentum buffer.
+        foreach: Use batched tensor operations. `None` enables them for supported parameter groups.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
     def __init__(
         self,
         params: ParamsT,
-        lr: Optional[float] = 1e-3,
-        betas: Union[Tuple[None, float], Tuple[float, float], Tuple[float, float, float]] = (0.9, 0.999),
+        lr: float | None = 1e-3,
+        betas: tuple[None, float] | tuple[float, float] | tuple[float, float, float] = (0.9, 0.999),
         decay_rate: float = -0.8,
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
@@ -58,7 +51,7 @@ class AdaFactor(BaseOptimizer):
         eps1: float = 1e-30,
         eps2: float = 1e-3,
         momentum_dtype: torch.dtype = torch.bfloat16,
-        foreach: Optional[bool] = None,
+        foreach: bool | None = None,
         maximize: bool = False,
         **kwargs,
     ):
@@ -97,6 +90,14 @@ class AdaFactor(BaseOptimizer):
     def __str__(self) -> str:
         return 'AdaFactor'
 
+    def load_state_dict(self, state_dict: dict) -> None:
+        super().load_state_dict(state_dict)
+        for group, saved_group in zip(self.param_groups, state_dict['param_groups']):
+            for p, key in zip(group['params'], saved_group['params']):
+                saved_state = state_dict['state'].get(key, {})
+                if 'exp_avg' in saved_state:
+                    self.state[p]['exp_avg'] = saved_state['exp_avg'].to(device=p.device, dtype=self.momentum_dtype)
+
     def init_group(self, group: ParamGroup, **kwargs) -> None:
         if 'step' not in group:
             group['step'] = 0
@@ -116,7 +117,7 @@ class AdaFactor(BaseOptimizer):
 
             state = self.state[p]
 
-            grad_shape: Tuple[int, ...] = grad.shape
+            grad_shape: tuple[int, ...] = grad.shape
             factored: bool = self.get_options(grad_shape)
 
             if len(state) == 0:
@@ -146,11 +147,11 @@ class AdaFactor(BaseOptimizer):
 
     def get_lr(
         self,
-        relative_step_size: Union[torch.Tensor, float],
-        rms: Union[List[torch.Tensor], torch.Tensor, float],
+        relative_step_size: torch.Tensor | float,
+        rms: Sequence[torch.Tensor] | torch.Tensor | float,
         scale_parameter: bool,
-    ) -> Union[Sequence[torch.Tensor], torch.Tensor, float]:
-        r"""Get the learning rate(s)."""
+    ) -> Sequence[torch.Tensor] | torch.Tensor | float:
+        """Compute effective learning rates with optional parameter RMS scaling."""
         if not scale_parameter:
             return relative_step_size
 
@@ -163,8 +164,8 @@ class AdaFactor(BaseOptimizer):
         return lrs
 
     @staticmethod
-    def get_options(shape: Tuple[int, ...]) -> bool:
-        r"""Get `factored`."""
+    def get_options(shape: tuple[int, ...]) -> bool:
+        """Return whether the gradient supports factored second moments."""
         return len(shape) >= 2
 
     def _can_use_foreach(self, group: ParamGroup) -> bool:
@@ -179,13 +180,13 @@ class AdaFactor(BaseOptimizer):
     def _step_foreach(
         self,
         group: ParamGroup,
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        exp_avgs: List[torch.Tensor],
-        exp_avg_sq_rows: List[torch.Tensor],
-        exp_avg_sq_cols: List[torch.Tensor],
-        exp_avg_sqs: List[torch.Tensor],
-        exp_avg_sq_hats: List[torch.Tensor],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sq_rows: list[torch.Tensor],
+        exp_avg_sq_cols: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
+        exp_avg_sq_hats: list[torch.Tensor],
         beta1: float,
         beta2_t: float,
         relative_step_size: float,
@@ -245,7 +246,7 @@ class AdaFactor(BaseOptimizer):
 
         rms_values = self.get_rms(updates)
         torch._foreach_div_(rms_values, self.clip_threshold)
-        torch._foreach_clamp_max_(rms_values, 1.0)
+        torch._foreach_clamp_min_(rms_values, 1.0)
 
         torch._foreach_div_(updates, rms_values)
         torch._foreach_mul_(updates, lrs)
@@ -313,7 +314,7 @@ class AdaFactor(BaseOptimizer):
 
             update.mul_(grad)
 
-            factor = self.get_rms(update).div_(self.clip_threshold).clamp_max_(1.0)
+            factor = self.get_rms(update).div_(self.clip_threshold).clamp_min_(1.0)
             update.div_(factor).mul_(lr)
 
             if beta1 is not None:

@@ -19,13 +19,21 @@ from pytorch_optimizer.loss import (
     soft_jaccard_score,
 )
 from pytorch_optimizer.loss.bi_tempered import bi_tempered_logistic_loss
-from tests.constants import BINARY_DICE_RECIPES
-from tests.utils import MultiClassExample
+from tests.fixtures import make_parameter
+
+BINARY_DICE_RECIPES: tuple[tuple, ...] = (
+    ([1.0, 1.0, 1.0], [1, 1, 1], (1, 1, 1, -1), 0.0),
+    ([1.0, 0.0, 1.0], [1, 0, 1], (1, 1, 1, -1), 0.0),
+    ([0.0, 0.0, 0.0], [0, 0, 0], (1, 1, 1, -1), 0.0),
+    ([1.0, 1.0, 1.0], [0, 0, 0], (1, 1, -1), 0.0),
+    ([1.0, 0.0, 1.0], [0, 1, 0], (1, 1, -1), 0.996677),
+    ([0.0, 0.0, 0.0], [1, 1, 1], (1, 1, -1), 0.996677),
+)
 
 
 class TestBinaryCE:
     @torch.no_grad()
-    @pytest.mark.parametrize('recipe', [('train', 0.37069410), ('eval', 0.30851572)])
+    @pytest.mark.parametrize('recipe', [('train', 0.42595610), ('eval', 0.30851572)])
     def test_bce_loss(self, recipe, binary_predictions):
         mode, expected_loss = recipe
 
@@ -41,9 +49,9 @@ class TestBinaryCE:
     @pytest.mark.parametrize(
         'recipe',
         [
-            ('train', 'mean', 0.031676896),
+            ('train', 'mean', 0.030802673),
             ('eval', 'mean', 0.029709899),
-            ('train', 'sum', 0.316768959),
+            ('train', 'sum', 0.308026731),
             ('eval', 'sum', 0.297098987),
         ],
     )
@@ -69,14 +77,20 @@ class TestBinaryCE:
         assert float(loss) == pytest.approx(0.07848126, abs=1e-6)
 
     @torch.no_grad()
-    def test_focal_cosine_loss(self):
-        criterion = FocalCosineLoss(alpha=1.0, gamma=2.0, focal_weight=0.1)
-
+    @pytest.mark.parametrize(
+        ('reduction', 'expected_loss'),
+        [
+            ('none', [0.024584262909110033, 0.04368160706201334, 0.655790168737243]),
+            ('mean', 0.24135201290278882),
+            ('sum', 0.7240560387083664),
+        ],
+    )
+    def test_focal_cosine_loss(self, reduction, expected_loss):
+        criterion = FocalCosineLoss(reduction=reduction)
         y_pred = torch.FloatTensor([[0.9, 0.1, 0.1], [0.2, 0.9, 0.1], [0.2, 0.1, 0.1]])
         y_true = torch.LongTensor([0, 1, 2])
         loss = criterion(y_pred, y_true)
-
-        assert float(loss) == pytest.approx(0.2413520, abs=1e-6)
+        torch.testing.assert_close(loss, torch.tensor(expected_loss), atol=1e-6, rtol=0)
 
     @torch.no_grad()
     def test_soft_f1_loss(self, binary_predictions):
@@ -87,6 +101,19 @@ class TestBinaryCE:
         loss = criterion(y_pred, y_true)
 
         assert float(loss) == pytest.approx(0.38905364, abs=1e-6)
+
+    @torch.no_grad()
+    @pytest.mark.parametrize('recipe', [(0.5, 0.375), (2.0, 0.70588235)])
+    def test_soft_f1_loss_beta(self, recipe):
+        beta, expected_loss = recipe
+
+        criterion = SoftF1Loss(beta=beta)
+
+        y_pred = torch.FloatTensor([1.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+        y_true = torch.FloatTensor([1.0, 1.0, 1.0, 1.0, 0.0, 0.0])
+        loss = criterion(y_pred, y_true)
+
+        assert float(loss) == pytest.approx(expected_loss, abs=1e-5)
 
 
 class TestDiceAndJaccard:
@@ -206,13 +233,14 @@ def test_bi_tempered_log_loss_func():
 
 
 def test_bi_tempered_log_loss_bwd():
-    model = MultiClassExample(num_classes=4)
-
-    y_pred = model(torch.randn(4, 1))
+    y_pred = make_parameter((4, 4), grad=None)
     y_true = torch.LongTensor([0, 1, 2, 3])
 
     loss = bi_tempered_logistic_loss(y_pred, y_true, t1=0.5, t2=0.5, reduction='mean')
     loss.backward()
+
+    assert torch.isfinite(y_pred.grad).all()
+    assert y_pred.grad.abs().sum() > 0
 
 
 def test_binary_bi_tempered_log_loss_exception():

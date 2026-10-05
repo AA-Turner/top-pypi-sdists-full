@@ -73,6 +73,17 @@ def test_every_captured_harness_has_a_daemon_adapter(harness_id):
 
 
 @pytest.mark.parametrize("harness_id", CAPTURED)
+def test_the_daemon_adapter_capabilities_agree(harness_id):
+    """The registry's hook capabilities are the adapter's: context at the next
+    prompt, a wake for a late answer, the question tool a hook reads."""
+    harness = REG.get(harness_id)
+    adapter = adapters.for_source(harness_id)
+    assert adapter.capabilities.inject_line == harness.can("prompt_context")
+    assert adapter.capabilities.wake == harness.can("wake")
+    assert adapter.question_tool_name == harness.question_tool
+
+
+@pytest.mark.parametrize("harness_id", CAPTURED)
 def test_the_cli_capture_tables_agree(harness_id):
     from probe.cli import capabilities
 

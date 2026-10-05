@@ -49,6 +49,7 @@ class SandboxResourceKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SANDBOX_RESOURCE_KIND_OFFLINE_QUERY: _ClassVar[SandboxResourceKind]
     SANDBOX_RESOURCE_KIND_SQL_QUERY: _ClassVar[SandboxResourceKind]
     SANDBOX_RESOURCE_KIND_STORED_ARTIFACT: _ClassVar[SandboxResourceKind]
+    SANDBOX_RESOURCE_KIND_GITHUB_PR: _ClassVar[SandboxResourceKind]
 
 SANDBOX_STATUS_UNSPECIFIED: SandboxStatus
 SANDBOX_STATUS_PENDING: SandboxStatus
@@ -71,6 +72,7 @@ SANDBOX_RESOURCE_KIND_ONLINE_QUERY: SandboxResourceKind
 SANDBOX_RESOURCE_KIND_OFFLINE_QUERY: SandboxResourceKind
 SANDBOX_RESOURCE_KIND_SQL_QUERY: SandboxResourceKind
 SANDBOX_RESOURCE_KIND_STORED_ARTIFACT: SandboxResourceKind
+SANDBOX_RESOURCE_KIND_GITHUB_PR: SandboxResourceKind
 
 class SandboxInfo(_message.Message):
     __slots__ = (
@@ -316,3 +318,22 @@ class ListSandboxResourcesResponse(_message.Message):
         resources: _Optional[_Iterable[_Union[SandboxResource, _Mapping]]] = ...,
         next_page_token: _Optional[str] = ...,
     ) -> None: ...
+
+class RecordSandboxResourceRequest(_message.Message):
+    __slots__ = ("kind", "resource_id", "version_id")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    kind: SandboxResourceKind
+    resource_id: str
+    version_id: str
+    def __init__(
+        self,
+        kind: _Optional[_Union[SandboxResourceKind, str]] = ...,
+        resource_id: _Optional[str] = ...,
+        version_id: _Optional[str] = ...,
+    ) -> None: ...
+
+class RecordSandboxResourceResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

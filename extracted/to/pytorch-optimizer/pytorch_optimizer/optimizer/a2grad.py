@@ -1,5 +1,5 @@
 import math
-from typing import Literal, Optional
+from typing import Literal
 
 import torch
 
@@ -11,23 +11,23 @@ VARIANTS = Literal['uni', 'inc', 'exp']
 
 
 class A2Grad(BaseOptimizer):
-    """Optimal Adaptive and Accelerated Stochastic Gradient Descent.
+    """Adaptive accelerated stochastic gradient descent with three averaging variants.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (Optional[float]): Learning rate. No needed.
-        beta (float): Beta.
-        lips (float): Lipschitz constant.
-        rho (float): Represents the degree of weighting decrease, a constant smoothing factor between 0 and 1.
-        variant (str): Variant of A2Grad optimizer. One of 'uni', 'inc', or 'exp'.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate. No needed.
+        beta: Coefficient controlling the adaptive gradient scale.
+        lips: Lipschitz constant.
+        rho: Represents the degree of weighting decrease, a constant smoothing factor between 0 and 1.
+        variant: Variant of A2Grad optimizer. One of 'uni', 'inc', or 'exp'.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
     def __init__(
         self,
         params: ParamsT,
-        lr: Optional[float] = None,
+        lr: float | None = None,
         beta: float = 10.0,
         lips: float = 10.0,
         rho: float = 0.5,
@@ -116,7 +116,7 @@ class A2Grad(BaseOptimizer):
                 else:
                     v_kk = state['v_kk']
 
-                    v_kk.mul_(group['rho']).add_(delta_k_sq, alpha=1.0 - group['rho'])
+                    v_kk.lerp_(delta_k_sq, weight=1.0 - group['rho'])
                     torch.max(v_kk, v_k, out=v_k)
 
                 h_k = v_k.sqrt()
@@ -127,7 +127,7 @@ class A2Grad(BaseOptimizer):
 
                 x_k.add_(grad, alpha=coefficient)
 
-                p.mul_(1.0 - alpha_k_1).add_(x_k, alpha=alpha_k_1)
+                p.lerp_(x_k, weight=alpha_k_1)
                 p.add_(grad, alpha=(1.0 - alpha_k_1) * state['alpha_k'] * coefficient)
 
                 state['alpha_k'] = alpha_k_1

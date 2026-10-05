@@ -14,6 +14,7 @@ from typing import Protocol
 
 from exp.common.core.artifacts import JsonObject
 from exp.common.models.catalog import GatewayTokenPrices
+from exp.runtime.gateway.client_apps import with_client_identity
 from exp.runtime.gateway.contracts import (
     AuthorizationSnapshot,
     DirectTarget,
@@ -138,6 +139,7 @@ class NativeDecisionsMixin:
                 client_ip=optional_text(data.get("client_ip")),
             )
             authorization = authorize_serving_model_chains(self._components, authorization)
+            authorization = with_client_identity(authorization, data)  # reporting-only app facts
             self._write_ledger.accept_request(authorization=authorization)
         except Exception as exc:  # noqa: BLE001 - sanitize the authority boundary.
             raise authority_error(exc) from exc

@@ -74,7 +74,7 @@ def test_media_output_carries_the_durable_file_id(node_type: str, defs_path: tup
     assert "file_id" in props, (
         f"{node_type}'s output shape must carry file_id — the durable handle. "
         "Emitting only a URL leaves a consumer that outlives the signature with "
-        "nothing to re-mint from (common-docs/systems/media/media-durability/FEATURE.md)."
+        "nothing to re-mint from (common-docs/systems/files/media-durability/FEATURE.md)."
     )
     assert props["file_id"]["description"], "file_id must document that it is the durable handle."
 

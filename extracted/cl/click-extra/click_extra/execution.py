@@ -44,10 +44,11 @@ import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
-from gettext import gettext as _
+from contextvars import ContextVar
+from gettext import gettext as _, ngettext
 from itertools import chain, islice
 from time import perf_counter
-from typing import Final, TypeVar, cast
+from typing import Final, NoReturn, TypeVar, cast
 
 import click
 from boltons.iterutils import flatten
@@ -60,6 +61,7 @@ from extra_platforms import is_windows
 
 from . import context
 from ._deprecated import warn_deprecated_argument
+from ._utils import exception_chain
 from .envvar import env_copy
 from .parameters import ExtraOption
 from .theme import get_current_theme
@@ -423,7 +425,10 @@ def _resolve_worker_cap(ctx: click.Context | None, serial_at_debug: bool) -> int
 
 
 @contextmanager
-def _interruptible_pool(max_workers: int) -> Iterator[ThreadPoolExecutor]:
+def _interruptible_pool(
+    max_workers: int,
+    stop: threading.Event | None = None,
+) -> Iterator[ThreadPoolExecutor]:
     """Yield a thread pool whose teardown honors a prompt interrupt.
 
     Wraps a {class}`~concurrent.futures.ThreadPoolExecutor` for a `with` body
@@ -439,7 +444,8 @@ def _interruptible_pool(max_workers: int) -> Iterator[ThreadPoolExecutor]:
     until they return; a caller that needs them to stop sooner (killing a
     subprocess, say) must arrange that itself. This is why a plain `with` block
     is not used: its `shutdown(wait=True)` teardown would block until every
-    in-flight task finished, defeating the interrupt.
+    in-flight task finished, defeating the interrupt. The `stop` event, set on
+    that same abort, lets a task made of several steps quit between two of them.
 
     Shared by {func}`run_jobs` and {func}`run_lanes`, the two parallel drivers.
     """
@@ -447,6 +453,8 @@ def _interruptible_pool(max_workers: int) -> Iterator[ThreadPoolExecutor]:
     try:
         yield executor
     except (KeyboardInterrupt, GeneratorExit):
+        if stop is not None:
+            stop.set()
         executor.shutdown(wait=False, cancel_futures=True)
         raise
     except BaseException:
@@ -612,12 +620,21 @@ def run_lanes(
     else:
         # Each lane is a serial chain run on one worker; chains run concurrently and
         # their results are yielded in submission order.
+        stop = threading.Event()
+
         def run_chain(lane: list[T]) -> list[R]:
-            return [func(item) for item in lane]
+            results = []
+            for item in lane:
+                # An interrupted or abandoned run stops each running lane after
+                # its current item, instead of running the lane to its end.
+                if stop.is_set():
+                    break
+                results.append(func(item))
+            return results
 
         # The pool teardown drops queued lanes on a prompt interrupt instead of
         # blocking on the in-flight ones (see {func}`_interruptible_pool`).
-        with _interruptible_pool(jobs) as executor:
+        with _interruptible_pool(jobs, stop=stop) as executor:
             for chain_results in _windowed_map(
                 executor,
                 run_chain,
@@ -854,7 +871,8 @@ def format_cli_prompt(
         show.
     :param prompt: sigil to draw before the command, when the shell being
         pictured is not the one running. A capture mimicking a Windows terminal
-        passes `PS C:\>`; `None` keeps {data}`PROMPT`, which is this platform's.
+        passes `PS C:\>`; `None` keeps {data}`~click_extra.execution.PROMPT`,
+        which is this platform's.
     :return: the styled prompt line.
     """
     active_theme = get_current_theme() if theme is None else theme
@@ -909,6 +927,27 @@ kill paths signal the whole group, plus every group a descendant moved to (see
 {func}`_kill_posix_process_group`), instead of the direct child alone.
 Maintained by {func}`run_cli` in lockstep with {data}`_LIVE_PROCESSES`, under
 the same lock.
+"""
+
+
+_STRAY_DESCENDANTS: Final[dict[int, int]] = {}
+"""Descendants the children of {func}`run_cli` may leave behind: each PID, with
+the process group it was last seen in.
+
+A child that exits on `SIGTERM` takes with it the only link to what it started
+(see {func}`_descendant_pids`). So {func}`terminate_live_processes` writes down
+the descendants of each child it asks to stop, and reads them back when it is
+told to kill. A descendant leading a group of its own is left out: its group
+alone cannot tell it from an unrelated process that took its PID. Guarded by
+{data}`_LIVE_PROCESSES_LOCK`.
+"""
+
+
+_KILL_SIGNAL: Final = signal.SIGTERM if is_windows() else signal.SIGKILL
+"""The signal that ends the children of {func}`run_cli` at once.
+
+Windows has no `SIGKILL`: {func}`terminate_live_processes` uses its single
+forced termination there, whatever the signal.
 """
 
 
@@ -1084,8 +1123,8 @@ def _kill_posix_process_group(
     return delivered
 
 
-def terminate_live_processes() -> None:
-    """Send `SIGTERM` to every subprocess currently running through {func}`run_cli`.
+def terminate_live_processes(signum: signal.Signals = signal.SIGTERM) -> None:
+    """Send `signum` to every subprocess currently running through {func}`run_cli`.
 
     Called from the main thread's `SIGINT` handler (see
     {func}`install_interrupt_handler`) so a concurrent fan-out aborts promptly:
@@ -1097,8 +1136,19 @@ def terminate_live_processes() -> None:
     `SIGINT` at all (it left the foreground process group), so its whole group
     is signalled here, with the groups its descendants moved to.
 
-    Uses `SIGTERM` rather than `SIGKILL` so a child still gets to clean up,
-    notably to restore terminal state a `sudo` password prompt may have altered.
+    Defaults to `SIGTERM` rather than `SIGKILL` so a child still gets to clean
+    up, notably to restore terminal state a `sudo` password prompt may have
+    altered. An aborting Click Extra command follows up with `SIGKILL` for a
+    child still running after a grace period.
+
+    `SIGTERM` goes to a child sharing the caller's process group alone: stopping
+    what it started is part of its own clean-up. `SIGKILL` cannot be handled, so
+    it also goes to each descendant of that child, one PID at a time (see
+    {func}`_kill_descendants`), and to the descendants an earlier call wrote
+    down (see {data}`_STRAY_DESCENDANTS`), which a child that exited on
+    `SIGTERM` left running. Windows has a single forced termination, which ends
+    the whole process tree of each child whatever `signum` asks for.
+
     The registry is snapshotted under the lock, then signalled outside it, because
     {func}`run_cli` may be discarding its own entries from other threads at the
     same time.
@@ -1106,20 +1156,261 @@ def terminate_live_processes() -> None:
     with _LIVE_PROCESSES_LOCK:
         live = tuple(_LIVE_PROCESSES)
         leaders = set(_GROUP_LEADERS)
-    # One read of the process table, taken before any signal, serves every leader.
-    table = _posix_process_table() if leaders and hasattr(os, "killpg") else {}
+        strays = dict(_STRAY_DESCENDANTS)
+    if is_windows():
+        for process in live:
+            _kill_windows_process_tree(process.pid)
+            try:
+                process.terminate()
+            except OSError:
+                # Ended with its tree, or reaped since the snapshot.
+                pass
+        return
+    kill = signum == _KILL_SIGNAL
+    # One read of the process table, taken before any signal, serves every child.
+    table = _posix_process_table() if live or strays else {}
+    # A descendant still in the group it was seen in is the one written down.
+    strays = {
+        pid: group
+        for pid, group in strays.items()
+        if table.get(pid, (0, 0))[1] == group
+    }
     for process in live:
-        if process in leaders and _kill_posix_process_group(
-            process,
-            signal.SIGTERM,
-            table,
-        ):
+        for pid in _descendant_pids(process.pid, table):
+            if table[pid][1] != pid:
+                strays[pid] = table[pid][1]
+        if process in leaders and _kill_posix_process_group(process, signum, table):
             continue
         try:
-            process.terminate()
+            process.send_signal(signum)
         except OSError:
             # Reaped between the snapshot and the signal: nothing left to stop.
             pass
+        if kill:
+            _kill_descendants(process.pid, table, signum)
+    if kill:
+        for pid in strays:
+            try:
+                os.kill(pid, signum)
+            except OSError:
+                # Gone since the table was read: nothing left to stop.
+                pass
+        strays = {}
+    with _LIVE_PROCESSES_LOCK:
+        _STRAY_DESCENDANTS.clear()
+        _STRAY_DESCENDANTS.update(strays)
+
+
+_STATUS_CONTROL_C_EXIT: Final = 0xC000013A - (1 << 32)
+"""The exit code Windows reports for a process ended by Ctrl+C.
+
+`STATUS_CONTROL_C_EXIT` (`0xC000013A`), written as the signed 32-bit integer
+{func}`os._exit` takes: a parent process reads it back as `0xC000013A`. Python
+ends with it on an unhandled Ctrl+C, where POSIX dies by `SIGINT`.
+"""
+
+
+_INTERRUPTED = threading.Event()
+"""Set when a Ctrl+C reached the handler {func}`_interrupt_handling` installs.
+
+Tells a `SIGINT` the terminal sent apart from a {exc}`KeyboardInterrupt` raised
+by code, which a test runner does to simulate one. Only the former ends the
+process by `SIGINT`.
+"""
+
+
+_RUN_END: ContextVar[list[BaseException] | None] = ContextVar("_RUN_END", default=None)
+"""The exceptions that ended the CLI run in progress, or `None` outside a run.
+
+Written by {func}`_run_end_watch`, read by {func}`_interrupted`.
+"""
+
+
+def _record_interrupt(signum: int, frame: FrameType | None) -> None:
+    """Record a real Ctrl+C, then raise {exc}`KeyboardInterrupt` as Python does."""
+    _INTERRUPTED.set()
+    raise KeyboardInterrupt
+
+
+@contextmanager
+def _interrupt_handling() -> Iterator[None]:
+    """Track Ctrl+C, and what the run ends on, for the duration of a CLI run.
+
+    Installs a `SIGINT` handler that behaves like Python's default one, but
+    records that a real interrupt arrived, so {func}`_exit_interrupted` can end
+    the process the way an unhandled Ctrl+C would. Only replaces Python's own
+    default handler, in the main thread: a handler the program installed itself,
+    or a call from another thread, leaves Ctrl+C alone.
+    """
+    token = _RUN_END.set([])
+    try:
+        if (
+            threading.current_thread() is not threading.main_thread()
+            or signal.getsignal(signal.SIGINT) is not signal.default_int_handler
+        ):
+            yield
+            return
+        _INTERRUPTED.clear()
+        signal.signal(signal.SIGINT, _record_interrupt)
+        try:
+            yield
+        finally:
+            signal.signal(signal.SIGINT, signal.default_int_handler)
+    finally:
+        _RUN_END.reset(token)
+
+
+@contextmanager
+def _run_end_watch() -> Iterator[None]:
+    """Record the exception the block raises, as one the run in progress ends on.
+
+    A Click Extra command wraps the two ways out of its run in it: building the
+    root context, and closing it. Click's `main()` handles the exception past
+    that point, then exits with a status that carries no cause: since
+    [pallets/click#3818](https://github.com/pallets/click/pull/3818), the exit
+    happens outside the handler, so it no longer chains to what was handled.
+    """
+    try:
+        yield
+    except BaseException as exc:
+        ended_on = _RUN_END.get()
+        if ended_on is not None:
+            ended_on.append(exc)
+        raise
+
+
+def _interrupted() -> bool:
+    """Whether a real Ctrl+C ended the run in progress.
+
+    True when {func}`_interrupt_handling` saw a `SIGINT`, and
+    {func}`_run_end_watch` saw the run end on a {exc}`KeyboardInterrupt` or on
+    an exception one led to, like the {exc}`click.exceptions.Abort` of an
+    interrupted prompt. A program that caught the interrupt and exited on its
+    own terms does not count.
+    """
+    if not _INTERRUPTED.is_set():
+        return False
+    return any(
+        isinstance(link, KeyboardInterrupt)
+        for exc in _RUN_END.get() or ()
+        for link in exception_chain(exc)
+    )
+
+
+def _die_by_sigint() -> NoReturn:
+    """End the process at once, the way an unhandled Ctrl+C does.
+
+    Dies by `SIGINT` on POSIX, so a calling shell sees the signal and stops its
+    own loop: a process exiting with a status, even `130`, tells the shell it
+    handled the interrupt itself, and the loop goes on. On Windows, exits with
+    {data}`_STATUS_CONTROL_C_EXIT`. Skips every clean-up but flushing the
+    standard streams.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.flush()
+        except (OSError, ValueError):
+            # A closed or broken stream has nothing left to flush.
+            pass
+    if not is_windows():
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+        os.kill(os.getpid(), signal.SIGINT)
+    os._exit(_STATUS_CONTROL_C_EXIT if is_windows() else 128 + signal.SIGINT)
+
+
+def _second_interrupt(signum: int, frame: FrameType | None) -> None:
+    """Handle a Ctrl+C pressed while an interrupted run waits: exit at once.
+
+    Kills the children of {func}`run_cli` first, with their descendants, which
+    would otherwise outlive the process.
+    """
+    terminate_live_processes(_KILL_SIGNAL)
+    _die_by_sigint()
+
+
+_TERMINATE_GRACE: Final = 3.0
+"""Seconds an interrupted CLI gives the children of {func}`run_cli` to exit.
+
+They get `SIGTERM` as the run aborts, so they can clean up, and
+{data}`_KILL_SIGNAL` once this grace runs out.
+"""
+
+
+_JOIN_POLL: Final = 0.1
+"""Seconds between two checks while an interrupted run waits for its threads.
+
+A bounded join returns to the interpreter that often, so a second Ctrl+C is
+handled at once on every platform.
+"""
+
+
+def _exit_interrupted() -> NoReturn:
+    """End an interrupted run once its running threads finish.
+
+    Asks the children of {func}`run_cli` to stop first, so the threads waiting
+    on them return: `SIGTERM` at once, {data}`_KILL_SIGNAL` after
+    {data}`_TERMINATE_GRACE`, to them and to their descendants. Waits for the
+    threads, as the interpreter would at exit, but says so, and says what a
+    second Ctrl+C does: it stops the wait and exits at once. Then ends the
+    process by {func}`_die_by_sigint`.
+    """
+    terminate_live_processes()
+    current = threading.current_thread()
+    running = [
+        thread
+        for thread in threading.enumerate()
+        if thread is not current and not thread.daemon and thread.is_alive()
+    ]
+    if running and current is threading.main_thread():
+        signal.signal(signal.SIGINT, _second_interrupt)
+        echo(
+            ngettext(
+                "Waiting for {count} running task to finish. "
+                "Press Ctrl+C again to quit now.",
+                "Waiting for {count} running tasks to finish. "
+                "Press Ctrl+C again to quit now.",
+                len(running),
+            ).format(count=len(running)),
+            err=True,
+        )
+        deadline = time.monotonic() + _TERMINATE_GRACE
+        killed = False
+        for thread in running:
+            while thread.is_alive():
+                thread.join(timeout=_JOIN_POLL)
+                if not killed and time.monotonic() >= deadline:
+                    terminate_live_processes(_KILL_SIGNAL)
+                    killed = True
+    _die_by_sigint()
+
+
+@contextmanager
+def _deferred_interrupt() -> Iterator[None]:
+    """Hold back a Ctrl+C for the duration of the block, then deliver it.
+
+    Shields a short critical section that must run whole: the kill in
+    {func}`run_cli` reads the process table, then signals what it found, and an
+    interrupt landing in between would skip the signals and orphan the child.
+    The interrupt is delivered again at the end of the block, to whichever
+    handler was in place, so it is postponed, never lost.
+
+    Only the main thread receives `SIGINT`, so elsewhere the block runs as is.
+    """
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    received: list[int] = []
+
+    def hold(signum: int, frame: FrameType | None) -> None:
+        received.append(signum)
+
+    previous = signal.signal(signal.SIGINT, hold)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGINT, previous)
+        if received:
+            signal.raise_signal(signal.SIGINT)
 
 
 def install_interrupt_handler(ctx: click.Context) -> None:
@@ -1135,17 +1426,16 @@ def install_interrupt_handler(ctx: click.Context) -> None:
     from any other, so a non-main-thread caller (embedded use, some tests) is a
     no-op that keeps the default Ctrl+C behavior.
 
-    A signal handler is required here rather than a `try`/``except
-    KeyboardInterrupt`` around the fan-out: Python delivers Ctrl+C only to the main
-    thread, so worker threads never see the interrupt, and the exception unwinds
-    through the executor's blocking `shutdown(wait=True)` teardown *before* any
-    `except` in the caller could run. The children must be killed at
-    signal-delivery time, ahead of that teardown.
+    A Click Extra command already asks the children to stop as the run aborts,
+    once its context has closed. This handler does it at the moment of the
+    Ctrl+C, which matters when a close callback waits on one of them, and serves
+    a plain Click command, which has no such abort path.
     """
     if threading.current_thread() is not threading.main_thread():
         return
 
     def handler(signum: int, frame: FrameType | None) -> None:
+        _INTERRUPTED.set()
         terminate_live_processes()
         raise KeyboardInterrupt
 
@@ -1328,10 +1618,10 @@ def run_cli(
         match. That costs the atomicity of a single group signal, not the
         reaping: the `timeout` and {exc}`KeyboardInterrupt` paths then kill the
         child and walk the tree it led, signalling each descendant by PID (see
-        {func}`_kill_descendants`). {func}`terminate_live_processes` is the one
-        path that still signals the direct child alone, because it sends
-        `SIGTERM` for a clean exit rather than a kill. No-op on Windows, where
-        the timeout path already kills the full tree. Only the reaping half of
+        {func}`_kill_descendants`). {func}`terminate_live_processes` signals
+        the direct child alone when it sends `SIGTERM`, for a clean exit, and
+        walks the same tree when it sends `SIGKILL`. No-op on Windows, where
+        each of these paths already kills the full tree. Only the reaping half of
         this flag has that Windows equivalent, and the other half has none: a
         POSIX session also detaches the child from the controlling terminal,
         where a Windows child keeps sharing the parent's console and can still
@@ -1444,20 +1734,23 @@ def run_cli(
         alive to find them.
         """
         log.debug(f"PID {process.pid} {reason}; sending kill.")
-        if is_windows():
-            # `taskkill /F /T` covers the whole tree and `process.kill()` backs
-            # it up. None of the POSIX branch below can even be evaluated here:
-            # Windows has no `SIGKILL`, and no `os.killpg` to signal a group.
-            _kill_windows_process_tree(process.pid)
-            process.kill()
-        else:
-            table = _posix_process_table()
-            if not (
-                start_new_session
-                and _kill_posix_process_group(process, signal.SIGKILL, table)
-            ):
+        # A second Ctrl+C waits for the kill to land: see _deferred_interrupt.
+        with _deferred_interrupt():
+            if is_windows():
+                # `taskkill /F /T` covers the whole tree and `process.kill()`
+                # backs it up. None of the POSIX branch below can even be
+                # evaluated here: Windows has no `SIGKILL`, and no `os.killpg`
+                # to signal a group.
+                _kill_windows_process_tree(process.pid)
                 process.kill()
-                _kill_descendants(process.pid, table, signal.SIGKILL)
+            else:
+                table = _posix_process_table()
+                if not (
+                    start_new_session
+                    and _kill_posix_process_group(process, signal.SIGKILL, table)
+                ):
+                    process.kill()
+                    _kill_descendants(process.pid, table, signal.SIGKILL)
         process.wait()
         _drain_readers(readers, _KILL_DRAIN_GRACE)
 

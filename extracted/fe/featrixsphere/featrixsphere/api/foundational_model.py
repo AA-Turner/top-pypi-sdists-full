@@ -35,7 +35,7 @@ from .vector_database import VectorDatabase
 from .vector_view import VectorView
 from .reference_record import ReferenceRecord
 from .exceptions import TrainingStatusUnavailableError, SessionNotFoundError, FeatrixPredictionError
-from .poll_utils import adaptive_poll_interval, job_awaiting_start
+from .poll_utils import adaptive_poll_interval, job_awaiting_start, server_liveness_time
 
 logger = logging.getLogger(__name__)
 
@@ -1591,6 +1591,10 @@ class FoundationalModel:
                             or job.get('failure_reason')
                             or 'Unknown error'
                         )
+                    # Node still sees the job working (poll_utils.server_liveness_time).
+                    alive_at = server_liveness_time(job)
+                    if alive_at is not None:
+                        last_progress_time = max(last_progress_time, alive_at)
 
                     # The session_chain has claimed this job (it exists, with a
                     # job_id) but it hasn't actually started running yet — e.g.
@@ -1906,6 +1910,10 @@ class FoundationalModel:
                         or job.get('failure_reason')
                         or 'Unknown error'
                     )
+                # Node still sees the job working (poll_utils.server_liveness_time).
+                alive_at = server_liveness_time(job)
+                if alive_at is not None:
+                    last_progress_time = max(last_progress_time, alive_at)
 
                 # See _wait_with_tqdm's identical fix: the session_chain has
                 # claimed this job but it hasn't started running yet (waiting

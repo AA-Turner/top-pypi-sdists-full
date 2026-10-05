@@ -25,13 +25,13 @@ from warnings import warn
 from ..device import Device, DeviceInfo, WifiNetwork
 from ..device_type import DeviceType
 from ..deviceconfig import DeviceConfig
-from ..exceptions import KasaException
+from ..exceptions import KasaException, UnsupportedDeviceError
 from ..feature import Feature
 from ..module import Module
 from ..modulemapping import ModuleMapping, ModuleName
 from ..protocols import BaseProtocol
 from .iotmodule import IotModule, merge
-from .modules import Emeter
+from .modules import Emeter, HomeKit
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class IotDevice(Device):
     * :class:`IotDimmer`
     * :class:`IotLightStrip`
 
-    To initialize, you have to await :func:`update()` at least once.
+    To initialize, you have to await :meth:`update()` at least once.
     This will allow accessing the properties using the exposed properties.
 
     All changes to the device are done using awaitable methods,
@@ -330,6 +330,8 @@ class IotDevice(Device):
 
     async def _initialize_modules(self) -> None:
         """Initialize modules not added in init."""
+        self.add_module(Module.IotHomeKit, HomeKit(self, "smartlife.iot.homekit"))
+
         if self.has_emeter:
             _LOGGER.debug(
                 "The device has emeter, querying its information along sysinfo"
@@ -686,6 +688,9 @@ class IotDevice(Device):
         async def _join(target: str, payload: dict) -> dict:
             return await self._query_helper(target, "set_stainfo", payload)
 
+        if not keytype:
+            raise KasaException("KeyType is required for this device.")
+
         payload = {"ssid": ssid, "password": password, "key_type": int(keytype)}
         try:
             return await _join("netif", payload)
@@ -758,6 +763,9 @@ class IotDevice(Device):
 
         # Get other info
         device_family = sys_info.get("type", sys_info.get("mic_type"))
+        if device_family is None:
+            raise UnsupportedDeviceError("type nor mic_type found in sysinfo response")
+
         device_type = IotDevice._get_device_type_from_sys_info(info)
         fw_version_full = sys_info["sw_ver"]
         if " " in fw_version_full:

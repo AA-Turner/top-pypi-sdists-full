@@ -184,6 +184,7 @@ from .decorators import (  # type: ignore[no-redef]
     no_color_option,
     no_config_option,
     option,
+    progress_option,
     quiet_option,
     show_params_option,
     sort_by_option,
@@ -531,6 +532,7 @@ __all__ = [
     "prep_path",
     "print_data",
     "print_table",
+    "progress_option",
     "progressbar",
     "prompt",
     "quiet_option",
@@ -649,13 +651,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "9.4.0"
+__version__ = "9.4.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "a8d7362ac6f0a8f2201941ff6df4c5fb4bb3f27c"
+__git_tag_sha__ = "51e1203c647eb776d96932a09af33843adbe162c"
 
 
 _LAZY_TEST_TOOLING = {

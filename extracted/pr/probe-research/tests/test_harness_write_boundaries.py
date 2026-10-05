@@ -78,7 +78,10 @@ def test_the_plugin_cli_refuses_an_agent_with_no_marketplace():
     with pytest.raises(ValueError, match="pi"):
         plugin_cli.run("pi", ["plugin", "list"], timeout=1)
     with pytest.raises(ValueError):
-        plugin_cli.install("kimi_code", "probe-research@research-os-agent")
+        plugin_cli.install("cursor", "probe-research@research-os-agent")
+    # Kimi Code has no plugin command at all: its installs go to kimi_config.
+    with pytest.raises(ValueError, match="kimi_config"):
+        plugin_cli.run("kimi_code", ["plugin", "list"], timeout=1)
 
 
 def test_reasoning_settings_refuse_an_agent_without_one():

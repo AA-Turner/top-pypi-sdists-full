@@ -2,9 +2,9 @@
 
 from collections import OrderedDict
 from datetime import datetime
-from io import UnsupportedOperation, BytesIO
-import os
-
+from functools import cached_property
+from io import UnsupportedOperation
+import struct
 import numpy as np
 from nptdms.common import toc_properties, ObjectPath
 from nptdms.timestamp import TdmsTimestamp
@@ -121,12 +121,46 @@ class TdmsWriter(object):
         self._file = None
         self._index_file = None
 
-    def write_segment(self, objects):
+    def write_segment(self, *object_inputs, objects=None):
         """ Write a segment of data to a TDMS file
 
-        :param objects: A list of TdmsObject instances to write
+        :param object_inputs: One or more arguments, where each argument is either
+            a single TdmsObject instance, or an iterable (list, tuple, generator, etc.)
+            of TdmsObject instances. This means you can pass objects individually,
+            as a list, or mix and match, without needing to manually concatenate lists together,
+            e.g.::
+
+                writer.write_segment(root_obj, group_obj)
+                writer.write_segment([root_obj, group_obj])
+                writer.write_segment(
+                    root_obj,
+                    (ChannelObject("Group", name, data) for name, data in channels)
+                )
+        :param objects: A list of TdmsObject instances to write.
+            Prefer ``object_inputs`` for new code.
         """
-        path_object_pairs = [(ObjectPath.from_string(o.path), o) for o in objects]
+        if objects is not None:
+            if object_inputs:
+                raise ValueError("Pass either positional object arguments or objects=, not both.")
+            object_inputs = (objects,)
+
+        _objects = []
+        for group in object_inputs:
+            if isinstance(group, TdmsObject):
+                _objects.append(group)
+            else:
+                _objects.extend(group)
+
+        # Build ObjectPaths directly from each object's group/channel attributes
+        # rather than parsing them back out of a path string, when possible.
+        # This is a fast path for actual TdmsObject instances (RootObject,
+        # GroupObject, ChannelObject). Other duck-typed objects (e.g. TdmsGroup
+        # or TdmsChannel instances obtained from reading a file) only have a
+        # path string, so fall back to parsing that.
+        path_object_pairs = [
+            (getattr(o, 'object_path', None) or ObjectPath.from_string(o.path), o)
+            for o in _objects
+        ]
 
         # Make sure a root object is included if this is the first segment,
         # and any groups used by channels have associated group objects
@@ -145,12 +179,12 @@ class TdmsWriter(object):
         # Channel ordering will be unchanged as sorts are stable.
         path_object_pairs.sort(key=lambda p: _path_ordering_key(p[0]))
 
-        objects = [p[1] for p in path_object_pairs]
-        segment = TdmsSegment(objects, version=self._tdms_version)
+        _objects = [p[1] for p in path_object_pairs]
+        segment = TdmsSegment(_objects, version=self._tdms_version)
         segment.write(self._file)
 
         if self._index_file is not None:
-            segment = TdmsSegment(objects, is_index_file=True, version=self._tdms_version)
+            segment = TdmsSegment(_objects, is_index_file=True, version=self._tdms_version)
             segment.write(self._index_file)
 
         self._root_written = True
@@ -213,17 +247,16 @@ class TdmsSegment(object):
 
     def raw_data_index(self, obj):
         if hasattr(obj, 'data'):
-            data_type = Int32(obj.data_type.enum_value)
-            dimension = Uint32(1)
-            num_values = Uint64(len(obj.data))
-
-            data_index = [Uint32(20), data_type, dimension, num_values]
-            # For strings, we also need to write the total data size in bytes
+            num_values = len(obj.data)
             if obj.data_type == String:
+                # For strings, we also need to write the total data size in bytes
                 total_size = object_data_size(obj.data_type, obj.data)
-                data_index.append(Uint64(total_size))
-
-            return data_index
+                packed = struct.pack(
+                    '<LlLQQ', 20, obj.data_type.enum_value, 1, num_values, total_size)
+            else:
+                packed = struct.pack(
+                    '<LlLQ', 20, obj.data_type.enum_value, 1, num_values)
+            return [Bytes(packed)]
         else:
             return [Bytes(b'\xFF\xFF\xFF\xFF')]
 
@@ -259,6 +292,9 @@ class TdmsSegment(object):
 
 
 class TdmsObject(object):
+    group = None
+    channel = None
+
     @property
     def has_data(self):
         return False
@@ -267,9 +303,18 @@ class TdmsObject(object):
     def data_type(self):
         return None
 
-    @property
+    @cached_property
+    def object_path(self):
+        """ The ObjectPath for this object
+        """
+        components = tuple(c for c in (self.group, self.channel) if c is not None)
+        return ObjectPath(*components)
+
+    @cached_property
     def path(self):
-        return None
+        """ The string representation of this object's path
+        """
+        return str(self.object_path)
 
 
 class RootObject(TdmsObject):
@@ -282,12 +327,6 @@ class RootObject(TdmsObject):
             their value.
         """
         self.properties = properties
-
-    @property
-    def path(self):
-        """The string representation of the root path
-        """
-        return "/"
 
 
 class GroupObject(TdmsObject):
@@ -303,12 +342,6 @@ class GroupObject(TdmsObject):
         """
         self.group = group
         self.properties = properties
-
-    @property
-    def path(self):
-        """The string representation of this group's path
-        """
-        return str(ObjectPath(self.group))
 
 
 class ChannelObject(TdmsObject):
@@ -344,12 +377,6 @@ class ChannelObject(TdmsObject):
                 return _to_tdms_value(self.data[0]).__class__
             except IndexError:
                 return Void
-
-    @property
-    def path(self):
-        """The string representation of this channel's path
-        """
-        return str(ObjectPath(self.group, self.channel))
 
 
 def read_properties_dict(properties_dict):
@@ -396,8 +423,13 @@ def to_int_property_value(value):
 def write_data(file, tdms_object):
     if tdms_object.data_type == TimeStamp:
         # Numpy's datetime format isn't compatible with TDMS,
-        # so can't use data.tofile
-        write_values(file, tdms_object.data)
+        # so can't use data.tofile directly, but we can still avoid
+        # creating a Python TimeStamp object per element by using a
+        # vectorized numpy-based conversion when the data is array-like.
+        if isinstance(tdms_object.data, np.ndarray) and tdms_object.data.dtype.kind == 'M':
+            file.write(TimeStamp.to_array_bytes(tdms_object.data))
+        else:
+            write_values(file, tdms_object.data)
     elif tdms_object.data_type == String:
         # Strings are variable size so need to be treated specially
         write_string_values(file, tdms_object.data)
@@ -411,11 +443,11 @@ def write_data(file, tdms_object):
 
 
 def to_file(file, array):
-    """Wrapper around ndarray.tofile to support any file-like object"""
+    """Wrapper around file.write to support any file-like object"""
 
     try:
-        array.tofile(file)
-    except (TypeError, IOError, UnsupportedOperation):
+        file.write(memoryview(array))
+    except (TypeError, BufferError, UnsupportedOperation):
         file.write(array.tobytes())
 
 
@@ -429,12 +461,13 @@ def write_string_values(file, strings):
     except AttributeError:
         # Assume if we can't encode then we already have bytes
         encoded_strings = strings
-    offset = 0
-    for s in encoded_strings:
-        offset += len(s)
-        file.write(Uint32(offset).bytes)
-    for s in encoded_strings:
-        file.write(s)
+    lengths = np.fromiter(
+        (len(s) for s in encoded_strings), dtype=np.uint32, count=len(encoded_strings))
+    offsets = np.cumsum(lengths, dtype=np.uint32)
+    file.write(offsets.tobytes())
+    batch_size = 64
+    for i in range(0, len(encoded_strings), batch_size):
+        file.write(b''.join(encoded_strings[i:i + batch_size]))
 
 
 def object_data_size(data_type, data_values):

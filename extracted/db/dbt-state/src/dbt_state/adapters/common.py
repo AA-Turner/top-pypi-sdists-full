@@ -8,6 +8,7 @@ import traceback
 import typing as t
 from collections import defaultdict, deque
 from concurrent.futures import Future
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from types import TracebackType
@@ -401,6 +402,31 @@ class EventualCache(t.Generic[K, V]):
             return True
 
         return False
+
+    @contextmanager
+    def scoped(self) -> t.Generator[t.Set[K]]:
+        """Allow the caller to nominate a set of keys where if any are unfulfilled when the scope
+        exits they get cancelled
+
+        Note that this deliberately doesnt automatically try to track the keys via calls to claim()
+        because that requires obtaining the lock, so it's up to the caller to decide which ones matter.
+
+        Usage:
+
+        fqns = [...]
+        with cache.scoped() as tracked:
+            for fqn in fqns:
+                # use cache as normal
+                tracked.add(fqn)
+
+        # any key in `tracked` will have cancel_inflight() called on it when the scope exits
+        """
+        tracked: t.Set[K] = set()
+        try:
+            yield tracked
+        finally:
+            for key in tracked:
+                self.cancel_inflight(key)
 
     def is_available(self, key: K) -> bool:
         """Whether or not this key is available to be claimed"""

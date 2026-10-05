@@ -1,5 +1,4 @@
 import math
-from typing import List, Optional, Union
 
 import torch
 
@@ -11,19 +10,18 @@ from pytorch_optimizer.optimizer.utils import get_global_gradient_norm
 
 
 class Adan(BaseOptimizer):
-    """Adaptive Nesterov Momentum Algorithm for Faster Optimizing Deep Models.
+    """Adaptive updates with gradient difference momentum.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Decoupled weight decay.
-        max_grad_norm (float): Maximum gradient norm to clip.
-        foreach (Optional[bool]): Whether to use foreach (multi-tensor) operations for speed.
-            None means auto-detect based on device (True for CUDA, False otherwise).
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for gradients, gradient differences, and squared corrected gradients.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        max_grad_norm: Maximum gradient norm to clip.
+        foreach: Use batched tensor operations. `None` enables them for supported parameter groups.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -35,7 +33,7 @@ class Adan(BaseOptimizer):
         weight_decay: float = 0.0,
         weight_decouple: bool = False,
         max_grad_norm: float = 0.0,
-        foreach: Optional[bool] = None,
+        foreach: bool | None = None,
         eps: float = 1e-8,
         maximize: bool = False,
         **kwargs,
@@ -92,7 +90,7 @@ class Adan(BaseOptimizer):
                     state['exp_grad_adanorm'] = torch.zeros((1,), dtype=grad.dtype, device=grad.device)
 
     @torch.no_grad()
-    def get_global_gradient_norm(self) -> Union[torch.Tensor, float]:
+    def get_global_gradient_norm(self) -> torch.Tensor | float:
         if self.defaults['max_grad_norm'] == 0.0:
             return 1.0
 
@@ -113,13 +111,13 @@ class Adan(BaseOptimizer):
     def _step_foreach(
         self,
         group: ParamGroup,
-        params: List[torch.Tensor],
-        grads: List[torch.Tensor],
-        exp_avgs: List[torch.Tensor],
-        exp_avg_sqs: List[torch.Tensor],
-        exp_avg_diffs: List[torch.Tensor],
-        prev_grads: List[torch.Tensor],
-        clip_global_grad_norm: Union[torch.Tensor, float],
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
+        exp_avg_diffs: list[torch.Tensor],
+        prev_grads: list[torch.Tensor],
+        clip_global_grad_norm: torch.Tensor | float,
     ) -> None:
         beta1, beta2, beta3 = group['betas']
         lr = group['lr']
@@ -165,7 +163,7 @@ class Adan(BaseOptimizer):
 
         torch._foreach_copy_(prev_grads, torch._foreach_neg(grads))
 
-    def _step_per_param(self, group: ParamGroup, clip_global_grad_norm: Union[torch.Tensor, float]) -> None:
+    def _step_per_param(self, group: ParamGroup, clip_global_grad_norm: torch.Tensor | float) -> None:
         beta1, beta2, beta3 = group['betas']
 
         bias_correction1: float = self.debias(beta1, group['step'])
@@ -203,8 +201,8 @@ class Adan(BaseOptimizer):
                 r=group.get('adanorm_r', None),
             )
 
-            exp_avg.mul_(beta1).add_(s_grad, alpha=1.0 - beta1)
-            exp_avg_diff.mul_(beta2).add_(grad_diff, alpha=1.0 - beta2)
+            exp_avg.lerp_(s_grad, weight=1.0 - beta1)
+            exp_avg_diff.lerp_(grad_diff, weight=1.0 - beta2)
 
             grad_diff.mul_(beta2).add_(grad)
             exp_avg_sq.mul_(beta3).addcmul_(grad_diff, grad_diff, value=1.0 - beta3)

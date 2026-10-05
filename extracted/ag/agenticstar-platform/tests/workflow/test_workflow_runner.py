@@ -1235,6 +1235,43 @@ async def test_connection_token_is_refetched_when_expiring(tmp_path: Path):
     assert fake.connection_token_calls == ["gitlab", "gitlab"], "期限まで min_ttl を切っていれば毎回取り直す"
 
 
+GATE_ID = "22222222-2222-4222-8222-222222222222"
+
+
+async def test_gate_decision_reaches_the_agent_and_manifest_omits_the_note(tmp_path: Path):
+    """差し戻しの理由はcontext.gate_decisionで読める。起動の記録（context.manifest）には理由の本文を入れない。"""
+    fake = FakeRuntime()
+    fake.gate_decision = {"gate_id": GATE_ID, "decision": "send_back", "decided_by": "human",
+                          "note": "最後に「以上です」をつけてください", "decided_at": "2026-10-03T11:30:39.000Z", "extra": "x"}
+    res = await run_with(fake, "run_gate_decision", tmp_path)
+    assert res.exit_code == 0 and (res.outcome, res.outcome_reason_code) == ("completed", "completed")
+    out = (tmp_path / "output" / "reply.md").read_text(encoding="utf-8").strip()
+    manifest = [("decided_by", "human"), ("decision", "send_back"), ("gate_id", GATE_ID)]
+    assert out == f"{GATE_ID}|send_back|human|最後に「以上です」をつけてください|2026-10-03T11:30:39.000Z|writable=False|manifest={manifest}"
+
+
+@pytest.mark.parametrize("gate_decision", [
+    None,
+    {"gate_id": GATE_ID, "decision": "reject", "decided_by": "human", "note": "x"},   # 次の工程を起動しない決定
+    {"decision": "send_back", "note": "x"},                                           # gate_idが無い
+    "send_back",
+])
+async def test_gate_decision_absent_or_malformed_is_none(tmp_path: Path, gate_decision):
+    """確認を経ない起動や形の合わない値はNone（frontが返す前のSDKと同じ動き）。manifestにも足さない。"""
+    fake = FakeRuntime()
+    fake.gate_decision = gate_decision
+    res = await run_with(fake, "run_gate_decision", tmp_path)
+    assert res.exit_code == 0 and res.outcome == "completed"
+    assert (tmp_path / "output" / "reply.md").read_text(encoding="utf-8").strip() == "none"
+
+
+def test_gate_decision_fields_are_strings_or_none():
+    from agenticstar_platform.workflow.runner import _gate_decision
+
+    gd = _gate_decision({"gate_decision": {"gate_id": GATE_ID, "decision": "proceed", "decided_by": "human", "note": 3}})
+    assert gd == {"gate_id": GATE_ID, "decision": "proceed", "decided_by": "human", "note": None, "decided_at": None}
+
+
 def test_token_expiring_rules():
     from datetime import datetime, timedelta, timezone
 

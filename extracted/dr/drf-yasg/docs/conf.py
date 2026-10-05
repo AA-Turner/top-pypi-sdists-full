@@ -8,15 +8,11 @@ import os
 import re
 import shutil
 import sys
+from importlib import metadata
 
 from docutils import nodes, utils
 from docutils.parsers.rst import roles
 from docutils.parsers.rst.roles import set_classes
-
-try:
-    from importlib import metadata
-except ImportError:  # Python < 3.8
-    import importlib_metadata as metadata
 
 # -- General configuration ------------------------------------------------
 

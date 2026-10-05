@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 import schemathesis
 from schemathesis import Case
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, ParameterLocation, RawQueryString
-from schemathesis.core.shell import ShellType
+from schemathesis.core.shell import MAX_SHELL_SCAN_BYTES, ShellType
 from schemathesis.generation.meta import (
     CaseMetadata,
     ComponentInfo,
@@ -143,6 +143,21 @@ def test_as_curl_command_sanitizes_string_query_params(curl):
     curl.assert_valid(command)
 
 
+def test_as_curl_command_sanitizes_raw_query_with_empty_segments(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/q": {
+                "get": {
+                    "parameters": [{"name": "token", "in": "query", "schema": {"type": "string"}}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    case = schema["/q"]["GET"].Case(query={RAW_QUERY_STRING_KEY: RawQueryString("token=secret&&flag")})
+    assert case.as_curl_command() == "curl -X GET 'http://localhost/q?token=%5BFiltered%5D&flag'"
+
+
 def test_cli_output(ctx, cli, curl):
     api = ctx.openapi.apps.failure()
     result = cli.run_and_assert(api.schema_url, exit_code=ExitCode.TESTS_FAILED)
@@ -256,6 +271,25 @@ def test_shell_aware_escaping(curl, monkeypatch, shell_type, case_kwargs, expect
     curl.assert_valid(command)
 
 
+@pytest.mark.parametrize(
+    "shell_type",
+    [ShellType.BASH, ShellType.ZSH, ShellType.FISH, ShellType.UNKNOWN],
+    ids=["bash", "zsh", "fish", "unknown"],
+)
+def test_truncated_printable_body_is_quoted(monkeypatch, shell_type):
+    # Unquoted, the truncation marker's `<` would be read as a shell redirect
+    monkeypatch.setattr("schemathesis.core.shell._DETECTED_SHELL", shell_type)
+    body = "a" * (MAX_SHELL_SCAN_BYTES + 1)
+    case = schema["/users"]["GET"].Case(body=body, media_type="text/plain")
+    command = case.as_curl_command()
+    quoted_body = f"'{'a' * MAX_SHELL_SCAN_BYTES} <...truncated, {MAX_SHELL_SCAN_BYTES + 1} bytes total>'"
+    expected_command = (
+        f"curl -X GET -H 'Content-Type: text/plain' -d {quoted_body} http://localhost/users"
+        "\n\n⚠️  Request body was truncated for shell display."
+    )
+    assert command == expected_command
+
+
 def test_multipart_with_array_of_bytes_body(curl):
     # When the body contains an array with bytes values (e.g., multiple file uploads)
     multipart_schema = schemathesis.openapi.from_dict(
@@ -314,6 +348,38 @@ def test_multipart_with_array_of_bytes_body(curl):
     curl.assert_valid(command)
 
 
+RAW_MULTIPART_PATHS = {
+    "/upload": {
+        "post": {
+            "requestBody": {"content": {"multipart/form-data": {"schema": {"type": "object"}}}},
+            "responses": {"200": {"description": "OK"}},
+        }
+    }
+}
+
+
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        (
+            b'--abc\r\nContent-Disposition: form-data; name="a"\r\n\r\nb\r\n--abc--\r\n',
+            "curl -X POST -H 'Content-Type: multipart/mixed; boundary=358a4fc91df79a930693beca09e4057c' "
+            '-d $\'--358a4fc91df79a930693beca09e4057c\\r\\nContent-Disposition: form-data; name="a"\\r\\n\\r\\nb\\r\\n'
+            "--358a4fc91df79a930693beca09e4057c--\\r\\n' http://localhost/upload",
+        ),
+        (b"--\r\n", "curl -X POST -H 'Content-Type: multipart/mixed' -d $'--\\r\\n' http://localhost/upload"),
+    ],
+    ids=["header-without-boundary", "no-boundary-in-body"],
+)
+def test_raw_multipart_bytes_body_boundary(ctx, monkeypatch, body, expected):
+    monkeypatch.setattr("schemathesis.core.shell._DETECTED_SHELL", ShellType.BASH)
+    schema = ctx.openapi.load_schema(RAW_MULTIPART_PATHS)
+    case = schema["/upload"]["POST"].Case(
+        body=body, media_type="multipart/form-data", headers={"Content-Type": "multipart/mixed"}
+    )
+    assert case.as_curl_command() == expected
+
+
 MULTIPART_PATHS = {
     "/upload": {
         "post": {
@@ -366,7 +432,8 @@ def multipart_schema(ctx, app_runner):
     [("/upload", {"file": b"00"}), ("/raw", "00")],
     ids=["dict-body", "non-dict-body"],
 )
-def test_multipart_boundary_matches_between_header_and_body(multipart_schema, path, body):
+def test_multipart_boundary_matches_between_header_and_body(multipart_schema, monkeypatch, path, body):
+    monkeypatch.setattr("schemathesis.core.shell._DETECTED_SHELL", ShellType.BASH)
     case = multipart_schema[path]["POST"].Case(body=body, media_type="multipart/form-data")
     response = case.call()
     command = case.as_curl_command(headers=dict(response.request.headers))
@@ -383,7 +450,8 @@ def test_multipart_curl_command_is_stable(multipart_schema, path, body):
     assert case.as_curl_command() == case.as_curl_command()
 
 
-def test_empty_multipart_curl_body_keeps_closing_delimiter(multipart_schema):
+def test_empty_multipart_curl_body_keeps_closing_delimiter(multipart_schema, monkeypatch):
+    monkeypatch.setattr("schemathesis.core.shell._DETECTED_SHELL", ShellType.BASH)
     case = multipart_schema["/upload"]["POST"].Case(body={}, media_type="multipart/form-data")
     command = case.as_curl_command()
     boundary = HEADER_BOUNDARY.search(command)[1]

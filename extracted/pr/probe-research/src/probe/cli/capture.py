@@ -81,11 +81,13 @@ from probe.cli.capabilities import (
 #: turn_off`), so the reverse import would be circular. Keep the two in sync
 #: by hand -- same shape as `capabilities.py`'s `_TAP_TOKEN_ENV_BY_SOURCE`,
 #: which hand-mirrors the tap plugin's own table for the identical reason.
-_SOURCE_LABELS: dict[str, str] = {
-    "claude_code": "Claude Code",
-    "codex": "Codex",
-    "pi": "pi",
-}
+def _source_labels() -> dict[str, str]:
+    from probe.harness import get_registry
+
+    return {h.id: h.label for h in get_registry().captured()}
+
+
+_SOURCE_LABELS: dict[str, str] = _source_labels()
 
 
 def _source_label(source: str) -> str:
@@ -241,7 +243,7 @@ def _other_sources_with_capture_installed(current: str) -> list[str]:
     must not block the teardown it is trying to protect.
     """
     others: list[str] = []
-    for source in ("claude_code", "codex", "pi"):
+    for source in _SOURCE_LABELS:
         if source == current:
             continue
         try:

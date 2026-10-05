@@ -88,6 +88,29 @@ EXTRAPOLATION_MODE_CLIENT_ONLY: ExtrapolationMode.ValueType  # 3
 EXTRAPOLATION_MODE_SERVER_ONLY: ExtrapolationMode.ValueType  # 4
 global___ExtrapolationMode = ExtrapolationMode
 
+class _InterpolationMode:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _InterpolationModeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_InterpolationMode.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    INTERPOLATION_MODE_UNSPECIFIED: _InterpolationMode.ValueType  # 0
+    """unspecified = NONE"""
+    INTERPOLATION_MODE_NONE: _InterpolationMode.ValueType  # 1
+    """real or empty"""
+    INTERPOLATION_MODE_LOCF: _InterpolationMode.ValueType  # 2
+    """last observation carried forward"""
+
+class InterpolationMode(_InterpolationMode, metaclass=_InterpolationModeEnumTypeWrapper): ...
+
+INTERPOLATION_MODE_UNSPECIFIED: InterpolationMode.ValueType  # 0
+"""unspecified = NONE"""
+INTERPOLATION_MODE_NONE: InterpolationMode.ValueType  # 1
+"""real or empty"""
+INTERPOLATION_MODE_LOCF: InterpolationMode.ValueType  # 2
+"""last observation carried forward"""
+global___InterpolationMode = InterpolationMode
+
 class _Reliability:
     ValueType = typing.NewType("ValueType", builtins.int)
     V: typing_extensions.TypeAlias = ValueType
@@ -503,12 +526,14 @@ class AttributeAggregation(google.protobuf.message.Message):
     KEY_FIELD_NUMBER: builtins.int
     LABEL_FIELD_NUMBER: builtins.int
     EXTRAPOLATION_MODE_FIELD_NUMBER: builtins.int
+    INTERPOLATION_MODE_FIELD_NUMBER: builtins.int
     DEFAULT_VALUE_DOUBLE_FIELD_NUMBER: builtins.int
     DEFAULT_VALUE_INT64_FIELD_NUMBER: builtins.int
     RANKED_BY_FIELD_NUMBER: builtins.int
     aggregate: global___Function.ValueType
     label: builtins.str
     extrapolation_mode: global___ExtrapolationMode.ValueType
+    interpolation_mode: global___InterpolationMode.ValueType
     default_value_double: builtins.float
     default_value_int64: builtins.int
     @property
@@ -522,12 +547,13 @@ class AttributeAggregation(google.protobuf.message.Message):
         key: global___AttributeKey | None = ...,
         label: builtins.str = ...,
         extrapolation_mode: global___ExtrapolationMode.ValueType = ...,
+        interpolation_mode: global___InterpolationMode.ValueType = ...,
         default_value_double: builtins.float = ...,
         default_value_int64: builtins.int = ...,
         ranked_by: global___RankedBy | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "key", b"key", "ranked_by", b"ranked_by"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "extrapolation_mode", b"extrapolation_mode", "key", b"key", "label", b"label", "ranked_by", b"ranked_by"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["aggregate", b"aggregate", "default_value", b"default_value", "default_value_double", b"default_value_double", "default_value_int64", b"default_value_int64", "extrapolation_mode", b"extrapolation_mode", "interpolation_mode", b"interpolation_mode", "key", b"key", "label", b"label", "ranked_by", b"ranked_by"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["default_value", b"default_value"]) -> typing.Literal["default_value_double", "default_value_int64"] | None: ...
 
 global___AttributeAggregation = AttributeAggregation

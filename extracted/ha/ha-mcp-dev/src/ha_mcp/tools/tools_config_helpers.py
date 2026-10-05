@@ -73,6 +73,7 @@ from .helpers import (
     raise_tool_error,
     register_tool_methods,
 )
+from .tool_hints import read_only_hints, write_hints
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +87,7 @@ class HelperConfigTools:
     @tool(
         name="ha_config_list_helpers",
         tags={"Helper Entities"},
-        annotations={
-            "openWorldHint": False,
-            "idempotentHint": True,
-            "readOnlyHint": True,
-            "title": "List Helpers",
-        },
+        annotations=read_only_hints("List Helpers", open_world=False),
     )
     @log_tool_usage
     async def ha_config_list_helpers(
@@ -567,11 +563,12 @@ class HelperConfigTools:
     @tool(
         name="ha_config_set_helper",
         tags={"Helper Entities"},
-        annotations={
-            "openWorldHint": False,
-            "destructiveHint": True,
-            "title": "Create or Update Helper",
-        },
+        annotations=write_hints(
+            "Create or Update Helper",
+            destructive=True,
+            idempotent=False,
+            open_world=False,
+        ),
     )
     @with_auto_backup(
         domain_fn=lambda kw: f"helper_{kw.get('helper_type', 'unknown')}",
@@ -682,7 +679,7 @@ class HelperConfigTools:
         icon: Annotated[
             str | None,
             Field(
-                description="Material Design Icon (e.g., 'mdi:bell'); '' or ' ' clears it",
+                description="Material Design Icon (e.g., 'mdi:bell'); '' or ' ' clears it, except a zone's stored icon (the icon in the zone's own config, set at creation or by ha_set_zone; ha_get_zone shows it), which cannot be removed",
                 default=None,
             ),
         ] = None,

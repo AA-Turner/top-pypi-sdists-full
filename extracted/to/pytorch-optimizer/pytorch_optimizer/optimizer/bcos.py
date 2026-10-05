@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 import torch
 
@@ -10,22 +10,20 @@ Mode = Literal['g', 'm', 'c']
 
 
 class BCOS(BaseOptimizer):
-    """Stochastic Approximation with Block Coordinate Optimal Stepsizes.
+    """Stochastic approximation with block coordinate optimal step sizes.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        beta (float): smoothing factor in computing the momentum and EMA estimators.
-        beta2 (Optional[float]):
-        mode (Mode): algorithmic mode of BCOS, must be one of the three choices.
-            'g': use gradient as search direction and EMA estimator for its 2nd moment (equivalent to RMSprop).
-            'm': use momentum as search direction and EMA estimator for its 2nd moment (using same beta).
-            'c': use momentum as search direction and conditional estimator for its 2nd moment.
-        simple_cond (bool): whether use simple alternative in BCOS-c variant.
-        weight_decay (float): weight decay regularization strength.
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        beta: Decay rate for momentum and its second moment estimator.
+        beta2: Separate second moment decay rate. `None` uses `beta`.
+        mode: Search direction and estimator: `'g'` for gradients, `'m'` for momentum, or `'c'` for conditional
+            momentum.
+        simple_cond: Use the simplified conditional estimator in mode `c`.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -34,7 +32,7 @@ class BCOS(BaseOptimizer):
         params: ParamsT,
         lr: float = 1e-3,
         beta: float = 0.9,
-        beta2: Optional[float] = None,
+        beta2: float | None = None,
         mode: Mode = 'c',
         simple_cond: bool = False,
         weight_decay: float = 0.1,
@@ -86,11 +84,12 @@ class BCOS(BaseOptimizer):
 
             if self.mode in ('m', 'c') and 'm' not in state:
                 state['m'] = grad.clone()
+                self.maximize_gradient(state['m'], maximize=self.maximize)
 
             if self.mode in ('g', 'm') and 'v' not in state:
                 state['v'] = grad.square()
 
-    def compute_v(self, grad: torch.Tensor, m: torch.Tensor, beta: float, beta2: Optional[float]) -> torch.Tensor:
+    def compute_v(self, grad: torch.Tensor, m: torch.Tensor, beta: float, beta2: float | None) -> torch.Tensor:
         g2 = grad.square()
 
         if self.simple_cond:
@@ -135,11 +134,11 @@ class BCOS(BaseOptimizer):
                     fixed_decay=False,
                 )
 
-                old_m: Optional[torch.Tensor] = state.get('m', None)
+                old_m: torch.Tensor | None = state.get('m', None)
 
                 if self.mode in ('m', 'c'):
                     m = state['m']
-                    m.mul_(beta).add_(grad, alpha=1.0 - beta)
+                    m.lerp_(grad, weight=1.0 - beta)
                     d = m
                 else:
                     d = grad
@@ -148,7 +147,7 @@ class BCOS(BaseOptimizer):
                     beta_v: float = beta if beta2 is None else beta2
 
                     v = state['v']
-                    v.mul_(beta_v).add_(d.square(), alpha=1.0 - beta_v)
+                    v.lerp_(d.square(), weight=1.0 - beta_v)
                 else:
                     v: torch.Tensor = self.compute_v(grad, old_m, beta, beta2)
 

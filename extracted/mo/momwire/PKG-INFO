@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: momwire
-Version: 0.70.0
+Version: 0.71.0
 Summary: A pure-Python method-of-moments antenna simulator with optional C++ accelerators
 Author-email: "Steven M. Burns" <smburns47@gmail.com>
 Project-URL: Homepage, https://github.com/stevenmburns/momwire

@@ -224,9 +224,21 @@ if sys.version_info >= (3, 12):
 
     if sys.version_info >= (3, 15):
         @overload
-        def splitroot(path: AnyOrLiteralStr, /) -> tuple[AnyOrLiteralStr, AnyOrLiteralStr, AnyOrLiteralStr]: ...
+        def splitroot(path: AnyOrLiteralStr, /) -> tuple[AnyOrLiteralStr, AnyOrLiteralStr, AnyOrLiteralStr]:
+            """
+            Split a pathname into drive, root and tail.
+
+            The tail contains anything after the root.
+            """
+            ...
         @overload
-        def splitroot(path: PathLike[AnyStr], /) -> tuple[AnyStr, AnyStr, AnyStr]: ...
+        def splitroot(path: PathLike[AnyStr], /) -> tuple[AnyStr, AnyStr, AnyStr]:
+            """
+            Split a pathname into drive, root and tail.
+
+            The tail contains anything after the root.
+            """
+            ...
     else:
         @overload
         def splitroot(p: AnyOrLiteralStr) -> tuple[AnyOrLiteralStr, AnyOrLiteralStr, AnyOrLiteralStr]:

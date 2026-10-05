@@ -67,6 +67,7 @@ from cloup import OptionGroupMixin
 from . import context
 from ._utils import generator_tag
 from .accessibility import echo_via_pager
+from .carapace import dump_carapace_spec
 from .config import ConfigOption
 from .envvar import param_envvar_ids
 from .parameters import (
@@ -134,7 +135,7 @@ DEFAULT_EXIT_STATUS: tuple[tuple[str, str], ...] = (
     ("0", "Success."),
     (
         "1",
-        "A runtime error, or an aborted prompt (Ctrl-C, a declined confirmation).",
+        "A runtime error, an aborted prompt (Ctrl-D), or a declined confirmation.",
     ),
     (
         "2",
@@ -143,11 +144,16 @@ DEFAULT_EXIT_STATUS: tuple[tuple[str, str], ...] = (
             "unparsable configuration file."
         ),
     ),
+    (
+        "130",
+        "Interrupted with Ctrl-C: the process ends by SIGINT, reported as 130.",
+    ),
 )
 """Conventional exit codes shared by every Click Extra CLI.
 
 Mirrors the EXIT STATUS table in {doc}`/man-page`. Click returns `2` for
-usage errors (`UsageError`), `1` for aborts, and `0` on success.
+usage errors (`UsageError`), `1` for aborts, and `0` on success. A real Ctrl+C
+ends the process by `SIGINT` instead, which a shell reports as `130`.
 """
 
 
@@ -1185,7 +1191,7 @@ def install_manpages(
     """Write the command tree's man pages where `man` can find them.
 
     Targets `$XDG_DATA_HOME/man/man1` when that variable is set, else
-    {data}`MAN_INSTALL_DIR`. Returns the written paths.
+    {data}`~click_extra.command_doc.MAN_INSTALL_DIR`. Returns the written paths.
 
     The environment is read here rather than at import time, so a caller that
     sets `XDG_DATA_HOME` for one invocation (a test, a packaging script staging
@@ -1284,8 +1290,8 @@ def render_help(
     Reuses `ctx` when given (like the live invocation context), otherwise builds
     a throwaway one with `resilient_parsing=True`, exactly like
     {func}`render_manpage`. Keyword overrides are passed through to
-    {func}`extract_command_doc`, and ignored by the `carapace` format, which carries
-    no version or authorship of its own.
+    {func}`~click_extra.command_doc.extract_command_doc`, and ignored by the
+    `carapace` format, which carries no version or authorship of its own.
 
     :raises ValueError: on an unknown format, listing the known ones.
     """
@@ -1297,10 +1303,6 @@ def render_help(
         raise ValueError(msg) from None
 
     if help_format is HelpFormat.CARAPACE:
-        # Imported here rather than at module level: click_extra.carapace reaches
-        # click_extra.commands, which imports this module for ManOption.
-        from .carapace import dump_carapace_spec
-
         # A spec is keyed on the binary name a shell completes, never on the
         # invocation a synopsis line prints. `prog_name` carries the latter for
         # the document formats (`click-extra wrap` hands it a whole script path),
@@ -1376,11 +1378,12 @@ correctly but `man` has to be told where to look.
 def format_manpage(roff: str, width: int | None = None) -> str | None:
     """Typeset *roff* into readable terminal text, or `None` if nothing can.
 
-    Tries each entry of {data}`MAN_FORMATTERS` in turn and returns the output of
-    the first that succeeds. Returns `None` when none of them is installed, which
-    the caller is expected to degrade on rather than fail: a CLI that cannot find
-    a typesetter is a CLI running somewhere that never had man pages to begin
-    with (Windows, a slim container), and that is no reason for `--man` to error.
+    Tries each entry of {data}`~click_extra.command_doc.MAN_FORMATTERS` in turn
+    and returns the output of the first that succeeds. Returns `None` when none
+    of them is installed, which the caller is expected to degrade on rather than
+    fail: a CLI that cannot find a typesetter is a CLI running somewhere that
+    never had man pages to begin with (Windows, a slim container), and that is
+    no reason for `--man` to error.
 
     :param roff: the man page source, as {meth}`CommandDoc.to_roff` renders it.
     :param width: line length in columns. Defaults to the terminal's own, so the

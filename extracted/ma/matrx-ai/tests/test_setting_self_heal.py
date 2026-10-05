@@ -858,3 +858,38 @@ async def test_together_model_range_refusal_heals(captured) -> None:
     sent, result = await _run(profile, config, [exc, _OK], emitter=_Emitter())
     assert result is _OK
     assert [c["temperature"] for c in sent] == [2, 1]
+
+
+# ── R-b: an EMPTY 200 on a settings-bearing call (FUZZ-2, 2026-10-04) ──────────
+
+
+def _response(text: str) -> Any:
+    from types import SimpleNamespace
+
+    from matrx_ai.config.unified_config import TextContent
+
+    return SimpleNamespace(messages=[SimpleNamespace(content=[TextContent(text=text)])])
+
+
+async def test_an_empty_200_with_settings_is_recorded_and_sent_once_more_at_the_safe_minimum(captured) -> None:
+    config = UnifiedConfig(model="grok-4.3", messages=[], temperature=2.0, max_output_tokens=50)
+    sent, result = await _run(_groq_profile(), config, [_response(""), _response("ok")])
+    assert len(sent) == 2, sent
+    assert sent[0]["temperature"] == 2.0 and sent[1]["temperature"] is None
+    assert result.messages[0].content[0].text == "ok"
+    rows = _setting_rows(captured)
+    assert len(rows) == 1, captured
+    assert "no visible output" in str(rows[0]["exc"])
+
+
+async def test_an_empty_200_retried_empty_again_gets_no_third_call(captured) -> None:
+    config = UnifiedConfig(model="grok-4.3", messages=[], temperature=2.0)
+    sent, result = await _run(_groq_profile(), config, [_response(" "), _response("")])
+    assert len(sent) == 2, sent
+    assert len(_setting_rows(captured)) == 1
+
+
+async def test_an_empty_200_without_settings_is_not_retried(captured) -> None:
+    config = UnifiedConfig(model="grok-4.3", messages=[])
+    sent, _ = await _run(_groq_profile(), config, [_response("")])
+    _assert_not_retried(sent)

@@ -10,6 +10,7 @@ import concurrent
 import dataclasses
 import multiprocessing
 
+from unittest import mock
 from concurrent.futures.process import BrokenProcessPool
 from concurrent.futures import CancelledError, TimeoutError
 
@@ -138,6 +139,11 @@ def pebble_function():
         f = pool.schedule(function, args=[1])
 
     return f.result()
+
+
+def dead_manager_loop(*args, **kwargs):
+    """Stand-in for pool_manager_loop that crashes."""
+    time.sleep(0.1)
 
 
 @unittest.skipIf(not supported, "Start method is not supported")
@@ -309,6 +315,31 @@ class TestProcessPool(unittest.TestCase):
                 pool.active
                 time.sleep(1)
                 pool.schedule(function)
+
+    def test_process_pool_broken_worker_launch(self):
+        """Process Pool Forkserver is broken if a worker launch hits EOF."""
+        launch_process = pebble.pool.process.launch_process
+        launched = []
+
+        def launch_once(*args, **kwargs):
+            if launched:
+                raise EOFError("unexpected EOF")
+            launched.append(launch_process(*args, **kwargs))
+            return launched[0]
+
+        pool = ProcessPool(max_workers=1, max_tasks=1, context=mp_context)
+        try:
+            with mock.patch.object(
+                    pebble.pool.process, "launch_process", launch_once
+            ):
+                first = pool.schedule(function, args=[1])
+                second = pool.schedule(function, args=[1])
+                self.assertEqual(first.result(timeout=5), 1)
+                self.assertRaises(BrokenProcessPool, second.result, timeout=5)
+            self.assertFalse(pool.active)
+        finally:
+            pool.stop()
+            pool.join()
 
     def test_process_pool_running(self):
         """Process Pool Forkserver is active if a future is scheduled."""
@@ -613,6 +644,16 @@ class TestProcessPool(unittest.TestCase):
         with ProcessPool(max_workers=1, context=mp_context) as pool:
             pool.schedule(queue.put, args=[1])
         self.assertEqual(queue.get(timeout=1), 1)
+
+    def test_process_pool_active_error(self):
+        """Process Pool Forkserver is not active if its manager thread dies."""
+        with mock.patch(
+            "pebble.pool.process.pool_manager_loop", dead_manager_loop
+        ):
+            with ProcessPool(max_workers=1, context=mp_context) as pool:
+                self.assertTrue(pool.active)  # start the pool
+                time.sleep(0.3)               # wait for manager to die
+                self.assertFalse(pool.active)
 
 
 @unittest.skipIf(not supported, "Start method is not supported")

@@ -1,6 +1,6 @@
 [project]
 name = "matrx-ai"
-version = "0.5.463"
+version = "0.5.474"
 description = "Unified multi-provider AI client, orchestration, and tool system"
 readme = "README.md"
 license = { text = "MIT" }
@@ -69,18 +69,18 @@ dependencies = [
     # --- Matrx ecosystem ---
     # media/media_persistence.py imports VisibilityLiteral, first exported by 2.0.7.
     "matrx-utils>=2.0.63",
-    "matrx-files>=0.2.251",
+    "matrx-files>=0.2.255",
     # 0.1.26+ exports the Masterwork* event models used here (renamed 2026-08-17;
     # the next matrx-connect release is the first tag that exports the new names).
-    "matrx-connect>=0.1.178",
+    "matrx-connect>=0.1.180",
     # actions.register_node is imported at module scope and first shipped in 0.1.22.
-    "matrx-graph>=0.2.252",
+    "matrx-graph>=0.2.254",
     # tools.implementations imports the browser implementation eagerly.
-    "matrx-scraper[browser]>=0.2.316",
+    "matrx-scraper[browser]>=0.2.322",
     # matrx-runtime (the Request Management Layer): the conversation executor
     # (orchestrator/conversation_runtime.py) is a CONSUMER of its ExecutionEngine —
     # one conversation = one global_execution. ai → runtime is the acyclic edge.
-    "matrx-runtime>=0.0.151",
+    "matrx-runtime>=0.0.152",
     # Payload-agnostic coordinated assignment planner/coordinator. The agent
     # workflow action consumes it; the assignment package never imports AI.
     "matrx-assignment>=0.1.38",

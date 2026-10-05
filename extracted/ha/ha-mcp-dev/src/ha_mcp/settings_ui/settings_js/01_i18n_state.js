@@ -204,6 +204,7 @@ let toolEnvPinned = {};
 // Server-side saves reject the conflict too — this lock is the
 // courteous UI half.
 let bpsLockedTools = new Set();
+let ignoredDisabledTools = new Set();
 // Conversation-agent LLM API exposure (#1745). toolLlm mirrors the
 // server-computed EFFECTIVE value per tool (user override, else the
 // deny-by-default for beta/dev/restart tools); toolLlmOverrides holds
@@ -466,5 +467,10 @@ async function syncPolicyRule(toolName, gated) {
     ));
   }
   await policyPut(policy, t('policies.operations.sync_gated', {}, 'Sync gated toggle'), policyState.toolsEffect);
+  // The tool's card on the policy tab still holds its rules from before this
+  // write; a remember save queued from it would put the gate back. Mark it
+  // stale so that save is dropped (the tab reloads the cards on its next
+  // visit).
+  if (toolName in policyRuleEdits) policyRuleEdits[toolName] = null;
 }
 

@@ -18,7 +18,14 @@ use crate::sentence::unicode::{
 // Overleaf leftover names (tokens.mjs) are `IEEEeqnarray` /
 // `IEEEeqnarray*` / `subeqnarray` / `subeqnarray*` / `xltabular` /
 // `math*`. `tikzcd` / pgfplots `axis` / `pgfpicture` are the same
-// class (and starred variants). Not every pgfplots name.
+// class (and starred variants). `groupplot`, `smithchart`
+// (alias of `smithchartaxis`), `polaraxis`, and `ternaryaxis`
+// are that class too. Not every pgfplots name.
+// amsmath `subequations`, mathtools `multlined` / `lgathered` /
+// `rgathered`, breqn `dmath` / `dmath*`, pgfplots `loglogaxis`, and
+// starred `tikzpicture*` / `matrix*` are the same class.
+// There is no `multlined*` / `lgathered*` / `rgathered*`. breqn
+// `dseries` / `dsuspend` are text and stay out.
 //
 // `figure` / `table` (and stars) are not here: Overleaf FigureEnvironment
 // is Content<Text>, tree-sitter caption curly_group is text. Float chrome
@@ -26,6 +33,7 @@ use crate::sentence::unicode::{
 static NON_PROSE_ENVS: &[&str] = &[
     "equation",
     "equation*",
+    "subequations",
     "align",
     "align*",
     "alignat",
@@ -44,12 +52,16 @@ static NON_PROSE_ENVS: &[&str] = &[
     "gather*",
     "gathered",
     "gathered*",
+    "lgathered",
+    "rgathered",
     "multline",
     "multline*",
+    "multlined",
     "eqnarray",
     "eqnarray*",
     "IEEEeqnarray",
     "IEEEeqnarray*",
+    "IEEEeqnarraybox",
     "subeqnarray",
     "subeqnarray*",
     "split",
@@ -93,6 +105,7 @@ static NON_PROSE_ENVS: &[&str] = &[
     "verbatim",
     "minted",
     "tikzpicture",
+    "tikzpicture*",
     "tikzcd",
     "tikzcd*",
     "quantikz",
@@ -101,6 +114,14 @@ static NON_PROSE_ENVS: &[&str] = &[
     "pgfpicture*",
     "axis",
     "axis*",
+    "loglogaxis",
+    "semilogxaxis",
+    "semilogyaxis",
+    "groupplot",
+    "smithchart",
+    "smithchartaxis",
+    "polaraxis",
+    "ternaryaxis",
     "array",
     "array*",
     "subarray",
@@ -108,18 +129,34 @@ static NON_PROSE_ENVS: &[&str] = &[
     "prooftree",
     "empheq",
     "empheq*",
+    "dgroup",
+    "dgroup*",
+    "darray",
+    "darray*",
     "matrix",
+    "matrix*",
     "pmatrix",
+    "pmatrix*",
     "bmatrix",
+    "bmatrix*",
     "Bmatrix",
+    "Bmatrix*",
     "vmatrix",
+    "vmatrix*",
     "Vmatrix",
+    "Vmatrix*",
     "smallmatrix",
+    "smallmatrix*",
     "psmallmatrix",
+    "psmallmatrix*",
     "bsmallmatrix",
+    "bsmallmatrix*",
     "Bsmallmatrix",
+    "Bsmallmatrix*",
     "vsmallmatrix",
+    "vsmallmatrix*",
     "Vsmallmatrix",
+    "Vsmallmatrix*",
     "cases",
     "cases*",
     "numcases",
@@ -130,6 +167,8 @@ static NON_PROSE_ENVS: &[&str] = &[
     "rcases*",
     "drcases",
     "drcases*",
+    "dmath",
+    "dmath*",
 ];
 
 /// Float environments: chrome is Structure; `\caption` long arg is Prose.
@@ -157,7 +196,10 @@ static LSTLISTING_LANG_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// `filecontents`; GitHub #294) plus leftover siblings `filecontentsgdef` /
 /// `filecontentsdefmacro` / `filecontentsgdefmacro` / `filecontentshere` and
 /// starred twins `filecontentsdef*` / `filecontentsgdef*` /
-/// `filecontentshere*` (same raw grab; GitHub #299), scontents.sty
+/// `filecontentshere*` (same raw grab; GitHub #299) and the v1.5
+/// aliases `filecontentsdefstarred` / `filecontentsgdefstarred` /
+/// `filecontentsherestarred` (same raw grab; `filecontentsdefmacro`
+/// and `filecontentsgdefmacro` have no such alias), scontents.sty
 /// `scontents` (verbatim store into a sequence) / `verbatimsc` (package
 /// verbatim display env; GitHub #304), and tree-sitter-latex
 /// raw trivia envs
@@ -264,7 +306,7 @@ static LSTLISTING_LANG_RE: LazyLock<Regex> = LazyLock::new(|| {
 /// body; GitHub #308). texments.sty / pygmentex.sty `pygmented` is
 /// `VerbatimEnvironment` plus `VerbatimOut` (raw listing body;
 /// GitHub #342).
-fn is_builtin_code_env(name: &str) -> bool {
+pub(crate) fn is_builtin_code_env(name: &str) -> bool {
     matches!(
         name,
         "minted"
@@ -296,6 +338,12 @@ fn is_builtin_code_env(name: &str) -> bool {
             | "VerbEnv"
             | "alltt"
             | "boxedverbatim"
+            | "semiverbatim"
+            | "verbbox"
+            | "myverbbox"
+            | "verbnobox"
+            | "markdown"
+            | "markdown*"
             | "verbatimtab"
             | "verbatimwrite"
             | "verbwrite"
@@ -325,12 +373,15 @@ fn is_builtin_code_env(name: &str) -> bool {
             | "filecontents*"
             | "filecontentsdef"
             | "filecontentsdef*"
+            | "filecontentsdefstarred"
             | "filecontentsgdef"
             | "filecontentsgdef*"
+            | "filecontentsgdefstarred"
             | "filecontentsdefmacro"
             | "filecontentsgdefmacro"
             | "filecontentshere"
             | "filecontentshere*"
+            | "filecontentsherestarred"
             | "scontents"
             | "verbatimsc"
             | "asy"
@@ -561,6 +612,48 @@ impl LatexParser {
         NON_PROSE_ENVS.contains(&name)
             || self.extra_structure_envs.iter().any(|e| e == name)
             || self.is_code_env(name)
+    }
+}
+
+/// Built-in non-prose name, including code environments. No `[latex]` extras.
+pub(crate) fn env_body_kept_whole(name: &str) -> bool {
+    NON_PROSE_ENVS.contains(&name) || is_builtin_code_env(name)
+}
+
+/// `\begin` / `\end` hit. `raw` does not treat `%` or `\verb` as TeX syntax.
+#[derive(Debug, Clone)]
+pub(crate) struct EnvAt {
+    pub start: usize,
+    pub end: usize,
+    pub is_begin: bool,
+    pub name: String,
+}
+
+pub(crate) fn next_env_at(line: &str, from: usize, raw: bool) -> Option<EnvAt> {
+    let hit = if raw {
+        find_raw_env_at(line, from)
+    } else {
+        find_env_at(line, from, &[])
+    }?;
+    Some(EnvAt {
+        start: hit.start,
+        end: hit.end,
+        is_begin: hit.is_begin,
+        name: hit.name,
+    })
+}
+
+pub(crate) fn matching_env_end(
+    line: &str,
+    from: usize,
+    name: &str,
+    depth: usize,
+    raw: bool,
+) -> Option<usize> {
+    if raw {
+        find_matching_raw_end(line, from, name, depth)
+    } else {
+        find_matching_end(line, from, name, depth, &[])
     }
 }
 
@@ -3247,6 +3340,124 @@ More text.
     }
 
     #[test]
+    fn multlined_body_is_not_sentence_split() {
+        // mathtools multlined is an inner multline, same class as multline.
+        let cfg = crate::FormatConfig {
+            format: crate::format::Format::Latex,
+            max_width: 0,
+            ..Default::default()
+        }
+        .without_safety_backstops();
+        let input = concat!(
+            "\\begin{multlined}\n",
+            "a = b. Second sentence stays put.\n",
+            "\\end{multlined}\n",
+            "After the display. Next.\n",
+        );
+        let out = crate::format_text(input, &cfg).unwrap();
+        assert!(
+            out.contains("a = b. Second sentence stays put.\n"),
+            "multlined body must stay one line, got:\n{out}"
+        );
+        assert!(
+            out.contains("After the display.\nNext."),
+            "prose after multlined must still split, got:\n{out}"
+        );
+        assert_eq!(crate::format_text(&out, &cfg).unwrap(), out);
+    }
+
+    #[test]
+    fn lgathered_body_is_not_sentence_split() {
+        // mathtools lgathered / rgathered are gathered displays.
+        let cfg = crate::FormatConfig {
+            format: crate::format::Format::Latex,
+            max_width: 0,
+            ..Default::default()
+        }
+        .without_safety_backstops();
+        for name in ["lgathered", "rgathered"] {
+            let input = format!(
+                "\\begin{{{name}}}\na = b. Second sentence stays put.\n\\end{{{name}}}\nAfter the display. Next.\n"
+            );
+            let out = crate::format_text(&input, &cfg).unwrap();
+            assert!(
+                out.contains("a = b. Second sentence stays put.\n"),
+                "{name} body must stay one line, got:\n{out}"
+            );
+            assert!(
+                out.contains("After the display.\nNext."),
+                "prose after {name} must still split, got:\n{out}"
+            );
+            assert_eq!(crate::format_text(&out, &cfg).unwrap(), out);
+        }
+    }
+
+    #[test]
+    fn matrix_star_body_is_not_sentence_split() {
+        // mathtools starred matrices are column-aligned math arrays.
+        let cfg = crate::FormatConfig {
+            format: crate::format::Format::Latex,
+            max_width: 0,
+            ..Default::default()
+        }
+        .without_safety_backstops();
+        for name in [
+            "matrix*",
+            "pmatrix*",
+            "bmatrix*",
+            "Bmatrix*",
+            "vmatrix*",
+            "Vmatrix*",
+            "smallmatrix*",
+            "psmallmatrix*",
+            "bsmallmatrix*",
+            "Bsmallmatrix*",
+            "vsmallmatrix*",
+            "Vsmallmatrix*",
+        ] {
+            let input = format!(
+                "\\begin{{{name}}}\na & b. Second sentence stays put.\n\\end{{{name}}}\nAfter the matrix. Next.\n"
+            );
+            let out = crate::format_text(&input, &cfg).unwrap();
+            assert!(
+                out.contains("a & b. Second sentence stays put.\n"),
+                "{name} body must stay one line, got:\n{out}"
+            );
+            assert!(
+                out.contains("After the matrix.\nNext."),
+                "prose after {name} must still split, got:\n{out}"
+            );
+            assert_eq!(crate::format_text(&out, &cfg).unwrap(), out);
+        }
+    }
+
+    #[test]
+    fn dmath_body_is_not_sentence_split() {
+        // breqn dmath / dmath* are display math, same class as equation.
+        let cfg = crate::FormatConfig {
+            format: crate::format::Format::Latex,
+            max_width: 0,
+            ..Default::default()
+        }
+        .without_safety_backstops();
+        for name in ["dmath", "dmath*"] {
+            let input = format!(
+                "\\begin{{{name}}}\na = b. Second sentence stays put.\n\\end{{{name}}}\nAfter the display. Next.\n"
+            );
+            let out = crate::format_text(&input, &cfg).unwrap();
+            assert!(
+                out.contains("a = b. Second sentence stays put.\n"),
+                "{name} body must stay one line, got:\n{out}"
+            );
+            assert!(
+                out.contains("After the display.\nNext."),
+                "prose after {name} must still split, got:\n{out}"
+            );
+            assert_eq!(crate::format_text(&out, &cfg).unwrap(), out);
+        }
+    }
+
+    #[test]
     fn comments_preserved() {
         let input = r"\begin{document}
 % This is a comment
@@ -3405,6 +3616,65 @@ Some text.
             "following sentence must remain, got:\n{out}"
         );
         assert_eq!(format_text(&out, &latex_cfg()).unwrap(), out);
+    }
+
+    #[test]
+    fn verb_letter_delimiter_round_trips() {
+        use crate::format_text;
+
+        for cmd in [r"\verb", r"\verb*", r"\Verb", r"\spverb"] {
+            let input = format!(
+                "\\begin{{document}}\nSee {cmd} zCode. Next. Morez here. Done.\n\\end{{document}}\n"
+            );
+            let out = format_text(&input, &latex_cfg()).unwrap();
+            let span = format!("{cmd} zCode. Next. Morez");
+            assert!(
+                out.contains(&span),
+                "{cmd} letter body must stay intact, got:\n{out}"
+            );
+            assert!(
+                !out.contains("Next.\nMore"),
+                "{cmd} must not split after Next., got:\n{out}"
+            );
+            assert!(
+                out.contains(&format!("See {span} here.\nDone.")),
+                "prose after {cmd} must still split, got:\n{out}"
+            );
+            assert_eq!(format_text(&out, &latex_cfg()).unwrap(), out);
+        }
+    }
+
+    #[test]
+    fn url_char_delimiter_round_trips() {
+        use crate::format_text;
+
+        for (cmd, body) in [
+            (r"\url", r"http://example.com/A. B"),
+            (r"\path", r"Foo. Bar"),
+            (r"\nolinkurl", r"http://example.com/A. B"),
+        ] {
+            let span = format!("{cmd}|{body}|");
+            let input = format!("\\begin{{document}}\nSee {span} here. Done.\n\\end{{document}}\n");
+            let out = format_text(&input, &latex_cfg()).unwrap();
+            assert!(
+                out.contains(&span),
+                "{cmd} character body must stay intact, got:\n{out}"
+            );
+            assert!(
+                out.contains(&format!("See {span} here.\nDone.")),
+                "prose after {cmd} must still split, got:\n{out}"
+            );
+            let braced = format!(r"{cmd}{{{body}}}");
+            let braced_in =
+                format!("\\begin{{document}}\nSee {braced} here. Done.\n\\end{{document}}\n");
+            let braced_out = format_text(&braced_in, &latex_cfg()).unwrap();
+            assert!(
+                braced_out.contains(&format!("See {braced} here.\nDone.")),
+                "braced {cmd} must stay one span and the next sentence must split, got:\n{braced_out}"
+            );
+            assert_eq!(format_text(&out, &latex_cfg()).unwrap(), out);
+            assert_eq!(format_text(&braced_out, &latex_cfg()).unwrap(), braced_out);
+        }
     }
 
     #[test]
@@ -4470,7 +4740,7 @@ Some text.
         // Whole-line prefix: leftover scan `from` can sit after another
         // leftover on the same line. `\lstinline` must stay Prose so
         // `See \verb|x| here.` is not the only mid-line case.
-        let after_other = concat!("\\py{print(1)} \\lstinline|print(1)|\n",);
+        let after_other = "\\py{print(1)} \\lstinline|print(1)|\n";
         let after_other_regions = LatexParser::default().parse(after_other);
         assert!(
             after_other_regions.iter().any(|r| matches!(
@@ -5850,7 +6120,8 @@ Some text.
             Region::Code { body, footer, .. } => Some((body.as_str(), footer.as_str())),
             _ => None,
         });
-        let (body, footer) = code.expect(&format!("lstlisting must be Code, got: {regions:?}"));
+        let (body, footer) =
+            code.unwrap_or_else(|| panic!("lstlisting must be Code, got: {regions:?}"));
         assert!(
             body.contains("print(1)"),
             "listing body must keep source, got body={body:?} regions={regions:?}"
@@ -5889,7 +6160,8 @@ Some text.
             Region::Code { body, footer, .. } => Some((body.as_str(), footer.as_str())),
             _ => None,
         });
-        let (body, footer) = code.expect(&format!("verbatim must be Code, got: {regions:?}"));
+        let (body, footer) =
+            code.unwrap_or_else(|| panic!("verbatim must be Code, got: {regions:?}"));
         assert!(
             body.contains("still body"),
             "inner \\end must not close the outer verbatim; still body stays in the listing, got body={body:?} regions={regions:?}"
@@ -5926,7 +6198,8 @@ Some text.
             Region::Code { body, footer, .. } => Some((body.as_str(), footer.as_str())),
             _ => None,
         });
-        let (body, footer) = code.expect(&format!("lstlisting must be Code, got: {regions:?}"));
+        let (body, footer) =
+            code.unwrap_or_else(|| panic!("lstlisting must be Code, got: {regions:?}"));
         assert!(
             body.contains("print(1)"),
             "listing body must keep source before %, got body={body:?} regions={regions:?}"
@@ -7376,9 +7649,8 @@ Some text.
             Region::Code { body, footer, .. } => Some((body.as_str(), footer.as_str())),
             _ => None,
         });
-        let (raw_body, raw_footer) = raw_code.expect(&format!(
-            "lstlisting* must stay Code on %, got: {raw_regions:?}"
-        ));
+        let (raw_body, raw_footer) = raw_code
+            .unwrap_or_else(|| panic!("lstlisting* must stay Code on %, got: {raw_regions:?}"));
         assert!(
             raw_body.contains("print(1)"),
             "lstlisting* raw scan must keep source before %, got body={raw_body:?}"
@@ -9542,6 +9814,74 @@ Some text.
             "prose after landed filecontentsdef must still split, got:\n{landed_out}"
         );
         assert_eq!(format_text(&landed_out, &latex_cfg()).unwrap(), landed_out);
+    }
+
+    /// filecontentsdef.dtx v1.5 aliases of the starred envs. Same raw
+    /// grab as `filecontentsdef*` / `filecontentsgdef*` /
+    /// `filecontentshere*`. Body stays Code; following prose still splits.
+    #[test]
+    fn filecontents_starred_name_aliases_are_code_not_prose() {
+        use crate::format_text;
+
+        for name in [
+            "filecontentsdefstarred",
+            "filecontentsgdefstarred",
+            "filecontentsherestarred",
+        ] {
+            let begin = format!(r"\begin{{{name}}}{{\body}}");
+            let input = format!(
+                "{begin}\nFirst line. Second line.\n\\end{{{name}}}\nAfter the block. Next.\n"
+            );
+            let regions = LatexParser::default().parse(&input);
+            let code = regions.iter().find_map(|r| match r {
+                Region::Code {
+                    header,
+                    body,
+                    footer,
+                    ..
+                } => Some((header.as_str(), body.as_str(), footer.as_str())),
+                _ => None,
+            });
+            let Some((header, body, footer)) = code else {
+                panic!("{name} must be Code, got: {regions:?}");
+            };
+            assert!(
+                header.contains(&begin),
+                "{name} required arg must stay on the begin header, got header={header:?}"
+            );
+            assert!(
+                body.contains("First line. Second line."),
+                "{name} body must keep both sentences, got body={body:?}"
+            );
+            assert!(
+                footer.contains(&format!("\\end{{{name}}}")),
+                "{name} footer must stay, got footer={footer:?}"
+            );
+            assert!(
+                !regions
+                    .iter()
+                    .any(|r| matches!(r, Region::Prose(p) if p.contains("First line"))),
+                "{name} body must not leak into Prose, got: {regions:?}"
+            );
+            let out = format_text(&input, &latex_cfg()).unwrap();
+            assert!(
+                out.contains(&begin) && out.contains(&format!("\\end{{{name}}}")),
+                "{name} begin/end must stay, got:\n{out}"
+            );
+            assert!(
+                out.contains("First line. Second line."),
+                "{name} body must stay one source line, got:\n{out}"
+            );
+            assert!(
+                !out.contains("First line.\nSecond line."),
+                "{name} must not reflow as prose, got:\n{out}"
+            );
+            assert!(
+                out.contains("After the block.\nNext."),
+                "prose after {name} must still split, got:\n{out}"
+            );
+            assert_eq!(format_text(&out, &latex_cfg()).unwrap(), out);
+        }
     }
 
     /// Ticket fixture (GitHub #304): scontents.sty `scontents` stores

@@ -1,5 +1,4 @@
 import math
-from typing import Dict, Tuple, Union
 
 import torch
 
@@ -8,7 +7,7 @@ from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGroup, ParamsT
 
 
-def update_ema(state: Dict, loss: Union[float, torch.Tensor]) -> Dict[str, float]:
+def update_ema(state: dict, loss: float | torch.Tensor) -> dict[str, float]:
     """Update the EMA dictionary for the `short`, `medium`, and `long` terms."""
     if isinstance(loss, torch.Tensor):
         loss = loss.item()
@@ -21,8 +20,8 @@ def update_ema(state: Dict, loss: Union[float, torch.Tensor]) -> Dict[str, float
     return ema
 
 
-def compute_scalar(ema: Dict[str, float]) -> float:
-    """Compute the difference scalar."""
+def compute_scalar(ema: dict[str, float]) -> float:
+    """Compute a bounded relative change between short- and long term loss averages."""
     scale_base_l = max(ema['long'], 1e-5)
     scale_base_m = max(ema['medium'], 1e-5)
 
@@ -37,13 +36,13 @@ def compute_scalar(ema: Dict[str, float]) -> float:
 
 
 def get_coef(scalar: float) -> float:
-    """Get the scalar coefficient."""
+    """Return a damping coefficient from the magnitude of the loss trend scalar."""
     abs_scaler = abs(scalar)
     return 1.0 - abs_scaler if abs_scaler > 0.25 else 1.0
 
 
 def get_scalar_ratio(scalar: float, use_shadow: bool) -> float:
-    """Get the scalar ratio."""
+    """Return the shadow parameter mixing ratio from the loss trend scalar."""
     if not use_shadow:
         return 0.0
 
@@ -51,8 +50,8 @@ def get_scalar_ratio(scalar: float, use_shadow: bool) -> float:
     return 1.0 - scalar if scalar > 0.625 else 0.0
 
 
-def get_emo_drive(state: Dict, loss: Union[float, torch.Tensor], use_shadow: bool) -> Tuple[float, float, float]:
-    """Get the EmoDrive factor."""
+def get_emo_drive(state: dict, loss: float | torch.Tensor, use_shadow: bool) -> tuple[float, float, float]:
+    """Compute the update scale, shadow ratio, and trust value from loss trends."""
     ema = update_ema(state, loss)
     scalar = compute_scalar(ema)
     coef = get_coef(scalar)
@@ -71,19 +70,21 @@ def get_emo_drive(state: Dict, loss: Union[float, torch.Tensor], use_shadow: boo
 
 
 class EmoNavi(BaseOptimizer):
-    """An emotion-driven optimizer that feels loss and navigates accordingly.
+    """Adam style updates with loss driven momentum scaling and optional shadow weights.
+
+    Supply a loss closure to `step()` to enable loss driven scaling.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        use_shadow (bool): Whether to use shadowing or not.
-        shadow_weight (float): The weight of the shadow.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        use_shadow: Blend parameters with a running shadow copy based on loss trends.
+        shadow_weight: Interpolation weight for shadow copy updates during a shadow correction.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -196,7 +197,7 @@ class EmoNavi(BaseOptimizer):
 
                 exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
 
-                exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+                exp_avg.lerp_(grad, weight=1.0 - beta1)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                 de_nom = exp_avg_sq.sqrt().add_(group['eps'])
@@ -207,22 +208,21 @@ class EmoNavi(BaseOptimizer):
 
 
 class EmoLynx(BaseOptimizer):
-    """EmoLynx optimizer.
+    """Sign based momentum updates with EmoNavi loss driven scaling.
 
-    Lynx was developed with inspiration from Lion and Tiger, which we deeply respect for their lightweight and
-    intelligent design. It also integrates EmoNAVI to enhance its capabilities.
+    Supply a loss closure to `step()` to enable loss driven scaling.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize, or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared hessian trace.
-        use_shadow (bool): Whether to use shadow feature.
-        shadow_weight (float): The weight of the shadow.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for update interpolation and gradient momentum.
+        use_shadow: Blend parameters with a running shadow copy based on loss trends.
+        shadow_weight: Interpolation weight for shadow copy updates during a shadow correction.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -331,7 +331,7 @@ class EmoLynx(BaseOptimizer):
                 exp_avg = state['exp_avg']
 
                 blended_grad = grad.mul(1.0 - beta1).add_(exp_avg, alpha=beta1).sign_()
-                exp_avg.mul_(beta2).add_(grad, alpha=1.0 - beta2)
+                exp_avg.lerp_(grad, weight=1.0 - beta2)
 
                 p.add_(blended_grad, alpha=-group['lr'] * emo_drive)
 
@@ -339,21 +339,21 @@ class EmoLynx(BaseOptimizer):
 
 
 class EmoFact(BaseOptimizer):
-    """EmoFact optimizer.
+    """Factored adaptive updates with EmoNavi loss driven scaling.
 
-    EmoFact is inspired by AdaFactor and its VRAM-friendly design is something everyone loves.
+    Supply a loss closure to `step()` to enable loss driven scaling.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        use_shadow (bool): Whether to use shadow weights or not.
-        shadow_weight (float): The weight of the shadow.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Fix weight decay.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for row/column gradient RMS averages and the vector second moment.
+        use_shadow: Blend parameters with a running shadow copy based on loss trends.
+        shadow_weight: Interpolation weight for shadow copy updates during a shadow correction.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -481,8 +481,8 @@ class EmoFact(BaseOptimizer):
                     )
                     c_sq = torch.mean(grad_p2, dim=0, keepdim=True).add_(group['eps']).sqrt_()
 
-                    exp_avg_r.mul_(beta1).add_(r_sq, alpha=1.0 - beta1)
-                    exp_avg_c.mul_(beta1).add_(c_sq, alpha=1.0 - beta1)
+                    exp_avg_r.lerp_(r_sq, weight=1.0 - beta1)
+                    exp_avg_c.lerp_(c_sq, weight=1.0 - beta1)
 
                     de_nom = (exp_avg_r * exp_avg_c).sqrt_().add_(group['eps'])
 
@@ -490,7 +490,7 @@ class EmoFact(BaseOptimizer):
                 else:
                     exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
 
-                    exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
+                    exp_avg.lerp_(grad, weight=1.0 - beta1)
                     exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                     de_nom = exp_avg_sq.sqrt().add_(group['eps'])

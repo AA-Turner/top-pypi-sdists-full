@@ -889,6 +889,21 @@ def merge_request_tools(
     appended_registered: list[str] = []
     appended_inline: list[CustomTool] = []
 
+    # A client-delegated inline tool is "read fresh every turn": the request's
+    # definition is the truth for that turn. A cached/persisted config can carry the
+    # PREVIOUS turn's definition of the same name in ``config.custom_tools`` (the
+    # process AgentCache keeps the post-merge config). That remembered copy is
+    # replaced, never a conflict. Only (1) two different declarations inside this
+    # one call, or (2) a clash with the agent's own authored inline tool, are real.
+    authored_inline_names = {
+        getattr(ct, "name", None) for ct in (config.authored_custom_tools or [])
+    }
+    remembered_inline = {
+        ct.name for ct in config.custom_tools if ct.name not in authored_inline_names
+    }
+    declared_this_call: set[str] = set()
+    replaced_inline: set[str] = set()
+
     def _record(
         key: str,
         display: str,
@@ -909,11 +924,23 @@ def merge_request_tools(
         only for error messages.
         """
         prior = existing.get(key)
+        first_declaration_this_call = key not in declared_this_call
+        declared_this_call.add(key)
         if prior is None:
             existing[key] = (kind, definition_shape)
             return True
         prior_kind, prior_shape = prior
         if prior_kind == kind:
+            if (
+                kind == "inline"
+                and prior_shape != definition_shape
+                and first_declaration_this_call
+                and key in remembered_inline
+            ):
+                # The remembered definition is last turn's; this request's wins.
+                existing[key] = (kind, definition_shape)
+                replaced_inline.add(key)
+                return True
             if kind == "inline" and prior_shape != definition_shape:
                 raise ToolMergeError(
                     f"Tool definition conflict: inline tool {display!r} was declared "
@@ -1083,6 +1110,10 @@ def merge_request_tools(
 
     if appended_registered:
         config.tools = list(config.tools) + appended_registered
+    if replaced_inline:
+        config.custom_tools = [
+            ct for ct in config.custom_tools if ct.name not in replaced_inline
+        ]
     if appended_inline:
         config.custom_tools = list(config.custom_tools) + appended_inline
 

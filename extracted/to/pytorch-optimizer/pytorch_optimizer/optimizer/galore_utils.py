@@ -1,5 +1,5 @@
 import math
-from typing import Literal, Optional, Tuple, Union
+from typing import Literal
 
 import torch
 
@@ -7,20 +7,20 @@ PROJECTION_TYPE = Literal['std', 'reverse_std', 'right', 'left', 'full', 'random
 
 
 class GaLoreProjector:
-    """Memory-Efficient LLM Training by Gradient Low-Rank Projection.
+    """Low rank projection and reconstruction of matrix gradients.
 
     Args:
-        rank (Optional[int]): Low rank to project. If None, the full matrix is used.
-        update_proj_gap (int): Number of steps between projection updates.
-        scale (float): Scale factor applied during projection.
-        projection_type (PROJECTION_TYPE): Type of projection. Supported types include 'std', 'reverse_std',
-            'right', 'left', 'full', and 'random'.
+        rank: Projection rank. `None` uses all available singular vectors.
+        update_proj_gap: Number of steps between projection updates.
+        scale: Multiplier applied when projecting updates back to the original shape.
+        projection_type: Type of projection. Supported types include 'std', 'reverse_std', 'right', 'left', 'full',
+            and 'random'.
 
     """
 
     def __init__(
         self,
-        rank: Optional[int] = 128,
+        rank: int | None = 128,
         update_proj_gap: int = 50,
         scale: float = 1.0,
         projection_type: PROJECTION_TYPE = 'std',
@@ -31,12 +31,12 @@ class GaLoreProjector:
         self.scale = scale
         self.projection_type = projection_type
 
-        self.ortho_matrix: Optional[Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]] = None
+        self.ortho_matrix: torch.Tensor | tuple[torch.Tensor, torch.Tensor] | None = None
         self.last_svd_step: int = -1
 
     def get_orthogonal_matrix(
         self, weights: torch.Tensor, projection_type: str, from_random_matrix: bool = False
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         if projection_type not in ('right', 'left', 'full'):
             raise ValueError('`projection_type` should be one of left, right or full')
 
@@ -55,16 +55,16 @@ class GaLoreProjector:
 
         if projection_type == 'right':
             b = vh[:self.rank, :] if isinstance(self.rank, int) else vh  # fmt: skip
-            return b if is_float else b.to(original_device).type(original_type)
+            return b.clone() if is_float else b.to(original_device).type(original_type)
         if projection_type == 'left':
             a = u[:, :self.rank] if isinstance(self.rank, int) else u  # fmt: skip
-            return a if is_float else a.to(original_device).type(original_type)
+            return a.clone() if is_float else a.to(original_device).type(original_type)
 
         a = u[:, :self.rank] if isinstance(self.rank, int) else u  # fmt: skip
         b = vh[:self.rank, :] if isinstance(self.rank, int) else vh  # fmt: skip
 
         return (
-            (a, b)
+            (a.clone(), b.clone())
             if is_float
             else (a.to(original_device).type(original_type), b.to(original_device).type(original_type))
         )
@@ -130,7 +130,7 @@ class GaLoreProjector:
         self,
         grad: torch.Tensor,
         num_steps: int,
-        svd_basis_matrix: Optional[torch.Tensor] = None,
+        svd_basis_matrix: torch.Tensor | None = None,
         from_random_matrix: bool = False,
     ) -> torch.Tensor:
         update_ortho_matrix: bool = self.ortho_matrix is None or num_steps % self.update_proj_gap == 0

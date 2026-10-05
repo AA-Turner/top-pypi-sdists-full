@@ -17,13 +17,11 @@ pub(crate) fn plpgsql_entry_point(p: &mut Parser) {
         if at_block_start(p) {
             opt_block(p);
         } else {
-            temp_unknown(p, "expected a block");
+            err_recover_stmt(p, "expected a block", at_block_start);
         }
     }
     m.complete(p, PLPGSQL);
 }
-
-const VARIABLE_CONFLICT_VALUES: [SyntaxKind; 3] = [ERROR_KW, USE_VARIABLE_KW, USE_COLUMN_KW];
 
 fn comp_option(p: &mut Parser) {
     assert!(p.at(POUND));
@@ -48,10 +46,12 @@ fn comp_option(p: &mut Parser) {
     m.complete(p, kind);
 }
 
+const VARIABLE_CONFLICT_VALUES: [SyntaxKind; 3] = [ERROR_KW, USE_VARIABLE_KW, USE_COLUMN_KW];
+
 fn variable_conflict_value(p: &mut Parser) {
     match VARIABLE_CONFLICT_VALUES
         .into_iter()
-        .find(|&kw| at_maybe_contextual_kw(p, 0, kw))
+        .find(|&kw| at_maybe_contextual_kw(p, kw))
     {
         Some(kw) => bump_maybe_contextual_kw(p, kw),
         None => p.error("expected ERROR, USE_VARIABLE, or USE_COLUMN"),
@@ -65,8 +65,6 @@ fn option_value(p: &mut Parser) {
     }
     name(p, PLPGSQL_OPTION_VALUE);
 }
-
-const BLOCK_FIRST: TokenSet = TokenSet::new(&[BEGIN_KW, DECLARE_KW]);
 
 fn opt_block(p: &mut Parser) {
     if !at_block_start(p) {
@@ -120,10 +118,10 @@ fn opt_declare_section(p: &mut Parser) {
             alias_decl(p);
         } else if at_cursor_decl(p) {
             cursor_decl(p);
-        } else if at_var_decl(p) {
+        } else if at_name(p) {
             var_decl(p);
         } else {
-            temp_unknown(p, "expected a declaration");
+            err_recover_stmt(p, "expected a declaration", |p| p.at(BEGIN_KW));
         }
     }
     m.complete(p, PLPGSQL_DECLARE_SECTION);
@@ -184,33 +182,28 @@ fn cursor_decl(p: &mut Parser) {
 fn cursor_arg_list(p: &mut Parser) {
     assert!(p.at(L_PAREN));
     let m = p.start();
-    // TODO: use delimited
-    p.bump(L_PAREN);
-    if p.at(R_PAREN) {
-        p.error("expected at least one cursor argument");
-    }
-    while !p.at(EOF) && !p.at(R_PAREN) {
-        cursor_arg(p);
-        if !p.eat(COMMA) {
-            break;
-        }
-    }
-    p.expect(R_PAREN);
+    grammar::delimited(
+        p,
+        L_PAREN,
+        R_PAREN,
+        COMMA,
+        grammar::ListItems::Required,
+        || "unexpected comma".to_string(),
+        grammar::NAME_FIRST,
+        opt_cursor_arg,
+    );
     m.complete(p, PLPGSQL_CURSOR_ARG_LIST);
 }
 
-fn cursor_arg(p: &mut Parser) {
-    let m = p.start();
-    if at_name(p) {
-        name(p, PLPGSQL_VAR_NAME);
-        decl_datatype(p);
-    } else {
-        p.error(format!(
-            "expected a cursor argument name, got {:?}",
-            p.current()
-        ));
+fn opt_cursor_arg(p: &mut Parser) -> bool {
+    if !at_name(p) {
+        return false;
     }
+    let m = p.start();
+    name(p, PLPGSQL_VAR_NAME);
+    decl_datatype(p);
     m.complete(p, PLPGSQL_CURSOR_ARG);
+    true
 }
 
 fn decl_datatype(p: &mut Parser) {
@@ -255,29 +248,6 @@ fn path_segment_ref(p: &mut Parser) {
     m.complete(p, PATH_SEGMENT_REF);
 }
 
-fn at_percent_datatype(p: &Parser) -> bool {
-    let Some(n) = at_path(p) else {
-        return false;
-    };
-    p.nth_at(n, PERCENT) && (p.nth_at(n + 1, TYPE_KW) || p.nth_at_contextual_kw(n + 1, ROWTYPE_KW))
-}
-
-fn at_path(p: &Parser) -> Option<usize> {
-    let mut n = 0;
-    while !p.nth_at(n, EOF) && nth_at_name(p, n) {
-        let unicode_ident = p.nth_at(n, IDENT);
-        n += 1;
-        if unicode_ident && p.nth_at(n, UESCAPE_KW) && p.nth_at(n + 1, STRING) {
-            n += 2;
-        }
-        if !p.nth_at(n, DOT) {
-            return Some(n);
-        }
-        n += 1;
-    }
-    None
-}
-
 fn opt_not_null(p: &mut Parser) {
     if !p.at(NOT_KW) {
         return;
@@ -300,6 +270,53 @@ fn opt_var_init(p: &mut Parser) {
     m.complete(p, PLPGSQL_VAR_INIT);
 }
 
+fn opt_exception_section(p: &mut Parser) {
+    if !p.at_contextual_kw(EXCEPTION_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump_remap(EXCEPTION_KW);
+    while !p.at(EOF) && p.at(WHEN_KW) {
+        exception_handler(p);
+    }
+    m.complete(p, PLPGSQL_EXCEPTION_SECTION);
+}
+
+fn exception_handler(p: &mut Parser) {
+    assert!(p.at(WHEN_KW));
+    let m = p.start();
+    p.bump(WHEN_KW);
+    if !at_name(p) {
+        p.error(format!("expected a condition name, got {:?}", p.current()));
+    }
+    grammar::separated(
+        p,
+        OR_KW,
+        || "unexpected OR".to_string(),
+        grammar::NAME_FIRST,
+        THEN_TERMINATOR,
+        opt_condition,
+    );
+    p.expect(THEN_KW);
+    body(p, BodyKind::ExceptionHandler);
+    m.complete(p, PLPGSQL_EXCEPTION_HANDLER);
+}
+
+fn opt_condition(p: &mut Parser) -> bool {
+    if !at_name(p) {
+        return false;
+    }
+    let m = p.start();
+    if p.at_contextual_kw(SQLSTATE_KW) {
+        p.bump_remap(SQLSTATE_KW);
+        p.expect(STRING);
+    } else {
+        p.bump_any();
+    }
+    m.complete(p, PLPGSQL_CONDITION);
+    true
+}
+
 fn expr(p: &mut Parser) {
     if grammar::plpgsql_expr(p).is_none() {
         p.error("expected an expression");
@@ -314,16 +331,6 @@ fn expr_until(p: &mut Parser, terminator: Option<(SyntaxKind, usize)>) {
     }
 }
 
-const SEMICOLON_TERMINATOR: TokenSet = TokenSet::new(&[SEMICOLON]);
-const COMMA_TERMINATOR: TokenSet = TokenSet::new(&[COMMA, SEMICOLON]);
-const COMMA_OR_USING_TERMINATOR: TokenSet = TokenSet::new(&[COMMA, SEMICOLON, USING_KW]);
-const LOOP_TERMINATOR: TokenSet = TokenSet::new(&[LOOP_KW]);
-const DOT_DOT_TERMINATOR: TokenSet = TokenSet::new(&[DOT_DOT, SEMICOLON]);
-const BY_TERMINATOR: TokenSet = TokenSet::new(&[BY_KW, SEMICOLON]);
-const THEN_TERMINATOR: TokenSet = TokenSet::new(&[THEN_KW]);
-const WHEN_TERMINATOR: TokenSet = TokenSet::new(&[WHEN_KW]);
-const USING_TERMINATOR: TokenSet = TokenSet::new(&[USING_KW, SEMICOLON]);
-const INTO_OR_USING_TERMINATOR: TokenSet = TokenSet::new(&[INTO_KW, USING_KW, SEMICOLON]);
 const RECOVERY_TERMINATORS: TokenSet =
     TokenSet::new(&[THEN_KW, WHEN_KW, USING_KW, ELSE_KW, END_KW, SEMICOLON]);
 
@@ -333,21 +340,75 @@ fn expr_until_ts(p: &mut Parser, stop: TokenSet, contextual_stop: TokenSet) {
     expr_until(p, terminator);
 }
 
+// postgres does a similar thing to look ahead until it sees a loop token
+fn top_level_terminator(
+    p: &Parser,
+    stop: TokenSet,
+    contextual_stop: TokenSet,
+) -> Option<(SyntaxKind, usize)> {
+    let mut depth = 0i32;
+    let mut case_depth = 0i32;
+    let mut n = 0;
+    while !p.nth_at(n, EOF) {
+        match p.nth(n) {
+            L_PAREN | L_BRACK => depth += 1,
+            R_PAREN | R_BRACK if depth > 0 => depth -= 1,
+            CASE_KW => case_depth += 1,
+            END_KW if case_depth > 0 => case_depth -= 1,
+            kind if depth == 0 && case_depth == 0 && stop.contains(kind) => {
+                return Some((kind, n));
+            }
+            _ if depth == 0 && case_depth == 0 && p.nth_at_contextual_ts(n, contextual_stop) => {
+                return Some((p.nth_contextual_kind(n), n));
+            }
+            _ => (),
+        }
+        n += 1;
+    }
+    None
+}
+
+const SEMICOLON_TERMINATOR: TokenSet = TokenSet::new(&[SEMICOLON]);
+
 fn expr_until_semi(p: &mut Parser) {
     expr_until_ts(p, SEMICOLON_TERMINATOR, TokenSet::EMPTY);
 }
+
+const THEN_TERMINATOR: TokenSet = TokenSet::new(&[THEN_KW]);
 
 fn expr_until_then(p: &mut Parser) {
     expr_until_ts(p, THEN_TERMINATOR, TokenSet::EMPTY);
 }
 
+const WHEN_TERMINATOR: TokenSet = TokenSet::new(&[WHEN_KW]);
+
 fn expr_until_when(p: &mut Parser) {
     expr_until_ts(p, WHEN_TERMINATOR, TokenSet::EMPTY);
 }
 
+const USING_TERMINATOR: TokenSet = TokenSet::new(&[USING_KW, SEMICOLON]);
+
 fn expr_until_using(p: &mut Parser) {
     expr_until_ts(p, USING_TERMINATOR, TokenSet::EMPTY);
 }
+
+const INTO_OR_USING_TERMINATOR: TokenSet = TokenSet::new(&[INTO_KW, USING_KW, SEMICOLON]);
+
+fn expr_until_into_or_using(p: &mut Parser) {
+    expr_until_ts(p, INTO_OR_USING_TERMINATOR, TokenSet::EMPTY);
+}
+
+const LOOP_TERMINATOR: TokenSet = TokenSet::new(&[LOOP_KW]);
+
+fn expr_until_loop(p: &mut Parser, extra_follow: TokenSet) {
+    expr_until_ts(p, SEMICOLON_TERMINATOR.union(extra_follow), LOOP_TERMINATOR);
+}
+
+fn expr_until_loop_or_using(p: &mut Parser) {
+    expr_until_ts(p, USING_TERMINATOR, LOOP_TERMINATOR);
+}
+
+const COMMA_TERMINATOR: TokenSet = TokenSet::new(&[COMMA, SEMICOLON]);
 
 fn comma_expr(p: &mut Parser) {
     expr_until_ts(p, COMMA_TERMINATOR, TokenSet::EMPTY);
@@ -356,6 +417,8 @@ fn comma_expr(p: &mut Parser) {
 fn comma_expr_until_loop(p: &mut Parser) {
     expr_until_ts(p, COMMA_TERMINATOR, LOOP_TERMINATOR);
 }
+
+const COMMA_OR_USING_TERMINATOR: TokenSet = TokenSet::new(&[COMMA, SEMICOLON, USING_KW]);
 
 fn comma_expr_until_using(p: &mut Parser) {
     expr_until_ts(p, COMMA_OR_USING_TERMINATOR, TokenSet::EMPTY);
@@ -375,12 +438,12 @@ enum BodyKind {
 fn body(p: &mut Parser, kind: BodyKind) {
     let m = p.start();
     while !p.at(EOF) && !at_body_end(p, kind) {
-        stmt(p);
+        stmt(p, kind);
     }
     m.complete(p, PLPGSQL_BODY);
 }
 
-fn stmt(p: &mut Parser) {
+fn stmt(p: &mut Parser, kind: BodyKind) {
     if at_block_start(p) {
         opt_block(p);
     } else if at_loop_start(p) {
@@ -425,13 +488,13 @@ fn stmt(p: &mut Parser) {
         p.bump(SEMICOLON);
         m.complete(p, PLPGSQL_NULL_STMT);
     } else if at_exec_sql_stmt(p) {
-        exec_sql_stmt(p);
+        exec_sql_stmt(p, kind);
     } else {
-        temp_unknown(p, "expected a statement");
+        err_recover_stmt(p, "expected a statement", |p| at_body_end(p, kind));
     }
 }
 
-fn exec_sql_stmt(p: &mut Parser) {
+fn exec_sql_stmt(p: &mut Parser, kind: BodyKind) {
     let m = p.start();
     // Another hack since postgres just looks for certain tokens and passes the
     // text in between to the sql parser.
@@ -445,13 +508,15 @@ fn exec_sql_stmt(p: &mut Parser) {
             grammar::stmt(p, &grammar::StmtRestrictions::default());
         }
     }
-    if !p.at(SEMICOLON) {
+    if p.at(SEMICOLON) || at_body_end(p, kind) {
+        p.expect(SEMICOLON);
+    } else {
         let m = p.start();
         p.error(format!("expected SEMICOLON, got {:?}", p.current()));
-        skip_to_stmt_end(p);
+        skip_to_stmt_end(p, |p| at_body_end(p, kind));
         m.complete(p, ERROR);
+        p.eat(SEMICOLON);
     }
-    p.expect(SEMICOLON);
     m.complete(p, PLPGSQL_EXEC_SQL_STMT);
 }
 
@@ -539,39 +604,27 @@ fn assert_stmt(p: &mut Parser) {
     m.complete(p, PLPGSQL_ASSERT_STMT);
 }
 
+const USING_CLAUSE_FOLLOW: TokenSet = TokenSet::new(&[INTO_KW]);
+
 fn opt_using_clause(p: &mut Parser, param: fn(&mut Parser)) {
     if !p.at(USING_KW) {
         return;
     }
     let m = p.start();
     p.bump(USING_KW);
-    param(p);
-    while !p.at(EOF) && p.eat(COMMA) {
-        param(p);
-    }
+    grammar::separated(
+        p,
+        COMMA,
+        || "unexpected comma".to_string(),
+        TokenSet::EMPTY,
+        USING_CLAUSE_FOLLOW,
+        |p| {
+            param(p);
+            true
+        },
+    );
     m.complete(p, PLPGSQL_USING_CLAUSE);
 }
-
-const RAISE_LEVELS: [SyntaxKind; 6] = [
-    EXCEPTION_KW,
-    WARNING_KW,
-    NOTICE_KW,
-    INFO_KW,
-    LOG_KW,
-    DEBUG_KW,
-];
-
-const RAISE_OPTIONS: [(SyntaxKind, SyntaxKind); 9] = [
-    (ERRCODE_KW, PLPGSQL_RAISE_OPTION_ERRCODE),
-    (MESSAGE_KW, PLPGSQL_RAISE_OPTION_MESSAGE),
-    (DETAIL_KW, PLPGSQL_RAISE_OPTION_DETAIL),
-    (HINT_KW, PLPGSQL_RAISE_OPTION_HINT),
-    (COLUMN_KW, PLPGSQL_RAISE_OPTION_COLUMN),
-    (CONSTRAINT_KW, PLPGSQL_RAISE_OPTION_CONSTRAINT),
-    (DATATYPE_KW, PLPGSQL_RAISE_OPTION_DATATYPE),
-    (TABLE_KW, PLPGSQL_RAISE_OPTION_TABLE),
-    (SCHEMA_KW, PLPGSQL_RAISE_OPTION_SCHEMA),
-];
 
 fn raise_stmt(p: &mut Parser) {
     assert!(p.at_contextual_kw(RAISE_KW));
@@ -583,8 +636,8 @@ fn raise_stmt(p: &mut Parser) {
             while !p.at(EOF) && p.eat(COMMA) {
                 comma_expr_until_using(p);
             }
-        } else if !p.at(USING_KW) {
-            condition(p);
+        } else if !p.at(USING_KW) && !opt_condition(p) {
+            p.error(format!("expected a condition name, got {:?}", p.current()));
         }
         opt_raise_using_clause(p);
     }
@@ -592,10 +645,19 @@ fn raise_stmt(p: &mut Parser) {
     m.complete(p, PLPGSQL_RAISE_STMT);
 }
 
+const RAISE_LEVELS: [SyntaxKind; 6] = [
+    EXCEPTION_KW,
+    WARNING_KW,
+    NOTICE_KW,
+    INFO_KW,
+    LOG_KW,
+    DEBUG_KW,
+];
+
 fn opt_raise_level(p: &mut Parser) {
     let Some(kw) = RAISE_LEVELS
         .into_iter()
-        .find(|&kw| at_maybe_contextual_kw(p, 0, kw))
+        .find(|&kw| at_maybe_contextual_kw(p, kw))
     else {
         return;
     };
@@ -618,18 +680,37 @@ fn opt_raise_using_clause(p: &mut Parser) {
     }
     let m = p.start();
     p.bump(USING_KW);
-    raise_option(p);
-    while !p.at(EOF) && p.eat(COMMA) {
-        raise_option(p);
-    }
+    grammar::separated(
+        p,
+        COMMA,
+        || "unexpected comma".to_string(),
+        grammar::NAME_FIRST,
+        TokenSet::EMPTY,
+        |p| {
+            raise_option(p);
+            true
+        },
+    );
     m.complete(p, PLPGSQL_RAISE_USING_CLAUSE);
 }
+
+const RAISE_OPTIONS: [(SyntaxKind, SyntaxKind); 9] = [
+    (ERRCODE_KW, PLPGSQL_RAISE_OPTION_ERRCODE),
+    (MESSAGE_KW, PLPGSQL_RAISE_OPTION_MESSAGE),
+    (DETAIL_KW, PLPGSQL_RAISE_OPTION_DETAIL),
+    (HINT_KW, PLPGSQL_RAISE_OPTION_HINT),
+    (COLUMN_KW, PLPGSQL_RAISE_OPTION_COLUMN),
+    (CONSTRAINT_KW, PLPGSQL_RAISE_OPTION_CONSTRAINT),
+    (DATATYPE_KW, PLPGSQL_RAISE_OPTION_DATATYPE),
+    (TABLE_KW, PLPGSQL_RAISE_OPTION_TABLE),
+    (SCHEMA_KW, PLPGSQL_RAISE_OPTION_SCHEMA),
+];
 
 fn raise_option(p: &mut Parser) {
     let m = p.start();
     let kind = match RAISE_OPTIONS
         .into_iter()
-        .find(|&(kw, _)| at_maybe_contextual_kw(p, 0, kw))
+        .find(|&(kw, _)| at_maybe_contextual_kw(p, kw))
     {
         Some((kw, kind)) => {
             bump_maybe_contextual_kw(p, kw);
@@ -661,22 +742,6 @@ fn transaction_stmt(p: &mut Parser) {
     m.complete(p, kind);
 }
 
-const DIAG_ITEM_KINDS: [SyntaxKind; 13] = [
-    ROW_COUNT_KW,
-    PG_ROUTINE_OID_KW,
-    PG_CONTEXT_KW,
-    PG_EXCEPTION_DETAIL_KW,
-    PG_EXCEPTION_HINT_KW,
-    PG_EXCEPTION_CONTEXT_KW,
-    COLUMN_NAME_KW,
-    CONSTRAINT_NAME_KW,
-    PG_DATATYPE_NAME_KW,
-    MESSAGE_TEXT_KW,
-    TABLE_NAME_KW,
-    SCHEMA_NAME_KW,
-    RETURNED_SQLSTATE_KW,
-];
-
 fn get_diag_stmt(p: &mut Parser) {
     assert!(at_stmt_kw(p, GET_KW));
     let m = p.start();
@@ -701,28 +766,35 @@ fn opt_diag_area(p: &mut Parser) {
 
 fn diag_item_list(p: &mut Parser) {
     let m = p.start();
-    diag_item(p);
-    while !p.at(EOF) && p.eat(COMMA) {
-        diag_item(p);
-    }
-    m.complete(p, PLPGSQL_DIAG_ITEM_LIST);
-}
-
-fn diag_item(p: &mut Parser) {
-    let m = p.start();
-    if at_name(p) {
-        scalar_target(p, PLPGSQL_DIAG_TARGET);
-        if !p.eat(COLON_EQ) {
-            p.expect(EQ);
-        }
-        diag_kind(p);
-    } else {
+    if !at_name(p) {
         p.error(format!(
             "expected a diagnostics target, got {:?}",
             p.current()
         ));
     }
+    grammar::separated(
+        p,
+        COMMA,
+        || "unexpected comma".to_string(),
+        grammar::NAME_FIRST,
+        TokenSet::EMPTY,
+        opt_diag_item,
+    );
+    m.complete(p, PLPGSQL_DIAG_ITEM_LIST);
+}
+
+fn opt_diag_item(p: &mut Parser) -> bool {
+    if !at_name(p) {
+        return false;
+    }
+    let m = p.start();
+    scalar_target(p, PLPGSQL_DIAG_TARGET);
+    if !p.eat(COLON_EQ) {
+        p.expect(EQ);
+    }
+    diag_kind(p);
     m.complete(p, PLPGSQL_DIAG_ITEM);
+    true
 }
 
 fn scalar_target(p: &mut Parser, kind: SyntaxKind) {
@@ -740,6 +812,22 @@ fn scalar_target(p: &mut Parser, kind: SyntaxKind) {
     }
     m.complete(p, kind);
 }
+
+const DIAG_ITEM_KINDS: [SyntaxKind; 13] = [
+    ROW_COUNT_KW,
+    PG_ROUTINE_OID_KW,
+    PG_CONTEXT_KW,
+    PG_EXCEPTION_DETAIL_KW,
+    PG_EXCEPTION_HINT_KW,
+    PG_EXCEPTION_CONTEXT_KW,
+    COLUMN_NAME_KW,
+    CONSTRAINT_NAME_KW,
+    PG_DATATYPE_NAME_KW,
+    MESSAGE_TEXT_KW,
+    TABLE_NAME_KW,
+    SCHEMA_NAME_KW,
+    RETURNED_SQLSTATE_KW,
+];
 
 fn diag_kind(p: &mut Parser) {
     let m = p.start();
@@ -797,28 +885,6 @@ fn fetch_stmt(p: &mut Parser) {
     m.complete(p, PLPGSQL_FETCH_STMT);
 }
 
-fn dyn_execute_stmt(p: &mut Parser) {
-    assert!(at_stmt_kw(p, EXECUTE_KW));
-    let m = p.start();
-    p.bump(EXECUTE_KW);
-    expr_until_into_or_using(p);
-    let mut into = false;
-    let mut using = false;
-    while !p.at(EOF) {
-        if !into && p.at(INTO_KW) {
-            into = true;
-            into_clause(p);
-        } else if !using && p.at(USING_KW) {
-            using = true;
-            opt_using_clause(p, comma_expr);
-        } else {
-            break;
-        }
-    }
-    p.expect(SEMICOLON);
-    m.complete(p, PLPGSQL_DYN_EXECUTE_STMT);
-}
-
 fn move_stmt(p: &mut Parser) {
     assert!(at_stmt_kw(p, MOVE_KW));
     let m = p.start();
@@ -835,35 +901,6 @@ fn fetch_direction(p: &mut Parser) {
     if direction && !from_or_in {
         p.error("expected FROM or IN");
     }
-}
-
-fn into_clause(p: &mut Parser) {
-    if !p.at(INTO_KW) {
-        p.error(format!("expected INTO, got {:?}", p.current()));
-        return;
-    }
-    let m = p.start();
-    p.bump(INTO_KW);
-    p.eat(STRICT_KW);
-    into_target_list(p);
-    m.complete(p, PLPGSQL_INTO_CLAUSE);
-}
-
-fn into_target_list(p: &mut Parser) {
-    let m = p.start();
-    into_target(p);
-    while !p.at(EOF) && p.eat(COMMA) {
-        into_target(p);
-    }
-    m.complete(p, PLPGSQL_INTO_TARGET_LIST);
-}
-
-fn into_target(p: &mut Parser) {
-    if !at_name(p) {
-        p.error(format!("expected an INTO target, got {:?}", p.current()));
-        return;
-    }
-    scalar_target(p, PLPGSQL_INTO_TARGET);
 }
 
 fn close_stmt(p: &mut Parser) {
@@ -887,6 +924,66 @@ fn cursor_variable_ref(p: &mut Parser) {
         grammar::accessors(p);
         m.complete(p, ERROR);
     }
+}
+
+fn dyn_execute_stmt(p: &mut Parser) {
+    assert!(at_stmt_kw(p, EXECUTE_KW));
+    let m = p.start();
+    p.bump(EXECUTE_KW);
+    expr_until_into_or_using(p);
+    let mut into = false;
+    let mut using = false;
+    while !p.at(EOF) {
+        if !into && p.at(INTO_KW) {
+            into = true;
+            into_clause(p);
+        } else if !using && p.at(USING_KW) {
+            using = true;
+            opt_using_clause(p, comma_expr);
+        } else {
+            break;
+        }
+    }
+    p.expect(SEMICOLON);
+    m.complete(p, PLPGSQL_DYN_EXECUTE_STMT);
+}
+
+fn into_clause(p: &mut Parser) {
+    if !p.at(INTO_KW) {
+        p.error(format!("expected INTO, got {:?}", p.current()));
+        return;
+    }
+    let m = p.start();
+    p.bump(INTO_KW);
+    p.eat(STRICT_KW);
+    into_target_list(p);
+    m.complete(p, PLPGSQL_INTO_CLAUSE);
+}
+
+const INTO_TARGET_FOLLOW: TokenSet = TokenSet::new(&[USING_KW]);
+
+fn into_target_list(p: &mut Parser) {
+    let m = p.start();
+    if !at_name(p) {
+        p.error(format!("expected an INTO target, got {:?}", p.current()));
+    }
+    grammar::separated(
+        p,
+        COMMA,
+        || "unexpected comma".to_string(),
+        grammar::NAME_FIRST,
+        INTO_TARGET_FOLLOW,
+        opt_into_target,
+    );
+    m.complete(p, PLPGSQL_INTO_TARGET_LIST);
+}
+
+fn opt_into_target(p: &mut Parser) -> bool {
+    if !at_name(p) {
+        return false;
+    }
+    scalar_target(p, PLPGSQL_INTO_TARGET);
+    true
 }
 
 fn assign_stmt(p: &mut Parser) {
@@ -921,6 +1018,33 @@ fn if_stmt(p: &mut Parser) {
     p.expect(IF_KW);
     p.expect(SEMICOLON);
     m.complete(p, PLPGSQL_IF_STMT);
+}
+
+fn opt_elsif_clause(p: &mut Parser) -> bool {
+    if !at_elsif(p) {
+        return false;
+    }
+    let m = p.start();
+    if p.at_contextual_kw(ELSEIF_KW) {
+        p.bump_remap(ELSEIF_KW);
+    } else {
+        p.bump_remap(ELSIF_KW);
+    }
+    expr_until_then(p);
+    p.expect(THEN_KW);
+    body(p, BodyKind::IfThen);
+    m.complete(p, PLPGSQL_ELSIF_CLAUSE);
+    true
+}
+
+fn opt_else_clause(p: &mut Parser, kind: BodyKind) {
+    if !p.at(ELSE_KW) {
+        return;
+    }
+    let m = p.start();
+    p.bump(ELSE_KW);
+    body(p, kind);
+    m.complete(p, PLPGSQL_ELSE_CLAUSE);
 }
 
 fn case_stmt(p: &mut Parser) {
@@ -977,6 +1101,8 @@ fn loop_stmt(p: &mut Parser) {
     m.complete(p, kind);
 }
 
+const DOT_DOT_TERMINATOR: TokenSet = TokenSet::new(&[DOT_DOT, SEMICOLON]);
+
 fn for_head(p: &mut Parser) -> SyntaxKind {
     assert!(p.at(FOR_KW));
     p.bump(FOR_KW);
@@ -987,14 +1113,14 @@ fn for_head(p: &mut Parser) -> SyntaxKind {
         opt_using_clause(p, comma_expr_until_loop);
         return PLPGSQL_FOR_DYN_STMT;
     }
-    if at_for_cursor(p, 0) {
+    if at_for_cursor(p) {
         cursor_variable_ref(p);
         if p.at(L_PAREN) {
             grammar::arg_list(p);
         }
         return PLPGSQL_FOR_CURSOR_STMT;
     }
-    if at_for_reverse(p, 0) {
+    if at_for_reverse(p) {
         p.bump_remap(REVERSE_KW);
     }
     match top_level_terminator(p, DOT_DOT_TERMINATOR, LOOP_TERMINATOR) {
@@ -1051,20 +1177,31 @@ fn for_query(p: &mut Parser, terminator: Option<(SyntaxKind, usize)>) {
     }
 }
 
-fn for_variable_list(p: &mut Parser) {
-    for_variable(p);
-    while !p.at(EOF) && p.eat(COMMA) {
-        for_variable(p);
-    }
-}
+const FOR_VARIABLE_FOLLOW: TokenSet = TokenSet::new(&[IN_KW]);
 
-fn for_variable(p: &mut Parser) {
+fn for_variable_list(p: &mut Parser) {
     if !at_name(p) {
         p.error(format!("expected a loop variable, got {:?}", p.current()));
-        return;
+    }
+    grammar::separated(
+        p,
+        COMMA,
+        || "unexpected comma".to_string(),
+        TokenSet::EMPTY,
+        FOR_VARIABLE_FOLLOW,
+        opt_for_variable,
+    );
+}
+
+fn opt_for_variable(p: &mut Parser) -> bool {
+    if !at_name(p) {
+        return false;
     }
     scalar_target(p, PLPGSQL_FOR_VARIABLE);
+    true
 }
+
+const BY_TERMINATOR: TokenSet = TokenSet::new(&[BY_KW, SEMICOLON]);
 
 fn for_range(p: &mut Parser) {
     let m = p.start();
@@ -1075,18 +1212,6 @@ fn for_range(p: &mut Parser) {
         expr_until_loop(p, TokenSet::EMPTY);
     }
     m.complete(p, PLPGSQL_FOR_RANGE);
-}
-
-fn expr_until_into_or_using(p: &mut Parser) {
-    expr_until_ts(p, INTO_OR_USING_TERMINATOR, TokenSet::EMPTY);
-}
-
-fn expr_until_loop(p: &mut Parser, extra_follow: TokenSet) {
-    expr_until_ts(p, SEMICOLON_TERMINATOR.union(extra_follow), LOOP_TERMINATOR);
-}
-
-fn expr_until_loop_or_using(p: &mut Parser) {
-    expr_until_ts(p, USING_TERMINATOR, LOOP_TERMINATOR);
 }
 
 fn exit_stmt(p: &mut Parser) {
@@ -1114,104 +1239,6 @@ fn opt_exit_when(p: &mut Parser) {
     m.complete(p, PLPGSQL_EXIT_WHEN);
 }
 
-fn expect_contextual_kw(p: &mut Parser, kw: SyntaxKind) {
-    if p.at_contextual_kw(kw) {
-        p.bump_remap(kw);
-    } else {
-        p.error(format!("expected {kw:?}"));
-    }
-}
-
-fn opt_elsif_clause(p: &mut Parser) -> bool {
-    if !at_elsif(p) {
-        return false;
-    }
-    let m = p.start();
-    if p.at_contextual_kw(ELSEIF_KW) {
-        p.bump_remap(ELSEIF_KW);
-    } else {
-        p.bump_remap(ELSIF_KW);
-    }
-    expr_until_then(p);
-    p.expect(THEN_KW);
-    body(p, BodyKind::IfThen);
-    m.complete(p, PLPGSQL_ELSIF_CLAUSE);
-    true
-}
-
-fn opt_else_clause(p: &mut Parser, kind: BodyKind) {
-    if !p.at(ELSE_KW) {
-        return;
-    }
-    let m = p.start();
-    p.bump(ELSE_KW);
-    body(p, kind);
-    m.complete(p, PLPGSQL_ELSE_CLAUSE);
-}
-
-// TODO: remove this once we get all the ast nodes working
-fn temp_unknown(p: &mut Parser, message: &str) {
-    let m = p.start();
-    p.error(format!("{message}, got {:?}", p.current()));
-    skip_to_stmt_end(p);
-    p.eat(SEMICOLON);
-    m.complete(p, ERROR);
-}
-
-fn skip_to_stmt_end(p: &mut Parser) {
-    let mut depth = 0;
-    while !p.at(EOF) {
-        if depth == 0 && p.at(SEMICOLON) {
-            break;
-        }
-        if p.at(BEGIN_KW) {
-            depth += 1;
-        } else if p.at(END_KW) && depth > 0 {
-            depth -= 1;
-        }
-        p.bump_any();
-    }
-}
-
-fn opt_exception_section(p: &mut Parser) {
-    if !p.at_contextual_kw(EXCEPTION_KW) {
-        return;
-    }
-    let m = p.start();
-    p.bump_remap(EXCEPTION_KW);
-    while !p.at(EOF) && p.at(WHEN_KW) {
-        exception_handler(p);
-    }
-    m.complete(p, PLPGSQL_EXCEPTION_SECTION);
-}
-
-fn exception_handler(p: &mut Parser) {
-    assert!(p.at(WHEN_KW));
-    let m = p.start();
-    // TODO: use delimited
-    p.bump(WHEN_KW);
-    condition(p);
-    while !p.at(EOF) && p.eat(OR_KW) {
-        condition(p);
-    }
-    p.expect(THEN_KW);
-    body(p, BodyKind::ExceptionHandler);
-    m.complete(p, PLPGSQL_EXCEPTION_HANDLER);
-}
-
-fn condition(p: &mut Parser) {
-    let m = p.start();
-    if p.at_contextual_kw(SQLSTATE_KW) {
-        p.bump_remap(SQLSTATE_KW);
-        p.expect(STRING);
-    } else if at_name(p) {
-        p.bump_any();
-    } else {
-        p.error(format!("expected a condition name, got {:?}", p.current()));
-    }
-    m.complete(p, PLPGSQL_CONDITION);
-}
-
 fn at_alias_decl(p: &Parser) -> bool {
     at_name(p) && p.nth_at_contextual_kw(1, ALIAS_KW)
 }
@@ -1220,9 +1247,30 @@ fn at_cursor_decl(p: &Parser) -> bool {
     at_name(p) && (p.nth_at(1, CURSOR_KW) || p.nth_at(1, SCROLL_KW) || p.nth_at(1, NO_KW))
 }
 
-fn at_var_decl(p: &Parser) -> bool {
-    at_name(p)
+fn at_percent_datatype(p: &Parser) -> bool {
+    let Some(n) = at_path(p) else {
+        return false;
+    };
+    p.nth_at(n, PERCENT) && (p.nth_at(n + 1, TYPE_KW) || p.nth_at_contextual_kw(n + 1, ROWTYPE_KW))
 }
+
+fn at_path(p: &Parser) -> Option<usize> {
+    let mut n = 0;
+    while !p.nth_at(n, EOF) && nth_at_name(p, n) {
+        let unicode_ident = p.nth_at(n, IDENT);
+        n += 1;
+        if unicode_ident && p.nth_at(n, UESCAPE_KW) && p.nth_at(n + 1, STRING) {
+            n += 2;
+        }
+        if !p.nth_at(n, DOT) {
+            return Some(n);
+        }
+        n += 1;
+    }
+    None
+}
+
+const BLOCK_FIRST: TokenSet = TokenSet::new(&[BEGIN_KW, DECLARE_KW]);
 
 fn at_block_start(p: &Parser) -> bool {
     p.at_ts(BLOCK_FIRST) || at_block_label(p)
@@ -1249,17 +1297,18 @@ fn at_loop_kw(p: &Parser, n: usize) -> bool {
 
 const NOT_A_CURSOR_NAME: TokenSet = TokenSet::new(&[SELECT_KW, VALUES_KW]);
 
-fn at_for_cursor(p: &Parser, n: usize) -> bool {
-    if !nth_at_name(p, n) || p.nth_at_ts(n, NOT_A_CURSOR_NAME) {
+fn at_for_cursor(p: &Parser) -> bool {
+    if !at_name(p) || p.at_ts(NOT_A_CURSOR_NAME) {
         return false;
     }
-    let Some(n) = cursor_args_end(p, n + 1) else {
+    let Some(n) = cursor_args_end(p) else {
         return false;
     };
     p.nth_at_contextual_kw(n, LOOP_KW)
 }
 
-fn cursor_args_end(p: &Parser, mut n: usize) -> Option<usize> {
+fn cursor_args_end(p: &Parser) -> Option<usize> {
+    let mut n = 1;
     if !p.nth_at(n, L_PAREN) {
         return Some(n);
     }
@@ -1280,36 +1329,8 @@ fn cursor_args_end(p: &Parser, mut n: usize) -> Option<usize> {
     None
 }
 
-fn at_for_reverse(p: &Parser, n: usize) -> bool {
-    p.nth_at_contextual_kw(n, REVERSE_KW) && !p.nth_at(n + 1, DOT)
-}
-
-// postgres does a similar thing to look ahead until it sees a loop token
-fn top_level_terminator(
-    p: &Parser,
-    stop: TokenSet,
-    contextual_stop: TokenSet,
-) -> Option<(SyntaxKind, usize)> {
-    let mut depth = 0i32;
-    let mut case_depth = 0i32;
-    let mut n = 0;
-    while !p.nth_at(n, EOF) {
-        match p.nth(n) {
-            L_PAREN | L_BRACK => depth += 1,
-            R_PAREN | R_BRACK if depth > 0 => depth -= 1,
-            CASE_KW => case_depth += 1,
-            END_KW if case_depth > 0 => case_depth -= 1,
-            kind if depth == 0 && case_depth == 0 && stop.contains(kind) => {
-                return Some((kind, n));
-            }
-            _ if depth == 0 && case_depth == 0 && p.nth_at_contextual_ts(n, contextual_stop) => {
-                return Some((p.nth_contextual_kind(n), n));
-            }
-            _ => (),
-        }
-        n += 1;
-    }
-    None
+fn at_for_reverse(p: &Parser) -> bool {
+    p.at_contextual_kw(REVERSE_KW) && !p.nth_at(1, DOT)
 }
 
 fn at_exec_sql_stmt(p: &Parser) -> bool {
@@ -1368,7 +1389,7 @@ fn at_assign_target(p: &Parser) -> bool {
 }
 
 fn at_stmt_kw(p: &Parser, kw: SyntaxKind) -> bool {
-    at_maybe_contextual_kw(p, 0, kw) && !p.nth_at(1, DOT)
+    at_maybe_contextual_kw(p, kw) && !p.nth_at(1, DOT)
 }
 
 fn at_transaction_stmt(p: &Parser) -> bool {
@@ -1393,8 +1414,8 @@ fn nth_at_name(p: &Parser, n: usize) -> bool {
     p.nth_at_ts(n, ALL_KEYWORDS) && !p.nth_at_ts(n, PLPGSQL_RESERVED_KEYWORDS)
 }
 
-fn at_maybe_contextual_kw(p: &Parser, n: usize, kw: SyntaxKind) -> bool {
-    p.nth_at(n, kw) || p.nth_at_contextual_kw(n, kw)
+fn at_maybe_contextual_kw(p: &Parser, kw: SyntaxKind) -> bool {
+    p.at(kw) || p.at_contextual_kw(kw)
 }
 
 fn bump_maybe_contextual_kw(p: &mut Parser, kw: SyntaxKind) {
@@ -1402,6 +1423,14 @@ fn bump_maybe_contextual_kw(p: &mut Parser, kw: SyntaxKind) {
         p.bump(kw);
     } else {
         p.bump_remap(kw);
+    }
+}
+
+fn expect_contextual_kw(p: &mut Parser, kw: SyntaxKind) {
+    if p.at_contextual_kw(kw) {
+        p.bump_remap(kw);
+    } else {
+        p.error(format!("expected {kw:?}"));
     }
 }
 
@@ -1441,4 +1470,27 @@ fn at_block_end(p: &Parser) -> bool {
         return false;
     }
     !p.nth_at(1, IF_KW) && !p.nth_at(1, CASE_KW) && !p.nth_at_contextual_kw(1, LOOP_KW)
+}
+
+fn err_recover_stmt(p: &mut Parser, message: &str, at_end: impl Fn(&Parser) -> bool) {
+    let m = p.start();
+    p.error(format!("{message}, got {:?}", p.current()));
+    skip_to_stmt_end(p, at_end);
+    p.eat(SEMICOLON);
+    m.complete(p, ERROR);
+}
+
+fn skip_to_stmt_end(p: &mut Parser, at_end: impl Fn(&Parser) -> bool) {
+    let mut depth = 0;
+    while !p.at(EOF) {
+        if depth == 0 && (p.at(SEMICOLON) || at_end(p)) {
+            break;
+        }
+        if p.at(BEGIN_KW) || p.at(CASE_KW) {
+            depth += 1;
+        } else if p.at(END_KW) && depth > 0 {
+            depth -= 1;
+        }
+        p.bump_any();
+    }
 }

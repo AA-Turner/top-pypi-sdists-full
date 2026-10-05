@@ -122,13 +122,15 @@ class ScrapeDomainSettings(MatrxEntity):
     proxy_type = TextField(null=False, default='datacenter')
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
+    metadata = JSONBField(null=False, default={})
+    deleted_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_domain_settings"
     _db_schema = "scraper"
     _entity_token = "scrape_domain_settings"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = False
     _rls_variant = "reference"
 
@@ -193,13 +195,15 @@ class ScrapePathOverride(MatrxEntity):
     action = TextField(null=False)
     values = JSONBField(null=False, default=[])
     created_at = DateTimeField(null=False)
+    metadata = JSONBField(null=False, default={})
+    deleted_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_path_override"
     _db_schema = "scraper"
     _entity_token = "scrape_path_override"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = False
     _rls_variant = "reference"
 

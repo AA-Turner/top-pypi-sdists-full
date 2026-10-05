@@ -3,12 +3,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, TypeAlias
 from unittest import mock
 
-from app_utils.testdata_factories import EveCharacterFactory, UserMainFactory
 from django.contrib.messages import get_messages
 from django.test import TestCase
 from django.urls import reverse
 
 from aa_contacts.models import AllianceToken, ContactToken, CorporationToken
+from aa_contacts.tests.factories import (
+    create_eve_character,
+    create_eve_corporation,
+    create_user_main,
+)
 
 if TYPE_CHECKING:
     from allianceauth.eveonline.models import EveAllianceInfo, EveCorporationInfo
@@ -26,7 +30,7 @@ else:
 
 class IndexViewTest(TestCase):
     def test_index_redirects_to_react_view(self):
-        user = UserMainFactory()
+        user = create_user_main()
 
         self.client.force_login(user)
         response = self.client.get(reverse("aa_contacts:index"))
@@ -45,7 +49,7 @@ class IndexViewTest(TestCase):
 
 class ReactViewTest(TestCase):
     def test_react_view_renders_template(self):
-        user = UserMainFactory()
+        user = create_user_main()
 
         self.client.force_login(user)
         response = self.client.get(reverse("aa_contacts:react_view"))
@@ -79,13 +83,11 @@ class AddTokenTestMixin(_MixinBase):
         return reverse(f"aa_contacts:{self.add_url_name}")
 
     def _member(self, *, manage: bool = True, character=None) -> User:
-        kwargs = {
-            "permissions": [self.manage_perm] if manage else [],
-            "main_character__scopes": [self.scope],
-        }
-        if character is not None:
-            kwargs["main_character__character"] = character
-        return UserMainFactory(**kwargs)
+        return create_user_main(
+            permissions=[self.manage_perm] if manage else [],
+            scopes=[self.scope],
+            character=character,
+        )
 
     def _owner(self, user: User) -> Owner:
         return getattr(user.profile.main_character, self.owner_type)
@@ -180,7 +182,9 @@ class AddAllianceTokenTest(AddTokenTestMixin, TestCase):
     update_task_path = "aa_contacts.views.update_alliance_contacts"
 
     def test_add_token_character_without_alliance(self):
-        char = EveCharacterFactory(corporation__create_alliance=False)
+        char = create_eve_character(
+            corporation=create_eve_corporation(create_alliance=False)
+        )
         user = self._member(character=char)
 
         response, task = self._post(user)

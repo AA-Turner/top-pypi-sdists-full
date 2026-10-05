@@ -27,9 +27,16 @@ from .fixtureinfo import (
 )
 
 # Tapo bulbs
-BULBS_SMART_VARIABLE_TEMP = {"L530E", "L930-5"}
+BULBS_SMART_VARIABLE_TEMP = {"L430C", "L430P", "L530E", "L530EA", "L535E", "L930-5"}
 BULBS_SMART_LIGHT_STRIP = {"L900-5", "L900-10", "L920-5", "L930-5"}
-BULBS_SMART_COLOR = {"L530E", *BULBS_SMART_LIGHT_STRIP}
+BULBS_SMART_COLOR = {
+    "L430C",
+    "L430P",
+    "L530E",
+    "L530EA",
+    "L535E",
+    *BULBS_SMART_LIGHT_STRIP,
+}
 BULBS_SMART_DIMMABLE = {"L510B", "L510E"}
 BULBS_SMART = (
     BULBS_SMART_VARIABLE_TEMP.union(BULBS_SMART_COLOR)
@@ -38,7 +45,7 @@ BULBS_SMART = (
 )
 
 # Kasa (IOT-prefixed) bulbs
-BULBS_IOT_LIGHT_STRIP = {"KL400L5", "KL430", "KL420L5"}
+BULBS_IOT_LIGHT_STRIP = {"KL400L5", "KL400L10", "KL430", "KL420L5"}
 BULBS_IOT_VARIABLE_TEMP = {
     "LB120",
     "LB130",
@@ -48,8 +55,15 @@ BULBS_IOT_VARIABLE_TEMP = {
     "KL135",
     "KL430",
 }
+# KL400L5 firmware 1.0.5/1.0.8 and KL420L5 firmware 1.0.2 fixtures report no
+# variable color temperature support, so match the supporting fixtures rather
+# than the entire model.
+BULBS_IOT_VARIABLE_TEMP_FIXTURES = {
+    "KL400L5(US)_1.0_1.0.11",
+    "KL420L5(US)_1.0_1.0.7",
+}
 BULBS_IOT_COLOR = {"LB130", "KL125", "KL130", "KL135", *BULBS_IOT_LIGHT_STRIP}
-BULBS_IOT_DIMMABLE = {"KL50", "KL60", "LB100", "LB110", "KL110"}
+BULBS_IOT_DIMMABLE = {"KL50", "KL60", "LB100", "LB110", "KL110", "KL110B"}
 BULBS_IOT = (
     BULBS_IOT_VARIABLE_TEMP.union(BULBS_IOT_COLOR)
     .union(BULBS_IOT_DIMMABLE)
@@ -73,6 +87,7 @@ PLUGS_IOT = {
     "HS105",
     "HS110",
     "EP10",
+    "EP25",
     "KP100",
     "KP105",
     "KP115",
@@ -80,6 +95,7 @@ PLUGS_IOT = {
     "KP401",
 }
 PLUGS_SMART = {
+    "P105",
     "P100",
     "P110",
     "P110M",
@@ -87,6 +103,7 @@ PLUGS_SMART = {
     "KP125M",
     "EP25",
     "P125M",
+    "TP10",
     "TP15",
 }
 PLUGS = {
@@ -104,17 +121,20 @@ SWITCHES_SMART = {
     "KS205",
     "KS225",
     "KS240",
+    "S500",
     "S500D",
     "S505",
     "S505D",
+    "S515D",
+    "TS15",
 }
 SWITCHES = {*SWITCHES_IOT, *SWITCHES_SMART}
 STRIPS_IOT = {"HS107", "HS300", "KP303", "KP200", "KP400", "EP40"}
-STRIPS_SMART = {"P300", "P304M", "TP25", "EP40M", "P210M", "P306"}
+STRIPS_SMART = {"P300", "P304M", "TP25", "EP40M", "P210M", "P306", "P316M"}
 STRIPS = {*STRIPS_IOT, *STRIPS_SMART}
 
 DIMMERS_IOT = {"ES20M", "HS220", "KS220", "KS220M", "KS230", "KP405"}
-DIMMERS_SMART = {"HS220", "KS225", "S500D", "P135"}
+DIMMERS_SMART = {"HS220", "KS225", "S500D", "S505D", "S515D", "P135"}
 DIMMERS = {
     *DIMMERS_IOT,
     *DIMMERS_SMART,
@@ -133,12 +153,12 @@ SENSORS_SMART = {
     "S220",
     "D100C",  # needs a home category?
 }
-THERMOSTATS_SMART = {"KE100"}
+THERMOSTATS_SMART = {"KE100", "KE110"}
 
 VACUUMS_SMART = {"RV20"}
 
-WITH_EMETER_IOT = {"HS110", "HS300", "KP115", "KP125", *BULBS_IOT}
-WITH_EMETER_SMART = {"P110", "P110M", "P115", "KP125M", "EP25", "P304M"}
+WITH_EMETER_IOT = {"EP25", "HS110", "HS300", "KP115", "KP125", *BULBS_IOT}
+WITH_EMETER_SMART = {"P110", "P110M", "P115", "KP125M", "EP25", "P304M", "S515D"}
 WITH_EMETER = {*WITH_EMETER_IOT, *WITH_EMETER_SMART}
 
 DIMMABLE = {*BULBS, *DIMMERS}
@@ -195,7 +215,7 @@ def parametrize_subtract(params: pytest.MarkDecorator, subtract: pytest.MarkDeco
 
 
 def parametrize(
-    desc,
+    desc: str,
     *,
     model_filter=None,
     protocol_filter=None,
@@ -261,16 +281,23 @@ dimmable_iot = parametrize("dimmable", model_filter=DIMMABLE, protocol_filter={"
 non_dimmable_iot = parametrize(
     "non-dimmable", model_filter=BULBS - DIMMABLE, protocol_filter={"IOT"}
 )
-variable_temp = parametrize(
+variable_temp_by_model = parametrize(
     "variable color temp",
     model_filter=BULBS_VARIABLE_TEMP,
     protocol_filter={"SMART", "IOT"},
 )
+variable_temp_by_fixture = parametrize(
+    "variable color temp fixtures",
+    model_filter=BULBS_IOT_VARIABLE_TEMP_FIXTURES,
+    protocol_filter={"IOT"},
+)
+variable_temp = parametrize_combine([variable_temp_by_model, variable_temp_by_fixture])
 non_variable_temp = parametrize(
     "non-variable color temp",
     model_filter=BULBS - BULBS_VARIABLE_TEMP,
     protocol_filter={"SMART", "IOT"},
 )
+non_variable_temp = parametrize_subtract(non_variable_temp, variable_temp_by_fixture)
 color_bulb = parametrize(
     "color bulbs", model_filter=BULBS_COLOR, protocol_filter={"SMART", "IOT"}
 )
@@ -283,10 +310,13 @@ non_color_bulb = parametrize(
 color_bulb_iot = parametrize(
     "color bulbs iot", model_filter=BULBS_IOT_COLOR, protocol_filter={"IOT"}
 )
-variable_temp_iot = parametrize(
+variable_temp_iot_by_model = parametrize(
     "variable color temp iot",
     model_filter=BULBS_IOT_VARIABLE_TEMP,
     protocol_filter={"IOT"},
+)
+variable_temp_iot = parametrize_combine(
+    [variable_temp_iot_by_model, variable_temp_by_fixture]
 )
 variable_temp_smart = parametrize(
     "variable color temp smart",
@@ -306,6 +336,11 @@ bulb = parametrize_combine([bulb_smart, bulb_iot])
 
 strip_iot = parametrize(
     "strip devices iot", model_filter=STRIPS_IOT, protocol_filter={"IOT"}
+)
+strip_emeter_iot = parametrize(
+    "strip devices iot with emeter",
+    model_filter=STRIPS_IOT & WITH_EMETER_IOT,
+    protocol_filter={"IOT"},
 )
 strip_smart = parametrize(
     "strip devices smart", model_filter=STRIPS_SMART, protocol_filter={"SMART"}
@@ -360,7 +395,7 @@ chime_smart = parametrize(
 vacuum = parametrize("vacuums", device_type_filter=[DeviceType.Vacuum])
 
 
-def check_categories():
+def check_categories() -> None:
     """Check that every fixture file is categorized."""
     categorized_fixtures = set(
         dimmer_iot.args[1]
@@ -393,7 +428,7 @@ def check_categories():
 check_categories()
 
 
-def device_for_fixture_name(model, protocol):
+def device_for_fixture_name(model: str, protocol: str):
     if protocol in {"SMART", "SMART.CHILD"}:
         return SmartDevice
     elif protocol in {"SMARTCAM", "SMARTCAM.CHILD"}:
@@ -432,7 +467,9 @@ async def _update_and_close(d) -> Device:
     return d
 
 
-async def _discover_update_and_close(ip, username, password) -> Device:
+async def _discover_update_and_close(
+    ip: str, username: str | None, password: str | None
+) -> Device:
     if username and password:
         credentials = Credentials(username=username, password=password)
     else:
@@ -442,7 +479,7 @@ async def _discover_update_and_close(ip, username, password) -> Device:
 
 
 async def get_device_for_fixture(
-    fixture_data: FixtureInfo, *, verbatim=False, update_after_init=True
+    fixture_data: FixtureInfo, *, verbatim: bool = False, update_after_init: bool = True
 ) -> Device:
     # if the wanted file is not an absolute path, prepend the fixtures directory
 
@@ -467,7 +504,9 @@ async def get_device_for_fixture(
             fixture_data.data, fixture_data.name, verbatim=verbatim
         )
     else:
-        d.protocol = FakeIotProtocol(fixture_data.data, verbatim=verbatim)
+        d.protocol = FakeIotProtocol(
+            fixture_data.data, fixture_data.name, verbatim=verbatim
+        )
 
     discovery_data = None
     if "discovery_result" in fixture_data.data:
@@ -485,21 +524,21 @@ async def get_device_for_fixture(
     return d
 
 
-async def get_device_for_fixture_protocol(fixture, protocol):
+async def get_device_for_fixture_protocol(fixture: str, protocol: str):
     finfo = FixtureInfo(name=fixture, protocol=protocol, data={})
     for fixture_info in FIXTURE_DATA:
         if finfo == fixture_info:
             return await get_device_for_fixture(fixture_info)
 
 
-def get_fixture_info(fixture, protocol):
+def get_fixture_info(fixture: str, protocol: str):
     finfo = FixtureInfo(name=fixture, protocol=protocol, data={})
     for fixture_info in FIXTURE_DATA:
         if finfo == fixture_info:
             return fixture_info
 
 
-def get_nearest_fixture_to_ip(dev):
+def get_nearest_fixture_to_ip(dev: Device):
     if isinstance(dev, SmartDevice):
         protocol_fixtures = filter_fixtures("", protocol_filter={"SMART"})
     elif isinstance(dev, SmartCamDevice):
@@ -537,7 +576,7 @@ def get_nearest_fixture_to_ip(dev):
 
 
 @pytest.fixture(params=filter_fixtures("main devices"), ids=idgenerator)
-async def dev(request) -> AsyncGenerator[Device, None]:
+async def dev(request: pytest.FixtureRequest) -> AsyncGenerator[Device, None]:
     """Device fixture.
 
     Provides a device (given --ip) or parametrized fixture for the supported devices.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing as t
+from collections import defaultdict
 from datetime import datetime, timezone
 
 try:
@@ -122,3 +123,44 @@ class PostgresAdapterExtension(BaseAdapterExtension):
             )
 
         return ViewFetchResult(definitions=view_definitions)
+
+    def _fetch_schemas(
+        self, table_batch: t.Collection[exp.Table]
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        if not table_batch:
+            return {}
+
+        filter_expr = build_information_schema_filter(table_batch, ("table_schema", "table_name"))
+
+        query = f"""
+        SELECT
+            table_schema,
+            table_name,
+            column_name,
+            CASE
+                -- element params aren't exposed; udt_name is the internal name (_int4 -> int4[])
+                WHEN data_type = 'ARRAY'
+                    THEN LTRIM(udt_name, '_') || '[]'
+                WHEN character_maximum_length IS NOT NULL
+                    THEN data_type || '(' || character_maximum_length || ')'
+                WHEN data_type = 'numeric' AND numeric_precision IS NOT NULL
+                    THEN data_type || '(' || numeric_precision || ',' || numeric_scale || ')'
+                WHEN data_type = 'interval' AND interval_type IS NOT NULL
+                    THEN 'interval ' || LOWER(interval_type)
+                ELSE data_type
+            END AS data_type
+        FROM information_schema.columns
+        WHERE {self._sql(filter_expr)}
+        ORDER BY table_schema, table_name, ordinal_position
+        """
+
+        result_rows = self.execute(query, fetch=True).rows
+
+        schemas = defaultdict(dict)
+
+        for schema, table_name, column_name, data_type in result_rows:
+            fqn = self._build_fqn_from_row(self.default_catalog, schema, table_name)
+
+            schemas[fqn][column_name] = data_type
+
+        return dict(schemas)

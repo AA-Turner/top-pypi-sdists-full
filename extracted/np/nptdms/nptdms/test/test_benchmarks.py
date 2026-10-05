@@ -1,8 +1,9 @@
 import os
+from io import BytesIO
 import numpy as np
 import pytest
 
-from nptdms import TdmsFile
+from nptdms import TdmsFile, TdmsWriter, RootObject, GroupObject, ChannelObject
 from nptdms.test.util import (
     GeneratedFile,
     hexlify_value,
@@ -306,6 +307,81 @@ def test_complex_metadata_reading(benchmark):
         assert len(tdms_file['group']['channel{0}'.format(channel_num)]) == 10
 
 
+@pytest.mark.benchmark(group='write-many-channels')
+def test_write_many_channels_low_data_per_channel(benchmark):
+    """Benchmark writing many channels with a small amount of data each."""
+    num_channels = 128
+    samples_per_channel = 8
+
+    output_file = benchmark(
+        write_segment,
+        make_write_segment(num_channels, samples_per_channel),
+    )
+
+    output_file.seek(0)
+
+    with TdmsFile.open(output_file) as tdms_file:
+        group = tdms_file['group']
+        expected = np.arange(samples_per_channel, dtype=np.int32)
+
+        assert len(group) == num_channels
+        np.testing.assert_array_equal(group['channel0'][:], expected)
+        np.testing.assert_array_equal(
+            group['channel{0}'.format(num_channels - 1)][:],
+            expected + (num_channels - 1),
+        )
+
+
+@pytest.mark.benchmark(group='write-few-channels')
+def test_write_few_channels_data_per_channel(benchmark):
+    """Benchmark writing a few channels with a large amount of data each."""
+    num_channels = 4
+    samples_per_channel = 8192
+
+    output_file = benchmark(
+        write_segment,
+        make_write_segment(num_channels, samples_per_channel),
+    )
+
+    output_file.seek(0)
+
+    with TdmsFile.open(output_file) as tdms_file:
+        group = tdms_file['group']
+        expected = np.arange(samples_per_channel, dtype=np.int32)
+
+        assert len(group) == num_channels
+        np.testing.assert_array_equal(group['channel0'][:], expected)
+        np.testing.assert_array_equal(
+            group['channel{0}'.format(num_channels - 1)][:],
+            expected + (num_channels - 1),
+        )
+
+
+@pytest.mark.benchmark(group='write-single-channel')
+def test_write_single_channel_high_data(benchmark):
+    """Benchmark writing a single channels with a high amount of data."""
+    num_channels = 1
+    samples_per_channel = 1048576
+
+    output_file = benchmark(
+        write_segment,
+        make_write_segment(num_channels, samples_per_channel),
+    )
+
+    output_file.seek(0)
+
+    with TdmsFile.open(output_file) as tdms_file:
+        group = tdms_file['group']
+        expected = np.arange(samples_per_channel, dtype=np.int32)
+
+        assert len(group) == num_channels
+        np.testing.assert_array_equal(group['channel0'][:], expected)
+        np.testing.assert_array_equal(
+            group['channel{0}'.format(num_channels - 1)][:],
+            expected + (num_channels - 1),
+        )
+
+
 def get_contiguous_file():
     test_file = GeneratedFile()
     data_chunk = np.repeat(np.array([1, 2, 3, 4], dtype=np.dtype('int32')), 100)
@@ -375,3 +451,28 @@ def get_slice(chan, start, stop):
 def index_values(chan, target):
     for i in range(len(chan)):
         target[i] = chan[i]
+
+
+def make_write_segment(num_channels, samples_per_channel):
+    segment = [RootObject(), GroupObject("group")]
+    base_data = np.arange(samples_per_channel, dtype=np.int32)
+
+    for channel_index in range(num_channels):
+        segment.append(
+            ChannelObject(
+                "group",
+                "channel{0}".format(channel_index),
+                base_data + channel_index,
+            )
+        )
+
+    return segment
+
+
+def write_segment(segment):
+    output_file = BytesIO()
+
+    with TdmsWriter(output_file) as tdms_writer:
+        tdms_writer.write_segment(segment)
+
+    return output_file

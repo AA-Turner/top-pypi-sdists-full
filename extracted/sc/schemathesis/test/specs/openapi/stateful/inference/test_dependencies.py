@@ -4,9 +4,11 @@ import uuid
 
 import pytest
 from flask import jsonify, request
+from hypothesis import HealthCheck, Phase, settings
 from syrupy.extensions.json import JSONSnapshotExtension
 
 import schemathesis
+from schemathesis.generation.modes import GenerationMode
 from schemathesis.specs.openapi.stateful import dependencies
 from schemathesis.specs.openapi.stateful.dependencies import analyze, naming
 from schemathesis.specs.openapi.stateful.dependencies.models import infer_fk_target
@@ -3210,6 +3212,45 @@ def test_reference_to_boolean_response_schema(ctx):
     }
 
 
+def test_all_of_response_with_boolean_schema_properties_keeps_fields_and_link(ctx):
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            **operation("post", "/items", "201", component_ref("Item")),
+            **operation("get", "/items/{id}", "200", parameters=[path_param("id")]),
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "Base": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]},
+                "Item": {
+                    "allOf": [
+                        component_ref("Base"),
+                        {
+                            "type": "object",
+                            "properties": {"extra": component_ref("Any"), "never": component_ref("Never")},
+                        },
+                    ]
+                },
+                "Any": True,
+                "Never": False,
+            }
+        },
+    )
+    assert graph.resources["Item"].fields == ["extra", "id", "never"]
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1items/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1items~1{id}/get",
+                "x-schemathesis": {"is_inferred": True},
+                "parameters": {"path.id": "$response.body#/id"},
+            },
+        ]
+    ]
+
+
 @pytest.mark.parametrize(
     "response_schema",
     [
@@ -4419,6 +4460,52 @@ def test_path_consumer_picks_same_module_suffix_match(ctx):
         for slot in graph.operations["GET /bookings/resources/{id}"].inputs
     }
     assert bindings.get(("path", "id")) == "ResourceItem", bindings
+
+
+@pytest.mark.parametrize(
+    "consumer_path",
+    [
+        "/bookings/gadgets/{widgetId}",
+        "/{tenant}/{widgetId}",
+    ],
+    ids=["path-names-another-resource", "path-has-only-parameters"],
+)
+def test_path_binding_from_other_module_kept_when_path_does_not_name_it(ctx, consumer_path):
+    parameters = [
+        {"name": name, "in": "path", "required": True, "schema": {"type": "string"}}
+        for name in ("tenant", "widgetId")
+        if "{" + name + "}" in consumer_path
+    ]
+    _, graph = analyze_dependencies(
+        ctx,
+        {
+            "/catalog/widgets": {
+                "post": {
+                    "responses": {
+                        "201": {
+                            "description": "OK",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Widget"}}},
+                        }
+                    }
+                }
+            },
+            consumer_path: {"get": {"parameters": parameters, "responses": {"200": {"description": "OK"}}}},
+        },
+        components={
+            "schemas": {
+                "Widget": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
+                    "required": ["id"],
+                },
+            }
+        },
+    )
+    bindings = {
+        (slot.parameter_location.value, slot.parameter_name): (slot.resource.name, slot.resource_field)
+        for slot in graph.operations[f"GET {consumer_path}"].inputs
+    }
+    assert bindings == {("path", "widgetId"): ("Widget", "id")}
 
 
 def test_body_fk_inside_all_of_with_one_of_branches(ctx):
@@ -6426,6 +6513,99 @@ def test_inject_links_with_reference_to_components(ctx):
     assert dependencies.inject_links(schema) == 1
 
 
+def test_paginated_list_links_to_detail_through_identifier(ctx):
+    app, _ = ctx.openapi.make_flask_app(
+        {
+            "/v1/images/": {
+                "get": {
+                    "operationId": "listImages",
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {
+                                "application/json": {"schema": {"$ref": "#/components/schemas/PaginatedImageList"}}
+                            },
+                        }
+                    },
+                }
+            },
+            "/v1/images/{identifier}/": {
+                "get": {
+                    "operationId": "getImage",
+                    "parameters": [
+                        {
+                            "name": "identifier",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                        }
+                    ],
+                    "responses": {
+                        "200": {
+                            "description": "OK",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Image"}}},
+                        }
+                    },
+                }
+            },
+        },
+        components={
+            "schemas": {
+                "Image": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string"}},
+                    "required": ["id"],
+                },
+                "PaginatedImageList": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {"$ref": "#/components/schemas/Image"},
+                        }
+                    },
+                    "required": ["results"],
+                },
+            }
+        },
+    )
+    requested_identifiers = []
+
+    @app.route("/v1/images/", methods=["GET"])
+    def list_images():
+        return jsonify({"results": [{"id": "openverse-image-id"}]})
+
+    @app.route("/v1/images/<identifier>/", methods=["GET"])
+    def get_image(identifier):
+        requested_identifiers.append(identifier)
+        return jsonify({"id": identifier})
+
+    schema = schemathesis.openapi.from_wsgi("/openapi.json", app=app)
+    schema.config.generation.update(modes=[GenerationMode.POSITIVE])
+
+    assert dependencies.inject_links(schema) == 1
+    assert schema.raw_schema["paths"]["/v1/images/"]["get"]["responses"]["200"]["links"] == {
+        "GetImage": {
+            "operationRef": "#/paths/~1v1~1images~1{identifier}~1/get",
+            "parameters": {"path.identifier": "$response.body#/results/*/id"},
+            "x-schemathesis": {"is_inferred": True},
+        }
+    }
+
+    schema.as_state_machine().run(
+        settings=settings(
+            max_examples=1,
+            stateful_step_count=2,
+            deadline=None,
+            derandomize=True,
+            phases=[Phase.generate],
+            suppress_health_check=list(HealthCheck),
+        )
+    )
+
+    assert requested_identifiers == ["openverse-image-id"]
+
+
 def test_iter_links_with_nested_refs(ctx):
     # GH-3394: Links with nested $refs should be fully resolved
     # Schema with link chain: Top -> Middle -> Bottom
@@ -7143,6 +7323,98 @@ def test_form_body_field_links_to_its_producer(ctx, create_news, version):
             },
         ]
     ]
+
+
+def test_form_body_fields_link_to_unique_response_field_producer(ctx):
+    application = {
+        "type": "object",
+        "properties": {
+            "client_id": {"type": "string"},
+            "client_secret": {"type": "string"},
+            "name": {"type": "string"},
+            "msg": {"type": "string"},
+        },
+        "required": ["client_id", "client_secret", "name", "msg"],
+    }
+    token_request = {
+        "type": "object",
+        "properties": {
+            "client_id": {"type": "string"},
+            "client_secret": {"type": "string"},
+            "grant_type": {"type": "string", "enum": ["client_credentials"]},
+        },
+        "required": ["client_id", "client_secret", "grant_type"],
+    }
+    components = {"schemas": {"OAuth2Application": application, "OAuth2TokenRequest": token_request}}
+    paths = {
+        **operation(
+            "post",
+            "/v1/auth_tokens/register/",
+            "201",
+            component_ref("OAuth2Application"),
+            operation_id="register",
+        ),
+        "/v1/auth_tokens/token/": {
+            "post": {
+                "operationId": "token",
+                "requestBody": {
+                    "required": True,
+                    "content": {"application/x-www-form-urlencoded": {"schema": component_ref("OAuth2TokenRequest")}},
+                },
+                "responses": {"200": {"description": "OK"}},
+            }
+        },
+    }
+
+    _, graph = analyze_dependencies(ctx, paths, components=components)
+
+    assert inferred_links(graph) == [
+        [
+            "#/paths/~1v1~1auth_tokens~1register~1/post",
+            "201",
+            {
+                "operationRef": "#/paths/~1v1~1auth_tokens~1token~1/post",
+                "requestBody": {
+                    "client_id": "$response.body#/client_id",
+                    "client_secret": "$response.body#/client_secret",
+                },
+                "x-schemathesis": {"is_inferred": True, "merge_body": True},
+            },
+        ]
+    ]
+
+
+def test_body_field_does_not_link_when_multiple_responses_produce_it(ctx):
+    credential = {
+        "type": "object",
+        "properties": {"client_id": {"type": "string"}},
+        "required": ["client_id"],
+    }
+    paths = {
+        **operation("post", "/applications", "201", credential, operation_id="createApplication"),
+        **operation("post", "/sessions", "201", credential, operation_id="createSession"),
+        **operation_with_body("post", "/tokens", "200", credential, operation_id="createToken"),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths)
+
+    assert inferred_links(graph) == []
+
+
+def test_body_field_does_not_link_from_response_that_requires_the_same_field(ctx):
+    credential = {
+        "type": "object",
+        "properties": {"client_id": {"type": "string"}},
+        "required": ["client_id"],
+    }
+    paths = {
+        **operation_with_body("post", "/lookup", "200", credential, credential, operation_id="lookupApplication"),
+        **operation_with_body("post", "/tokens", "200", credential, operation_id="createToken"),
+    }
+
+    _, graph = analyze_dependencies(ctx, paths)
+
+    assert inferred_links(graph) == []
 
 
 LANGUAGE_ITEM = {

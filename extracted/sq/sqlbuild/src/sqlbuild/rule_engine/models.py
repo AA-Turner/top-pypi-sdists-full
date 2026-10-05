@@ -292,6 +292,7 @@ class RulesConfig:
     rule_exceptions: tuple[RuleExemption, ...] = ()
     graph_edge_exceptions: tuple[GraphEdgeExclusion, ...] = ()
     rule_ignores: tuple[RuleIgnore, ...] = ()
+    allow_exceptions: bool = True
     select_star_allow: tuple[SelectStarAllow, ...] = ()
     domains: tuple[str, ...] = ()
     approved_source_tokens: tuple[str, ...] = ()
@@ -392,6 +393,23 @@ class CustomRuleEvaluation:
     subject: str | None
     findings: tuple[Finding, ...]
     reads: frozenset[tuple[object, ...]] | None
+
+
+@dataclass(frozen=True)
+class ModuleStateTrace:
+    """What exact module-state walks touched: object and type identities and their decisions."""
+
+    touched: dict[int, int]
+    descended_types: frozenset[int]
+    checked_instances: frozenset[int]
+
+
+@dataclass(frozen=True)
+class ModuleStateFingerprint:
+    """One exact custom-rule module-state fingerprint and the trace of the walk behind it."""
+
+    token: str
+    trace: ModuleStateTrace
 
 
 @dataclass(frozen=True)

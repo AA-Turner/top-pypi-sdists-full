@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2026 geisserml <geisserml@gmail.com>
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
-# Background reading:
+# Reading material:
 # https://stackoverflow.com/questions/45150304/how-to-force-a-python-wheel-to-be-platform-specific-when-building-it
 # https://stackoverflow.com/questions/69647983/how-to-add-platform-specific-package-data-in-setup-py
 # https://github.com/tim-mitchell/prebuilt_binaries
+# https://stackoverflow.com/a/48015772/15547292
 # https://cibuildwheel.pypa.io/en/stable/faq/#actions-you-need-to-perform-before-building
 # https://build.pypa.io/en/latest/how-to/config-settings.html#id1
 
@@ -36,18 +37,17 @@ class BinaryDistribution (setuptools.Distribution):
         return True
 
 
-def buildpy_factory(pl_name, modnames, datagen, helpers_info, package_data):
+def buildpy_factory(pl_name, datagen, helpers_info, package_data):
     
     class pypdfium_buildpy (buildpy_orig):
         
         def run(self, *args, **kwargs):
-            if ModuleRaw in modnames and pl_name != ExtPlats.sdist:
+            if pl_name != ExtPlats.sdist:
                 datagen()
                 assert_exists(ModuleDir_Raw, package_data["pypdfium2_raw"])
-            if ModuleHelpers in modnames:
-                helpers_info["is_editable"] = getattr(self, "editable_mode", None)
-                write_json(ModuleDir_Helpers/VersionFN, helpers_info)
-                assert_exists(ModuleDir_Helpers, package_data["pypdfium2"])
+            helpers_info["is_editable"] = getattr(self, "editable_mode", None)
+            write_json(ModuleDir_Helpers/VersionFN, helpers_info)
+            assert_exists(ModuleDir_Helpers, package_data["pypdfium2"])
             buildpy_orig.run(self, *args, **kwargs)
     
     return pypdfium_buildpy
@@ -76,22 +76,6 @@ def bdist_factory(pl_name, dll_path):
     return pypdfium_bdist
 
 
-def _get_fixed_helpers_info(pl_name):
-    
-    helpers_info = get_helpers_info()
-    if pl_name != ExtPlats.sdist:
-        return helpers_info
-    
-    if helpers_info["dirty"]:
-        # ignore dirty state due to craft.py::tmp_ctypesgen_pin()
-        if int(os.environ.get("SDIST_IGNORE_DIRTY", 0)):
-            helpers_info["dirty"] = False
-    else:
-        log("Warning: sdist without ctypesgen pin, or git describe not working?")
-    
-    return helpers_info
-
-
 def assert_exists(dir, data_files):
     missing = tuple(f for f in data_files if not (dir/f).exists())
     if missing:
@@ -109,7 +93,7 @@ LICENSES_SDIST = (
 )
 
 
-def run_setup(modnames, pl_name, datagen):
+def run_setup(pl_name, datagen):
     
     kwargs = dict(
         name = "pypdfium2",
@@ -124,81 +108,48 @@ def run_setup(modnames, pl_name, datagen):
     license_files = list(LICENSES_SHARED)
     if pl_name == ExtPlats.sdist:
         license_files.extend(LICENSES_SDIST)
+        assert CtypesgenSrc.exists(), f"ctypesgen src is required for bundling in sdist: {CtypesgenSrc}"
     
-    exclude_rules = []
-    if modnames == [ModuleHelpers]:
-        kwargs["name"] += "_helpers"
-        kwargs["description"] += " (helpers module)"
-        kwargs["install_requires"] = ["pypdfium2_raw"]
-        include_rules = ["pypdfium2*"]
-        exclude_rules.append("pypdfium2_raw*")
-    elif modnames == [ModuleRaw]:
-        kwargs["name"] += "_raw"
-        kwargs["description"] += " (raw module)"
-        # FIXME Requires pre-generated version file. This is since 5.10, when datagen was deferred into build_py.
-        log(f"Warning: PYPDFIUM_MODULES=raw expects pre-generated version file at src/pypdfium2_raw/{VersionFN}. Callers must ensure this matches the version being built!")
-        pdfium_fullver, _ = read_pdfium_info(ModuleDir_Raw)
-        kwargs["version"] = str(pdfium_fullver)
-        include_rules = ["pypdfium2_raw*"]
+    helpers_info = get_helpers_info()
+    kwargs["version"] = merge_tag(helpers_info, mode="py")
+    kwargs["package_dir"]["pypdfium2"] = "src/pypdfium2"
+    kwargs["package_dir"]["pypdfium2_cfg"] = "src/pypdfium2_cfg"
+    kwargs["package_dir"]["pypdfium2_cli"] = "src/pypdfium2_cli"
+    kwargs["package_data"]["pypdfium2"] = (VersionFN, )
+    kwargs["entry_points"] = dict(console_scripts=["pypdfium2 = pypdfium2_cli.__main__:cli_main"])
+    
+    kwargs["package_dir"]["pypdfium2_raw"] = "src/pypdfium2_raw"
+    if pl_name == ExtPlats.sdist:
+        kwargs["exclude_package_data"] = {"pypdfium2_raw": (VersionFN, *LIBNAME_GLOBS)}
+    elif pl_name == ExtPlats.system:
+        kwargs["package_data"]["pypdfium2_raw"] = (BindingsFN, VersionFN)
+        kwargs["exclude_package_data"] = {"pypdfium2_raw": LIBNAME_GLOBS}
     else:
-        include_rules = ["pypdfium2*"]
-    
-    helpers_info = None
-    if ModuleHelpers in modnames:
-        helpers_info = _get_fixed_helpers_info(pl_name)
-        kwargs["version"] = merge_tag(helpers_info, mode="py")
-        kwargs["package_dir"]["pypdfium2"] = "src/pypdfium2"
-        kwargs["package_dir"]["pypdfium2_cfg"] = "src/pypdfium2_cfg"
-        kwargs["package_dir"]["pypdfium2_cli"] = "src/pypdfium2_cli"
-        kwargs["package_data"]["pypdfium2"] = (VersionFN, )
-        kwargs["entry_points"] = dict(console_scripts=["pypdfium2 = pypdfium2_cli.__main__:cli_main"])
-    
-    if ModuleRaw in modnames:
-        kwargs["package_dir"]["pypdfium2_raw"] = "src/pypdfium2_raw"
-        if pl_name == ExtPlats.sdist:
-            kwargs["exclude_package_data"] = {"pypdfium2_raw": (VersionFN, *LIBNAME_GLOBS)}
-        elif pl_name == ExtPlats.system:
-            kwargs["package_data"]["pypdfium2_raw"] = (BindingsFN, VersionFN)
-            kwargs["exclude_package_data"] = {"pypdfium2_raw": LIBNAME_GLOBS}
+        sys_name = plat_to_system(pl_name)
+        dll_path = ModuleDir_Raw / libname_for_system(sys_name)
+        kwargs["package_data"]["pypdfium2_raw"] = (BindingsFN, VersionFN, dll_path.name)
+        
+        kwargs["distclass"] = BinaryDistribution
+        kwargs["cmdclass"]["bdist_wheel"] = bdist_factory(pl_name, dll_path)
+        
+        if pl_name == ExtPlats.sourcebuild:
+            use_tarball_licenses = False
+        else:  # pdfium-binaries
+            use_tarball_licenses = bool(int( os.getenv("USE_TARBALL_LICENSES", 0) ))
+        if use_tarball_licenses:
+            license_files.append(f"data/{pl_name}/BUILD_LICENSES/**")
         else:
-            sys_name = plat_to_system(pl_name)
-            dll_path = ModuleDir_Raw / libname_for_system(sys_name)
-            kwargs["package_data"]["pypdfium2_raw"] = (BindingsFN, VersionFN, dll_path.name)
-            
-            kwargs["distclass"] = BinaryDistribution
-            kwargs["cmdclass"]["bdist_wheel"] = bdist_factory(pl_name, dll_path)
-            
-            if pl_name == ExtPlats.sourcebuild:
-                use_tarball_licenses = False
-            else:  # pdfium-binaries
-                use_tarball_licenses = bool(int( os.getenv("USE_TARBALL_LICENSES", 0) ))
-            if use_tarball_licenses:
-                license_files.append(f"data/{pl_name}/BUILD_LICENSES/**")
-            else:
-                license_files.append("BUILD_LICENSES/**")
+            license_files.append("BUILD_LICENSES/**")
     
-    kwargs["cmdclass"]["build_py"] = buildpy_factory(pl_name, modnames, datagen, helpers_info, kwargs["package_data"])
+    kwargs["cmdclass"]["build_py"] = buildpy_factory(pl_name, datagen, helpers_info, kwargs["package_data"])
     kwargs["license_files"] = license_files
     
     # An explicit package finder is required for older versions of Python which are stuck with older setuptools (e.g. Python 3.6 has max setuptools 59.6.0).
     # With setuptools >= 61 this could just be omitted entirely thanks to auto-discovery.
-    kwargs["packages"] = setuptools.find_packages(where='src', include=include_rules, exclude=exclude_rules)
+    kwargs["packages"] = setuptools.find_packages(where='src', include=["pypdfium2*"], exclude=[])
     
     setuptools.setup(**kwargs)
 
-
-def _parse_modspec(modspec, pl_name):
-    if not modspec:
-        return ModulesAll
-    
-    modnames = modspec.split(",")
-    if pl_name == ExtPlats.sdist:
-        assert set(modnames) == set(ModulesAll)
-    else:
-        assert set(modnames).issubset(ModulesAll)
-        assert len(modnames) in (1, 2)
-    
-    return modnames
 
 def _resolve_platname(pl_name):
     if pl_name != ExtPlats.fallback:
@@ -212,15 +163,10 @@ def _resolve_platname(pl_name):
 
 
 def main():
-    
-    raw_modspec = os.environ.get(ModulesSpec_EnvVar, "")
     raw_platspec = os.environ.get(PlatSpec_EnvVar, "")
-    
     pl_name, *args = parse_pl_spec(raw_platspec)
-    modnames = _parse_modspec(raw_modspec, pl_name)
-    
     datagen = partial(prepare_setup, pl_name, *args)
-    run_setup(modnames, _resolve_platname(pl_name), datagen)
+    run_setup(_resolve_platname(pl_name), datagen)
 
 
 if __name__ == "__main__":

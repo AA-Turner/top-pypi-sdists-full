@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 OR BSD-3-Clause
 
 import ctypes
-import pypdfium2._helpers as pdfium
+import pypdfium2 as pdfium
 import pypdfium2.internal as pdfium_i
 from pypdfium2_cli.fonts import _show_table
 
@@ -23,7 +23,7 @@ def _map_default_fonts(sfh, ttfmap):
         buf_size = sfh.GetFaceName(None, font_handle, None, 0)
         if not (buf_size > 0):
             continue
-        buf = ctypes.create_string_buffer(buf_size)
+        buf = (ctypes.c_char * buf_size)()
         buf_ptr = ctypes.cast(buf, ctypes.POINTER(ctypes.c_char))
         sfh.GetFaceName(None, font_handle, buf_ptr, buf_size)
 

@@ -70,9 +70,12 @@ _CONFIDENCE_RANK: dict[str, int] = {"EXTRACTED": 3, "INFERRED": 2, "AMBIGUOUS": 
 # on-disk graph.json (written by the incremental update path) keep the edge with
 # no matching node — an undeclared endpoint every loader materialises as an
 # attribute-less phantom (#2873). For these relations we instead mint a typed
-# external stub node so every edge endpoint resolves. Deliberately NOT `calls`:
-# a sourceless external call target is suppressed on purpose (#3156) to avoid a
-# phantom god-node, and that policy is unchanged here.
+# external stub node so every edge endpoint resolves. `calls` is intentionally
+# NOT in this set: a `calls` edge to an external target only survives when the
+# module was also imported (its import edge pre-mints the stub, see the Python
+# external-call resolution in #3793); a `calls` edge to a never-imported target
+# is still dropped as a phantom (#3156). External stubs stay out of god-node
+# ranking regardless (analyze._is_concept_node filters source_file="").
 _EXTERNAL_STUB_RELATIONS: frozenset[str] = frozenset(
     {"imports", "imports_from", "re_exports"}
 )

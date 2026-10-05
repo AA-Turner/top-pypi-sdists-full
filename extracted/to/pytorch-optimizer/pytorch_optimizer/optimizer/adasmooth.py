@@ -6,17 +6,17 @@ from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGro
 
 
 class AdaSmooth(BaseOptimizer):
-    """An Adaptive Learning Rate Method based on Effective Ratio.
+    """Adaptive updates with effective ratio smoothing.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
-        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Lower and upper smoothing bounds for the effective ratio adaptation.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -69,7 +69,7 @@ class AdaSmooth(BaseOptimizer):
             state = self.state[p]
 
             if len(state) == 0:
-                state['prev_param'] = torch.zeros_like(p)
+                state['prev_param'] = p.clone()
                 state['s'] = torch.zeros_like(p)
                 state['n'] = torch.zeros_like(p)
                 state['exp_avg_sq'] = torch.zeros_like(p)
@@ -115,18 +115,18 @@ class AdaSmooth(BaseOptimizer):
                 s.add_(p_diff)
                 n.add_(p_diff.abs())
 
-                c = s.sum().abs_().div_(n.sum().add_(group['eps']))  # e_t
+                c = s.abs().div_(n.add(group['eps']))
                 c.mul_(beta2 - beta1).add_(1.0 - beta2)
 
                 c_p2 = c.pow(2)
 
-                exp_avg_sq.mul_(1.0 - c_p2).addcmul_(grad, grad, value=c_p2)
+                exp_avg_sq.lerp_(grad.square(), weight=c_p2)
 
                 step_size = torch.full_like(exp_avg_sq, fill_value=group['lr'])
                 step_size.div_((exp_avg_sq + group['eps']).sqrt()).mul_(grad)
 
-                p.add_(-step_size)
-
                 state['prev_param'].copy_(torch.view_as_complex(p) if torch.is_complex(state['prev_param']) else p)
+
+                p.add_(-step_size)
 
         return loss

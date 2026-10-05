@@ -1,4 +1,3 @@
-from typing import Tuple
 
 import torch
 
@@ -15,21 +14,21 @@ from pytorch_optimizer.base.type import (
 
 
 class SPlus(BaseOptimizer):
-    """A Stable Whitening Optimizer for Efficient Neural Network Training.
+    """Adaptive updates with matrix whitening and gradient momentum.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Whether the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): Whether to fix weight decay.
-        ema_rate (float): Exponential moving average decay rate.
-        inverse_steps (int): Number of steps to perform inverse.
-        nonstandard_constant (float): Scale factor for the learning rate in case of a non-linear layer.
-        max_dim (int): Maximum number of dimensions to perform the operation on.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the first and second moments.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        ema_rate: Exponential moving average decay rate.
+        inverse_steps: Number of steps between inverse root preconditioner updates.
+        nonstandard_constant: Scale factor for the learning rate in case of a nonlinear layer.
+        max_dim: Largest tensor dimension to include in matrix preconditioning.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -125,11 +124,11 @@ class SPlus(BaseOptimizer):
                         for d in p.shape
                     ]
                     state['q_sides'] = [
-                        torch.eye(d, device=p.device, dtype=p.dtype) if d < group['max_dim'] else None for d in p.shape
+                        torch.eye(d, device=p.device).to(p.dtype) if d < group['max_dim'] else None for d in p.shape
                     ]
 
     @staticmethod
-    def get_scaled_lr(shape: Tuple[int, int], lr: float, nonstandard_constant: float, max_dim: int = 10000) -> float:
+    def get_scaled_lr(shape: tuple[int, int], lr: float, nonstandard_constant: float, max_dim: int = 10000) -> float:
         scale: float = (
             nonstandard_constant
             if len(shape) != 2 or shape[0] > max_dim or shape[1] > max_dim
@@ -164,14 +163,15 @@ class SPlus(BaseOptimizer):
                     p.shape, group['lr'], group['nonstandard_constant'], group['max_dim']
                 )
 
-                self.apply_weight_decay(
-                    p=p,
-                    grad=grad,
-                    lr=scaled_lr,
-                    weight_decay=group['weight_decay'],
-                    weight_decouple=group['weight_decouple'],
-                    fixed_decay=group['fixed_decay'],
-                )
+                if not group['weight_decouple']:
+                    self.apply_weight_decay(
+                        p=p,
+                        grad=grad,
+                        lr=scaled_lr,
+                        weight_decay=group['weight_decay'],
+                        weight_decouple=False,
+                        fixed_decay=group['fixed_decay'],
+                    )
 
                 m, ema = state['momentum'], state['ema']
                 m.lerp_(grad, weight=1.0 - beta1)
@@ -213,5 +213,15 @@ class SPlus(BaseOptimizer):
                 p.add_(update, alpha=-scaled_lr)
 
                 ema.lerp_(p, weight=1.0 - group['ema_rate'])
+
+                if group['weight_decouple']:
+                    self.apply_weight_decay(
+                        p=p,
+                        grad=grad,
+                        lr=scaled_lr,
+                        weight_decay=group['weight_decay'],
+                        weight_decouple=True,
+                        fixed_decay=group['fixed_decay'],
+                    )
 
         return loss

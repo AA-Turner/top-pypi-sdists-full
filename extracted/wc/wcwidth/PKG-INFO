@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wcwidth
-Version: 0.9.1
+Version: 0.9.2
 Summary: Measures the displayed width of unicode strings in a terminal
 Author-email: Jeff Quast <contact@jeffquast.com>
 Project-URL: Homepage, https://github.com/jquast/wcwidth
@@ -97,8 +97,9 @@ This library may be considered to presume the terminal is enabled for DEC Privat
 ("Grapheme Clustering") by default, which may require to be enabled by a TUI application but
 is often the default mode for those terminals that support it.
 
-This library does support any specific "legacy width" measurement by API, but it does provide
-Corrections_ for those terminals without grapheme support.
+This library does not support any specific "legacy width" measurement by API, but it does provide
+Corrections_ for terminals using "legacy width" measurements or are without basic emoji or grapheme
+support.
 
 See also:
 
@@ -154,7 +155,7 @@ anywhere in the string.
 wcstwidth()
 -----------
 
-Same behavior as `wcswidth()`_ with automatic terminal-specific Corrections_, reading
+`wcstwidth()`_ is a variant of `wcswidth()`_ that provides terminal-specific Corrections_, reading
 ``TERM_PROGRAM`` or ``TERM`` when ``True`` (default), or caller can provide terminal query
 XTVERSION_ or ENQ_ response:
 
@@ -550,7 +551,7 @@ https://wcwidth.readthedocs.io/en/latest/related.html
 .. _`str.rjust()`: https://docs.python.org/3/library/stdtypes.html#str.rjust
 .. _`str.center()`: https://docs.python.org/3/library/stdtypes.html#str.center
 .. _`str.expandtabs()`: https://docs.python.org/3/library/stdtypes.html#str.expandtabs
-.. _`General Tabulated Summary`: https://ucs-detect.readthedocs.io/results.html#tabulated-results
+.. _`General Tabulated Summary`: https://ucs-detect.readthedocs.io/results.html#general-tabulated-summary
 .. _`wcwidth()`: https://wcwidth.readthedocs.io/en/latest/api.html#wcwidth.wcwidth
 .. _`wcswidth()`: https://wcwidth.readthedocs.io/en/latest/api.html#wcwidth.wcswidth
 .. _`wcstwidth()`: https://wcwidth.readthedocs.io/en/latest/api.html#wcwidth.wcstwidth

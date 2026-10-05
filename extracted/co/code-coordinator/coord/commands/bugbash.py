@@ -70,6 +70,8 @@ from __future__ import annotations
 
 import dataclasses
 import sys
+import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -77,6 +79,7 @@ import click
 import httpx
 
 from coord.bugbash import (
+    CATALOGUE_PATH,
     BugbashConfig,
     BugbashLane,
     BugbashReport,
@@ -84,8 +87,12 @@ from coord.bugbash import (
     ExploreOutcome,
     build_exploration_briefing,
     discover_lanes,
+    driver_command_for_lane,
     finding_target_repo,
     harvest_outcome,
+    journeys_for_lane,
+    parse_catalogue,
+    parse_coverage_block,
     parse_findings_block,
     parse_unavailable_report,
     run_bugbash,
@@ -176,35 +183,73 @@ def _fetch_and_parse_outcome(machine, assignment_id: str, *, platform: str, repo
     from coord.worker_events import (
         WorkerSummary,
         _assistant_text,
+        _iter_content_blocks,
+        _tool_result_output,
         iter_events_from_text,
         update_summary,
     )
 
     last_assistant_text = ""
+    # #3590: every message's DECODED text, concatenated — never the raw
+    # NDJSON `log_resp.text` itself. The transcript file is a stream of
+    # JSON objects, so a real newline (or a literal `"`) inside a message's
+    # `text` field is encoded as the two characters `\` `n` (resp. `\` `"`),
+    # not the real byte; `parse_unavailable_report`'s fence regex requires a
+    # real newline right after the fence opener, and its fallback
+    # `_UNAVAILABLE_SIGNATURES` are quoted literally, so matching either
+    # against the raw JSON bytes silently never matches at all — a
+    # well-formed ` ```bugbash-unavailable ``` ` block in the worker's own
+    # final message then fell through to `parse_findings_block` and came
+    # back as a protocol error instead (#3590's actual bug: both evidence
+    # transcripts hit exactly this). Decoding first (the same
+    # `_assistant_text` extraction used for `last_assistant_text` below,
+    # plus `_tool_result_output` for a driver failure surfacing in a tool's
+    # own output rather than the model's prose) restores real characters so
+    # both the fence and the fallback signatures are reachable again.
+    all_decoded_text_parts: list[str] = []
     summary = WorkerSummary()
     for event in iter_events_from_text(log_resp.text):
         update_summary(summary, event)
-        if event.type != "assistant":
-            continue
-        text = _assistant_text(event)
-        if text.strip():
-            last_assistant_text = text
+        if event.type == "assistant":
+            text = _assistant_text(event)
+            if text.strip():
+                last_assistant_text = text
+                all_decoded_text_parts.append(text)
+        elif event.type == "user":
+            for block in _iter_content_blocks(event.raw.get("message") or {}):
+                if block.get("type") != "tool_result":
+                    continue
+                out = _tool_result_output(block, event.raw)
+                if out:
+                    all_decoded_text_parts.append(out)
+        elif event.type == "tool_result":
+            out = _tool_result_output(event.raw, event.raw)
+            if out:
+                all_decoded_text_parts.append(out)
 
     # #3566 ask #5: a worker's own "lane unavailable" report (the
     # briefing's hard rule — a missing permission/session, never an
     # improvised workaround) OR a driver session/permission failure
     # surfacing directly in the transcript is a THIRD outcome, distinct
-    # from both a clean pass and a protocol error — checked against the
-    # FULL raw log text (not just the last assistant message) so it's
-    # caught even if the worker reported it mid-session before crashing.
+    # from both a clean pass and a protocol error — checked against EVERY
+    # decoded message (not just the last assistant one) so it's caught even
+    # if the worker reported it mid-session before crashing, or it
+    # surfaced in a tool's own output (#3590: decoded text, NOT the raw log
+    # text — see the note above).
     # Must be checked BEFORE `parse_findings_block`: an unavailable report
     # deliberately carries no findings fence (the briefing tells the
     # worker to skip it), which would otherwise read as a protocol error.
-    unavailable_reason = parse_unavailable_report(log_resp.text)
+    unavailable_reason = parse_unavailable_report("\n\n".join(all_decoded_text_parts))
     if unavailable_reason:
         return ExploreOutcome(
             unavailable=True, cost=summary.total_cost_usd, notes=unavailable_reason,
         )
+
+    # #3580 requirement 5: purely informational per-journey coverage — never
+    # part of the protocol-error/clean-pass decision below, so it's parsed
+    # unconditionally off the SAME last-assistant text regardless of which
+    # branch fires.
+    journey_outcomes = parse_coverage_block(last_assistant_text)
 
     parsed = parse_findings_block(last_assistant_text, platform=platform, repo=repo)
     if parsed.protocol_error:
@@ -216,8 +261,12 @@ def _fetch_and_parse_outcome(machine, assignment_id: str, *, platform: str, repo
             cost=summary.total_cost_usd,
             notes=f"protocol error: {parsed.protocol_error}",
             protocol_error=parsed.protocol_error,
+            journey_outcomes=journey_outcomes,
         )
-    return ExploreOutcome(findings=parsed.findings, cost=summary.total_cost_usd, notes="status=completed")
+    return ExploreOutcome(
+        findings=parsed.findings, cost=summary.total_cost_usd, notes="status=completed",
+        journey_outcomes=journey_outcomes,
+    )
 
 
 def _dispatch_and_await_lane(
@@ -228,6 +277,7 @@ def _dispatch_and_await_lane(
     config,
     reference_backend: str,
     checklist=EXPLORATION_CHECKLIST,
+    catalogue_text: str | None = None,
     poll_interval: float = DEFAULT_POLL_INTERVAL,
     timeout: float = DEFAULT_LANE_TIMEOUT,
     cost_cap: float = float("inf"),
@@ -299,6 +349,7 @@ def _dispatch_and_await_lane(
 
     briefing = build_exploration_briefing(
         lane, reference_backend=reference_backend, checklist=checklist,
+        catalogue_text=catalogue_text,
     )
     proposal = Proposal(
         id=0,
@@ -470,6 +521,54 @@ def _fetch_recently_closed_issues(slug: str, *, limit: int = 200) -> list[dict]:
         return []
 
 
+def _fetch_catalogue_text(slug: str, branch: str) -> str | None:
+    """Best-effort fetch of *slug*'s :data:`CATALOGUE_PATH` (#3580) —
+    ``None`` when the file doesn't exist on *branch* (the repo's own
+    configured default branch — threaded through like every other
+    :func:`github_ops.get_repo_file` call site, e.g.
+    :mod:`coord.milestone_dispatch`, :mod:`coord.gate_b`), or the fetch
+    itself fails, so a repo with no catalogue (the overwhelming majority,
+    today) degrades to :func:`build_exploration_briefing`'s own
+    :data:`EXPLORATION_CHECKLIST` fallback rather than aborting the run.
+    Never raises.
+
+    #3580 review: previously called :func:`github_ops.get_repo_file`
+    without a ``branch=`` argument, which defaults to ``"develop"`` — so
+    any repo whose default branch isn't literally named ``develop`` (e.g.
+    ``main``) 404'd and silently fell back to the checklist even when a
+    real catalogue sat on its actual default branch.
+    """
+    try:
+        return github_ops.get_repo_file(slug, CATALOGUE_PATH, branch=branch)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _describe_catalogue(catalogue_text: str | None, lanes: list[BugbashLane]) -> str:
+    """One line naming the catalogue in use (or the fallback) and the
+    journey count per lane (#3580 acceptance: ``coord bugbash <repo>
+    --dry-run`` output must say this) — the SAME :func:`parse_catalogue`/
+    :func:`journeys_for_lane` calls :func:`build_exploration_briefing` makes
+    per lane, so this line can never disagree with what a lane's worker was
+    actually told to walk (#2096 "one question, one answer")."""
+    catalogue = parse_catalogue(catalogue_text)
+    if not catalogue.journeys:
+        reason = catalogue.warning or f"no catalogue found at {CATALOGUE_PATH}"
+        return (
+            f"catalogue: {reason} — falling back to the built-in exploration "
+            f"checklist ({len(EXPLORATION_CHECKLIST)} item(s)) for every lane"
+        )
+    per_lane = ", ".join(
+        f"{lane.platform}={len(journeys_for_lane(catalogue.journeys, lane.driver_kind))}"
+        for lane in lanes
+    )
+    warning_note = f" (warning: {catalogue.warning})" if catalogue.warning else ""
+    return (
+        f"catalogue: {catalogue.source} ({len(catalogue.journeys)} journey(s) "
+        f"total){warning_note} — lane journey counts: {per_lane or '(no lanes)'}"
+    )
+
+
 def _print_round(report: BugbashReport) -> None:
     """Render every round's findings/filings/failures — shared by
     ``coord bugbash run``'s multi-round report and ``coord bugbash
@@ -499,6 +598,15 @@ def _print_round(report: BugbashReport) -> None:
         # round.
         for platform, note in r.protocol_error_lanes.items():
             click.secho(f"  lane PROTOCOL ERROR ({platform}): {note}", fg="red")
+        # #3580 requirement 5: a clean round should read as "N journeys
+        # passed", not just a quiet "0 finding(s)" line.
+        for platform, cov in r.lane_coverage.items():
+            skip_detail = f" [{', '.join(cov.skip_reasons)}]" if cov.skip_reasons else ""
+            click.echo(
+                f"  coverage ({platform}): {cov.attempted} attempted, "
+                f"{cov.passed} passed, {cov.found} found, {cov.skipped} skipped"
+                f"{skip_detail}"
+            )
         for f in r.filings:
             incomplete = " [INCOMPLETE REPORT]" if f.finding.incomplete else ""
             # #3546: a finding routed by `suspected_repo` away from the app
@@ -609,7 +717,7 @@ def bugbash_run_cmd(
 
     lanes = discover_lanes(cfg, repo, reference_backend=reference)
     if lane_filter:
-        lanes = [l for l in lanes if l.platform in lane_filter]
+        lanes = [lane for lane in lanes if lane.platform in lane_filter]
     if not lanes:
         click.echo(
             f"error: no capable lane found for {repo!r} "
@@ -618,7 +726,22 @@ def bugbash_run_cmd(
         )
         sys.exit(1)
 
-    click.echo(f"lanes: {', '.join(f'{l.platform}@{l.machine}' for l in lanes)}")
+    click.echo(f"lanes: {', '.join(f'{lane.platform}@{lane.machine}' for lane in lanes)}")
+    # #3590: name the exact `coord app-drive` command each lane's worker
+    # will be told to run, via the SAME `driver_command_for_lane` the
+    # briefing's own HARD RULE calls (#2096 "one question, one answer") —
+    # so `--dry-run` (and every real run) always shows what a worker was
+    # actually handed, never a second, independently-drifting guess at it.
+    for lane in lanes:
+        click.echo(f"  [{lane.platform}] driver: {driver_command_for_lane(lane)}")
+
+    # #3580: fetch the repo's behaviour catalogue ONCE per run (not per
+    # lane/round — it's the same file for all of them) and name what's in
+    # use (or the fallback) up front, so a `--dry-run` operator can see
+    # which journeys would actually be walked without reading a lane
+    # worker's transcript.
+    catalogue_text = _fetch_catalogue_text(repo_cfg.github, repo_cfg.default_branch)
+    click.echo(_describe_catalogue(catalogue_text, lanes))
 
     bb_config = BugbashConfig(
         repo=repo,
@@ -631,11 +754,30 @@ def bugbash_run_cmd(
         confirm_rounds=confirm_rounds,
     )
 
+    # #3602: lanes on different hosts now run concurrently (coord.bugbash
+    # ._explore_round_lanes), so a bare `click.echo` from each host's thread
+    # could interleave mid-line with another host's — print under a shared
+    # lock, and prefix every line with the lane label, so a long concurrent
+    # round still reads as one lane's story per line rather than a shuffled
+    # mess of partial writes.
+    print_lock = threading.Lock()
+
     def explorer(lane: BugbashLane, round_num: int) -> ExploreOutcome:
-        return _dispatch_and_await_lane(
+        with print_lock:
+            click.echo(f"[{lane.platform}@{lane.machine}] round {round_num}: dispatching...")
+        started = time.monotonic()
+        outcome = _dispatch_and_await_lane(
             lane, round_num, repo_name=repo, config=cfg, reference_backend=reference,
+            catalogue_text=catalogue_text,
             timeout=lane_timeout, cost_cap=cost_cap_per_lane,
         )
+        elapsed = time.monotonic() - started
+        with print_lock:
+            click.echo(
+                f"[{lane.platform}@{lane.machine}] round {round_num}: done in "
+                f"{elapsed:.0f}s ({len(outcome.findings)} finding(s), cost={outcome.cost:.2f})"
+            )
+        return outcome
 
     def confirm(round_num: int, candidates: list) -> bool:
         if yes:

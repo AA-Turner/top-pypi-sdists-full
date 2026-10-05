@@ -1225,7 +1225,7 @@ class PortalDeck:
     structure: object | None = None
 
 
-def parse_deck(body: str) -> PortalDeck:
+def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
     """A deck body's cards, grouped the way the engine executes them.
 
     ``momwire.deck.parse`` reads the deck first and owns every refusal: this
@@ -1243,8 +1243,14 @@ def parse_deck(body: str) -> PortalDeck:
     ``refilled``/``refilled_partial`` shape, and the environment in force at
     its execute card (momwire#370 — a ``GN`` between two execute cards arms,
     so a group's ground is not always the deck's).
+
+    ``dialect`` is the front end that reads the deck: ``"nec2"`` for this
+    portal, ``"nec4"`` for the EZNEC NEC-4.2 slot (momwire#1295), whose cards
+    are NEC-2's with the deltas `momwire.deck._nec4` lists.  The walk below is
+    the same for both — an ``EX 6`` records its set current where an ``EX 0``
+    records its volts, and the model's ``current_feeds`` says which is which.
     """
-    model = parse_dialect(body, dialect="nec2")
+    model = parse_dialect(body, dialect=dialect)
 
     comments: list[str] = []
     geometry: list[Card] = []
@@ -1830,7 +1836,12 @@ class DeckSolver:
     to the physics. That is what lets one port set serve every group.
     """
 
-    def __init__(self, deck: PortalDeck):
+    def __init__(self, deck: PortalDeck, basis: str | None = None):
+        # ``basis`` names the formulation for THIS deck; ``None`` reads the
+        # process's configured engine (`configure_engine`), which is the
+        # portal's own contract.  The EZNEC NEC-4.2 slot passes its basis
+        # explicitly because it shares the process with no portal state.
+        self._basis_name = _active_basis_name if basis is None else basis
         self.portal_deck = deck
         self.model = deck.model
         self.structure = deck.structure
@@ -1906,6 +1917,12 @@ class DeckSolver:
         # whether the budget reads the load's watts back off the solver
         # (momwire#433).
         self._native_loading = isinstance(built.solver, _NATIVE_LOADING)
+        # The solver ports the deck drives as CURRENT sources (the nec4
+        # dialect's ``EX 6``, momwire#1295), through the same feed-to-port
+        # bridge every other port reading uses.
+        self._current_ports = frozenset(
+            self.feed_index[i] for i in getattr(self.model, "current_feeds", ())
+        )
         self._cache[(seed, seed_ek, seed_env.ground)] = self._entry(built)
 
     # -- construction ------------------------------------------------------
@@ -1927,7 +1944,7 @@ class DeckSolver:
         """
         return build_solver(
             self.model,
-            basis=_active_basis_name,
+            basis=self._basis_name,
             group=self._group,
             frequency_mhz=freq_mhz,
             extended_kernel=bool(extended_kernel),
@@ -2100,6 +2117,96 @@ class DeckSolver:
             i_source[port] = j[system.terminations[port][0]]
         return v_applied, i_port, i_source
 
+    def _phased_drive(self, group_index, y, z_load, wavelength, driven):
+        """``(reducer, (V_gap, V_applied, I_port, I_source), driven)`` for a
+        group whose several sources include a current source (momwire#1295).
+
+        The algebra is the NEC-5 slot's phased drive
+        (``momwire.eznec._serve._multi_drive_state``) on this solver's port
+        space.  The driven ports PARTITION: an ``EX 6`` sets its port's source
+        current (the I-set), an ``EX 0`` its applied voltage (the V-set).  The
+        map ``M`` from the driven ports' applied voltages to their source
+        currents is measured a column at a time — one unit probe per driven
+        port through the SAME response the final solve uses, so with a network
+        the columns include it (antenna plus network is what a source
+        delivers) — and then::
+
+            M[I, I] · V_I  =  I_spec  −  M[I, V] · V_V
+
+        is one small solve.  A last response at the full voltage vector is the
+        state, which is therefore exactly the ``EX 0`` run at those volts: the
+        superposition holds by construction rather than by agreement.
+
+        Every driven port is HELD as a source in every probe, zero volts
+        included, so a driven network endpoint cannot float in one probe and
+        be pinned in another (:func:`momwire.deck._networks.build_network`).
+
+        The set currents are restored afterwards rather than read back (the
+        same rule the single current source and ``_composed`` follow): they
+        come out equal to round-off, and round-off is what would print a
+        ``-0.0000E+00`` where the card wrote a zero.  Without a network the
+        structure current at the gap IS the source current, so it is restored
+        too — the printed current at an ``EX 6`` segment is the card's.
+        """
+        n = self.n_ports
+        ports = [port for port, _s, _v in driven]
+        if len(set(ports)) != len(ports):
+            raise PortalError(
+                "two sources of one execute group drive the same segment; a "
+                "phased drive needs one source per port"
+            )
+        held = tuple(ports)
+        eye = np.eye(n, dtype=np.complex128)
+
+        def respond(v_source):
+            reducer = build_reducer(
+                self.model, self.plan, group=group_index, voltages=v_source, held=held
+            )
+            if reducer is None:
+                v_gap = np.linalg.solve(eye + z_load[:, None] * y, v_source)
+                i_port = y @ v_gap
+                return reducer, (v_gap, v_gap, i_port, i_port.copy())
+            v_applied, i_port, i_source = self._composed(
+                reducer, y, z_load, wavelength, driven
+            )
+            return reducer, (v_applied - z_load * i_port, v_applied, i_port, i_source)
+
+        spec = np.array([value for _p, _s, value in driven], dtype=np.complex128)
+        i_rows = [k for k, port in enumerate(ports) if port in self._current_ports]
+        v_rows = [k for k, port in enumerate(ports) if port not in self._current_ports]
+        m = np.zeros((len(ports), len(ports)), dtype=np.complex128)
+        for column, port in enumerate(ports):
+            probe = np.zeros(n, dtype=np.complex128)
+            probe[port] = 1.0
+            _reducer, (_g, _a, _i, i_probe) = respond(probe)
+            m[:, column] = i_probe[ports]
+        rhs = spec[i_rows]
+        if v_rows:
+            rhs = rhs - m[np.ix_(i_rows, v_rows)] @ spec[v_rows]
+        volts = spec.copy()
+        try:
+            volts[i_rows] = np.linalg.solve(m[np.ix_(i_rows, i_rows)], rhs)
+        except np.linalg.LinAlgError as exc:
+            segments = [driven[k][1] for k in i_rows]
+            raise PortalError(
+                f"the current sources on segments {segments} drive ports whose "
+                f"voltage-to-current map is singular, so no set of voltages "
+                f"delivers the set currents"
+            ) from exc
+        v_source = np.zeros(n, dtype=np.complex128)
+        v_source[ports] = volts
+        reducer, (v_gap, v_applied, i_port, i_source) = respond(v_source)
+        for k in i_rows:
+            i_source[ports[k]] = spec[k]
+            if reducer is None:
+                i_port[ports[k]] = spec[k]
+        current_rows = set(i_rows)
+        driven = [
+            (port, segment, complex(v_applied[port]) if k in current_rows else value)
+            for k, (port, segment, value) in enumerate(driven)
+        ]
+        return reducer, (v_gap, v_applied, i_port, i_source), driven
+
     def network_connection_points(self, group_index: int) -> list[tuple[int, int, int]]:
         """``(tag, global segment, solver port)`` per live network connection
         point, in the order the oracle prints them.
@@ -2202,30 +2309,70 @@ class DeckSolver:
         y = entry["Y"]
         v_source = np.zeros(self.n_ports, dtype=np.complex128)
         driven = self._driven(group)
+        # A current source (momwire#1295) is solved as a 1 V drive of its
+        # port and the answer rescaled below so the SOURCE current comes out
+        # at the set value.  Exact: the response is linear in the drive and
+        # this is the group's sole source, so nothing else is driven to be
+        # scaled with it.  Several sources with a current source among them
+        # take `_phased_drive` below instead.
+        set_current: complex | None = None
+        if len(driven) == 1 and driven[0][0] in self._current_ports:
+            port, segment, set_current = driven[0]
+            driven = [(port, segment, 1.0 + 0.0j)]
         for port, _segment, volts in driven:
             v_source[port] = volts
         z_load = self._load_impedances(omega)
-        reducer = build_reducer(
-            self.model, self.plan, group=group_index, voltages=v_source
+        # Several sources with a current source among them (momwire#1295): a
+        # PHASED drive, where no single scale serves and the port voltages
+        # have to be solved for.  Its own path, so the single-source and
+        # all-voltage arithmetic below stays what it was to the bit.
+        phased = len(driven) > 1 and any(
+            port in self._current_ports for port, _s, _v in driven
         )
-
-        if reducer is None:
-            system = np.eye(self.n_ports, dtype=np.complex128) + (z_load[:, None] * y)
-            v_gap = np.linalg.solve(system, v_source)
-            i_port = y @ v_gap
-            # No network branch reaches this group, so the source current IS
-            # the segment current, the applied voltage IS the gap's, and the
-            # network loss is identically zero. This branch is the pre-network
-            # arithmetic to the bit, which is what keeps every antenna-only
-            # fixture's printout where it was.
-            v_applied = v_gap
-            i_source = i_port
+        if phased:
+            reducer, (v_gap, v_applied, i_port, i_source), driven = self._phased_drive(
+                group_index, y, z_load, entry["wavelength"], driven
+            )
             p_network = 0.0
         else:
-            v_applied, i_port, i_source = self._composed(
-                reducer, y, z_load, entry["wavelength"], driven
+            reducer = build_reducer(
+                self.model, self.plan, group=group_index, voltages=v_source
             )
-            v_gap = v_applied - z_load * i_port
+            if reducer is None:
+                system = np.eye(self.n_ports, dtype=np.complex128) + (
+                    z_load[:, None] * y
+                )
+                v_gap = np.linalg.solve(system, v_source)
+                i_port = y @ v_gap
+                # No network branch reaches this group, so the source current
+                # IS the segment current, the applied voltage IS the gap's, and
+                # the network loss is identically zero. This branch is the
+                # pre-network arithmetic to the bit, which is what keeps every
+                # antenna-only fixture's printout where it was.
+                v_applied = v_gap
+                i_source = i_port
+                p_network = 0.0
+            else:
+                v_applied, i_port, i_source = self._composed(
+                    reducer, y, z_load, entry["wavelength"], driven
+                )
+                v_gap = v_applied - z_load * i_port
+
+        if set_current is not None:
+            port, segment, _unit = driven[0]
+            if i_source[port] == 0:
+                raise PortalError(
+                    f"the current source on segment {segment} drives a port "
+                    f"that takes no current at 1 V, so no voltage sets its "
+                    f"current to {set_current}"
+                )
+            scale = set_current / i_source[port]
+            v_gap, v_applied = v_gap * scale, v_applied * scale
+            i_port, i_source = i_port * scale, i_source * scale
+            # The set current is the boundary condition, restored exactly for
+            # the reason `_composed` restores a pinned voltage.
+            i_source[port] = set_current
+            driven = [(port, segment, complex(v_applied[port]))]
 
         coeffs = entry["X"] @ (entry["signs"] * v_gap)
         seg_currents = self._segment_currents(entry["solver"], coeffs)

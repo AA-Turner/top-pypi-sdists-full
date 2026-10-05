@@ -11,7 +11,8 @@ session: it holds `<state>/probe/daemon/<sid>.lock` for its whole life, and the
 worker of a resumed session waits for the previous one to finish.
 
     every POLL_S:  read new lines (main log, helper-agent logs, the SDK inbox)
-                   -> normalized events -> scrubbed -> the store
+                   -> normalized events -> scrubbed -> the store; a log
+                   rewritten under its cursor is read no more (one notice)
                    answers to held questions -> run / void / refuse
                    renew the lease while recording works; leave if the switch
                    left `daemon`
@@ -112,6 +113,14 @@ DUE_AFTER_S = 120.0
 QUEUE_LIMIT_CHARS = 200_000
 READ_CHUNK_BYTES = 4 * 1024 * 1024
 MAX_LINE_BYTES = 8 * 1024 * 1024
+#: A chat log's bytes just before its cursor that are hashed with the cursor: a
+#: file rewritten under the cursor shows there (`Worker._read_stream`).
+GUARD_BYTES = 4 * 1024
+#: Store fact (`<this>:<stream>`): the stream was rewritten under its cursor and
+#: is read no more -- why, and where it stopped.
+STREAM_STOPPED = "stream_stopped"
+#: A rewrite seen by one poll, at this cursor; the next poll confirms or clears it.
+STREAM_SUSPECT = "stream_suspect"
 #: Per bite, bites mode only: model requests, tool calls, tokens (a runaway loop
 #: stops here). Conversation mode has no cap on work: compaction, the loop
 #: detector, and a pause every ROUNDS_BEFORE_YIELD rounds.
@@ -460,20 +469,38 @@ class Worker:
                 return added
 
     def _read_stream(self, stream: str, path: Path, until: int | None = None) -> int:
+        """The next chunk of one chat log, from its cursor. The file must still be
+        the one read so far: the same inode, no shorter than the cursor, the same
+        GUARD_BYTES just before it (as saved with the cursor). A file rewritten
+        under the cursor stops the stream for good (`_stop_stream`) -- never read
+        again from 0, where event ids (`<stream>:<offset>:<index>`) would pass old
+        events off as new, nor on from the cursor, inside bytes it never read."""
+        if self.store.fact(f"{STREAM_STOPPED}:{stream}") is not None:
+            return 0
         _, offset = self.store.cursor(stream)
         try:
-            size = path.stat().st_size
+            handle = path.open("rb")
         except OSError:
             return 0
-        if size < offset:  # rewritten: start over; event ids make the re-read idempotent
-            offset = 0
-        end = size if until is None else min(size, until)
-        if end <= offset:
-            return 0
-        with path.open("rb") as handle:
-            handle.seek(offset)
+        with handle:
+            info = os.fstat(handle.fileno())
+            inode, size = info.st_ino, info.st_size
+            _known_inode, known_tail = self.store.cursor_guard(stream)
+            if size < offset:
+                return self._suspect(stream, offset, f"it is shorter than the {offset:,} bytes already read")
+            end = size if until is None else min(size, until)
+            start = max(0, offset - GUARD_BYTES)
+            handle.seek(start)
+            before = handle.read(offset - start)
+            # The bytes decide, never the inode alone: a copy, an atomic-rename
+            # writer or a network mount gives the same bytes a new inode.
+            if offset and known_tail is not None and _tail_hash(before) != known_tail:
+                return self._suspect(stream, offset, f"the bytes before byte {offset:,} changed")
+            self._clear_suspect(stream)
+            if end <= offset:
+                return 0
             if self.store.fact(f"skipping_line:{stream}") == offset:
-                return self._skip_line(stream, path, handle, offset, end, notice=False)
+                return self._skip_line(stream, path, handle, offset, end, notice=False, inode=inode)
             buf = handle.read(min(READ_CHUNK_BYTES, end - offset))
             if b"\n" not in buf and len(buf) == READ_CHUNK_BYTES:
                 # One line longer than a chunk: read on for its end, up to MAX_LINE_BYTES.
@@ -481,7 +508,7 @@ class Worker:
                 if more > 0:
                     buf += handle.read(more)
                 if b"\n" not in buf and len(buf) > MAX_LINE_BYTES:
-                    return self._skip_line(stream, path, handle, offset, end, notice=True)
+                    return self._skip_line(stream, path, handle, offset, end, notice=True, inode=inode)
         lines: list[tuple[int, list[Event]]] = []
         pos = 0
         while True:
@@ -503,9 +530,43 @@ class Worker:
                 lines.append((end, self._parse(obj, stream, end)))
             except Exception as exc:  # noqa: BLE001 -- one line the adapter cannot read is skipped, never a crash loop
                 log.warning("skipped the line ending at %s:%s: %s: %s", stream, end, type(exc).__name__, exc)
-        return self._store_lines(stream, str(path), offset + pos, lines)
+        tail = _tail_hash((before + buf[:pos])[-GUARD_BYTES:])
+        return self._store_lines(stream, str(path), offset + pos, lines, inode=inode, tail_hash=tail)
 
-    def _skip_line(self, stream: str, path: Path, handle, offset: int, end: int, *, notice: bool) -> int:
+    def _suspect(self, stream: str, offset: int, why: str) -> int:
+        """A rewrite seen once is only suspected: a writer caught between
+        truncating and writing the same bytes back looks like one. The stream
+        stops when the next poll, at the same cursor, still sees it."""
+        key = f"{STREAM_SUSPECT}:{stream}"
+        if self.store.fact(key) == offset:
+            return self._stop_stream(stream, offset, why)
+        self.store.set_fact(key, offset)
+        return 0
+
+    def _clear_suspect(self, stream: str) -> None:
+        key = f"{STREAM_SUSPECT}:{stream}"
+        if self.store.fact(key) is not None:
+            self.store.set_fact(key, None)
+
+    def _stop_stream(self, stream: str, offset: int, why: str) -> int:
+        """The chat log was rewritten under the cursor (Kimi Code rewrites its wire
+        when it migrates an older one on resume): what it holds now cannot be told
+        apart from what was read. Stop reading it, once and loudly -- a notice for
+        the model, a device error line, the log -- and never start it over."""
+        sid = self.session.session_id
+        log.error("the chat log %s was rewritten under the cursor (%s): stopped reading it at byte %s",
+                  stream, why, offset)
+        with self.store.tx():
+            self.store.set_fact(f"{STREAM_STOPPED}:{stream}", {"offset": offset, "why": why, "at": self.clock()})
+            added = self.store.add([_notice_event(
+                self.store, f"the chat log ({stream}) was rewritten in place - {why} - so the daemon stopped reading "
+                            f"it at byte {offset:,}: nothing after that is in the session store")])
+        _device_error(f"session {sid}: its chat log ({stream}) was rewritten in place ({why}); the daemon stopped "
+                      f"reading it at byte {offset:,} instead of reading it again")
+        return added
+
+    def _skip_line(self, stream: str, path: Path, handle, offset: int, end: int, *, notice: bool,
+                   inode: int | None = None) -> int:
         """A line over MAX_LINE_BYTES starts at `offset`: move the cursor past its
         newline (or to `end`, remembering that the next read continues the skip),
         with a notice the first time. Never a crash, never the whole chunk after it."""
@@ -522,6 +583,8 @@ class Worker:
                 found = True
                 break
             pos += len(chunk)
+        handle.seek(max(0, pos - GUARD_BYTES))
+        tail = _tail_hash(handle.read(pos - max(0, pos - GUARD_BYTES)))
         added = 0
         with self.store.tx():
             if notice:
@@ -532,7 +595,7 @@ class Worker:
                     self.store, f"a transcript line over {cap} was skipped ({stream}, byte {offset:,}) - it isn't "
                                 "in the session store")])
             self.store.set_fact(f"skipping_line:{stream}", None if found else pos)
-            self.store.set_cursor(stream, str(path), pos)
+            self.store.set_cursor(stream, str(path), pos, inode=inode, tail_hash=tail)
         return added
 
     def _parse(self, obj: dict, stream: str, end: int) -> list[Event]:
@@ -544,8 +607,10 @@ class Worker:
             ev.index = index
         return events
 
-    def _store_lines(self, stream: str, path: str, cursor: int, lines: list[tuple[int, list[Event]]]) -> int:
-        """Each line's events, and the cursor past them, in one transaction. A line
+    def _store_lines(self, stream: str, path: str, cursor: int, lines: list[tuple[int, list[Event]]], *,
+                     inode: int | None = None, tail_hash: str | None = None) -> int:
+        """Each line's events, and the cursor past them (with the file's inode and
+        the hash of the bytes before it), in one transaction. A line
         that cannot be stored is logged and skipped; only a store that cannot be
         written at all (locked, full, I/O) rolls back, to be read again."""
         added = 0
@@ -560,7 +625,7 @@ class Worker:
                 except Exception as exc:  # noqa: BLE001
                     log.warning("skipped the line ending at %s:%s: not storable: %s: %s", stream, end,
                                 type(exc).__name__, exc)
-            self.store.set_cursor(stream, path, cursor)
+            self.store.set_cursor(stream, path, cursor, inode=inode, tail_hash=tail_hash)
         return added
 
     def _read_inbox(self, until: int | None = None) -> int:
@@ -1548,6 +1613,10 @@ def _foreign_lease(session_id: str) -> bool:
         return False
     return (isinstance(data, dict) and data.get("pid") != os.getpid() and not data.get("reason")
             and float(data.get("expires_at") or 0) > time.time())
+
+
+def _tail_hash(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 def _notice_event(store: Store, text: str) -> Event:

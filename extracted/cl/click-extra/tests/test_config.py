@@ -48,6 +48,7 @@ from click_extra import (
     VCS,
     ConfigFormat,
     ConfigOption,
+    Group,
     LazyGroup,
     command,
     config_option,
@@ -1267,8 +1268,60 @@ def test_conf_file_overridden_by_cli_param(
         assert result.stdout == (
             "dummy_flag = False\nmy_list = ('super', 'wow')\nint_parameter = 15\n"
         )
-        assert result.stderr == f"Load configuration matching {conf_path}\n"
+        # --verbosity CRITICAL also silences the --config status line.
+        assert not result.stderr
         assert result.exit_code == 0
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "shown"),
+    (
+        ((), (), True),
+        ((), ("--verbosity", "INFO"), True),
+        ((), ("--verbosity", "ERROR"), False),
+        ((), ("-q",), False),
+        # The level is read ahead, so a flag typed before --config counts too.
+        (("-q",), (), False),
+        # -v cancels -q, back to the default WARNING.
+        ((), ("-q", "-v"), True),
+    ),
+)
+def test_config_status_line_follows_verbosity(
+    invoke, create_config, before, after, shown
+):
+    """`--config` announces the file it loads, unless the command line asks for less
+    than the default verbosity, whatever the position of the verbosity flags."""
+    conf_path = create_config("orchard.toml", "[orchard]\n")
+
+    @command
+    def orchard():
+        echo("Picked.")
+
+    result = invoke(orchard, *before, "--config", str(conf_path), *after)
+    assert result.exit_code == 0
+    assert result.stdout == "Picked.\n"
+    assert ("Load configuration matching" in result.stderr) is shown
+
+
+@pytest.mark.parametrize(
+    ("args", "shown"),
+    (
+        (("--no-config",), True),
+        (("--no-config", "-q"), False),
+        (("--verbosity", "CRITICAL", "--no-config"), False),
+    ),
+)
+def test_no_config_status_line_follows_verbosity(invoke, args, shown):
+    """`--no-config` announces it skips loading, unless asked for quiet output."""
+
+    @command
+    def orchard():
+        echo("Picked.")
+
+    result = invoke(orchard, *args)
+    assert result.exit_code == 0
+    assert result.stdout == "Picked.\n"
+    assert ("Skip configuration file loading altogether." in result.stderr) is shown
 
 
 @all_config_formats
@@ -4112,12 +4165,12 @@ own {class}`~click_extra.commands.Group`.
 """
 
 
-def make_subcommand_group(group_factory, *, chain):
+def make_subcommand_group(group_factory, *, chain, **kwargs):
     """Build a `subcmdcli` group of *group_factory*, carrying `--config`.
 
     Registers a `debug` and a `sync` subcommand, each echoing its own name.
     click-extra groups already ship `--config`, so the option is only added to
-    the other flavors.
+    the other flavors. Extra keyword arguments go to *group_factory*.
     """
 
     def subcmdcli():
@@ -4126,7 +4179,7 @@ def make_subcommand_group(group_factory, *, chain):
     if group_factory is not group:
         subcmdcli = config_option()(subcmdcli)
 
-    cli = group_factory(chain=chain)(subcmdcli)
+    cli = group_factory(chain=chain, **kwargs)(subcmdcli)
 
     @cli.command()
     def debug():
@@ -4176,6 +4229,21 @@ def test_prepend_subcommands_on_any_group_class(invoke, create_config, group_fac
     assert result.output.index("debug ran") < result.output.index("sync ran")
 
 
+SUBGROUP_CLASSES = (
+    pytest.param(click.Group, id="click-subgroup"),
+    pytest.param(cloup.Group, id="cloup-subgroup"),
+    pytest.param(Group, id="click-extra-subgroup"),
+    pytest.param(PlainGroupSubclass, id="click-subgroup-subclass"),
+)
+"""Every group class a subgroup can be built on.
+
+A subgroup reached through an ancestor's `--config` holds no option of its own, so
+its class is all that could keep it from reading its own section.
+"""
+
+
+@pytest.mark.parametrize("group_factory", SUBCOMMAND_GROUP_FACTORIES)
+@pytest.mark.parametrize("subgroup_class", SUBGROUP_CLASSES)
 @pytest.mark.parametrize(
     ("reserved_key", "cli_args"),
     [
@@ -4183,39 +4251,41 @@ def test_prepend_subcommands_on_any_group_class(invoke, create_config, group_fac
         pytest.param("_prepend_subcommands", ("mid", "sync"), id="prepend"),
     ],
 )
-def test_subcommands_on_a_subgroup(invoke, create_config, reserved_key, cli_args):
+def test_subcommands_on_a_subgroup(
+    invoke, create_config, group_factory, subgroup_class, reserved_key, cli_args
+):
     """A subgroup applies the reserved keys of its own configuration section.
 
     Only the root group carries `--config`, so a subgroup is never visited as
-    that option is processed. It reads `[parent.subgroup]` itself.
+    that option is processed. It reads `[parent.subgroup]` all the same, whatever
+    classes the root and the subgroup are built on.
     """
     conf_path = create_config(
-        "sg-cli.toml",
+        "subcmdcli.toml",
         dedent(f"""\
-            [sg-cli.mid]
+            [subcmdcli.mid]
             {reserved_key} = ["debug"]
             """),
     )
+    cli = make_subcommand_group(group_factory, chain=False)
 
-    @group
-    def sg_cli():
-        pass
-
-    @sg_cli.group(chain=True)
+    @click.group(cls=subgroup_class, chain=True)
     def mid():
         pass
 
+    cli.add_command(mid)
+
     @mid.command()
     def debug():
-        echo("debug ran")
+        echo("mid debug ran")
 
     @mid.command()
     def sync():
-        echo("sync ran")
+        echo("mid sync ran")
 
-    result = invoke(sg_cli, "--config", str(conf_path), *cli_args, color=False)
+    result = invoke(cli, "--config", str(conf_path), *cli_args, color=False)
     assert result.exit_code == 0
-    assert "debug ran" in result.output
+    assert "mid debug ran" in result.output
 
 
 @pytest.fixture
@@ -4238,52 +4308,116 @@ def app_dir_conf(tmp_path, monkeypatch):
     return _write
 
 
+@pytest.mark.parametrize("group_factory", SUBCOMMAND_GROUP_FACTORIES)
 @pytest.mark.parametrize(
-    "reserved_key", ("_default_subcommands", "_prepend_subcommands")
+    ("reserved_key", "chain"),
+    [
+        pytest.param("_default_subcommands", False, id="default"),
+        pytest.param("_default_subcommands", True, id="default-chained"),
+        pytest.param("_prepend_subcommands", True, id="prepend-chained"),
+    ],
 )
-def test_subcommands_beat_no_args_is_help(invoke, app_dir_conf, reserved_key):
-    """A configured subcommand outranks Click's no-args help screen."""
+def test_subcommands_beat_no_args_is_help(
+    invoke, app_dir_conf, group_factory, reserved_key, chain
+):
+    """A configured subcommand outranks Click's no-args help screen.
+
+    Click raises that screen before it runs any parameter, so `--config` alone
+    never sees a bare invocation, whatever group class carries it.
+    """
     app_dir_conf(
         dedent(f"""\
-            [na-cli]
+            [subcmdcli]
             {reserved_key} = ["debug"]
             """),
     )
+    cli = make_subcommand_group(group_factory, chain=chain)
 
-    @group(chain=True)
-    def na_cli():
-        pass
-
-    @na_cli.command()
-    def debug():
-        echo("debug ran")
-
-    result = invoke(na_cli, color=False)
+    result = invoke(cli, color=False)
     assert result.exit_code == 0
     assert "debug ran" in result.output
+    assert "sync ran" not in result.output
 
 
-def test_no_args_is_help_survives_a_silent_config(invoke, app_dir_conf):
+@pytest.mark.parametrize("group_factory", SUBCOMMAND_GROUP_FACTORIES)
+def test_no_args_is_help_survives_a_silent_config(invoke, app_dir_conf, group_factory):
     """The help screen stays when the configuration names no subcommand."""
+    app_dir_conf("[subcmdcli]\n")
+    cli = make_subcommand_group(group_factory, chain=True)
+
+    result = invoke(cli, color=False)
+    assert "debug ran" not in result.output
+    assert "sync ran" not in result.output
+    assert "Usage: subcmdcli" in result.output
+
+
+@pytest.mark.parametrize("group_factory", SUBCOMMAND_GROUP_FACTORIES)
+def test_bare_invocation_loads_the_configuration_once(
+    invoke, create_config, group_factory
+):
+    """A bare invocation running a configured subcommand reads its document once.
+
+    `--config` is processed ahead of the no-args help screen, then again by Click's
+    parameter loop. A location set on purpose, here through the environment, makes
+    each load print its status line.
+    """
+    conf_path = create_config(
+        "subcmdcli.toml",
+        dedent("""\
+            [subcmdcli]
+            _default_subcommands = ["backup"]
+
+            [subcmdcli.backup]
+            path = "/home"
+            """),
+    )
+    cli = make_subcommand_group(
+        group_factory,
+        chain=True,
+        context_settings={"auto_envvar_prefix": "SUBCMDCLI"},
+    )
+
+    @cli.command()
+    @option("--path", default="/tmp")
+    def backup(path):
+        echo(f"Backing up {path}")
+
+    result = invoke(cli, color=False, env={"SUBCMDCLI_CONFIG": str(conf_path)})
+    assert result.exit_code == 0
+    assert result.stdout == "Backing up /home\n"
+    assert result.stderr == f"Load configuration matching {conf_path}\n"
+
+
+def test_no_args_is_help_stays_without_a_config_option(invoke, app_dir_conf):
+    """A group carrying no `--config` never reads a configuration to dispatch on."""
     app_dir_conf(
         dedent("""\
-            [quiet-cli]
-            dummy_flag = true
+            [bare-cli]
+            _default_subcommands = ["debug"]
             """),
     )
 
-    @group(chain=True)
-    @option("--dummy-flag/--no-flag")
-    def quiet_cli(dummy_flag):
-        echo(f"dummy_flag = {dummy_flag!r}")
+    @click.group(chain=True)
+    def bare_cli():
+        pass
 
-    @quiet_cli.command()
+    @bare_cli.command()
     def debug():
         echo("debug ran")
 
-    result = invoke(quiet_cli, color=False)
+    result = invoke(bare_cli, color=False)
     assert "debug ran" not in result.output
-    assert "Usage: quiet-cli" in result.output
+    assert "Usage: bare-cli" in result.output
+
+
+def test_group_parse_args_is_wrapped_once():
+    """Each new `ConfigOption` leaves the wrapper of `click.Group` as it found it."""
+    ConfigOption()
+    wrapped = click.Group.parse_args
+    assert wrapped.__module__ == ConfigOption.__module__
+
+    ConfigOption()
+    assert click.Group.parse_args is wrapped
 
 
 @pytest.mark.parametrize(

@@ -2,6 +2,7 @@ from chalk._gen.buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -1129,15 +1130,15 @@ class GetVolumeCredentialsRequest(_message.Message):
     ) -> None: ...
 
 class GetVolumeCredentialsResponse(_message.Message):
-    __slots__ = ("volume", "bucket_uri", "prefixes", "expires_at", "aws", "gcp")
+    __slots__ = ("volume", "storage", "prefixes", "expires_at", "aws", "gcp")
     VOLUME_FIELD_NUMBER: _ClassVar[int]
-    BUCKET_URI_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_FIELD_NUMBER: _ClassVar[int]
     PREFIXES_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
     AWS_FIELD_NUMBER: _ClassVar[int]
     GCP_FIELD_NUMBER: _ClassVar[int]
     volume: VolumeRef
-    bucket_uri: str
+    storage: ObjectStoreConfig
     prefixes: _containers.RepeatedScalarFieldContainer[str]
     expires_at: _timestamp_pb2.Timestamp
     aws: AwsSessionCredentials
@@ -1145,12 +1146,39 @@ class GetVolumeCredentialsResponse(_message.Message):
     def __init__(
         self,
         volume: _Optional[_Union[VolumeRef, _Mapping]] = ...,
-        bucket_uri: _Optional[str] = ...,
+        storage: _Optional[_Union[ObjectStoreConfig, _Mapping]] = ...,
         prefixes: _Optional[_Iterable[str]] = ...,
         expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         aws: _Optional[_Union[AwsSessionCredentials, _Mapping]] = ...,
         gcp: _Optional[_Union[GcpAccessToken, _Mapping]] = ...,
     ) -> None: ...
+
+class ObjectStoreConfig(_message.Message):
+    __slots__ = ("uri", "gcs", "s3")
+    URI_FIELD_NUMBER: _ClassVar[int]
+    GCS_FIELD_NUMBER: _ClassVar[int]
+    S3_FIELD_NUMBER: _ClassVar[int]
+    uri: str
+    gcs: GcsOptions
+    s3: S3Options
+    def __init__(
+        self,
+        uri: _Optional[str] = ...,
+        gcs: _Optional[_Union[GcsOptions, _Mapping]] = ...,
+        s3: _Optional[_Union[S3Options, _Mapping]] = ...,
+    ) -> None: ...
+
+class GcsOptions(_message.Message):
+    __slots__ = ("project_id",)
+    PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
+    project_id: str
+    def __init__(self, project_id: _Optional[str] = ...) -> None: ...
+
+class S3Options(_message.Message):
+    __slots__ = ("region",)
+    REGION_FIELD_NUMBER: _ClassVar[int]
+    region: str
+    def __init__(self, region: _Optional[str] = ...) -> None: ...
 
 class AwsSessionCredentials(_message.Message):
     __slots__ = ("access_key_id", "secret_access_key", "session_token")

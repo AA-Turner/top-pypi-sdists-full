@@ -1,6 +1,6 @@
 import random
+from collections.abc import Iterable
 from copy import deepcopy
-from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -10,15 +10,15 @@ from torch.optim import Optimizer
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 
 
-def flatten_grad(grads: List[torch.Tensor]) -> torch.Tensor:
-    """Flatten the gradient."""
+def flatten_grad(grads: list[torch.Tensor]) -> torch.Tensor:
+    """Flatten and concatenate a list of gradient tensors."""
     return torch.cat([grad.flatten() for grad in grads])
 
 
-def un_flatten_grad(grads: torch.Tensor, shapes: List[int]) -> List[torch.Tensor]:
-    """Unflatten the gradient."""
+def un_flatten_grad(grads: torch.Tensor, shapes: list[int]) -> list[torch.Tensor]:
+    """Restore a flat gradient to tensors with the supplied shapes."""
     idx: int = 0
-    un_flatten_grads: List[torch.Tensor] = []
+    un_flatten_grads: list[torch.Tensor] = []
     for shape in shapes:
         length = np.prod(shape)
         un_flatten_grads.append(grads[idx:idx + length].view(shape).clone())  # fmt: skip
@@ -27,11 +27,11 @@ def un_flatten_grad(grads: torch.Tensor, shapes: List[int]) -> List[torch.Tensor
 
 
 class PCGrad(BaseOptimizer):
-    """Gradient Surgery for Multi-Task Learning.
+    """Wrap an optimizer with gradient projection for conflicting task objectives.
 
     Args:
-        optimizer (Optimizer): Optimizer instance.
-        reduction (str): Reduction method for gradients.
+        optimizer: Optimizer instance.
+        reduction: Reduction method for gradients.
 
     """
 
@@ -51,15 +51,15 @@ class PCGrad(BaseOptimizer):
     def step(self):
         return self.optimizer.step()
 
-    def set_grad(self, grads: List[torch.Tensor], has_grads: Optional[List[torch.Tensor]] = None) -> None:
+    def set_grad(self, grads: list[torch.Tensor], has_grads: list[torch.Tensor] | None = None) -> None:
         idx: int = 0
         for group in self.optimizer.param_groups:
             for p in group['params']:
                 p.grad = grads[idx] if has_grads is None or torch.any(has_grads[idx]) else None
                 idx += 1
 
-    def retrieve_grad(self) -> Tuple[List[torch.Tensor], List[int], List[torch.Tensor]]:
-        """Get the gradient of the parameters of the network with specific objective."""
+    def retrieve_grad(self) -> tuple[list[torch.Tensor], list[int], list[torch.Tensor]]:
+        """Collect gradients, shapes, and masks for parameters with gradients."""
         grad, shape, has_grad = [], [], []
         for group in self.optimizer.param_groups:
             for p in group['params']:
@@ -75,11 +75,11 @@ class PCGrad(BaseOptimizer):
 
         return grad, shape, has_grad
 
-    def pack_grad(self, objectives: Iterable) -> Tuple[List[torch.Tensor], List[List[int]], List[torch.Tensor]]:
-        """Pack the gradient of the parameters of the network for each objective.
+    def pack_grad(self, objectives: Iterable) -> tuple[list[torch.Tensor], list[list[int]], list[torch.Tensor]]:
+        """Compute and flatten gradients for each task loss.
 
         Args:
-            objectives (Iterable[nn.Module]): A list of objectives.
+            objectives: Scalar task loss tensors to backpropagate.
 
         """
         grads, shapes, has_grads = [], [], []
@@ -95,17 +95,17 @@ class PCGrad(BaseOptimizer):
 
         return grads, shapes, has_grads
 
-    def project_conflicting(self, grads: List[torch.Tensor], has_grads: List[torch.Tensor]) -> torch.Tensor:
-        """Project conflicting.
+    def project_conflicting(self, grads: list[torch.Tensor], has_grads: list[torch.Tensor]) -> torch.Tensor:
+        """Remove conflicting task gradient components and combine task gradients.
 
         Args:
-            grads (List[torch.Tensor]): A list of the gradient of the parameters.
-            has_grads (List[torch.Tensor]): A list of masks representing whether the parameter has gradient.
+            grads: A list of the gradient of the parameters.
+            has_grads: A list of masks representing whether the parameter has gradient.
 
         """
         shared: torch.Tensor = torch.stack(has_grads).prod(0).bool()
 
-        pc_grad: List[torch.Tensor] = deepcopy(grads)
+        pc_grad: list[torch.Tensor] = deepcopy(grads)
         for i, g_i in enumerate(pc_grad):
             random.shuffle(grads)
             for g_j in grads:
@@ -126,10 +126,10 @@ class PCGrad(BaseOptimizer):
         return merged_grad
 
     def pc_backward(self, objectives: Iterable[nn.Module]) -> None:
-        """Calculate the gradient of the parameters.
+        """Set parameter gradients after projecting conflicting task gradients.
 
         Args:
-            objectives (Iterable[nn.Module]): A list of objectives.
+            objectives: Scalar task loss tensors to backpropagate.
 
         """
         grads, shapes, has_grads = self.pack_grad(objectives)

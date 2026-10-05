@@ -79,7 +79,7 @@ from ..sdk.snapshot import (
 )
 from ..sdk.snapshot import UNRESOLVED_FALLBACK as _UNRESOLVED_FALLBACK
 from ..sdk.surface import Surface
-from . import refs, statusline
+from . import plugin_cli, refs, statusline
 
 
 # -- global connection state (set by the root callback) ---------------------
@@ -1797,7 +1797,7 @@ def install(
     agent: Optional[str] = typer.Option(  # noqa: UP007
         None,
         "--agent",
-        help="configure claude, codex, pi, or both (both = claude+codex; default: choose interactively)",
+        help="configure claude, codex, pi, kimi, or both (both = claude+codex; default: choose interactively)",
     ),
     tracking: Optional[bool] = typer.Option(  # noqa: UP007
         None, "--tracking/--no-tracking", help="research tracking skills + read-only MCP search"
@@ -1879,7 +1879,7 @@ def wizard(
     agent: Optional[str] = typer.Option(  # noqa: UP007
         None,
         "--agent",
-        help="configure claude, codex, pi, or both (both = claude+codex; default: choose interactively)",
+        help="configure claude, codex, pi, kimi, or both (both = claude+codex; default: choose interactively)",
     ),
     tracking: Optional[bool] = typer.Option(  # noqa: UP007 - typer needs Optional
         None,
@@ -2099,8 +2099,10 @@ def _wizard_session(
             explicit_agent_sources = ("codex",)
         elif normalized_agent == "pi":
             explicit_agent_sources = ("pi",)
+        elif normalized_agent in {"kimi", plugin_cli.KIMI}:
+            explicit_agent_sources = (plugin_cli.KIMI,)
         else:
-            raise typer.BadParameter("--agent must be claude, codex, pi, or both")
+            raise typer.BadParameter("--agent must be claude, codex, pi, kimi, or both")
 
     # `wizard.invoked` fires BEFORE the bootstrap below: the ephemeral-npx →
     # persistent install is the most failure-prone distribution step, and a
@@ -3783,6 +3785,13 @@ def _run_wizard_action(
         # here (via the old ternary's silent claude_code default) for a run
         # that was never about Claude Code at all.
         agent_here = True
+        agent_name = wizard.agent_label(caps.agent_source)
+    elif caps.agent_source == plugin_cli.KIMI:
+        # Kimi Code's plugins are files the wizard writes (kimi_config); it
+        # still needs the agent itself on the machine to be worth installing.
+        from probe.cli import kimi_config
+
+        agent_here = kimi_config.binary_available()
         agent_name = wizard.agent_label(caps.agent_source)
     else:
         agent_here = caps.codex_available if caps.agent_source == "codex" else caps.claude_available
@@ -5572,7 +5581,7 @@ def _ref(client: Client, kind: str, ref: str) -> refs.Ref:
             return refs.resolve_run(client, ref)
         if kind == "workspace":
             return refs.resolve_workspace(client, ref)
-        return refs.resolve(client, kind, ref)
+        return refs.resolve(client, kind, ref, project_hint=_active_project_id(kind, ref))
     except (
         UnfilteredListing,
         refs.AmbiguousName,
@@ -5580,6 +5589,32 @@ def _ref(client: Client, kind: str, ref: str) -> refs.Ref:
         NotFoundError,
     ) as exc:
         raise typer.BadParameter(str(exc)) from None
+
+
+def _filed_under(target: refs.Ref) -> str | None:
+    """The project a resolved experiment ref is filed under, when its row says
+    (so the experiment API's routes need no second lookup)."""
+    row = target.row if isinstance(target.row, dict) else {}
+    project = row.get("project_id")
+    return str(project) if project and refs.is_uuid(str(project)) else None
+
+
+def _active_project_id(kind: str, ref: str) -> str | None:
+    """The active project's id, when it costs nothing to know, for an
+    experiment SLUG: looking there first answers in one request (refs.resolve
+    falls back tenant-wide on a miss). None for anything else, and when the
+    active project is stored as a slug (resolving it would be a request of
+    its own)."""
+    if kind != "experiment" or refs.split_selector(ref)[1] != "slug":
+        return None
+    try:
+        ambient = _ambient_project(None)
+    except Exception:  # noqa: BLE001 - a hint only; the lookup works without it
+        return None
+    if not ambient:
+        return None
+    bare, how = refs.split_selector(ambient)
+    return bare if how == "id" and refs.is_uuid(bare) else None
 
 
 def _ambient_project(explicit: str | None, **kw) -> str | None:
@@ -5705,7 +5740,10 @@ def _confirmed_delete(
         # same DELETE is permanent, and the prompt must say so.
         trash = trash and c.supports_feature("trash")
         _confirm_delete(yes, target.label, cascade=cascade, trash=trash)
-        answer = getattr(c, f"delete_{kind}")(target.id, **(delete_kwargs or {}))
+        kwargs = dict(delete_kwargs or {})
+        if kind == "experiment" and _filed_under(target):
+            kwargs.setdefault("project_id", _filed_under(target))  # saves a lookup
+        answer = getattr(c, f"delete_{kind}")(target.id, **kwargs)
     until = answer.get("restorable_until") if trash and isinstance(answer, dict) else None
     if until:
         print(
@@ -6428,6 +6466,9 @@ _CITE_CONTROLS = re.compile(
     "[\x00-\x1f\x7f\u200e\u200f\u061c" + _DISPLAY_CONTROLS.pattern[1:-1] + "]"
 )
 
+#: Only a server from before the per-tenant citation flag was removed (task
+#: C13) answers `state: disabled`; a current one serves every team. Kept so a
+#: CLI pointed at such a server says so plainly instead of an empty table.
 _CITATIONS_DISABLED = (
     "citation links are not switched on for your team (state: disabled); "
     "nothing has been read for these papers"
@@ -12660,7 +12701,12 @@ def _entity_notes_row(client: Client, kind: str, entity_id: str) -> dict:
     if kind == "project":
         return client.get_project(entity_id)
     if kind == "experiment":
-        return client.get_experiment(entity_id)
+        # The project-address read, on purpose: the experiment API's detail
+        # carries the notes but not their headroom pair (`notes_limit_chars`,
+        # `notes_remaining_chars`), which the read advisory and the over-cap
+        # refusal below need; and an experiment's notes are still WRITTEN there
+        # (`_replace_notes`) until the experiment API takes every notes verb.
+        return client.get_experiment_leaf(entity_id)
     if kind == "run":
         return client.get_run(entity_id)
     if kind == "group":
@@ -14133,6 +14179,14 @@ def events(run: str = run_ref()) -> None:
 experiment_app = typer.Typer(no_args_is_help=True, help="experiment maintenance")
 app.add_typer(experiment_app, name="experiment")
 
+#: Why every experiment tag flag is refused. The server keeps an experiment's
+#: tags read-only since the light experiments gave it its own record (R3), and
+#: the experiment API carries none -- so a tag write could only ever fail there.
+_EXPERIMENT_TAGS_READ_ONLY = (
+    "an experiment's tags are read-only since experiments moved to their own record; "
+    "tag the project instead (`probe project tag`), or say it in the question or notes"
+)
+
 
 @experiment_app.command("create")
 def experiment_create(
@@ -14146,10 +14200,14 @@ def experiment_create(
     ),
     description: str = description_opt(),
     summary: str = entity_markdown_opt(),
-    tag: list[str] = typer.Option(None, "--tag", help="tag at creation (repeatable)"),
+    #: RETIRED with the light experiments: declared so it can be REFUSED with
+    #: the reason (Typer's "no such option" reads as a typo).
+    tag: list[str] = typer.Option(
+        None, "--tag", help="RETIRED: an experiment's tags are read-only", hidden=True
+    ),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Create an experiment.
+    """Create an experiment in a project.
 
     The counterpart to `probe project create`. Both exist because `probe run start`
     no longer creates its parents: it used to get-or-create the whole chain, so a
@@ -14159,6 +14217,8 @@ def experiment_create(
     `--question` is required here for that reason — this is the moment you know
     what you are testing, and nothing later goes back to fill it in.
     """
+    if tag:
+        raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY, param_hint="--tag")
     resolved_project = _ambient_project(project)
     if not resolved_project:
         raise errors.ValidationError(
@@ -14176,7 +14236,6 @@ def experiment_create(
             project_id=project_id,
             description=description,
             document=_text_value(summary),
-            tags=tag or None,
             authored_by=_authored_by_value(authored_by),
         )
     _print_json(created)
@@ -14228,7 +14287,8 @@ def experiment_get(experiment_id: str = slug_ref("experiment")) -> None:
     filtering by eye.
     """
     with _client() as c:
-        _print_json(c.get_experiment(_ref(c, "experiment", experiment_id).id))
+        target = _ref(c, "experiment", experiment_id)
+        _print_json(c.get_experiment(target.id, project_id=_filed_under(target)))
 
 
 @experiment_app.command("set")
@@ -14246,85 +14306,91 @@ def experiment_set(
         hidden=True,
     ),
     summary: str = entity_markdown_opt(),
-    add_tag: list[str] = add_tag_opt(),
-    remove_tag: list[str] = remove_tag_opt(),
-    set_tags: list[str] = set_tags_opt(),
+    #: RETIRED with the light experiments, like --description above.
+    add_tag: list[str] = typer.Option(None, "--add-tag", hidden=True),
+    remove_tag: list[str] = typer.Option(None, "--remove-tag", hidden=True),
+    set_tags: list[str] = typer.Option(None, "--set-tags", hidden=True),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Amend an experiment's question, name, visible Markdown or tags, in one write."""
+    """Amend an experiment's question, name or visible Markdown, in one command."""
     if description is not None:
         raise typer.BadParameter(
             "an experiment's description was replaced by its QUESTION (0231). Use "
             "--question for what the experiment is testing, or --summary for prose "
             "about it -- which is where existing descriptions were moved."
         )
+    if _tag_flags_given(add_tag, remove_tag, set_tags):
+        raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY)
     fields = {"question": question, "name": name, "document": _text_value(summary)}
-    retagging = _tag_flags_given(add_tag, remove_tag, set_tags)
-    if not retagging and all(value is None for value in fields.values()):
-        raise typer.BadParameter(
-            "pass at least one of --question/--name/--summary/--add-tag/--remove-tag/--set-tags"
-        )
+    if all(value is None for value in fields.values()):
+        raise typer.BadParameter("pass at least one of --question/--name/--summary")
     with _client() as c:
-        eid = _ref(c, "experiment", experiment_id).id
-        if retagging:
-            current = c.get_experiment(eid)
-            tags, changed = _set_verb_tags(current.get("tags"), add_tag, remove_tag, set_tags)
-            if not changed and all(value is None for value in fields.values()):
-                _print_json(current)  # the tags already read that way: nothing to write
-                return
-            fields["tags"] = tags
-        result = c.update_experiment(eid, **fields, authored_by=_authored_by_value(authored_by))
+        target = _ref(c, "experiment", experiment_id)
+        result = c.update_experiment(
+            target.id,
+            **fields,
+            authored_by=_authored_by_value(authored_by),
+                project_id=_filed_under(target),
+        )
     _print_json(result)
+
+
+@experiment_app.command("move")
+def experiment_move(
+    experiment_id: str = slug_ref("experiment"),
+    to: str = typer.Option(..., "--to", help="the project to move it to (slug or id:<uuid>)"),
+) -> None:
+    """Move an experiment, with its runs, files and groups, to another project.
+
+    One write on the server: everything filed under the experiment follows it
+    in the same statement. Needs edit access on both projects. The experiment
+    keeps its id and slug; address it under the new project afterwards.
+    """
+    with _client() as c:
+        target = _ref(c, "experiment", experiment_id)
+        _print_json(
+            c.move_experiment(
+                target.id,
+                _project_id(c, to),
+                from_project_id=_filed_under(target),
+            )
+        )
 
 
 @experiment_app.command("list")
 def experiment_list(
     project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
-    tag: list[str] = typer.Option(
-        None, "--tag", help="filter: experiment must carry ALL (repeatable)"
-    ),
+    #: RETIRED with the light experiments: an experiment's tags are read-only
+    #: and the experiment list filters on none.
+    tag: list[str] = typer.Option(None, "--tag", hidden=True),
     limit: int = typer.Option(50, "--limit", min=1, max=200),
-    cursor: str = typer.Option(None, "--cursor", help="keyset cursor from a previous page"),
+    cursor: str = typer.Option(None, "--cursor", help="next_cursor from a previous page"),
 ) -> None:
-    """List experiments, filterable by project and tags (AND semantics)."""
-    params: dict[str, Any] = {"limit": limit}
-    if cursor:
-        params["cursor"] = cursor
+    """List a project's experiments, newest first; without --project, every project's.
+
+    Without --project this reads every project's list (one request each), so
+    naming the project is faster.
+    """
+    if tag:
+        raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY, param_hint="--tag")
     with _client() as c:
         page = c.list_experiments(
             project_id=_project_id(c, project) if project else None,
-            tags=tag or None,
-            **params,
+            limit=limit,
+            cursor=cursor or None,
         )
     _print_json({"items": page.items, "next_cursor": page.next_cursor})
 
 
-@experiment_app.command("tag")
+@experiment_app.command("tag", hidden=True)
 def experiment_tag(
     experiment_id: str = slug_ref("experiment"),
     add: list[str] = typer.Argument(None, help="tags to add"),
-    remove: list[str] = typer.Option(
-        None,
-        "--remove",
-        help="tag to remove; repeatable, ONE tag per flag (a bare word after options is an ADD)",
-    ),
-    replace: list[str] = typer.Option(
-        None, "--set", help="replace the whole list (repeatable; --set '' clears all)"
-    ),
+    remove: list[str] = typer.Option(None, "--remove", help="tag to remove"),
+    replace: list[str] = typer.Option(None, "--set", help="replace the whole list"),
 ) -> None:
-    """Tag an experiment: positional args add, --remove drops, --set replaces; bare lists."""
-    with _client() as c:
-        eid = _ref(c, "experiment", experiment_id).id
-        _print_json(
-            _tag_verb_flow(
-                eid,
-                c.get_experiment(eid).get("tags"),
-                add,
-                remove,
-                replace,
-                lambda wanted: c.update_experiment(eid, tags=wanted),
-            )
-        )
+    """RETIRED: an experiment's tags are read-only since it moved to its own record."""
+    raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY)
 
 
 @experiment_app.command("delete")
@@ -14663,6 +14729,9 @@ def main(argv: list[str] | None = None) -> int:
     """Run the CLI, returning a process exit code (never calls sys.exit itself)."""
     from . import write_gate
 
+    # A harness that puts no session id in its shells (Kimi Code): find the
+    # session from the harness process before the write gate reads it.
+    agent_session.adopt_harness_process_session()
     args, directed = write_gate.split_directed(sys.argv[1:] if argv is None else argv)
     refused = write_gate.refusal(args, directed=directed)
     if refused:

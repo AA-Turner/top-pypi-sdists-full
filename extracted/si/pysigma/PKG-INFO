@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: pySigma
-Version: 1.5.1
+Version: 2.0.0
 Summary: Sigma rule processing and conversion tools
 License-Expression: LGPL-2.1-only
 License-File: LICENSE
 Author: Thomas Patzke
 Author-email: thomas@patzke.org
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.11,<4.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -18,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
 Requires-Dist: diskcache (>=5.6.3,<6.0.0)
 Requires-Dist: diskcache-stubs (>=5.6.3)
+Requires-Dist: google-re2 (>=1.0)
 Requires-Dist: jinja2 (>=3.1.6,<4.0.0)
 Requires-Dist: jq (>=1.12,<2.0)
 Requires-Dist: packaging (>=26.3,<27.0)
@@ -25,7 +25,6 @@ Requires-Dist: pyparsing (>=3.2.5,<4.0.0)
 Requires-Dist: pyyaml (>=6.0.3,<7.0.0)
 Requires-Dist: requests (>=2.32.5,<3.0.0)
 Requires-Dist: types-pyyaml (>=6.0.12.20260815,<7.0.0.0)
-Requires-Dist: typing-extensions (>=4.16.0,<5.0.0)
 Project-URL: Repository, https://github.com/SigmaHQ/pySigma
 Description-Content-Type: text/markdown
 
@@ -43,7 +42,7 @@ vendor-agnostic. See the *Related Projects* section below to get an overview.
 
 ## Getting Started
 
-To start using `pySigma`, you need Python 3.10 or later. Install it using your python package manager of choice. Examples:
+To start using `pySigma`, you need Python 3.11 or later. Install it using your python package manager of choice. Examples:
 
 ```
 pip install pysigma

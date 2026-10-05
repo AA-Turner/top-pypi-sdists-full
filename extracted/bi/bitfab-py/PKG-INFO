@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bitfab-py
-Version: 0.64.17
+Version: 0.64.18
 Summary: Bitfab client for provider-based API calls with local BAML execution
 Author: Harvest Team
 Requires-Python: >=3.10

@@ -129,6 +129,16 @@ def test_tap_package_and_runtime_report_the_advertised_version() -> None:
     with (tap / "pyproject.toml").open("rb") as source:
         assert tomllib.load(source)["project"]["version"] == expected
     assert json.loads((tap / ".codex-plugin" / "plugin.json").read_text())["version"] == expected
+    # Every captured hook-plugin harness loads the tap through its own manifest
+    # (Kimi Code: .kimi-plugin), and each must name the advertised release.
+    from probe.harness import FAMILY_HOOK_PLUGIN, get_registry
+
+    for harness in get_registry().captured():
+        if harness.family != FAMILY_HOOK_PLUGIN:
+            continue
+        manifest = tap / harness.plugin["manifest_dir"] / "plugin.json"
+        assert manifest.is_file(), f"{harness.label} has no tap manifest at {manifest}"
+        assert json.loads(manifest.read_text())["version"] == expected, manifest
     module = ast.parse((tap / "tap" / "__init__.py").read_text())
     versions = [
         ast.literal_eval(node.value)

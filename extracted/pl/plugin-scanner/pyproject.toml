@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "3.20.1"
+version = "3.25.1"
 description = "Lint, verify, and gate plugin ecosystems for maintainers, CI, and publish workflows."
 readme = "README.md"
 license = "Apache-2.0"
@@ -56,6 +56,7 @@ dependencies = [
     "tomli>=2.0; python_version < '3.11'",
     "typing_extensions>=4.15.0",
     "mcp>=1.28.1,<2; python_version >= '3.10'",
+    "tomlkit>=0.13.3,<1",
 ]
 
 [project.optional-dependencies]

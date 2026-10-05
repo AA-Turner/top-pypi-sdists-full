@@ -104,7 +104,7 @@ def test_unknown_harness_is_refused_loudly():
 def test_no_harness_name_outside_the_adapters():
     """D23: the core branches on capabilities, never on a harness name."""
     root = Path(precheck.__file__).parent
-    names = re.compile(r"""["'](claude_code|claude-code|codex|pi|cursor)["']""")
+    names = re.compile(r"""["'](claude_code|claude-code|codex|pi|cursor|kimi_code|kimi-code|kimi)["']""")
     offenders = []
     for path in root.glob("*.py"):
         for n, line in enumerate(path.read_text().splitlines(), 1):

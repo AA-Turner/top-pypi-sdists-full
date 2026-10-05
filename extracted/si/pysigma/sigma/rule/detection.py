@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
 
-from typing_extensions import Self
+from typing import Self
 
 import sigma.exceptions as sigma_exceptions
 from sigma.conditions import (
@@ -28,10 +28,12 @@ from sigma.modifiers import (
     reverse_modifier_mapping,
 )
 from sigma.processing.tracking import ProcessingItemTrackingMixin
+from sigma.rule.base import check_alias_expansion
 from sigma.types import SigmaNull, SigmaString, SigmaType, sigma_type
 
 if TYPE_CHECKING:
     from sigma.processing.pipeline import ProcessingItemBase
+    from sigma.policy import SigmaPolicy
 
 # Type alias for plain detection types
 # SigmaPlainValue = str | int | float | bool | None
@@ -188,23 +190,21 @@ class SigmaDetectionItem(ProcessingItemTrackingMixin, ParentChainMixin):
                 source=self.source,
             )
 
+        def value_to_plain(value: SigmaType) -> Any:
+            if isinstance(value, SigmaString):
+                if SigmaRegularExpressionModifier in self.modifiers:
+                    return value.to_plain(True)
+                # Escape backslashes that would be parsed as escape character when the value is
+                # parsed again, e.g. by SigmaRule.from_dict().
+                return value.to_plain(escape_backslash=True)
+            return value.to_plain()
+
         if len(self.original_value) > 1:
             value: str | int | float | bool | None | list[str | int | float | bool | None] = [
-                (
-                    value.to_plain(True)
-                    if isinstance(value, SigmaString)
-                    and SigmaRegularExpressionModifier in self.modifiers
-                    else value.to_plain()
-                )
-                for value in self.original_value
+                value_to_plain(value) for value in self.original_value
             ]
         else:
-            value = (
-                self.original_value[0].to_plain(True)
-                if isinstance(self.original_value[0], SigmaString)
-                and SigmaRegularExpressionModifier in self.modifiers
-                else self.original_value[0].to_plain()
-            )
+            value = value_to_plain(self.original_value[0])
 
         if (
             self.is_keyword() and len(self.modifiers) == 0
@@ -514,6 +514,7 @@ class SigmaDetections:
     detections: dict[str, SigmaDetection]
     condition: list[str]
     source: SigmaRuleLocation | None = field(default=None, compare=False)
+    policy: "SigmaPolicy | None" = field(default=None, compare=False)
 
     def __post_init__(self: Self) -> None:
         """Detections sanity checks"""
@@ -532,6 +533,7 @@ class SigmaDetections:
         cls: type[Self],
         detections: dict[str, Any],
         source: SigmaRuleLocation | None = None,
+        policy: "SigmaPolicy | None" = None,
     ) -> Self:
         try:
             if isinstance(detections["condition"], list):
@@ -543,6 +545,7 @@ class SigmaDetections:
                 "Sigma rule must contain at least one condition", source=source
             )
 
+        check_alias_expansion(detections, sigma_exceptions.SigmaDetectionError, source)
         return cls(
             detections={
                 name: SigmaDetection.from_definition(definition, source)
@@ -551,6 +554,7 @@ class SigmaDetections:
             },
             condition=condition,
             source=source,
+            policy=policy,
         )
 
     def to_dict(self: Self) -> dict[str, Any]:

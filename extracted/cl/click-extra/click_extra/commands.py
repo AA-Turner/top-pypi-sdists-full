@@ -47,13 +47,16 @@ from .config import (
     make_schema_callable,
 )
 from .config.schema import _opaque_paths
-from .config.subcommands import (
-    _descend_to_group_config,
-    inject_reserved_subcommands,
-)
-from .context import Context
+from .config.subcommands import _descend_to_group_config
+from .context import Context, _abort_notice, _owning_abort_notice
 from .envvar import clean_envvar_id, param_envvar_ids
-from .execution import TimerOption
+from .execution import (
+    TimerOption,
+    _exit_interrupted,
+    _interrupt_handling,
+    _interrupted,
+    _run_end_watch,
+)
 from .highlight import HelpKeywords, _HelpColorsMixin, highlight
 from .logging import DebugOption, QuietOption, VerboseOption, VerbosityOption
 from .parameters import ExtraOption, ShowParamsOption, resolve_param_help
@@ -266,6 +269,7 @@ def default_params(screen: VersionScreen | None = None) -> list[click.Option]:
     #. `--verbosity LEVEL`
     #. `-v`, `--verbose`
     #. `-q`, `--quiet`
+    #. `--debug`
     #. `--tree`
     #. `--man`
     #. `--help-format FORMAT`
@@ -284,7 +288,7 @@ def default_params(screen: VersionScreen | None = None) -> list[click.Option]:
         ```
 
     ```{note}
-    The list below is the *processing* order, and it is the only one these
+    The list above is the *processing* order, and it is the only one these
     edge-cases care about. The help screen reads a separate presentation order,
     which the `option_priorities` argument of `@command` and `@group` reshuffles
     without touching a single callback. See
@@ -759,20 +763,48 @@ class Command(_HelpColorsMixin, cloup.Command):  # type: ignore[misc]
         instead of relying on Click's auto-detection via the
         `_detect_program_name()` method. This is to avoid the CLI being called
         `python -m <module_name>`, which is not very user-friendly.
+
+        An abort still prints Click's `Aborted!`, which Click prints on purpose
+        ([pallets/click#2584](https://github.com/pallets/click/issues/2584)), but
+        prints it as soon as the abort leaves the command: before the close
+        callbacks run, where Click prints it after them.
+
+        A Ctrl+C then ends the process the way an unhandled Ctrl+C does in Python:
+        by `SIGINT`, once the running threads finish. Click
+        [exits with status `1`](https://github.com/pallets/click/blob/8.5.0/src/click/core.py#L1591-L1595)
+        instead, which tells a calling shell the program handled the interrupt
+        itself, so a shell loop runs on.
         """
         if not prog_name and self.name:
             prog_name = self.name
 
-        try:
-            return super().main(args=args, prog_name=prog_name, **kwargs)
-        finally:
-            # The color mirror is scoped to one invocation. Its reset is queued
-            # on the context by `publish_invocation_color()`, but a callback
-            # raising during parameter processing aborts before the context is
-            # entered, so that close callback never fires and the mirror stays
-            # pinned for the rest of the process. Reset here so the scope holds
-            # however the invocation ended.
-            _reset_invocation_color()
+        with (
+            _interrupt_handling(),
+            _owning_abort_notice(self, kwargs.get("standalone_mode", True)),
+        ):
+            try:
+                return super().main(args=args, prog_name=prog_name, **kwargs)
+            except SystemExit:
+                if _interrupted():
+                    _exit_interrupted()
+                raise
+            finally:
+                # The color mirror is scoped to one invocation. Its reset is
+                # queued on the context by `publish_invocation_color()`, but a
+                # callback raising during parameter processing aborts before the
+                # context is entered, so that close callback never fires and the
+                # mirror stays pinned for the rest of the process. Reset here so
+                # the scope holds however the invocation ended.
+                _reset_invocation_color()
+
+    def invoke(self, ctx: click.Context) -> Any:
+        """Like parent's `invoke`, but prints the `Aborted!` of an abort at once.
+
+        Click prints it once the root context has closed, so after every close
+        callback. See `click_extra.context._abort_notice`.
+        """
+        with _abort_notice(ctx):
+            return super().invoke(ctx)
 
     def make_context(
         self,
@@ -803,7 +835,7 @@ class Command(_HelpColorsMixin, cloup.Command):  # type: ignore[misc]
         if parent is None:
             meta[context.INVOCATION_NAME] = info_name
         extra.update({"meta": meta})
-        return super().make_context(info_name, args, parent, **extra)
+        return _watched_context(super().make_context, info_name, args, parent, **extra)
 
     def format_examples(
         self,
@@ -880,7 +912,9 @@ class Command(_HelpColorsMixin, cloup.Command):  # type: ignore[misc]
         look of a rendered screen is worthless if it lands after the screen. Its
         environment variables trigger the pre-pass too, both the machine-wide
         {data}`~click_extra.theme.THEME_ENVVAR` and the per-CLI `<CLI>_THEME` that
-        Click derives, since neither puts a flag on the command line.
+        Click derives, since neither puts a flag on the command line. The per-CLI
+        `<CLI>_COLOR` and `<CLI>_NO_COLOR` variables Click derives for the color
+        options trigger it for the same reason.
 
         Skipping accessible mode here used to be deliberate, on the grounds that it
         matched the scope of the environment pre-seed in
@@ -922,8 +956,8 @@ class Command(_HelpColorsMixin, cloup.Command):  # type: ignore[misc]
             return
 
         # Only pay for a re-parse when one of these flags actually sits on the
-        # command line, or when the environment asks for accessible mode or a
-        # palette.
+        # command line, or when the environment asks for accessible mode, a color
+        # choice or a palette.
         flags = {
             flag
             for param in (*accessible_params, *color_params, *theme_params)
@@ -933,6 +967,8 @@ class Command(_HelpColorsMixin, cloup.Command):  # type: ignore[misc]
         envvars = set()
         if accessible_params:
             envvars.add(ACCESSIBLE_ENVVAR)
+        for color_param in color_params:
+            envvars.update(param_envvar_ids(color_param, ctx))
         for theme_param in theme_params:
             envvars.add(THEME_ENVVAR)
             envvars.update(param_envvar_ids(theme_param, ctx))
@@ -969,6 +1005,27 @@ class Command(_HelpColorsMixin, cloup.Command):  # type: ignore[misc]
             return super().parse_args(ctx, args)
         except click.NoSuchOption as exc:
             _enhance_short_option_error(exc, original_args, ctx)
+
+
+def _watched_context(
+    make_context: Callable[..., click.Context],
+    info_name: str | None,
+    args: list[str],
+    parent: click.Context | None,
+    **extra: Any,
+) -> click.Context:
+    """Build a context with `make_context`, and watch what a root one ends on.
+
+    The run ends on what leaves the root context: its parsing here, then its
+    closing, since a context that fails to parse never closes. See
+    `click_extra.execution._run_end_watch`.
+    """
+    if parent is not None:
+        return make_context(info_name, args, parent, **extra)
+    with _run_end_watch():
+        ctx = make_context(info_name, args, parent, **extra)
+    ctx.with_resource(_run_end_watch())
+    return ctx
 
 
 def _enhance_short_option_error(
@@ -1060,6 +1117,20 @@ class ColorizedCommand(_HelpColorsMixin, click.Command):  # type: ignore[misc]
 
     context_class: type[cloup.Context] = Context
 
+    def make_context(
+        self,
+        info_name: str | None,
+        args: list[str],
+        parent: click.Context | None = None,
+        **extra: Any,
+    ) -> click.Context:
+        """Like parent's `make_context`, but watches what the run ends on.
+
+        A patched CLI runs under Click's own `main()`, inside the `wrap` command:
+        the watch is what tells that command a Ctrl+C ended its target.
+        """
+        return _watched_context(super().make_context, info_name, args, parent, **extra)
+
 
 class ColorizedGroup(_HelpColorsMixin, click.Group):  # type: ignore[misc]
     """Click Group with help colorization but no extra params.
@@ -1068,6 +1139,19 @@ class ColorizedGroup(_HelpColorsMixin, click.Group):  # type: ignore[misc]
     """
 
     context_class: type[cloup.Context] = Context
+
+    def make_context(
+        self,
+        info_name: str | None,
+        args: list[str],
+        parent: click.Context | None = None,
+        **extra: Any,
+    ) -> click.Context:
+        """Like parent's `make_context`, but watches what the run ends on.
+
+        See {meth}`ColorizedCommand.make_context`.
+        """
+        return _watched_context(super().make_context, info_name, args, parent, **extra)
 
 
 class HelpCommand(ColorizedCommand):
@@ -1373,72 +1457,6 @@ class Group(Command, cloup.Group):  # type: ignore[misc]
                         del self._default_section.commands[cmd_name]
                 del self.commands[cmd_name]
         super().add_command(cmd, name, **kwargs)
-
-    def _resolve_config_subcommands_eagerly(
-        self,
-        ctx: click.Context,
-        config_option: ConfigOption,
-    ) -> list[str]:
-        """Settle the reserved subcommand keys ahead of the no-args help screen.
-
-        Click raises its `no_args_is_help` error before any parameter runs, so a
-        bare invocation never reads the configuration that could name subcommands
-        for it. This pre-pass processes `--config` on its own, which loads the
-        document and returns the names to dispatch. The command line is empty by
-        the time the only caller reaches here, so the option is handed no parsed
-        value and falls back to its own auto-discovery.
-
-        Returns an empty list when the configuration names nothing, which leaves
-        Click's help screen in place. A broken configuration is swallowed too, the
-        way {meth}`Command._resolve_presentation_eagerly` defers its own errors: a
-        bare invocation prints the help screen, never a configuration error. The
-        regular parameter loop reports that error on the next invocation naming a
-        subcommand.
-        """
-        try:
-            _, injected = config_option.handle_parse_result(ctx, {}, [])
-        except click.ClickException:
-            return []
-        return injected
-
-    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
-        """Like parent's `parse_args`, but honoring the reserved subcommand keys.
-
-        A group carrying its own `--config` is served by
-        {meth}`click_extra.config.option.ConfigOption.handle_parse_result`, which
-        splices the names in as that option is processed. Two cases escape it, and
-        this override covers both:
-
-        - A group reached through an ancestor's `--config` never holds that option,
-          so it applies its own `[parent.group]` section here. The document is
-          already loaded by the time a subgroup is parsed.
-        - A bare invocation short-circuits to the help screen before any parameter
-          runs. `no_args_is_help` is suppressed for the invocation once the
-          configuration is known to name subcommands, since the user asking for
-          them outranks the author's help screen.
-        """
-        config_option = next(
-            (p for p in self.get_params(ctx) if isinstance(p, ConfigOption)),
-            None,
-        )
-
-        if config_option is None:
-            # Injecting before delegating also settles no_args_is_help, since an
-            # injected subcommand makes the invocation non-empty.
-            return super().parse_args(ctx, inject_reserved_subcommands(ctx, args))
-
-        if not args and self.no_args_is_help and not ctx.resilient_parsing:
-            args = self._resolve_config_subcommands_eagerly(ctx, config_option)
-            if args:
-                # Click reads `no_args_is_help` off the group twice on the way
-                # down, so the flag itself is cleared rather than either check.
-                original, self.no_args_is_help = self.no_args_is_help, False
-                try:
-                    return super().parse_args(ctx, args)
-                finally:
-                    self.no_args_is_help = original
-
-        return super().parse_args(ctx, args)
 
 
 @dataclass(frozen=True)

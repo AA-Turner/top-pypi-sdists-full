@@ -1,7 +1,3 @@
-# -*- coding: ISO-8859-1 -*-
-# setup.py: the distutils script
-#
-
 # MANY THANKS to @laggykiller for implementing all of this so we can enjoy
 # wheels (within wheels, within wheels).
 import glob
@@ -15,7 +11,7 @@ from setuptools import setup, Extension
 
 
 PACKAGE_NAME = 'sqlcipher3'
-VERSION = '0.6.2'
+VERSION = '0.6.3'
 
 CONAN_ARCHS = {
     'x86_64': ['amd64', 'x86_64', 'x64'],

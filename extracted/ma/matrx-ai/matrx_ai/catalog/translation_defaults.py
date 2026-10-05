@@ -256,6 +256,9 @@ IMAGEN_LOW_SIZE = "1K"
 # ── flux_safety_tolerance / openai_image_gen_only ────────────────────────────
 FLUX_SAFETY_TOLERANCE = 5
 FLUX_SAFETY_TOLERANCE_WITH_IMAGE_INPUT = 2
+# Replicate FLUX.2 schema default ("1 is most strict and 5 is most permissive",
+# default 2) — sent only when the person explicitly turns the checker on.
+FLUX_SAFETY_TOLERANCE_PROVIDER_DEFAULT = 2
 OPENAI_IMAGE_DEFAULT_MODERATION = "low"
 
 

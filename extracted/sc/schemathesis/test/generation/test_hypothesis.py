@@ -127,6 +127,40 @@ def test_negative_case_can_negate_the_body_alone(ctx):
     )
 
 
+@pytest.mark.parametrize(
+    ("parameters", "location", "explicit"),
+    [
+        (
+            [{"name": "limit", "in": "query", "required": True, "schema": {"type": "integer"}}],
+            ParameterLocation.QUERY,
+            {"query": {"LIMIT": "5"}},
+        ),
+        (
+            [
+                {"name": "sid", "in": "cookie", "required": True, "schema": {"type": "integer"}},
+                {"name": "SID", "in": "cookie", "required": True, "schema": {"type": "integer"}},
+            ],
+            ParameterLocation.COOKIE,
+            {"cookies": {"sid": "5"}},
+        ),
+    ],
+    ids=["query", "cookie"],
+)
+def test_explicit_value_differing_in_case_leaves_location_negatable(ctx, parameters, location, explicit):
+    # Only header names are case-insensitive, so `LIMIT` does not cover `limit`.
+    header = {"name": "X-Id", "in": "header", "required": True, "schema": {"type": "integer"}}
+    schema = ctx.openapi.load_schema(
+        {"/items": {"get": {"parameters": [*parameters, header], "responses": {"200": {"description": "OK"}}}}}
+    )
+    strategy = schema["/items"]["GET"].as_strategy(generation_mode=GenerationMode.NEGATIVE, **explicit)
+
+    find(
+        strategy,
+        lambda case: location in case.meta.components and case.meta.components[location].mode.is_negative,
+        settings=settings(max_examples=100, database=None),
+    )
+
+
 @pytest.mark.parametrize("version", ["3.0.2", "2.0"], ids=["openapi-3.0", "swagger-2"])
 def test_positive_bodies_ignore_keywords_next_to_root_ref(ctx, version):
     prefix = "#/definitions" if version == "2.0" else "#/components/schemas"
@@ -2253,6 +2287,108 @@ CANONICAL_CASES = [
             ),
         ),
     ),
+    # Without overlap no cross-pattern filter exists, so `#` values stay modeled.
+    ({"type": "object", "patternProperties": {"^a": {"$ref": "#"}}}, ()),
+    # Following the pointer gives the intersection back, so the draw is exact rather than filtered.
+    (
+        {
+            "allOf": [
+                {"$ref": "#/$defs/named"},
+                {"type": "object", "required": ["age"], "properties": {"age": {"type": "integer"}}},
+            ],
+            "$defs": {
+                "named": {
+                    "type": "object",
+                    "required": ["name"],
+                    "properties": {"name": {"type": "string", "minLength": 1}},
+                }
+            },
+        },
+        (),
+    ),
+    # Each round follows one pointer, and what it names points on to the next.
+    (
+        {
+            "allOf": [
+                {"$ref": "#/$defs/outer"},
+                {"type": "object", "required": ["c"], "properties": {"c": {"type": "boolean"}}},
+            ],
+            "$defs": {
+                "outer": {
+                    "allOf": [
+                        {"$ref": "#/$defs/inner"},
+                        {"type": "object", "required": ["b"], "properties": {"b": {"type": "integer"}}},
+                    ]
+                },
+                "inner": {"type": "object", "required": ["a"], "properties": {"a": {"type": "string"}}},
+            },
+        },
+        (),
+    ),
+    # The envelope pointer names what every level carries, so a level that draws without it is one
+    # nothing accepts - the position has to be built from both, not judged after the draw.
+    (
+        {
+            "$defs": {
+                "envelope": {
+                    "anyOf": [
+                        {"type": ["null", "boolean", "number", "string", "array"]},
+                        {"type": "object", "required": ["location"], "properties": {"location": {"type": "string"}}},
+                    ]
+                },
+                "api": {
+                    "allOf": [{"$ref": "#/$defs/envelope"}],
+                    "type": "object",
+                    "required": ["payload"],
+                    "properties": {"payload": {"type": "object", "properties": {"name": {"type": "string"}}}},
+                },
+            },
+            "allOf": [{"$ref": "#/$defs/envelope"}],
+            "type": "object",
+            "required": ["api"],
+            "properties": {"api": {"$ref": "#/$defs/api"}},
+        },
+        (),
+    ),
+    # Every date is also a string over one character, so only what `format` rejects belongs to a branch alone.
+    (
+        {
+            "oneOf": [{"$ref": "#/$defs/dated"}, {"$ref": "#/$defs/text"}],
+            "$defs": {"dated": {"type": "string", "format": "date"}, "text": {"type": "string", "minLength": 1}},
+        },
+        (),
+    ),
+    # The pattern only compiles under the size limit the rest of the engine raises.
+    (
+        {
+            "$ref": "#/$defs/node",
+            "$defs": {
+                "node": {
+                    "allOf": [
+                        {"$ref": "#/$defs/node"},
+                        {
+                            "type": "object",
+                            "properties": {"a": {"type": "string", "pattern": "^[\\s\\S]{1,100000}$"}},
+                            "required": ["a"],
+                        },
+                    ]
+                }
+            },
+        },
+        (),
+    ),
+    # The pointer names a schema that is only that same pointer again, so nothing is ever asserted.
+    ({"$ref": "#/$defs/node", "$defs": {"node": {"$ref": "#/$defs/node"}}}, ()),
+    ({"type": "string", "pattern": r"^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)$"}, ()),
+    # `ab` is claimed by both patterns, so its value answers to both schemas at once.
+    (
+        {
+            "type": "object",
+            "patternProperties": {"^a": {"type": "integer", "multipleOf": 2}, "b$": {"minimum": 10}},
+            "required": ["ab"],
+        },
+        (),
+    ),
 ]
 # NOT `ids=str`: pytest applies an `ids` callable per parameter, so a predicate tuple stringifies with
 # a memory address and `pytest -n auto` aborts with "Different tests were collected between gw0 and
@@ -2406,20 +2542,6 @@ def test_canonical_conflicting_formats_never_unsound():
 
     with pytest.raises(Unsatisfiable):
         test()
-
-
-def test_pattern_properties_root_reference_single_pattern():
-    # Without overlap no cross-pattern filter exists, so `#` values stay modeled.
-    schema = {"type": "object", "patternProperties": {"^a": {"$ref": "#"}}}
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-    def test(value):
-        assert is_valid(value), value
-
-    test()
 
 
 @pytest.mark.parametrize(
@@ -2697,62 +2819,6 @@ def test_canonical_dynamic_recursion_is_drawn_at_any_depth(validator_cls, schema
     find(built, lambda value: depth(value) >= 3, settings=settings(max_examples=2000, database=None))
 
 
-def test_canonical_all_of_through_a_pointer_is_folded():
-    # Following the pointer gives the intersection back, so the draw is exact rather than filtered.
-    schema = {
-        "allOf": [
-            {"$ref": "#/$defs/named"},
-            {"type": "object", "required": ["age"], "properties": {"age": {"type": "integer"}}},
-        ],
-        "$defs": {
-            "named": {
-                "type": "object",
-                "required": ["name"],
-                "properties": {"name": {"type": "string", "minLength": 1}},
-            }
-        },
-    }
-
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None)
-    def test(value):
-        assert is_valid(value), value
-
-    test()
-
-
-def test_canonical_all_of_chain_of_pointers_is_folded():
-    # Each round follows one pointer, and what it names points on to the next.
-    schema = {
-        "allOf": [
-            {"$ref": "#/$defs/outer"},
-            {"type": "object", "required": ["c"], "properties": {"c": {"type": "boolean"}}},
-        ],
-        "$defs": {
-            "outer": {
-                "allOf": [
-                    {"$ref": "#/$defs/inner"},
-                    {"type": "object", "required": ["b"], "properties": {"b": {"type": "integer"}}},
-                ]
-            },
-            "inner": {"type": "object", "required": ["a"], "properties": {"a": {"type": "string"}}},
-        },
-    }
-
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None)
-    def test(value):
-        assert is_valid(value), value
-
-    test()
-
-
 def test_canonical_all_of_with_a_pointer_back_into_the_value():
     # The cyclic branch cannot drive a draw, so the other one does and it judges the result.
     schema = {
@@ -2785,41 +2851,6 @@ def test_canonical_all_of_with_a_pointer_back_into_the_value():
     find(built, lambda value: "parent" in value, settings=settings(max_examples=1000, database=None))
 
 
-def test_canonical_all_of_pointer_met_again_below_itself():
-    # The envelope pointer names what every level carries, so a level that draws without it is one
-    # nothing accepts - the position has to be built from both, not judged after the draw.
-    schema = {
-        "$defs": {
-            "envelope": {
-                "anyOf": [
-                    {"type": ["null", "boolean", "number", "string", "array"]},
-                    {"type": "object", "required": ["location"], "properties": {"location": {"type": "string"}}},
-                ]
-            },
-            "api": {
-                "allOf": [{"$ref": "#/$defs/envelope"}],
-                "type": "object",
-                "required": ["payload"],
-                "properties": {"payload": {"type": "object", "properties": {"name": {"type": "string"}}}},
-            },
-        },
-        "allOf": [{"$ref": "#/$defs/envelope"}],
-        "type": "object",
-        "required": ["api"],
-        "properties": {"api": {"$ref": "#/$defs/api"}},
-    }
-
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None)
-    def test(value):
-        assert is_valid(value), value
-
-    test()
-
-
 def test_canonical_one_of_admits_only_what_a_single_branch_takes():
     # Canonicalization keeps a `oneOf` whose branches are pointers, since folding one means
     # unrolling what it names.
@@ -2844,24 +2875,6 @@ def test_canonical_one_of_admits_only_what_a_single_branch_takes():
     find(built, lambda value: value > 10, settings=settings(max_examples=1000, database=None))
 
 
-def test_canonical_one_of_branches_told_apart_by_format():
-    # Every date is also a string over one character, so only what `format` rejects belongs to a branch alone.
-    schema = {
-        "oneOf": [{"$ref": "#/$defs/dated"}, {"$ref": "#/$defs/text"}],
-        "$defs": {"dated": {"type": "string", "format": "date"}, "text": {"type": "string", "minLength": 1}},
-    }
-
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema, validate_formats=True).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-    def test(value):
-        assert is_valid(value), value
-
-    test()
-
-
 def test_canonical_one_of_branches_naming_draft_4_definitions():
     # Draft 4 spells the carried definitions `definitions`, and the branches still have to find them.
     schema = {
@@ -2881,35 +2894,6 @@ def test_canonical_one_of_branches_naming_draft_4_definitions():
 
     find(built, lambda value: value < 0, settings=settings(max_examples=1000, database=None))
     find(built, lambda value: value > 10, settings=settings(max_examples=1000, database=None))
-
-
-def test_canonical_conjunction_judges_with_the_project_regex_engine():
-    # The pattern only compiles under the size limit the rest of the engine raises.
-    schema = {
-        "$ref": "#/$defs/node",
-        "$defs": {
-            "node": {
-                "allOf": [
-                    {"$ref": "#/$defs/node"},
-                    {
-                        "type": "object",
-                        "properties": {"a": {"type": "string", "pattern": "^[\\s\\S]{1,100000}$"}},
-                        "required": ["a"],
-                    },
-                ]
-            }
-        },
-    }
-
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema, pattern_options=FANCY_REGEX_OPTIONS).is_valid
-
-    @given(built)
-    @settings(max_examples=10, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-    def test(value):
-        assert is_valid(value), value
-
-    test()
 
 
 def test_canonical_one_of_beside_a_conjunction_drives_the_draw():
@@ -2980,6 +2964,17 @@ def test_canonical_meta_invalid_schema_is_reported(schema, keyword):
         _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
 
+@pytest.mark.parametrize(
+    "value",
+    [datetime.date(2020, 1, 1), datetime.time(1, 2, 3), datetime.datetime(2020, 1, 1, 2, 3, 4)],
+    ids=["date", "time", "datetime"],
+)
+def test_canonical_schema_with_a_non_json_value_is_reported(value):
+    # Python dicts can hold values the Rust engine cannot serialize into a JSON document.
+    with pytest.raises(InvalidSchema, match="Unsupported type"):
+        _canonical_strategy({"type": "string", "default": value}, GenerationConfig(), jsonschema_rs.Draft7Validator)
+
+
 # Real-world spellings the validator's engine turns down: a character class with `\w` as a range
 # bound, a lone surrogate range, Python's open-ended `{,2}`, and its `\Z` anchor.
 UNCOMPILABLE_PATTERNS = [
@@ -3038,21 +3033,6 @@ def test_canonical_reference_with_no_finite_value_admits_nothing():
     built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
     assert built.is_empty
-
-
-def test_canonical_reference_straight_back_to_itself_admits_every_value():
-    # The pointer names a schema that is only that same pointer again, so nothing is ever asserted.
-    schema = {"$ref": "#/$defs/node", "$defs": {"node": {"$ref": "#/$defs/node"}}}
-
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None)
-    def test(value):
-        assert is_valid(value), value
-
-    test()
 
 
 def test_recursion_next_to_a_schema_that_declines_canonicalization(ctx):
@@ -3133,19 +3113,6 @@ def test_canonical_unknown_script_property_is_named():
 
     with pytest.raises(UnsupportedRegexPattern, match=r"Tibetan"):
         _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-
-
-def test_canonical_named_group_pattern():
-    schema = {"type": "string", "pattern": r"^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)$"}
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema, pattern_options=FANCY_REGEX_OPTIONS).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None, suppress_health_check=[HealthCheck.filter_too_much])
-    def test(value):
-        assert is_valid(value), value
-
-    test()
 
 
 # Draft 7 asserts content facets, and only there does the canonical view carry them; Draft 2020-12
@@ -3297,6 +3264,33 @@ def test_canonical_number_generation_respects_original_schema(ctx, body_schema):
     test()
 
 
+@pytest.mark.parametrize("version", ["3.0.2", "3.1.0"])
+def test_positive_generation_respects_not_with_unicode_property_pattern(ctx, version):
+    body_schema = {"type": "string", "not": {"pattern": "[\\p{L}]"}}
+    schema = ctx.openapi.load_schema(
+        {
+            "/data": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {"application/json": {"schema": body_schema}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version=version,
+    )
+    is_valid = jsonschema_rs.validator_for(body_schema).is_valid
+
+    @given(schema["/data"]["POST"].as_strategy(generation_mode=GenerationMode.POSITIVE))
+    @settings(max_examples=10, deadline=None)
+    def test(case):
+        assert is_valid(case.body), case.body
+
+    test()
+
+
 @pytest.mark.parametrize(
     ("schema", "rejected"),
     [
@@ -3338,24 +3332,6 @@ def test_canonical_number_above_the_float_range():
     @settings(max_examples=20, deadline=None, database=None)
     def test(value):
         assert isinstance(value, int)
-        assert is_valid(value), value
-
-    test()
-
-
-def test_canonical_overlapping_pattern_properties():
-    # `ab` is claimed by both patterns, so its value answers to both schemas at once.
-    schema = {
-        "type": "object",
-        "patternProperties": {"^a": {"type": "integer", "multipleOf": 2}, "b$": {"minimum": 10}},
-        "required": ["ab"],
-    }
-    built = _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
-    is_valid = jsonschema_rs.Draft202012Validator(schema).is_valid
-
-    @given(built)
-    @settings(max_examples=25, deadline=None)
-    def test(value):
         assert is_valid(value), value
 
     test()
@@ -4211,6 +4187,26 @@ def test_array_with_undrawable_items_and_a_floor_declines():
     schema = {"type": "array", "items": {"type": "string", "pattern": r"\p{Tibetan}"}, "minItems": 1}
 
     with pytest.raises(UnsupportedRegexPattern, match="Tibetan"):
+        _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "array", "items": {"type": "string"}, "contains": {"pattern": "(?<=a+)b"}, "minItems": 2},
+        {
+            "type": "array",
+            "items": {"type": "string"},
+            "contains": {"pattern": "(?<=a+)b"},
+            "maxContains": 1,
+            "minItems": 2,
+        },
+    ],
+    ids=["minItems", "maxContains"],
+)
+def test_array_with_undrawable_contains_pattern_declines(schema):
+    # The demand names characters no draw can produce, so the array is undrawable rather than filtered forever.
+    with pytest.raises(UnsupportedRegexPattern, match=r"\(\?<=a\+\)b"):
         _canonical_strategy(schema, GenerationConfig(), jsonschema_rs.Draft202012Validator)
 
 

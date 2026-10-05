@@ -42,3 +42,17 @@ SortOrder = Literal["ASC", "DESC"]
 CronEntrypoint = NewType("CronEntrypoint", str)
 CronExpression = NewType("CronExpression", str)
 ScheduleId = NewType("ScheduleId", int)
+
+
+# Schema objects, bare as pg_catalog stores them, so declared and installed names compare directly.
+TableName = NewType("TableName", str)
+ColumnName = NewType("ColumnName", str)
+IndexName = NewType("IndexName", str)
+TypeName = NewType("TypeName", str)
+FunctionName = NewType("FunctionName", str)
+TriggerName = NewType("TriggerName", str)
+
+# Spellings PostgreSQL itself reports: format_type for one, pg_get_expr for
+# the other.
+SqlType = NewType("SqlType", str)
+SqlExpression = NewType("SqlExpression", str)

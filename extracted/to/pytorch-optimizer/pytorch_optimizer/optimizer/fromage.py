@@ -4,7 +4,6 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 import math
-from typing import Optional
 
 import torch
 
@@ -14,19 +13,19 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, Par
 
 
 class Fromage(BaseOptimizer):
-    """On the distance between two neural networks and the stability of learning.
+    """Gradient descent scaled by the ratio of parameter and gradient norms.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        p_bound (Optional[float]): Restricts the optimization to a bounded set. For example, a value of 2.0 restricts
-            parameter norms to lie within 2x their initial norms, which helps regularize the model class.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        p_bound: Restricts the optimization to a bounded set. For example, a value of 2.0 restricts parameter norms
+            to lie within 2x their initial norms, which helps regularize the model class.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
     def __init__(
-        self, params: ParamsT, lr: float = 1e-2, p_bound: Optional[float] = None, maximize: bool = False, **kwargs
+        self, params: ParamsT, lr: float = 1e-2, p_bound: float | None = None, maximize: bool = False, **kwargs
     ):
         self.validate_learning_rate(lr)
 

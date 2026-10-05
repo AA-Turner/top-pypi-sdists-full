@@ -4,7 +4,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Optional
 
 import torch
 
@@ -14,17 +13,16 @@ from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, Par
 
 
 class MADGRAD(BaseOptimizer):
-    """A Momentumized, Adaptive, Dual Averaged Gradient Method for Stochastic (slightly modified).
+    """Momentumized adaptive dual averaged gradient descent.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        eps (float): Term added to the denominator to improve numerical stability.
-        weight_decay (float): Weight decay (L2 penalty).
-            MADGRAD optimizer requires less weight decay than other methods, often as little as zero.
-            On sparse problems both weight_decay and momentum should be set to 0.
-        weight_decouple (float): Apply AdamW style decoupled weight decay.
-        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        momentum: Interpolation factor toward the previous parameter values. `0` disables momentum.
+        eps: Term added to the denominator to improve numerical stability.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -79,11 +77,21 @@ class MADGRAD(BaseOptimizer):
 
             state = self.state[p]
 
-            state['grad_sum_sq'] = torch.zeros_like(p)
-            state['s'] = torch.zeros_like(p)
+            if 'grad_sum_sq' not in state:
+                state['grad_sum_sq'] = torch.zeros_like(p)
+                state['s'] = torch.zeros_like(p)
 
-            if group['momentum'] > 0.0:
-                state['x0'] = p.clone()
+                if group['momentum'] > 0.0:
+                    state['x0'] = p.clone()
+
+    @staticmethod
+    def compute_rms(grad_sum_sq: torch.Tensor, eps: float) -> torch.Tensor:
+        """Compute the cube root accumulator, treating zero denominators as inactive coordinates."""
+        rms = grad_sum_sq.pow(1.0 / 3.0).add_(eps)
+        if eps == 0.0:
+            rms[rms == 0] = float('inf')
+
+        return rms
 
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
@@ -96,8 +104,7 @@ class MADGRAD(BaseOptimizer):
             self.state['k'] = torch.tensor([0], dtype=torch.long, requires_grad=False)
 
         for group in self.param_groups:
-            if self.state['k'] == 0:
-                self.init_group(group)
+            self.init_group(group)
 
             weight_decay, momentum, eps = group['weight_decay'], group['momentum'], group['eps']
             lr: float = group['lr'] + eps if group['lr'] != 0.0 else 0.0
@@ -125,16 +132,14 @@ class MADGRAD(BaseOptimizer):
                     grad_sum_sq_masked = grad_sum_sq.sparse_mask(grad)
                     s_masked = s.sparse_mask(grad)
 
-                    rms_masked_values = grad_sum_sq_masked._values().pow(1 / 3).add_(eps)
+                    rms_masked_values = self.compute_rms(grad_sum_sq_masked._values(), eps)
                     x0_masked_values = p_masked._values().addcdiv(s_masked._values(), rms_masked_values, value=1)
 
                     grad_sq = grad * grad
                     grad_sum_sq.add_(grad_sq, alpha=_lambda)
                     grad_sum_sq_masked.add_(grad_sq, alpha=_lambda)
 
-                    rms_masked_values = grad_sum_sq_masked._values().pow_(1 / 3).add_(eps)
-                    if eps == 0.0:
-                        rms_masked_values[rms_masked_values == 0] = float('inf')
+                    rms_masked_values = self.compute_rms(grad_sum_sq_masked._values(), eps)
 
                     s.add_(grad, alpha=_lambda)
                     s_masked._values().add_(grad._values(), alpha=_lambda)
@@ -145,20 +150,17 @@ class MADGRAD(BaseOptimizer):
                     p.data.add_(p_masked, alpha=-1)
                 else:
                     if momentum == 0.0:
-                        rms = grad_sum_sq.pow(1 / 3).add_(eps)
+                        rms = self.compute_rms(grad_sum_sq, eps)
                         x0 = p.addcdiv(s, rms, value=1)
                     else:
                         x0 = state['x0']
 
                     grad_sum_sq.addcmul_(grad, grad, value=_lambda)
-                    rms = grad_sum_sq.pow(1 / 3).add_(eps)
-
-                    if eps == 0.0:
-                        rms[rms == 0] = float('inf')
+                    rms = self.compute_rms(grad_sum_sq, eps)
 
                     s.add_(grad, alpha=_lambda)
 
-                    p_old: Optional[torch.Tensor] = None
+                    p_old: torch.Tensor | None = None
                     if weight_decay > 0.0 and group['weight_decouple']:
                         p_old = p.clone()
 
@@ -166,7 +168,7 @@ class MADGRAD(BaseOptimizer):
                         p.copy_(x0.addcdiv(s, rms, value=-1))
                     else:
                         z = x0.addcdiv(s, rms, value=-1)
-                        p.mul_(momentum).add_(z, alpha=1.0 - momentum)
+                        p.lerp_(z, weight=1.0 - momentum)
 
                     if weight_decay > 0.0 and group['weight_decouple']:
                         p.add_(p_old, alpha=-lr * weight_decay)

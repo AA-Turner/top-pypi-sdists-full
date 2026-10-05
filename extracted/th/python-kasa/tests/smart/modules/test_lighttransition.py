@@ -1,6 +1,7 @@
+import pytest
 from pytest_mock import MockerFixture
 
-from kasa import Feature, Module
+from kasa import Feature, KasaException, Module
 from kasa.smart import SmartDevice
 
 from ...device_fixtures import get_parent_and_child_modules, parametrize
@@ -20,10 +21,15 @@ light_transition_gt_v1 = parametrize(
     ),
     protocol_filter={"SMART"},
 )
+light_transition_any = parametrize(
+    "has light transition",
+    component_filter="on_off_gradually",
+    protocol_filter={"SMART"},
+)
 
 
 @light_transition_v1
-async def test_module_v1(dev: SmartDevice, mocker: MockerFixture):
+async def test_module_v1(dev: SmartDevice, mocker: MockerFixture) -> None:
     """Test light transition module."""
     assert isinstance(dev, SmartDevice)
     light_transition = next(get_parent_and_child_modules(dev, Module.LightTransition))
@@ -42,7 +48,7 @@ async def test_module_v1(dev: SmartDevice, mocker: MockerFixture):
 
 
 @light_transition_gt_v1
-async def test_module_gt_v1(dev: SmartDevice, mocker: MockerFixture):
+async def test_module_gt_v1(dev: SmartDevice, mocker: MockerFixture) -> None:
     """Test light transition module."""
     assert isinstance(dev, SmartDevice)
     light_transition = next(get_parent_and_child_modules(dev, Module.LightTransition))
@@ -79,3 +85,33 @@ async def test_module_gt_v1(dev: SmartDevice, mocker: MockerFixture):
     await light_transition.set_turn_off_transition(0)
     await dev.update()
     assert light_transition.enabled is False
+
+
+@light_transition_any
+async def test_change_transition(dev: SmartDevice, mocker: MockerFixture) -> None:
+    """Test the state change transition flag, which only newer firmware reports."""
+    light_transition = next(get_parent_and_child_modules(dev, Module.LightTransition))
+    supported = isinstance(light_transition.data.get("change_state"), dict)
+
+    if not supported:
+        assert "smooth_transition_change" not in light_transition._module_features
+        with pytest.raises(KasaException, match="does not support state change"):
+            _ = light_transition.change_transition
+        return
+
+    feat = light_transition._module_features["smooth_transition_change"]
+    assert feat.type is Feature.Type.Switch
+    assert feat.value == light_transition.change_transition
+
+    call_spy = mocker.spy(light_transition, "call")
+    await light_transition.set_change_transition(True)
+    call_spy.assert_called_once_with(
+        "set_on_off_gradually_info", {"change_state": {"enable": True}}
+    )
+
+    await dev.update()
+    assert light_transition.change_transition is True
+
+    await light_transition.set_change_transition(False)
+    await dev.update()
+    assert light_transition.change_transition is False

@@ -42,7 +42,7 @@ dependencies = [
 
 [project.optional-dependencies]
 as = [
-    "agentscope[model-ollama]==2.0.7.post1",
+    "agentscope[model-ollama]==2.0.9",
 ]
 web = [
     "reme_studio",
@@ -51,7 +51,6 @@ core = [
     "reme-ai[as]",
     "pillow>=10.0.0",
     "claude-agent-sdk>=0.2.126",
-    "dingtalk-stream>=0.24.3",
     "openai-codex>=0.144.4",
     "pproxy>=2.7.9,<3",
     "faiss-cpu>=1.13.2",

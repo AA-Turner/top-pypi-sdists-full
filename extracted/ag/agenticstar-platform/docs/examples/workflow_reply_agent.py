@@ -18,6 +18,9 @@ The image's start command::
 The runner stages the inputs in `/workspace/input` and copies them to `/workspace/work`. The agent only reads the work
 directory and writes its declared outputs to `/workspace/output`. External reads are audited with
 `context.audit.tool_invoked(..., effect_kind="read")`.
+
+When a reviewer sends the step back, the step runs again with the reviewer's reason in `context.gate_decision`
+(`None` on a run that does not follow a review). Pass it to your processing so the new draft fixes what was asked.
 """
 from __future__ import annotations
 
@@ -32,6 +35,10 @@ async def run(context) -> None:
     inv = await context.audit.tool_invoked("read_instructions", effect_kind="read", target="instructions.md")
     instructions = (context.work_dir / "instructions.md").read_text(encoding="utf-8")
     await context.audit.tool_effect(inv, status="ok", count=1)
+
+    review = context.gate_decision
+    if review and review["decision"] == "send_back" and review["note"]:
+        instructions += f"\n\n## Requested changes\n\n{review['note']}\n"
 
     reply = await create_reply(product_code=context.parameters["product_code"], instructions=instructions,
                                language=context.parameters.get("language", "ja"))

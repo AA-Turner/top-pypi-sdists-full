@@ -10,7 +10,7 @@ def format_safe_timestamp(unix_timestamp):
 
 
 def format_duration(start_time, end_time):
-    seconds = int(end_time) - int(start_time)
+    seconds = int(end_time - start_time)
     days = seconds // 86400
     hours = (seconds % 86400) // 3600
     minutes = (seconds % 3600) // 60
@@ -20,4 +20,4 @@ def format_duration(start_time, end_time):
 
     parts = [f"{value} {label}{'s' if value != 1 else ''}" for value, label in time_parts if value > 0]
 
-    return " and ".join(filter(None, [", ".join(parts[:-1])] + parts[-1:])) if parts else "0 seconds"
+    return " and ".join(filter(None, [", ".join(parts[:-1]), *parts[-1:]])) if parts else "0 seconds"

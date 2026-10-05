@@ -24,7 +24,12 @@ import pytest
 from extra_platforms import is_windows
 
 from click_extra import command, echo, option
-from click_extra.envvar import clean_envvar_id, env_copy, merge_envvar_ids
+from click_extra.envvar import (
+    clean_envvar_id,
+    env_copy,
+    merge_envvar_ids,
+    temporary_env,
+)
 
 
 @pytest.mark.parametrize(
@@ -229,7 +234,7 @@ def envvars_test_cases():
         #
         # This is the one point where click-extra reads a flag differently:
         # `parse_envvar_flag("")` returns `True`, since the variables it serves
-        # by hand (`NO_COLOR` and friends) follow the convention that bare
+        # by hand (`ACCESSIBLE`, `DO_NOT_TRACK`) follow the convention that bare
         # presence is the signal. Those never route through a Click option.
         "": False,
         "False": False,
@@ -345,7 +350,8 @@ def test_env_copy_removes_on_none(monkeypatch):
     """A `None` value drops its variable, the way Click's ``CliRunner`` reads it.
 
     The only way to hide an inherited variable from a child: assigning the empty
-    string leaves it set, which :func:`parse_envvar_flag` counts as activation.
+    string leaves it set, which :func:`~click_extra.envvar.parse_envvar_flag`
+    counts as activation.
     """
     envvar = "MPM_DUMMY_ENVVAR_93725"
     monkeypatch.setenv(envvar, "inherited")
@@ -356,3 +362,37 @@ def test_env_copy_removes_on_none(monkeypatch):
     assert "MPM_DUMMY_ENVVAR_93726" not in env_copy({"MPM_DUMMY_ENVVAR_93726": None})  # type: ignore[operator]
     # The process environment is never touched.
     assert os.environ[envvar] == "inherited"
+
+
+def test_temporary_env_sets_unsets_and_restores(monkeypatch):
+    monkeypatch.setenv("FRUIT", "pear")
+    monkeypatch.setenv("SEASON", "winter")
+    monkeypatch.delenv("CITY", raising=False)
+
+    with temporary_env({"FRUIT": "apple", "CITY": "Lyon"}, unset_vars=["SEASON"]):
+        assert os.environ["FRUIT"] == "apple"
+        assert os.environ["CITY"] == "Lyon"
+        assert "SEASON" not in os.environ
+
+    assert os.environ["FRUIT"] == "pear"
+    assert os.environ["SEASON"] == "winter"
+    assert "CITY" not in os.environ
+
+
+def test_temporary_env_restores_after_a_rejected_value(monkeypatch):
+    """A change failing halfway through still restores the ones already made.
+
+    `os.environ` takes `FRUIT`, then rejects the integer: the same window an
+    interrupt landing between two changes would hit.
+    """
+    monkeypatch.delenv("FRUIT", raising=False)
+    monkeypatch.delenv("SEASON", raising=False)
+
+    with (
+        pytest.raises(TypeError),
+        temporary_env({"FRUIT": "apple", "SEASON": 3}),  # type: ignore[dict-item]
+    ):
+        pass
+
+    assert "FRUIT" not in os.environ
+    assert "SEASON" not in os.environ

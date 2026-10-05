@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "pydivert"
 dynamic = ["version"]
-description = "Python binding to windivert driver"
+description = "Python binding to WinDivert (Windows) and eBPFDivert (Linux) for packet capture, filtering and injection"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "LGPL-3.0-or-later OR GPL-2.0-or-later"
 license-files = ["LICENSE*", "AUTHORS"]
-keywords = ["windivert", "network", "tcp/ip"]
+keywords = ["windivert", "ebpf", "network", "tcp/ip", "packet"]
 authors = [
     { name = "Fabio Falcinelli", email = "fabio.falcinelli@gmail.com" },
 ]
@@ -23,6 +23,7 @@ classifiers = [
     "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
     "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -37,6 +38,7 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
+linux = []
 test = [
     "mock>=1.0.1",
     "hypothesis>=3.5.3",
@@ -44,9 +46,9 @@ test = [
     "pytest-asyncio",
     "pytest-cov>=2.2.1",
     "pytest-timeout>=2.1.0",
-    "codecov>=2.0.5",
     "wheel>=0.29",
     "setuptools",
+    "scapy",
 ]
 docs = [
     "pdoc>=14.0.0",
@@ -72,15 +74,19 @@ select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
-    "I",  # isort
     "C",  # flake8-comprehensions
     "B",  # flake8-bugbear
     "UP", # pyupgrade
+    "I",  # isort
 ]
 ignore = []
 
 [tool.ruff.lint.isort]
 known-first-party = ["pydivert"]
+
+[tool.pydivert.binaries]
+windivert = "2.2.2"
+ebpfdivert = "0.0.5"
 
 [tool.ty.environment]
 python-platform = "win32"
@@ -95,10 +101,26 @@ include = [
     "CHANGELOG",
     "LICENSE",
     "README.md",
+    "hatch_build.py",
+    "scripts",
+]
+exclude = [
+    "pydivert/windivert_dll/WinDivert64.dll",
+    "pydivert/windivert_dll/WinDivert64.sys",
+    "pydivert/bpf/libebpfdivert.so",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["pydivert"]
+# Downloaded by hatch_build.py (git-ignored): only the target platform's are present.
+artifacts = [
+    "pydivert/windivert_dll/WinDivert64.dll",
+    "pydivert/windivert_dll/WinDivert64.sys",
+    "pydivert/bpf/libebpfdivert.so",
+]
+
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
 
 [tool.pytest.ini_options]
 testpaths = ["pydivert"]
@@ -120,4 +142,6 @@ exclude_lines = [
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pre-commit",
+]

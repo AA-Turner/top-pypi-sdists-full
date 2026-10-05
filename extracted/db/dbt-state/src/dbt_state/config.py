@@ -234,6 +234,7 @@ class RunCacheConfig:
     org_id: t.Optional[str] = None
     run_hooks_on_no_op: bool = False
     compare_unrendered_code: bool = False
+    compare_selected_columns: bool = False
     emit_reused_status: bool = False
     adaptive_metadata_fetch: bool = True
     snowflake_get_view_ddl_override: t.Optional[str] = None
@@ -583,6 +584,16 @@ class RunCacheConfig:
         value = self._get_node_config_state_value(node_config, "compare_unrendered_code")
         if value is None:
             return self.compare_unrendered_code
+        if not isinstance(value, str):
+            value = str(value)
+        return str_to_bool(value)
+
+    def resolve_compare_selected_columns(
+        self, node_config: t.Union[ModelConfig, SnapshotConfig, TestConfig]
+    ) -> bool:
+        value = self._get_node_config_state_value(node_config, "compare_selected_columns")
+        if value is None:
+            return self.compare_selected_columns
         if not isinstance(value, str):
             value = str(value)
         return str_to_bool(value)

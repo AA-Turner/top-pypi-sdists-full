@@ -386,6 +386,14 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
             tables_by_schema[table.catalog, table.db].append(table)
         return list(tables_by_schema.values())
 
+    def _batch_tables_for_schemas(  # noqa: PLR6301
+        self, tables: t.Collection[exp.Table]
+    ) -> t.Collection[t.Collection[exp.Table]]:
+        # Schemas are fetched with one `DESCRIBE TABLE` per table (a warehouse-independent metadata
+        # op), so fan out one table per batch for maximal parallelism across the executor. The
+        # metadata warehouse is already applied per-connection; DESCRIBE doesnt consume warehouse compute
+        return [[table] for table in tables]
+
     def _fetch_last_modified_epochs(
         self, table_batch: t.Collection[exp.Table]
     ) -> dict[str, t.Optional[int]]:
@@ -437,6 +445,33 @@ class SnowflakeAdapterExtension(BaseAdapterExtension):
                 str(e),
             )
             return {}
+
+    def _fetch_schemas(
+        self, table_batch: t.Collection[exp.Table]
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        # We use `DESCRIBE TABLE` rather than INFORMATION_SCHEMA.COLUMNS because it is a
+        # cloud-services metadata operation: it does not run on the warehouse (so it never queues
+        # behind model execution) and its cost is per-object, whereas INFORMATION_SCHEMA.COLUMNS
+        # scans the whole database's columns and gets dramatically slower as the database grows.
+        # It also returns columns in ordinal order and yields directly usable DDL type strings
+        # (e.g. `NUMBER(38,0)`), so no ordering or type parsing is needed.
+        #
+        # Each table is its own batch (see `_batch_tables_for_schemas`), so the base adapter fans
+        # these single-table DESCRIBEs out across the executor.
+        result: dict[str, t.Optional[t.Dict[str, str]]] = {}
+        for table in table_batch:
+            fqn = self._sql(table)
+            try:
+                rows = self.execute(f"DESCRIBE TABLE {fqn}", fetch=True).rows
+            except Exception as e:
+                # A missing or inaccessible table is expected (e.g. a source that doesn't exist
+                # yet); omit it so the caller records None, and don't emit a warning.
+                events.fire_debug_event("DESCRIBE TABLE failed for {}: {}", fqn, str(e))
+                continue
+            # DESCRIBE TABLE columns are (name, type, kind, ...); keep only kind == 'COLUMN' so we
+            # never capture non-column metadata rows (e.g. policies on some editions) as columns.
+            result[fqn] = {row[0]: row[1] for row in rows if row[2] == "COLUMN"}
+        return result
 
     def _fetch_view_definitions(self, table_batch: t.Collection[exp.Table]) -> ViewFetchResult:
         if not table_batch:

@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Sequence, Union
 
 import attr
 
-from pyais.bit_vector import bit_vector
+from pyais.bit_vector import bit_vector, SUPPORTS_FAST_PATH, int_bit_vector, word_bit_vector
 from pyais.constants import (
     AtoNDimensionType,
     AtoNRestrictedUseInidicator,
@@ -101,6 +101,7 @@ def bit_field(
     signed: bool = False,
     variable_length: bool = False,
     is_spare: bool = False,
+    bit_unit: typing.Optional[int] = None,
     **kwargs: typing.Any
 ) -> typing.Any:
     """
@@ -125,6 +126,7 @@ def bit_field(
             'default': default,
             'variable_length': variable_length,
             'is_spare': is_spare,
+            'bit_unit': bit_unit,
         },
         **kwargs
     )
@@ -787,6 +789,8 @@ class Payload(abc.ABC):
     # Set to False if a message class raises a NotImplementedError during runtime.
     FAST_PATH_AVAILABLE: list[bool] = [True] * 64
 
+    WORD_FAST_PATH_AVAILABLE: list[bool] = [True] * 64
+
     @staticmethod
     def __force_type(field: typing.Any, val: typing.Any) -> typing.Any:
         """
@@ -864,10 +868,16 @@ class Payload(abc.ABC):
             elif d_type == bytes:
                 # Convert bytes to bits
                 if not val:
+                    if field.metadata.get('variable_length', False):
+                        continue
                     bit_buffer = (bit_buffer << width)
                     bits_in_buffer += width
                 else:
                     required_bits = min(width, len(val) * 8)
+                    # Ensure bytes to not overflow a bit-length that isn't a multiple of 8
+                    bit_unit = field.metadata.get('bit_unit')
+                    if bit_unit:
+                        required_bits -= required_bits % bit_unit
                     int_value = int.from_bytes(val, 'big') >> (len(val) * 8 - required_bits)  # undo left-alignment
                     bit_buffer = (bit_buffer << required_bits) | int_value
                     bits_in_buffer += required_bits
@@ -951,11 +961,18 @@ class Payload(abc.ABC):
         return plan
 
     @classmethod
-    def _fast_path(cls, bv: bit_vector) -> 'ANY_MESSAGE':
+    def _fast_path(cls, bv: int_bit_vector) -> 'ANY_MESSAGE':
         """Use a flat extraction plan instead of iterating over each message class's
         fields. Convert the whole payload into an int once and extract every field
         with (value >> shift) & mask. These shifts run in C and are faster than
         repeated bit-field extraction."""
+        raise NotImplementedError
+
+    @classmethod
+    def _fast_path_pypy(cls, bv: word_bit_vector) -> 'ANY_MESSAGE':
+        """Counterpart of `_fast_path` for PyPy, where shifting a single bigint is slow.
+        Works on the 60-bit machine words of a `word_bit_vector` instead: bit `i` of the
+        payload is bit `59 - i % 60` of `words[i // 60]`"""
         raise NotImplementedError
 
     @classmethod
@@ -974,15 +991,34 @@ class Payload(abc.ABC):
         bv_len = len(bv)
         # Is a fast path available?
         if bv_len == 168:
-            mid = bv._value >> 162
-            if cls.FAST_PATH_AVAILABLE[mid]:
-                try:
-                    return cls._fast_path(bv)
-                except NotImplementedError:
-                    # Fast path is not implemented for this message type.
-                    # Do not try this again.
-                    cls.FAST_PATH_AVAILABLE[mid] = False
-        kwargs: dict[str, NMEA_VALUE | None] = {}
+            if SUPPORTS_FAST_PATH:
+                # CPython is fast with bigints
+                mid = bv._value >> 162
+                if cls.FAST_PATH_AVAILABLE[mid]:
+                    try:
+                        return cls._fast_path(bv)
+                    except NotImplementedError:
+                        # Fast path is not implemented for this message type.
+                        # Do not try this again.
+                        cls.FAST_PATH_AVAILABLE[mid] = False
+            else:
+                # PyPy is faster with fixed sized machine words than with bigints
+                words = getattr(bv, '_words', None)
+                if words is not None:
+                    mid = words[0] >> 54
+                    if cls.WORD_FAST_PATH_AVAILABLE[mid]:
+                        try:
+                            return cls._fast_path_pypy(typing.cast(word_bit_vector, bv))
+                        except NotImplementedError:
+                            # Fast path is not implemented for this message type.
+                            # Do not try this again.
+                            cls.WORD_FAST_PATH_AVAILABLE[mid] = False
+
+        # Collect positional args instead of kwargs: the plan follows attrs' field order,
+        # which is also the order of the generated __init__'s parameters. Calling with
+        # *args is ~2x faster than **kwargs on CPython and ~4x faster on PyPy.
+        args: list[NMEA_VALUE | None] = []
+        append = args.append
         val: NMEA_VALUE
         get_num = bv.get_num
         get_str = bv.get_str
@@ -990,7 +1026,7 @@ class Payload(abc.ABC):
 
         for name, offset, width, signed, kind, converter in plan:
             if offset >= bv_len:
-                kwargs[name] = None
+                append(None)
                 continue
             if kind == INT:
                 val = get_num(offset, width, signed)
@@ -1005,8 +1041,8 @@ class Payload(abc.ABC):
 
             if converter is not None:
                 val = converter(val)
-            kwargs[name] = val
-        return cls(**kwargs)  # type:ignore
+            append(val)
+        return cls(*args)  # type:ignore
 
     def asdict(self, enum_as_int: bool = False, ignore_spare: bool = True) -> typing.Dict[str, typing.Optional[NMEA_VALUE]]:
         """
@@ -1055,7 +1091,27 @@ def from_lat_lon(v: typing.Union[int, float]) -> float:
     return round(float(v) * 600000.0)
 
 
+# round(x, ndigits) goes through a decimal string round-trip. That's slow on CPython and
+# very slow on PyPy, where the JIT can't optimize it. The raw values decoded from a payload
+# are integers, for which the same result can be computed with integer arithmetic only:
+#   round(v / 600000, 6) == n / 1e6   where n = nearest integer to v * 1e6 / 600000 = 5v/3
+# 5v/3 is never exactly halfway between two integers, so there are no tie-breaking
+# differences, and n / 1e6 is correctly rounded by IEEE 754 division. The results are
+# bit-identical: verified exhaustively for all |v| < 2**27 (/600000) and |v| < 2**24
+# (/600 and /60000), which covers every field width used. Everything else uses round().
+def _float_as_int(v: typing.Union[int, float]) -> typing.Optional[int]:
+    """Return v as an int if it is an integral, non-zero float (else None).
+    The generic decoder passes float(raw_int) to the converters of float fields.
+    0.0 is excluded so that round() preserves the sign of -0.0."""
+    if type(v) is float and v.is_integer() and v != 0.0:
+        return int(v)
+    return None
+
+
 def to_lat_lon(v: typing.Union[int, float]) -> float:
+    iv = v if type(v) is int else _float_as_int(v)
+    if iv is not None and -0x8000000 <= iv < 0x8000000:  # |iv| < 2**27
+        return ((10 * iv + 3) // 6) / 1e6  # round(iv * 5 / 3) / 1e6
     return round(float(v) / 600000.0, 6)
 
 
@@ -1064,6 +1120,9 @@ def from_lat_lon_600(v: typing.Union[int, float]) -> float:
 
 
 def to_lat_lon_600(v: typing.Union[int, float]) -> float:
+    iv = v if type(v) is int else _float_as_int(v)
+    if iv is not None and -0x1000000 <= iv < 0x1000000:  # |iv| < 2**24
+        return ((10000 * iv + 3) // 6) / 1e6  # round(iv * 5000 / 3) / 1e6, see to_lat_lon
     return round(float(v) / 600.0, 6)
 
 
@@ -1073,6 +1132,9 @@ def from_lat_lon_60000(v: typing.Union[int, float]) -> float:
 
 
 def to_lat_lon_60000(v: typing.Union[int, float]) -> float:
+    iv = v if type(v) is int else _float_as_int(v)
+    if iv is not None and -0x1000000 <= iv < 0x1000000:  # |iv| < 2**24
+        return ((100 * iv + 3) // 6) / 1e6  # round(iv * 50 / 3) / 1e6, see to_lat_lon
     return round(float(v) / 60000.0, 6)
 
 
@@ -1752,6 +1814,103 @@ def _decode_route_waypoints(data: bytes, waycount: int) -> typing.List[typing.Di
     return out
 
 
+# A single Dangerous Cargo record (IMO289, DAC=1/FID=25): a 4-bit cargo code
+# and a 13-bit subtype whose layout depends on that code. 4 + 13 = 17 bits.
+_CARGO_RECORD_BITS = 17
+_CARGO_MAX_RECORDS = 28
+
+_CARGO_CODE_STR = {
+    0: 'not available', 1: 'imdg', 2: 'igc', 3: 'bc',
+    4: 'marpol annex 1', 5: 'marpol annex 2', 6: 'regional',
+}
+
+
+def _marpol_1_str(val: int) -> str:
+    if val == 0:
+        return 'not available'
+    elif val == 1:
+        return "asphalt solutions"
+    elif val == 2:
+        return "oils"
+    elif val == 3:
+        return "distillates"
+    elif val == 4:
+        return "gas oil"
+    elif val == 5:
+        return "gasoline blending stocks"
+    elif val == 6:
+        return "gasoline"
+    elif val == 7:
+        return "jet fuels"
+    elif val == 8:
+        return "naphtha"
+    else:
+        return "reserved for future use"
+
+
+def _marpol_2_str(val: int) -> str:
+    if val == 0:
+        return 'not available'
+    elif val == 1:
+        return "category X"
+    elif val == 2:
+        return "category Y"
+    elif val == 3:
+        return "category Z"
+    elif val == 4:
+        return "other substances"
+    else:
+        return "reserved for future use"
+
+
+def _decode_dangerous_cargos(data: bytes) -> typing.List[typing.Dict[str, typing.Any]]:
+    """Decode 1-28 Dangerous Cargo records (17 bits each).
+
+    Each record is a 4-bit cargo `code` (the regulation the cargo is carried
+    under) followed by a 13-bit `subtype` whose layout depends on that code.
+    """
+    out: typing.List[typing.Dict[str, typing.Any]] = []
+    if not data:
+        return out
+
+    for i in range(min((len(data) * 8) // _CARGO_RECORD_BITS, _CARGO_MAX_RECORDS)):
+        base = i * _CARGO_RECORD_BITS
+        code = _asm_bits(data, base, 4)
+        subtype = _asm_bits(data, base + 4, 13)
+        cargo: typing.Dict[str, typing.Any] = {
+            'code': code,
+            'code_str': _CARGO_CODE_STR.get(code, 'reserved'),
+            'subtype': subtype,
+        }
+
+        if code == 1:
+            # Packed IMDG Code
+            cargo['imdg'] = subtype >> 6
+        elif code == 2:
+            # IGC Code
+            cargo['un'] = subtype
+        elif code == 3:
+            # BC Code
+            cargo['bc'] = subtype >> 10
+            cargo['imdg'] = (subtype >> 3) & 0x7f
+        elif code == 4:
+            # MARPOL Annex I
+            cargo['marpol_oil'] = subtype >> 9
+            cargo['marpol_oil_str'] = _marpol_1_str(cargo['marpol_oil'])
+        elif code == 5:
+            #  MARPOL Annex II
+            cargo['marpol_cat'] = subtype >> 10
+            cargo['marpol_cat_str'] = _marpol_2_str(cargo['marpol_cat'])
+        else:
+            # 6 is reserved for regional use
+            # 7-15 are reserved for future use
+            pass
+
+        out.append(cargo)
+
+    return out
+
+
 class CommunicationStateMixin:
     """
     Mixin class to access Communication State values by applicable messages.
@@ -1844,7 +2003,31 @@ class MessageType1(Payload, CommunicationStateMixin):
     radio = bit_field(19, int, default=0, signed=False)
 
     @classmethod
-    def _fast_path(cls, bv: bit_vector) -> 'MessageType1':
+    def _fast_path_pypy(cls, bv: word_bit_vector) -> 'MessageType1':
+        # 168 bits fit in three words (3 x 60 = 180)
+        w0, w1, w2 = bv._words[0], bv._words[1], bv._words[2]
+
+        return cls(
+            w0 >> 54,
+            (w0 >> 52) & 3,
+            (w0 >> 22) & 0x3FFFFFFF,  # type: ignore
+            (w0 >> 18) & 15,
+            to_turn((((w0 >> 10) & 255) ^ 0x80) - 0x80),
+            to_speed(w0 & 1023),
+            bool((w1 >> 59) & 1),
+            to_lat_lon((((w1 >> 31) & 0xFFFFFFF) ^ 0x8000000) - 0x8000000),
+            to_lat_lon((((w1 >> 4) & 0x7FFFFFF) ^ 0x4000000) - 0x4000000),
+            to_10th(((w1 & 15) << 8) | w2 >> 52),  # course spans last 4 bits of w1 and first 8 bits of w2
+            (w2 >> 43) & 511,
+            (w2 >> 37) & 63,
+            ManeuverIndicator.from_value((w2 >> 35) & 3),
+            (((w2 >> 32) & 7) << 5).to_bytes(1, "big"),
+            bool((w2 >> 31) & 1),
+            (w2 >> 12) & 0x7ffff,
+        )
+
+    @classmethod
+    def _fast_path(cls, bv: int_bit_vector) -> 'MessageType1':
         v = bv._value
         # Rot
         r = (v >> 118) & 255
@@ -1982,20 +2165,275 @@ class MessageType5(Payload):
 
 @attr.s(slots=True)
 class MessageType6(Payload):
+    @classmethod
+    def create(cls, **kwargs: typing.Union[str, float, int, bool, bytes]) -> "ANY_MESSAGE":
+        dac: int = int(kwargs.get("dac", 0))
+        fid: int = int(kwargs.get("fid", 0))
+        variant = _msg6_variant(dac, fid)
+        if variant is not None:
+            return variant.create(**kwargs)
+        return MessageType6Default.create(**kwargs)
+
+    @classmethod
+    def from_vector(cls, bv: bit_vector) -> "ANY_MESSAGE":
+        dac: int = bv.get(72, 10)
+        fid: int = bv.get(82, 6)
+
+        if len(bv) <= 72:
+            # Edge case for short variants of DAC 1, FID 16 sub types
+            dac = bv.get(40, 10)
+            fid = bv.get(50, 6)
+            if dac == 1 and fid == 16:
+                return MessageType6Dac1Fid16A.from_vector(bv)
+
+        variant = _msg6_variant(dac, fid)
+        if variant is not None:
+            return variant.from_vector(bv)
+        return MessageType6Default.from_vector(bv)
+
+
+@attr.s(slots=True)
+class MessageType6Default(Payload):
     """
-    Binary Addresses Message
-    Src: https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_6_binary_addressed_message
+    Binary addressed message with unspecified binary payload.
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_type_6_binary_addressed_message
     """
     msg_type = bit_field(6, int, default=6)
     repeat = bit_field(2, int, default=0, signed=False)
     mmsi = bit_field(30, int, from_converter=from_mmsi)
     seqno = bit_field(2, int, default=0, signed=False)
-    dest_mmsi = bit_field(30, int, from_converter=from_mmsi)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
     retransmit = bit_field(1, bool, default=False, signed=False)
     spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
     dac = bit_field(10, int, default=0, signed=False)
     fid = bit_field(6, int, default=0, signed=False)
     data = bit_field(920, bytes, default=b'', variable_length=True)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid16A(Payload):
+    """
+    Type 6: Number of persons on board
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo236_number_of_persons_on_board
+
+    NOTE: There seem to be two variants of this message:
+
+          1. one with no destination address (variant A)
+          2. one with a destination address (variant B)
+
+    Bit length is used to distinguish them.
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    spare_1 = bit_field(2, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=16, signed=False)
+    persons = bit_field(13, int, default=0, signed=False)  # NOTE: according to gpsd this field has 14 bits
+    spare_2 = bit_field(3, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid16B(Payload):
+    """
+    Type 6: Number of persons on board
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo236_number_of_persons_on_board
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=16, signed=False)
+    persons = bit_field(13, int, default=0, signed=False)
+    spare_2 = bit_field(35, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid18(Payload):
+    """
+    Type 6: Clearance time to enter port
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_clearance_time_to_enter_port
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=18, signed=False)
+
+    linkage = bit_field(10, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    port_name = bit_field(120, str, default='')
+    destination = bit_field(30, str, default='')
+    lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    spare_2 = bit_field(43, bytes, default=b'', is_spare=True)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid20(Payload):
+    """
+    Type 6: Berthing data
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_berthing_data_addressed
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=20, signed=False)
+
+    linkage = bit_field(10, int, default=0, signed=False)
+    berth_length = bit_field(9, int, default=0, signed=False)
+    berth_depth = bit_field(8, float, from_converter=from_10th, to_converter=to_10th, default=0, signed=False)
+    position = bit_field(3, int, default=0, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    availability = bit_field(1, bool, default=False, signed=False)
+    agent = bit_field(2, int, default=0, signed=False)
+    fuel = bit_field(2, int, default=0, signed=False)
+    chandler = bit_field(2, int, default=0, signed=False)
+    stevedore = bit_field(2, int, default=0, signed=False)
+    electrical = bit_field(2, int, default=0, signed=False)
+    water = bit_field(2, int, default=0, signed=False)
+    customs = bit_field(2, int, default=0, signed=False)
+    cartage = bit_field(2, int, default=0, signed=False)
+    crane = bit_field(2, int, default=0, signed=False)
+    lift = bit_field(2, int, default=0, signed=False)
+    medical = bit_field(2, int, default=0, signed=False)
+    navrepair = bit_field(2, int, default=0, signed=False)
+    provisions = bit_field(2, int, default=0, signed=False)
+    shiprepair = bit_field(2, int, default=0, signed=False)
+    surveyor = bit_field(2, int, default=0, signed=False)
+    steam = bit_field(2, int, default=0, signed=False)
+    tugs = bit_field(2, int, default=0, signed=False)
+    solidwaste = bit_field(2, int, default=0, signed=False)
+    liquidwaste = bit_field(2, int, default=0, signed=False)
+    hazardouswaste = bit_field(2, int, default=0, signed=False)
+    ballast = bit_field(2, int, default=0, signed=False)
+    additional = bit_field(2, int, default=0, signed=False)
+    regional1 = bit_field(2, int, default=0, signed=False)
+    regional2 = bit_field(2, int, default=0, signed=False)
+    future1 = bit_field(2, int, default=0, signed=False)
+    future2 = bit_field(2, int, default=0, signed=False)
+    berth_name = bit_field(120, str, default='')
+    berth_lon = bit_field(25, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+    berth_lat = bit_field(24, float, from_converter=from_lat_lon_60000, to_converter=to_lat_lon_60000, signed=True, default=0)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid23(Payload):
+    """
+    Type 6: Area notice
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_area_notice_addressed
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=23, signed=False)
+
+    linkage = bit_field(10, int, default=0, signed=False)
+    notice = bit_field(7, int, default=127, signed=False)
+    month = bit_field(4, int, default=0, signed=False)
+    day = bit_field(5, int, default=0, signed=False)
+    hour = bit_field(5, int, default=24, signed=False)
+    minute = bit_field(6, int, default=60, signed=False)
+    duration = bit_field(18, int, default=262143, signed=False)
+    area_data = bit_field(870, bytes, default=b'', variable_length=True, bit_unit=87)
+
+    @property
+    def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:
+        """Decode the 1-10 sub-area indications (shape and shape-specific fields)."""
+        return _decode_area_notice_subareas(self.area_data)
+
+
+@attr.s(slots=True)
+class MessageType6Dac1Fid25(Payload):
+    """
+    Type 6: Dangerous Cargo Indication
+    https://gpsd.gitlab.io/gpsd/AIVDM.html#_imo289_dangerous_cargo_indication
+    """
+    msg_type = bit_field(6, int, default=6)
+    repeat = bit_field(2, int, default=0, signed=False)
+    mmsi = bit_field(30, int, from_converter=from_mmsi)
+    seqno = bit_field(2, int, default=0, signed=False)
+    dest_mmsi = bit_field(30, int, from_converter=from_mmsi, default=0)
+    retransmit = bit_field(1, bool, default=False, signed=False)
+    spare_1 = bit_field(1, bytes, default=b'', is_spare=True)
+    dac = bit_field(10, int, default=1, signed=False)
+    fid = bit_field(6, int, default=25, signed=False)
+
+    unit = bit_field(2, int, default=0, signed=False)
+    amount = bit_field(10, int, default=0, signed=False)
+    cargo_data = bit_field(476, bytes, default=b'', variable_length=True, bit_unit=17)
+
+    @property
+    def amount_kg(self) -> typing.Optional[int]:
+        amount: int = self.amount
+        if amount == 0:
+            return None
+        if self.unit == 0:
+            return None
+        elif self.unit == 1:
+            return amount
+        elif self.unit == 2:
+            return amount * 1_000
+        else:
+            return amount * 1_000_000
+
+    @property
+    def unit_str(self) -> str:
+        if self.unit == 0:
+            return ''
+        elif self.unit == 1:
+            return 'kg'
+        elif self.unit == 2:
+            return 'tonnes'
+        else:
+            return '1000 tonnes'
+
+    @property
+    def cargos(self) -> typing.List[typing.Dict[str, typing.Union[str, int]]]:
+        """Decode the 1-28 subcargos."""
+        return _decode_dangerous_cargos(self.cargo_data)
+
+# ---------------------------------------------------------------------------
+# DAC/FID dispatch tables
+# ---------------------------------------------------------------------------
+
+
+_MSG6_VARIANTS: typing.Dict[typing.Tuple[int, int], typing.Type[Payload]] = {
+    (1, 16): MessageType6Dac1Fid16B,  # Type 6 messages are addressed. Thus, this variant is the default.
+    (1, 18): MessageType6Dac1Fid18,
+    (1, 20): MessageType6Dac1Fid20,
+    (1, 23): MessageType6Dac1Fid23,
+    (1, 25): MessageType6Dac1Fid25,
+}
+
+
+def _msg6_variant(dac: int, fid: int, ) -> typing.Optional[typing.Type[Payload]]:
+    """Return the MessageType6 subclass for a (DAC, FID) pair, or None for the default."""
+    return _MSG6_VARIANTS.get((dac, fid))
 
 
 @attr.s(slots=True)
@@ -2383,7 +2821,7 @@ class MessageType8Dac1Fid22(Payload):
     hour = bit_field(5, int, default=24, signed=False)
     minute = bit_field(6, int, default=60, signed=False)
     duration = bit_field(18, int, default=262143, signed=False)
-    area_data = bit_field(870, bytes, default=b'', variable_length=True)
+    area_data = bit_field(870, bytes, default=b'', variable_length=True, bit_unit=87)
 
     @property
     def sub_areas(self) -> typing.List[typing.Dict[str, typing.Any]]:
@@ -2521,7 +2959,7 @@ class MessageType8Dac1Fid27(Payload):
     minute = bit_field(6, int, default=60, signed=False)
     duration = bit_field(18, int, default=262143, signed=False)
     waycount = bit_field(5, int, default=0, signed=False)
-    waypoints_data = bit_field(880, bytes, default=b'', variable_length=True)
+    waypoints_data = bit_field(880, bytes, default=b'', variable_length=True, bit_unit=55)
 
     @property
     def waypoints(self) -> typing.List[typing.Dict[str, float]]:
@@ -3705,7 +4143,13 @@ ANY_MESSAGE = typing.Union[
     MessageType3,
     MessageType4,
     MessageType5,
-    MessageType6,
+    MessageType6Default,
+    MessageType6Dac1Fid16A,
+    MessageType6Dac1Fid16B,
+    MessageType6Dac1Fid18,
+    MessageType6Dac1Fid20,
+    MessageType6Dac1Fid23,
+    MessageType6Dac1Fid25,
     MessageType7,
     MessageType8Default,
     MessageType8Dac1Fid0,

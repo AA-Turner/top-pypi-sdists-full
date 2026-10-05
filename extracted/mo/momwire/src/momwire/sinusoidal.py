@@ -277,16 +277,19 @@ _CROSSING_OBLIQUE_REFUSAL = (
     "away. Solve it with SinusoidalGalerkinSolver or BSplineSolver, whose node "
     "slope emerges from the solution"
 )
-# The dense point-observer block (stage 2's route by decision 5) holds every
-# (observer, source node) pair's kernels at once; past this many pairs per
-# direction the tiled route (momwire#1224, stage 3) is the one to use.
-_CROSSING_POINT_PAIRS_MAX = 4_000_000
-_CROSSING_POINT_SIZE_REFUSAL = (
-    "the point-matched crossing block is served dense (momwire#1223 stage 2) up "
-    "to {limit:,} observer x source-node pairs per direction, and this deck "
-    "needs {pairs:,}; the tiled route is momwire#1224. Solve it with "
-    "SinusoidalGalerkinSolver or BSplineSolver, or use fewer segments"
-)
+# No pair-count cap on the point-matched crossing block (momwire#1224 perf
+# item 5). Stage 2 refused past 4 M observer x source-node pairs per
+# direction because its route held every pair's kernels at once; the cap
+# outlived that route (invl x32, 15.1 M pairs a direction, solved bit-
+# identically with it lifted). What the block holds now, per direction: one
+# observer chunk's working set (`_POINT_CHUNK_PAIRS`), the values of the
+# unique rows live in the current evaluation tile (`_POINT_TILE_PAIRS`), and
+# per-grid bookkeeping that still scales with the grid -- 4 B of pair id per
+# pair and ~40 B per unique row (the rows themselves and their tile slots).
+# A direction has at most N^2/4 pairs, so that is at most ~1 B + ~10 B per
+# entry of the 16 B-per-entry Z the fill already holds, and the work is
+# O(pairs) like the fill's. A cap would bound nothing Z does not; measured
+# at invl x32 the process peak is 1.3 GB against Z's 0.55 GB.
 
 # No node_gaps kwarg exists on this solver at all (unlike BSplineSolver /
 # SinusoidalGalerkinSolver) — passing one is a plain TypeError, not a
@@ -352,31 +355,34 @@ _ETA_REQUIRED = (
 )
 
 
+# Observer columns per product in `_reduce_phi_band`'s sparse regime
+# (momwire#1290). A tile's transposed Φ rows and its products are N × 32
+# complex (1.4 MB at N = 2816), so the transpose, the three products and the
+# sum stay in cache instead of streaming Φ-sized arrays through memory.
+# Measured on Haswell, free-space 8-dipole array, N = 2816, whole solve:
+# 8 columns 1.17 s, 16 1.16, 24-32 1.03-1.05, 48 1.10, 64 1.14; the
+# whole-band scipy spelling 1.59 s. The value moves no bits (see
+# `_reduce_phi_band`); it is a speed knob only.
+_REDUCE_TILE = 32
+
+
 def _reduce_phi_rows_in_place(Phi, Ms, band):
     """`Φ₀@M₀ + Φ₁@M₁ + Φ₂@M₂`, `(x = A; x += B; x += C)`, written into
     `Phi[0]`'s storage band by band of `band` observer rows; returns that
     array, which is then Z (momwire#1224).
 
-    Why a band is the same bits as the same rows of the whole product.
-    Above the dense threshold each `Ms[i]` is a `scipy.sparse.csc_matrix`,
-    and `ndarray @ csc` is scipy's `_rmatmul_dispatch`: `(Mᵀ @ Φᵀ)ᵀ`, where
-    `Mᵀ` is CSR over the same arrays and `Φᵀ` is an F-ordered view that
-    `_matmul_multivector` ravels into a C copy (the product's Φ-sized
-    copy), then `csr_matvecs` into a zeroed result (its Φ-sized result).
-    `csr_matvecs` walks Mᵀ's rows and, per stored entry, does
-    `y[i, :] += a · x[j, :]` over the vector axis — which is Φ's OBSERVER
-    axis. So each output element is its own zero plus its column's
-    stored entries in CSR order, one multiply-add each, and nothing on
-    that path depends on how many observer rows ride along. A band is
-    therefore a residency change, not a reassociation — the argument
-    `_assemble_Z` makes for its fill chunks, which is bit-equal at every
-    chunk size in the sparse regime.
+    A band is the same bits as the same rows of the whole product because
+    `_reduce_phi_band`'s every output element is its own reduction over
+    its column's stored entries, with nothing on that path depending on
+    how many observer rows ride along (argued there). A band is therefore
+    a residency change, not a reassociation — the argument `_assemble_Z`
+    makes for its fill chunks, which is bit-equal at every chunk size in
+    the sparse regime.
 
-    Writing into Φ₀: the band's product has copied its Φ₀ rows before
-    it returns, and no later band reads them, so the rows are free once
-    their own product exists. The whole reduction thus runs beside
-    the three Φ and one band (the copy and the result, 2 rows of N each
-    — the caller's `band` sizing), instead of beside two more Z.
+    Writing into Φ₀: a tile's product has copied its Φ₀ rows before it is
+    written back, and no later tile or band reads them, so the rows are
+    free once their own product exists. The whole reduction thus runs
+    beside the three Φ alone, instead of beside two more Z.
 
     A DENSE `Ms[i]` (N < `_DENSE_ASSEMBLY_THRESHOLD`) goes to BLAS zgemm,
     whose k-blocking can follow the row count; the caller passes
@@ -390,15 +396,64 @@ def _reduce_phi_rows_in_place(Phi, Ms, band):
     return out
 
 
+def _reduce_tiles(n):
+    """`_REDUCE_TILE`-column tiles over `n` observer rows, as (start, stop),
+    none ONE row wide unless `n` is: scipy routes a one-column operand to
+    `csr_matvec`, not `csr_matvecs`, so a one-row tile would change which
+    routine sums its elements. A ragged last row joins the tile before it,
+    and a tile is never asked to be narrower than 2."""
+    starts = list(range(0, n, max(2, _REDUCE_TILE)))
+    if n > 1 and n - starts[-1] == 1:
+        starts.pop()
+    return zip(starts, starts[1:] + [n])
+
+
 def _reduce_phi_band(Phi, Ms, out):
     """`out[...] = Φ₀@M₀; out += Φ₁@M₁; out += Φ₂@M₂` over one band of
-    observer rows — the one spelling both `_reduce_phi_rows_in_place` and
-    the fused mixed fill (`_assemble_Z_mixed`) reduce with, so the two
-    cannot drift apart. `out` may be `Phi[0]` itself: the first product is
-    a new array before it is written back."""
-    out[...] = Phi[0] @ Ms[0]
-    out += Phi[1] @ Ms[1]
-    out += Phi[2] @ Ms[2]
+    observer rows — the one spelling `_assemble_Z`,
+    `_reduce_phi_rows_in_place` and the fused mixed fill
+    (`_assemble_Z_mixed`) reduce with, so they cannot drift apart. `out`
+    may be `Phi[0]` itself: each tile's rows are copied out of it before
+    they are written back.
+
+    Above the dense threshold each `Ms[i]` is a `scipy.sparse.csc_matrix`,
+    and `ndarray @ csc` is scipy's `(Mᵀ @ Φᵀ)ᵀ`: `Mᵀ` is CSR over the same
+    arrays, `Φᵀ` is copied C-ordered, and `csr_matvecs` walks Mᵀ's rows
+    doing `y[j, :] += a · x[n, :]` over the vector axis — which is Φ's
+    OBSERVER axis — into a zeroed result. So each output element is its own
+    zero plus its column's stored entries in CSR order, one multiply-add
+    each, and nothing depends on how many observer columns ride along.
+
+    That routine is what runs here, called on `Mᵀ` directly, per tile of
+    `_REDUCE_TILE` observer rows (momwire#1290): the same function on the
+    same operands in the same order, so each product element is scipy's to
+    the bit — no reduction is rewritten, and no other library's summation
+    or FMA contraction is introduced. A tile is a narrower vector axis,
+    which every band height already is; that the axis's width moves no bits
+    is what the banded-fill gates hold on each CI platform. What changes is
+    only where the data lives. The three products are summed `(A + B) + C`
+    in the tile's transposed space — elementwise adds, the same IEEE
+    operations as `out = A; out += B; out += C` — and the sum is written
+    back transposed once. The whole-band spelling made a Φ-sized transposed
+    copy per product (`ravel`), a Φ-sized result, and a strided assignment
+    plus two strided `+=` into `out`: 0.67 s of a 1.40 s profiled solve at
+    N = 2816 on Haswell, against 0.22 s for the tiles.
+
+    A DENSE `Ms[i]` (N < `_DENSE_ASSEMBLY_THRESHOLD`) goes to BLAS zgemm,
+    whose k-blocking follows the operand shape, so it is reduced whole
+    band, exactly as written above.
+    """
+    if not scipy.sparse.issparse(Ms[0]):
+        out[...] = Phi[0] @ Ms[0]
+        out += Phi[1] @ Ms[1]
+        out += Phi[2] @ Ms[2]
+        return out
+    MT = [M.T for M in Ms]  # CSR views over the CSC arrays, no copy
+    for a, b in _reduce_tiles(out.shape[0]):
+        R = MT[0] @ np.ascontiguousarray(Phi[0][a:b].T)
+        R += MT[1] @ np.ascontiguousarray(Phi[1][a:b].T)
+        R += MT[2] @ np.ascontiguousarray(Phi[2][a:b].T)
+        out[a:b] = R.T
     return out
 
 
@@ -5639,12 +5694,13 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             They coexist because the image is folded into the free-space
             band and the remainder into the image band, so 3·blocks;
           * the REDUCTION — the surviving free-space band (3) plus TWO.
-            One is the matmul product; the three products are accumulated
-            into Z one at a time rather than summed as an expression, so
-            only one is ever live. The other is scipy's: `dense @ sparse`
-            runs as `(M.T @ Φ.T).T`, and the sparse matmul needs its dense
-            operand C-contiguous, so Φ.T is copied. Measured at N = 1200,
-            single band: 6x Z peak free space, which is Z + 3 + 2 exactly.
+            Until momwire#1290 those two were a Φ-sized product and scipy's
+            Φ-sized transposed copy of its dense operand (measured at
+            N = 1200, single band: 6x Z peak free space, Z + 3 + 2
+            exactly). `_reduce_phi_band` now reduces by observer tiles,
+            whose buffers are O(N · `_REDUCE_TILE`), not rows, so the two
+            are slack. They are kept so the band heights — and with them
+            every measured memory envelope — stay what they were.
 
         Nothing else in the loop exceeds O(N), so dividing `swept_mem_mb`
         by this bounds the whole fill transient. It is a bound on the
@@ -5869,17 +5925,10 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 Phi_s -= Phi_i[1]
                 Phi_co -= Phi_i[2]
                 del Phi_i
-            # One product at a time, released as it lands, rather than
-            # `(Φ_c@M_A) + (Φ_s@M_B) + (Φ_co@M_C)` — that expression holds
-            # two products plus their sum at once, which would make the
-            # reduction, not the fill, the band's high-water in free space.
-            # Same association: `x = A; x += B; x += C` is `(A + B) + C`.
-            G[i0:i1] = Phi_c @ M_A
-            del Phi_c
-            G[i0:i1] += Phi_s @ M_B
-            del Phi_s
-            G[i0:i1] += Phi_co @ M_C
-            del Phi_co
+            # `(A + B) + C` into the band's rows of Z, by observer tiles
+            # beside the three Φ (`_reduce_phi_band`, momwire#1290).
+            _reduce_phi_band((Phi_c, Phi_s, Phi_co), (M_A, M_B, M_C), G[i0:i1])
+            del Phi_c, Phi_s, Phi_co
         self._contact_charge_correction(G, geom, k, seg_view, eta=eta)
         self._apply_loading(G, geom, seg_view, k)
         return G, seg_view
@@ -6010,8 +6059,9 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         #
         # A Z band is budgeted like the old reduction's band plus the three Φ
         # rows it now owns: 3 buffer rows + the product's copy and result
-        # (`_fill_row_bytes`' reduction phase), N sources each. Beside it sits
-        # one class band's `P − Pi` (budgeted by that class's own sizing).
+        # (`_fill_row_bytes`' reduction phase, slack since the tiled
+        # reduction of momwire#1290), N sources each. Beside it sits one
+        # class band's `P − Pi` (budgeted by that class's own sizing).
         whole = N < _DENSE_ASSEMBLY_THRESHOLD
         zband = self._mixed_band_rows(N)
         if whole:
@@ -6065,7 +6115,8 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
     def _mixed_band_rows(self, N):
         """Observer rows per Z band of the fused mixed fill (momwire#1224):
         its three Φ buffer rows plus the reduction's product copy and result
-        (`_fill_row_bytes`' reduction phase), N sources each, out of
+        (`_fill_row_bytes`' reduction phase, slack since momwire#1290 and
+        kept for the same reason), N sources each, out of
         `swept_mem_mb`. Below the dense threshold the band is the whole
         matrix — the zgemm reduction's bits follow its row count. One method
         so a test can force bands that cut a class band finely."""
@@ -6084,39 +6135,36 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         it in place and `into` is returned. The two directions' rows
         partition the matrix's (`below` and its complement), so this is the
         same one addition per element as `into += rows`, without the (N, N)
-        `rows` beside it (momwire#1267)."""
+        `rows` beside it (momwire#1267), and since momwire#1224 perf item 5
+        without even a direction's (n_obs, N) rows: each observer chunk is
+        added as `point_observer_block` finishes it (`into_rows`)."""
         ctx = self._crossing_context(geom, seg_view, medium)
         a_idx = np.nonzero(~below)[0]
         b_idx = np.nonzero(below)[0]
         ax_a = _crossing_fill.axis_data(ctx, a_idx)
         ax_b = _crossing_fill.axis_data(ctx, b_idx)
-        for obs, src in ((a_idx, ax_b), (b_idx, ax_a)):
-            pairs = int(obs.size) * int(np.asarray(src["nodes"]).shape[0])
-            if pairs > _CROSSING_POINT_PAIRS_MAX:
-                raise NotImplementedError(
-                    _CROSSING_POINT_SIZE_REFUSAL.format(
-                        limit=_CROSSING_POINT_PAIRS_MAX, pairs=pairs
-                    )
-                )
         centres = np.asarray(geom["seg_centers"])
         tangents = np.asarray(geom["seg_tangents"])
         n = int(geom["n_segs"])
         if into is None:
             out = np.zeros((n, n), dtype=np.complex128)
         for obs, src, above in ((a_idx, ax_b, True), (b_idx, ax_a, False)):
-            rows = _crossing_fill.point_observer_block(
-                ctx, centres[obs], tangents[obs], src, observers_above=above
-            )
             if into is None:
-                out[obs] = rows
+                out[obs] = _crossing_fill.point_observer_block(
+                    ctx, centres[obs], tangents[obs], src, observers_above=above
+                )
             else:
-                # By contiguous runs: `into[obs] += rows` would gather the
-                # rows into an (n_obs, N) copy first.
-                r = 0
-                for s0, e0 in self._index_runs(obs):
-                    into[s0:e0] += rows[r : r + e0 - s0]
-                    r += e0 - s0
-            del rows
+                # Straight into `into`'s rows, chunk by observer chunk, with
+                # no (n_obs, N) block beside it (momwire#1224 perf item 5).
+                _crossing_fill.point_observer_block(
+                    ctx,
+                    centres[obs],
+                    tangents[obs],
+                    src,
+                    observers_above=above,
+                    into=into,
+                    into_rows=obs,
+                )
         return out if into is None else into
 
     @staticmethod

@@ -31,8 +31,12 @@ def harnesses(tmp_path, monkeypatch):
     codex.mkdir()
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude))
     monkeypatch.setenv("CODEX_HOME", str(codex))
+    monkeypatch.setenv("KIMI_CODE_HOME", str(tmp_path / "kimi"))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.delenv("PROBE_AGENT", raising=False)
+    # These tests are about two instruction files; Kimi Code's third is
+    # covered by `test_kimi_code_gets_the_note_beside_its_pointer`.
+    monkeypatch.setattr(team_note_file, "RENDER_SOURCES", ("claude_code", "codex"))
     return claude / "CLAUDE.md", codex / "AGENTS.md"
 
 
@@ -711,3 +715,34 @@ def test_the_first_render_on_a_fresh_machine_never_advises(opted_in) -> None:
     payload = json.loads(team_note_file.note_health_path().read_text(encoding="utf-8"))
     assert payload["sources"]["claude_code"]["pct"] >= team_note_file.AUDIT_SIZE_PCT
     assert first.ok or first.pointer_only
+
+
+def test_kimi_code_is_a_render_target_from_its_registry_row() -> None:
+    from probe.harness import get_registry
+
+    assert "kimi_code" in team_note_file._render_sources()
+    assert get_registry().get("kimi_code").team_note == "render"
+
+
+def test_kimi_code_gets_the_note_beside_its_pointer(tmp_path, monkeypatch) -> None:
+    """Kimi reads `$KIMI_CODE_HOME/AGENTS.md` (never `~/.agents/AGENTS.md`,
+    which other tools read too); the note renders there, beside the pointer."""
+    kimi = tmp_path / "kimi"
+    kimi.mkdir()
+    for name, value in {
+        "CLAUDE_CONFIG_DIR": tmp_path / "claude",
+        "CODEX_HOME": tmp_path / "codex",
+        "KIMI_CODE_HOME": kimi,
+        "XDG_STATE_HOME": tmp_path / "state",
+    }.items():
+        monkeypatch.setenv(name, str(value))
+    monkeypatch.delenv("PROBE_AGENT", raising=False)
+    monkeypatch.setattr(team_note_file, "RENDER_SOURCES", ("kimi_code",))
+    _opt_in(kimi / "AGENTS.md")
+
+    report = team_note_file.render_blocks("## rules\n\n- one", settings=_Settings())
+
+    assert report.ok, report.failures
+    assert report.written == ("kimi_code",)
+    assert "- one" in (kimi / "AGENTS.md").read_text(encoding="utf-8")
+

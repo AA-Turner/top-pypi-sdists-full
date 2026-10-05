@@ -23,7 +23,6 @@ from .base import CliContext, OutputFormatEnum
 from .bridges import app as bridges_app
 from .cameras import app as camera_app
 from .chimes import app as chime_app
-from .events import app as event_app
 from .files_public import app as files_public_app
 from .fobs import app as fob_app
 from .lights import app as light_app
@@ -37,11 +36,6 @@ from .speakers import app as speaker_app
 from .ulp_users_public import app as ulp_users_public_app
 from .users_public import app as users_public_app
 from .viewers import app as viewer_app
-
-try:
-    from .backup import app as backup_app
-except ImportError:
-    backup_app = None  # type: ignore[assignment]
 
 _LOGGER = logging.getLogger("uiprotect")
 
@@ -142,7 +136,6 @@ SLEEP_INTERVAL = 2
 
 app = typer.Typer(rich_markup_mode="rich")
 app.add_typer(nvr_app, name="nvr")
-app.add_typer(event_app, name="events")
 app.add_typer(liveview_app, name="liveviews")
 app.add_typer(camera_app, name="cameras")
 app.add_typer(chime_app, name="chimes")
@@ -159,9 +152,6 @@ app.add_typer(users_public_app, name="users-public")
 app.add_typer(ulp_users_public_app, name="ulp-users-public")
 app.add_typer(files_public_app, name="files-public")
 app.add_typer(arm_app, name="arm")
-
-if backup_app is not None:
-    app.add_typer(backup_app, name="backup")
 
 
 @app.callback()

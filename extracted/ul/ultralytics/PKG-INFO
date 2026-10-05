@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.4.172
+Version: 8.4.173
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, instance segmentation, semantic segmentation, depth estimation, classification, pose estimation, oriented object detection, and multi-object tracking.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -92,6 +92,8 @@ Requires-Dist: numpy<=2.3.5; extra == "export-executorch"
 Provides-Extra: export-deepx
 Requires-Dist: dx_com>=2.4.1; extra == "export-deepx"
 Requires-Dist: numpy<2; python_version < "3.13" and extra == "export-deepx"
+Provides-Extra: export-xilinx
+Requires-Dist: amd-quark<0.14.0,>=0.13.0; (platform_system == "Linux" and python_version >= "3.11" and python_version < "3.14") and extra == "export-xilinx"
 Provides-Extra: export-litert
 Requires-Dist: litert-torch>=0.9.0; (((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and python_version >= "3.10") and extra == "export-litert"
 Requires-Dist: ai-edge-litert>=2.1.4; (((platform_system == "Linux" and platform_machine == "x86_64") or platform_system == "Darwin") and python_version >= "3.10") and extra == "export-litert"
@@ -102,7 +104,7 @@ Requires-Dist: ultralytics[export-openvino]; extra == "export"
 Requires-Dist: ultralytics[export-tensorflow]; extra == "export"
 Requires-Dist: ultralytics[export-coreml]; extra == "export"
 Requires-Dist: ultralytics[export-litert]; extra == "export"
-Requires-Dist: torch<2.13.0,>=2.12.0; (platform_system == "Linux" and platform_machine == "aarch64" and python_version == "3.11") and extra == "export"
+Requires-Dist: torch<2.15.0,>=2.12.0; (platform_system == "Linux" and platform_machine == "aarch64" and python_version == "3.11") and extra == "export"
 Provides-Extra: solutions
 Requires-Dist: shapely>=2.0.0; extra == "solutions"
 Requires-Dist: lap>=0.5.12; extra == "solutions"

@@ -8,10 +8,9 @@ import sys
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, cast
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import unquote, urlparse, urlunparse
 
 import requests
-from packaging.version import Version
 from requests import Response
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
@@ -28,8 +27,6 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import override
 
-requests_version = Version(requests.__version__).release
-
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Mapping, MutableMapping
     from typing import Any, TypedDict, Unpack
@@ -45,7 +42,7 @@ if TYPE_CHECKING:
         cookies: RequestsCookieJar | MutableMapping[str, str] | None
         files: Any  # simplified signature
         auth: Any  # simplified signature
-        timeout: float | tuple[float, float] | tuple[float, None] | None
+        timeout: float | tuple[float | None, float | None] | None
         allow_redirects: bool
         proxies: MutableMapping[str, str] | None
         hooks: Mapping[str, Iterable[Callable[[Response], Any]] | Callable[[Response], Any]] | None
@@ -61,9 +58,8 @@ if TYPE_CHECKING:
 
 absolute_http_url_regexp = re.compile(r"^https?://", re.IGNORECASE)
 
-if requests_version >= (2, 32, 5):
-    _preloaded_ssl_context = create_urllib3_context()
-    _preloaded_ssl_context.load_verify_locations(extract_zipped_paths(DEFAULT_CA_BUNDLE_PATH))
+_preloaded_ssl_context = create_urllib3_context()
+_preloaded_ssl_context.load_verify_locations(extract_zipped_paths(DEFAULT_CA_BUNDLE_PATH))
 
 
 class HttpSession(requests.Session):
@@ -104,16 +100,13 @@ class HttpSession(requests.Session):
         # Check for basic authentication
         parsed_url = urlparse(self.base_url)
         if parsed_url.username and parsed_url.password:
-            netloc = parsed_url.hostname
-            if parsed_url.port:
-                netloc += ":%d" % parsed_url.port
-
-            # remove username and password from the base_url
+            # remove username and password from the base_url (keeping e.g. the brackets of an IPv6 host)
+            netloc = parsed_url.netloc.rpartition("@")[2]
             self.base_url = urlunparse(
                 (parsed_url.scheme, netloc, parsed_url.path, parsed_url.params, parsed_url.query, parsed_url.fragment)
             )
-            # configure requests to use basic auth
-            self.auth = HTTPBasicAuth(parsed_url.username, parsed_url.password)
+            # configure requests to use basic auth (credentials in a URL are percent-encoded)
+            self.auth = HTTPBasicAuth(unquote(parsed_url.username), unquote(parsed_url.password))
 
         self.mount("https://", LocustHttpAdapter(pool_manager=pool_manager))
         self.mount("http://", LocustHttpAdapter(pool_manager=pool_manager))
@@ -198,7 +191,7 @@ class HttpSession(requests.Session):
         response = self._send_request_safe_mode(method, complete_url, data=data, json=json, **kwargs)
         response_time = (time.perf_counter() - start_perf_counter) * 1000
 
-        if request_before_redirect := (response.history and response.history[0] or response).request:
+        if request_before_redirect := ((response.history and response.history[0]) or response).request:
             complete_url = str(request_before_redirect.url)
             if not name:
                 name = request_before_redirect.path_url
@@ -491,14 +484,10 @@ class LocustHttpAdapter(HTTPAdapter):
         if self.poolmanager is None:
             super().init_poolmanager(*args, **kwargs)
 
-    # In python requests version 2.32.5 they reverted
-    # https://github.com/psf/requests/pull/6667
-    # Without this change the root CA certificates are loaded on every request
-    # We re-implement this change to increase the performance
+    # requests reverted https://github.com/psf/requests/pull/6667 in 2.32.5, so without
+    # re-implementing it here the root CA certificates are loaded on every request.
+    # We re-implement it to increase performance (see _preloaded_ssl_context above).
     def cert_verify(self, conn, url, verify, cert):
-        if requests_version < (2, 32, 5):
-            return super().cert_verify(conn, url, verify, cert)
-
         if url.lower().startswith("https") and verify:
             conn.cert_reqs = "CERT_REQUIRED"
 
@@ -532,7 +521,7 @@ class LocustHttpAdapter(HTTPAdapter):
     def build_connection_pool_key_attributes(self, request, verify, cert=None):
         host_params, pool_kwargs = super().build_connection_pool_key_attributes(request, verify, cert)
 
-        if requests_version >= (2, 32, 5) and verify is True:
+        if verify is True:
             pool_kwargs["ssl_context"] = _preloaded_ssl_context
 
         return host_params, pool_kwargs

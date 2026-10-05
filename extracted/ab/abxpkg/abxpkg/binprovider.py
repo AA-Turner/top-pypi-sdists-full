@@ -90,6 +90,7 @@ from .logging import (
     summarize_value,
 )
 from .exceptions import (
+    BinaryLoadError,
     BinProviderInstallError,
     BinProviderUnavailableError,
     BinProviderUninstallError,
@@ -488,6 +489,7 @@ class BinProvider(BaseModel):
     INSTALLER_BINPROVIDERS: ClassVar[tuple[BinProviderName, ...] | None] = None
     INSTALLER_VERSION_ARGS: ClassVar[tuple[str, ...] | None] = None
     INSTALLER_POSTINSTALL_SCRIPTS: ClassVar[bool | None] = None
+    INSTALLER_OVERRIDES: ClassVar["BinaryOverrides"] = {}
     INVALIDATE_ONLY_ON_UNINSTALL: ClassVar[bool] = False
     EXEC_ONLY_ENV_KEYS: ClassVar[frozenset[str]] = frozenset()
     FIRST_WRITER_ENV_KEYS: ClassVar[frozenset[str]] = frozenset()
@@ -905,7 +907,6 @@ class BinProvider(BaseModel):
         return fingerprints
 
     @log_method_call(include_result=True)
-    @mutation_locked
     def load_cached_binary(
         self,
         bin_name: BinName,
@@ -915,16 +916,22 @@ class BinProvider(BaseModel):
         cache_context_hash: str | None = None,
         setup_path: bool = True,
     ) -> ShallowBinary | None:
-        # A caller-supplied snapshot may be stale. Internal callers that load
-        # the file under the same mutation lock pass it to the private helper.
-        return self._load_cached_binary(
-            bin_name,
-            abspath,
-            cache=None,
-            cache_context=cache_context,
-            cache_context_hash=cache_context_hash,
-            setup_path=setup_path,
-        )
+        # Direct dependency reads need the same setup-before-lock ordering as
+        # load_cached_binary_by_name. Setup may resolve a provider's installer;
+        # holding this root's lock across those probes serialized parallel
+        # version checks and can form a cross-provider bootstrap lock cycle.
+        if setup_path:
+            self.setup_PATH()
+        with self.mutation_lock():
+            # Discard caller snapshots: invalidation/normalization below writes
+            # a merged record and must start from the current locked cache.
+            return self._load_cached_binary(
+                bin_name,
+                abspath,
+                cache=None,
+                cache_context=cache_context,
+                cache_context_hash=cache_context_hash,
+            )
 
     def _load_cached_binary(
         self,
@@ -933,16 +940,7 @@ class BinProvider(BaseModel):
         cache: dict[str, dict[str, object]] | None = None,
         cache_context: str | None = None,
         cache_context_hash: str | None = None,
-        setup_path: bool = True,
     ) -> ShallowBinary | None:
-        # Cache context includes lazily-derived provider fields like PATH.
-        # Direct cache readers (list/version/installer discovery) do not pass
-        # through load(), so normalize the provider before comparing context or
-        # every valid record looks stale in a fresh process. Installer discovery
-        # skips setup here because setup may itself need the installer binary;
-        # its cache context is derived from the current pre-setup provider state.
-        if setup_path:
-            self.setup_PATH()
         derived_env_path = self.derived_env_path
         if derived_env_path is None:
             return None
@@ -1168,7 +1166,6 @@ class BinProvider(BaseModel):
                 cache=cache,
                 cache_context=cache_context,
                 cache_context_hash=cache_context_hash,
-                setup_path=False,
             )
             if loaded and loaded.loaded_abspath:
                 return loaded
@@ -1886,42 +1883,22 @@ class BinProvider(BaseModel):
         env_var = f"{self.INSTALLER_BIN.upper()}_BINARY"
         manual = os.environ.get(env_var)
         if manual and os.path.isabs(manual) and Path(manual).is_file():
-            try:
-                for provider in installer_providers:
-                    provider.add_host_bin_dir(Path(manual).parent)
-                loaded = Binary(
-                    name=self.INSTALLER_BIN,
-                    binproviders=installer_providers,
-                    postinstall_scripts=self.INSTALLER_POSTINSTALL_SCRIPTS,
-                ).install(
-                    no_cache=no_cache,
-                )
-                if loaded and loaded.loaded_abspath:
-                    if loaded.loaded_version and loaded.loaded_sha256:
-                        self.write_cached_binary(
-                            self.INSTALLER_BIN,
-                            loaded.loaded_abspath,
-                            loaded.loaded_version,
-                            loaded.loaded_sha256,
-                            resolved_provider_name=(
-                                loaded.loaded_binprovider.name
-                                if loaded.loaded_binprovider is not None
-                                else self.name
-                            ),
-                            resolved_provider=loaded.loaded_binprovider,
-                            cache_kind="dependency",
-                        )
-                    self._INSTALLER_BINARY = loaded
-                    return loaded
-            except Exception:
-                pass
+            for provider in installer_providers:
+                provider.add_host_bin_dir(Path(manual).parent)
 
         try:
-            loaded = Binary(
+            installer = Binary(
                 name=self.INSTALLER_BIN,
                 binproviders=installer_providers,
+                overrides=self.INSTALLER_OVERRIDES,
                 postinstall_scripts=self.INSTALLER_POSTINSTALL_SCRIPTS,
-            ).install(no_cache=no_cache)
+            )
+            # no_cache requests fresh installer provenance, not reinstallation
+            # of its entire runtime for each package lifecycle operation.
+            try:
+                loaded = installer.load(no_cache=no_cache)
+            except BinaryLoadError:
+                loaded = installer.install()
             if loaded and loaded.loaded_abspath:
                 if loaded.loaded_version and loaded.loaded_sha256:
                     self.write_cached_binary(
@@ -4172,7 +4149,7 @@ class EnvProvider(BinProvider):
 
     def _cache_context(self, bin_name: BinName) -> str:
         provider_config = json.loads(super()._cache_context(bin_name))
-        provider_config["env_projection_version"] = 5
+        provider_config["env_projection_version"] = 6
         if str(bin_name) in {"python", "python3"}:
             provider_config["runtime_python"] = str(Path(sys.executable).absolute())
         return json.dumps(
@@ -4456,6 +4433,10 @@ class EnvProvider(BinProvider):
 
         absolute_abspath = Path(abspath).expanduser().absolute()
         if self._projection_cache_record(absolute_abspath, cache=cache) is not None:
+            # env owns this alias and its runtime metadata, not the foreign
+            # installation it targets. Treating both as foreign used to destroy
+            # valid projections and select unrelated host runtimes on later loads.
+            # See docs/provider-caching.md for the ownership/launch-path contract.
             return False
 
         lib_dir = self.install_root.parent
@@ -4497,6 +4478,17 @@ class EnvProvider(BinProvider):
             ):
                 return record
         return None
+
+    def _resolved_provider_from_cache_record(
+        self,
+        cached_record: Mapping[str, object],
+    ) -> BinProvider:
+        provider = super()._resolved_provider_from_cache_record(cached_record)
+        if isinstance(provider, EnvProvider):
+            # Cached host tools have no managed runtime dependencies. This owner
+            # selection also covers the install/load cache lookup by name.
+            provider.set_projection_providers([])
+        return provider
 
     def _try_load_at_abspath(
         self,
@@ -4583,6 +4575,10 @@ class EnvProvider(BinProvider):
         no_cache: bool = False,
         **context,
     ) -> HostBinPath:
+        # This special resolver bypasses default_abspath_handler's owner
+        # selection. Host/venv Python owns its runtime; discovery candidates
+        # must not become execution dependencies or contaminate site-packages.
+        self.set_projection_providers([])
         self.setup_PATH(no_cache=no_cache)
         manual = os.environ.get(f"{str(bin_name).upper()}_BINARY") or os.environ.get(
             "PYTHON_BINARY",

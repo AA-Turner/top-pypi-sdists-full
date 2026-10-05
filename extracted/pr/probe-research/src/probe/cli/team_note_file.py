@@ -868,7 +868,13 @@ RENDER_FAILURE_FILE = "render-failures.json"
 #: copy otherwise only refreshes when THAT harness runs -- measured on a shared
 #: box: the Claude copy 7 hours fresher than the Codex copy and five sections
 #: ahead of it, with neither agent able to tell.
-RENDER_SOURCES = ("claude_code", "codex")
+def _render_sources() -> tuple[str, ...]:
+    from probe.harness import get_registry
+
+    return tuple(h.id for h in get_registry().all() if h.team_note == "render")
+
+
+RENDER_SOURCES = _render_sources()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1339,7 +1345,7 @@ def _fits(existing: str, block: str, span: tuple[int, int] | None) -> bool:
     return without + _utf8_len(block) <= INSTRUCTION_FILE_MAX_BYTES
 
 
-def render_blocks(text: str, *, settings, sources: tuple[str, ...] = RENDER_SOURCES) -> RenderReport:
+def render_blocks(text: str, *, settings, sources: tuple[str, ...] | None = None) -> RenderReport:
     """Render the note into every harness's instruction file.
 
     THE LOCK IS NOT HELD ACROSS THE NETWORK -- the caller has already fetched;
@@ -1358,6 +1364,7 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] = RENDER_SOUR
     A damaged block is left ALONE, never repaired. Auto-repair of a file humans
     also edit destroys edits it did not understand.
     """
+    sources = RENDER_SOURCES if sources is None else sources
     from probe.cli import agent_rules
 
     body = text.strip()

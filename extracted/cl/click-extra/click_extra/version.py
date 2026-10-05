@@ -851,10 +851,11 @@ class VersionOption(ExtraOption):
     `styles` are merged over these defaults.
 
     The name and version fields defer to the active palette through
-    {func}`theme_slot` rather than naming a color. Both slots render exactly what
-    the literals they replaced did under the `dark` default — `invoked_command` is
-    bright white bold, `success` is green — so nothing moves for a CLI that never
-    touches `--theme`, while one that does finally gets a version message to match.
+    {func}`~click_extra.version.theme_slot` rather than naming a color. Both
+    slots render exactly what the literals they replaced did under the `dark`
+    default — `invoked_command` is bright white bold, `success` is green — so
+    nothing moves for a CLI that never touches `--theme`, while one that does
+    finally gets a version message to match.
     """
 
     def __init__(
@@ -889,9 +890,9 @@ class VersionOption(ExtraOption):
         :param message_style: fallback style for the message literals and for
             any field that has no style of its own.
 
-        :param screen: a {class}`VersionScreen` to draw instead of the one-line
-            message, whenever the terminal can take it. Left unset, `--version`
-            behaves exactly as it always has.
+        :param screen: a {class}`~click_extra.version.VersionScreen` to draw instead
+            of the one-line message, whenever the terminal can take it. Left unset,
+            `--version` behaves exactly as it always has.
         """
         if not param_decls:
             param_decls = ("--version",)
@@ -1116,7 +1117,11 @@ class VersionOption(ExtraOption):
         """Returns the module in which the CLI resides."""
         frame = self.cli_frame()
 
-        module = inspect.getmodule(frame)
+        # `inspect.getmodule()` matches a frame to a module by file name, and code
+        # run by `python -c` has no file. The frame's globals still name its module.
+        module = inspect.getmodule(frame) or sys.modules.get(
+            frame.f_globals.get("__name__", "")
+        )
         if not module:
             raise RuntimeError(f"Cannot find module of {frame!r}")
 
@@ -1209,8 +1214,11 @@ class VersionOption(ExtraOption):
 
     @cached_property
     def module_file(self) -> str | None:
-        """Returns the module's file full path."""
-        return self.module.__file__
+        """Returns the module's file full path.
+
+        `None` for a module with no file, like the `__main__` of `python -c`.
+        """
+        return getattr(self.module, "__file__", None)
 
     @cached_property
     def module_version(self) -> str | None:
@@ -1345,7 +1353,8 @@ class VersionOption(ExtraOption):
         name.
 
         If not packaged, the CLI is assumed to be a simple standalone script, and the
-        returned name is the script's file name (including its extension).
+        returned name is the script's file name (including its extension). Code with
+        no file, like a CLI run by `python -c`, keeps the `__main__` module name.
         """
         # The CLI has its own module.
         if self.module_name != "__main__":
@@ -1360,10 +1369,7 @@ class VersionOption(ExtraOption):
         if self.module_file:
             return os.path.basename(self.module_file)
 
-        raise RuntimeError(
-            "Could not determine the user-friendly name of the CLI from the frame "
-            "stack."
-        )
+        return self.module_name
 
     @cached_property
     def version(self) -> str | None:
@@ -1736,10 +1742,11 @@ class VersionOption(ExtraOption):
         Accepts a custom `template` as parameter, otherwise uses the default
         `self.colored_template()` produced by the instance.
 
-        A CLI carrying a {class}`VersionScreen` gets that drawn instead, whenever
-        three conditions hold. Failing any one of them falls back to the plain
-        template unchanged, which is a deliberate guarantee rather than a default:
-        that form is the one every machine reader parses.
+        A CLI carrying a {class}`~click_extra.version.VersionScreen` gets that
+        drawn instead, whenever three conditions hold. Failing any one of them
+        falls back to the plain template unchanged, which is a deliberate
+        guarantee rather than a default: that form is the one every machine
+        reader parses.
 
         - **Color reaches the output.** Not because a mark needs it — a good one
           survives having its escapes stripped — but because it is the one lever a

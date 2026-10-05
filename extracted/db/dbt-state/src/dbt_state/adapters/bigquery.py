@@ -15,7 +15,38 @@ from dbt_state.adapters.common import EventualCache, ViewDefinition, ViewFetchRe
 
 if t.TYPE_CHECKING:
     from dbt.adapters.base.relation import BaseRelation
-    from google.cloud.bigquery import Table
+    from google.cloud.bigquery import SchemaField, Table
+
+
+def _render_field_type(field: SchemaField) -> str:
+    """Render a BigQuery SchemaField as a type string sqlglot can parse.
+
+    Args:
+        field: The BigQuery schema field to render.
+
+    Returns:
+        A BigQuery type string, e.g. `STRING`, `NUMERIC(38, 9)`, `ARRAY<STRUCT<x INT64>>`.
+    """
+    field_type = field.field_type.upper()
+
+    if field_type in ("RECORD", "STRUCT"):
+        inner = ", ".join(f"{sub.name} {_render_field_type(sub)}" for sub in field.fields)
+        rendered = f"STRUCT<{inner}>" if inner else "STRUCT"
+    elif field_type == "RANGE":
+        element_type = getattr(field.range_element_type, "element_type", None)
+        rendered = f"RANGE<{element_type}>" if element_type else "RANGE"
+    else:
+        rendered = field_type
+        if isinstance(field.precision, int):
+            rendered += (
+                f"({field.precision}, {field.scale})"
+                if isinstance(field.scale, int)
+                else f"({field.precision})"
+            )
+        elif isinstance(field.max_length, int):
+            rendered += f"({field.max_length})"
+
+    return f"ARRAY<{rendered}>" if field.mode == "REPEATED" else rendered
 
 
 class BigQueryAdapterExtension(BaseAdapterExtension):
@@ -117,6 +148,28 @@ class BigQueryAdapterExtension(BaseAdapterExtension):
             epochs[self._sql(fqn)] = modified_ts
 
         return epochs
+
+    def _fetch_schemas(
+        self, table_batch: t.Collection[exp.Table]
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        # BigQuery table metadata already includes the full column schema, and `_get_table` results
+        # are cached in `_table_cache`, so fetching schemas costs no extra API calls beyond what
+        # last-modified / view-definition fetching already does.
+        schemas = {}
+
+        for table in table_batch:
+            fqn = self._to_fqn(table)
+            bq_table = self._get_table(fqn)
+
+            if bq_table is None:
+                # omit so the caller records None (missing / inaccessible / system metadata table)
+                continue
+
+            schemas[self._sql(fqn)] = {
+                field.name: _render_field_type(field) for field in bq_table.schema
+            }
+
+        return schemas
 
     def clear_cache(self, tables: t.Iterable[str | exp.Table]) -> None:
         super().clear_cache(tables)

@@ -7,7 +7,9 @@ CloseKey() - Closes a registry key.
 ConnectRegistry() - Establishes a connection to a predefined registry handle
                     on another computer.
 CreateKey() - Creates the specified key, or opens it if it already exists.
+CreateKeyEx() - Creates the specified key, or opens it if it already exists.
 DeleteKey() - Deletes the specified key.
+DeleteKeyEx() - Deletes the specified key.
 DeleteValue() - Removes a named value from the specified registry key.
 DeleteTree() - Deletes the specified key and all its subkeys and values recursively.
 EnumKey() - Enumerates subkeys of the specified open registry key.
@@ -28,6 +30,9 @@ QueryInfoKey() - Returns information about the specified key.
 SaveKey() - Saves the specified key, and all its subkeys a file.
 SetValue() - Associates a value with a specified key.
 SetValueEx() - Stores data in the value field of an open registry key.
+DisableReflectionKey() - Disables registry reflection for 32bit processes running on a 64bit OS.
+EnableReflectionKey() - Restores registry reflection for a key.
+QueryReflectionKey() - Determines the reflection state for a key.
 
 Special objects:
 

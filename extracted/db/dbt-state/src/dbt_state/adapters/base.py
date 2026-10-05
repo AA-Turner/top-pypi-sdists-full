@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import functools
+import logging
 import os
 import threading
 import time
@@ -40,6 +41,52 @@ from dbt_state.utils import find_tables
 if t.TYPE_CHECKING:
     from dbt.contracts.graph.manifest import SourceDefinition
     from dbt.contracts.graph.nodes import ManifestNode
+
+logger = logging.getLogger(__name__)
+
+CacheValue = t.TypeVar("CacheValue")
+
+
+def _claim_uncached(
+    cache: EventualCache[str, CacheValue],
+    table_map: t.Dict[str, exp.Table],
+    claimed_fqns: t.Set[str],
+    cache_hit_label: str,
+    skip_fqns: t.Collection[str] = (),
+) -> t.Tuple[t.Dict[Future[t.Dict[str, CacheValue]], t.Sequence[exp.Table]], t.List[exp.Table]]:
+    """Claim the cache keys this call is responsible for fetching.
+
+    For each table not already in `cache` this claims the key (tracking it in `claimed_fqns`)
+    and returns it as needing a fetch. For keys already present or in-flight it seeds `futures`
+    with a Future that resolves to `{fqn: value}`, so cache hits and the fresh fetches drain
+    through the same loop (see `_resolve_futures`).
+
+    Returns the futures for tables that are in the process of being fetched from the warehouse
+    and a list of the tables that still need to be fetched from the warehouse.
+    """
+    uncached_table_names: t.List[exp.Table] = []
+    futures: t.Dict[Future[t.Dict[str, CacheValue]], t.Sequence[exp.Table]] = {}
+    with cache:
+        for fqn, table in table_map.items():
+            if fqn in skip_fqns:
+                continue
+
+            if cache.claim_if_available(fqn):
+                uncached_table_names.append(table)
+                claimed_fqns.add(fqn)
+            else:
+                logger.debug(f"{fqn}: {cache_hit_label}")
+
+                future: Future[t.Dict[str, CacheValue]] = map_future_payload(
+                    cache.resolve_or_raise(fqn),
+                    # use functools.partial to capture 'fqn' by value, otherwise
+                    # when the lambda is eventually evaluated, `fqn` will point to the last
+                    # value in the loop, not the value of this iteration of the loop
+                    functools.partial(lambda fqn, value: {fqn: value}, fqn),
+                )
+                futures[future] = [table]
+
+    return futures, uncached_table_names
 
 
 class BaseAdapterExtension(abc.ABC):
@@ -88,6 +135,9 @@ class BaseAdapterExtension(abc.ABC):
         )
         self._last_modified_epoch_cache: EventualCache[str, t.Optional[int]] = EventualCache(
             ttl_seconds=cache_ttl_seconds, cache_name="last_modified_epoch_cache"
+        )
+        self._schema_cache: EventualCache[str, t.Optional[t.Dict[str, str]]] = EventualCache(
+            ttl_seconds=cache_ttl_seconds, cache_name="schema_cache"
         )
         self._max_workers = max_worker_threads or min(32, (os.cpu_count() or 1) + 4)
         self._executor = ThreadPoolExecutor(thread_name_prefix="drc", max_workers=self._max_workers)
@@ -234,21 +284,62 @@ class BaseAdapterExtension(abc.ABC):
     def rollback(self) -> None:
         self.adapter.connections.rollback_if_open()
 
-    @staticmethod
-    def _release_orphaned_claims(
-        cache: EventualCache[str, t.Any], claimed_fqns: t.Set[str]
-    ) -> None:
-        """Cancel any keys claimed in ``cache`` that were never fulfilled.
+    def _resolve_futures(
+        self,
+        cache: EventualCache[str, CacheValue],
+        futures: t.Dict[Future[t.Dict[str, CacheValue]], t.Sequence[exp.Table]],
+        table_map: t.Dict[str, exp.Table],
+        claimed_fqns: t.Set[str],
+        missing_value: CacheValue,
+        missing_label: str,
+    ) -> t.Dict[str, CacheValue]:
+        """Drain fetch futures into the cache and record any tables that could not be fetched.
 
-        Workers waiting on a claimed key block on its Future, and the wait loops have
-        no overall deadline -- so a claim left unfulfilled (e.g. because an exception
-        aborted the lookup) would deadlock every other worker that needs it, cascading
-        across the run. Cancelling lets those waiters fail fast and fall back to a
-        cache miss. Callers discard fulfilled keys as they go, so only genuine orphans
-        remain here; ``cancel_inflight`` is a no-op on already-fulfilled keys anyway.
+        As each future completes its results are fulfilled into `cache` and their keys dropped from
+        `claimed_fqns` (so they are not later released as orphans). Any table in `table_map` that no
+        future produced a value for is recorded as `missing_value` so it is not re-fetched.
         """
-        for fqn in claimed_fqns:
-            cache.cancel_inflight(fqn)
+        all_results: t.Dict[str, CacheValue] = {}
+
+        while futures:
+            done, _ = wait(futures, timeout=self._timeout, return_when=FIRST_COMPLETED)
+
+            for future in done:
+                tables = futures.pop(future)
+
+                try:
+                    result = future.result()
+
+                    with cache:
+                        cache.fulfill_many(result)
+
+                    all_results.update(result)
+                    claimed_fqns.difference_update(result)
+                except Exception:
+                    # We need to remove any keys in the cache we failed to fetch in order to:
+                    #  - cancel any in-flight futures that other threads may be waiting on
+                    #  - make the keys available for claiming again
+                    for table in tables:
+                        fqn = self._sql(table)
+                        cache.cancel_inflight(fqn)
+                        claimed_fqns.discard(fqn)
+                    raise
+
+        missing_fqns: t.Dict[str, CacheValue] = {
+            fqn: missing_value for fqn in table_map.keys() - all_results.keys()
+        }
+
+        # Record missing tables in cache so we don't try to fetch them again
+        with cache:
+            cache.fulfill_many(missing_fqns)
+
+        all_results.update(missing_fqns)
+        claimed_fqns.difference_update(missing_fqns)
+
+        if missing_fqns:
+            events.fire_debug_event(missing_label, ", ".join(missing_fqns))
+
+        return all_results
 
     def get_last_modified_epoch(
         self,
@@ -258,13 +349,10 @@ class BaseAdapterExtension(abc.ABC):
         """Get the last modified epoch for the given tables.
 
         Tracks the keys this call claims in the shared cache and releases any it does
-        not fulfill on exit (see :meth:`_release_orphaned_claims`).
+        not fulfill on exit
         """
-        claimed_fqns: t.Set[str] = set()
-        try:
+        with self._last_modified_epoch_cache.scoped() as claimed_fqns:
             return self._get_last_modified_epoch(tables, table_overrides, claimed_fqns)
-        finally:
-            self._release_orphaned_claims(self._last_modified_epoch_cache, claimed_fqns)
 
     def _get_last_modified_epoch(
         self,
@@ -291,8 +379,6 @@ class BaseAdapterExtension(abc.ABC):
 
         table_map = {self._sql(fqn): fqn for fqn in [self._to_fqn(t) for t in tables]}
         override_map = {self._to_fqn(fqn): override for fqn, override in table_overrides.items()}
-        futures: t.Dict[Future[t.Dict[str, t.Optional[int]]], t.Sequence[exp.Table]] = {}
-        uncached_table_names: t.List[exp.Table] = []
 
         # we dont need to incur a db hit for system metadata tables since they arent tables that we can track modifications to
         system_metadata_table_fqns = {
@@ -300,25 +386,13 @@ class BaseAdapterExtension(abc.ABC):
         }
 
         # Check cache first and see which tables need to be fetched
-        with self._last_modified_epoch_cache as cache:
-            for fqn, table in table_map.items():
-                if fqn in system_metadata_table_fqns:
-                    continue
-
-                if cache.claim_if_available(fqn):
-                    uncached_table_names.append(table)
-                    claimed_fqns.add(fqn)
-                else:
-                    events.fire_debug_event(f"{fqn}: last_modified local cache hit")
-
-                    future: Future[t.Dict[str, t.Optional[int]]] = map_future_payload(
-                        cache.resolve_or_raise(fqn),
-                        # use functools.partial to capture 'fqn' by value, otherwise
-                        # when the lambda is eventually evaluated, `fqn` will point to the last
-                        # value in the loop, not the value of this iteration of the loop
-                        functools.partial(lambda fqn, ts: {fqn: ts}, fqn),
-                    )
-                    futures[future] = [table]
+        futures, uncached_table_names = _claim_uncached(
+            self._last_modified_epoch_cache,
+            table_map,
+            claimed_fqns,
+            cache_hit_label="last_modified local cache hit",
+            skip_fqns=system_metadata_table_fqns,
+        )
 
         # Query database only for uncached tables
         if uncached_table_names:
@@ -396,51 +470,91 @@ class BaseAdapterExtension(abc.ABC):
                 )
                 futures[future] = without_overrides
 
-        all_results: t.Dict[str, t.Optional[int]] = {
-            fqn: None for fqn in system_metadata_table_fqns
-        }
+        results = self._resolve_futures(
+            self._last_modified_epoch_cache,
+            futures,
+            # system metadata tables are short-circuited above (never fetched), so exclude them here
+            # to keep them out of the "not found" reporting; they are seeded as None below instead
+            {fqn: tbl for fqn, tbl in table_map.items() if fqn not in system_metadata_table_fqns},
+            claimed_fqns,
+            missing_value=None,
+            missing_label="Table(s) {} not found or access denied",
+        )
+        results.update({fqn: None for fqn in system_metadata_table_fqns})
+        return results
 
-        while futures:
-            done, _ = wait(futures, timeout=self._timeout, return_when=FIRST_COMPLETED)
+    def get_schemas(
+        self, tables: t.Iterable[str | exp.Table]
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        """Get the column schemas for the given tables.
 
-            for future in done:
-                tables = futures.pop(future)
+        Tracks the keys this call claims in the schema cache and releases any it does not fulfill
+        on exit
+        """
+        with self._schema_cache.scoped() as claimed_fqns:
+            return self._get_schemas(tables, claimed_fqns)
 
+    def _get_schemas(
+        self, tables: t.Iterable[str | exp.Table], claimed_fqns: t.Set[str]
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        """Get the column schemas for the given tables.
+
+        Args:
+            tables: A list of table names.
+            claimed_fqns: Set the caller uses to track keys claimed here so unfulfilled ones can be released.
+
+        Returns:
+            A dictionary mapping table names to their column name -> data type mapping, or None if
+            not available. Table names in the mapping are fully qualified and quoted.
+        """
+        if not tables:
+            return {}
+
+        table_map = {self._sql(fqn): fqn for fqn in [self._to_fqn(t) for t in tables]}
+
+        # Check cache first and see which tables need to be fetched
+        futures, uncached_table_names = _claim_uncached(
+            self._schema_cache,
+            table_map,
+            claimed_fqns,
+            cache_hit_label="schema local cache hit",
+        )
+
+        # Query database only for uncached tables
+        if uncached_table_names:
+
+            def _fetch_schemas_with_connection(
+                index: int, table_batch: t.List[exp.Table]
+            ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+                if not table_batch:
+                    return {}
+
+                set_invocation_context()
+
+                events.fire_debug_event(
+                    f"Fetching schemas for tables: {', '.join(self._sql(table) for table in table_batch)}"
+                )
+
+                self._ensure_thread_connection(f"fetch_schemas_{index}")
                 try:
-                    result = future.result()
+                    return self._fetch_schemas(table_batch)
+                finally:
+                    if self.SHOULD_RELEASE_CONNECTION:
+                        self._release_thread_connection()
 
-                    with self._last_modified_epoch_cache as cache:
-                        cache.fulfill_many(result)
+            for index, batch in enumerate(self._batch_tables_for_schemas(uncached_table_names)):
+                batch = list(batch)
+                future = self._executor.submit(_fetch_schemas_with_connection, index, batch)
+                futures[future] = batch
 
-                    all_results.update(result)
-                    claimed_fqns.difference_update(result)
-                except Exception:
-                    # We need to remove any keys in the cache we failed to fetch in order to:
-                    #  - cancel any in-flight futures that other threads may be waiting on
-                    #  - make the keys available for claiming again
-                    for table in tables:
-                        fqn = self._sql(table)
-                        self._last_modified_epoch_cache.cancel_inflight(fqn)
-                        claimed_fqns.discard(fqn)
-                    raise
-
-        missing_fqns: t.Dict[str, t.Optional[int]] = {
-            fqn: None for fqn in table_map.keys() - all_results.keys()
-        }
-
-        # Record missing tables in cache so we don't try to fetch them again
-        with self._last_modified_epoch_cache as cache:
-            cache.fulfill_many(missing_fqns)
-
-        all_results.update(missing_fqns)
-        claimed_fqns.difference_update(missing_fqns)
-
-        if missing_fqns:
-            events.fire_debug_event(
-                "Table(s) {} not found or access denied", ", ".join(missing_fqns)
-            )
-
-        return all_results
+        return self._resolve_futures(
+            self._schema_cache,
+            futures,
+            table_map,
+            claimed_fqns,
+            missing_value=None,
+            missing_label="Schema(s) for table(s) {} not found or access denied",
+        )
 
     def get_available_last_modified_epochs(
         self, tables: t.Iterable[str | exp.Table]
@@ -493,6 +607,38 @@ class BaseAdapterExtension(abc.ABC):
         future.set_result(None)
         return future
 
+    def prefetch_schemas(self, table_fqns: t.Collection[str]) -> Future[None]:
+        """Asynchronously warm the schema cache for the given tables.
+
+        Runs the normal `get_schemas` path on a worker thread so that later `get_schemas`
+        calls for these tables become cache hits. This mirrors `prefetch_last_modified_epochs`
+        but reuses `get_schemas` directly, so it inherits the same batching / fan-out behaviour.
+        Adapters that don't implement `_fetch_schemas` issue no metadata queries.
+
+        Args:
+            table_fqns: Fully qualified, quoted table name strings to prefetch schemas for.
+
+        Returns:
+            A Future that completes when the prefetch is done.
+        """
+        if not table_fqns:
+            future: Future[None] = Future()
+            future.set_result(None)
+            return future
+
+        def _prefetch() -> None:
+            set_invocation_context()
+            self.get_schemas(table_fqns)
+
+        # note: we can't use self._executor here because it will deadlock if threads=1
+        # as this supervisor task takes the 1 available slot and then no child tasks can start
+        # so we create a single-use ThreadPoolExecutor for the supervisor task
+        # (as opposed to creating and managing a thread manually)
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="schema-prefetch")
+        future = executor.submit(_prefetch)
+        executor.shutdown(wait=False)  # worker exits once _prefetch completes
+        return future
+
     def clear_cache(self, tables: t.Iterable[str | exp.Table]) -> None:
         """Clears any caches for the given tables.
 
@@ -505,6 +651,9 @@ class BaseAdapterExtension(abc.ABC):
             cache.remove(fqns)
 
         with self._view_definition_cache as cache:
+            cache.remove(fqns)
+
+        with self._schema_cache as cache:
             cache.remove(fqns)
 
         events.fire_debug_event(f"Cleared {', '.join(fqns)} from cache")
@@ -521,13 +670,10 @@ class BaseAdapterExtension(abc.ABC):
         """Recursively traverse view definitions for references in the given SQL or table names.
 
         Tracks the views this call claims in the shared cache and releases any it does
-        not fulfill on exit (see :meth:`_release_orphaned_claims`).
+        not fulfill on exit
         """
-        claimed_fqns: t.Set[str] = set()
-        try:
+        with self._view_definition_cache.scoped() as claimed_fqns:
             return self._traverse_view_definitions(sql_or_tables, claimed_fqns)
-        finally:
-            self._release_orphaned_claims(self._view_definition_cache, claimed_fqns)
 
     def _traverse_view_definitions(
         self,
@@ -912,6 +1058,17 @@ class BaseAdapterExtension(abc.ABC):
         """
         return self._batch_table_names(tables)
 
+    def _batch_tables_for_schemas(
+        self, tables: t.Collection[exp.Table]
+    ) -> t.Collection[t.Collection[exp.Table]]:
+        """Batching strategy for schema fetches specifically.
+
+        Defaults to `_batch_table_names`. Adapters can override this to choose a different
+        parallelism strategy for on-demand schema queries without affecting the other batching
+        strategies.
+        """
+        return self._batch_table_names(tables)
+
     @abc.abstractmethod
     def _fetch_view_definitions(self, table_batch: t.Collection[exp.Table]) -> ViewFetchResult:
         """Given a batch of table references, fetch all the corresponding view definitions.
@@ -949,6 +1106,26 @@ class BaseAdapterExtension(abc.ABC):
             If the fqn points to a view, then the fqn should map to None.
             If the fqn could not be fetched, then it should be omitted from the result entirely
         """
+
+    def _fetch_schemas(  # noqa: PLR6301
+        self,
+        table_batch: t.Collection[exp.Table],
+    ) -> dict[str, t.Optional[t.Dict[str, str]]]:
+        """Given a batch of table references, fetch the column schemas for those tables.
+
+        The default implementation is a no-op (returns nothing), so schema fetching is opt-in per
+        adapter. Adapters that support it override this to return a column name -> data type
+        mapping per table.
+
+        Args:
+            table_batch: A single batch of table references to fetch schemas for.
+                Note that the batch is created by self._batch_tables_for_schemas
+
+        Returns:
+            A mapping of fqn -> (column name -> data type).
+            If the fqn could not be fetched, then it should be omitted from the result entirely
+        """
+        return {}
 
     @property
     def _connection_acquired(self) -> bool:

@@ -52,7 +52,9 @@ from enum import Enum
 from functools import cached_property, partial
 from gettext import gettext as _
 from pathlib import Path, PurePosixPath
+from threading import Lock
 
+import click
 from boltons.iterutils import flatten, unique
 from boltons.pathutils import shrinkuser
 from boltons.urlutils import URL
@@ -72,6 +74,7 @@ from extra_platforms._utils import _remove_blanks
 from wcmatch import fnmatch, glob
 
 from .. import context
+from ..logging import LogLevel, requested_level
 from ..parameters import (
     PARAM_PATH_SEP,
     ExtraOption,
@@ -113,9 +116,25 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
     from typing import Any, Literal
 
-    import click
-
 logger = logging.getLogger(__name__)
+
+
+_PRELOADED: str = f"{context.META_NAMESPACE}_config_preloaded"
+"""Context key listing the command paths whose configuration is loaded ahead of time.
+
+Filled by {meth}`ConfigOption._resolve_subcommands_eagerly`, which processes the
+option before Click's parameter loop does. That loop then calls
+{meth}`ConfigOption.load_conf` again with the same value: the call removes its entry
+and returns, in place of loading the document a second time.
+"""
+
+
+_STATUS_SILENCED: str = f"{context.META_NAMESPACE}_config_status_silenced"
+"""Context key marking that the command line asks for less than `WARNING` output.
+
+Set by {meth}`ConfigOption.handle_parse_result` before the configuration loads, and
+read by {meth}`ConfigOption.load_conf` to keep its status lines quiet.
+"""
 
 
 VCS_DIRS = (".git", ".hg", ".svn", ".bzr", "CVS", ".darcs")
@@ -281,8 +300,91 @@ def _exit_on_validation_error(
     ctx.exit(1)
 
 
+_GROUP_PATCH_LOCK = Lock()
+"""Serializes {func}`_patch_group_parse_args`, which two threads can enter at once
+when each builds a `ConfigOption`."""
+
+_click_group_parse_args: (
+    Callable[[click.Group, click.Context, list[str]], list[str]] | None
+) = None
+"""`click.Group.parse_args` as {func}`_patch_group_parse_args` found it.
+
+`None` while Click is untouched, which is until the first `ConfigOption` is built.
+"""
+
+
+def _group_parse_args(
+    self: click.Group,
+    ctx: click.Context,
+    args: list[str],
+) -> list[str]:
+    """Stand in for `click.Group.parse_args`, applying the reserved subcommand keys.
+
+    {meth}`ConfigOption.handle_parse_result` splices the subcommands named by the
+    configuration into the arguments of the group carrying the option. Two cases
+    never reach it, and this function covers both:
+
+    - A bare invocation. Click raises its `no_args_is_help` screen before it runs
+      any parameter, so the group's `ConfigOption` is asked for the names ahead of
+      that check. They go to Click in place of the empty command line, and an empty
+      answer leaves the help screen in place.
+    - A group reached through an ancestor's `--config`. It holds no option of its
+      own, so its `[parent.group]` section is applied here. The document is already
+      loaded by the time a subgroup is parsed.
+
+    Every other call goes to Click unchanged. That covers each group of a CLI
+    carrying no `ConfigOption`, since nothing loads a document for it.
+    """
+    if not ctx.resilient_parsing:
+        bare = not args and self.no_args_is_help
+        loaded = bool(context.get(ctx, context.CONF_FULL))
+        if bare or loaded:
+            config_option = next(
+                (p for p in self.get_params(ctx) if isinstance(p, ConfigOption)),
+                None,
+            )
+            if config_option is None and loaded:
+                # Injecting before delegating also settles no_args_is_help, since
+                # an injected subcommand makes the invocation non-empty.
+                args = inject_reserved_subcommands(ctx, args)
+            elif config_option is not None and bare:
+                args = config_option._resolve_subcommands_eagerly(ctx)
+    # The patch sets the original before it installs this function.
+    assert _click_group_parse_args is not None
+    return _click_group_parse_args(self, ctx, args)
+
+
+def _patch_group_parse_args() -> None:
+    """Put {func}`_group_parse_args` in place of `click.Group.parse_args`, once.
+
+    Runs as each `ConfigOption` is built, so a process declaring no `--config`
+    leaves Click untouched. The replacement then stays for the life of the process,
+    and reaches every `click.Group` in it, whichever library built the group.
+
+    A group class click-extra does not own offers no other way in. Click calls
+    nothing on a parameter ahead of the no-args check, and a subgroup holds no
+    parameter of click-extra's.
+    """
+    global _click_group_parse_args
+    with _GROUP_PATCH_LOCK:
+        if _click_group_parse_args is None:
+            _click_group_parse_args = click.Group.parse_args
+            click.Group.parse_args = _group_parse_args  # type: ignore[method-assign]
+
+
 class ConfigOption(ExtraOption, ParamStructure):
-    """A pre-configured option adding `--config LOCATION`."""
+    """A pre-configured option adding `--config LOCATION`.
+
+    ```{caution}
+    The first `ConfigOption` a process builds replaces `click.Group.parse_args` for
+    all of it. The replacement is how the subcommands the configuration names still
+    run in the two cases the option never sees, on a group class click-extra does
+    not own. One is a bare invocation, for which Click prints its `no_args_is_help`
+    screen before it runs any parameter. The other is a subgroup, which holds no
+    option of its own. Every other call goes to Click unchanged, as does each group
+    of a CLI carrying no `ConfigOption`.
+    ```
+    """
 
     def __init__(
         self,
@@ -663,6 +765,10 @@ class ConfigOption(ExtraOption, ParamStructure):
         )
 
         self._check_pattern_sanity()
+
+        # The group this option lands on is not built yet, and may be of a class
+        # click-extra does not own.
+        _patch_group_parse_args()
 
     def _check_pattern_sanity(self) -> None:
         """Emit DEBUG-level logs for common `ConfigOption` misconfigurations.
@@ -1882,11 +1988,18 @@ class ConfigOption(ExtraOption, ParamStructure):
         if ctx.resilient_parsing:
             return
 
-        # In this function we would like to inform the user of what we're doing.
-        # In theory we could use logger.info() for that, but the logger is stuck to its
-        # default WARNING level at this point, because the defaults have not been
-        # loaded yet. So we use echo() to print messages to stderr instead.
-        info_msg = partial(echo, err=True)
+        # A bare invocation already loaded this document ahead of the no-args help
+        # screen: skip the visit Click's parameter loop makes next.
+        preloaded = context.get(ctx, _PRELOADED)
+        if preloaded and ctx.command_path in preloaded:
+            preloaded.remove(ctx.command_path)
+            return
+
+        # The status lines below go to stderr through echo(), not the logger: the
+        # logger still sits at its default level here, because the verbosity options
+        # run after this one. handle_parse_result() reads the level they will settle
+        # on ahead of time, so -q and a quieter --verbosity still silence the lines.
+        silenced = context.get(ctx, _STATUS_SILENCED, False)
 
         assert self.name is not None  # Always set for Option subclasses.
 
@@ -1895,7 +2008,8 @@ class ConfigOption(ExtraOption, ParamStructure):
         if path_pattern is NO_CONFIG:
             logger.debug(f"{NO_CONFIG} received.")
             if explicit_conf:
-                info_msg("Skip configuration file loading altogether.")
+                if not silenced:
+                    echo("Skip configuration file loading altogether.", err=True)
             else:
                 logger.debug("Configuration file autodiscovery disabled by default.")
             return
@@ -1908,8 +2022,8 @@ class ConfigOption(ExtraOption, ParamStructure):
         # NO_CONFIG was handled above with an early return. Help mypy see that.
         assert isinstance(path_pattern, str)
         message = f"Load configuration matching {path_pattern}"
-        if explicit_conf:
-            info_msg(message)
+        if explicit_conf and not silenced:
+            echo(message, err=True)
         else:
             logger.debug(message)
 
@@ -2040,14 +2154,60 @@ class ConfigOption(ExtraOption, ParamStructure):
         Returning a rewritten `args` is what makes `_default_subcommands` and
         `_prepend_subcommands` work on any group class: Click threads the residual
         arguments through each parameter in turn, then hands the final list to
-        `Group.parse_args`, which splits it into the subcommands to dispatch. A
-        plain `click.Group` offers no other hook, so the option carries the feature
-        instead of the group.
+        `Group.parse_args`, which splits it into the subcommands to dispatch. The
+        group can be of a class click-extra does not own, so the option carries the
+        feature instead of the group.
+
+        Two cases never come here. On a bare invocation, Click raises the
+        `no_args_is_help` screen before it runs any parameter. A subgroup reached
+        through this option holds no option of its own. The `click.Group.parse_args`
+        this class installs covers both.
+
+        Before loading, it reads the verbosity the command line asks for (see
+        {func}`~click_extra.logging.requested_level`), so {meth}`load_conf` can keep
+        its status lines quiet under `-q` or a `--verbosity` above `WARNING`.
         """
+        if not ctx.resilient_parsing:
+            level = requested_level(ctx, opts)
+            context.set(
+                ctx,
+                _STATUS_SILENCED,
+                level is not None and level > LogLevel.WARNING,
+            )
         value, args = super().handle_parse_result(ctx, opts, args)
         if not ctx.resilient_parsing:
             args = inject_reserved_subcommands(ctx, args)
         return value, args
+
+    def _resolve_subcommands_eagerly(self, ctx: click.Context) -> list[str]:
+        """Settle the reserved subcommand keys ahead of the no-args help screen.
+
+        Processes this option on its own, which loads the document and returns the
+        names to dispatch. {func}`_group_parse_args` is the only caller, and the
+        command line is empty by the time it reaches here, so the option is handed
+        no parsed value and falls back to its own auto-discovery.
+
+        Returns an empty list when the configuration names nothing, which leaves
+        Click's help screen in place. A usage error does the same, like a reserved
+        key naming an unknown subcommand: the regular parameter loop reports it on
+        the next invocation naming a subcommand. A document failing validation still
+        ends the CLI from here, as it does on every other invocation.
+
+        Names to dispatch mean Click's parameter loop runs next, and processes this
+        option again with the same value. The context is marked so that
+        {meth}`load_conf` skips that second visit.
+        """
+        try:
+            _, injected = self.handle_parse_result(ctx, {}, [])
+        except click.ClickException:
+            return []
+        if injected:
+            preloaded = context.get(ctx, _PRELOADED)
+            if preloaded is None:
+                preloaded = set()
+                context.set(ctx, _PRELOADED, preloaded)
+            preloaded.add(ctx.command_path)
+        return injected
 
 
 class NoConfigOption(ExtraOption):

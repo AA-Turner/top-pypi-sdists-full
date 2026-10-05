@@ -535,16 +535,24 @@ class OrderedDict(dict[_KT, _VT]):
 
     if sys.version_info >= (3, 15):
         @overload
-        def __or__(self, value: dict[_KT, _VT] | frozendict[_KT, _VT], /) -> Self: ...
+        def __or__(self, value: dict[_KT, _VT] | frozendict[_KT, _VT], /) -> Self:
+            """Return self|value."""
+            ...
         @overload
-        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> OrderedDict[_KT | _T1, _VT | _T2]: ...
+        def __or__(self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /) -> OrderedDict[_KT | _T1, _VT | _T2]:
+            """Return self|value."""
+            ...
 
         @overload  # type: ignore[override]
-        def __ror__(self, value: dict[_KT, _VT] | frozendict[_KT, _VT], /) -> Self: ...  # type: ignore[override,misc]
+        def __ror__(self, value: dict[_KT, _VT] | frozendict[_KT, _VT], /) -> Self:
+            """Return value|self."""
+            ...
         @overload
         def __ror__(  # type: ignore[misc]
             self, value: dict[_T1, _T2] | frozendict[_T1, _T2], /
-        ) -> OrderedDict[_KT | _T1, _VT | _T2]: ...
+        ) -> OrderedDict[_KT | _T1, _VT | _T2]:
+            """Return value|self."""
+            ...
     else:
         @overload
         def __or__(self, value: dict[_KT, _VT], /) -> Self:

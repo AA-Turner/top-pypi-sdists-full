@@ -1309,6 +1309,7 @@ def _admit(
     affinity_fingerprint: bytes | None = None,
     sticky_preferred: bool = False,
     reasoning_pinned_deployment_id: str | None = None,
+    cache_placed_deployment_id: str | None = None,
     catalog_sha256: str = _DIGEST,
     no_paid_prework: bool = True,
 ) -> InflightRequest:
@@ -1345,6 +1346,7 @@ def _admit(
             "direct" if reasoning_pinned_deployment_id is None else "reasoning_continuation"
         ),
         reasoning_pinned_deployment_id=reasoning_pinned_deployment_id,
+        cache_placed_deployment_id=cache_placed_deployment_id,
     )
     entry = InflightRequest(
         authorization=authorization,
@@ -1489,6 +1491,105 @@ class TestLaneSaturation:
         assert cast("JsonObject", refused["failure"])["failure_class"] == "throttled"
         assert registry.rung_admission_counters() == (1, 0, 1)
         assert len(ledger.started) == 1
+
+    def test_cache_placed_session_is_refused_on_its_full_rung_instead_of_spilling(self) -> None:
+        """A conversation whose cache lives on a full rung gets the 429, never the cold twin.
+
+        Twin refusing lanes, the lead at its bound. A new session spills to the
+        free twin as before; a session the host placed on the lead is refused
+        with ``lane_saturated`` (``Retry-After`` 5) when free, overflows the
+        lead itself when paying, and fails over only after a real failure.
+        """
+        ledger = _RecordingLedger()
+        registry = NativeAttemptAccounting(ledger)
+        policy = GatewayRungDispatchPolicy(concurrency_bound=2, saturation="refuse")
+        deployments = (
+            _deployment("deployment-a", connection_sha256="b" * 64, dispatch=policy),
+            _deployment("deployment-b", connection_sha256="c" * 64, dispatch=policy),
+        )
+        for occupied in ("occupied-1", "occupied-2"):
+            _admit(registry, deployments, request_id=occupied)
+            assert _start(registry, ordinal=0, request_id=occupied)["route_depth"] == 0
+        _admit(
+            registry, deployments, request_id="placed", cache_placed_deployment_id="deployment-a"
+        )
+        refused = _start(registry, ordinal=0, request_id="placed")
+        assert refused["exhausted"] is True
+        failure = cast("JsonObject", refused["failure"])
+        assert failure["failure_class"] == "throttled"
+        assert failure["retry_after_seconds"] == 5
+        assert len(ledger.started) == 2
+        _admit(registry, deployments, request_id="fresh")
+        assert _start(registry, ordinal=0, request_id="fresh")["route_depth"] == 1
+        assert ledger.started[-1]["dispatch_reason"] == "queue_bound"
+        _admit(
+            registry,
+            deployments,
+            request_id="paying",
+            priority_admission=1,
+            cache_placed_deployment_id="deployment-a",
+        )
+        kept = _start(registry, ordinal=0, request_id="paying")
+        assert kept["route_depth"] == 0
+        assert ledger.started[-1]["dispatch_reason"] == "saturated_overflow"
+        broken: JsonObject = {
+            "failure_class": "transport",
+            "safe_message": "provider connection failed",
+            "retryable_same_deployment": False,
+            "failover_eligible": True,
+        }
+        _settle(
+            registry,
+            attempt_id=str(kept["attempt_id"]),
+            outcome="failed",
+            finalize=False,
+            failure=broken,
+            request_id="paying",
+        )
+        advanced = _start(registry, ordinal=1, current_depth=0, failure=broken, request_id="paying")
+        assert advanced["route_depth"] == 1
+        assert ledger.started[-1]["deployment_id"] == "deployment-b"
+
+    def test_cache_placed_session_is_warm_below_the_bound_on_a_fresh_worker(self) -> None:
+        """A placed session with no local sticky binding is admitted, not 429'd, under the bound.
+
+        The fresh-session early threshold reserves the top slice of the bound
+        for warm sessions; a refusing rung the host's placement names keeps the
+        session through sheds, so classing it fresh would refuse a free caller
+        while the rung still has headroom.
+        """
+        ledger = _RecordingLedger()
+        registry = NativeAttemptAccounting(ledger)
+        policy = GatewayRungDispatchPolicy(
+            concurrency_bound=2,
+            fresh_session_spill_fraction=0.5,
+            sticky_spill_seconds=600,
+            saturation="refuse",
+        )
+        deployments = (
+            _deployment("deployment-a", connection_sha256="b" * 64, dispatch=policy),
+            _deployment("deployment-b", connection_sha256="c" * 64, dispatch=policy),
+        )
+        _admit(
+            registry,
+            deployments,
+            request_id="occupied",
+            failover_mode="maximize_cache_affinity",
+            affinity_fingerprint=b"conversation-1",
+        )
+        assert _start(registry, ordinal=0, request_id="occupied")["route_depth"] == 0
+        _admit(
+            registry,
+            deployments,
+            request_id="placed",
+            failover_mode="maximize_cache_affinity",
+            affinity_fingerprint=b"conversation-2",
+            cache_placed_deployment_id="deployment-a",
+        )
+        placed = _start(registry, ordinal=0, request_id="placed")
+        assert placed.get("exhausted") is not True
+        assert placed["route_depth"] == 0
+        assert registry.rung_rate_counters() == (0, 0)
 
     @pytest.mark.parametrize("authored", [False, True])
     @pytest.mark.parametrize("conditional_child", [False, True])

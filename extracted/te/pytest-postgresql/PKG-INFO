@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-postgresql
-Version: 9.1.0
+Version: 9.1.1
 Summary: Postgresql fixtures and fixture factories for Pytest.
 Keywords: fixture,postgresql,pytest,tests
 Author: Grzegorz Śliwiński
@@ -33,7 +33,7 @@ Requires-Dist: pytest-asyncio>=1.4 ; extra == 'async'
 Requires-Python: >=3.10
 Project-URL: Source, https://github.com/dbfixtures/pytest-postgresql
 Project-URL: Bug Tracker, https://github.com/dbfixtures/pytest-postgresql/issues
-Project-URL: Changelog, https://github.com/dbfixtures/pytest-postgresql/blob/v9.1.0/CHANGES.rst
+Project-URL: Changelog, https://github.com/dbfixtures/pytest-postgresql/blob/v9.1.1/CHANGES.rst
 Provides-Extra: async
 Description-Content-Type: text/x-rst
 

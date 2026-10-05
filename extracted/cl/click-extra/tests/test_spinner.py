@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import io
 import itertools
+import os
 import re
+import signal
+import subprocess
 import sys
 import threading
 import time
@@ -28,6 +31,7 @@ from pathlib import Path
 
 import click
 import pytest
+from extra_platforms.pytest import skip_windows
 
 import click_extra
 from click_extra import (
@@ -39,9 +43,11 @@ from click_extra import (
     command,
     echo,
     pass_context,
+    progress_option,
 )
 from click_extra.cli import _TRAIL_BATCH, demo
 from click_extra.context import PROGRESS, START_TIME
+from click_extra.pytest import command_decorators
 from click_extra.screenshot import cell_width
 from click_extra.spinner import (
     _TOUR_CAP,
@@ -76,6 +82,25 @@ class TTYStringIO(io.StringIO):
 
     def isatty(self) -> bool:
         return True
+
+
+class StallingTTY(TTYStringIO):
+    """A terminal whose writes block once `stall` is set, until `release` is.
+
+    Stands in for a terminal paused by flow control (Ctrl+S), or a full pipe.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stall = threading.Event()
+        self.blocked = threading.Event()
+        self.release = threading.Event()
+
+    def write(self, text: str) -> int:
+        if self.stall.is_set() and not self.release.is_set():
+            self.blocked.set()
+            self.release.wait()
+        return super().write(text)
 
 
 def wait_until(predicate: Callable[[], bool], timeout: float = 3.0) -> bool:
@@ -345,6 +370,32 @@ def test_progress_option_resolution(invoke, args, expected):
 
 
 @pytest.mark.parametrize(
+    "cmd_decorator",
+    # Skip click extra's commands, as the progress option is already part of the
+    # default.
+    command_decorators(no_groups=True, no_extra=True),
+)
+@pytest.mark.parametrize("option_decorator", (progress_option, progress_option()))
+def test_standalone_progress_option(invoke, cmd_decorator, option_decorator):
+    @cmd_decorator
+    @option_decorator
+    @pass_context
+    def standalone_progress(ctx):
+        echo(f"progress={ctx.meta[PROGRESS]}")
+
+    result = invoke(standalone_progress, "--help", color=False)
+    assert "--progress / --no-progress" in result.stdout
+    assert not result.stderr
+    assert result.exit_code == 0
+
+    result = invoke(standalone_progress)
+    assert result.stdout == "progress=True\n"
+
+    result = invoke(standalone_progress, "--no-progress")
+    assert result.stdout == "progress=False\n"
+
+
+@pytest.mark.parametrize(
     ("args", "expected_hidden"),
     (
         # Shown by default.
@@ -407,6 +458,167 @@ def test_progressbar_label_emission_off_tty(invoke, args, label_shown):
 
     result = invoke(cli, *args)
     assert ("Brewing tea" in result.output) is label_shown
+
+
+@pytest.mark.parametrize(
+    ("args", "draws"),
+    (
+        ((), True),
+        # The spinner reads the flag on its own, as the progress bar does.
+        (("--no-progress",), False),
+        (("--accessible",), False),
+        # Color stays decoupled from progress.
+        (("--no-color",), True),
+    ),
+)
+def test_auto_spinner_follows_progress_flag(invoke, args, draws):
+    """A `live="auto"` spinner stays still under `--no-progress` and `--accessible`,
+    even on a terminal, with no wiring in the command."""
+    stream = TTYStringIO()
+
+    @command
+    def cli():
+        spinner = Spinner("Brewing tea", stream=stream, interval=0.02)
+        spinner.start()
+        if draws:
+            assert wait_until(lambda: spinner._drawn)
+        else:
+            assert not wait_until(lambda: spinner._drawn, timeout=0.2)
+        spinner.stop()
+
+    result = invoke(cli, *args)
+    assert result.exit_code == 0
+    assert ("Brewing tea" in stream.getvalue()) is draws
+
+
+def test_spinner_stop_leaves_a_stalled_drawing_thread_behind(monkeypatch):
+    """`stop()` gives up on a drawing thread stuck in a write after the grace,
+    instead of hanging the Ctrl+C that asked for the stop."""
+    monkeypatch.setattr("click_extra.spinner._STOP_GRACE", 0.2)
+    stream = StallingTTY()
+    spinner = Spinner("Brewing tea", stream=stream, interval=0.02)
+    spinner.start()
+    assert wait_until(lambda: spinner._drawn)
+    stream.stall.set()
+    assert stream.blocked.wait(3)
+    # Frees an unbounded join after a while, so a regression fails, not hangs.
+    releaser = threading.Timer(3, stream.release.set)
+    releaser.start()
+    try:
+        start = time.monotonic()
+        spinner.stop()
+        assert time.monotonic() - start < 2
+    finally:
+        stream.release.set()
+        releaser.cancel()
+
+
+def test_bar_stop_leaves_a_stalled_ticker_behind(monkeypatch):
+    """The progress bar's elapsed-clock ticker gets the same bounded stop."""
+    monkeypatch.setattr("click_extra.spinner._STOP_GRACE", 0.2)
+    stream = StallingTTY()
+    indicator = _BarIndicator(
+        label="Fetching feeds",
+        unit="feeds",
+        total=3,
+        delay=0,
+        live="always",
+        stream=stream,
+        timer=True,
+    )
+    releaser = threading.Timer(3, stream.release.set)
+    # stop() is idempotent: the exit of the block finds the bar already stopped.
+    with indicator:
+        assert indicator._ticker is not None
+        stream.stall.set()
+        assert stream.blocked.wait(3)
+        releaser.start()
+        try:
+            start = time.monotonic()
+            indicator.stop()
+            assert time.monotonic() - start < 2
+        finally:
+            stream.release.set()
+            releaser.cancel()
+
+
+@pytest.mark.parametrize(
+    ("progress_bar", "jobs", "stream_factory"),
+    (
+        pytest.param(True, 1, TTYStringIO, id="bar"),
+        pytest.param(False, 2, TTYStringIO, id="concurrent-spinner"),
+        pytest.param(False, 1, io.StringIO, id="sequential"),
+    ),
+)
+def test_interrupted_trail_closes_with_a_finisher(progress_bar, jobs, stream_factory):
+    """A Ctrl+C inside the trail still ends it on a `✘` line saying how far it
+    got, and an outcome landing afterwards prints below that line."""
+    stream = stream_factory()
+    trail = OperationTrail(
+        label="Fetching",
+        unit="feeds",
+        total=5,
+        jobs=jobs,
+        progress_bar=progress_bar,
+        live="always",
+        stream=stream,
+        timer=False,
+        delay=0,
+    )
+
+    def interrupted_batch():
+        with trail:
+            trail.mark(True, "feed-a fetched")
+            trail.mark(True, "feed-b fetched")
+            raise KeyboardInterrupt
+
+    with pytest.raises(KeyboardInterrupt):
+        interrupted_batch()
+    # A task the CLI waited on after the Ctrl+C finishes now.
+    trail.mark(True, "feed-c fetched")
+
+    plain = re.sub(r"\x1b\[[0-9;?]*[a-zA-Z]", "", stream.getvalue())
+    assert "feed-a fetched" in plain
+    finisher = f"{KO_GLYPH} Interrupted after 2/5 feeds"
+    assert finisher in plain
+    assert plain.index("feed-c fetched") > plain.index(finisher)
+
+
+SPINNING_SCRIPT = """
+import sys
+import time
+
+from click_extra import Spinner
+
+Spinner("Brewing tea", stream=sys.stdout, live="always", interval=0.02).start()
+time.sleep(30)
+"""
+"""A process spinning until something kills it."""
+
+
+@skip_windows(reason="Windows terminates a process without running any handler")
+def test_sigterm_shows_the_cursor_again(tmp_path):
+    """A spinner killed by `SIGTERM` leaves its terminal with the cursor shown,
+    and the process still dies by `SIGTERM`."""
+    script = tmp_path / "spin.py"
+    script.write_text(SPINNING_SCRIPT, encoding="UTF-8")
+    process = subprocess.Popen((sys.executable, str(script)), stdout=subprocess.PIPE)
+    try:
+        assert process.stdout is not None
+        output = b""
+        deadline = time.monotonic() + 10
+        while b"\x1b[?25l" not in output and time.monotonic() < deadline:
+            output += os.read(process.stdout.fileno(), 4096)
+        assert b"\x1b[?25l" in output
+        process.terminate()
+        rest, _ = process.communicate(timeout=10)
+        output += rest
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
+    assert process.returncode == -signal.SIGTERM
+    assert output.rfind(b"\x1b[?25h") > output.rfind(b"\x1b[?25l")
 
 
 def test_progressbar_shows_final_position_with_update_min_steps():
@@ -489,6 +701,11 @@ def test_bare_decorator_without_parentheses():
         ({}, io.StringIO, False),
         ({"NO_COLOR": "1"}, TTYStringIO, False),
         ({"FORCE_COLOR": "1"}, io.StringIO, True),
+        # An empty value counts as unset, and LLM refuses color: the fallback reads
+        # the variables exactly as resolve_color_env() does.
+        ({"NO_COLOR": ""}, TTYStringIO, True),
+        ({"FORCE_COLOR": ""}, io.StringIO, False),
+        ({"LLM": "1"}, TTYStringIO, False),
         # A dumb terminal strips color even on a TTY, matching resolve_color_env().
         ({"TERM": "dumb"}, TTYStringIO, False),
         ({"TERM": "unknown"}, TTYStringIO, False),

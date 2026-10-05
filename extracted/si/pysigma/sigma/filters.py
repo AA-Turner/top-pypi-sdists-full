@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import copy
 import random
 import re
 import string
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from typing_extensions import Self
+from typing import Self
 
 from sigma import exceptions as sigma_exceptions
 from sigma.correlations import SigmaCorrelationRule, SigmaRuleReference
@@ -15,6 +16,7 @@ from sigma.rule.logsource import EmptyLogSource
 
 if TYPE_CHECKING:
     from sigma.exceptions import SigmaRuleLocation
+    from sigma.policy import SigmaPolicy
 
 
 @dataclass
@@ -23,7 +25,10 @@ class SigmaGlobalFilter(SigmaDetections):
 
     @classmethod
     def from_dict(
-        cls: type[Self], detections: dict[str, Any], source: SigmaRuleLocation | None = None
+        cls: type[Self],
+        detections: dict[str, Any],
+        source: SigmaRuleLocation | None = None,
+        policy: "SigmaPolicy | None" = None,
     ) -> Self:
         try:
             if isinstance(detections["condition"], str):
@@ -121,16 +126,19 @@ class SigmaFilter(SigmaRuleBase):
     )
 
     @classmethod
-    def from_dict(
+    def from_dict(  # type: ignore[override]
         cls: type[Self],
         sigma_filter: dict[str, Any],
         collect_errors: bool = False,
         source: SigmaRuleLocation | None = None,
+        policy: "SigmaPolicy | None" = None,
     ) -> Self:
         """
         Converts from a dictionary object to a SigmaFilter object.
         """
-        kwargs, errors = super().from_dict_common_params(sigma_filter, collect_errors, source)
+        kwargs, errors = super().from_dict_common_params(
+            sigma_filter, collect_errors, source, policy=policy
+        )
 
         # parse log source
         try:
@@ -243,9 +251,11 @@ class SigmaFilter(SigmaRuleBase):
         # filter condition (e.g. "1 of selection_*") continue to work after renaming.
         prefix = "_filt_" + "".join(random.choices(string.ascii_lowercase, k=10))
 
-        # Rename every filter detection identifier with the shared prefix.
+        # Rename every filter detection identifier with the shared prefix. Each rule gets its own
+        # copy of the filter detections: processing pipelines modify detections in place, so a
+        # detection object shared between rules would be transformed again for every rule.
         for original_cond_name, condition in self.filter.detections.items():
-            rule.detection.detections[prefix + "_" + original_cond_name] = condition
+            rule.detection.detections[prefix + "_" + original_cond_name] = copy.deepcopy(condition)
 
         # Rewrite the filter condition string so that every identifier/pattern token is
         # prefixed.  This handles:
@@ -285,6 +295,11 @@ class SigmaFilter(SigmaRuleBase):
         return rule
 
     @classmethod
-    def from_yaml(cls: type[Self], rule: str, collect_errors: bool = False) -> Self:
+    def from_yaml(
+        cls: type[Self],
+        rule: str,
+        collect_errors: bool = False,
+        policy: "SigmaPolicy | None" = None,
+    ) -> Self:
         """Convert YAML input string with single document into SigmaFilter object."""
-        return super().from_yaml(rule, collect_errors)
+        return super().from_yaml(rule, collect_errors, policy=policy)

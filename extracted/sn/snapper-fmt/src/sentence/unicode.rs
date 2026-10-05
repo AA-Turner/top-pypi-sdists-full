@@ -45,16 +45,28 @@ static INLINE_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
             r"\[[^\]]+\]\([^)]+\)",  // Markdown links: [text](url)
             r"!\[[^\]]*\]\([^)]+\)", // Markdown images: ![alt](url)
             // CommonMark 0.31.2 §6.3 full / collapsed reference links.
-            // The label must follow the text immediately. Shortcut `[text]`
-            // is not matched: that would swallow every bracket group.
+            // The label must follow the text immediately. A bare `[text]`
+            // with no interior sentence punctuation is not a token: that
+            // would swallow `[fn:1]` and every other bracket group.
+            // A shortcut whose label contains `.` `!` or `?` is one span.
             r"!\[[^\]]*\]\[[^\]]*\]", // Markdown reference images: ![alt][ref]
             r"\[[^\]]+\]\[[^\]]*\]",  // Markdown reference links: [text][ref]
+            // Pandoc citation: `[@doe2020]` / `[see @doe2020, pp. 33]`.
+            // `@` is the key, not an email glued to the previous word.
+            // Org `[cite:…]` is already a token above.
+            r"\[(?:[^\[\]\n]*[;\s])?-?@[A-Za-z][^\[\]\n]*\]",
+            // Shortcut reference whose label holds a sentence boundary.
+            // No look-around: the regex crate rejects it. `[fn:1]` has no
+            // `.` `!` or `?`, and `[cite:…]` / `[fn::…]` match earlier.
+            r"\[[^\[\]\n]*[.!?][^\[\]\n]*\]",
             r"\$\$[^$\n]+\$\$", // Display math: $$...$$
             // org-element-latex-fragment-parser: after `$` the next char
             // is not space/tab/newline/`,`/`.`/`;`; the char before the
-            // closer is not space/tab/newline/`,`/`.`. `$ x. Next $` is
-            // leftover prose. `$a. b$` stays a fragment.
-            r"\$[^\s,.;$\n](?:[^$\n]*[^\s,.$\n])?\$",
+            // closer is not space/tab/newline/`,`. A `.` may sit against
+            // the closer (`$See this. Then that.$`, pandoc tex_math_dollars).
+            // `$ x. Next $` is leftover prose. `$a. b$` and `$x = 3.14$`
+            // stay fragments.
+            r"\$[^\s,.;$\n](?:[^$\n]*[^\s,$\n])?\$",
             // org-element-latex-fragment-parser: \(...\) / \[...\] search
             // to the closer. `[^\\\n]` dropped interior `\alpha` / `\beta`.
             r"\\\([^\n]+?\\\)", // LaTeX inline math: \(...\)
@@ -108,6 +120,9 @@ pub struct UnicodeSentenceSplitter {
     lang_multi_pattern: Regex,
     /// Extra LaTeX command names tokenized like `\verb` before split.
     extra_verbatim_commands: Vec<String>,
+    /// Whether a lowercase word after a terminator and a space opens a
+    /// sentence. UAX #29 SB8 says no; a reader counting claims says yes.
+    lowercase_starts: bool,
 }
 
 impl UnicodeSentenceSplitter {
@@ -148,7 +163,17 @@ impl UnicodeSentenceSplitter {
             lang_abbrev_pattern,
             lang_multi_pattern,
             extra_verbatim_commands: Vec::new(),
+            lowercase_starts: false,
         }
+    }
+
+    /// Open a sentence at a lowercase word after a terminator and a space
+    /// (`It stopped. packsetd restarts.`), which UAX #29 SB8 keeps joined.
+    /// A known abbreviation before the terminator (`e.g. the`) still joins.
+    /// Off by default: a formatter reflowing prose keeps SB8.
+    pub fn with_lowercase_starts(mut self, on: bool) -> Self {
+        self.lowercase_starts = on;
+        self
     }
 
     /// Extra LaTeX command names tokenized like `\verb` before split.
@@ -313,9 +338,13 @@ fn protect_latex_verbatim(
 /// `\InsertBuffer` / `\IterateBuffer` / extra-name span
 /// starting at `at`.
 ///
-/// `\verb` / `\verb*` / `\spverb` / `\spverb*` / `\Verb` / `\Verb*`: next
-/// character is the
-/// delimiter; content runs to the same character. Leftover walker
+/// `\verb` / `\verb*` / `\spverb` / `\spverb*` / `\Verb` / `\Verb*`: the
+/// delimiter is the next character after spaces TeX drops following the
+/// control word (and after `*` for the star form). A letter there is
+/// the delimiter (`\verb x...x`), not the space. Content runs to the
+/// same character. url.sty `\url` / `\path` and hyperref `\nolinkurl`
+/// use that non-brace delimiter; a `{` stays on the generic `\cmd{arg}`
+/// path. Leftover walker
 /// (GitHub #452) classifies `\verb` / `\verb*` / `\lstinline` /
 /// `\mintinline` / `\mint` / `\SaveVerb` / `\spverb` / `\piton` as
 /// Structure so following flush prose does not join. `\lstinline` /
@@ -765,6 +794,12 @@ pub(crate) fn latex_verb_span_end_with(
             return None;
         }
         (after_bs + "SaveVerb".len(), VerbKind::SaveVerb)
+    } else if let Some(name) = url_delim_cs_name(tail) {
+        // url.sty `\url` / `\path` and hyperref `\nolinkurl`. Longer
+        // name first is unnecessary (`url` is not a prefix of
+        // `nolinkurl`). Alphabetic leftover rejects a longer name.
+        // A `{` body stays on the generic `\cmd{arg}` path.
+        (after_bs + name.len(), VerbKind::UrlDelim)
     } else if let Some(stripped) = tail.strip_prefix("verb") {
         if stripped.starts_with(|c: char| c.is_ascii_alphabetic()) {
             return None;
@@ -775,7 +810,14 @@ pub(crate) fn latex_verb_span_end_with(
         (after_bs + name.len(), VerbKind::Delim)
     };
 
-    if text.get(i..)?.starts_with('*') {
+    // `\url` / `\path` / `\nolinkurl` have no star form. A following
+    // `*` is not this span, so the generic command path can still see
+    // `\url*{...}`.
+    if kind == VerbKind::UrlDelim {
+        if text.get(i..).is_some_and(|s| s.starts_with('*')) {
+            return None;
+        }
+    } else if text.get(i..)?.starts_with('*') {
         i += 1;
     }
 
@@ -1095,8 +1137,20 @@ pub(crate) fn latex_verb_span_end_with(
         }
     }
 
+    // TeX drops spaces after a control word, and the undelimited
+    // delimiter argument drops spaces too. The character after that
+    // space is the delimiter.
+    if matches!(kind, VerbKind::Delim | VerbKind::UrlDelim) {
+        i = skip_ascii_ws(text, i);
+    }
+
     let delim = text.get(i..).and_then(|s| s.chars().next())?;
     if delim == '\n' {
+        return None;
+    }
+    // Braced `\url{...}` / `\path{...}` / `\nolinkurl{...}` stay on the
+    // generic `\cmd{arg}` path. Do not retokenize them here.
+    if kind == VerbKind::UrlDelim && delim == '{' {
         return None;
     }
     // pythontex `\py After.` is leftover prose, not `A` as a delimiter.
@@ -1145,8 +1199,12 @@ pub(crate) fn latex_verb_span_end_with(
 /// Built-in verb-like command shape (GitHub #245 minted `{lang}` body).
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum VerbKind {
-    /// `\verb` / `\spverb` / extras: next character is the delimiter.
+    /// `\verb` / `\spverb` / `\Verb` / extras: next character after
+    /// dropped spaces is the delimiter.
     Delim,
+    /// url.sty `\url` / `\path` and hyperref `\nolinkurl`: non-brace
+    /// delimiter. `{` is not this span.
+    UrlDelim,
     /// `\lstinline`: optional `[...]` then delimiter or `{...}`.
     Lstinline,
     /// `\lstinputlisting` / fancyvrb `\VerbatimInput` family /
@@ -1351,6 +1409,22 @@ pub(crate) fn fancyvrb_shortverb_leftover_cs_name(tail: &str) -> Option<&'static
             continue;
         };
         if after.starts_with(|c: char| c.is_ascii_alphabetic() || c == '*') {
+            return None;
+        }
+        return Some(name);
+    }
+    None
+}
+
+/// url.sty `\url` / `\path` and hyperref `\nolinkurl`. Alphabetic
+/// leftover rejects a longer name (`\urlfoo`, `\pathological`). No
+/// `*` form. A `{` body is not this span.
+fn url_delim_cs_name(tail: &str) -> Option<&'static str> {
+    for name in ["nolinkurl", "path", "url"] {
+        let Some(after) = tail.strip_prefix(name) else {
+            continue;
+        };
+        if after.starts_with(|c: char| c.is_ascii_alphabetic()) {
             return None;
         }
         return Some(name);
@@ -3073,6 +3147,9 @@ impl SentenceSplitter for UnicodeSentenceSplitter {
         // lowercase. Split same-line `iCloud` starts before abbreviation
         // merge so `e.g. iCloud` can rejoin.
         let expanded = split_before_lowercase_proper_nouns(raw_segments.iter().copied());
+        // SB8 also keeps `stopped. 3 tests` joined; a number opens a
+        // sentence, and the abbreviation merge below rejoins `Fig. 3`.
+        let expanded = split_before_sentence_starts(&expanded, self.lowercase_starts);
         let refs: Vec<&str> = expanded.iter().map(String::as_str).collect();
         let merged = self.refine_segments_from_strs(&refs);
         let restored = restore_inline_tokens(merged, &placeholders);
@@ -3194,6 +3271,45 @@ fn take_lowercase_proper_noun_sentence(seg: &str) -> Option<(String, String)> {
         return None;
     }
     Some((head.to_string(), rest.to_string()))
+}
+
+/// Split each segment after a terminator and whitespace when the next word
+/// opens with a digit, or with a lowercase letter when `lowercase` is set.
+/// A head with no letter (`1.` opening a list item, `...`) is not a
+/// sentence, so the scan moves on to the next terminator.
+fn split_before_sentence_starts(segments: &[String], lowercase: bool) -> Vec<String> {
+    let mut out = Vec::with_capacity(segments.len());
+    for seg in segments {
+        let chars: Vec<(usize, char)> = seg.char_indices().collect();
+        let mut from = 0usize;
+        let mut i = 0usize;
+        while i < chars.len() {
+            let (_, c) = chars[i];
+            if !matches!(c, '.' | '!' | '?') {
+                i += 1;
+                continue;
+            }
+            let mut j = i;
+            while j < chars.len() && matches!(chars[j].1, '.' | '!' | '?') {
+                j += 1;
+            }
+            let mut k = j;
+            while k < chars.len() && chars[k].1.is_whitespace() {
+                k += 1;
+            }
+            let opens = chars
+                .get(k)
+                .is_some_and(|&(_, n)| n.is_ascii_digit() || (lowercase && n.is_lowercase()));
+            let end = chars.get(j).map_or(seg.len(), |&(at, _)| at);
+            if k > j && opens && seg[from..end].chars().any(char::is_alphabetic) {
+                out.push(seg[from..end].to_string());
+                from = chars[k].0;
+            }
+            i = j.max(i + 1);
+        }
+        out.push(seg[from..].to_string());
+    }
+    out.into_iter().filter(|s| !s.trim().is_empty()).collect()
 }
 
 fn merge_abbreviation_splits(
@@ -3452,6 +3568,22 @@ fn wrap_closes_after_bang(piece: &str, bang_at: usize) -> bool {
     !dq && !sq && latex <= 0 && paren <= 0 && bracket <= 0 && brace <= 0
 }
 
+/// Append `` `Capital `` onto a segment that already ends in `.!?`.
+/// No space: a space is a new UAX boundary.
+fn glue_tick_capital_after_punct(result: &mut Vec<String>, segment: &str) -> bool {
+    if !result.last().is_some_and(|last| {
+        last.ends_with(['.', '!', '?']) && piece_starts_sentence_after_ticks(segment)
+    }) {
+        return false;
+    }
+    if let Some(last) = result.last_mut() {
+        last.push_str(segment);
+    } else {
+        result.push(segment.to_string());
+    }
+    true
+}
+
 fn merge_splits_inside_delimiters(segments: Vec<String>) -> Vec<String> {
     let mut result: Vec<String> = Vec::with_capacity(segments.len());
     let mut state = DelimState::default();
@@ -3471,10 +3603,10 @@ fn merge_splits_inside_delimiters(segments: Vec<String>) -> Vec<String> {
                 }
                 continue;
             }
-            if result.last().is_some_and(|last| {
-                last.ends_with(['.', '!', '?']) && piece_starts_sentence_after_ticks(&segment)
-            }) {
-                result.push(segment.clone());
+            // `.` + leftover `` `Capital `` is a UAX break. A newline here
+            // sits inside the open span (`""`A`"`a`.`A"`). Glue with no
+            // invented space.
+            if glue_tick_capital_after_punct(&mut result, &segment) {
                 state.feed(&segment);
                 continue;
             }
@@ -3483,6 +3615,11 @@ fn merge_splits_inside_delimiters(segments: Vec<String>) -> Vec<String> {
             } else {
                 result.push(segment.clone());
             }
+        } else if glue_tick_capital_after_punct(&mut result, &segment) {
+            // `=(a=` is an org span once a newline precedes `=`, so the
+            // paren is hidden and this arm must glue the same ticks.
+            state.feed(&segment);
+            continue;
         } else {
             result.push(segment.clone());
         }
@@ -3766,6 +3903,41 @@ mod tests {
     }
 
     #[test]
+    fn a_number_opens_a_sentence() {
+        assert_eq!(
+            split("It stopped. 3 tests failed."),
+            vec!["It stopped.", "3 tests failed."]
+        );
+        assert_eq!(
+            split("See Fig. 3 and Eq. 2 for the rate. Done."),
+            vec!["See Fig. 3 and Eq. 2 for the rate.", "Done."]
+        );
+        assert_eq!(
+            split("The tracker has 0.9.3 now. It holds."),
+            vec!["The tracker has 0.9.3 now.", "It holds."]
+        );
+    }
+
+    #[test]
+    fn a_lowercase_start_opens_a_sentence_only_when_asked() {
+        let text = "Restart it. packsetd reloads the pack.";
+        assert_eq!(split(text), vec![text.to_string()], "SB8 by default");
+        let claims = UnicodeSentenceSplitter::new().with_lowercase_starts(true);
+        assert_eq!(
+            claims.split(text),
+            vec!["Restart it.", "packsetd reloads the pack."]
+        );
+        assert_eq!(
+            claims.split("Use a ring, e.g. the instanton. It converges."),
+            vec!["Use a ring, e.g. the instanton.", "It converges."]
+        );
+        assert_eq!(
+            claims.split("1. first item. 2. second item."),
+            vec!["1. first item.", "2. second item."]
+        );
+    }
+
+    #[test]
     fn simple_sentences() {
         assert_eq!(
             split("Hello world. This is a test. Another sentence here."),
@@ -3902,6 +4074,72 @@ mod tests {
         assert_eq!(
             split(text),
             vec![r"Use \verb|a.b! c| here.".to_string(), "Next.".to_string()]
+        );
+    }
+
+    #[test]
+    fn latex_verb_letter_delimiter_stays_atomic() {
+        for cmd in [r"\verb", r"\verb*", r"\Verb", r"\spverb"] {
+            // `z` is the delimiter. `Next` contains `x`, so an `x`
+            // delimiter closes inside that word.
+            let text = format!("See {cmd} zCode. Next. Morez here. Done.");
+            let span = format!("{cmd} zCode. Next. Morez");
+            assert_eq!(
+                latex_verb_span_end_with(&span, 0, &[]),
+                Some(span.len()),
+                "{cmd} letter delimiter must close on the letter"
+            );
+            assert_eq!(
+                split(&text),
+                vec![format!("See {span} here."), "Done.".to_string()],
+                "{cmd} letter body must stay one span and the next sentence must split"
+            );
+        }
+        let symbol = r"See \verb|Code. Next| here. Done.";
+        assert_eq!(
+            split(symbol),
+            vec![
+                r"See \verb|Code. Next| here.".to_string(),
+                "Done.".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn latex_url_char_delimiter_stays_atomic() {
+        for (cmd, body) in [
+            (r"\url", r"http://example.com/A. B"),
+            (r"\path", r"Foo. Bar"),
+            (r"\nolinkurl", r"http://example.com/A. B"),
+        ] {
+            let span = format!("{cmd}|{body}|");
+            let text = format!("See {span} here. Done.");
+            assert_eq!(
+                latex_verb_span_end_with(&span, 0, &[]),
+                Some(span.len()),
+                "{cmd} character delimiter must close on the delimiter"
+            );
+            assert_eq!(
+                split(&text),
+                vec![format!("See {span} here."), "Done.".to_string()],
+                "{cmd} character body must stay one span and the next sentence must split"
+            );
+            let braced = format!(r"See {cmd}{{{body}}} here. Done.");
+            assert_eq!(
+                latex_verb_span_end_with(&format!(r"{cmd}{{{body}}}"), 0, &[]),
+                None,
+                "{cmd} braced form must stay off the delimiter scanner"
+            );
+            assert_eq!(
+                split(&braced),
+                vec![format!(r"See {cmd}{{{body}}} here."), "Done.".to_string(),],
+                "{cmd} braced form must stay one span and the next sentence must split"
+            );
+        }
+        assert_eq!(latex_verb_span_end_with(r"\urlfoo|a.b|", 0, &[]), None);
+        assert_eq!(
+            latex_verb_span_end_with(r"\pathological|a.b|", 0, &[]),
+            None
         );
     }
 
@@ -7747,6 +7985,60 @@ mod tests {
     }
 
     #[test]
+    fn dollar_math_closed_by_period_stays_one_span() {
+        let math = "$See this. Then that.$";
+        let text = "See $See this. Then that.$ today. Next sentence.";
+        let (_, placeholders) = protect_inline_tokens(text);
+        assert!(
+            placeholders.iter().any(|p| p == math),
+            "period-closed math must be one token, got {placeholders:?}"
+        );
+        assert_eq!(
+            split(text),
+            vec![
+                "See $See this. Then that.$ today.".to_string(),
+                "Next sentence.".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn shortcut_reference_label_stays_one_span() {
+        let link = "[Theorem. Proof]";
+        let text = "See [Theorem. Proof] for details. Next sentence.";
+        let (_, placeholders) = protect_inline_tokens(text);
+        assert!(
+            placeholders.iter().any(|p| p == link),
+            "shortcut label must be one token, got {placeholders:?}"
+        );
+        assert_eq!(
+            split(text),
+            vec![
+                "See [Theorem. Proof] for details.".to_string(),
+                "Next sentence.".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn pandoc_citation_stays_one_span() {
+        let cite = "[@doe2020, see this. Then that]";
+        let text = "See [@doe2020, see this. Then that] for details. Next sentence.";
+        let (_, placeholders) = protect_inline_tokens(text);
+        assert!(
+            placeholders.iter().any(|p| p == cite),
+            "pandoc citation must be one token, got {placeholders:?}"
+        );
+        assert_eq!(
+            split(text),
+            vec![
+                "See [@doe2020, see this. Then that] for details.".to_string(),
+                "Next sentence.".to_string()
+            ]
+        );
+    }
+
+    #[test]
     fn inline_markdown_link_preserved() {
         assert_eq!(
             split("Visit [Example Inc.](https://example.com) now. Then read more."),
@@ -7833,24 +8125,20 @@ mod tests {
         let spans = atomic_inline_spans(text);
         let tokens: Vec<&str> = spans.iter().map(|&(s, e)| &text[s..e]).collect();
         assert!(
-            tokens
-                .iter()
-                .any(|t| *t == "[the example site](https://ex.com)"),
+            tokens.contains(&"[the example site](https://ex.com)"),
             "markdown link: {tokens:?}"
         );
         assert!(
-            tokens.iter().any(|t| *t == "`some long code`"),
+            tokens.contains(&"`some long code`"),
             "inline code: {tokens:?}"
         );
-        assert!(tokens.iter().any(|t| *t == "$E = m$"), "math: {tokens:?}");
+        assert!(tokens.contains(&"$E = m$"), "math: {tokens:?}");
         assert!(
-            tokens
-                .iter()
-                .any(|t| *t == "[[https://example.com][the example site]]"),
+            tokens.contains(&"[[https://example.com][the example site]]"),
             "org link: {tokens:?}"
         );
         assert!(
-            tokens.iter().any(|t| *t == "<https://ex.com/a>"),
+            tokens.contains(&"<https://ex.com/a>"),
             "autolink: {tokens:?}"
         );
     }

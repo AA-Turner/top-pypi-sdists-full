@@ -86,16 +86,27 @@ class date:
         ...
     @classmethod
     def today(cls) -> Self:
-        """Current date or datetime:  same as self.__class__.fromtimestamp(time.time())."""
+        """
+        Current date or datetime.
+
+        Equivalent to fromtimestamp(time.time()).
+        """
         ...
     @classmethod
     def fromordinal(cls, n: int, /) -> Self:
-        """int -> date corresponding to a proleptic Gregorian ordinal."""
+        """
+        Construct a date from a proleptic Gregorian ordinal.
+
+        January 1 of year 1 is day 1.  Only the year, month and day are
+        non-zero in the result.
+        """
         ...
 
     if sys.version_info >= (3, 15):
         @classmethod
-        def fromisoformat(cls, string: str, /) -> Self: ...
+        def fromisoformat(cls, string: str, /) -> Self:
+            """Construct a date from a string in ISO 8601 format."""
+            ...
     else:
         @classmethod
         def fromisoformat(cls, date_string: str, /) -> Self:
@@ -105,9 +116,9 @@ class date:
     @classmethod
     def fromisocalendar(cls, year: int, week: int, day: int) -> Self:
         """
-        int, int, int -> Construct a date from the ISO year, week number and weekday.
+        Construct a date from the ISO year, week number and weekday.
 
-        This is the inverse of the date.isocalendar() function
+        This is the inverse of the date.isocalendar() function.
         """
         ...
     @property
@@ -123,7 +134,14 @@ class date:
     if sys.version_info >= (3, 14):
         if sys.version_info >= (3, 15):
             @classmethod
-            def strptime(cls, string: str, format: str, /) -> Self: ...
+            def strptime(cls, string: str, format: str, /) -> Self:
+                """
+                Parse string according to the given date format (like time.strptime()).
+
+                For a list of supported format codes, see the documentation:
+                    https://docs.python.org/3/library/datetime.html#format-codes
+                """
+                ...
         else:
             @classmethod
             def strptime(cls, date_string: str, format: str, /) -> Self:
@@ -135,7 +153,14 @@ class date:
     # meaning it is only *safe* to pass it as a keyword argument on 3.12+
     if sys.version_info >= (3, 12):
         def strftime(self, format: str) -> str:
-            """format -> strftime() style string."""
+            """
+            Format using strftime().
+
+            Example: "%d/%m/%Y, %H:%M:%S".
+
+            For a list of supported format codes, see the documentation:
+                https://docs.python.org/3/library/datetime.html#format-codes
+            """
             ...
     else:
         def strftime(self, format: str, /) -> str:
@@ -263,17 +288,22 @@ class time:
         ...
     def isoformat(self, timespec: str = "auto") -> str:
         """
-        Return string in ISO 8601 format, [HH[:MM[:SS[.mmm[uuu]]]]][+HH:MM].
+        Return the time formatted according to ISO.
 
-        The optional argument timespec specifies the number of additional terms
-        of the time to include. Valid options are 'auto', 'hours', 'minutes',
-        'seconds', 'milliseconds' and 'microseconds'.
+        The full format is 'HH:MM:SS.mmmmmm+zz:zz'. By default, the
+        fractional part is omitted if self.microsecond == 0.
+
+        The optional argument timespec specifies the number of additional
+        terms of the time to include. Valid options are 'auto', 'hours',
+        'minutes', 'seconds', 'milliseconds' and 'microseconds'.
         """
         ...
 
     if sys.version_info >= (3, 15):
         @classmethod
-        def fromisoformat(cls, string: str, /) -> Self: ...
+        def fromisoformat(cls, string: str, /) -> Self:
+            """Construct a time from a string in ISO 8601 format."""
+            ...
     else:
         @classmethod
         def fromisoformat(cls, time_string: str, /) -> Self:
@@ -283,7 +313,14 @@ class time:
     if sys.version_info >= (3, 14):
         if sys.version_info >= (3, 15):
             @classmethod
-            def strptime(cls, string: str, format: str, /) -> Self: ...
+            def strptime(cls, string: str, format: str, /) -> Self:
+                """
+                Parse string according to the given time format (like time.strptime()).
+
+                For a list of supported format codes, see the documentation:
+                    https://docs.python.org/3/library/datetime.html#format-codes
+                """
+                ...
         else:
             @classmethod
             def strptime(cls, date_string: str, format: str, /) -> Self:
@@ -295,7 +332,15 @@ class time:
     # meaning it is only *safe* to pass it as a keyword argument on 3.12+
     if sys.version_info >= (3, 12):
         def strftime(self, format: str) -> str:
-            """format -> strftime() style string."""
+            """
+            Format using strftime().
+
+            The date part of the timestamp passed to underlying strftime should
+            not be used.
+
+            For a list of supported format codes, see the documentation:
+                https://docs.python.org/3/library/datetime.html#format-codes
+            """
             ...
     else:
         def strftime(self, format: str, /) -> str:
@@ -484,7 +529,12 @@ class datetime(date):
     if sys.version_info >= (3, 12):
         @classmethod
         def fromtimestamp(cls, timestamp: float, tz: _TzInfo | None = None) -> Self:
-            """timestamp[, tz] -> tz's local time from POSIX timestamp."""
+            """
+            Create a datetime from a POSIX timestamp.
+
+            The timestamp is a number, e.g. created via time.time(), that is
+            interpreted as local time.
+            """
             ...
     else:
         @classmethod
@@ -495,7 +545,7 @@ class datetime(date):
     @classmethod
     @deprecated("Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .fromtimestamp(datetime.timezone.utc)")
     def utcfromtimestamp(cls, t: float, /) -> Self:
-        """Construct a naive UTC datetime from a POSIX timestamp."""
+        """Create a naive UTC datetime from a POSIX timestamp."""
         ...
     @classmethod
     def now(cls, tz: _TzInfo | None = None) -> Self:
@@ -515,11 +565,13 @@ class datetime(date):
         ...
     @classmethod
     def combine(cls, date: _Date, time: _Time, tzinfo: _TzInfo | None = ...) -> Self:
-        """date, time -> datetime with same date and time fields"""
+        """Construct a datetime from a given date and a given time."""
         ...
     if sys.version_info >= (3, 15):
         @classmethod
-        def fromisoformat(cls, string: str, /) -> Self: ...
+        def fromisoformat(cls, string: str, /) -> Self:
+            """Construct a date from a string in ISO 8601 format."""
+            ...
 
     def timestamp(self) -> float:
         """Return POSIX timestamp as float."""
@@ -570,21 +622,37 @@ class datetime(date):
         """Return datetime with new specified fields."""
         ...
     def astimezone(self, tz: _TzInfo | None = None) -> Self:
-        """tz -> convert to local time in new timezone tz"""
+        """Convert to local time in new timezone tz."""
         ...
     def isoformat(self, sep: str = "T", timespec: str = "auto") -> str:
         """
-        [sep] -> string in ISO 8601 format, YYYY-MM-DDT[HH[:MM[:SS[.mmm[uuu]]]]][+HH:MM].
-        sep is used to separate the year from the time, and defaults to 'T'.
-        The optional argument timespec specifies the number of additional terms
-        of the time to include. Valid options are 'auto', 'hours', 'minutes',
-        'seconds', 'milliseconds' and 'microseconds'.
+        Return the time formatted according to ISO.
+
+        The full format looks like 'YYYY-MM-DD HH:MM:SS.mmmmmm'.
+        By default, the fractional part is omitted if self.microsecond == 0.
+
+        If self.tzinfo is not None, the UTC offset is also attached, giving
+        a full format of 'YYYY-MM-DD HH:MM:SS.mmmmmm+HH:MM'.
+
+        Optional argument sep specifies the separator between date and
+        time, default 'T'.
+
+        The optional argument timespec specifies the number of additional
+        terms of the time to include. Valid options are 'auto', 'hours',
+        'minutes', 'seconds', 'milliseconds' and 'microseconds'.
         """
         ...
 
     if sys.version_info >= (3, 15):
         @classmethod
-        def strptime(cls, string: str, format: str, /) -> Self: ...
+        def strptime(cls, string: str, format: str, /) -> Self:
+            """
+            Parse string according to the given date and time format (like time.strptime()).
+
+            For a list of supported format codes, see the documentation:
+                https://docs.python.org/3/library/datetime.html#format-codes
+            """
+            ...
     else:
         @classmethod
         def strptime(cls, date_string: str, format: str, /) -> Self:

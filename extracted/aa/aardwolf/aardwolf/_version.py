@@ -1,5 +1,5 @@
 
-__version__ = "0.2.14"
+__version__ = "0.2.16"
 __banner__ = \
 """
 # aardwolf %s 

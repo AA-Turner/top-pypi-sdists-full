@@ -177,7 +177,7 @@ class ScrapeService:
         # request context. It unlocks exactly one thing: a blocked page may be
         # retried through a computer THIS person registered as a home
         # connection (contract:
-        # `common-docs/systems/architecture/residential-egress/FEATURE.md`). A run
+        # `common-docs/systems/web/residential-egress/FEATURE.md`). A run
         # with nobody signed in simply never gets that retry, and the result
         # says so rather than going quiet.
         self.acting_user_id: str | None = acting_user_id

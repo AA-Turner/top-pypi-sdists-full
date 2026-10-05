@@ -8,18 +8,18 @@ from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGro
 
 
 class AdaPNM(BaseOptimizer):
-    """Adam + Positive-Negative Momentum Optimizers.
+    """Adam with positive negative momentum.
 
     Args:
-        params (ParamsT): Iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): Learning rate.
-        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
-        weight_decay (float): Weight decay (L2 penalty).
-        weight_decouple (bool): Use decoupled weight decay.
-        fixed_decay (bool): Fix weight decay.
-        ams_bound (bool): Whether to use the AMSBound variant.
-        eps (float): Term added to the denominator to improve numerical stability.
-        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Momentum decay, second moment decay, and positive negative momentum mixing coefficient.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        ams_bound: Use the running maximum of the second moment to bound adaptive updates.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -144,7 +144,7 @@ class AdaPNM(BaseOptimizer):
                     r=group.get('adanorm_r', None),
                 )
 
-                exp_avg.mul_(beta1_p2).add_(s_grad, alpha=1.0 - beta1_p2)
+                exp_avg.lerp_(s_grad, weight=1.0 - beta1_p2)
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
 
                 de_nom = self.apply_ams_bound(

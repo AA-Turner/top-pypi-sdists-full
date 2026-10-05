@@ -4,10 +4,10 @@ import unittest
 import threading
 import dataclasses
 
-from pebble import ThreadPool
-
+from unittest import mock
 from concurrent.futures import CancelledError, TimeoutError
 
+from pebble import ThreadPool
 from pebble.pool.base_pool import PoolStatus
 
 initarg = 0
@@ -58,6 +58,11 @@ def tid_function():
     return threading.current_thread()
 
 
+def dead_manager_loop(*args, **kwargs):
+    """Stand-in for pool_manager_loop that crashes."""
+    time.sleep(0.1)
+
+
 class TestThreadPool(unittest.TestCase):
     def setUp(self):
         global initarg
@@ -66,6 +71,7 @@ class TestThreadPool(unittest.TestCase):
         self.event.clear()
         self.results = None
         self.exception = None
+
 
     def callback(self, future):
         try:
@@ -377,6 +383,16 @@ class TestThreadPool(unittest.TestCase):
                     break
                 except StopIteration:
                     break
+
+    def test_thread_pool_active_error(self):
+        """Thread Pool is not active if its manager thread dies."""
+        with unittest.mock.patch(
+            "pebble.pool.thread.pool_manager_loop", dead_manager_loop
+        ):
+            with ThreadPool(max_workers=1) as pool:
+                self.assertTrue(pool.active)  # start the pool
+                time.sleep(0.3)               # wait for manager to die
+                self.assertFalse(pool.active)
 
 
 class TestAsyncIOThreadPool(unittest.TestCase):

@@ -102,16 +102,16 @@ jobs:
           fetch-depth: 0  # required for versioneer to find tags
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: false
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
         if: matrix.arch == 'ppc64le' || matrix.arch == 'riscv64' || matrix.arch == 's390x'
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@1828c10ab37f080699c7b81cea34097c684a7074 # v4.2.0
+        uses: pypa/cibuildwheel@e090b81e30c4d855ea63bf4b6e59204c09a101ae # v4.2.1
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
           CIBW_BUILD: "cp310-${{ matrix.build }}*"
@@ -134,6 +134,9 @@ jobs:
       - name: Build SDist
         run: pipx run build --sdist
 
+      - name: Check bundled CMake source archive
+        run: tar tzf dist/*.tar.gz | grep -E '/archive-cache/cmake-[0-9.]+\.tar\.gz$'
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: cibw-sdist
@@ -152,7 +155,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: false
 
@@ -171,9 +174,14 @@ jobs:
           name: cibw-sdist
           path: dist
 
-      - name: Install SDist
+      # Dead proxy blocks the CMake download; PyPI stays reachable for build deps.
+      - name: Install SDist (offline, from bundled source)
         env:
-          CMAKE_ARGS: "-DBUILD_CMAKE_FROM_SOURCE:BOOL=OFF"
+          CMAKE_ARGS: "-DBUILD_CMAKE_FROM_SOURCE:BOOL=ON"
+          CMAKE_BUILD_PARALLEL_LEVEL: "4"
+          http_proxy: "http://127.0.0.1:9"
+          https_proxy: "http://127.0.0.1:9"
+          no_proxy: "pypi.org,files.pythonhosted.org"
         run: |
           uv pip install dist/*.tar.gz
           rm -rf dist

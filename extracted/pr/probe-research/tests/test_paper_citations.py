@@ -336,7 +336,10 @@ def test_refresh_too_soon_is_one_request_carrying_retry_after(tmp_path) -> None:
     assert len(server.requests) == 1
 
 
-def test_refresh_for_a_team_without_citations_is_a_conflict(tmp_path) -> None:
+def test_an_older_servers_citations_disabled_refresh_is_a_conflict(tmp_path) -> None:
+    """A current server serves every team (the per-tenant flag is gone, C13);
+    one from before that answers 409 `citations_disabled`, and the SDK still
+    surfaces it as a plain conflict."""
     path = f"{_citations_path()}/refresh"
     detail = {
         "code": "citations_disabled",
@@ -417,7 +420,9 @@ def test_paper_citations_json_is_the_servers_answer(monkeypatch, tmp_path) -> No
     }
 
 
-def test_paper_citations_says_when_the_team_is_not_switched_on(monkeypatch, tmp_path) -> None:
+def test_paper_citations_says_when_an_older_server_is_not_switched_on(
+    monkeypatch, tmp_path
+) -> None:
     disabled = {"paper_id": PAPER_A, "state": "disabled"}
     PaperCitationsOut.model_validate(disabled)
     _install(
@@ -551,7 +556,7 @@ def test_paper_graph_lists_unresolved_entries_when_asked(monkeypatch, tmp_path) 
     assert row.split()[:3] == ["P1", "arxiv:1706.03762", "14"]
 
 
-def test_paper_graph_says_when_the_team_is_not_switched_on(monkeypatch, tmp_path) -> None:
+def test_paper_graph_says_when_an_older_server_is_not_switched_on(monkeypatch, tmp_path) -> None:
     disabled = {"project_id": PROJECT_ID, "state": "disabled"}
     CitationGraphOut.model_validate(disabled)
     _install(monkeypatch, tmp_path, {("GET", _graph_path()): httpx.Response(200, json=disabled)})

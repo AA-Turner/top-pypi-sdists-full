@@ -344,11 +344,53 @@ if sys.version_info >= (3, 15):
     @overload
     def urlsplit(
         url: str, scheme: str = "", allow_fragments: bool = True, *, missing_as_none: Literal[True]
-    ) -> SplitResult[str | None]: ...
+    ) -> SplitResult[str | None]:
+        """
+        Parse a URL into 5 components:
+        <scheme>://<netloc>/<path>?<query>#<fragment>
+
+        The result is a named 5-tuple with fields corresponding to the
+        above. It is either a SplitResult or SplitResultBytes object,
+        depending on the type of the url parameter.
+
+        The username, password, hostname, and port sub-components of netloc
+        can also be accessed as attributes of the returned object.
+
+        The scheme argument provides the default value of the scheme
+        component when no scheme is found in url.
+
+        If allow_fragments is False, no attempt is made to separate the
+        fragment component from the previous component, which can be either
+        path or query.
+
+        Note that % escapes are not expanded.
+        """
+        ...
     @overload
     def urlsplit(
         url: str, scheme: str = "", allow_fragments: bool = True, *, missing_as_none: Literal[False] = False
-    ) -> SplitResult[str]: ...
+    ) -> SplitResult[str]:
+        """
+        Parse a URL into 5 components:
+        <scheme>://<netloc>/<path>?<query>#<fragment>
+
+        The result is a named 5-tuple with fields corresponding to the
+        above. It is either a SplitResult or SplitResultBytes object,
+        depending on the type of the url parameter.
+
+        The username, password, hostname, and port sub-components of netloc
+        can also be accessed as attributes of the returned object.
+
+        The scheme argument provides the default value of the scheme
+        component when no scheme is found in url.
+
+        If allow_fragments is False, no attempt is made to separate the
+        fragment component from the previous component, which can be either
+        path or query.
+
+        Note that % escapes are not expanded.
+        """
+        ...
     @overload
     def urlsplit(
         url: bytes | None,
@@ -356,7 +398,28 @@ if sys.version_info >= (3, 15):
         allow_fragments: bool = True,
         *,
         missing_as_none: Literal[True],
-    ) -> SplitResultBytes[bytes | None]: ...
+    ) -> SplitResultBytes[bytes | None]:
+        """
+        Parse a URL into 5 components:
+        <scheme>://<netloc>/<path>?<query>#<fragment>
+
+        The result is a named 5-tuple with fields corresponding to the
+        above. It is either a SplitResult or SplitResultBytes object,
+        depending on the type of the url parameter.
+
+        The username, password, hostname, and port sub-components of netloc
+        can also be accessed as attributes of the returned object.
+
+        The scheme argument provides the default value of the scheme
+        component when no scheme is found in url.
+
+        If allow_fragments is False, no attempt is made to separate the
+        fragment component from the previous component, which can be either
+        path or query.
+
+        Note that % escapes are not expanded.
+        """
+        ...
     @overload
     def urlsplit(
         url: bytes | None,
@@ -364,15 +427,78 @@ if sys.version_info >= (3, 15):
         allow_fragments: bool = True,
         *,
         missing_as_none: Literal[False] = False,
-    ) -> SplitResultBytes[bytes]: ...
+    ) -> SplitResultBytes[bytes]:
+        """
+        Parse a URL into 5 components:
+        <scheme>://<netloc>/<path>?<query>#<fragment>
+
+        The result is a named 5-tuple with fields corresponding to the
+        above. It is either a SplitResult or SplitResultBytes object,
+        depending on the type of the url parameter.
+
+        The username, password, hostname, and port sub-components of netloc
+        can also be accessed as attributes of the returned object.
+
+        The scheme argument provides the default value of the scheme
+        component when no scheme is found in url.
+
+        If allow_fragments is False, no attempt is made to separate the
+        fragment component from the previous component, which can be either
+        path or query.
+
+        Note that % escapes are not expanded.
+        """
+        ...
     @overload
     def urlsplit(
         url: str, scheme: str = "", allow_fragments: bool = True, *, missing_as_none: bool
-    ) -> SplitResult[str | None]: ...
+    ) -> SplitResult[str | None]:
+        """
+        Parse a URL into 5 components:
+        <scheme>://<netloc>/<path>?<query>#<fragment>
+
+        The result is a named 5-tuple with fields corresponding to the
+        above. It is either a SplitResult or SplitResultBytes object,
+        depending on the type of the url parameter.
+
+        The username, password, hostname, and port sub-components of netloc
+        can also be accessed as attributes of the returned object.
+
+        The scheme argument provides the default value of the scheme
+        component when no scheme is found in url.
+
+        If allow_fragments is False, no attempt is made to separate the
+        fragment component from the previous component, which can be either
+        path or query.
+
+        Note that % escapes are not expanded.
+        """
+        ...
     @overload
     def urlsplit(
         url: bytes | None, scheme: bytes | None | Literal[""] = "", allow_fragments: bool = True, *, missing_as_none: bool
-    ) -> SplitResultBytes[bytes | None]: ...
+    ) -> SplitResultBytes[bytes | None]:
+        """
+        Parse a URL into 5 components:
+        <scheme>://<netloc>/<path>?<query>#<fragment>
+
+        The result is a named 5-tuple with fields corresponding to the
+        above. It is either a SplitResult or SplitResultBytes object,
+        depending on the type of the url parameter.
+
+        The username, password, hostname, and port sub-components of netloc
+        can also be accessed as attributes of the returned object.
+
+        The scheme argument provides the default value of the scheme
+        component when no scheme is found in url.
+
+        If allow_fragments is False, no attempt is made to separate the
+        fragment component from the previous component, which can be either
+        path or query.
+
+        Note that % escapes are not expanded.
+        """
+        ...
 
 if sys.version_info >= (3, 15):
     # Requires an iterable of length 6

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bithuman
-Version: 2.11.20
+Version: 2.11.21
 Summary: bitHuman avatar runtime SDK (binary wheels only; this sdist refuses on unsupported platforms)
 Home-page: https://bithuman.ai
 Author: bitHuman

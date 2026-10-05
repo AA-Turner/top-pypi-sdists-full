@@ -80,7 +80,8 @@ def test_init_can_explicitly_create_project_experiment_and_run(app, wired):
     )
     probe.finish()
 
-    (project,) = app.projects.values()
+    # (The fixture's seeded experiment is filed under a project of its own.)
+    (project,) = [p for pid, p in app.projects.items() if pid not in app.seeded_home_projects]
     (experiment,) = [row for row in app.experiments.values() if row["slug"] == "new-experiment"]
     assert experiment["project_id"] == project["id"]
     assert app.runs[run.id]["experiment_id"] == experiment["id"]

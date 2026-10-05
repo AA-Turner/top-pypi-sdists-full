@@ -522,9 +522,11 @@ seg_seg_full_moments_bspline_kernel_impl(
         for (size_t j = 0; j < N_j; j++) {
             for (size_t r = 0; r < n_qp; r++) {
                 double t = gt[r];
-                pj_t[(j*n_qp + r)*3 + 0] = (1.0 - t) * slj(j,0) + t * srj(j,0);
-                pj_t[(j*n_qp + r)*3 + 1] = (1.0 - t) * slj(j,1) + t * srj(j,1);
-                pj_t[(j*n_qp + r)*3 + 2] = (1.0 - t) * slj(j,2) + t * srj(j,2);
+                // Source points coordinate-major per segment, (j, c, r), so
+                // the R loop below reads each coordinate as a unit-stride run.
+                pj_t[(j*3 + 0)*n_qp + r] = (1.0 - t) * slj(j,0) + t * srj(j,0);
+                pj_t[(j*3 + 1)*n_qp + r] = (1.0 - t) * slj(j,1) + t * srj(j,1);
+                pj_t[(j*3 + 2)*n_qp + r] = (1.0 - t) * slj(j,2) + t * srj(j,2);
             }
         }
     }
@@ -550,9 +552,43 @@ seg_seg_full_moments_bspline_kernel_impl(
     // exact; and at n_qp <= 8 there is exactly ONE chunk spanning the whole
     // range, so both the arithmetic and its order are unchanged and the
     // output is bit-identical to the untiled kernel.
+    //
+    // wuwu (below) is a function of the tier and the two segment LENGTHS
+    // only, and a meshed wire repeats its segment length pair after pair, so
+    // each thread keeps the last single-chunk table with its key and refills
+    // it only when (tier, Li, Lj) changes. A hit reuses doubles produced by
+    // the very expressions a refill would evaluate on bit-equal inputs, so
+    // the moments do not move.
+    //
+    // MSVC keeps main's parallel structure: one `omp parallel for` spelled as
+    // main spells it, the table on each iteration's stack and refilled per
+    // pair. Holding the table needs a region with a work-sharing loop inside
+    // it, and on the Windows wheel (momwire#1302) that shape coincided with
+    // the bspline tests running slower than main; the hold is a few percent,
+    // not worth a structure that build has not been measured on.
+#if !defined(_MSC_VER)
+    #pragma omp parallel
+    {
+    // wuwu[t, pP]: precomputed wi[q]*ui[q]^p * wj[r]*uj[r]^P for the
+    // chunk's pairs, flattened with pP = p*NM + P innermost (stage 2 walks t
+    // outermost). For D=2: NMM*64 = 576 doubles = 4.5KB, fits comfortably
+    // in L1.
+    alignas(32) double wuwu[NMM * BSPLINE_QR_TILE];
+    bool w_held = false;
+    size_t w_tier = 0;
+    double w_Li = 0.0, w_Lj = 0.0;
+    MW_OMP_FOR_COLLAPSE2
+#else
     MW_OMP_PARALLEL_FOR_COLLAPSE2
+#endif
     for (size_t i = 0; i < N_i; i++) {
         for (size_t j = 0; j < N_j; j++) {
+#if defined(_MSC_VER)
+            alignas(32) double wuwu[NMM * BSPLINE_QR_TILE];
+            const bool w_held = false;  // refilled every pair
+            size_t w_tier = 0;
+            double w_Li = 0.0, w_Lj = 0.0;
+#endif
             alignas(32) double R[BSPLINE_QR_TILE];
             alignas(32) double inv_R_4pi[BSPLINE_QR_TILE];
             alignas(32) double phases[BSPLINE_QR_TILE];
@@ -560,10 +596,6 @@ seg_seg_full_moments_bspline_kernel_impl(
             alignas(32) double sin_phases[BSPLINE_QR_TILE];
             alignas(32) double G_re[BSPLINE_QR_TILE], G_im[BSPLINE_QR_TILE];
             alignas(32) double decay[BSPLINE_QR_TILE];
-            // wuwu[pP, t]: precomputed wi[q]*ui[q]^p * wj[r]*uj[r]^P for the
-            // chunk's pairs, flattened with pP = p*NM + P. For D=2:
-            // NMM*64 = 576 doubles = 4.5KB, fits comfortably in L1.
-            alignas(32) double wuwu[NMM * BSPLINE_QR_TILE];
 
             double acc_re[NMM], acc_im[NMM];
             for (int pP = 0; pP < NMM; pP++) { acc_re[pP] = 0.0; acc_im[pP] = 0.0; }
@@ -594,35 +626,63 @@ seg_seg_full_moments_bspline_kernel_impl(
                 const size_t m = (n_pairs - base < BSPLINE_QR_TILE)
                                      ? (n_pairs - base) : BSPLINE_QR_TILE;
 
-                // One division per chunk, then a running (q, r) walk: qr is
-                // q*n_qp + r by construction, so the chunk is contiguous.
+                // One division per chunk, then the chunk's contiguous qr
+                // range (qr = q*n_qp + r) as runs of r under one q: each run
+                // is a unit-stride loop the compiler vectorizes, and sqrt is
+                // correctly rounded in a vector lane as in a scalar one, so
+                // R is the per-point walk's to the bit.
                 size_t q = base / n_qp;
                 size_t r = base % n_qp;
-                for (size_t t = 0; t < m; t++) {
-                    const double dx = pi[q*3 + 0] - pj[r*3 + 0];
-                    const double dy = pi[q*3 + 1] - pj[r*3 + 1];
-                    const double dz = pi[q*3 + 2] - pj[r*3 + 2];
-                    R[t] = std::sqrt(dx*dx + dy*dy + dz*dz + a_squared);
-
-                    const double wi = gw[q] * Li;
-                    const double ui = gt[q] * Li;
-                    const double wj = gw[r] * Lj;
-                    const double uj = gt[r] * Lj;
-                    double ui_pow[NM], uj_pow[NM];
-                    ui_pow[0] = 1.0;
-                    uj_pow[0] = 1.0;
-                    for (int e = 1; e < NM; e++) {
-                        ui_pow[e] = ui_pow[e-1] * ui;
-                        uj_pow[e] = uj_pow[e-1] * uj;
+                for (size_t t = 0; t < m; r = 0, ++q) {
+                    const size_t run = std::min(n_qp - r, m - t);
+                    const double px = pi[q*3 + 0], py = pi[q*3 + 1], pz = pi[q*3 + 2];
+                    const double *xj = pj + r;
+                    const double *yj = pj + n_qp + r;
+                    const double *zj = pj + 2 * n_qp + r;
+                    double *Rt = R + t;
+                    for (size_t u = 0; u < run; u++) {
+                        const double dx = px - xj[u];
+                        const double dy = py - yj[u];
+                        const double dz = pz - zj[u];
+                        Rt[u] = std::sqrt(dx*dx + dy*dy + dz*dz + a_squared);
                     }
-                    const double wij = wi * wj;
-                    for (int pp = 0; pp < NM; pp++) {
-                        for (int PP = 0; PP < NM; PP++) {
-                            wuwu[(pp * NM + PP) * m + t] = wij * ui_pow[pp] * uj_pow[PP];
+                    t += run;
+                }
+
+                // A multi-chunk pair rewrites wuwu per chunk, so only a
+                // single-chunk table is ever held.
+                const bool one_chunk = n_pairs <= BSPLINE_QR_TILE;
+                if (!(one_chunk && w_held && tier == w_tier && Li == w_Li &&
+                      Lj == w_Lj)) {
+                    q = base / n_qp;
+                    r = base % n_qp;
+                    for (size_t t = 0; t < m; t++) {
+                        const double wi = gw[q] * Li;
+                        const double ui = gt[q] * Li;
+                        const double wj = gw[r] * Lj;
+                        const double uj = gt[r] * Lj;
+                        double ui_pow[NM], uj_pow[NM];
+                        ui_pow[0] = 1.0;
+                        uj_pow[0] = 1.0;
+                        for (int e = 1; e < NM; e++) {
+                            ui_pow[e] = ui_pow[e-1] * ui;
+                            uj_pow[e] = uj_pow[e-1] * uj;
                         }
-                    }
+                        const double wij = wi * wj;
+                        for (int pp = 0; pp < NM; pp++) {
+                            for (int PP = 0; PP < NM; PP++) {
+                                wuwu[t * NMM + pp * NM + PP] = wij * ui_pow[pp] * uj_pow[PP];
+                            }
+                        }
 
-                    if (++r == n_qp) { r = 0; ++q; }
+                        if (++r == n_qp) { r = 0; ++q; }
+                    }
+#if !defined(_MSC_VER)
+                    w_held = one_chunk;
+#endif
+                    w_tier = tier;
+                    w_Li = Li;
+                    w_Lj = Lj;
                 }
 
                 // Stage 1: phases = -k_re * R, then sincos via libmvec.
@@ -664,28 +724,24 @@ seg_seg_full_moments_bspline_kernel_impl(
                     }
                 }
 
-                // Stage 2: NMM moment reductions, each a vectorizable sum over
-                // the chunk, carried in acc_* across chunks.
-                for (int pP = 0; pP < NMM; pP++) {
-                    double sr = acc_re[pP], si = acc_im[pP];
-                    const double *w_row = &wuwu[pP * m];
-                    // No `omp simd reduction` here (momwire#781): the clause LICENSES
-                    // reassociation, so the reduction tree follows whatever
-                    // vectorization factor the compiler picks per FUNCTION -- and the
-                    // reduced and EK kernels differ in register pressure. That made
-                    // their all-ineligible outputs disagree by 1 ulp on arm64 while
-                    // matching on x86-64, breaking the exact-reduction gates that
-                    // momwire#270 U2 relies on. Measured single-threaded (pinned,
-                    // passive wait, min of 5, 3 alternating rounds), the clause is
-                    // worth -0.2%/+0.4% on the bspline fills -- i.e. nothing. It IS
-                    // worth ~4.6% in _accel_razor.cpp, which keeps its clause and has
-                    // no cross-kernel equality gate to protect.
-                    for (size_t t = 0; t < m; t++) {
-                        sr += w_row[t] * G_re[t];
-                        si += w_row[t] * G_im[t];
+                // Stage 2: the NMM moment sums, carried in acc_* across
+                // chunks. Each accumulator adds its terms in ascending t, one
+                // rounded multiply and one rounded add per term -- the order
+                // the per-pP loop this replaced used -- so the moments are
+                // bit-identical to it on every target. Only the nesting moved:
+                // with t outermost the NMM (re, im) chains are independent
+                // within a step, where per pP each was one serial chain of m
+                // dependent adds (latency-bound, ~4 cycles a term). Nothing
+                // here licenses reassociation: no `omp simd reduction`
+                // (momwire#781), and any vectorizing the compiler does is
+                // ACROSS accumulators, which is exact.
+                for (size_t t = 0; t < m; t++) {
+                    const double gr = G_re[t], gi = G_im[t];
+                    const double *w_t = &wuwu[t * NMM];
+                    for (int pP = 0; pP < NMM; pP++) {
+                        acc_re[pP] += w_t[pP] * gr;
+                        acc_im[pP] += w_t[pP] * gi;
                     }
-                    acc_re[pP] = sr;
-                    acc_im[pP] = si;
                 }
             }
 
@@ -695,6 +751,9 @@ seg_seg_full_moments_bspline_kernel_impl(
             }
         }
     }
+#if !defined(_MSC_VER)
+    }
+#endif
 
     return J;
 }
@@ -1562,6 +1621,18 @@ assemble_Z_bspline_kernel(
 }
 
 
+// momwire#1290: the windowed assembler's AVX2 lane kernel. Only where the
+// vector fma IS the scalar fma -- an x86 build with -mfma, whose mw_fma::fma
+// is std::fma, one vfmadd. The baseline (_sse2) variant, arm64 and MSVC keep
+// the reference loop alone, so their bits cannot move.
+#if defined(__AVX2__) && defined(__FMA__) && !defined(_MSC_VER)
+#define MW_WINDOWED_LANES_1290 1
+#include <immintrin.h>
+#else
+#define MW_WINDOWED_LANES_1290 0
+#endif
+
+
 // Windowed, accumulating variant of assemble_Z_bspline_kernel for the
 // chunked dense build (issue #136): J_chunk holds the moment tensor for a
 // rectangular segment window [i0, i1) x [j0, j1) only, and this kernel adds
@@ -1594,7 +1665,10 @@ assemble_Z_bspline_windowed_kernel(
     // and basis row m lands in Z row row_of[m]. The wrapper validates
     // the map against m_idx before the GIL is released. Without it this
     // pointer is never read and the instantiation is the shipped one.
-    const int64_t *row_of = nullptr
+    const int64_t *row_of = nullptr,
+    // momwire#1290: true runs the per-entry loop below even where the lane
+    // kernel is compiled -- the reference it is gated against to the bit.
+    bool reference = false
 ) {
     static constexpr int NM = D + 1;
 
@@ -1648,6 +1722,220 @@ assemble_Z_bspline_windowed_kernel(
     size_t n_n = (size_t)n_idx.shape(0);
 
     MW_CANCEL_SETUP(cancel_flag);
+#if MW_WINDOWED_LANES_1290
+    if (!reference) {
+        // The lane kernel (momwire#1290): L entries (m, n..n+L-1) at a time,
+        // over TM x TN tiles of (mi, ni).
+        //
+        // Every entry's arithmetic is the reference loop's, operation for
+        // operation: the same products, the same fma chain over (p, q) for
+        // wA / wPhi, the same fma(td, wA, zA) and `zPhi + wPhi` over (a, b) in
+        // the same order, the same tangent dot, the same combine. An (a, b)
+        // the reference skips (sn outside [j0, j1)) is computed here for that
+        // lane and then dropped by a blend, never added, so the accumulator is
+        // left as `continue` left it. Nothing is reassociated: each Z entry is
+        // the reference's to the bit.
+        //
+        // Measured (Haswell, free-space array at N = 2816, 13 calls, 9.0 M
+        // entries): the reference ran 2.09 s on one thread and 0.66 s on four;
+        // this kernel 0.75 s and 0.29 s. What the reference paid for, in
+        // order: one entry at a time is scalar and serial (each wA is a
+        // 9-deep fma chain), and the row-at-a-time sweep wrote a column-major
+        // Z one cache line per entry, 45 KB apart (a C-ordered Z ran the
+        // same call 1.5x faster). Lanes vectorise across entries; tiles keep
+        // a tile's Z lines and its J rows cache-resident while it fills. The
+        // entries are packed (re, im) per lane so a contiguous run of J --
+        // the common case, consecutive bases on consecutive segments -- is
+        // read as it lies.
+        constexpr int V = 4;         // ymm registers per quantity, two entries' (re, im) each
+        constexpr size_t L = 2 * V;  // entries per lane group
+        constexpr size_t K = 2 * L;
+        constexpr size_t TM = 64;  // tile rows (mi)
+        constexpr size_t TN = 16;  // tile columns (ni), a multiple of L
+        constexpr int NP = NM * NM;
+        const size_t n_grp = (n_n + L - 1) / L;
+        const size_t n_pad = n_grp * L;
+        const size_t lane_stride = 2 * n_pad;
+        // Column side, once per call. Per (b, lane): the window-relative J
+        // offset in doubles, the polynomial row and the source tangent, each
+        // (re, im)-duplicated; a lane the reference would skip carries a zero
+        // mask. Per (b, group): whether its lanes read one contiguous run of J
+        // (then `goff` is that run's start, else -1), and `gcov` 1 when every
+        // lane is live, 2 when none is (the reference skips that (a, b) for
+        // all of them, and an empty window has no J column to stage).
+        std::vector<int64_t> live2((size_t)NM * lane_stride, 0);
+        std::vector<int64_t> loff((size_t)NM * n_pad, 0);
+        std::vector<double> pn2((size_t)NM * NM * lane_stride, 0.0);
+        std::vector<double> tn2((size_t)NM * 3 * lane_stride, 0.0);
+        std::vector<int64_t> goff((size_t)NM * n_grp, -1);
+        std::vector<char> gcov((size_t)NM * n_grp, 0);
+        for (size_t ni = 0; ni < n_n; ni++) {
+            const int64_t n = ni_view(ni);
+            for (int b = 0; b < NM; b++) {
+                const int64_t sn = ss_view(n, b);
+                if (sn >= j0 && sn < j1) {
+                    live2[(size_t)b * lane_stride + 2 * ni] = -1;
+                    live2[(size_t)b * lane_stride + 2 * ni + 1] = -1;
+                    loff[(size_t)b * n_pad + ni] = 2 * (sn - j0);
+                    for (int c = 0; c < 3; c++) {
+                        const double t = t_view(sn, c);
+                        tn2[((size_t)b * 3 + c) * lane_stride + 2 * ni] = t;
+                        tn2[((size_t)b * 3 + c) * lane_stride + 2 * ni + 1] = t;
+                    }
+                }
+                for (int q = 0; q < NM; q++) {
+                    const double v = p_view(n, b, q);
+                    pn2[((size_t)b * NM + q) * lane_stride + 2 * ni] = v;
+                    pn2[((size_t)b * NM + q) * lane_stride + 2 * ni + 1] = v;
+                }
+            }
+        }
+        for (int b = 0; b < NM; b++) {
+            for (size_t gi = 0; gi < n_grp; gi++) {
+                const size_t g = gi * L;
+                bool all = true, none = true, contig = true;
+                for (size_t l = 0; l < L; l++) {
+                    const bool on = live2[(size_t)b * lane_stride + 2 * (g + l)] != 0;
+                    all = all && on;
+                    none = none && !on;
+                    contig = contig && on &&
+                             loff[(size_t)b * n_pad + g + l] == loff[(size_t)b * n_pad + g] + 2 * (int64_t)l;
+                }
+                gcov[(size_t)b * n_grp + gi] = all ? 1 : (none ? 2 : 0);
+                if (contig) goff[(size_t)b * n_grp + gi] = loff[(size_t)b * n_pad + g];
+            }
+        }
+        const double *Jd = reinterpret_cast<const double *>(J_chunk.data());
+        const size_t J_row = 2 * (size_t)(j1 - j0);
+        const size_t J_plane = (size_t)(i1 - i0) * J_row;
+        size_t poff_j[NP], poff_s[NP];
+        for (int pq = 0; pq < NP; pq++) {
+            poff_j[pq] = (size_t)pq * J_plane;
+            poff_s[pq] = (size_t)pq * K;
+        }
+        const size_t n_tm = (n_m + TM - 1) / TM;
+        const size_t n_tn = (n_pad + TN - 1) / TN;
+
+        MW_OMP_PARALLEL_FOR_COLLAPSE2
+        for (size_t tm = 0; tm < n_tm; tm++) {
+            for (size_t tn = 0; tn < n_tn; tn++) {
+                MW_CANCEL_POLL();
+                const size_t mi_end = std::min(n_m, (tm + 1) * TM);
+                const size_t g_end = std::min(n_pad, (tn + 1) * TN);
+                double jst[NP * K];
+                for (size_t mi = tm * TM; mi < mi_end; mi++) {
+                    const int64_t m = mi_view(mi);
+                    for (size_t g = tn * TN; g < g_end; g += L) {
+                        const size_t gi = g / L;
+                        __m256d zA[V], zP[V];
+                        for (int v = 0; v < V; v++) {
+                            zA[v] = _mm256_setzero_pd();
+                            zP[v] = _mm256_setzero_pd();
+                        }
+                        for (int a = 0; a < NM; a++) {
+                            const int64_t sm = ss_view(m, a);
+                            if (sm < i0 || sm >= i1) continue;
+                            const __m256d tm0 = _mm256_set1_pd(t_view(sm, 0));
+                            const __m256d tm1 = _mm256_set1_pd(t_view(sm, 1));
+                            const __m256d tm2 = _mm256_set1_pd(t_view(sm, 2));
+                            double pm[NM];
+                            for (int p = 0; p < NM; p++) pm[p] = p_view(m, a, p);
+                            const double *Jrow = Jd + (size_t)(sm - i0) * J_row;
+                            for (int b = 0; b < NM; b++) {
+                                const char cov = gcov[(size_t)b * n_grp + gi];
+                                if (cov == 2) continue;
+                                const int64_t go = goff[(size_t)b * n_grp + gi];
+                                const double *base;
+                                const size_t *po;
+                                if (go >= 0) {
+                                    base = Jrow + go;
+                                    po = poff_j;
+                                } else {
+                                    // Stage the lanes' J into a contiguous block;
+                                    // a dead lane reads column 0 and is masked.
+                                    const int64_t *lo = &loff[(size_t)b * n_pad + g];
+                                    for (int pq = 0; pq < NP; pq++)
+                                        for (size_t l = 0; l < L; l++) {
+                                            jst[pq * K + 2 * l] = Jrow[poff_j[pq] + lo[l]];
+                                            jst[pq * K + 2 * l + 1] = Jrow[poff_j[pq] + lo[l] + 1];
+                                        }
+                                    base = jst;
+                                    po = poff_s;
+                                }
+                                __m256d wA[V], wP[V];
+                                for (int v = 0; v < V; v++) {
+                                    wA[v] = _mm256_setzero_pd();
+                                    wP[v] = _mm256_setzero_pd();
+                                }
+                                for (int p = 0; p < NM; p++) {
+                                    const __m256d mp = _mm256_set1_pd(pm[p]);
+                                    for (int q = 0; q < NM; q++) {
+                                        const double *pnq =
+                                            &pn2[((size_t)b * NM + q) * lane_stride + 2 * g];
+                                        const double *jp = base + po[p * NM + q];
+                                        __m256d pr[V];
+                                        for (int v = 0; v < V; v++) {
+                                            pr[v] = _mm256_mul_pd(mp, _mm256_loadu_pd(pnq + 4 * v));
+                                            wA[v] = _mm256_fmadd_pd(pr[v], _mm256_loadu_pd(jp + 4 * v), wA[v]);
+                                        }
+                                        if (p >= 1 && q >= 1) {
+                                            const __m256d s = _mm256_set1_pd((double)(p * q));
+                                            const double *jl = base + po[(p - 1) * NM + (q - 1)];
+                                            for (int v = 0; v < V; v++)
+                                                wP[v] = _mm256_fmadd_pd(_mm256_mul_pd(s, pr[v]),
+                                                                        _mm256_loadu_pd(jl + 4 * v), wP[v]);
+                                        }
+                                    }
+                                }
+                                const double *tb = &tn2[(size_t)b * 3 * lane_stride + 2 * g];
+                                for (int v = 0; v < V; v++) {
+                                    const __m256d td = _mm256_add_pd(
+                                        _mm256_add_pd(_mm256_mul_pd(tm0, _mm256_loadu_pd(tb + 4 * v)),
+                                                      _mm256_mul_pd(tm1, _mm256_loadu_pd(tb + lane_stride + 4 * v))),
+                                        _mm256_mul_pd(tm2, _mm256_loadu_pd(tb + 2 * lane_stride + 4 * v)));
+                                    const __m256d nA = _mm256_fmadd_pd(td, wA[v], zA[v]);
+                                    const __m256d nP = _mm256_add_pd(zP[v], wP[v]);
+                                    if (cov == 1) {
+                                        zA[v] = nA;
+                                        zP[v] = nP;
+                                    } else {
+                                        const __m256d on = _mm256_loadu_pd(reinterpret_cast<const double *>(
+                                            &live2[(size_t)b * lane_stride + 2 * g + 4 * v]));
+                                        zA[v] = _mm256_blendv_pd(zA[v], nA, on);
+                                        zP[v] = _mm256_blendv_pd(zP[v], nP, on);
+                                    }
+                                }
+                            }
+                        }
+                        double zAs[K], zPs[K];
+                        for (int v = 0; v < V; v++) {
+                            _mm256_storeu_pd(zAs + 4 * v, zA[v]);
+                            _mm256_storeu_pd(zPs + 4 * v, zP[v]);
+                        }
+                        for (size_t l = 0; l < L && g + l < n_n; l++) {
+                            const int64_t n = ni_view(g + l);
+                            const double zA_re = zAs[2 * l], zA_im = zAs[2 * l + 1];
+                            const double zPhi_re = zPs[2 * l], zPhi_im = zPs[2 * l + 1];
+                            double Zre, Zim;
+                            if (COMPLEX_EPS) {
+                                Zre = -omega_mu * zA_im + (c_re * zPhi_re - c_im * zPhi_im);
+                                Zim = omega_mu * zA_re + (c_re * zPhi_im + c_im * zPhi_re);
+                            } else {
+                                Zre = -omega_mu * zA_im + zPhi_im * inv_omega_eps;
+                                Zim = omega_mu * zA_re - zPhi_re * inv_omega_eps;
+                            }
+                            z_view(ROW_MAP ? row_of[m] : m, n) += std::complex<double>(Zre, Zim);
+                        }
+                    }
+                }
+            }
+        }
+        MW_THROW_IF_ABORTED();
+        return;
+    }
+#else
+    (void)reference;
+#endif
     MW_OMP_PARALLEL_FOR_COLLAPSE2
     for (size_t mi = 0; mi < n_m; mi++) {
         for (size_t ni = 0; ni < n_n; ni++) {
@@ -1783,7 +2071,8 @@ assemble_Z_bspline_windowed(
     double mu_,
     py::array_t<std::complex<double>> Z,  // any strides: F-order lets the caller's LAPACK solve factor in place
     uintptr_t cancel_flag = 0,
-    py::object row_of = py::none()
+    py::object row_of = py::none(),
+    bool reference = false
 ) {
     if (!row_of.is_none()) {
         RowOf1132 ro = checked_row_of_1132(row_of, m_idx, support_seg, Z);
@@ -1792,17 +2081,17 @@ assemble_Z_bspline_windowed(
             case 1:
                 assemble_Z_bspline_windowed_kernel<1, false, true>(
                     J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, rp);
+                    i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, rp, reference);
                 return;
             case 2:
                 assemble_Z_bspline_windowed_kernel<2, false, true>(
                     J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, rp);
+                    i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, rp, reference);
                 return;
             case 3:
                 assemble_Z_bspline_windowed_kernel<3, false, true>(
                     J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, rp);
+                    i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, rp, reference);
                 return;
             default:
                 throw std::runtime_error("assemble_Z_bspline_windowed: max_d must be 1, 2 or 3");
@@ -1812,17 +2101,17 @@ assemble_Z_bspline_windowed(
         case 1:
             assemble_Z_bspline_windowed_kernel<1, false>(
                 J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag);
+                i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, nullptr, reference);
             return;
         case 2:
             assemble_Z_bspline_windowed_kernel<2, false>(
                 J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag);
+                i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, nullptr, reference);
             return;
         case 3:
             assemble_Z_bspline_windowed_kernel<3, false>(
                 J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag);
+                i0, i1, j0, j1, omega, eps_, mu_, Z, cancel_flag, 0.0, 0.0, nullptr, reference);
             return;
         default:
             throw std::runtime_error(
@@ -1871,7 +2160,10 @@ assemble_Z_bspline_weighted_windowed_kernel(
     // and basis row m lands in Z row row_of[m]. The wrapper validates
     // the map against m_idx before the GIL is released. Without it this
     // pointer is never read and the instantiation is the shipped one.
-    const int64_t *row_of = nullptr
+    const int64_t *row_of = nullptr,
+    // true runs the per-entry loop below even where the lane kernel is
+    // compiled -- the reference it is gated against to the bit.
+    bool reference = false
 ) {
     static constexpr int NM = D + 1;
 
@@ -1921,6 +2213,228 @@ assemble_Z_bspline_weighted_windowed_kernel(
     size_t n_n = (size_t)n_idx.shape(0);
 
     MW_CANCEL_SETUP(cancel_flag);
+#if MW_WINDOWED_LANES_1290
+    if (!reference) {
+        // The lane kernel: the unweighted twin's (momwire#1290) shape --
+        // L entries (m, n..n+L-1) a step, (re, im)-packed, over TM x TN
+        // tiles of (mi, ni) -- carrying the per-pair complex weights.
+        //
+        // Every entry's arithmetic is the reference loop's, operation for
+        // operation. That loop has no explicit fma and the build does not
+        // contract (momwire#1194), so here too every product and sum is its
+        // own rounded op, never a vfmadd: iA += prod * J and
+        // iPhi += (p q prod) * J' as multiply-then-add in the same (p, q)
+        // order; zA += wa * iA with the complex product as the compiler
+        // expands std::complex's -- re = ac - bd, im = ad + bc, four rounded
+        // products -- which is exactly mul, mul, addsub on (re, im)-packed
+        // lanes; the same (a, b) order; the same scalar combine and scale
+        // per entry. A wing the reference skips (sn outside [j0, j1)) is
+        // computed for that lane and blended away, never added. So each Z
+        // entry is the reference's to the bit on finite inputs. (A product
+        // whose parts are BOTH NaN is where the compiler's complex multiply
+        // calls __muldc3 and this kernel does not; no finite fill reaches it.)
+        constexpr int V = 4;         // ymm registers per quantity, two entries' (re, im) each
+        constexpr size_t L = 2 * V;  // entries per lane group
+        constexpr size_t K = 2 * L;
+        constexpr size_t TM = 64;  // tile rows (mi)
+        constexpr size_t TN = 16;  // tile columns (ni), a multiple of L
+        constexpr int NP = NM * NM;
+        const size_t n_grp = (n_n + L - 1) / L;
+        const size_t n_pad = n_grp * L;
+        const size_t lane_stride = 2 * n_pad;
+        // Column side, once per call, as the unweighted twin builds it (the
+        // window-relative J offset in doubles is also the weight windows'
+        // offset within a row: they share J's trailing axes).
+        std::vector<int64_t> live2((size_t)NM * lane_stride, 0);
+        std::vector<int64_t> loff((size_t)NM * n_pad, 0);
+        std::vector<double> pn2((size_t)NM * NM * lane_stride, 0.0);
+        std::vector<int64_t> goff((size_t)NM * n_grp, -1);
+        std::vector<char> gcov((size_t)NM * n_grp, 0);
+        for (size_t ni = 0; ni < n_n; ni++) {
+            const int64_t n = ni_view(ni);
+            for (int b = 0; b < NM; b++) {
+                const int64_t sn = ss_view(n, b);
+                if (sn >= j0 && sn < j1) {
+                    live2[(size_t)b * lane_stride + 2 * ni] = -1;
+                    live2[(size_t)b * lane_stride + 2 * ni + 1] = -1;
+                    loff[(size_t)b * n_pad + ni] = 2 * (sn - j0);
+                }
+                for (int q = 0; q < NM; q++) {
+                    const double v = p_view(n, b, q);
+                    pn2[((size_t)b * NM + q) * lane_stride + 2 * ni] = v;
+                    pn2[((size_t)b * NM + q) * lane_stride + 2 * ni + 1] = v;
+                }
+            }
+        }
+        for (int b = 0; b < NM; b++) {
+            for (size_t gi = 0; gi < n_grp; gi++) {
+                const size_t g = gi * L;
+                bool all = true, none = true, contig = true;
+                for (size_t l = 0; l < L; l++) {
+                    const bool on = live2[(size_t)b * lane_stride + 2 * (g + l)] != 0;
+                    all = all && on;
+                    none = none && !on;
+                    contig = contig && on &&
+                             loff[(size_t)b * n_pad + g + l] == loff[(size_t)b * n_pad + g] + 2 * (int64_t)l;
+                }
+                gcov[(size_t)b * n_grp + gi] = all ? 1 : (none ? 2 : 0);
+                if (contig) goff[(size_t)b * n_grp + gi] = loff[(size_t)b * n_pad + g];
+            }
+        }
+        const double *Jd = reinterpret_cast<const double *>(J_chunk.data());
+        const double *WAd = reinterpret_cast<const double *>(wA_win.data());
+        const double *WPd = reinterpret_cast<const double *>(wPhi_win.data());
+        const size_t J_row = 2 * (size_t)(j1 - j0);
+        const size_t J_plane = (size_t)(i1 - i0) * J_row;
+        size_t poff_j[NP], poff_s[NP];
+        for (int pq = 0; pq < NP; pq++) {
+            poff_j[pq] = (size_t)pq * J_plane;
+            poff_s[pq] = (size_t)pq * K;
+        }
+        const size_t n_tm = (n_m + TM - 1) / TM;
+        const size_t n_tn = (n_pad + TN - 1) / TN;
+
+        MW_OMP_PARALLEL_FOR_COLLAPSE2
+        for (size_t tm = 0; tm < n_tm; tm++) {
+            for (size_t tn = 0; tn < n_tn; tn++) {
+                MW_CANCEL_POLL();
+                const size_t mi_end = std::min(n_m, (tm + 1) * TM);
+                const size_t g_end = std::min(n_pad, (tn + 1) * TN);
+                double jst[NP * K], wast[K], wpst[K];
+                for (size_t mi = tm * TM; mi < mi_end; mi++) {
+                    const int64_t m = mi_view(mi);
+                    for (size_t g = tn * TN; g < g_end; g += L) {
+                        const size_t gi = g / L;
+                        __m256d zA[V], zP[V];
+                        for (int v = 0; v < V; v++) {
+                            zA[v] = _mm256_setzero_pd();
+                            zP[v] = _mm256_setzero_pd();
+                        }
+                        for (int a = 0; a < NM; a++) {
+                            const int64_t sm = ss_view(m, a);
+                            if (sm < i0 || sm >= i1) continue;
+                            double pm[NM];
+                            for (int p = 0; p < NM; p++) pm[p] = p_view(m, a, p);
+                            const size_t row = (size_t)(sm - i0) * J_row;
+                            const double *Jrow = Jd + row;
+                            for (int b = 0; b < NM; b++) {
+                                const char cov = gcov[(size_t)b * n_grp + gi];
+                                if (cov == 2) continue;
+                                const int64_t go = goff[(size_t)b * n_grp + gi];
+                                const double *base, *wab, *wpb;
+                                const size_t *po;
+                                if (go >= 0) {
+                                    base = Jrow + go;
+                                    wab = WAd + row + go;
+                                    wpb = WPd + row + go;
+                                    po = poff_j;
+                                } else {
+                                    // Stage the lanes' J and weights contiguously;
+                                    // a dead lane reads column 0 and is masked.
+                                    const int64_t *lo = &loff[(size_t)b * n_pad + g];
+                                    for (int pq = 0; pq < NP; pq++)
+                                        for (size_t l = 0; l < L; l++) {
+                                            jst[pq * K + 2 * l] = Jrow[poff_j[pq] + lo[l]];
+                                            jst[pq * K + 2 * l + 1] = Jrow[poff_j[pq] + lo[l] + 1];
+                                        }
+                                    for (size_t l = 0; l < L; l++) {
+                                        wast[2 * l] = WAd[row + lo[l]];
+                                        wast[2 * l + 1] = WAd[row + lo[l] + 1];
+                                        wpst[2 * l] = WPd[row + lo[l]];
+                                        wpst[2 * l + 1] = WPd[row + lo[l] + 1];
+                                    }
+                                    base = jst;
+                                    wab = wast;
+                                    wpb = wpst;
+                                    po = poff_s;
+                                }
+                                __m256d iA[V], iP[V];
+                                for (int v = 0; v < V; v++) {
+                                    iA[v] = _mm256_setzero_pd();
+                                    iP[v] = _mm256_setzero_pd();
+                                }
+                                for (int p = 0; p < NM; p++) {
+                                    const __m256d mp = _mm256_set1_pd(pm[p]);
+                                    for (int q = 0; q < NM; q++) {
+                                        const double *pnq =
+                                            &pn2[((size_t)b * NM + q) * lane_stride + 2 * g];
+                                        const double *jp = base + po[p * NM + q];
+                                        __m256d pr[V];
+                                        for (int v = 0; v < V; v++) {
+                                            pr[v] = _mm256_mul_pd(mp, _mm256_loadu_pd(pnq + 4 * v));
+                                            iA[v] = _mm256_add_pd(
+                                                iA[v], _mm256_mul_pd(pr[v], _mm256_loadu_pd(jp + 4 * v)));
+                                        }
+                                        if (p >= 1 && q >= 1) {
+                                            const __m256d s = _mm256_set1_pd((double)(p * q));
+                                            const double *jl = base + po[(p - 1) * NM + (q - 1)];
+                                            for (int v = 0; v < V; v++)
+                                                iP[v] = _mm256_add_pd(
+                                                    iP[v], _mm256_mul_pd(_mm256_mul_pd(s, pr[v]),
+                                                                         _mm256_loadu_pd(jl + 4 * v)));
+                                        }
+                                    }
+                                }
+                                for (int v = 0; v < V; v++) {
+                                    // (wr, wi) x (xr, xi): [wr xr - wi xi, wr xi + wi xr].
+                                    const __m256d wa = _mm256_loadu_pd(wab + 4 * v);
+                                    const __m256d wp = _mm256_loadu_pd(wpb + 4 * v);
+                                    const __m256d cA = _mm256_addsub_pd(
+                                        _mm256_mul_pd(_mm256_movedup_pd(wa), iA[v]),
+                                        _mm256_mul_pd(_mm256_permute_pd(wa, 0xF),
+                                                      _mm256_permute_pd(iA[v], 0x5)));
+                                    const __m256d cP = _mm256_addsub_pd(
+                                        _mm256_mul_pd(_mm256_movedup_pd(wp), iP[v]),
+                                        _mm256_mul_pd(_mm256_permute_pd(wp, 0xF),
+                                                      _mm256_permute_pd(iP[v], 0x5)));
+                                    const __m256d nA = _mm256_add_pd(zA[v], cA);
+                                    const __m256d nP = _mm256_add_pd(zP[v], cP);
+                                    if (cov == 1) {
+                                        zA[v] = nA;
+                                        zP[v] = nP;
+                                    } else {
+                                        const __m256d on = _mm256_loadu_pd(reinterpret_cast<const double *>(
+                                            &live2[(size_t)b * lane_stride + 2 * g + 4 * v]));
+                                        zA[v] = _mm256_blendv_pd(zA[v], nA, on);
+                                        zP[v] = _mm256_blendv_pd(zP[v], nP, on);
+                                    }
+                                }
+                            }
+                        }
+                        double zAs[K], zPs[K];
+                        for (int v = 0; v < V; v++) {
+                            _mm256_storeu_pd(zAs + 4 * v, zA[v]);
+                            _mm256_storeu_pd(zPs + 4 * v, zP[v]);
+                        }
+                        for (size_t l = 0; l < L && g + l < n_n; l++) {
+                            const int64_t n = ni_view(g + l);
+                            const std::complex<double> zAc(zAs[2 * l], zAs[2 * l + 1]);
+                            const std::complex<double> zPhi(zPs[2 * l], zPs[2 * l + 1]);
+                            std::complex<double> Zc;
+                            if (COMPLEX_EPS) {
+                                Zc = std::complex<double>(
+                                    -omega_mu * zAc.imag()
+                                        + (c_re * zPhi.real() - c_im * zPhi.imag()),
+                                    omega_mu * zAc.real()
+                                        + (c_re * zPhi.imag() + c_im * zPhi.real()));
+                            } else {
+                                Zc = std::complex<double>(
+                                    -omega_mu * zAc.imag() + zPhi.imag() * inv_omega_eps,
+                                    omega_mu * zAc.real() - zPhi.real() * inv_omega_eps);
+                            }
+                            std::complex<double> add = scale * Zc;
+                            z_view(ROW_MAP ? row_of[m] : m, n) += add;
+                        }
+                    }
+                }
+            }
+        }
+        MW_THROW_IF_ABORTED();
+        return;
+    }
+#else
+    (void)reference;
+#endif
     MW_OMP_PARALLEL_FOR_COLLAPSE2
     for (size_t mi = 0; mi < n_m; mi++) {
         for (size_t ni = 0; ni < n_n; ni++) {
@@ -2002,7 +2516,8 @@ assemble_Z_bspline_weighted_windowed(
     std::complex<double> scale,
     py::array_t<std::complex<double>> Z,  // any strides: F-order lets the caller's LAPACK solve factor in place
     uintptr_t cancel_flag = 0,
-    py::object row_of = py::none()
+    py::object row_of = py::none(),
+    bool reference = false
 ) {
     if (!row_of.is_none()) {
         RowOf1132 ro = checked_row_of_1132(row_of, m_idx, support_seg, Z);
@@ -2011,17 +2526,17 @@ assemble_Z_bspline_weighted_windowed(
             case 1:
                 assemble_Z_bspline_weighted_windowed_kernel<1, false, true>(
                     J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0, rp);
+                    i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0, rp, reference);
                 return;
             case 2:
                 assemble_Z_bspline_weighted_windowed_kernel<2, false, true>(
                     J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0, rp);
+                    i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0, rp, reference);
                 return;
             case 3:
                 assemble_Z_bspline_weighted_windowed_kernel<3, false, true>(
                     J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0, rp);
+                    i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0, rp, reference);
                 return;
             default:
                 throw std::runtime_error("assemble_Z_bspline_weighted_windowed: max_d must be 1, 2 or 3");
@@ -2031,17 +2546,20 @@ assemble_Z_bspline_weighted_windowed(
         case 1:
             assemble_Z_bspline_weighted_windowed_kernel<1, false>(
                 J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag);
+                i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0,
+                nullptr, reference);
             return;
         case 2:
             assemble_Z_bspline_weighted_windowed_kernel<2, false>(
                 J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag);
+                i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0,
+                nullptr, reference);
             return;
         case 3:
             assemble_Z_bspline_weighted_windowed_kernel<3, false>(
                 J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag);
+                i0, i1, j0, j1, omega, eps_, mu_, scale, Z, cancel_flag, 0.0, 0.0,
+                nullptr, reference);
             return;
         default:
             throw std::runtime_error(
@@ -2433,7 +2951,8 @@ assemble_Z_bspline_windowed_cplx_eps(
     double mu_,
     py::array_t<std::complex<double>> Z,
     uintptr_t cancel_flag = 0,
-    py::object row_of = py::none()
+    py::object row_of = py::none(),
+    bool reference = false
 ) {
     const std::complex<double> c = 1.0 / (std::complex<double>(0.0, omega) * eps_);
     if (!row_of.is_none()) {
@@ -2443,17 +2962,17 @@ assemble_Z_bspline_windowed_cplx_eps(
             case 1:
                 assemble_Z_bspline_windowed_kernel<1, true, true>(
                     J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), rp);
+                    i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), rp, reference);
                 return;
             case 2:
                 assemble_Z_bspline_windowed_kernel<2, true, true>(
                     J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), rp);
+                    i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), rp, reference);
                 return;
             case 3:
                 assemble_Z_bspline_windowed_kernel<3, true, true>(
                     J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), rp);
+                    i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), rp, reference);
                 return;
             default:
                 throw std::runtime_error("assemble_Z_bspline_windowed_cplx_eps: max_d must be 1, 2 or 3");
@@ -2463,17 +2982,17 @@ assemble_Z_bspline_windowed_cplx_eps(
         case 1:
             assemble_Z_bspline_windowed_kernel<1, true>(
                 J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag());
+                i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), nullptr, reference);
             return;
         case 2:
             assemble_Z_bspline_windowed_kernel<2, true>(
                 J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag());
+                i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), nullptr, reference);
             return;
         case 3:
             assemble_Z_bspline_windowed_kernel<3, true>(
                 J_chunk, support_seg, polys, tangents, m_idx, n_idx,
-                i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag());
+                i0, i1, j0, j1, omega, 1.0, mu_, Z, cancel_flag, c.real(), c.imag(), nullptr, reference);
             return;
         default:
             throw std::runtime_error(
@@ -2497,7 +3016,8 @@ assemble_Z_bspline_weighted_windowed_cplx_eps(
     std::complex<double> scale,
     py::array_t<std::complex<double>> Z,
     uintptr_t cancel_flag = 0,
-    py::object row_of = py::none()
+    py::object row_of = py::none(),
+    bool reference = false
 ) {
     const std::complex<double> c = 1.0 / (std::complex<double>(0.0, omega) * eps_);
     if (!row_of.is_none()) {
@@ -2507,17 +3027,17 @@ assemble_Z_bspline_weighted_windowed_cplx_eps(
             case 1:
                 assemble_Z_bspline_weighted_windowed_kernel<1, true, true>(
                     J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag, c.real(), c.imag(), rp);
+                    i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag, c.real(), c.imag(), rp, reference);
                 return;
             case 2:
                 assemble_Z_bspline_weighted_windowed_kernel<2, true, true>(
                     J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag, c.real(), c.imag(), rp);
+                    i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag, c.real(), c.imag(), rp, reference);
                 return;
             case 3:
                 assemble_Z_bspline_weighted_windowed_kernel<3, true, true>(
                     J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
-                    i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag, c.real(), c.imag(), rp);
+                    i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag, c.real(), c.imag(), rp, reference);
                 return;
             default:
                 throw std::runtime_error("assemble_Z_bspline_weighted_windowed_cplx_eps: max_d must be 1, 2 or 3");
@@ -2528,19 +3048,19 @@ assemble_Z_bspline_weighted_windowed_cplx_eps(
             assemble_Z_bspline_weighted_windowed_kernel<1, true>(
                 J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
                 i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag,
-                c.real(), c.imag());
+                c.real(), c.imag(), nullptr, reference);
             return;
         case 2:
             assemble_Z_bspline_weighted_windowed_kernel<2, true>(
                 J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
                 i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag,
-                c.real(), c.imag());
+                c.real(), c.imag(), nullptr, reference);
             return;
         case 3:
             assemble_Z_bspline_weighted_windowed_kernel<3, true>(
                 J_chunk, support_seg, polys, wA_win, wPhi_win, m_idx, n_idx,
                 i0, i1, j0, j1, omega, 1.0, mu_, scale, Z, cancel_flag,
-                c.real(), c.imag());
+                c.real(), c.imag(), nullptr, reference);
             return;
         default:
             throw std::runtime_error(
@@ -4761,6 +5281,10 @@ void register_bspline(py::module_ &m) {
     // Z target. Its own flag: a .so built before this answers `row_of=` with a
     // TypeError, so the sector route's compact fill gates on THIS.
     m.attr("windowed_row_of_1132") = true;
+    // momwire#1290: whether the windowed assemblers carry the AVX2 lane
+    // kernel; either way they take `reference`, which runs the per-entry
+    // loop that kernel is gated against.
+    m.attr("windowed_lanes_1290") = (bool)MW_WINDOWED_LANES_1290;
     m.def("assemble_Z_bspline_weighted_windowed", &assemble_Z_bspline_weighted_windowed,
           "Weighted + scaled windowed accumulator: like "
           "assemble_Z_bspline_windowed but with complex per-pair weights "
@@ -4772,23 +5296,28 @@ void register_bspline(py::module_ &m) {
           "aligned with J_chunk's trailing axes, not global (N, N) tables: "
           "lookups are window-relative, so the caller never keeps two "
           "global complex (N, N) tables alive across the fill (issue #323). "
-          "max_d inferred from support_seg.",
+          "max_d inferred from support_seg. On an AVX2+FMA x86 build a lane "
+          "kernel fills eight entries a step; reference=True runs the "
+          "per-entry loop instead, the same bits.",
           py::arg("J_chunk"), py::arg("support_seg"),
           py::arg("polys"), py::arg("wA_win"), py::arg("wPhi_win"),
           py::arg("m_idx"), py::arg("n_idx"),
           py::arg("i0"), py::arg("i1"), py::arg("j0"), py::arg("j1"),
           py::arg("omega"), py::arg("eps_"), py::arg("mu_"),
           py::arg("scale"), py::arg("Z"), py::arg("cancel_flag") = 0,
-          py::arg("row_of") = py::none());
+          py::arg("row_of") = py::none(),
+          py::arg("reference") = false);
     m.def("assemble_Z_bspline_windowed_cplx_eps", &assemble_Z_bspline_windowed_cplx_eps,
           "In-medium twin of assemble_Z_bspline_windowed (momwire#915): the "
-          "same window contract with eps a COMPLEX permittivity.",
+          "same window contract with eps a COMPLEX permittivity, and the same "
+          "`reference` switch (momwire#1290).",
           py::arg("J_chunk"), py::arg("support_seg"), py::arg("polys"),
           py::arg("tangents"), py::arg("m_idx"), py::arg("n_idx"),
           py::arg("i0"), py::arg("i1"), py::arg("j0"), py::arg("j1"),
           py::arg("omega"), py::arg("eps"), py::arg("mu"),
           py::arg("Z"), py::arg("cancel_flag") = 0,
-          py::arg("row_of") = py::none());
+          py::arg("row_of") = py::none(),
+          py::arg("reference") = false);
     m.def("assemble_Z_bspline_weighted_windowed_cplx_eps",
           &assemble_Z_bspline_weighted_windowed_cplx_eps,
           "In-medium twin of assemble_Z_bspline_weighted_windowed "
@@ -4799,7 +5328,8 @@ void register_bspline(py::module_ &m) {
           py::arg("i0"), py::arg("i1"), py::arg("j0"), py::arg("j1"),
           py::arg("omega"), py::arg("eps"), py::arg("mu"), py::arg("scale"),
           py::arg("Z"), py::arg("cancel_flag") = 0,
-          py::arg("row_of") = py::none());
+          py::arg("row_of") = py::none(),
+          py::arg("reference") = false);
     m.def("assemble_Z_bspline_windowed", &assemble_Z_bspline_windowed,
           "Accumulate one rectangular segment window's contribution into a "
           "caller-provided Z from a chunked moment tensor J_chunk of shape "
@@ -4811,14 +5341,17 @@ void register_bspline(py::module_ &m) {
           "table, (n_segs, 3): the pair tangent dot is formed here from two "
           "rows rather than read out of an (N, N) table the caller would "
           "have to keep alive across the whole fill (issue #318). max_d is "
-          "inferred from support_seg.",
+          "inferred from support_seg. On the AVX2 build the fill runs eight "
+          "entries at a time over cache tiles (momwire#1290); "
+          "reference=True runs the per-entry loop instead, the same bits.",
           py::arg("J_chunk"), py::arg("support_seg"),
           py::arg("polys"), py::arg("tangents"),
           py::arg("m_idx"), py::arg("n_idx"),
           py::arg("i0"), py::arg("i1"), py::arg("j0"), py::arg("j1"),
           py::arg("omega"), py::arg("eps_"), py::arg("mu_"),
           py::arg("Z"), py::arg("cancel_flag") = 0,
-          py::arg("row_of") = py::none());
+          py::arg("row_of") = py::none(),
+          py::arg("reference") = false);
     m.def("assemble_Z_bspline", &assemble_Z_bspline,
           "Assemble the (n_basis, n_basis) Z matrix from the polynomial-"
           "moment tensor J, per-basis polynomial coefficients, support-segment "

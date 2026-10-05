@@ -102,7 +102,6 @@ def _permanently_drop_child_privileges(uid: int, gid: int) -> Callable[[], None]
 class _OutputStreamState:
     stdout_lines: list[str] = field(default_factory=list)
     pending_line: str = ""
-    offset: int = 0
     stop_requested: bool = False
 
 
@@ -134,37 +133,6 @@ def _process_status(exit_code: int) -> ProcessStatus:
 
 def _process_command(event: ProcessEvent) -> list[str]:
     return [event.hook_path, *event.hook_args]
-
-
-def _rotate_existing_log(path: Path) -> Path | None:
-    """Move an existing non-empty log file aside before reusing its canonical name.
-
-    Hook retries reuse the same ``{hook_name}.stdout.log`` / ``.stderr.log`` paths.
-    Without rotation, a later retry overwrites the previous attempt's logs, and a
-    later successful retry deletes the canonical files entirely. Preserve the old
-    contents under a timestamped filename so failed attempts remain debuggable.
-    """
-    if not path.exists():
-        return None
-
-    try:
-        if path.stat().st_size == 0:
-            path.unlink(missing_ok=True)
-            return None
-    except OSError:
-        return None
-
-    timestamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
-    suffix = path.suffix
-    stem = path.name[: -len(suffix)] if suffix else path.name
-    archived = path.with_name(f"{stem}.{timestamp}{suffix}")
-    counter = 1
-    while archived.exists():
-        archived = path.with_name(f"{stem}.{timestamp}.{counter}{suffix}")
-        counter += 1
-
-    path.replace(archived)
-    return archived
 
 
 @contextmanager
@@ -479,6 +447,26 @@ class ProcessService(BaseService):
                     child.kill()
             except psutil.Error:
                 pass
+        # SIGKILL delivery is asynchronous. Wait until descendants stop before
+        # the caller's os._exit(), but leave reaping to their subprocess owners.
+        # wait_procs() competes with asyncio's child watcher for exit statuses.
+        # Keep this non-reaping observation even after the temporary psutil
+        # 7.2.2 exclusion is removed: its upstream pidfd/EINVAL fix does not make
+        # two independent waiters safe. Only the subprocess owner may reap.
+        deadline = time.monotonic() + 1.0
+        while descendants:
+            running = []
+            for child in descendants:
+                try:
+                    if child.is_running() and child.status() != psutil.STATUS_ZOMBIE:
+                        running.append(child)
+                except psutil.NoSuchProcess:
+                    pass
+            remaining = deadline - time.monotonic()
+            if not running or remaining <= 0:
+                break
+            descendants = running
+            time.sleep(min(0.01, remaining))
 
     async def on_ProcessEvent(self, event: ProcessEvent) -> Process | None:
         """Run each ProcessEvent exactly once even if the bus observes it twice."""
@@ -513,7 +501,12 @@ class ProcessService(BaseService):
         if await wait_for_crawl_resume(self.bus) or self.abort_requested:
             return None
         plugin_output_dir = Path(event.output_dir)
-        plugin_output_dir.mkdir(parents=True, exist_ok=True)
+        # ProcessService owns creation for both direct and scheduled hooks.
+        # Repeating mkdir in each phase adds a remote metadata round trip.
+        # Remote mounts can synchronously upload a directory marker here (B2
+        # measured up to 0.8s). Never block stdout readiness, background process
+        # completion, or other snapshots on this hook's filesystem round trip.
+        await asyncio.to_thread(plugin_output_dir.mkdir, parents=True, exist_ok=True)
 
         cmd = _process_command(event)
         proc = Process(
@@ -535,13 +528,12 @@ class ProcessService(BaseService):
         pid_file = plugin_output_dir / f"{artifact_stem}.pid"
         cmd_file = plugin_output_dir / f"{artifact_stem}.sh"
 
-        _rotate_existing_log(stdout_file)
-        _rotate_existing_log(stderr_file)
-
-        write_cmd_file(cmd_file, cmd)
+        # UUID-scoped names never reuse an earlier attempt's logs. Probing
+        # nonexistent old names here adds remote I/O without preserving anything.
+        await asyncio.to_thread(write_cmd_file, cmd_file, cmd)
         # Track the directory contents before the hook runs so completion can
         # report only newly created output files.
-        files_before = set(plugin_output_dir.rglob("*")) if plugin_output_dir.exists() else set()
+        files_before = await asyncio.to_thread(lambda: set(plugin_output_dir.rglob("*")))
 
         process: asyncio.subprocess.Process | None = None
         started_event: ProcessStartedEvent | None = None
@@ -831,8 +823,9 @@ class ProcessService(BaseService):
         stdout_reader.close()
         stderr_reader.close()
 
-        files_after = set(plugin_output_dir.rglob("*")) if plugin_output_dir.exists() else set()
-        new_files = scan_output_files(
+        files_after = await asyncio.to_thread(lambda: set(plugin_output_dir.rglob("*")))
+        new_files = await asyncio.to_thread(
+            scan_output_files,
             plugin_output_dir,
             file_paths=files_after - files_before,
             containment_root=plugin_output_dir.parent,
@@ -1145,9 +1138,10 @@ class ProcessService(BaseService):
         emit_partial: bool,
         event_class: type[ProcessStdoutEvent] | type[ProcessStderrEvent] = ProcessStdoutEvent,
     ) -> None:
-        stdout_reader.seek(state.offset)
+        # Each stream has one retained reader; read() already advances it,
+        # including after EOF when the child appends more data. Re-seeking on
+        # every poll adds remote I/O without changing the read position.
         chunk = stdout_reader.read()
-        state.offset = stdout_reader.tell()
 
         if not chunk and not (emit_partial and state.pending_line):
             return

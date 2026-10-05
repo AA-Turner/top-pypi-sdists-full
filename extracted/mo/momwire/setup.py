@@ -349,6 +349,13 @@ _ACCEL_SOURCES = [
     # from the product tiles. Its own TU: it does float arithmetic whose
     # order is the numpy route's, and nothing else may move its codegen.
     "src/momwire/_accel_left_gather.cpp",
+    # momwire#1290: razor's T2 rows and the block's final combination. Its
+    # own TU for the left gather's reason: its float order is the numpy
+    # route's, derived term by term, and nothing else may move its codegen.
+    "src/momwire/_accel_razor_t2.cpp",
+    # momwire#1290: SG's band scatter in `np.add.at`'s order. Its own TU: its
+    # bits are that order's, and nothing else may move its codegen.
+    "src/momwire/_accel_row_scatter.cpp",
 ]
 
 # Same staleness rationale for the near-interface twin: the contour engine

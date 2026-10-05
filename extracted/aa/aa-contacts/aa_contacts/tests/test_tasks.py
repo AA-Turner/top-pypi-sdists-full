@@ -2,7 +2,6 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app_utils.testdata_factories import UserMainFactory
 from django.test import TestCase
 from esi.exceptions import HTTPNotModified
 
@@ -15,6 +14,7 @@ from aa_contacts.models import (
     CorporationToken,
 )
 from aa_contacts.tasks import update_alliance_contacts, update_corporation_contacts
+from aa_contacts.tests.factories import create_user_main
 
 from .utils import SimpleAttributeDict
 
@@ -26,7 +26,7 @@ def response_stub() -> SimpleNamespace:
 class TestUpdateAllianceContacts(TestCase):
     @classmethod
     def setUpTestData(cls):
-        user = UserMainFactory()
+        user = create_user_main()
         cls.alliance = user.profile.main_character.alliance
         token = user.token_set.first()
 
@@ -317,7 +317,7 @@ class TestUpdateAllianceContacts(TestCase):
 class TestUpdateCorporationContacts(TestCase):
     @classmethod
     def setUpTestData(cls):
-        user = UserMainFactory()
+        user = create_user_main()
         cls.corporation = user.profile.main_character.corporation
         token = user.token_set.first()
 

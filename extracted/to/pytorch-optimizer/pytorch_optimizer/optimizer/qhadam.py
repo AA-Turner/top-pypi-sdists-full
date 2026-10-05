@@ -1,4 +1,3 @@
-from typing import Tuple
 
 import torch
 
@@ -8,18 +7,18 @@ from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGro
 
 
 class QHAdam(BaseOptimizer):
-    """Quasi-hyperbolic momentum and Adam for deep learning.
+    """Adam with quasi-hyperbolic moment averaging.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        betas (Betas): coefficients used for computing running averages of gradient and the squared Hessian trace.
-        nus (Tuple[float, float]): immediate discount factors used to estimate the gradient and its square.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): fix weight decay.
-        eps (float): term added to the denominator to improve numerical stability.
-        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for the gradient mean and squared gradients.
+        nus: Weights of the running averages relative to the current gradient and its square.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -28,7 +27,7 @@ class QHAdam(BaseOptimizer):
         params: ParamsT,
         lr: float = 1e-3,
         betas: Betas = (0.9, 0.999),
-        nus: Tuple[float, float] = (1.0, 1.0),
+        nus: tuple[float, float] = (1.0, 1.0),
         weight_decay: float = 0.0,
         weight_decouple: bool = False,
         fixed_decay: bool = False,
@@ -120,13 +119,10 @@ class QHAdam(BaseOptimizer):
                 beta1_weight.mul_(beta1).add_(1.0)
                 beta2_weight.mul_(beta2).add_(1.0)
 
-                beta1_adj = 1.0 - (1.0 / beta1_weight)
-                beta2_adj = 1.0 - (1.0 / beta2_weight)
-
                 grad_p2 = grad.pow(2)
 
-                exp_avg.mul_(beta1_adj).add_((1.0 - beta1_adj) * grad)
-                exp_avg_sq.mul_(beta2_adj).add_(1.0 - beta2_adj * grad_p2)
+                exp_avg.lerp_(grad, weight=beta1_weight.reciprocal().to(dtype=grad.dtype))
+                exp_avg_sq.lerp_(grad_p2, weight=beta2_weight.reciprocal().to(dtype=grad.dtype))
 
                 avg_grad = exp_avg.mul(nu1)
                 if nu1 != 1.0:

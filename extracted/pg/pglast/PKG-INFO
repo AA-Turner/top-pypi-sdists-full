@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pglast
-Version: 8.4
+Version: 8.5
 Summary: PostgreSQL Languages AST and statements prettifier
 Author-email: Lele Gaifax <lele@metapensiero.it>
 License-Expression: GPL-3.0-or-later
@@ -22,27 +22,27 @@ Classifier: Topic :: Database
 Classifier: Topic :: Utilities
 Description-Content-Type: text/x-rst
 Provides-Extra: dev
-Requires-Dist: bump-my-version==1.4.1; extra == "dev"
-Requires-Dist: cython==3.2.8; extra == "dev"
+Requires-Dist: bump-my-version==1.5.1; extra == "dev"
+Requires-Dist: cython==3.3.0; extra == "dev"
 Requires-Dist: pycparser==3.0; extra == "dev"
-Requires-Dist: readme-renderer==45.0; extra == "dev"
-Requires-Dist: setuptools==83.0.0; extra == "dev"
+Requires-Dist: readme-renderer==46.0; extra == "dev"
+Requires-Dist: setuptools==84.0.0; extra == "dev"
 Requires-Dist: sphinx==9.0.4; extra == "dev"
-Requires-Dist: twine==6.2.0; extra == "dev"
+Requires-Dist: twine==7.0.0; extra == "dev"
 Provides-Extra: test
-Requires-Dist: coverage==7.15.2; extra == "test"
-Requires-Dist: mypy==2.3.0; extra == "test"
+Requires-Dist: coverage==7.16.2; extra == "test"
+Requires-Dist: mypy==2.3.1; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: sphinx==9.0.4; extra == "test"
-Requires-Dist: ty==0.0.62; extra == "test"
+Requires-Dist: ty==0.0.84; extra == "test"
 
 .. -*- coding: utf-8 -*-
 .. :Project:   pglast — PostgreSQL Languages AST
 .. :Created:   mer 02 ago 2017 14:49:24 CEST
 .. :Author:    Lele Gaifax <lele@metapensiero.it>
 .. :License:   GNU General Public License version 3 or later
-.. :Copyright: © 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024 Lele Gaifax
+.. :Copyright: © 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2026 Lele Gaifax
 ..
 
 ========
@@ -55,21 +55,18 @@ PostgreSQL Languages AST and statements prettifier
 :Author: Lele Gaifax
 :Contact: lele@metapensiero.it
 :License: `GNU General Public License version 3 or later`__
-:Status: |build| |doc| |codecov|
-:Version: `7`__
+:Status: |build| |doc|
+:Version: `8`__
 
 __ https://www.gnu.org/licenses/gpl.html
-__ https://pglast.readthedocs.io/en/v7/development.html#history
+__ https://pglast.readthedocs.io/en/v8/development.html#history
 
-.. |build| image:: https://github.com/lelit/pglast/actions/workflows/ci.yml/badge.svg?branch=v7
+.. |build| image:: https://github.com/lelit/pglast/actions/workflows/ci.yml/badge.svg?branch=v8
    :target: https://github.com/lelit/pglast/actions/workflows/ci.yml
    :alt: Build status
-.. |doc| image:: https://readthedocs.org/projects/pglast/badge/?version=v7
+.. |doc| image:: https://readthedocs.org/projects/pglast/badge/?version=v8
    :target: https://readthedocs.org/projects/pglast/builds/
    :alt: Documentation status
-.. |codecov| image:: https://codecov.io/gh/lelit/pglast/branch/v3/graph/badge.svg?token=A90D8tWnft
-   :target: https://codecov.io/gh/lelit/pglast
-   :alt: Test coverage status
 
 This is a Python 3 module that exposes the *parse tree* of a PostgreSQL__ statement (extracted
 by the almost standard PG parser repackaged as a standalone static library by `libpg_query`__)
@@ -80,7 +77,7 @@ __ https://github.com/pganalyze/libpg_query
 
 See a `more detailed introduction`__ in the documentation_.
 
-__ https://pglast.readthedocs.io/en/v7/introduction.html
+__ https://pglast.readthedocs.io/en/v8/introduction.html
 
 
 Installation
@@ -107,12 +104,12 @@ show a brief table of contents. A comprehensive test suite, based on pytest__, c
 99% of the source lines.
 
 __ https://docs.pytest.org/en/latest/
-__ https://codecov.io/gh/lelit/pglast/branch/v7/
+__ https://codecov.io/gh/lelit/pglast/branch/v8/
 
 
 Documentation
 -------------
 
-Latest documentation is hosted by `Read the Docs`__ at https://pglast.readthedocs.io/en/v7
+Latest documentation is hosted by `Read the Docs`__ at https://pglast.readthedocs.io/en/v8
 
 __ https://readthedocs.org/

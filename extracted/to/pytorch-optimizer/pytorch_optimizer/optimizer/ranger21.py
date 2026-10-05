@@ -1,5 +1,4 @@
 import math
-from typing import Optional
 
 import torch
 from torch.nn.functional import softplus
@@ -13,48 +12,36 @@ from pytorch_optimizer.optimizer.utils import normalize_gradient, unit_norm
 
 
 class Ranger21(BaseOptimizer):
-    """Integrating the latest deep learning components into a single optimizer.
+    """AdamW with positive negative momentum, gradient clipping, and Lookahead.
 
-    Here's the components
-        * uses the AdamW optimizer as its core (or, optionally, MadGrad)
-        * Adaptive gradient clipping
-        * Gradient centralization
-        * Positive-Negative momentum
-        * Norm loss
-        * Stable weight decay
-        * Linear learning rate warm-up
-        * Explore-exploit learning rate schedule
-        * Lookahead
-        * Softplus transformation
-        * Gradient Normalization
-        * Corrects the denominator (AdamD).
+    Includes gradient centralization and normalization, stable weight decay, norm loss,
+    softplus smoothing, and an optional learning rate schedule with warmup and warmdown.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        num_iterations (int): number of the total training steps. Ranger21 optimizer schedules the learning rate
-            with its own recipes.
-        lr (float): learning rate.
-        beta0 (float): Manages the amplitude of the noise introduced by positive negative momentum.
-        betas (Betas): coefficients used for computing running averages of gradient and the squared hessian trace.
-        use_softplus (bool): use softplus to smooth.
-        beta_softplus (float): beta.
-        disable_lr_scheduler (bool): whether to disable learning rate schedule.
-        num_warm_up_iterations (Optional[int]): number of warm-up iterations. Ranger21 performs linear learning rate
-            warmup.
-        num_warm_down_iterations (Optional[int]): number of warm-down iterations. Ranger21 performs Explore-exploit
-            learning rate scheduling.
-        agc_clipping_value (float):
-        agc_eps (float): eps for AGC
-        centralize_gradients (bool): use GC both convolution & fc layers.
-        normalize_gradients (bool): use gradient normalization.
-        lookahead_merge_time (int): merge time.
-        lookahead_blending_alpha (float): blending alpha.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): fix weight decay.
-        norm_loss_factor (float): norm loss factor.
-        eps (float): term added to the denominator to improve numerical stability.
-        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        num_iterations: Total training steps for the built in learning rate schedule.
+        lr: Learning rate.
+        beta0: Manages the amplitude of the noise introduced by positive negative momentum.
+        betas: Decay rates for the first and second moments.
+        use_softplus: Use softplus to smooth.
+        beta_softplus: Beta parameter for softplus smoothing.
+        disable_lr_scheduler: Whether to disable learning rate schedule.
+        num_warm_up_iterations: Number of warmup iterations. Ranger21 performs linear learning rate warmup.
+        num_warm_down_iterations: Number of warmdown iterations. Ranger21 performs Explore-exploit learning rate
+            scheduling.
+        warm_down_min_lr: Learning rate at the end of warmdown.
+        agc_clipping_value: Maximum gradient-to-parameter norm ratio for adaptive clipping.
+        agc_eps: Lower bound for the parameter norm in adaptive clipping.
+        centralize_gradients: Use GC both convolution & fc layers.
+        normalize_gradients: Use gradient normalization.
+        lookahead_merge_time: Steps between Lookahead slow weight updates.
+        lookahead_blending_alpha: Interpolation factor from slow weights toward fast weights.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        norm_loss_factor: Coefficient for the unit norm regularization update.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -68,8 +55,8 @@ class Ranger21(BaseOptimizer):
         use_softplus: bool = True,
         beta_softplus: float = 50.0,
         disable_lr_scheduler: bool = False,
-        num_warm_up_iterations: Optional[int] = None,
-        num_warm_down_iterations: Optional[int] = None,
+        num_warm_up_iterations: int | None = None,
+        num_warm_down_iterations: int | None = None,
         warm_down_min_lr: float = 3e-5,
         agc_clipping_value: float = 1e-2,
         agc_eps: float = 1e-3,
@@ -139,6 +126,19 @@ class Ranger21(BaseOptimizer):
 
     def __str__(self) -> str:
         return 'Ranger21'
+
+    def state_dict(self) -> dict:
+        state = super().state_dict()
+        state['lookahead_step'] = self.lookahead_step
+        state['starting_lr'] = self.starting_lr
+        state['current_lr'] = self.current_lr
+        return state
+
+    def load_state_dict(self, state_dict: dict) -> None:
+        super().load_state_dict(state_dict)
+        self.lookahead_step = state_dict.get('lookahead_step', 0)
+        self.starting_lr = state_dict.get('starting_lr', self.starting_lr)
+        self.current_lr = state_dict.get('current_lr', self.current_lr)
 
     def init_group(self, group: ParamGroup, **kwargs) -> None:
         if 'step' not in group:
@@ -297,7 +297,7 @@ class Ranger21(BaseOptimizer):
                 grad = p.grad
                 self._preprocess_gradient(grad)
 
-                grad_ma.mul_(beta1 ** 2).add_(grad, alpha=1.0 - beta1 ** 2)  # fmt: skip
+                grad_ma.lerp_(grad, weight=1.0 - beta1 ** 2)  # fmt: skip
 
                 pn_momentum = grad_ma.mul(1.0 + self.beta0).add_(neg_grad_ma, alpha=-self.beta0)
                 pn_momentum.mul_(1.0 / noise_norm)
@@ -318,8 +318,5 @@ class Ranger21(BaseOptimizer):
 
                     state = self.state[p]
 
-                    p.mul_(self.lookahead_blending_alpha).add_(
-                        state['lookahead_params'],
-                        alpha=1.0 - self.lookahead_blending_alpha,
-                    )
+                    p.lerp_(state['lookahead_params'], weight=1.0 - self.lookahead_blending_alpha)
                     state['lookahead_params'].copy_(p)

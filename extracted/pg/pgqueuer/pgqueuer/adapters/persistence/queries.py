@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from datetime import timedelta
 from typing import TYPE_CHECKING, Literal, overload
 
@@ -12,9 +14,18 @@ if TYPE_CHECKING:
 from pydantic_core import to_json
 from typing_extensions import assert_never
 
-from pgqueuer.adapters.persistence import qb, query_helpers, sqlstate
+from pgqueuer.adapters.persistence import (
+    qb,
+    query_helpers,
+    schema_inspect,
+    schema_plan,
+    sqlstate,
+)
 from pgqueuer.adapters.persistence.query_helpers import cell, merge_tracing_headers
+from pgqueuer.core.logconfig import logger
 from pgqueuer.domain import errors, models, types
+from pgqueuer.domain.schema import model as models_schema
+from pgqueuer.domain.schema.declaration import target
 from pgqueuer.domain.types import CronEntrypoint, HealthCheckId, QueueEntrypoint, QueueManagerId
 from pgqueuer.ports import tracing
 from pgqueuer.ports.driver import Driver, SyncDriver
@@ -25,6 +36,16 @@ from pgqueuer.ports.tracing import TracingProtocol
 def is_unique_violation(exc: Exception) -> bool:
     """Return True if *exc* is a unique-constraint violation from the driver."""
     return sqlstate.is_unique_violation(exc)
+
+
+@contextmanager
+def raising_duplicate_job(dedupe_key: list[str | None]) -> Iterator[None]:
+    try:
+        yield
+    except Exception as e:
+        if is_unique_violation(e):
+            raise errors.DuplicateJobError(dedupe_key) from e
+        raise
 
 
 def lost_capacity_slot_race(exc: Exception, slot_index: str) -> bool:
@@ -87,10 +108,57 @@ class Queries:
         """Drop every PgQueuer schema object. Destructive."""
         await self.driver.execute(self.qbe.build_uninstall_query())
 
+    async def schema_is_installed(self) -> bool:
+        """Whether any object this installation declares is already present.
+
+        Partial state counts: an interrupted install leaves the enum behind,
+        and :meth:`install` fails on that just as it does on a whole schema.
+        """
+        live = await schema_inspect.inspect(self.driver, self.qbe.settings)
+        return bool(live.tables or live.enums)
+
+    async def plan_upgrade(self) -> models_schema.Plan:
+        """What :meth:`upgrade` would do to this database, without doing it."""
+        settings = self.qbe.settings
+        live = await schema_inspect.inspect(self.driver, settings)
+        return schema_plan.plan(live, target(settings), settings)
+
+    @asynccontextmanager
+    async def schema_lock(self) -> AsyncIterator[None]:
+        """Serialize upgrades of this installation against each other.
+
+        Session-scoped, since the statements cannot share a transaction, so it
+        only binds one connection: over a pool the statements may land on
+        others and escape it. ``pgq upgrade`` uses a single connection.
+        """
+        key = schema_plan.advisory_key(self.qbe.settings)
+        await self.driver.execute("SELECT pg_advisory_lock($1)", key)
+        try:
+            yield
+        finally:
+            await self.driver.execute("SELECT pg_advisory_unlock($1)", key)
+
+    async def apply_upgrade(self) -> models_schema.Plan:
+        """Converge the installed schema onto the declaration; return what ran.
+
+        One statement per round trip, never batched: ``ALTER TYPE ... ADD
+        VALUE`` and the statements using the new label cannot share a
+        transaction. Planned inside the lock, so the result is what was applied.
+        """
+        async with self.schema_lock():
+            computed = await self.plan_upgrade()
+            for statement in computed.statements:
+                await self.driver.execute(statement)
+        for note in computed.notes:
+            logger.warning("%s", note)
+        return computed
+
     async def upgrade(self) -> None:
-        """Apply pending schema migrations one statement at a time."""
-        for query in self.qbe.build_upgrade_queries():
-            await self.driver.execute(query)
+        """Converge the schema, returning nothing for ``SchemaManagementPort``.
+
+        Use :meth:`apply_upgrade` to see what it did.
+        """
+        await self.apply_upgrade()
 
     async def alter_durability(self) -> None:
         """Switch table durability mode without data loss."""
@@ -280,7 +348,7 @@ class Queries:
                 )
             )
 
-        try:
+        with raising_duplicate_job(normed_params.dedupe_key):
             rows = await self.driver.fetch(
                 self.qbq.build_enqueue_query(on_conflict),
                 normed_params.priority,
@@ -290,10 +358,6 @@ class Queries:
                 normed_params.dedupe_key,
                 [to_json(x).decode() for x in normed_params.headers],
             )
-        except Exception as e:
-            if is_unique_violation(e):
-                raise errors.DuplicateJobError(normed_params.dedupe_key) from e
-            raise
 
         if on_conflict == "skip":
             return query_helpers.scatter_ids_by_ordinal(rows, len(normed_params.entrypoint))
@@ -563,7 +627,7 @@ class Queries:
         return cell(rows[0], "eta", timedelta)
 
     async def queue_age(self) -> list[models.QueueAgeStats]:
-        """Backlog age of queued jobs per entrypoint, oldest first."""
+        """Backlog age of queued jobs per entrypoint, ordered by entrypoint."""
         return [
             models.QueueAgeStats.model_validate(row)
             for row in await self.driver.fetch(self.qbq.build_queue_age_query())
@@ -786,7 +850,7 @@ class SyncQueries:
                 )
             )
 
-        try:
+        with raising_duplicate_job(normed_params.dedupe_key):
             rows = self.driver.fetch(
                 self.qbq.build_enqueue_query(on_conflict),
                 normed_params.priority,
@@ -796,10 +860,6 @@ class SyncQueries:
                 normed_params.dedupe_key,
                 [to_json(x).decode() for x in normed_params.headers],
             )
-        except Exception as e:
-            if is_unique_violation(e):
-                raise errors.DuplicateJobError(normed_params.dedupe_key) from e
-            raise
 
         if on_conflict == "skip":
             return query_helpers.scatter_ids_by_ordinal(rows, len(normed_params.entrypoint))

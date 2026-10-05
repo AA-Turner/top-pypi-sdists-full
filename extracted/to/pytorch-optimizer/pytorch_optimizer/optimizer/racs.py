@@ -1,5 +1,4 @@
 import math
-from typing import Tuple
 
 import torch
 
@@ -12,16 +11,16 @@ class RACS(BaseOptimizer):
     """Row and Column Scaled SGD.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        beta (float): momentum factor.
-        alpha (float): scaler.
-        gamma (float): limiter threshold.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): fix weight decay.
-        eps (float): term added to the denominator to improve numerical stability.
-        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        beta: Decay rate for row- and column wise squared gradient averages.
+        alpha: Update scaling factor.
+        gamma: Maximum multiplicative growth of the scaled update norm.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -101,10 +100,11 @@ class RACS(BaseOptimizer):
                 elif grad.ndim > 2:
                     grad = grad.reshape(len(grad), -1)
 
-                if len(state) == 0:
+                has_state = 's' in state
+                if not has_state:
                     state['s'] = torch.zeros(grad.size(0), dtype=grad.dtype, device=grad.device)
                     state['q'] = torch.ones(grad.size(1), dtype=grad.dtype, device=grad.device)
-                    state['theta'] = torch.zeros((1,), dtype=grad.dtype, device=grad.device)
+                    state['theta'] = torch.zeros((), dtype=grad.dtype, device=grad.device)
 
                 self.apply_weight_decay(
                     p=p,
@@ -118,8 +118,8 @@ class RACS(BaseOptimizer):
                 s, q = state['s'], state['q']
 
                 grad_p2 = grad.pow(2)
-                s.mul_(beta).add_(grad_p2.mean(dim=1), alpha=1.0 - beta)
-                q.mul_(beta).add_(grad_p2.mean(dim=0), alpha=1.0 - beta)
+                s.lerp_(grad_p2.mean(dim=1), weight=1.0 - beta)
+                q.lerp_(grad_p2.mean(dim=0), weight=1.0 - beta)
 
                 s_sq = s.add(group['eps']).sqrt_().unsqueeze(1)
                 q_sq = q.add(group['eps']).sqrt_().unsqueeze(0)
@@ -129,7 +129,7 @@ class RACS(BaseOptimizer):
                 grad_hat_norm = torch.norm(grad_hat)
                 threshold = (
                     group['gamma'] / max(grad_hat_norm / (state['theta'] + group['eps']), group['gamma'])
-                    if group['step'] > 1
+                    if has_state
                     else 1.0
                 )
                 state['theta'] = grad_hat_norm.mul_(threshold)
@@ -140,24 +140,24 @@ class RACS(BaseOptimizer):
 
 
 class Alice(BaseOptimizer):
-    """Adaptive low-dimensional subspace estimation.
+    """Adaptive subspace updates with full rank gradient compensation.
 
     Args:
-        params (ParamsT): iterable of parameters to optimize or dicts defining parameter groups.
-        lr (float): learning rate.
-        betas (Betas): coefficients used for computing running averages of gradient and the squared Hessian trace.
-            beta3=0 for Alice-0 optimizer.
-        alpha (float): scaler.
-        alpha_c (float): compensation scaler.
-        update_interval (int): update interval.
-        rank (int): rank.
-        gamma (float): limiter threshold.
-        leading_basis (int): leading basis.
-        weight_decay (float): weight decay (L2 penalty).
-        weight_decouple (bool): the optimizer uses decoupled weight decay as in AdamW.
-        fixed_decay (bool): fix weight decay.
-        eps (float): term added to the denominator to improve numerical stability.
-        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
+        params: Parameters to optimize or dictionaries defining parameter groups.
+        lr: Learning rate.
+        betas: Decay rates for gradient momentum, squared gradients, and subspace statistics. Set the third value
+            to 0 for Alice-0.
+        alpha: Update scaling factor.
+        alpha_c: Scaling factor for the compensation update.
+        update_interval: Number of steps between subspace updates.
+        rank: Dimension of the low rank subspace.
+        gamma: Maximum multiplicative growth of the scaled update norm.
+        leading_basis: Number of leading subspace basis vectors to update.
+        weight_decay: Weight decay coefficient.
+        weight_decouple: Apply weight decay to parameters instead of adding it to the gradient.
+        fixed_decay: Apply decoupled weight decay without scaling it by the learning rate.
+        eps: Term added to the denominator to improve numerical stability.
+        maximize: Maximize the objective instead of minimizing it.
 
     """
 
@@ -220,7 +220,7 @@ class Alice(BaseOptimizer):
     @staticmethod
     def subspace_iteration(
         a: torch.Tensor, mat: torch.Tensor, num_steps: int = 1
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         r"""Perform subspace iteration."""
         u = mat
         for _ in range(num_steps):
@@ -249,20 +249,16 @@ class Alice(BaseOptimizer):
         gamma: float,
         decay_rate: float,
         rank: int,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        m, n = grad.shape
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        m = grad.size(0)
 
         sigma = u.T @ grad
 
-        p.mul_(decay_rate).add_(grad.pow(2).sum(dim=0) - sigma.pow(2).sum(dim=0), alpha=1.0 - decay_rate).clamp_min_(
+        p.lerp_(grad.pow(2).sum(dim=0) - sigma.pow(2).sum(dim=0), weight=1.0 - decay_rate).clamp_min_(
             1e-8
         )
 
-        d = torch.zeros_like(grad)
-        diag_len: int = min(m, n)
-        d[torch.arange(diag_len), torch.arange(diag_len)] = 1.0 / p.sqrt()[:diag_len]
-
-        c_t = math.sqrt(m - rank) * (grad - u @ sigma) * d if m >= rank else torch.zeros_like(grad)
+        c_t = math.sqrt(m - rank) * (grad - u @ sigma) / p.sqrt() if m >= rank else torch.zeros_like(grad)
 
         n = gamma / max(torch.norm(c_t) / phi, gamma) if phi.item() > 0 else torch.ones_like(phi)
 
@@ -283,7 +279,6 @@ class Alice(BaseOptimizer):
             group['step'] += 1
 
             beta1, beta2, beta3 = group['betas']
-            rank, leading_basis = group['rank'], group['leading_basis']
 
             for p in group['params']:
                 if p.grad is None:
@@ -305,8 +300,10 @@ class Alice(BaseOptimizer):
                 elif grad.ndim > 2:
                     grad = grad.reshape(len(grad), -1)
 
-                if len(state) == 0:
+                has_state = 'U' in state
+                if not has_state:
                     m, n = grad.shape
+                    rank = min(group['rank'], m)
 
                     state['U'] = torch.zeros((m, rank), dtype=p.dtype, device=p.device)
                     state['Q'] = torch.zeros((rank, rank), dtype=p.dtype, device=p.device)
@@ -316,6 +313,9 @@ class Alice(BaseOptimizer):
 
                     state['p'] = torch.zeros((n,), dtype=p.dtype, device=p.device)
                     state['phi'] = torch.zeros((1,), dtype=p.dtype, device=p.device)
+
+                rank = state['U'].size(1)
+                leading_basis = min(group['leading_basis'], rank)
 
                 self.apply_weight_decay(
                     p=p,
@@ -328,20 +328,20 @@ class Alice(BaseOptimizer):
 
                 q, u, m, v = state['Q'], state['U'], state['m'], state['v']
 
-                if group['step'] == 1 or group['step'] % group['update_interval'] == 0:
+                if not has_state or group['step'] % group['update_interval'] == 0:
                     q_t = beta3 * (u @ q @ u.T) + (1.0 - beta3) * (grad @ grad.T)
                     u = self.switch(q_t, u, rank, leading_basis)
                     state['U'] = u
 
                 sigma = u.T @ grad
 
-                q.mul_(beta3).add_(sigma @ sigma.T, alpha=1.0 - beta3)
-                m.mul_(beta1).add_(sigma, alpha=1.0 - beta1)
-                v.mul_(beta2).add_(sigma.pow(2), alpha=1.0 - beta2)
+                q.lerp_(sigma @ sigma.T, weight=1.0 - beta3)
+                m.lerp_(sigma, weight=1.0 - beta1)
+                v.lerp_(sigma.pow(2), weight=1.0 - beta2)
 
                 c_t, phi = self.compensation(grad, u, state['p'], state['phi'], group['gamma'], beta1, rank)
 
-                update = u @ (m / v.sqrt())
+                update = u @ (m / v.sqrt().add_(group['eps']))
                 update.add_(c_t, alpha=group['alpha_c'])
 
                 p.add_(update.view_as(p), alpha=-group['lr'] * group['alpha'])

@@ -44,6 +44,10 @@ class ScheduledAggregateBackfill:
             ``environment_override`` (which relocates the query to run in another environment),
             this is a deploy-time gate: the backfill simply does not exist outside of the
             specified environment.
+        include_partial_bucket: If ``True``, each run also writes the current, still-open bucket,
+            recomputed from the bucket's start, so windows include recent data before the bucket
+            closes. By default only closed buckets are written. Only supported with the
+            ``ONLINE`` target.
     """
 
     def __init__(
@@ -62,6 +66,7 @@ class ScheduledAggregateBackfill:
         planner_options: dict[str, str] | None = None,
         environment: str | None = None,
         num_shards: int | None = None,
+        include_partial_bucket: bool = False,
     ):
         super().__init__()
         self.errors = []
@@ -117,6 +122,11 @@ class ScheduledAggregateBackfill:
                 f"Scheduled aggregate backfill '{name}' was instantiated with num_shards={num_shards}, but num_shards must be > 1 when set; omit it to run each run as a single job"
             )
 
+        if include_partial_bucket and AggregateBackfillTarget.OFFLINE in resolved_targets:
+            self.errors.append(
+                f"Scheduled aggregate backfill '{name}' sets include_partial_bucket=True, which is only supported with AggregateBackfillTarget.ONLINE"
+            )
+
         if lower_bound is not None:
             lower_bound = lower_bound.astimezone(tz=timezone.utc)
         if upper_bound is not None:
@@ -143,6 +153,7 @@ class ScheduledAggregateBackfill:
         self.planner_options = {k: str(v) for k, v in planner_options.items()} if planner_options else None
         self.environment = environment
         self.num_shards = num_shards
+        self.include_partial_bucket = include_partial_bucket
         self.filename = caller_filename
 
         SCHEDULED_AGGREGATE_BACKFILL_REGISTRY[name] = self

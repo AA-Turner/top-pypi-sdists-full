@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: graphifyy
-Version: 0.9.75
+Version: 0.9.76
 Summary: AI coding assistant skill (Claude Code, CodeBuddy, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, Aider, OpenClaw, Factory Droid, Trae, Hermes, Kiro, Pi, Devin CLI, Google Antigravity) - turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://github.com/Graphify-Labs/graphify
+Project-URL: Homepage, https://graphify.com
+Project-URL: Documentation, https://docs.graphify.com
 Project-URL: Repository, https://github.com/Graphify-Labs/graphify
 Project-URL: Issues, https://github.com/Graphify-Labs/graphify/issues
 Keywords: claude,claude-code,codex,opencode,kilo,cursor,gemini,aider,kiro,pi,devin,knowledge-graph,rag,graphrag,obsidian,community-detection,tree-sitter,leiden,llm

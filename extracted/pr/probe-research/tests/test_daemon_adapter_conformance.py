@@ -97,12 +97,15 @@ def test_the_capability_table_matches_what_the_adapter_does(harness):
 def test_daemon_reads_delivery_capabilities_per_harness():
     """Claude Code delivers after tool calls and wakes a finished turn (T3);
     Codex delivers after tool calls with no wake, pi through its extension, which
-    steers a message in and can start a turn (T11)."""
+    steers a message in and can start a turn (T11). Kimi Code delivers at the next
+    prompt only: 2.1.1 fires PostToolUse and ignores its output, and its Stop hook
+    also fires for helper agents with no agent id (D-9)."""
     caps = {name: adapters.for_source(name).capabilities for name in HARNESSES}
     assert {name: (c.inject_tool, c.wake) for name, c in caps.items()} == {
         "claude_code": (True, True),
         "codex": (True, False),
         "pi": (True, True),
+        "kimi_code": (False, False),
     }
 
 

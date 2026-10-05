@@ -767,7 +767,7 @@ def test_a_run_whose_experiment_cannot_be_read_says_so(client, app, monkeypatch)
     view returned question=None under state="complete"."""
     rid, _, _, _ = _populated(client, app)
 
-    def _gone(_experiment_id):
+    def _gone(_experiment_id, **_kw):
         raise errors.NotFoundError("experiment not found")
 
     monkeypatch.setattr(service_module.ResearchOSSource, "experiment", staticmethod(_gone))

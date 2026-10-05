@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: oidc-provider-mock
-Version: 0.4.7
+Version: 0.4.8
 Summary: OpenID Connect provider server for testing authentication
 Project-URL: Homepage, https://github.com/geigerzaehler/oidc-provider-mock
 Project-URL: Documentation, https://github.com/geigerzaehler/oidc-provider-mock

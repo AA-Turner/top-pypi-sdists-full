@@ -5,11 +5,13 @@ from __future__ import annotations
 from probe.daemon.adapters.base import Adapter, Capabilities
 from probe.daemon.adapters.claude_code import ClaudeCode
 from probe.daemon.adapters.codex import Codex
+from probe.daemon.adapters.kimi_code import KimiCode
 from probe.daemon.adapters.pi import Pi
 
-_ADAPTERS: dict[str, type[Adapter]] = {"claude_code": ClaudeCode, "codex": Codex, "pi": Pi}
+_ADAPTERS: dict[str, type[Adapter]] = {"claude_code": ClaudeCode, "codex": Codex, "pi": Pi, "kimi_code": KimiCode}
 #: Spellings the capture side uses for the same harnesses.
-_ALIASES = {"claude": "claude_code", "claude-code": "claude_code", "cc": "claude_code"}
+_ALIASES = {"claude": "claude_code", "claude-code": "claude_code", "cc": "claude_code",
+            "kimi": "kimi_code", "kimi-code": "kimi_code"}
 
 
 def for_source(source: str | None) -> Adapter:

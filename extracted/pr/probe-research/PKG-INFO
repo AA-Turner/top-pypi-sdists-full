@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.208.0
+Version: 0.210.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent

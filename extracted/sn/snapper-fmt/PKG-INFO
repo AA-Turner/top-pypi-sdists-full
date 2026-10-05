@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snapper-fmt
-Version: 0.11.7
+Version: 0.11.9
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
@@ -260,7 +260,7 @@ Configuration guide (org source in-tree): `docs/orgmode/howto/mcp-integration.or
 ## Pre-commit hook
 
     - repo: https://github.com/TurtleTech-ehf/snapper
-      rev: v0.11.7
+      rev: v0.11.9
       hooks:
         - id: snapper
 

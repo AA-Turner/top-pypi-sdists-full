@@ -1,6 +1,6 @@
 """The worker's half of residential egress — the loopback adapter on the launch.
 
-Contract: ``common-docs/systems/architecture/residential-egress/FEATURE.md``.
+Contract: ``common-docs/systems/web/residential-egress/FEATURE.md``.
 The adapter itself (``matrx_scraper.egress_adapter.EgressAdapter``) is the
 scraper's; what is proven here is the worker's contract WITH it: start it before
 Chromium, launch through its loopback proxy, keep one adapter across the

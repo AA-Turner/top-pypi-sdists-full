@@ -546,7 +546,9 @@ async function killZombieChrome(snapDir = null, options = {}) {
 
   function findChromeHookProcesses() {
     try {
-      const output = execFileSync("ps", ["-axo", "pid=,command="], {
+      // Hook identity is at the end of a potentially long executable path.
+      // Terminal width must not truncate it and make a live browser look orphaned.
+      const output = execFileSync("ps", ["-axww", "-o", "pid=,command="], {
         encoding: "utf8",
         timeout: 5000,
       });
@@ -840,6 +842,16 @@ async function launchChromium(options = {}) {
 
   const { width, height } = parseResolution(CHROME_RESOLUTION);
   let chromeUserAgent = CHROME_USER_AGENT;
+  // The generic HTTP defaults inherited from runners are not browser user
+  // agents. Drive's ZIP UI requires Chromium's own identity. Custom UAs stay
+  // untouched (apart from the existing Chrome version replacement below).
+  if (
+    [
+      "Mozilla/5.0 (compatible; ArchiveBox/1.0)",
+      "Mozilla/5.0 (compatible; abx-dl/1.0; +https://github.com/ArchiveBox/abx-dl)",
+    ].includes(chromeUserAgent)
+  )
+    chromeUserAgent = "";
   if (chromeUserAgent) {
     try {
       // The default config intentionally stores a generic/static Chrome UA so it
@@ -1198,7 +1210,7 @@ function findChromeProcessesByPort(port, timeoutMs = 5000) {
   const pids = [];
 
   try {
-    const output = execFileSync("ps", ["-axo", "pid=,command="], {
+    const output = execFileSync("ps", ["-axww", "-o", "pid=,command="], {
       encoding: "utf8",
       timeout: Math.max(1, Math.min(5000, timeoutMs)),
     });
@@ -1775,6 +1787,27 @@ async function sendBrowserCommand(browser, method, params = {}) {
   return await getBrowserConnection(browser).send(method, params);
 }
 
+/**
+ * An unpacked extension is writable browser state: Chromium compiles static
+ * declarativeNetRequest rules under its _metadata/generated_indexed_rulesets.
+ * Its background reindexing does not participate in our loader locks. Sharing
+ * that directory lets one browser recreate _metadata while another removes it
+ * and checks reserved filenames, intermittently breaking Extensions.loadUnpacked.
+ *
+ * Keep copies with the runtime profile, but namespace by the browser WebSocket
+ * endpoint (which includes a browser-instance UUID), not a reusable port or
+ * snapshot ID. Crawl-shared/on-demand callers then share one browser's copies;
+ * different browser instances cannot share generated metadata. The same path
+ * calculation is used when confirmed browser shutdown makes removal safe.
+ */
+function getBrowserExtensionsDir(cdpUrl) {
+  return path.join(
+    resolveChromeLaunchOptions().CHROME_USER_DATA_DIR,
+    "archivebox-extensions",
+    crypto.createHash("sha256").update(cdpUrl).digest("hex")
+  );
+}
+
 async function loadUnpackedExtensionsIntoBrowser(
   browser,
   extensions,
@@ -1806,11 +1839,24 @@ async function loadUnpackedExtensionsIntoBrowser(
     throw new Error(`Unsafe Chrome extension lock directory: ${lockRoot}`);
   }
   fs.chmodSync(lockRoot, 0o700);
+  // Fork here, rather than only in the launch hook, so on-demand extension
+  // loads receive exactly the same isolation as eager browser setup.
+  const runtimeExtensionsDir = getBrowserExtensionsDir(browser.wsEndpoint());
 
   async function loadExtension(extension) {
+    // Retain the selected source (including crawl-prepared plugin changes).
+    // Passing already-published runtime metadata back in must reuse its copy,
+    // not recursively fork a copy of a copy.
+    const sourcePath = fs.realpathSync(
+      extension.source_unpacked_path || extension.unpacked_path
+    );
+    const runtimePath = path.join(
+      runtimeExtensionsDir,
+      crypto.createHash("sha256").update(sourcePath).digest("hex")
+    );
     const extensionLockKey = crypto
       .createHash("sha256")
-      .update(fs.realpathSync(extension.unpacked_path))
+      .update(runtimePath)
       .digest("hex");
     const extensionLoadLock = path.join(
       lockRoot,
@@ -1819,20 +1865,49 @@ async function loadUnpackedExtensionsIntoBrowser(
     );
     let releaseExtensionLoadLock = null;
     try {
+      // This lock coordinates callers loading into the SAME browser. It cannot
+      // protect against Chromium's background writes; private copies do that.
       releaseExtensionLoadLock = await acquireSessionLock(
         extensionLoadLock,
         timeout
       );
-      // Chromium generates this directory while loading some unpacked
-      // extensions, but Extensions.loadUnpacked rejects it on the next
-      // browser launch. The abxpkg Chrome Web Store provider establishes
-      // the same sanitization contract when resolving its stable shared
-      // cache. Keep sanitization and CDP loading under one cross-process
-      // lock because snapshot-isolated browsers use that cache concurrently.
-      await fs.promises.rm(path.join(extension.unpacked_path, "_metadata"), {
-        recursive: true,
-        force: true,
-      });
+      if (!fs.existsSync(runtimePath)) {
+        await fs.promises.mkdir(runtimeExtensionsDir, { recursive: true });
+        const stagingPath = await fs.promises.mkdtemp(
+          path.join(runtimeExtensionsDir, ".copy-")
+        );
+        try {
+          // Request CoW cloning where supported, with ordinary copying otherwise.
+          // Hardlinks/symlinks would let writes reach the cache or another browser.
+          // Exclude generated/signed-store metadata from the source without ever
+          // deleting it there. Chrome will build its own indexes in this copy.
+          await fs.promises.cp(sourcePath, stagingPath, {
+            recursive: true,
+            dereference: true,
+            mode: fs.constants.COPYFILE_FICLONE,
+            filter: (source) => source !== path.join(sourcePath, "_metadata"),
+          });
+          // A read-only package cache must still produce a writable install.
+          // Writable subdirectories also let shutdown remove the private tree.
+          await fs.promises.chmod(stagingPath, 0o700);
+          for (const entry of await fs.promises.readdir(stagingPath, {
+            recursive: true,
+            withFileTypes: true,
+          })) {
+            if (entry.isDirectory()) {
+              await fs.promises.chmod(path.join(entry.parentPath, entry.name), 0o700);
+            }
+          }
+          // Publish only a complete copy. Reinvocation must neither accept a
+          // partial copy nor replace files beneath an already-running extension.
+          await fs.promises.rename(stagingPath, runtimePath);
+        } finally {
+          await fs.promises.rm(stagingPath, { recursive: true, force: true });
+        }
+      }
+      extension.source_unpacked_path = sourcePath;
+      extension.unpacked_path = runtimePath;
+      extension.manifest_path = path.join(runtimePath, "manifest.json");
       const { id } = await sendBrowserCommand(
         browser,
         "Extensions.loadUnpacked",
@@ -1843,6 +1918,8 @@ async function loadUnpackedExtensionsIntoBrowser(
           `Extensions.loadUnpacked did not return an id for ${extension.unpacked_path}`
         );
       }
+      // Unkeyed extensions derive their ID from the unpacked path. Consumers
+      // must use Chrome's runtime ID, never the shared cache's old path-based ID.
       extension.id = id;
       const manifest = loadExtensionManifest(extension.unpacked_path);
       extension.manifest_version = manifest?.manifest_version || null;
@@ -2653,6 +2730,46 @@ async function withConnectedBrowser(options, operation) {
 }
 
 /**
+ * Stream a resource through the attached page's browser session and HTTP cache.
+ * Unlike page navigation/downloads, this leaves the shared tab and download
+ * directory untouched and handles cross-origin export redirects inside Chrome.
+ * The caller owns outputPath (normally a temporary file) and validates its type.
+ */
+async function downloadBrowserResource({ cdpSession, url, outputPath, timeoutMs }) {
+  const deadline = Date.now() + timeoutMs;
+  const send = (method, params = {}) => {
+    const timeout = deadline - Date.now();
+    if (timeout <= 0) throw new Error("Browser resource download timed out");
+    return cdpSession.send(method, params, { timeout });
+  };
+  const { frameTree } = await send("Page.getFrameTree");
+  const { resource } = await send("Network.loadNetworkResource", {
+    frameId: frameTree.frame.id,
+    url,
+    options: { disableCache: false, includeCredentials: true },
+  });
+  try {
+    if (!resource.success || resource.httpStatusCode < 200 || resource.httpStatusCode >= 300 || !resource.stream) {
+      throw new Error(`Browser resource download failed (HTTP ${resource.httpStatusCode || 0}, ${resource.netErrorName || "no response body"})`);
+    }
+    const file = await fs.promises.open(outputPath, "w");
+    try {
+      let eof = false;
+      while (!eof) {
+        const chunk = await send("IO.read", { handle: resource.stream, size: 256 * 1024 });
+        await file.writeFile(Buffer.from(chunk.data, chunk.base64Encoded ? "base64" : "utf8"));
+        eof = chunk.eof;
+      }
+    } finally {
+      await file.close();
+    }
+    return { status: resource.httpStatusCode, headers: resource.headers || {} };
+  } finally {
+    if (resource.stream) await cdpSession.send("IO.close", { handle: resource.stream });
+  }
+}
+
+/**
  * Configure Chrome's download behavior over the live CDP session.
  *
  * This is the supported way to set the downloads directory for ArchiveBox's
@@ -2753,6 +2870,150 @@ function waitForBrowserDownload(session, expectedFilename, timeoutMs) {
     session.on("Browser.downloadWillBegin", onDownloadWillBegin);
     session.on("Browser.downloadProgress", onDownloadProgress);
   });
+}
+
+/** Capture downloads initiated by this tab (including its download iframes).
+ * trigger must resolve only once the provider has finished preparing its batch.
+ * Keep the persona's existing download directory; never claim another tab's file.
+ */
+async function captureBrowserDownloads({
+  browser,
+  page,
+  downloadPath,
+  timeoutMs,
+  trigger,
+}) {
+  if (!(timeoutMs > 0)) throw new Error("Provider download deadline exceeded");
+  let succeeded = false;
+  let releaseDownloadLock;
+  const deadline = Date.now() + timeoutMs;
+  const remaining = () => {
+    const ms = deadline - Date.now();
+    if (ms <= 0) throw new Error("Provider download deadline exceeded");
+    return ms;
+  };
+  const session = await page.target().createCDPSession();
+  const connection = getBrowserConnection(browser);
+  const frames = new Set();
+  const downloads = new Map();
+  let prepared = false;
+  let resolveStarted;
+  const downloadStarted = new Promise((yes) => {
+    resolveStarted = yes;
+  });
+  let resolve, reject, timer;
+  const completed = new Promise((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  // A failure can arrive while trigger is still waiting for the provider UI.
+  completed.catch(() => {});
+  const check = () => {
+    if (
+      prepared &&
+      downloads.size &&
+      [...downloads.values()].every((item) => item.state === "completed")
+    )
+      resolve([...downloads.values()]);
+  };
+  const attach = (event) => {
+    if (frames.has(event.parentFrameId)) frames.add(event.frameId);
+  };
+  const begin = (event) => {
+    if (frames.has(event.frameId)) {
+      downloads.set(event.guid, { ...event, state: "inProgress" });
+      resolveStarted();
+      console.error("Provider browser download started");
+    }
+  };
+  const progress = (event) => {
+    const item = downloads.get(event.guid);
+    if (!item) return;
+    Object.assign(item, event);
+    if (["canceled", "interrupted"].includes(event.state))
+      reject(new Error(`Browser download ${event.state}`));
+    check();
+  };
+  try {
+    session.on("Page.frameAttached", attach);
+    await session.send("Page.enable");
+    const addTree = (tree) => {
+      frames.add(tree.frame.id);
+      for (const child of tree.childFrames || []) addTree(child);
+    };
+    addTree((await session.send("Page.getFrameTree")).frameTree);
+    connection.on("Browser.downloadWillBegin", begin);
+    connection.on("Browser.downloadProgress", progress);
+    // Download behavior is browser-wide. Share the existing filesystem lock
+    // mechanism with WACZ export and static-file setup across hook processes.
+    releaseDownloadLock = await acquireSessionLock(path.join(downloadPath, ".download.lock"), remaining());
+    await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+      behavior: "allowAndName",
+      downloadPath,
+      eventsEnabled: true,
+    });
+    timer = setTimeout(
+      () =>
+        reject(
+          new Error("Provider download did not complete before the timeout")
+        ),
+      remaining()
+    );
+    // Coordinate provider HTML download dialogs with the CSS modal closer.
+    await page.evaluate(() => { document.documentElement.dataset.abxDownloadActive = "true"; });
+    // Provider controls wait for visible layout even in headless Chromium.
+    await page.bringToFront();
+    await Promise.race([trigger({ downloadStarted }), completed]);
+    prepared = true;
+    check();
+    const results = await completed;
+    for (const item of results) {
+      // allowAndName gives every download its GUID filename, including on
+      // platforms that omit the optional downloadProgress.filePath field.
+      const source = await fs.promises.realpath(path.join(downloadPath, item.guid));
+      const relative = path.relative(
+        await fs.promises.realpath(downloadPath),
+        source
+      );
+      if (!relative || (relative === ".." || relative.startsWith(".." + path.sep)) || path.isAbsolute(relative))
+        throw new Error("Browser download escaped the download directory");
+      const stat = await fs.promises.stat(source);
+      if (!stat.isFile() || stat.size !== item.receivedBytes)
+        throw new Error("Completed browser download size does not match");
+      item.filePath = source;
+    }
+    succeeded = true;
+    return results;
+  } finally {
+    clearTimeout(timer);
+    await page.evaluate(() => { delete document.documentElement.dataset.abxDownloadActive; }).catch(() => {});
+    connection.off("Browser.downloadWillBegin", begin);
+    connection.off("Browser.downloadProgress", progress);
+    for (const item of downloads.values()) {
+      if (item.state === "inProgress")
+        await sendBrowserCommand(browser, "Browser.cancelDownload", {
+          guid: item.guid,
+        }).catch(() => {});
+    }
+    if (!succeeded) {
+      for (const item of downloads.values()) {
+        // Only this page's CDP GUIDs; never guess suggested filenames shared
+        // with downloads belonging to another tab.
+        for (const suffix of ["", ".crdownload"]) {
+          await fs.promises.unlink(path.join(downloadPath, item.guid + suffix)).catch((error) => {
+            if (error.code !== "ENOENT") console.error(`Cannot remove interrupted download: ${error.message}`);
+          });
+        }
+      }
+    }
+    if (releaseDownloadLock) {
+      await sendBrowserCommand(browser, "Browser.setDownloadBehavior", {
+        behavior: "allow", downloadPath, eventsEnabled: true,
+      }).catch(() => {});
+      releaseDownloadLock();
+    }
+    await session.detach();
+  }
 }
 
 function getTargetIdFromTarget(target) {
@@ -3730,6 +3991,7 @@ async function closeBrowserInChromeSession(options = {}) {
   const cdpDeadline =
     Date.now() + Math.max(1, Math.floor(forceKillTimeoutMs / 2));
   const remainingCdpMs = () => Math.max(0, cdpDeadline - Date.now());
+  let browserEndpoint = cdpUrl;
 
   if (cdpUrl) {
     let browser = null;
@@ -3740,6 +4002,7 @@ async function closeBrowserInChromeSession(options = {}) {
             defaultViewport: null,
             protocolTimeout: Math.max(1, remainingCdpMs()),
           });
+          browserEndpoint = browser.wsEndpoint();
           await sendBrowserCommand(browser, "Browser.close");
         },
         Math.max(1, remainingCdpMs()),
@@ -3784,6 +4047,16 @@ async function closeBrowserInChromeSession(options = {}) {
     }
   }
 
+  if (closed && browserEndpoint) {
+    // Background rules indexing can outlive a load request or hook process.
+    // Remove copies only after browser shutdown is confirmed; keepalive and
+    // reused sessions still need them. This also bounds persistent-profile disk
+    // usage across clean browser restarts.
+    await fs.promises.rm(getBrowserExtensionsDir(browserEndpoint), {
+      recursive: true,
+      force: true,
+    });
+  }
   if (outputDir && closed) {
     try {
       await cleanupStaleChromeSessionArtifacts(outputDir, {
@@ -4225,6 +4498,7 @@ async function waitForVisibleImages(page, timeoutMs) {
 
 // Export all functions
 module.exports = {
+  captureBrowserDownloads,
   withTimeout,
   // Environment helpers
   getEnv,
@@ -4292,6 +4566,7 @@ module.exports = {
   getTargetIdFromTarget,
   getTargetIdFromPage,
   connectToPage,
+  downloadBrowserResource,
   waitForNavigationComplete,
   waitForVisibleImages,
   setBrowserDownloadBehavior,

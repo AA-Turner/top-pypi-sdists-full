@@ -1497,16 +1497,17 @@ def route_work_by_capability(
       before the caller ever sees the `ValueError`;
     - not in `paused_set(machines)` — the FULL cordon-inclusive set, the
       same one `coord.brain.propose()` and `coord assign`'s CLI both gate a
-      `type="work"` proposal's machine on before it is ever chosen. This is
-      new work, not the tail of a leg already in flight, so this
-      deliberately does NOT use `follow_on_paused_set()` — that one exists
-      for `select_fix_machine`/`rank_smoke_machines`, which finish work
-      that already started elsewhere (#2240, #2636). A reroute here must
-      not land a `type="work"` leg on a machine the operator explicitly
-      `coord pause`d or that is inside its declared `quiet_hours` window —
-      `dispatch()` itself has no other pause/quiet-hours check anywhere in
-      its body, since that filtering has always been done upstream, and
-      this new gate runs strictly after `coord plan` already did it once.
+      `type="work"` proposal's machine on before it is ever chosen, and
+      (#3599) the same set `select_fix_machine`/`rank_smoke_machines` now
+      read too — `follow_on_paused_set()` is no longer used for ANY
+      dispatch-target decision (see its docstring in
+      `coord.machine_pause`). A reroute here must not land a `type="work"`
+      leg on a machine the operator explicitly `coord pause`d, that is
+      inside its declared `quiet_hours` window, or that a release cordon is
+      draining — `dispatch()` itself has no other pause/quiet-hours check
+      anywhere in its body, since that filtering has always been done
+      upstream, and this new gate runs strictly after `coord plan` already
+      did it once.
 
     *now* is forwarded to `paused_set()` untouched, exactly like
     `rank_smoke_machines`'s own *now* parameter — `None` (the default, and
@@ -1641,8 +1642,9 @@ def route_work_by_liveness(
     (#3241 review): `can_work_on(repo_name)`, a configured `repo_path`, and
     not in the FULL cordon-inclusive `paused_set()` — this is new work
     being routed for the first time, not the tail of a leg already running
-    elsewhere, so (like that function, and unlike `select_fix_machine`
-    below) it deliberately does NOT use `follow_on_paused_set()`.
+    elsewhere. (#3599: `select_fix_machine` below reads the same FULL
+    `paused_set()` now too — `follow_on_paused_set()` is no longer used for
+    any dispatch-target decision anywhere in this module.)
 
     *files_likely* / *capability_rules* make that filter CAPABILITY-AWARE
     (#3353 review round 3), closing the gap between this gate and the
@@ -1929,17 +1931,32 @@ def select_fix_machine(
     *status_fetcher* defaults to :func:`coord.network.fetch_status` — the
     same liveness probe ``coord status`` already uses — and is injectable
     so tests never make a real network call.
+
+    #3599: this used to resolve cordons via `follow_on_paused_set()` — the
+    #2240 theory that "a fix leg is the tail of already-running work, not
+    new work, so a release cordon must not filter its host out." Observed
+    2026-10-04: a `request-changes` round can itself spawn another fix leg
+    after another review, with no bound on how many times that repeats —
+    so "tail of already-running work" is not actually a terminal fact about
+    a fix leg, and the bypass kept re-busying a cordoned host every time the
+    drive produced another leg, which is precisely what stops it from ever
+    draining to the quiescent state `coord release propagate` is waiting
+    for. The FULL `paused_set()` (cordon-inclusive) is used here now, same
+    as new-work routing: a cordoned original machine is skipped like any
+    other paused one, falling through to another configured machine (the
+    branch lives on the remote, so any capable machine can take over) or
+    reporting none reachable — the drive-queue entry waits rather than
+    perpetually feeding the host the cordon is trying to drain. The
+    #2741/#3336 deferral-pressure stall floor is what now bounds how long a
+    wholly-cordoned fleet can hold a fix leg waiting, not a per-dispatch
+    bypass.
     """
-    from coord.machine_pause import follow_on_paused_set
+    from coord.machine_pause import paused_set
     from coord.network import fetch_status as _fetch_status
     from coord.network import probe_reachable
 
     fetch = status_fetcher or _fetch_status
-    # #2240: the same follow-on cordon `_dispatch_fix` has always used — a
-    # fix leg is the tail of already-running work, not new work, so an
-    # explicit release pause (not a routing-only `coord pause`) must not
-    # filter its host out.
-    paused = follow_on_paused_set(machines)
+    paused = paused_set(machines)
 
     def _capable(m: Machine) -> bool:
         return m.can_work_on(repo_name) and m.repo_path(repo_name) is not None

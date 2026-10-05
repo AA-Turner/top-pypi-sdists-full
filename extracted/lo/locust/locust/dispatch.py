@@ -192,6 +192,12 @@ class UsersDispatcher(Iterator):
         :param spawn_rate: The spawn rate
         :param user_classes: The user classes to be used for the new dispatch
         """
+        if target_user_count < 0:
+            raise ValueError(f"target_user_count must be >= 0, got {target_user_count}")
+
+        if spawn_rate <= 0:
+            raise ValueError(f"spawn_rate must be > 0, got {spawn_rate}")
+
         if user_classes is not None and self._user_classes != sorted(user_classes, key=attrgetter("__name__")):
             self._user_classes = sorted(user_classes, key=attrgetter("__name__"))
             self._user_generator = self._user_gen()

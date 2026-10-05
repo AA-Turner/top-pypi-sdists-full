@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from chalkcompute import RemoteCallClient  # pyright: ignore[reportMissingImports]
 
     from chalk.client.client_grpc import ChalkGRPCClient
+    from chalk.client.model_deployment import ModelDeployment
 
 T = TypeVar("T")
 DEFAULT_HANDLER = "handler"
@@ -83,9 +84,10 @@ def _grpc_target_from_url(web_url: str) -> Tuple[str, bool]:
     return host, False
 
 
-def _list_deployments_serving(client: "ChalkGRPCClient", model_name: str, version: int) -> Any:
+def _list_deployments_serving(client: "ChalkGRPCClient", model_name: str, version: int) -> "ModelDeployment":
     from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
     from chalk._gen.chalk.models.v1.model_version_pb2 import ModelVersionIdentifier
+    from chalk.client.model_deployment import model_deployments_from_response
 
     # Two results are enough to tell a unique deployment from an ambiguous one.
     request = md_pb.ListModelScalingGroupsRequest(
@@ -98,7 +100,7 @@ def _list_deployments_serving(client: "ChalkGRPCClient", model_name: str, versio
     response = client._stub_refresher.call_model_deployment_stub(  # pyright: ignore[reportPrivateUsage]
         lambda stub: stub.ListModelScalingGroups(request)
     )
-    groups = list(response.scaling_groups)
+    groups = model_deployments_from_response(response, client)
     if not groups:
         raise ModelNotDeployedError(f"Model {model_name!r} v{version} has no active deployment")
     if len(groups) > 1:
@@ -115,9 +117,10 @@ def _get_selected_deployment(
     version: Optional[int],
     deployment_id: Optional[str],
     deployment_name: Optional[str],
-) -> Any:
+) -> "ModelDeployment":
     from chalk._gen.chalk.modeldeployment.v1 import service_pb2 as md_pb
-    from chalk.client.model_deployment import model_version_from_metadata
+    from chalk._gen.chalk.server.v1.model_registry_pb2 import GetModelRequest
+    from chalk.client.model_deployment import model_deployment_from_response
 
     label = f"id {deployment_id!r}" if deployment_id is not None else f"{deployment_name!r}"
     request = with_model_deployment_key(md_pb.GetModelScalingGroupRequest(), deployment_id, deployment_name)
@@ -129,16 +132,28 @@ def _get_selected_deployment(
         if e.code() == grpc.StatusCode.NOT_FOUND:  # pyright: ignore[reportAttributeAccessIssue]
             raise ModelNotDeployedError(f"No model deployment {label}") from e
         raise
-    group = response.scaling_group
     try:
-        served_model, served_version = model_version_from_metadata(group.metadata)
+        group = model_deployment_from_response(response, client)
     except ValueError as e:
         raise ModelDeploymentMismatchError(f"Deployment {label} is not a model deployment") from e
-    # Mirrors the server's CallModel check on an explicitly selected deployment.
-    if served_model != model_name or (version is not None and served_version != version):
+    if group.model_id:
+        try:
+            model = client._stub_refresher.call_model_stub(  # pyright: ignore[reportPrivateUsage]
+                lambda stub: stub.GetModel(GetModelRequest(model_name=model_name))
+            ).model
+        except grpc.RpcError as e:
+            if e.code() != grpc.StatusCode.NOT_FOUND:  # pyright: ignore[reportAttributeAccessIssue]
+                raise
+            same_model = False
+        else:
+            same_model = model.id == group.model_id
+    else:
+        # Backfilled deployments without model_id retain the server's name-based check.
+        same_model = group.model_name == model_name
+    if not same_model or (version is not None and group.model_version != version):
         requested = f"{model_name!r}" + (f" v{version}" if version is not None else "")
         raise ModelDeploymentMismatchError(
-            f"Deployment {group.name!r} serves {served_model!r} v{served_version}, not {requested}"
+            f"Deployment {group.name!r} serves {group.model_name!r} v{group.model_version}, not {requested}"
         )
     return group
 
@@ -150,7 +165,7 @@ def resolve_model_deployment(
     version: Optional[int],
     deployment_id: Optional[str] = None,
     deployment_name: Optional[str] = None,
-) -> Any:
+) -> "ModelDeployment":
     """Return the deployment that serves ``model_name`` v``version``.
 
     With ``deployment_id`` or ``deployment_name``, that deployment is used after checking it

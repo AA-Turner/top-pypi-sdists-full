@@ -197,6 +197,7 @@ class DataPoint(google.protobuf.message.Message):
     IS_RELIABLE_FIELD_NUMBER: builtins.int
     RELIABILITY_FIELD_NUMBER: builtins.int
     SAMPLE_COUNT_FIELD_NUMBER: builtins.int
+    INTERPOLATED_FIELD_NUMBER: builtins.int
     data: builtins.float
     data_present: builtins.bool
     """false if this datapoint is empty, true otherwise.
@@ -213,6 +214,8 @@ class DataPoint(google.protobuf.message.Message):
     """the reliability of the data value based on math based on confidence intervals and sample size"""
     sample_count: builtins.int
     """the sample count for this data point"""
+    interpolated: sentry_protos.snuba.v1.trace_item_attribute_pb2.InterpolationMode.ValueType
+    """how this point was filled"""
     def __init__(
         self,
         *,
@@ -222,8 +225,9 @@ class DataPoint(google.protobuf.message.Message):
         is_reliable: builtins.bool = ...,
         reliability: sentry_protos.snuba.v1.trace_item_attribute_pb2.Reliability.ValueType = ...,
         sample_count: builtins.int = ...,
+        interpolated: sentry_protos.snuba.v1.trace_item_attribute_pb2.InterpolationMode.ValueType = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["avg_sampling_rate", b"avg_sampling_rate", "data", b"data", "data_present", b"data_present", "is_reliable", b"is_reliable", "reliability", b"reliability", "sample_count", b"sample_count"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["avg_sampling_rate", b"avg_sampling_rate", "data", b"data", "data_present", b"data_present", "interpolated", b"interpolated", "is_reliable", b"is_reliable", "reliability", b"reliability", "sample_count", b"sample_count"]) -> None: ...
 
 global___DataPoint = DataPoint
 

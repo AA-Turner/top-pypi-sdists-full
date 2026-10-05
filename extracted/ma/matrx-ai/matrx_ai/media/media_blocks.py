@@ -25,7 +25,7 @@ Resolution goes through the host-injected
 byte-cached by URL hash), exactly as the provider boundary resolves every other
 image item. Identity travels beside the bytes: a ``file_id`` or the DURABLE url
 the caller supplied — never ``resolved_url`` (a signed handoff, never an
-identity; ``common-docs/systems/media/media-durability/FEATURE.md``).
+identity; ``common-docs/systems/files/media-durability/FEATURE.md``).
 """
 
 from __future__ import annotations

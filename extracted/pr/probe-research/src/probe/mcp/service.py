@@ -3978,7 +3978,13 @@ class ResearchReadService:
         return self._view_entity_summary(EntityType.PROJECT, entity)
 
     def _view_experiment_summary(self, entity: dict, request: _Req) -> _ViewData:
-        """The experiment's authored, dashboard-visible Markdown document."""
+        """The experiment's authored, dashboard-visible Markdown document.
+
+        The experiment API's read carries no `document` (it is a block of the
+        Overview page), so this view reads it on its own -- one request, only
+        when asked for, never on the card."""
+        if "document" not in entity:
+            entity = {**entity, "document": self.source.experiment_document(str(entity["id"]))}
         return self._view_entity_summary(EntityType.EXPERIMENT, entity)
 
     @staticmethod
@@ -4040,7 +4046,11 @@ class ResearchReadService:
                 missing.append(MissingMarker.EXPERIMENT)
             return None
         try:
-            return self.source.experiment(str(experiment_id)).get("question")
+            # The run row names the project it is filed under: one request.
+            project_id = entity.get("project_id")
+            return self.source.experiment(
+                str(experiment_id), project_id=str(project_id) if project_id else None
+            ).get("question")
         except errors.NotFoundError:
             missing.append(MissingMarker.EXPERIMENT)
             return None

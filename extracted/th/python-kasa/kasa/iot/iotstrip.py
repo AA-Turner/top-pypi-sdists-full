@@ -7,6 +7,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from datetime import tzinfo
+
 from ..device_type import DeviceType
 from ..deviceconfig import DeviceConfig
 from ..emeterstatus import EmeterStatus
@@ -21,7 +24,17 @@ from .iotdevice import (
 )
 from .iotmodule import IotModule
 from .iotplug import IotPlug
-from .modules import Antitheft, Cloud, Countdown, Emeter, Led, Schedule, Time, Usage
+from .modules import (
+    Antitheft,
+    Cloud,
+    Countdown,
+    Emeter,
+    HomeKit,
+    Led,
+    Schedule,
+    Time,
+    Usage,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,14 +53,14 @@ class IotStrip(IotDevice):
 
     A strip consists of the parent device and its children.
     All methods of the parent act on all children, while the child devices
-    share the common API with the :class:`SmartPlug` class.
+    share the common API with the :class:`IotPlug` class.
 
-    To initialize, you have to await :func:`update()` at least once.
+    To initialize, you have to await :meth:`update()` at least once.
     This will allow accessing the properties using the exposed properties.
 
     All changes to the device are done using awaitable methods,
     which will not change the cached values,
-    but you must await :func:`update()` separately.
+    but you must await :meth:`update()` separately.
 
     Errors reported by the device are raised as :class:`KasaException`\s,
     and should be handled by the user of the library.
@@ -62,7 +75,7 @@ class IotStrip(IotDevice):
         All methods act on the whole strip:
 
         >>> for plug in strip.children:
-        >>>    print(f"{plug.alias}: {plug.is_on}")
+        ...    print(f"{plug.alias}: {plug.is_on}")
         Plug 1: True
         Plug 2: False
         Plug 3: False
@@ -76,7 +89,7 @@ class IotStrip(IotDevice):
         >>> len(strip.children)
         3
         >>> for plug in strip.children:
-        >>>    print(f"{plug.alias}: {plug.is_on}")
+        ...    print(f"{plug.alias}: {plug.is_on}")
         Plug 1: False
         Plug 2: False
         Plug 3: False
@@ -109,6 +122,7 @@ class IotStrip(IotDevice):
         self.add_module(Module.IotCountdown, Countdown(self, "countdown"))
         self.add_module(Module.Led, Led(self, "system"))
         self.add_module(Module.IotCloud, Cloud(self, "cnCloud"))
+        self.add_module(Module.IotHomeKit, HomeKit(self, "smartlife.iot.homekit"))
         if self.has_emeter:
             _LOGGER.debug(
                 "The device has emeter, querying its information along sysinfo"
@@ -338,6 +352,8 @@ class IotStripPlug(IotPlug):
         self.add_module(Module.IotAntitheft, Antitheft(self, "anti_theft"))
         self.add_module(Module.IotSchedule, Schedule(self, "schedule"))
         self.add_module(Module.IotCountdown, Countdown(self, "countdown"))
+        # Note: do not add a Time module to the child; time is device-level.
+        # Child exposes time/timezone by delegating to the parent.
 
     async def _initialize_features(self) -> None:
         """Initialize common features."""
@@ -429,6 +445,18 @@ class IotStripPlug(IotPlug):
         This is always false for subdevices.
         """
         return False
+
+    @property  # type: ignore
+    @requires_update
+    def time(self) -> datetime:
+        """Return current time, delegated from the parent strip."""
+        return self._parent.time
+
+    @property  # type: ignore
+    @requires_update
+    def timezone(self) -> tzinfo:
+        """Return timezone, delegated from the parent strip."""
+        return self._parent.timezone
 
     @property  # type: ignore
     @requires_update

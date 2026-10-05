@@ -566,10 +566,12 @@ class MaintenanceWindow(_message.Message):
         MODE_UNSPECIFIED: _ClassVar[MaintenanceWindow.Mode]
         MODE_UNRESTRICTED: _ClassVar[MaintenanceWindow.Mode]
         MODE_CUSTOM: _ClassVar[MaintenanceWindow.Mode]
+        MODE_DISABLED: _ClassVar[MaintenanceWindow.Mode]
 
     MODE_UNSPECIFIED: MaintenanceWindow.Mode
     MODE_UNRESTRICTED: MaintenanceWindow.Mode
     MODE_CUSTOM: MaintenanceWindow.Mode
+    MODE_DISABLED: MaintenanceWindow.Mode
     MODE_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     DURATION_FIELD_NUMBER: _ClassVar[int]

@@ -13,11 +13,34 @@ level instead — see this issue's PR description.
 Unix-pty-backed test (skipped off POSIX) that proves
 :class:`~coord.tui_pty_driver.UnixPtyChild` itself genuinely drives a real
 child process through a real pseudo-terminal, not just against the fake.
+
+:class:`TestUnixPtyChildSurvivesAbnormalParentDeath` is a second, deliberate
+exception (#3583): it SIGKILLs the *managing* process (a throwaway
+``python -c`` subprocess that constructs a real ``UnixPtyChild`` and never
+calls ``close()``) and asserts the real grandchild is reaped anyway — the
+exact failure mode the companion bugbash finding reported (51 orphaned
+``vcd`` processes reparented to ``systemd --user``). Against the pre-#3583
+code (``preexec_fn=os.setsid`` with no parent-death signal) this test fails:
+the grandchild survives its manager's SIGKILL indefinitely.
+
+:class:`TestWrapLaunchCommand` and
+:class:`TestUnixPtyChildRealCompoundCommand` are review-round-1 additions
+(#3583): the first ``exec``-wrapping fix unconditionally prefixed the
+*entire* command string with ``exec ``, which breaks the one real
+production ``tui-pty`` route (``~/.coord/coordinator.remote.yml``'s
+``vimcode`` route) — its ``run:`` is a compound ``cd X && ENV=Y bin arg``
+shell script, and ``exec`` can be applied to neither a leading ``cd``
+(a builtin, not an executable) nor an inline env-var assignment (not
+``exec``'s own argument-list syntax). These tests drive exactly that
+shape — the first against the pure string transform, the second end-to-end
+against a real pty — so a regression here fails loudly rather than only
+surfacing against the live fleet config.
 """
 
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import time
 
@@ -28,9 +51,11 @@ from coord.tui_pty_driver import (
     SmokeSpec,
     SmokeStep,
     TuiPtyRuntimeError,
+    TuiPtySession,
     TuiPtySpecError,
     UnixPtyChild,
     VtScreen,
+    _wrap_launch_command,
     encode_click,
     encode_key,
     parse_smoke_spec,
@@ -552,6 +577,45 @@ class TestSmokeRunnerCprAutoReply:
         assert replies[0] == b"\x1b[1;1R"
 
 
+# ── TuiPtySession (#3590's `open`/`send`/`screen`/`close` driver) ──────────
+
+
+class TestTuiPtySessionCprAutoReply:
+    """#3603: ``coord app-drive tui-pty open`` launched a real app under a
+    real pty exactly like ``run-spec`` does, but the real app died silently
+    within a few seconds, screen still blank, even with no input sent at
+    all — while the IDENTICAL launch command through ``run-spec``
+    (:class:`SmokeRunner`) ran a 490-step spec with no instability.
+
+    Root cause: :class:`TuiPtySession` never answered the ``ESC[6n``
+    cursor-position query :class:`SmokeRunner` already answered (a
+    startup-blocking app — ratatui's ``Terminal::new()`` is one — never
+    paints, and some give up and exit outright after a few seconds with no
+    reply at all). This is the Tier-1 conformance scenario the issue's own
+    acceptance bar requires: it fails first against the pre-fix
+    `TuiPtySession` (no responder thread, no reply ever written), and
+    passes once `TuiPtySession` shares `SmokeRunner`'s own
+    `_CprResponder` (#2096 "one question, one answer")."""
+
+    def test_cpr_query_gets_a_reply_through_the_open_send_screen_session(self) -> None:
+        child = FakePtyChild(script=[(0.0, b"\x1b[6n")])
+        session = TuiPtySession(
+            "unused", ".", cols=80, rows=24,
+            spawn_child=lambda launch, cwd, cols, rows: child,
+        )
+        try:
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline and not any(
+                w.startswith(b"\x1b[") and w.endswith(b"R") for w in child.writes
+            ):
+                time.sleep(0.02)
+            replies = [w for w in child.writes if w.startswith(b"\x1b[") and w.endswith(b"R")]
+            assert len(replies) == 1
+            assert replies[0] == b"\x1b[1;1R"
+        finally:
+            session.close()
+
+
 class TestSmokeRunnerDeadline:
     def test_overall_timeout_aborts_remaining_steps(self) -> None:
         child = FakePtyChild()
@@ -618,3 +682,145 @@ class TestUnixPtyChildReal:
         finally:
             child.close()
         assert not child.is_alive()
+
+
+# ── #3583 review round 1: the exec-wrapping fix must not break the real
+# compound-command + inline-env-var `run:` shape it is meant to protect ────
+
+
+class TestWrapLaunchCommand:
+    """Unit coverage for the pure string transform, isolated from spawning
+    any real process — see the module docstring's review-round-1 note."""
+
+    def test_simple_command_gets_exec_prefixed(self) -> None:
+        assert _wrap_launch_command("sleep 60") == "exec sleep 60"
+
+    def test_already_exec_prefixed_is_left_alone(self) -> None:
+        assert _wrap_launch_command("exec sleep 60") == "exec sleep 60"
+
+    def test_already_exec_prefixed_tolerates_leading_whitespace(self) -> None:
+        assert _wrap_launch_command("  exec sleep 60") == "  exec sleep 60"
+
+    def test_leading_cd_and_compound_is_preserved_not_execed(self) -> None:
+        # `exec cd ...` fails outright — `cd` is a shell builtin, not an
+        # executable — so the leading `cd .smoke &&` must survive
+        # untouched; only the final simple command is rewritten.
+        wrapped = _wrap_launch_command("cd .smoke && ../target/release/vcd sample.txt")
+        assert wrapped == "cd .smoke && exec ../target/release/vcd sample.txt"
+
+    def test_inline_env_assignment_is_rewritten_via_env(self) -> None:
+        # `exec HOME=x ./bin` would try (and fail) to execve a program
+        # literally named `HOME=x` — `env` doesn't have that restriction.
+        wrapped = _wrap_launch_command("HOME=$PWD/home ./bin arg")
+        assert wrapped == "exec env HOME=$PWD/home ./bin arg"
+
+    def test_real_production_route_shape_cd_and_inline_env(self) -> None:
+        # The exact `~/.coord/coordinator.remote.yml` vimcode `tui-pty`
+        # route's `run:` shape the review round reported as broken.
+        wrapped = _wrap_launch_command(
+            "cd .smoke && HOME=$PWD/home ../target/release/vcd sample.txt"
+        )
+        assert wrapped == (
+            "cd .smoke && exec env HOME=$PWD/home ../target/release/vcd sample.txt"
+        )
+
+    def test_multiple_compound_segments_only_the_last_is_execed(self) -> None:
+        wrapped = _wrap_launch_command("cd a && cd b && HOME=x ./bin arg")
+        assert wrapped == "cd a && cd b && exec env HOME=x ./bin arg"
+
+    def test_double_ampersand_inside_a_quoted_argument_is_not_a_split_point(self) -> None:
+        wrapped = _wrap_launch_command("./bin 'a && b'")
+        assert wrapped == "exec ./bin 'a && b'"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="UnixPtyChild requires a POSIX platform")
+class TestUnixPtyChildRealCompoundCommand:
+    """End-to-end regression (#3583 review round 1): drive a real
+    ``UnixPtyChild`` with the exact production ``run:`` shape — a leading
+    ``cd`` plus an inline env-var assignment on the final simple command —
+    and prove it still launches. Against the broken fix (unconditional
+    whole-command ``exec`` prefix), this fails immediately: the wrapped
+    command becomes ``exec cd workdir && ...``, ``sh`` reports ``exec: cd:
+    not found`` (exit 127), and the child is dead before ``is_alive()`` is
+    ever checked.
+    """
+
+    def test_cd_and_inline_env_assignment_shape_still_launches(self, tmp_path) -> None:
+        subdir = tmp_path / "workdir"
+        subdir.mkdir()
+        command = (
+            f"cd workdir && HOME=$PWD/home {sys.executable} -c "
+            "\"import os, sys; "
+            "sys.stdout.write('HOME=' + os.environ['HOME'] + '\\r\\n'); "
+            "sys.stdout.flush(); import time; time.sleep(2)\""
+        )
+        child = UnixPtyChild(command, str(tmp_path), cols=80, rows=24)
+        try:
+            collected = b""
+            deadline = time.monotonic() + 5
+            while b"HOME=" not in collected and time.monotonic() < deadline:
+                collected += child.read(0.2)
+            assert child.is_alive(), (
+                "child exited immediately — the cd+inline-env-var launch "
+                "command failed to start"
+            )
+            assert f"HOME={subdir}/home".encode() in collected
+        finally:
+            child.close()
+
+
+# ── #3583: the pty child must be reaped even if its manager never gets to
+# run close() (killed abnormally rather than exiting normally) ────────────
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except (ProcessLookupError, PermissionError):
+        return False
+    return True
+
+
+@pytest.mark.skipif(
+    os.name != "posix" or sys.platform != "linux",
+    reason="the #3583 fix (PR_SET_PDEATHSIG) is Linux-only; UnixPtyChild "
+    "requires POSIX but macOS has no prctl()",
+)
+class TestUnixPtyChildSurvivesAbnormalParentDeath:
+    def test_child_is_reaped_when_manager_is_sigkilled(self, tmp_path) -> None:
+        marker = tmp_path / "child.pid"
+        script = (
+            "import sys; sys.path.insert(0, " + repr(os.getcwd()) + ")\n"
+            "from coord.tui_pty_driver import UnixPtyChild\n"
+            "child = UnixPtyChild('sleep 60', " + repr(str(tmp_path)) + ", 80, 24)\n"
+            "open(" + repr(str(marker)) + ", 'w').write(str(child._proc.pid))\n"
+            "import time; time.sleep(60)\n"
+        )
+        manager = subprocess.Popen([sys.executable, "-c", script])
+        try:
+            deadline = time.monotonic() + 5
+            while not marker.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            assert marker.exists(), "manager process never reported a child pid"
+            child_pid = int(marker.read_text())
+            assert _pid_alive(child_pid), "child process never started"
+
+            # Kill the manager WITHOUT ever letting it call close() — the
+            # one case no userspace cleanup code can run for.
+            manager.kill()
+            manager.wait(timeout=5)
+
+            # #2096: don't just check "no exception" — actually re-observe
+            # the real OS process after giving the kernel a bounded window
+            # to deliver the parent-death signal.
+            deadline = time.monotonic() + 5
+            while _pid_alive(child_pid) and time.monotonic() < deadline:
+                time.sleep(0.1)
+            assert not _pid_alive(child_pid), (
+                f"pid {child_pid} is still alive {5}s after its managing "
+                "process was SIGKILLed — the pty child was not reaped"
+            )
+        finally:
+            if manager.poll() is None:
+                manager.kill()
+                manager.wait(timeout=5)

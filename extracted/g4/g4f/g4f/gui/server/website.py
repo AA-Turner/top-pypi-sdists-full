@@ -51,7 +51,15 @@ def render(filename="home", download_url: str = GITHUB_URL):
                 return html.replace("{{ v }}", str(latest_version))
             # Web app manifests must be re-fetched promptly, otherwise
             # installability checks keep using a stale cached manifest.
-            max_age = 0 if path.endswith((".webmanifest", ".json")) else 31536000
+            # JS/CSS also revalidate (max-age=0 + ETag 304s): a 1-year cache
+            # pins stale modules after updates, since the ?v= cache-bust
+            # parameter is static for addon modules.
+            if path.endswith((".webmanifest", ".json")):
+                max_age = 0
+            elif path.endswith((".js", ".css")):
+                max_age = 0
+            else:
+                max_age = 31536000
             return send_from_directory(
                 os.path.dirname(path), os.path.basename(path), max_age=max_age
             )
@@ -117,6 +125,9 @@ def render(filename="home", download_url: str = GITHUB_URL):
                 html = html.replace('"../dist/', f'"{dist_url}')
                 html = html.replace('"/dist/', f'"{dist_url}')
                 html = html.replace('"dist/', f'"{dist_url}')
+                html = html.replace("'../dist/", f"'{dist_url}")
+                html = html.replace("'/dist/", f"'{dist_url}")
+                html = html.replace("'dist/", f"'{dist_url}")
         if html is None:
             with open(cache_file, "wb") as f:
                 f.write(response.content)
@@ -153,32 +164,33 @@ class Website:
             },
             "/apps/": {"function": self._apps, "methods": ["GET"]},
             "/apps/<path:filename>": {"function": self._apps, "methods": ["GET"]},
+            "/browser": {"function": self._browser, "methods": ["GET"]},
+            "/browser/": {"function": self._browser, "methods": ["GET"]},
+            "/logs": {"function": self._logs, "methods": ["GET"]},
+            "/logs/": {"function": self._logs, "methods": ["GET"]},
+            "/status": {"function": self._status, "methods": ["GET"]},
+            "/status/": {"function": self._status, "methods": ["GET"]},
+            "/stats": {"function": self._stats, "methods": ["GET"]},
             "/stats/": {"function": self._stats, "methods": ["GET"]},
+            "/providers": {"function": self._providers, "methods": ["GET"]},
             "/providers/": {"function": self._providers, "methods": ["GET"]},
             "/providers/<name>": {"function": self._provider_detail, "methods": ["GET"]},
         }
-
-        @app.route("/lib.js", methods=["GET"])
-        def lib_js():
-            return self._sillytavern("lib.js")
-
-        @app.route("/script.js", methods=["GET"])
-        def script_js():
-            return self._sillytavern("script.js")
-
-        @app.route("/lib/<path:filename>", methods=["GET"])
-        def lib_files(filename):
-            return self._sillytavern(f"lib/{filename}")
-
-        @app.route("/scripts/<path:filename>", methods=["GET"])
-        def script_files(filename):
-            return self._sillytavern(f"scripts/{filename}")
 
     def _index(self, filename="home"):
         return render(filename)
 
     def _stats(self):
         return render("stats")
+
+    def _status(self):
+        return render("status")
+
+    def _browser(self):
+        return render("browser")
+
+    def _logs(self):
+        return render("logs")
 
     def _get_providers(self):
         """Load all providers and return a list of dicts with their attributes (cached with 300s TTL)."""

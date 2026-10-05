@@ -1244,14 +1244,22 @@ def openai_partial_images(
 def flux_safety_tolerance(
     canonical: dict[str, Any], params: dict[str, Any], ctx: ProcessorContext
 ) -> dict[str, Any]:
-    """Replicate FLUX.2: always push safety_tolerance to the most permissive
-    value (5), except the BFL backend caps it at 2 whenever an input/reference
-    image is present (400s above). Port of model_descriptors._flux_2_input."""
-    params["safety_tolerance"] = (
-        ctx.table("with_image_input", D.FLUX_SAFETY_TOLERANCE_WITH_IMAGE_INPUT)
+    """Replicate FLUX.2: safety_tolerance goes out at the provider's most
+    permissive value (5 — Replicate schema range 1..5), except the BFL backend
+    caps it at 2 whenever an input/reference image is present (400s above).
+    Owner rule 2026-10-04: minimum safety unless the PERSON asks for stricter —
+    an explicit ``disable_safety_checker: false`` (checker on) sends the
+    provider's own default (2, never above the image cap). Unset or true sends
+    the minimum. Guard: scripts/check_minimum_safety.py."""
+    image_cap = ctx.table("with_image_input", D.FLUX_SAFETY_TOLERANCE_WITH_IMAGE_INPUT)
+    minimum = (
+        image_cap
         if (ctx.extra or {}).get("has_image_input")
         else ctx.table("default", ctx.table("tolerance", D.FLUX_SAFETY_TOLERANCE))
     )
+    if canonical.get("disable_safety_checker") is False:
+        minimum = min(minimum, D.FLUX_SAFETY_TOLERANCE_PROVIDER_DEFAULT)
+    params["safety_tolerance"] = minimum
     return params
 
 
