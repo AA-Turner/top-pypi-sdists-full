@@ -32,7 +32,6 @@ from functools import partial
 from pathlib import Path
 
 import psycopg
-from psycopg import sql as pgsql
 
 from confiture.config.environment import Environment
 from confiture.config.project import SquashConfig, load_project_config
@@ -43,20 +42,25 @@ from confiture.core._migrator.discovery import (
 )
 from confiture.core._migrator.squashed import DIRECTIVE, archived_digest
 from confiture.core.checksum import compute_checksum
-from confiture.core.drift import SchemaDriftDetector
+from confiture.core.drift import SchemaDriftDetector, expected_schema
 from confiture.core.expected_db import ExpectedSchemaDB
-from confiture.core.ledger import LIVE_ROWS, ledger_exists, table_identifier
-from confiture.core.linting.inventory import build_model
+from confiture.core.ledger import (
+    DEFAULT_TRACKING_TABLE,
+    LIVE_ROWS,
+    bookkeeping_tables,
+    ledger_exists,
+    steps_table,
+    table_identifier,
+)
 from confiture.core.migrator import replay_migrations
-from confiture.core.sql_lexer import name_parts
-from confiture.core.step_runner import DONE, CheckpointStore, steps_table
+from confiture.core.schema_read import read_text
+from confiture.core.step_runner import DONE, CheckpointStore
 from confiture.core.temp_database import clean_pg_dump_output, pg_dump_schema
 from confiture.exceptions import ConfigurationError, MigrationError, ValidationError
 from confiture.url_redaction import redact_credentials_in
 
 _TIMESTAMP = "%Y%m%d%H%M%S"
 _TIMESTAMP_DIGITS = 14
-_DEFAULT_TABLE = "tb_confiture"
 #: Every file a migration version is made of.
 _SUFFIXES = (".py", ".up.sql", ".down.sql", ".verify.sql")
 #: Where the squashed files go, inside the migrations directory: discovery lists
@@ -233,9 +237,8 @@ def _ledger_problems(
         return [f"has no ledger ({table}): every squashed migration is pending"]
     rows = dict(
         conn.execute(
-            pgsql.SQL("SELECT version, applied_at FROM {} AS ledger WHERE {}").format(
-                table_identifier(table), LIVE_ROWS
-            )
+            t"SELECT version, applied_at FROM {table_identifier(table):i} AS ledger "
+            t"WHERE {LIVE_ROWS:q}"
         ).fetchall()
     )
     problems: list[str] = []
@@ -368,14 +371,13 @@ def _snapshot(
     migration_table: str | None,
 ) -> tuple[str, str]:
     """``(sql, source)``: the dumped replay, or the tree once a drift check says it is the same."""
-    table = migration_table or _DEFAULT_TABLE
+    table = migration_table or DEFAULT_TRACKING_TABLE
     scratch = ExpectedSchemaDB(
         server_url, migrations_dir=migrations_dir, migration_table=migration_table
     ).from_base_plus_migrations(replay=partial(replay_migrations, target=through))
     with scratch as conn:
         if build_sql is None:
-            own = {*SchemaDriftDetector.SYSTEM_TABLES, _bare(table), _bare(steps_table(table))}
-            raw = pg_dump_schema(scratch.url, exclude_tables=sorted(own))
+            raw = pg_dump_schema(scratch.url, exclude_tables=sorted(bookkeeping_tables(table)))
             return clean_pg_dump_output(raw, keep_extensions=True), "replay"
         replayed = live_catalog.read(
             conn,
@@ -385,7 +387,7 @@ def _snapshot(
             triggers=True,
         )
         report = SchemaDriftDetector(conn, ignore_tables=[table]).compare_schemas(
-            build_model(build_sql), replayed, objects=True
+            expected_schema(read_text(build_sql)).model, replayed
         )
     if report.drift_items:
         listed = "\n  ".join(item.message for item in report.drift_items)
@@ -395,9 +397,3 @@ def _snapshot(
             resolution_hint="Squash from the replay (drop --from-build), or cut where the tree is",
         )
     return build_sql, "build"
-
-
-def _bare(table: str) -> str:
-    """The table part of a ledger name; ``pg_dump`` matches a bare name in every schema."""
-    parts = name_parts(table)
-    return parts[-1] if parts else table

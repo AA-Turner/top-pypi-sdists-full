@@ -6,29 +6,18 @@ This module provides functionality to:
 - Generate migrations from schema diffs
 """
 
+from __future__ import annotations
+
 import logging
-from collections.abc import Callable, Iterable
+from collections import defaultdict
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, Literal
 
-import pglast
-
-from confiture.core.ddl_objects import (
-    OBJECT_KEYWORD,
-    Collapsed,
-    declared_objects,
-    declared_triggers,
-    pair_definitions,
-)
-from confiture.core.linting.duplicates import WINS_TEXT, CreateFlags, wins
-from confiture.core.linting.inventory import (
-    Inventory,
-    SchemaObject,
-    build_inventory,
-    group_definitions,
-    schema_model,
-)
-from confiture.core.linting.quoted_names import QuotedName, quoted_names, quoted_trigger_names
+from confiture.core.ddl_objects import DDLObject, pair_definitions
+from confiture.core.ddl_walk import AS_WRITTEN, ConstantSpellings, same_value
+from confiture.core.linting.inventory import signatures_match
+from confiture.core.linting.quoted_names import QuotedName
 from confiture.core.schema_change import (
     CheckConstraintAdded,
     CheckConstraintDropped,
@@ -36,6 +25,7 @@ from confiture.core.schema_change import (
     ColumnDefaultChanged,
     ColumnDropped,
     ColumnNullabilityChanged,
+    ColumnOrderChanged,
     ColumnRenamed,
     ColumnTypeChanged,
     EnumTypeAdded,
@@ -50,6 +40,8 @@ from confiture.core.schema_change import (
     ObjectAdded,
     ObjectDropped,
     ObjectReplaced,
+    PrimaryKeyAdded,
+    PrimaryKeyDropped,
     SchemaChange,
     SchemaDiff,
     SequenceAdded,
@@ -60,16 +52,31 @@ from confiture.core.schema_change import (
     UniqueConstraintAdded,
     UniqueConstraintDropped,
 )
-from confiture.core.schema_identity import DEFAULT_SCHEMA
+from confiture.core.schema_identity import DEFAULT_SCHEMA, identifier_words
 from confiture.core.schema_model import (
+    ALL_PARITY_RULES,
+    TVIEW_OPTIONS,
     Column,
+    Constraint,
+    Coverage,
     EnumType,
+    Index,
+    ObjectRef,
+    Provenance,
     RelationName,
+    Routine,
+    SchemaModel,
     Sequence,
     Table,
-    qualified_name,
+    TView,
+    parity_column,
+    parity_constraint,
+    parity_indexes,
+    parity_routine,
+    parity_tview,
+    parity_view,
 )
-from confiture.core.sql_lexer import blank_copy_blocks
+from confiture.core.schema_read import SchemaRead, read_text
 from confiture.core.sql_utils import comment_text
 from confiture.core.type_lattice import same_type
 from confiture.exceptions import DifferError
@@ -78,26 +85,162 @@ from confiture.models.warnings import BuildWarning
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class ParsedSchema:
-    """One side of a comparison: the schema model's objects, and what the parse had to say.
+@dataclass(frozen=True)
+class ComparisonPolicy:
+    """How two schemas are compared, which follows from who wrote each side.
 
-    ``tables``, ``enum_types`` and ``sequences`` are the model's, in the order the
-    tree declared them. ``objects`` are the ones compared by definition rather than
-    by structure (#288) — views, routines, triggers and the rest — keyed by
-    ``ObjectRef``; the value carries the definition, so a redefinition in place is
-    visible. ``warnings`` is what the parse has to say that is not a change: two
-    definitions of one object, resolved the way ``confiture build`` resolves it
-    (#313) — always present, empty when there is nothing to report.
+    Two trees are an author's twice: a table that vanished while a similar one
+    appeared was renamed, an unnamed constraint is what it says, an expression is
+    compared as written. A tree and a database are not: PostgreSQL rewrites what
+    it stores (:data:`~confiture.core.schema_model.PARITY_NORMALISATIONS`), so
+    every one of those rewrites is a rule of the comparison, and a database
+    renames nothing by similarity. Two databases are both PostgreSQL's spelling,
+    compared exactly.
+
+    Attributes:
+        name: Which of the four it is.
+        renames: Whether a vanished and an appeared table or column are paired
+            by similarity as one renamed.
+        rules: The parity normalisations applied to both sides before an object
+            is compared, each a key of ``PARITY_NORMALISATIONS``.
+        author: The side an author wrote when the other is a database's. Its
+            unnamed constraints and indexes are paired by what they say, whatever
+            name PostgreSQL gave each — a name of PostgreSQL's own shape is not the
+            only one it leaves: a renamed table keeps ``old_name_pkey``.
+        constants: How the database side's server spells the tree's constants
+            (:func:`~confiture.core.server_constants.server_constants`), which a
+            comparison under ``analysed_expressions`` reads both sides' through.
     """
 
-    tables: list[Table] = field(default_factory=list)
-    enum_types: list[EnumType] = field(default_factory=list)
-    sequences: list[Sequence] = field(default_factory=list)
-    objects: dict[Any, Any] = field(default_factory=dict)
+    name: Literal["author", "catalogued", "materialised", "exact"]
+    renames: bool
+    rules: frozenset[str]
+    author: Literal["old", "new"] | None = None
+    constants: ConstantSpellings = field(default=AS_WRITTEN, compare=False)
+
+    @property
+    def fidelity(self) -> Fidelity:
+        """How closely an expression is compared under this policy (:data:`Fidelity`)."""
+        return _FIDELITY[self.name]
+
+
+#: How closely a comparison reads an expression — a default, a CHECK, an index key or
+#: predicate, a view's query. ``as_written``: two trees, each as its author wrote it.
+#: ``structural``: a tree and a database; a default compares as a value, its constants
+#: spelled by the database's server, and every other expression only as existing.
+#: ``materialised``: both sides as PostgreSQL stores them — the tree built into a
+#: scratch database and read back — so every expression compares exactly.
+Fidelity = Literal["as_written", "structural", "materialised"]
+
+_FIDELITY: dict[str, Fidelity] = {
+    "author": "as_written",
+    "catalogued": "structural",
+    "materialised": "materialised",
+    "exact": "materialised",
+}
+
+
+#: Two trees: today's differ, renames detected, everything as written.
+AUTHOR = ComparisonPolicy("author", renames=True, rules=frozenset())
+#: A tree and a database, either way round: every parity rule, no fuzzy renames.
+CATALOGUED = ComparisonPolicy("catalogued", renames=False, rules=ALL_PARITY_RULES)
+#: A database and a tree built into a scratch database and read back
+#: (``schema_sources.materialised_side``): both PostgreSQL's spelling, so what it
+#: analyses — an expression, a view's query — is compared as stored. What the tree
+#: decides and the catalog cannot say is still a rule: the names PostgreSQL gave
+#: what the tree left unnamed, and a TVIEW option the tree does not pin.
+MATERIALISED = ComparisonPolicy(
+    "materialised",
+    renames=False,
+    rules=ALL_PARITY_RULES - {"analysed_expressions", "view_definitions"},
+)
+#: Two databases: both in PostgreSQL's spelling, nothing to normalise.
+EXACT = ComparisonPolicy("exact", renames=False, rules=frozenset())
+
+
+def policy_between(old: Provenance, new: Provenance) -> ComparisonPolicy:
+    """The policy two sides are compared under, from who wrote each."""
+    if old == new:
+        return AUTHOR if old == "author" else EXACT
+    return CATALOGUED
+
+
+@dataclass(frozen=True)
+class Side:
+    """One side of a comparison: its model, its objects compared by definition, and its notes.
+
+    ``model`` is what is compared structurally — tables, enum types, sequences —
+    and says who wrote it (``model.source``), which decides the policy.
+    ``objects`` are the ones compared by definition (#288) — views, routines,
+    triggers and the rest — keyed by ``ObjectRef``, each with the definition and
+    the ``CREATE`` a migration writes. ``warnings`` is what the read has to say
+    that is not a change: two definitions of one object, resolved the way
+    ``confiture build`` resolves them (#313). ``quoted`` lists every name that
+    needs quotes, which :meth:`SchemaDiffer.compare_sides` refuses.
+    """
+
+    model: SchemaModel = field(default_factory=SchemaModel)
+    objects: Mapping[ObjectRef, list[DDLObject]] = field(default_factory=dict)
     warnings: list[BuildWarning] = field(default_factory=list)
-    #: Every name the side gives that needs quotes, which :meth:`SchemaDiffer.compare` refuses.
     quoted: list[QuotedName] = field(default_factory=list)
+    constants: ConstantSpellings = AS_WRITTEN
+
+    @classmethod
+    def of(cls, read: SchemaRead, *, held: bool = False) -> Side:
+        """The side a tree is: what it writes, its objects, and what its read had to say.
+
+        *held* reads the tree as PostgreSQL holds it once applied
+        (``SchemaRead.catalogued``: a partition with its parent's columns), the
+        side a database is compared with.
+        """
+        model = read.catalogued if held else read.model
+        return cls(model, read.declared.objects, read.warnings, read.quoted)
+
+    @property
+    def tables(self) -> list[Table]:
+        """The model's tables, in the order the tree declared them."""
+        return list(self.model.tables.values())
+
+    @property
+    def enum_types(self) -> list[EnumType]:
+        """The model's enum types, in the order the tree declared them."""
+        return list(self.model.enum_types.values())
+
+    @property
+    def sequences(self) -> list[Sequence]:
+        """The model's sequences, in the order the tree declared them."""
+        return list(self.model.sequences.values())
+
+
+def stated_side(model: SchemaModel, constants: ConstantSpellings = AS_WRITTEN) -> Side:
+    """*model* as a side of the comparison: each object it holds stands for its own statement.
+
+    For a reader asking what the model says — whether an object exists, what a TVIEW
+    pins, what a routine's model holds — never a statement's text: each object is
+    given a statement that carries nothing but its key, so the side is compared and
+    never generated from. *constants* are how this side's server spells the other's
+    (``server_constants``), when it is a database.
+    """
+    objects: dict[ObjectRef, list[DDLObject]] = defaultdict(list)
+    for ref, overloads in model.routines.items():
+        objects[ref] += [DDLObject(ref, "", "", r.signature_key) for r in overloads]
+    for ref in (*model.views, *model.triggers, *model.tviews, *model.other_objects):
+        objects[ref].append(DDLObject(ref, "", ""))
+    return Side(model, objects, constants=constants)
+
+
+def slot_side(section: str, statements: Mapping[ObjectRef, list[DDLObject]]) -> Side:
+    """A side holding one slot of *section*'s objects, for a comparison of that slot alone.
+
+    Each statement's ``definition`` is the slot's text — a view's deparsed query, a
+    routine's normalised body — so two sides compared ``EXACT`` pair the objects
+    the engine's way (a routine's overloads by signature, within its bucket) and
+    call one *replaced* exactly when that text differs. What a body check asks is
+    this comparison, restricted to its slot.
+    """
+    return Side(
+        SchemaModel(coverage=Coverage.of({section: "definition"}), source="catalog"), statements
+    )
 
 
 def refuse_quoted_names(side: str, quoted: list[QuotedName]) -> None:
@@ -143,67 +286,7 @@ def _identity(schema: str | None, name: str) -> tuple[str, str]:
     return (schema or DEFAULT_SCHEMA).lower(), name
 
 
-#: The kinds this module compares structurally, as a duplicate warning names them.
-_DUPLICATE_KINDS: dict[str, str] = {"table": "Table", "type": "Type", "sequence": "Sequence"}
-
-
-def _structural(obj: SchemaObject) -> bool:
-    """A table, an enum or a sequence — what the model holds and this module compares."""
-    return obj.kind in ("table", "sequence") or (obj.kind == "type" and obj.enum_values is not None)
-
-
-def duplicate_warnings(
-    inventory: Inventory, collapsed: Iterable[Collapsed] = ()
-) -> list[BuildWarning]:
-    """Say so when one ``(schema, name)`` is defined more than once in one tree.
-
-    Tables, enum types and sequences are read from *inventory*; every object
-    compared by definition — a view, a routine, a trigger — from *collapsed*,
-    ``ddl_objects.declared_objects``' account of what it folded into one.
-
-    Two definitions of one ``(schema, name)`` collapse into one entry of the
-    model (#313). The model keeps the definition a build keeps — a later
-    ``IF NOT EXISTS`` is a no-op, a later plain ``CREATE`` fails the build at
-    that statement — and the collapse is reported either way. The verdict is ``duplicates.wins``,
-    ``build_001``'s own rule. A warning, not a failure: a duplicate is
-    ``confiture lint``'s and ``build --fail-on-duplicates``' problem, and failing
-    ``--require-migration`` for it would fail the gate for a reason it is not about.
-    """
-    warnings: list[BuildWarning] = []
-    for kind in ("table", "type", "sequence"):
-        objects = [obj for obj in inventory.objects if obj.kind == kind and _structural(obj)]
-        for group in group_definitions(objects):
-            if len(group) == 1:
-                continue
-            verdict = wins(
-                [CreateFlags(replace=obj.replace, if_not_exists=obj.if_not_exists) for obj in group]
-            )
-            first = group[0]
-            warnings.append(
-                BuildWarning.of(
-                    "DIFFER_402",
-                    kind=_DUPLICATE_KINDS[kind],
-                    identity=qualified_name(first.folded_schema, first.folded_name),
-                    count=len(group),
-                    outcome=WINS_TEXT[verdict],
-                    used="last" if verdict == "last" else "first",
-                )
-            )
-    warnings.extend(
-        BuildWarning.of(
-            "DIFFER_402",
-            kind=OBJECT_KEYWORD[one.kept.ref.kind].capitalize(),
-            identity=one.kept.ref.display,
-            count=one.count,
-            outcome=WINS_TEXT[one.verdict],
-            used="last" if one.verdict == "last" else "first",
-        )
-        for one in collapsed
-    )
-    return warnings
-
-
-def _merged_warnings(old_schema: ParsedSchema, new_schema: ParsedSchema) -> list[BuildWarning]:
+def _merged_warnings(old_schema: Side, new_schema: Side) -> list[BuildWarning]:
     """Both sides' parse warnings, each said once.
 
     A duplicate present on both sides of a diff is one duplicate, not two: it is
@@ -239,6 +322,11 @@ def _object_identity(obj: Any, fields: tuple[str, ...]) -> tuple[Any, ...]:
     """
     if obj.name:
         return (obj.name,)
+    return _content_identity(obj, fields)
+
+
+def _content_identity(obj: Any, fields: tuple[str, ...]) -> tuple[Any, ...]:
+    """What *obj* says, as :func:`_object_identity` identifies an unnamed one."""
     return (
         "",
         *(
@@ -246,6 +334,26 @@ def _object_identity(obj: Any, fields: tuple[str, ...]) -> tuple[Any, ...]:
             for value in (getattr(obj, field) for field in fields)
         ),
     )
+
+
+def _pair_by_content(
+    unnamed: dict[tuple[Any, ...], list[tuple[Any, Any]]],
+    named: dict[tuple[Any, ...], list[tuple[Any, Any]]],
+    fields: tuple[str, ...],
+) -> None:
+    """Re-key each of *named*'s objects under what it says, where *unnamed* has one more saying it.
+
+    *unnamed* is an author's side, whose unnamed objects PostgreSQL names at apply
+    time; a name only *named* holds is that name, so the two are one object.
+    """
+    for key in [key for key in named if key[0] and key not in unnamed]:
+        for entry in list(named[key]):
+            content = _content_identity(entry[1], fields)
+            if len(unnamed.get(content, [])) > len(named.get(content, [])):
+                named[key].remove(entry)
+                named[content].append(entry)
+        if not named[key]:
+            del named[key]
 
 
 def _types_differ(old: Column, new: Column) -> bool:
@@ -259,120 +367,253 @@ def _types_differ(old: Column, new: Column) -> bool:
     return not same_type(old.type_key, new.type_key)
 
 
+def _fields_differ(fields: tuple[str, ...]) -> Callable[[Any, Any], bool]:
+    """Whether two objects paired by identity differ in any of *fields*."""
+    return lambda old, new: any(getattr(old, f) != getattr(new, f) for f in fields)
+
+
+def _built_otherwise(old: Index, new: Index) -> bool:
+    """Whether one index under one name is built with another access method.
+
+    A side that does not say how an index is built says nothing about it.
+    """
+    return None not in (old.method, new.method) and old.method != new.method
+
+
+def _rebuilt(old: Index, new: Index) -> bool:
+    """Whether one index under one name indexes something else, or is built otherwise.
+
+    Its keys, uniqueness and predicate, each as the policy's rules leave it: under
+    the structural tier an expression key or a predicate is only *one exists*.
+    """
+    return _built_otherwise(old, new) or _fields_differ(("columns", "unique", "where"))(old, new)
+
+
+def _names(indexes: Iterable[Index]) -> frozenset[str]:
+    """The names *indexes* were declared with."""
+    return frozenset(index.name for index in indexes if index.name)
+
+
+def _says_otherwise(old: Constraint, new: Constraint) -> bool:
+    """Whether one key-like constraint, paired by name, says something else (#501).
+
+    Its columns; for a foreign key, the table it references, its referential
+    actions, and the referenced columns when both sides list them — ``REFERENCES
+    p`` with no list means the referenced key, which a database always spells
+    out and a tree need not; and when it is checked. A dropped or re-pointed key
+    lets rows exist that could not before.
+    """
+    return (
+        old.columns != new.columns
+        or _referenced(old.ref_table) != _referenced(new.ref_table)
+        or bool(old.ref_columns and new.ref_columns and old.ref_columns != new.ref_columns)
+        or (old.on_delete, old.on_update) != (new.on_delete, new.on_update)
+        or old.deferrable != new.deferrable
+    )
+
+
+def _referenced(relation: RelationName | None) -> tuple[str, str] | None:
+    return None if relation is None else relation.identity
+
+
+def _same_default(old: Column, new: Column, policy: ComparisonPolicy) -> bool:
+    """Whether *old* and *new* hold one default, as *policy* compares them.
+
+    PostgreSQL stores a default analysed (``'x'`` as ``'x'::text``) and spells its
+    constants its own way, so under the ``analysed_expressions`` rule a default is
+    compared as a value (``ddl_walk.same_value``), its constants spelled by the
+    database's server. A default the rules already set aside (a ``serial``'s own
+    ``nextval``) stays set aside.
+    """
+    old_seen = parity_column(old, policy.rules).default
+    new_seen = parity_column(new, policy.rules).default
+    analysed = "analysed_expressions" in policy.rules
+    return same_value(
+        old.default if analysed and old_seen is not None else old_seen,
+        new.default if analysed and new_seen is not None else new_seen,
+        slot="default",
+        types=(old.type_text or old.type_key, new.type_text or new.type_key),
+        constants=policy.constants if analysed else None,
+    )
+
+
 def _object_sort_key(ref: Any) -> tuple[str, str, str, str]:
     """A stable order for object changes: kind, then schema, then name."""
     return (ref.kind, ref.schema, ref.name, str(ref.signature))
 
 
+#: The section of the model each object kind is held in; every other kind is an
+#: ``OtherObject``.
+_SECTIONS: dict[str, str] = {
+    "function": "routines",
+    "procedure": "routines",
+    "aggregate": "routines",
+    "view": "views",
+    "matview": "views",
+    "trigger": "triggers",
+    "tview": "tviews",
+}
+
+
+def _section(kind: str) -> str:
+    return _SECTIONS.get(kind, "other_objects")
+
+
+def _held(model: SchemaModel) -> set[ObjectRef]:
+    """Every object *model* holds that is compared by definition, by its bucket."""
+    return {*model.routines, *model.views, *model.triggers, *model.tviews, *model.other_objects}
+
+
+def _routine(model: SchemaModel, ref: ObjectRef, obj: DDLObject) -> Routine | None:
+    return next(
+        (
+            r
+            for r in model.routines.get(ref, ())
+            if signatures_match(obj.signature, r.signature_key)
+        ),
+        None,
+    )
+
+
+def _redefined(
+    ref: ObjectRef,
+    before: DDLObject,
+    after: DDLObject,
+    old: SchemaModel,
+    new: SchemaModel,
+    policy: ComparisonPolicy,
+) -> bool:
+    """Whether one object, paired on both sides, is defined differently.
+
+    Two sides in one spelling compare the statements that create it. A tree and
+    a database do not: PostgreSQL writes a routine's types, a view's query and a
+    TVIEW's options its own way, so each side's model of the object is compared
+    through the policy's rules — a routine by its body, language, volatility and
+    security, never its spelling; a view by what the rules leave of it; a TVIEW by
+    the options it pins. A kind the model holds by existence alone is the same
+    object whenever both sides hold it.
+    """
+    if not policy.rules:
+        return before.definition != after.definition
+    rules = policy.rules
+    section = _section(ref.kind)
+    if section == "routines":
+        old_routine, new_routine = _routine(old, ref, before), _routine(new, ref, after)
+        if old_routine is None or new_routine is None:
+            return False
+        return parity_routine(old_routine, rules) != parity_routine(new_routine, rules)
+    if section == "views":
+        return parity_view(old.views[ref], rules) != parity_view(new.views[ref], rules)
+    if section == "tviews":
+        return _tview_redefined(old.tviews[ref], new.tviews[ref], policy)
+    if section == "other_objects" and old.coverage.shared(new.coverage, section) == "definition":
+        return before.definition != after.definition
+    return False
+
+
+def _tview_redefined(old: TView, new: TView, policy: ComparisonPolicy) -> bool:
+    """Whether one TVIEW, on both sides, is defined differently.
+
+    Against an author's side, an option that side does not pin is pg_tviews' to
+    choose, whatever the database holds (``tview_defaults``), and one it pins is
+    compared as pinned. With no author side, the rule's own reading decides.
+    """
+    if policy.author is None:
+        return parity_tview(old, policy.rules) != parity_tview(new, policy.rules)
+    pins = old if policy.author == "old" else new
+    unpinned = {key: None for key in TVIEW_OPTIONS if getattr(pins, key) is None}
+    rules = policy.rules - {"tview_defaults"}
+    return parity_tview(replace(old, **unpinned), rules) != parity_tview(
+        replace(new, **unpinned), rules
+    )
+
+
 class SchemaDiffer:
-    """Parses SQL and detects schema differences.
+    """Compares two schemas and says what changed.
 
     Example:
         >>> differ = SchemaDiffer()
-        >>> tables = differ.parse_sql("CREATE TABLE users (id INT)")
-        >>> print(tables[0].name)
-        users
+        >>> diff = differ.compare("CREATE TABLE users (id INT);", "CREATE TABLE users (id INT, n TEXT);")
+        >>> print(len(diff.changes))
+        1
     """
 
     def parse_sql(self, sql: str) -> list[Table]:
-        """Parse SQL DDL into structured Table objects (backwards-compatible shim).
-
-        Args:
-            sql: SQL DDL string containing CREATE TABLE statements
-
-        Returns:
-            List of parsed Table objects
+        """The tables *sql* declares, in declaration order.
 
         Example:
             >>> differ = SchemaDiffer()
-            >>> sql = "CREATE TABLE users (id INT PRIMARY KEY, name TEXT)"
-            >>> tables = differ.parse_sql(sql)
+            >>> tables = differ.parse_sql("CREATE TABLE users (id INT PRIMARY KEY, name TEXT)")
             >>> print(len(tables))
             1
         """
         return self.parse_schema(sql).tables
 
-    def parse_schema(self, sql: str) -> ParsedSchema:
-        """Parse SQL DDL into the schema model, plus the objects compared by definition.
+    def parse_schema(self, sql: str) -> Side:
+        """The side *sql* is: one read (``schema_read.read_text``), nothing parsed here.
 
-        One parse: ``pglast.parse_sql`` once, the statements handed
-        to the lint inventory — which reads a table whole through
-        ``ddl_walk``'s one constraint reader, folds every ``ALTER``, ``DROP``
-        and rename order-aware (#301), and keys every object by ``(schema,
-        name)`` (#313) — and to ``ddl_objects`` for the views, routines and
-        the rest. This module parses nothing itself. Non-DDL statements
-        (INSERT, COPY, GRANT, …) declare nothing and are ignored.
-
-        Args:
-            sql: SQL DDL string (may contain any SQL, including non-DDL)
-
-        Returns:
-            ParsedSchema with the model's tables, enum types and sequences
+        Non-DDL statements (INSERT, COPY, GRANT, …) declare nothing and are ignored.
 
         Raises:
-            pglast.parser.ParseError: what PostgreSQL rejects is not a schema
-                to diff; ``migrate diff`` reports it as ``DIFFER_400``.
+            SchemaError: ``DIFFER_400`` when PostgreSQL rejects a statement: what it
+                rejects is not a schema to diff.
         """
         if not sql or not sql.strip():
-            return ParsedSchema()
-
-        # Blank inline-COPY data blocks before the parser sees the text: pglast
-        # rejects them outright (#194). Blanked, not deleted: the block keeps its
-        # length and its newlines, so the `DIFFER_400` a rejected statement
-        # raises carries a position into the text the author wrote.
-        sql = blank_copy_blocks(sql)
-        raws = list(pglast.parse_sql(sql) or [])
-        inventory = build_inventory(sql, raws)
-        model = schema_model(inventory)
-        declared = declared_objects(sql, raws)
-        return ParsedSchema(
-            tables=list(model.tables.values()),
-            enum_types=list(model.enum_types.values()),
-            sequences=list(model.sequences.values()),
-            objects=declared.objects,
-            warnings=duplicate_warnings(inventory, declared.collapsed),
-            quoted=[
-                *quoted_names(inventory),
-                *quoted_trigger_names(declared_triggers(declared.objects)),
-            ],
-        )
+            return Side()
+        return Side.of(read_text(sql))
 
     def compare(self, old_sql: str, new_sql: str) -> SchemaDiff:
-        """Compare two schemas and detect changes.
-
-        Args:
-            old_sql: SQL DDL for the old schema
-            new_sql: SQL DDL for the new schema
-
-        Returns:
-            SchemaDiff object containing list of changes
+        """Compare two trees given as text.
 
         Example:
             >>> differ = SchemaDiffer()
-            >>> old = "CREATE TABLE users (id INT);"
-            >>> new = "CREATE TABLE users (id INT, name TEXT);"
-            >>> diff = differ.compare(old, new)
+            >>> diff = differ.compare("CREATE TABLE users (id INT);", "CREATE TABLE users (id INT, name TEXT);")
             >>> print(len(diff.changes))
             1
         """
-        old_schema = self.parse_schema(old_sql)
-        new_schema = self.parse_schema(new_sql)
-        refuse_quoted_names("old", old_schema.quoted)
-        refuse_quoted_names("new", new_schema.quoted)
+        return self.compare_reads(read_text(old_sql), read_text(new_sql))
 
-        changes = self._compare_tables(old_schema, new_schema)
-        changes.extend(self._compare_enum_types(old_schema.enum_types, new_schema.enum_types))
-        changes.extend(self._compare_sequences(old_schema.sequences, new_schema.sequences))
+    def compare_reads(self, old: SchemaRead, new: SchemaRead) -> SchemaDiff:
+        """:meth:`compare`, over two trees already read — each read once, by file."""
+        return self.compare_sides(Side.of(old), Side.of(new))
+
+    def compare_sides(
+        self, old: Side, new: Side, policy: ComparisonPolicy | None = None
+    ) -> SchemaDiff:
+        """What changed from *old* to *new*: the one comparison of two schemas.
+
+        Args:
+            old: The schema before.
+            new: The schema after.
+            policy: How to compare them; by default the one their models'
+                sources call for (:func:`policy_between`).
+
+        Raises:
+            DifferError: ``DIFFER_403`` when either side names an object that needs quotes.
+        """
+        refuse_quoted_names("old", old.quoted)
+        refuse_quoted_names("new", new.quoted)
+        if policy is None:
+            policy = policy_between(old.model.source, new.model.source)
+        if policy.rules and old.model.source != new.model.source:
+            policy = replace(policy, author="old" if old.model.source == "author" else "new")
+        if policy.rules:
+            policy = replace(policy, constants=policy.constants | old.constants | new.constants)
+
+        changes = self._compare_tables(old.tables, new.tables, policy)
+        changes.extend(self._compare_enum_types(old.enum_types, new.enum_types))
+        changes.extend(self._compare_sequences(old.sequences, new.sequences))
         # Objects compared by definition: views, routines and the rest (#288).
-        changes.extend(self._compare_objects(old_schema.objects, new_schema.objects))
-        return SchemaDiff(changes=changes, warnings=_merged_warnings(old_schema, new_schema))
+        objects, unwritable = self._compare_objects(old, new, policy)
+        changes.extend(objects)
+        return SchemaDiff(changes=changes, warnings=[*_merged_warnings(old, new), *unwritable])
 
     # ------------------------------------------------------------------
     # Table comparison
     # ------------------------------------------------------------------
 
     def _compare_tables(
-        self, old_schema: ParsedSchema, new_schema: ParsedSchema
+        self, old_tables: list[Table], new_tables: list[Table], policy: ComparisonPolicy
     ) -> list[SchemaChange]:
         """Added, dropped, renamed and edited tables, paired by identity.
 
@@ -385,21 +626,22 @@ class SchemaDiffer:
         wrote. Identity folds a missing schema; spelling never invents one.
         """
         changes: list[SchemaChange] = []
-        old_map = {_identity(t.schema, t.name): t for t in old_schema.tables}
-        new_map = {_identity(t.schema, t.name): t for t in new_schema.tables}
+        old_map = {_identity(t.schema, t.name): t for t in old_tables}
+        new_map = {_identity(t.schema, t.name): t for t in new_tables}
 
         old_only = set(old_map) - set(new_map)
         new_only = set(new_map) - set(old_map)
 
         # A renamed table is still compared: the rename is one change, and what
         # else the new table declares — columns, indexes, constraints — is more.
-        for old_key, new_key in self._renamed_tables(old_only, new_only).items():
+        renames = self._renamed_tables(old_only, new_only) if policy.renames else {}
+        for old_key, new_key in renames.items():
             old_table, new_table = old_map[old_key], new_map[new_key]
             changes.append(TableRenamed(old_table, new_table))
             # Compared under its new name: every change after the rename runs
             # against a table that no longer answers to the old one.
             renamed = replace(old_table, name=new_table.name, schema=new_table.schema)
-            changes.extend(self._compare_table(renamed, new_table))
+            changes.extend(self._compare_table(renamed, new_table, policy))
             old_only.discard(old_key)
             new_only.discard(new_key)
 
@@ -407,19 +649,22 @@ class SchemaDiffer:
         changes.extend(TableAdded(new_map[key]) for key in sorted(new_only))
 
         for key in sorted(set(old_map) & set(new_map)):
-            changes.extend(self._compare_table(old_map[key], new_map[key]))
+            changes.extend(self._compare_table(old_map[key], new_map[key], policy))
 
         return changes
 
-    def _compare_table(self, old_table: Table, new_table: Table) -> list[SchemaChange]:
+    def _compare_table(
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+    ) -> list[SchemaChange]:
         """What changed inside one table: columns, indexes and every constraint kind."""
         return [
-            *self._compare_table_columns(old_table, new_table),
-            *self._compare_indexes(old_table, new_table),
-            *self._compare_foreign_keys(old_table, new_table),
-            *self._compare_check_constraints(old_table, new_table),
-            *self._compare_unique_constraints(old_table, new_table),
-            *self._compare_exclusion_constraints(old_table, new_table),
+            *self._compare_table_columns(old_table, new_table, policy),
+            *self._compare_indexes(old_table, new_table, policy),
+            *self._compare_foreign_keys(old_table, new_table, policy),
+            *self._compare_check_constraints(old_table, new_table, policy),
+            *self._compare_unique_constraints(old_table, new_table, policy),
+            *self._compare_primary_keys(old_table, new_table, policy),
+            *self._compare_exclusion_constraints(old_table, new_table, policy),
         ]
 
     def _renamed_tables(
@@ -456,33 +701,58 @@ class SchemaDiffer:
     # Objects compared by definition (#288)
     # ------------------------------------------------------------------
 
-    @staticmethod
     def _compare_objects(
-        old_objects: dict[Any, Any], new_objects: dict[Any, Any]
-    ) -> list[SchemaChange]:
-        """Added, dropped and redefined objects, in a stable order.
+        self, old: Side, new: Side, policy: ComparisonPolicy
+    ) -> tuple[list[SchemaChange], list[BuildWarning]]:
+        """Added, dropped and redefined objects, in a stable order — and what cannot be written.
 
-        An object present on both sides whose canonical definition differs is a
-        ``REPLACE``: for a view or a routine that is the entire change a
-        migration has to carry, and it is invisible to a structural comparison
-        because nothing about the object's shape moved.
+        An object present on both sides whose definition differs is a ``REPLACE``:
+        for a view or a routine that is the entire change a migration has to
+        carry, and it is invisible to a structural comparison because nothing
+        about the object's shape moved. Whether it differs is *policy*'s
+        question (:func:`_redefined`).
 
         The keys are buckets, not identities, so each one's definitions are
-        paired by ``pair_definitions`` rather than assumed to be one apiece.
+        paired by ``pair_definitions`` rather than assumed to be one apiece. A
+        kind either side did not read (``Coverage``) is not compared: its
+        silence is not absence. An object a side's model holds with no statement
+        (a database reads some kinds by existence alone) is the same object as
+        the other side's, and when the other side has none, a ``DIFFER_404``
+        warning rather than a change no statement can carry.
         """
         changes: list[SchemaChange] = []
-        for ref in sorted(old_objects.keys() | new_objects.keys(), key=_object_sort_key):
-            pairs, dropped, added = pair_definitions(
-                old_objects.get(ref, []), new_objects.get(ref, [])
-            )
+        unwritable: list[BuildWarning] = []
+        old_held, new_held = _held(old.model), _held(new.model)
+        refs = old.objects.keys() | new.objects.keys() | old_held | new_held
+        for ref in sorted(refs, key=_object_sort_key):
+            if not old.model.coverage.shared(new.model.coverage, _section(ref.kind)):
+                continue
+            before, after = old.objects.get(ref, []), new.objects.get(ref, [])
+            unstated = [
+                side
+                for side, held, objs in (("old", old_held, before), ("new", new_held, after))
+                if ref in held and not objs
+            ]
+            if unstated:
+                if not (ref in old_held and ref in new_held):
+                    unwritable.append(
+                        BuildWarning.of(
+                            "DIFFER_404",
+                            kind=ref.kind.replace("_", " ").capitalize(),
+                            identity=ref.display,
+                            side=unstated[0],
+                        )
+                    )
+                continue
+            pairs, dropped, added = pair_definitions(before, after)
             changes.extend(ObjectAdded(ref, obj) for obj in added)
             changes.extend(ObjectDropped(ref, obj) for obj in dropped)
             changes.extend(
-                ObjectReplaced(ref, before, after)
-                for before, after in pairs
-                if before.definition != after.definition
+                ObjectReplaced(ref, b, a)
+                for b, a in pairs
+                if _redefined(ref, b, a, old.model, new.model, policy)
             )
-        return changes
+        return changes, unwritable
 
     # ------------------------------------------------------------------
     # Table column comparison
@@ -499,7 +769,9 @@ class SchemaDiffer:
                 renames[old_name] = best_match
         return renames
 
-    def _compare_table_columns(self, old_table: Table, new_table: Table) -> list[SchemaChange]:
+    def _compare_table_columns(
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+    ) -> list[SchemaChange]:
         """Compare columns between two versions of the same table."""
         changes: list[SchemaChange] = []
 
@@ -512,8 +784,12 @@ class SchemaDiffer:
         old_col_names = set(old_col_map.keys())
         new_col_names = set(new_col_map.keys())
 
-        renamed_columns = self._detect_column_renames(
-            sorted(old_col_names - new_col_names), sorted(new_col_names - old_col_names)
+        renamed_columns = (
+            self._detect_column_renames(
+                sorted(old_col_names - new_col_names), sorted(new_col_names - old_col_names)
+            )
+            if policy.renames
+            else {}
         )
 
         for old_name, new_name in renamed_columns.items():
@@ -536,7 +812,14 @@ class SchemaDiffer:
         for col_name in sorted(old_col_names & new_col_names):
             old_col = old_col_map[col_name]
             new_col = new_col_map[col_name]
-            changes.extend(self._compare_column_properties(table, old_col, new_col))
+            changes.extend(self._compare_column_properties(table, old_col, new_col, policy))
+
+        # Observed only where a database is a side: two trees that list a table's
+        # columns in another order have not changed it, and no statement reorders one.
+        old_order, new_order = tuple(old_col_map), tuple(new_col_map)
+        observed = policy.fidelity != "as_written"
+        if observed and set(old_order) == set(new_order) and old_order != new_order:
+            changes.append(ColumnOrderChanged(table, old_order, new_order))
 
         return changes
 
@@ -552,28 +835,31 @@ class SchemaDiffer:
         return renames
 
     def _compare_column_properties(
-        self, table: RelationName, old_col: Column, new_col: Column
+        self, table: RelationName, old_col: Column, new_col: Column, policy: ComparisonPolicy
     ) -> list[SchemaChange]:
-        """Compare properties of a column.
+        """Compare properties of a column, each as *policy*'s rules see it.
 
         *table* is the table's **spelling**, what a finding prints and what
         generated DDL alters — never an identity. The two are separate fields on
         the model for the same reason ``SchemaObject.signature`` and
-        ``signature_key`` are (#275).
+        ``signature_key`` are (#275). A change carries what each side wrote; the
+        rules decide only whether there is one.
         """
         changes: list[SchemaChange] = []
+        old_seen = parity_column(old_col, policy.rules)
+        new_seen = parity_column(new_col, policy.rules)
 
         # Type change, typmod included: a `varchar(50)` widened to `varchar(100)`
         # is a change.
-        if _types_differ(old_col, new_col):
+        if _types_differ(old_seen, new_seen):
             changes.append(ColumnTypeChanged(table, old_col, new_col))
 
-        if old_col.not_null != new_col.not_null:
+        if old_seen.not_null != new_seen.not_null:
             changes.append(
                 ColumnNullabilityChanged(table, old_col.folded, nullable=not new_col.not_null)
             )
 
-        if old_col.default != new_col.default:
+        if not _same_default(old_col, new_col, policy):
             changes.append(
                 ColumnDefaultChanged(table, old_col.folded, old_col.default, new_col.default)
             )
@@ -584,7 +870,9 @@ class SchemaDiffer:
     # Index, FK, constraint, enum, sequence comparison helpers
     # ------------------------------------------------------------------
 
-    def _compare_indexes(self, old_table: Table, new_table: Table) -> list[SchemaChange]:
+    def _compare_indexes(
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+    ) -> list[SchemaChange]:
         """Detect added / dropped indexes.
 
         The variant carries the ``Index`` itself, not its name under a key two
@@ -593,33 +881,51 @@ class SchemaDiffer:
         declared.
         """
         return self._compare_named_objects(
-            old=list(old_table.indexes),
-            new=list(new_table.indexes),
+            author=policy.author,
+            old=parity_indexes(old_table.indexes, policy.rules, _names(new_table.indexes)),
+            new=parity_indexes(new_table.indexes, policy.rules, _names(old_table.indexes)),
             added=IndexAdded,
             dropped=IndexDropped,
             table=old_table.relation,
             # The access method is part of what an index *is*: a btree and a hash
             # index on one column are two indexes.
             identity=("columns", "unique", "method"),
-            compared=("method",),
+            differs=_rebuilt,
         )
 
-    def _compare_foreign_keys(self, old_table: Table, new_table: Table) -> list[SchemaChange]:
+    @staticmethod
+    def _constraints(table: Table, kind: str, policy: ComparisonPolicy) -> list[tuple[Any, Any]]:
+        """*table*'s constraints of *kind*, each paired with how *policy*'s rules see it."""
+        return [
+            (constraint, parity_constraint(table.name, constraint, policy.rules))
+            for constraint in table.constraints_of(kind)
+        ]
+
+    def _compare_foreign_keys(
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+    ) -> list[SchemaChange]:
         """Detect added / dropped foreign keys."""
         return self._compare_named_objects(
-            old=list(old_table.constraints_of("foreign_key")),
-            new=list(new_table.constraints_of("foreign_key")),
+            author=policy.author,
+            old=self._constraints(old_table, "foreign_key", policy),
+            new=self._constraints(new_table, "foreign_key", policy),
             added=ForeignKeyAdded,
             dropped=ForeignKeyDropped,
             table=old_table.relation,
-            identity=("columns", "ref_table", "ref_columns"),
+            # Not the referenced columns: `REFERENCES p` means p's key, which a
+            # database always spells out and a tree need not (`_says_otherwise`).
+            identity=("columns", "ref_table"),
+            differs=_says_otherwise,
         )
 
-    def _compare_check_constraints(self, old_table: Table, new_table: Table) -> list[SchemaChange]:
+    def _compare_check_constraints(
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+    ) -> list[SchemaChange]:
         """Detect added / dropped check constraints."""
         return self._compare_named_objects(
-            old=list(old_table.constraints_of("check")),
-            new=list(new_table.constraints_of("check")),
+            author=policy.author,
+            old=self._constraints(old_table, "check", policy),
+            new=self._constraints(new_table, "check", policy),
             added=CheckConstraintAdded,
             dropped=CheckConstraintDropped,
             table=old_table.relation,
@@ -631,22 +937,41 @@ class SchemaDiffer:
             # other is the same constraint spelled twice, and telling that apart
             # means resolving the parent's primary key — so reporting it would
             # generate a DROP CONSTRAINT for a constraint that did not change.
-            compared=("expression",),
+            differs=_fields_differ(("expression",)),
         )
 
-    def _compare_unique_constraints(self, old_table: Table, new_table: Table) -> list[SchemaChange]:
+    def _compare_unique_constraints(
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+    ) -> list[SchemaChange]:
         """Detect added / dropped unique constraints."""
         return self._compare_named_objects(
-            old=list(old_table.constraints_of("unique")),
-            new=list(new_table.constraints_of("unique")),
+            author=policy.author,
+            old=self._constraints(old_table, "unique", policy),
+            new=self._constraints(new_table, "unique", policy),
             added=UniqueConstraintAdded,
             dropped=UniqueConstraintDropped,
             table=old_table.relation,
             identity=("columns",),
+            differs=_says_otherwise,
+        )
+
+    def _compare_primary_keys(
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
+    ) -> list[SchemaChange]:
+        """Detect an added, dropped or re-keyed primary key."""
+        return self._compare_named_objects(
+            author=policy.author,
+            old=self._constraints(old_table, "primary_key", policy),
+            new=self._constraints(new_table, "primary_key", policy),
+            added=PrimaryKeyAdded,
+            dropped=PrimaryKeyDropped,
+            table=old_table.relation,
+            identity=("columns",),
+            differs=_says_otherwise,
         )
 
     def _compare_exclusion_constraints(
-        self, old_table: Table, new_table: Table
+        self, old_table: Table, new_table: Table, policy: ComparisonPolicy
     ) -> list[SchemaChange]:
         """Detect added, dropped and changed EXCLUDE constraints.
 
@@ -656,13 +981,14 @@ class SchemaDiffer:
         """
         parts = ("columns", "operators", "method", "where", "key_options")
         return self._compare_named_objects(
-            old=list(old_table.constraints_of("exclusion")),
-            new=list(new_table.constraints_of("exclusion")),
+            author=policy.author,
+            old=self._constraints(old_table, "exclusion", policy),
+            new=self._constraints(new_table, "exclusion", policy),
             added=ExclusionConstraintAdded,
             dropped=ExclusionConstraintDropped,
             table=old_table.relation,
             identity=parts,
-            compared=parts,
+            differs=_fields_differ(parts),
         )
 
     def _compare_enum_types(
@@ -709,41 +1035,64 @@ class SchemaDiffer:
     def _compare_named_objects(
         self,
         *,
-        old: list[Any],
-        new: list[Any],
+        old: list[tuple[Any, Any]],
+        new: list[tuple[Any, Any]],
         added: Callable[[RelationName, Any], SchemaChange],
         dropped: Callable[[RelationName, Any], SchemaChange],
         table: RelationName,
         identity: tuple[str, ...],
-        compared: tuple[str, ...] = (),
+        differs: Callable[[Any, Any], bool] | None = None,
+        author: Literal["old", "new"] | None = None,
     ) -> list[SchemaChange]:
         """Add/drop (and, where asked, replace) comparison for a table's own objects.
 
+        *old* and *new* pair each object with how the policy's rules see it: the
+        rules decide identity and change, the change carries what the side wrote.
         *identity* names the fields that tell two **unnamed** objects apart —
-        see :func:`_object_identity`. *compared* names the fields that, differing
-        under one name, make the object a change rather than a constant; a kind
-        that passes none is compared by add and drop only.
+        see :func:`_object_identity`. *differs* says whether two objects paired
+        under one identity are a change rather than a constant; a kind that
+        passes none is compared by add and drop only.
+
+        Two unnamed objects can say the same thing — under the catalogued policy
+        every CHECK says ``<expression>`` — so each identity holds a list, paired
+        in order: one more on a side is one added or dropped, never one collapsed
+        into another. An *author* side's unnamed object is paired by what it
+        says with the other side's under any name that side alone holds.
 
         Emitted in a stable order, and a changed object's drop immediately
         precedes its add: PostgreSQL has no ``ALTER CONSTRAINT``, so replacing one
         *is* the pair, and the pair is only valid in that order.
         """
         changes: list[SchemaChange] = []
-        old_map = {_object_identity(obj, identity): obj for obj in old}
-        new_map = {_object_identity(obj, identity): obj for obj in new}
+        old_map: dict[tuple[Any, ...], list[tuple[Any, Any]]] = defaultdict(list)
+        new_map: dict[tuple[Any, ...], list[tuple[Any, Any]]] = defaultdict(list)
+        for found, pairs in ((old, old_map), (new, new_map)):
+            for obj, seen in found:
+                pairs[_object_identity(seen, identity)].append((obj, seen))
+        if author is not None:
+            _pair_by_content(
+                *((old_map, new_map) if author == "old" else (new_map, old_map)), identity
+            )
+        keys = sorted(old_map.keys() | new_map.keys(), key=str)
 
         changes.extend(
-            added(table, new_map[key]) for key in sorted(set(new_map) - set(old_map), key=str)
+            added(table, obj)
+            for key in keys
+            for obj, _ in new_map.get(key, [])[len(old_map.get(key, [])) :]
         )
         changes.extend(
-            dropped(table, old_map[key]) for key in sorted(set(old_map) - set(new_map), key=str)
+            dropped(table, obj)
+            for key in keys
+            for obj, _ in old_map.get(key, [])[len(new_map.get(key, [])) :]
         )
 
-        for key in sorted(set(old_map) & set(new_map), key=str):
-            before, after = old_map[key], new_map[key]
-            if any(getattr(before, field) != getattr(after, field) for field in compared):
-                changes.append(dropped(table, before))
-                changes.append(added(table, after))
+        for key in keys:
+            for (before, before_seen), (after, after_seen) in zip(
+                old_map.get(key, []), new_map.get(key, []), strict=False
+            ):
+                if differs is not None and differs(before_seen, after_seen):
+                    changes.append(dropped(table, before))
+                    changes.append(added(table, after))
 
         return changes
 
@@ -781,8 +1130,8 @@ class SchemaDiffer:
         if name1 == name2:
             return 1.0
 
-        name1_parts = name1.split("_")
-        name2_parts = name2.split("_")
+        name1_parts = list(identifier_words(name1))
+        name2_parts = list(identifier_words(name2))
 
         if len(name1_parts) > 1 or len(name2_parts) > 1:
             if name1_parts[-1] == name2_parts[-1]:

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from string.templatelib import Template
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -44,6 +45,7 @@ from confiture.core.ledger import (
 )
 from confiture.exceptions import SQLError
 from confiture.models.migration import Migration
+from confiture.sql_text import rendered
 
 logger = logging.getLogger(__name__)
 
@@ -106,37 +108,22 @@ class MigrationEngine:
         """Return a properly quoted SQL identifier for the tracking table."""
         return table_identifier(self.migration_table)
 
-    def _execute_sql(
-        self,
-        query: str | pgsql.Composable,
-        params: tuple[str, ...] | None = None,
-    ) -> None:
+    def _execute_sql(self, query: str | Template) -> None:
         """Execute SQL with detailed error reporting.
 
         Args:
-            sql: SQL statement to execute
-            params: Optional query parameters
+            query: The statement; a template carries its own values.
 
         Raises:
             SQLError: If SQL execution fails with detailed context
         """
         try:
             with self.connection.cursor() as cursor:
-                if params:
-                    cursor.execute(query, params)
-                else:
-                    cursor.execute(query)
+                cursor.execute(query)
         except psycopg.Error as e:
-            if isinstance(query, pgsql.Composable):
-                try:
-                    sql_text = query.as_string(self.connection)
-                except Exception:  # Reason: psycopg's as_string needs a live connection for some adapters; fall back to the unbound rendering
-                    sql_text = query.as_string(None)
-            else:
-                sql_text = str(query)
             raise SQLError(
-                sql_text,
-                params,
+                rendered(query, self.connection),
+                None,
                 e,
                 resolution_hint="Check the SQL syntax and ensure the target database objects exist",
             ) from e

@@ -91,6 +91,45 @@ def test_tucker_to_tensor():
     assert_array_equal(true_res, res)
 
 
+def test_tucker_to_tensor_with_partial_modes():
+    """Test for tucker_to_tensor with partial modes"""
+    X = tl.tensor(
+        np.array(
+            [
+                [[1.0, 13], [4, 16], [7, 19], [10, 22]],
+                [[2, 14], [5, 17], [8, 20], [11, 23]],
+                [[3, 15], [6, 18], [9, 21], [12, 24]],
+            ]
+        )
+    )
+    ranks = [3, 4]
+    U = [
+        tl.tensor(np.arange(R * s, dtype=float).reshape((R, s)))
+        for (R, s) in zip(ranks, tl.shape(X)[1:])
+    ]
+    true_res = np.array(
+        [
+            [
+                [120.0, 456.0, 792.0, 1128.0],
+                [400.0, 1472.0, 2544.0, 3616.0],
+                [680.0, 2488.0, 4296.0, 6104.0],
+            ],
+            [
+                [126.0, 486.0, 846.0, 1206.0],
+                [422.0, 1582.0, 2742.0, 3902.0],
+                [718.0, 2678.0, 4638.0, 6598.0],
+            ],
+            [
+                [132.0, 516.0, 900.0, 1284.0],
+                [444.0, 1692.0, 2940.0, 4188.0],
+                [756.0, 2868.0, 4980.0, 7092.0],
+            ],
+        ]
+    )
+    res = tucker_to_tensor((X, U), modes=[1, 2])
+    assert_array_equal(true_res, res)
+
+
 def test_tucker_to_unfolded():
     """Test for tucker_to_unfolded
 
@@ -187,7 +226,10 @@ def test_validate_tucker_rank():
     """Test validate_tucker_rank with random sizes"""
     tol = 0.01
 
-    tensor_shape = tuple(np.random.randint(1, 100, size=5))
+    # Dims start at 2: a mode of size 1 is a degenerate edge case where the
+    # rank-1 rounding solve can push `c` slightly above 1, making the floor
+    # rounding overshoot n_param_tensor by well over 1% and flaking this test.
+    tensor_shape = tuple(np.random.randint(2, 100, size=5))
     n_param_tensor = np.prod(tensor_shape)
 
     # Rounding = floor
@@ -201,10 +243,19 @@ def test_validate_tucker_rank():
     assert_(n_param >= n_param_tensor * (1 - tol))
 
     # With fixed modes
+    # Note: the free-mode sizes are drawn large enough that `floor(0.5 * s)`
+    # rounds off a negligible fraction of each mode, so the compounded
+    # rounding error across the free modes stays within `tol` of the expected
+    # halving. Small free-mode sizes (e.g. single digits) make this assertion
+    # flaky, since floor-rounding a handful of them can shave well over 1%
+    # off the product of ranks. The fixed-mode sizes are kept small since
+    # their rank equals their (squared) shape exactly, contributing no
+    # rounding error, and this avoids integer overflow in `_tucker_n_param`.
     fixed_modes = [1, 4]
+    fixed_sizes = np.random.randint(2, 10, size=5)
+    free_sizes = np.random.randint(2000, 3000, size=5)
     tensor_shape = [
-        s**2 if i in fixed_modes else s
-        for (i, s) in enumerate(np.random.randint(2, 10, size=5))
+        fixed_sizes[i] ** 2 if i in fixed_modes else free_sizes[i] for i in range(5)
     ]
     n_param_tensor = np.prod(tensor_shape)
     # Floor

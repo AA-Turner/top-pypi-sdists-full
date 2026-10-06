@@ -151,6 +151,11 @@ def cap_json_list(rows: list, *, max_chars: int) -> tuple[list, ListCapInfo]:
     )
 
 
+#: Opens the notice of a STRUCTURAL cut — whole items/values dropped, kept
+#: JSON valid. The relevance gate reads it to word its own note truthfully.
+STRUCTURAL_NOTICE_HEAD = "⚠️ TOOL RESULT SHORTENED BY THE PLATFORM SIZE GATE"
+
+
 def truncate_with_notice(
     content: str,
     *,
@@ -167,6 +172,27 @@ def truncate_with_notice(
     retrieve the rest via the ``fetch_tool_result`` tool (a deliberate, args-driven
     fetch — the good agent is never punished, it just asks for what it wants).
     """
+    structural = truncate_json_structurally(content, limit=limit)
+    if structural is not None:
+        text, cuts, offset, standard = structural
+        cut_lines = "; ".join(cuts)
+        if offset is not None:
+            where = f"offset={offset} (where the first dropped content starts in the full text)"
+        elif not standard:
+            where = (
+                "offset=0 (the position of the dropped content in the full text is unknown — "
+                "it is not laid out the way it is shown here, so read from the start)"
+            )
+        else:
+            where = "offset=0 (the position of the dropped content is unknown)"
+        return text + (
+            "\n\n[" + STRUCTURAL_NOTICE_HEAD
+            + (f" — tool {tool_name!r}" if tool_name else "")
+            + f". The JSON above is complete and valid, but not everything: {cut_lines}. "
+            f"The full result ({total_chars:,} characters) is cached: to read the rest, "
+            f'call the `fetch_tool_result` tool with call_id="{call_id}", {where}, and '
+            "max_chars=<how many characters you want>. Request only what you need.]"
+        )
     head = content[: max(0, limit)]
     notice = (
         "\n\n[⚠️ TOOL RESULT TRUNCATED BY THE PLATFORM SIZE GATE"
@@ -177,3 +203,180 @@ def truncate_with_notice(
         f"you want>. Request only what you actually need.]"
     )
     return head + notice
+
+
+_DUMPS_KW: dict = {"ensure_ascii": False}
+_MIN_STRING_KEEP = 200
+_SENTINEL = "\u0000matrx-cut\u0000"
+
+
+def _dumps(value: object) -> str:
+    return json.dumps(value, **_DUMPS_KW)
+
+
+def _path_label(path: tuple) -> str:
+    label = ""
+    for part in path:
+        label += f"[{part}]" if isinstance(part, int) else (f".{part}" if label else str(part))
+    return label or "(top level)"
+
+
+def _get(root: object, path: tuple) -> object:
+    node = root
+    for part in path:
+        node = node[part]  # type: ignore[index]
+    return node
+
+
+def _set(root: object, path: tuple, value: object) -> object:
+    if not path:
+        return value
+    _get(root, path[:-1])[path[-1]] = value  # type: ignore[index]
+    return root
+
+
+def _walk(node: object, path: tuple = ()):
+    yield path, node
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _walk(v, (*path, k))
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            yield from _walk(v, (*path, i))
+
+
+def _top_lists(node: object, path: tuple = ()):
+    """Non-empty lists with no list above them — the rows a result is made of."""
+    if isinstance(node, list):
+        if node:
+            yield path, node
+        return
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield from _top_lists(v, (*path, k))
+
+
+def _offset_of_cut(content: str, original: object, path: tuple, keep: int) -> int | None:
+    """Where, in the ORIGINAL text, the first content dropped at ``path`` starts."""
+    probe = json.loads(content)
+    node = _get(probe, path)
+    if isinstance(node, list):
+        probe = _set(probe, path, [*node[:keep], _SENTINEL])
+        needle = _dumps(_SENTINEL)
+    else:
+        probe = _set(probe, path, f"{node[:keep]}{_SENTINEL}")
+        needle = _dumps(_SENTINEL)[1:-1]
+    at = _dumps(probe).find(needle)
+    return at if at >= 0 else None
+
+
+def truncate_json_structurally(
+    content: str, *, limit: int
+) -> tuple[str, list[str], int | None, bool] | None:
+    """Shorten a JSON result to ``limit`` characters WITHOUT breaking it.
+
+    A positional cut hands the model half an object and an unterminated string.
+    Here the result's row lists (lists with no list above them, each at least
+    5% of the text) give up trailing items IN PROPORTION — one shared fraction,
+    so equal siblings keep equal shares. When emptying them all still would not
+    fit, the lists are left alone and the longest string values are shortened
+    instead, with an explicit marker inside the value.
+
+    Returns ``(json_text, cuts, offset, standard)``: ``cuts`` names each cut and
+    how much was dropped; ``offset`` is where the earliest dropped content starts
+    in the ORIGINAL text (what ``fetch_tool_result`` pages through); ``standard``
+    is False when the original was not serialized the standard way, in which
+    case ``offset`` is None and unknown. Returns None for non-JSON content or
+    when the result cannot be brought under the limit.
+    """
+    try:
+        original = json.loads(content)
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(original, dict | list):
+        return None
+    standard = _dumps(original) == content
+    work = json.loads(content)
+    total = len(_dumps(work))
+    if total <= limit:
+        return None
+    cuts: list[str] = []
+    cut_points: list[tuple[tuple, int]] = []
+
+    lists = [(p, n) for p, n in _top_lists(work) if len(_dumps(n)) >= total * 0.05]
+
+    def with_fraction(frac: float) -> object:
+        trial = json.loads(content)
+        for path, items in lists:
+            trial = _set(trial, path, items[: int(len(items) * frac)])
+        return trial
+
+    if lists and len(_dumps(with_fraction(0.0))) <= limit:
+        lo, hi = 0.0, 1.0
+        for _ in range(30):
+            mid = (lo + hi) / 2
+            if len(_dumps(with_fraction(mid))) <= limit:
+                lo = mid
+            else:
+                hi = mid
+        work = with_fraction(lo)
+        for path, items in lists:
+            keep = int(len(items) * lo)
+            if keep < len(items):
+                cuts.append(
+                    f"{_path_label(path)} shows {keep} of {len(items)} items "
+                    f"({len(items) - keep} more not shown)"
+                )
+                cut_points.append((path, keep))
+    else:
+        for _ in range(64):
+            total = len(_dumps(work))
+            if total <= limit:
+                break
+            strings = [
+                (len(node), path)
+                for path, node in _walk(work)
+                if isinstance(node, str) and len(node) > _MIN_STRING_KEEP and path
+                and path not in {c[0] for c in cut_points}
+            ]
+            if not strings:
+                return None
+            size, path = max(strings, key=lambda t: t[0])
+            keep = max(_MIN_STRING_KEEP, size - (total - limit) - 80)
+            text = _get(work, path)
+            work = _set(work, path, f"{text[:keep]}… [{size - keep:,} more characters not shown]")
+            cuts.append(f"{_path_label(path)} shows {keep:,} of {size:,} characters")
+            cut_points.append((path, keep))
+        else:
+            return None
+    if len(_dumps(work)) > limit:
+        return None
+    offset: int | None = None
+    if standard:
+        found = [o for p, k in cut_points if (o := _offset_of_cut(content, original, p, k)) is not None]
+        offset = min(found) if found else None
+    return _dumps(work), cuts, offset, standard
+
+
+def _path_exists(root: object, path: tuple) -> bool:
+    try:
+        _get(root, path)
+    except (KeyError, IndexError, TypeError):
+        return False
+    return True
+
+
+def without_fetch_pointer(content: str, *, tool_name: str) -> str:
+    """Replace every size-gate instruction to use ``fetch_tool_result`` with a step
+    the model can take when that tool cannot be offered in this run."""
+    import re
+
+    instead = (
+        f"call `{tool_name}` again asking for less at a time (a smaller limit, the next "
+        "page or offset, or a narrower filter) — `fetch_tool_result` is not available "
+        "in this run"
+    )
+    content = re.sub(r"call the `fetch_tool_result` tool[^\]]*", instead, content)
+    return content.replace(
+        "Use `fetch_tool_result` to read further.", f"To see more, {instead}."
+    )

@@ -1,6 +1,7 @@
 import pytest
 
 import tensorly as tl
+import numpy as np
 from ...random import random_parafac2
 from ...testing import (
     assert_,
@@ -13,6 +14,7 @@ from .._parafac2 import (
     parafac2,
     initialize_decomposition,
     _BroThesisLineSearch,
+    _update_imputed,
 )
 from ...parafac2_tensor import Parafac2Tensor, parafac2_to_tensor, parafac2_to_slices
 from ...metrics.factors import congruence_coefficient
@@ -423,14 +425,77 @@ def test_parafac2_init_error():
             tensor, rank, init=("another", "bogus", "init", "type")
         )
 
+
+def test_parafac2_init_svd_warns_and_is_reproducible_for_high_rank():
+    rng = tl.check_random_state(1234)
     rank = 4
+
     random_parafac2_tensor = random_parafac2(
         shapes=[(15, 3)] * 25, rank=rank, random_state=rng
     )
     tensor = parafac2_to_tensor(random_parafac2_tensor)
 
-    with pytest.raises(Exception):
-        _ = initialize_decomposition(tensor, rank, init="svd")
+    with pytest.warns(UserWarning):
+        init_1 = initialize_decomposition(tensor, rank, init="svd", random_state=123)
+    with pytest.warns(UserWarning):
+        init_2 = initialize_decomposition(tensor, rank, init="svd", random_state=123)
+
+    assert init_1.shape == random_parafac2_tensor.shape
+    assert_array_almost_equal(init_1.factors[0], init_2.factors[0])
+    assert_array_almost_equal(init_1.factors[1], init_2.factors[1])
+    assert_array_almost_equal(init_1.factors[2], init_2.factors[2])
+
+    rank_equal = 3
+    random_parafac2_tensor_equal = random_parafac2(
+        shapes=[(15, 3)] * 25, rank=rank_equal, random_state=rng
+    )
+    tensor_equal = parafac2_to_tensor(random_parafac2_tensor_equal)
+    with pytest.warns(UserWarning):
+        initialize_decomposition(tensor_equal, rank_equal, init="svd", random_state=123)
+
+
+@pytest.mark.parametrize("init", ["random", "svd"])
+def test_parafac2_slice_with_fewer_rows_than_rank(init):
+    """Slices may have fewer rows than the rank (only columns must exceed it)."""
+    rng = tl.check_random_state(1234)
+    rank = 4
+    slices = [tl.tensor(rng.random_sample((n, 6))) for n in (10, 2, 12)]
+
+    decomposition = parafac2(slices, rank, n_iter_max=5, init=init, random_state=0)
+
+    for projection, n in zip(decomposition.projections, (10, 2, 12)):
+        assert tl.shape(projection) == (n, rank)
+
+    # The short slice has orthonormal rows, as orthonormal columns are impossible
+    short = decomposition.projections[1]
+    assert_array_almost_equal(short @ tl.transpose(short), tl.eye(2))
+
+
+@pytest.mark.parametrize("linesearch", [False, True])
+def test_parafac2_randomized_svd_is_reproducible(linesearch):
+    """random_state must reach every SVD call, not only the initialization."""
+    rng = tl.check_random_state(1234)
+    rank = 3
+    slices = parafac2_to_slices(
+        random_parafac2(shapes=[(15, 8)] * 6, rank=rank, random_state=rng)
+    )
+    slices = [s + 0.1 * tl.tensor(rng.random_sample(tl.shape(s))) for s in slices]
+
+    kwargs = dict(
+        n_iter_max=10,
+        init="svd",
+        svd="randomized_svd",
+        linesearch=linesearch,
+        random_state=42,
+        tol=1e-100,
+    )
+    first = parafac2(slices, rank, **kwargs)
+    second = parafac2(slices, rank, **kwargs)
+
+    for f_1, f_2 in zip(first.factors, second.factors):
+        assert_array_almost_equal(f_1, f_2)
+    for p_1, p_2 in zip(first.projections, second.projections):
+        assert_array_almost_equal(p_1, p_2)
 
 
 def test_parafac2_to_tensor():
@@ -451,3 +516,122 @@ def test_parafac2_to_tensor():
         Bi = tl.dot(projections[i], factors[1])
         manual_tensor = tl.einsum("r,jr,kr", factors[0][i], Bi, factors[2])
         assert_(tl.max(tl.abs(constructed_tensor[i, :, :] - manual_tensor)) < 1e-6)
+
+
+def test_update_imputed():
+
+    rng = tl.check_random_state(1234)
+
+    random_parafac2_tensor = random_parafac2(
+        shapes=[(15, 30) for _ in range(25)],
+        rank=3,
+        random_state=rng,
+    )
+
+    # Check that _update_imputed works correctly when imputing values according to the reconstructed tensor,
+    # i.e. mode='factors'
+
+    slices = parafac2_to_slices(random_parafac2_tensor)
+    slices_masks = [
+        tl.tensor(rng.binomial(1, 0.25, size=tl.shape(slice)), dtype=tl.float64)
+        for slice in slices
+    ]
+
+    imputed_tensor = _update_imputed(
+        tensor_slices=slices,
+        mask=slices_masks,
+        decomposition=random_parafac2_tensor,
+        method="factors",
+    )
+
+    assert_allclose(imputed_tensor, slices)
+
+    # Check that _update_imputed works correctly when imputing values according to nanmean of mode-2 slices
+
+    slices[slices_masks == 0] == tl.nan
+    slices = list(slices)
+
+    for i in range(len(slices)):
+        slices[i] = tl.where(
+            tl.tensor(slices_masks[i] == 0),
+            tl.tensor(np.nanmean(slices[i])),
+            tl.tensor(slices[i]),
+        )
+
+    imputed_tensor = _update_imputed(
+        tensor_slices=slices,
+        mask=slices_masks,
+        decomposition=random_parafac2_tensor,
+        method="mode-2",
+    )
+
+    assert_allclose(imputed_tensor, slices)
+
+
+@pytest.mark.parametrize("linesearch", [False, True])
+def test_parafac2_em(linesearch):
+    rng = tl.check_random_state(1234)
+    rank = 3
+
+    # Create a random tensor
+
+    random_parafac2_tensor = random_parafac2(
+        shapes=[(15 + rng.randint(5), 30) for _ in range(25)],
+        rank=rank,
+        random_state=rng,
+    )
+
+    random_parafac2_tensor.factors[0] = random_parafac2_tensor.factors[0] + 0.01
+
+    slices = parafac2_to_slices(random_parafac2_tensor)
+
+    # Form the full data and a mask with ~10% missing values
+
+    slices_masks = [
+        tl.tensor(rng.binomial(1, 0.9, size=tl.shape(slice)), dtype=tl.float64)
+        for slice in slices
+    ]
+
+    # apply the mask, setting missing values to zero
+
+    slices = [
+        tl.where(slice_mask == 0.0, 0.0, slice)
+        for slice, slice_mask in zip(slices, slices_masks)
+    ]
+
+    # apply parafac2
+
+    # 100 already reaches >0.9999 congruence on both factors (verified against
+    # the >0.98 assertions below) on backends that early-stop; on backends
+    # with lower numerical precision (e.g. jax/tensorflow) that never trigger
+    # the default tol and always run to n_iter_max, 1000 was 10x more than
+    # needed.
+    rec = parafac2(
+        slices,
+        rank,
+        random_state=rng,
+        n_iter_max=100,
+        linesearch=linesearch,
+        mask=slices_masks,
+    )
+
+    # assert FMS > 0.98
+    A_sign = tl.sign(random_parafac2_tensor.factors[0])
+    rec_A_sign = tl.sign(rec.factors[0])
+    A_corr = congruence_coefficient(
+        A_sign * random_parafac2_tensor.factors[0], rec_A_sign * rec.factors[0]
+    )[0]
+    assert_(A_corr > 0.98)
+
+    C_corr = congruence_coefficient(random_parafac2_tensor.factors[2], rec.factors[2])[
+        0
+    ]
+    assert_(C_corr > 0.98)
+
+    for i, (true_proj, rec_proj) in enumerate(
+        zip(random_parafac2_tensor.projections, rec.projections)
+    ):
+        true_Bi = tl.dot(true_proj, random_parafac2_tensor.factors[1]) * A_sign[i]
+        rec_Bi = tl.dot(rec_proj, rec.factors[1]) * rec_A_sign[i]
+        Bi_corr = congruence_coefficient(true_Bi, rec_Bi)[0]
+        assert_(Bi_corr > 0.98)

@@ -82,6 +82,7 @@ pub mod launch_scratch_liveness;
 pub mod machine_hood;
 pub mod machine_setup;
 pub mod macro_catalog;
+pub mod macro_input_types;
 mod macro_text_block;
 pub mod managed_origin;
 pub mod managed_tmp;
@@ -91,6 +92,7 @@ pub mod memory_history;
 pub mod migration;
 pub mod model_completion;
 pub mod model_route;
+pub mod model_validity;
 pub mod note_attachment;
 pub mod notifications;
 pub mod parser;
@@ -748,8 +750,10 @@ pub use disk_pressure::{
 pub use editor::{
     analyze_artifact_refs as editor_analyze_artifact_refs,
     analyze_document as editor_analyze_document,
+    analyze_document_with_snapshot as editor_analyze_document_with_snapshot,
     apply_vcs_ref_selection as editor_apply_vcs_ref_selection,
     apply_vcs_repo_selection as editor_apply_vcs_repo_selection,
+    argument_diagnostics_with_snapshot as editor_argument_diagnostics_with_snapshot,
     assist_entries_from_catalog as editor_assist_entries_from_catalog,
     build_agent_completion_candidates as editor_build_agent_completion_candidates,
     build_artifact_ref_kind_completion_candidates as editor_build_artifact_ref_kind_completion_candidates,
@@ -807,6 +811,7 @@ pub use editor::{
     fuzzy_match as editor_fuzzy_match,
     hover_at_position as editor_hover_at_position,
     hover_at_position_with_flags as editor_hover_at_position_with_flags,
+    hover_at_position_with_snapshot as editor_hover_at_position_with_snapshot,
     is_path_like_token as editor_is_path_like_token,
     is_slash_skill_like_token as editor_is_slash_skill_like_token,
     is_snippet_trigger_token as editor_is_snippet_trigger_token,
@@ -820,8 +825,8 @@ pub use editor::{
     placeholder_input_names as editor_placeholder_input_names,
     plan_argument_colon_to_parentheses_edit as editor_plan_argument_colon_to_parentheses_edit,
     plan_argument_double_colon_to_parentheses_edit as editor_plan_argument_double_colon_to_parentheses_edit,
+    plan_macro_completion_spacer_to_parentheses_edit as editor_plan_macro_completion_spacer_to_parentheses_edit,
     plan_model_alias_shortcut_edit as editor_plan_model_alias_shortcut_edit,
-    plan_xprompt_completion_spacer_to_parentheses_edit as editor_plan_xprompt_completion_spacer_to_parentheses_edit,
     queue_directive_diagnostics as editor_queue_directive_diagnostics,
     rank_and_filter_bead_entries as editor_rank_and_filter_bead_entries,
     raw_placeholder_fields as editor_raw_placeholder_fields,
@@ -843,27 +848,28 @@ pub use editor::{
     DirectiveContractEntry, DirectiveFinalizerEntry, DirectiveMachineEntry,
     DirectiveMetadata, DirectiveModelAliasKey, DirectiveModelEntry,
     DirectiveSnippetRecipeContract, DirectiveSyntaxForm, DirectiveValueRole,
-    DocumentSnapshot, EditorDiagnostic, EditorPosition, EditorRange,
-    EditorTextEdit, FinalizerCatalogRequest, FinalizerCatalogResponse,
-    FrontmatterFieldKind, FrontmatterFieldSchema, FrontmatterInputType,
-    FuzzyMatch, HoverPayload, ModelAliasShortcutContextWire,
+    DocumentSnapshot, EditorDiagnostic, EditorDiagnosticData,
+    EditorDiagnosticSuggestion, EditorPosition, EditorRange, EditorTextEdit,
+    FinalizerCatalogRequest, FinalizerCatalogResponse, FrontmatterFieldKind,
+    FrontmatterFieldSchema, FrontmatterInputType, FuzzyMatch, HoverPayload,
+    MacroCompletionSpacerWire, ModelAliasShortcutContextWire,
     ModelAliasShortcutEditWire, ModelShortcutContextWire,
     ModelShortcutEditWire, ModelShortcutKind, PlaceholderCandidate,
     PlaceholderCandidateSource, PlaceholderCompletion, PlaceholderContext,
     PlaceholderSpan, RawPlaceholderField, TokenInfo, VcsNamespaceEntry,
     VcsProjectEntry, VcsRefTrigger, VcsRepoCatalogRequest,
     VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger,
-    XpromptCompletionSpacerWire, AGENT_CATALOG_SCHEMA_VERSION,
-    AT_REFERENCE_MAX_GROUP_ROWS, BEAD_COMPLETION_LIMIT,
-    DIRECTIVES as EDITOR_DIRECTIVES, EDITOR_WIRE_SCHEMA_VERSION,
-    FINALIZER_CATALOG_SCHEMA_VERSION, MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
+    AGENT_CATALOG_SCHEMA_VERSION, AT_REFERENCE_MAX_GROUP_ROWS,
+    BEAD_COMPLETION_LIMIT, DIRECTIVES as EDITOR_DIRECTIVES,
+    EDITOR_WIRE_SCHEMA_VERSION, FINALIZER_CATALOG_SCHEMA_VERSION,
+    MODEL_ALIAS_SHORTCUT_WIRE_SCHEMA_VERSION,
     MODEL_SHORTCUT_WIRE_SCHEMA_VERSION, PLACEHOLDER_MAX_INNER_CHARS,
     VCS_REPO_CATALOG_SCHEMA_VERSION,
 };
 pub use effort::{
-    is_valid_effort, resolve_effective_effort, split_model_effort,
-    EffectiveEffortResolutionWire, EffectiveEffortSource,
-    EFFORT_LEVELS_ORDERED,
+    effort_level_description, is_valid_effort, resolve_effective_effort,
+    split_model_effort, EffectiveEffortResolutionWire, EffectiveEffortSource,
+    EFFORT_LEVELS_ORDERED, EFFORT_LEVELS_WITH_DESCRIPTIONS,
 };
 pub use effort_override::{
     clear_effort_override, effort_override_state_path, get_effort_override,
@@ -1116,10 +1122,10 @@ pub use hold_directive::{
 };
 pub use host_bridge::{
     split_command_words, CommandHelperHostBridge, DynHelperHostBridge,
+    EditorMacroCatalogEntryWire, EditorMacroCatalogRequestWire,
+    EditorMacroCatalogResponseWire, EditorMacroCatalogStatsWire,
     EditorSnippetCatalogRequestWire, EditorSnippetCatalogResponseWire,
     EditorSnippetCatalogStatsWire, EditorSnippetEntryWire,
-    EditorXpromptCatalogEntryWire, EditorXpromptCatalogRequestWire,
-    EditorXpromptCatalogResponseWire, EditorXpromptCatalogStatsWire,
     EditorXpromptInputWire, HelperHostBridge, HostBridgeError,
     MobileBeadDetailWire, MobileBeadListRequestWire,
     MobileBeadListResponseWire, MobileBeadShowRequestWire,
@@ -1128,15 +1134,14 @@ pub use host_bridge::{
     MobileChangeSpecTagListResponseWire, MobileHelperProjectContextWire,
     MobileHelperProjectScopeWire, MobileHelperResultWire,
     MobileHelperSkippedWire, MobileHelperStatusWire, MobileInputChoiceWire,
-    MobilePatchTagEntryWire, MobilePatchTagListRequestWire,
-    MobilePatchTagListResponseWire, MobileUpdateJobStatusWire,
-    MobileUpdateJobWire, MobileUpdateStartRequestWire,
-    MobileUpdateStartResponseWire, MobileUpdateStatusRequestWire,
-    MobileUpdateStatusResponseWire, MobileXpromptCatalogAttachmentWire,
-    MobileXpromptCatalogEntryWire, MobileXpromptCatalogRequestWire,
-    MobileXpromptCatalogResponseWire, MobileXpromptCatalogStatsWire,
-    MobileXpromptInputWire, StaticHelperHostBridge,
-    UnavailableHelperHostBridge,
+    MobileMacroCatalogAttachmentWire, MobileMacroCatalogEntryWire,
+    MobileMacroCatalogRequestWire, MobileMacroCatalogResponseWire,
+    MobileMacroCatalogStatsWire, MobileMacroInputWire, MobilePatchTagEntryWire,
+    MobilePatchTagListRequestWire, MobilePatchTagListResponseWire,
+    MobileUpdateJobStatusWire, MobileUpdateJobWire,
+    MobileUpdateStartRequestWire, MobileUpdateStartResponseWire,
+    MobileUpdateStatusRequestWire, MobileUpdateStatusResponseWire,
+    StaticHelperHostBridge, UnavailableHelperHostBridge,
 };
 pub use host_liveness::{
     command_looks_like_agent, match_home_marker, match_project_claims,
@@ -1219,6 +1224,10 @@ pub use model_route::{
     size_model_route_from_name, EpicLandModelRouteWire, EpicLandModelSource,
     ModelRouteError, SizeModelRouteWire, PUBLIC_SIZE_ALIASES,
     PUBLIC_SIZE_ALIAS_NAMES,
+};
+pub use model_validity::{
+    classify_model_value, ClassifyModelValueRequestWire,
+    ClassifyModelValueResultWire, ModelValidityError, ModelValiditySnapshot,
 };
 pub use notifications::{
     append_notification, append_notification_counts,

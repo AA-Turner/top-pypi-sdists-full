@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pypcd4
-Version: 1.5.0
+Version: 1.5.1
 Summary: Read and write PCL .pcd files in python
 Project-URL: Release Notes, https://github.com/MapIV/pypcd4/releases
 Project-URL: Source, https://github.com/MapIV/pypcd4

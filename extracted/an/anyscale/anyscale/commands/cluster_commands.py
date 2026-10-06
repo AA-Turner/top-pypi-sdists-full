@@ -3,6 +3,7 @@ from typing import Optional
 
 import click
 
+from anyscale.commands import events_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
     CommandExample,
@@ -271,3 +272,8 @@ def network_debug(cluster_id: Optional[str], skip_tls_no_sni: bool) -> None:
     """Debug network connectivity to a given Anyscale cluster."""
     cluster_controller = ClusterController()
     cluster_controller.debug_networking(cluster_id=cluster_id, skip_tls_no_sni=skip_tls_no_sni)
+
+
+# `anyscale cluster events` is implemented once for every resource in
+# events_commands.py; only the registration lives here.
+cluster_cli.add_command(events_commands.cluster_events)

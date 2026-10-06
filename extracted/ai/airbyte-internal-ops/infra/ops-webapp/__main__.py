@@ -79,6 +79,13 @@ AGUI_SERVER_PREVIEW_BACKEND_NAME = (
 AGUI_PLAYGROUND_PREVIEW_BACKEND_NAME = (
     config.get("agui-playground-preview-backend") or "agui-playground-preview-backend"
 )
+# The thin mtx Builder playground (agent-chat-internal's
+# agui-playground-mtx services) is mounted at `/mtx` whenever the chat mount
+# is on. Its page posts to the shared chat API at
+# `/{agui-chat-path-prefix}/api`, so it gets no API rule of its own.
+AGUI_MTX_PATH_PREFIX = "mtx"
+AGUI_MTX_PLAYGROUND_BACKEND_NAME = "agui-playground-mtx-backend"
+AGUI_MTX_PLAYGROUND_PREVIEW_BACKEND_NAME = "agui-playground-mtx-preview-backend"
 
 AIRBYTE_DOMAIN = "airbyte.io"
 
@@ -546,21 +553,17 @@ def _define_neg_and_backend(
     return backend
 
 
-def _agui_chat_path_rules(
+def _agui_playground_path_rules(
     prefix: str,
-    server_backend: pulumi.Output[gcp.compute.GetBackendServiceResult],
     playground_backend: pulumi.Output[gcp.compute.GetBackendServiceResult],
 ) -> list[gcp.compute.URLMapPathMatcherPathRuleArgs]:
-    """Build the `/prefix/api*` -> server, `/prefix*` -> playground rules.
-
-    `/{prefix}/api` routes to agui-server untouched (it runs with
-    `PATH_PREFIX=<prefix>`); everything else under the prefix routes to the
-    playground with the prefix rewritten to `/` (the bundle is relative-path
-    safe). GCP picks the longest matching path rule, so the API rule wins.
+    """Build the bare-prefix redirect plus `/{prefix}/*` -> playground rules.
 
     The bare `/{prefix}` (no trailing slash) redirects to `/{prefix}/`: the
     bundle's relative asset URLs resolve against the directory of the page,
-    so serving it at `/{prefix}` would request `/assets/*` and 404.
+    so serving it at `/{prefix}` would request `/assets/*` and 404. Everything
+    else under the prefix routes to the playground with the prefix rewritten
+    to `/` (the bundle is relative-path safe).
     """
     return [
         gcp.compute.URLMapPathMatcherPathRuleArgs(
@@ -572,10 +575,6 @@ def _agui_chat_path_rules(
             ),
         ),
         gcp.compute.URLMapPathMatcherPathRuleArgs(
-            paths=[f"/{prefix}/api", f"/{prefix}/api/*"],
-            service=server_backend.self_link,
-        ),
-        gcp.compute.URLMapPathMatcherPathRuleArgs(
             paths=[f"/{prefix}/*"],
             service=playground_backend.self_link,
             route_action=gcp.compute.URLMapPathMatcherPathRuleRouteActionArgs(
@@ -584,6 +583,31 @@ def _agui_chat_path_rules(
                 ),
             ),
         ),
+    ]
+
+
+def _agui_chat_path_rules(
+    prefix: str,
+    server_backend: pulumi.Output[gcp.compute.GetBackendServiceResult],
+    playground_backend: pulumi.Output[gcp.compute.GetBackendServiceResult],
+) -> list[gcp.compute.URLMapPathMatcherPathRuleArgs]:
+    """Build the `/prefix/api*` -> server, `/prefix*` -> playground rules.
+
+    `/{prefix}/api` routes to agui-server untouched (it runs with
+    `PATH_PREFIX=<prefix>`); everything else under the prefix routes to the
+    playground with the prefix rewritten to `/`. GCP picks the longest
+    matching path rule, so the API rule wins.
+    """
+    redirect_rule, playground_rule = _agui_playground_path_rules(
+        prefix, playground_backend
+    )
+    return [
+        redirect_rule,
+        gcp.compute.URLMapPathMatcherPathRuleArgs(
+            paths=[f"/{prefix}/api", f"/{prefix}/api/*"],
+            service=server_backend.self_link,
+        ),
+        playground_rule,
     ]
 
 
@@ -660,6 +684,13 @@ def define_load_balancer(
                 project=PROJECT,
             ),
         )
+        preview_path_rules += _agui_playground_path_rules(
+            AGUI_MTX_PATH_PREFIX,
+            gcp.compute.get_backend_service_output(
+                name=AGUI_MTX_PLAYGROUND_PREVIEW_BACKEND_NAME,
+                project=PROJECT,
+            ),
+        )
     path_matchers = [
         gcp.compute.URLMapPathMatcherArgs(
             name="preview",
@@ -682,15 +713,23 @@ def define_load_balancer(
                 path_matcher="ops",
             )
         )
+        ops_path_rules = _agui_chat_path_rules(
+            AGUI_CHAT_PATH_PREFIX,
+            agui_server_backend,
+            agui_playground_backend,
+        )
+        ops_path_rules += _agui_playground_path_rules(
+            AGUI_MTX_PATH_PREFIX,
+            gcp.compute.get_backend_service_output(
+                name=AGUI_MTX_PLAYGROUND_BACKEND_NAME,
+                project=PROJECT,
+            ),
+        )
         path_matchers.append(
             gcp.compute.URLMapPathMatcherArgs(
                 name="ops",
                 default_service=webapp_backend.self_link,
-                path_rules=_agui_chat_path_rules(
-                    AGUI_CHAT_PATH_PREFIX,
-                    agui_server_backend,
-                    agui_playground_backend,
-                ),
+                path_rules=ops_path_rules,
             )
         )
 

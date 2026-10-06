@@ -1,4 +1,4 @@
-from typing import Optional
+
 from device_detector.enums import AppType
 
 try:
@@ -6,8 +6,8 @@ try:
 except ImportError:
     import json as _json  # type: ignore[no-redef]
 
-from . import BaseClientParser
 from ...utils import calculate_dtype
+from . import BaseClientParser
 
 
 class DictUA(BaseClientParser):
@@ -36,7 +36,7 @@ class DictUA(BaseClientParser):
         except Exception:
             return {}
 
-    def ua_as_dict(self) -> Optional[dict[str, str]]:
+    def ua_as_dict(self) -> dict[str, str] | None:
         valid_json = self.load_via_json()
         if valid_json:
             return valid_json

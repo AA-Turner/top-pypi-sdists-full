@@ -35,8 +35,9 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable, Iterator, Mapping
-from dataclasses import asdict, dataclass, field, fields, replace
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from dataclasses import asdict, dataclass, field, replace
+from enum import StrEnum
 from typing import Any, Literal, TypeVar
 
 from confiture.core.schema_identity import DEFAULT_SCHEMA
@@ -53,6 +54,40 @@ Deferral = Literal["immediate", "deferred"]
 #: How a generated column holds its value. ``virtual`` arrived with PostgreSQL 18,
 #: where it is also what ``GENERATED ALWAYS AS (…)`` with neither keyword means.
 GeneratedKind = Literal["stored", "virtual"]
+
+#: What a column's default is, as the reader that held its parse tree classified it:
+#: a ``nextval(…)``, a call to a value generator (``gen_random_uuid()``, ``uuidv7()``,
+#: …), a constant, or any other expression.
+DefaultKind = Literal["sequence", "generator", "constant", "expression"]
+
+
+class ValueSource(StrEnum):
+    """Where a column's value comes from when a row is written.
+
+    One answer for every reader that asks — a seed writer (which columns it
+    supplies), parity (what a ``serial`` is in the catalog), drift (whose default
+    is its own) and the tenant rules (which keys cannot collide) — derived from
+    the column's own fields, never from its default's text.
+    """
+
+    IDENTITY = "identity"
+    GENERATED = "generated"
+    SEQUENCE = "sequence"
+    GENERATOR = "generator"
+    EXPRESSION = "expression"
+    CONSTANT = "constant"
+    NONE = "none"
+
+    @property
+    def filled_by_postgresql(self) -> bool:
+        """PostgreSQL writes the value; a writer does not supply it (``writable_columns``)."""
+        return self in (ValueSource.IDENTITY, ValueSource.GENERATED, ValueSource.SEQUENCE)
+
+    @property
+    def unique_without_author_input(self) -> bool:
+        """Every row gets a value no other row has, whatever the writer does."""
+        return self in (ValueSource.IDENTITY, ValueSource.SEQUENCE, ValueSource.GENERATOR)
+
 
 #: What ``CREATE FUNCTION``, ``CREATE PROCEDURE`` and ``CREATE AGGREGATE`` define.
 RoutineKind = Literal["function", "procedure", "aggregate"]
@@ -153,8 +188,11 @@ class Column:
     """A column, whole.
 
     ``name`` keeps the author's case with quoting stripped, and ``folded`` is the
-    parser's spelling; ``line`` is where the name is written, which is what a
-    finding points at. ``not_null`` is what PostgreSQL will record: ``NOT NULL``,
+    parser's spelling; ``file`` and ``line`` are where the name is written — the
+    file that wrote the column, which an ``ALTER … ADD COLUMN`` makes another
+    than its table's, and the line in it — which is what a finding points at.
+    Where a column is written is not what it is: two trees declaring one column
+    from different files declare one column, so neither takes part in equality. ``not_null`` is what PostgreSQL will record: ``NOT NULL``,
     a primary key — on the column or at table level — and an identity column all
     set it. ``default`` is the default expression's text, ``identity`` the kind
     of ``GENERATED … AS IDENTITY``, ``generated`` the expression of a
@@ -163,7 +201,7 @@ class Column:
 
     name: str
     folded: str
-    line: int
+    line: int = field(compare=False)
     type_text: str | None = None
     type_key: str | None = None
     raw_sql_type: str | None = None
@@ -173,6 +211,21 @@ class Column:
     generated: str | None = None
     generated_kind: GeneratedKind | None = None
     primary_key: bool = False
+    file: str | None = field(default=None, compare=False)
+    #: What :attr:`default` is, read from its parse tree by the reader that held it.
+    #: Derived from the default, so it takes no part in equality.
+    default_kind: DefaultKind | None = field(default=None, compare=False)
+
+    @property
+    def value_source(self) -> ValueSource:
+        """Where this column's value comes from (:class:`ValueSource`)."""
+        if self.identity:
+            return ValueSource.IDENTITY
+        if self.generated is not None:
+            return ValueSource.GENERATED
+        if (self.raw_sql_type or "").upper() in SERIAL_TYPES:
+            return ValueSource.SEQUENCE
+        return ValueSource(self.default_kind) if self.default_kind else ValueSource.NONE
 
 
 #: ``serial`` and its siblings are not types: PostgreSQL stores an integer, NOT NULL,
@@ -469,6 +522,10 @@ class TView:
         return qualified_name(self.schema, self.name)
 
 
+#: The pg_tviews ``options`` keys a tree can pin, as :class:`TView` holds them.
+TVIEW_OPTIONS = ("logged", "fillfactor")
+
+
 def tview_ref(tview: TView) -> ObjectRef:
     """The bucket of a TVIEW: its schema and its ``tv_*`` relation."""
     return ref_for("tview", tview.schema, tview.name)
@@ -514,6 +571,147 @@ class _ReadOnly(Mapping[_K, _V]):
 
 
 @dataclass(frozen=True)
+class OtherObject:
+    """An object the model holds by identity and definition only.
+
+    A schema, an extension, a domain, a composite or range type, a policy, a
+    rule, an event trigger, extended statistics, a foreign table, a foreign-data
+    wrapper, a server, a publication, a conversion, an operator class or family,
+    an access method: the kinds no typed section holds. ``kind``, ``schema`` and
+    ``name`` are its identity as ``ObjectRef`` keys it (schema folded and
+    defaulted, a policy or rule named ``table.name``); ``definition`` is what
+    decides whether it changed, ``None`` from a reader that read only that it
+    exists (``Coverage`` says which).
+    """
+
+    kind: str
+    schema: str
+    name: str
+    definition: str | None = None
+
+
+#: Every kind an :class:`OtherObject` is — what drift names in ``subject.kind``,
+#: published as an enum in ``_common.schema.json``.
+OTHER_OBJECT_KINDS = (
+    "schema",
+    "extension",
+    "domain",
+    "type",
+    "policy",
+    "rule",
+    "event_trigger",
+    "statistics",
+    "foreign_table",
+    "foreign_data_wrapper",
+    "server",
+    "publication",
+    "conversion",
+    "operator_class",
+    "operator_family",
+    "access_method",
+)
+
+#: The kinds of :data:`OTHER_OBJECT_KINDS` that live in no schema; their
+#: ``OtherObject.schema`` is the default schema their identity folds to, not a place.
+SCHEMALESS_KINDS = frozenset(
+    {
+        "schema",
+        "extension",
+        "event_trigger",
+        "foreign_data_wrapper",
+        "server",
+        "publication",
+        "access_method",
+    }
+)
+
+#: The object kinds a typed section holds; every other tracked kind is an
+#: :class:`OtherObject`.
+TYPED_KINDS = frozenset(
+    {
+        "table",
+        "sequence",
+        "function",
+        "procedure",
+        "aggregate",
+        "view",
+        "matview",
+        "trigger",
+        "tview",
+    }
+)
+
+
+def other_ref(obj: OtherObject) -> ObjectRef:
+    """The bucket of an object the model holds by identity and definition."""
+    return ObjectRef(
+        kind=obj.kind, schema=obj.schema, name=obj.name, signature=None, display=obj.name
+    )
+
+
+#: How deeply a reader read a section: that each object exists, or what it is.
+CoverageDepth = Literal["existence", "definition"]
+
+#: Who wrote what a model says: an author's DDL, or PostgreSQL's catalog. A tree's
+#: model is the author's whichever of its two readings it is (``SchemaRead.model``
+#: or ``.catalogued``): the spelling is still the author's. A database's is the
+#: catalog's. A comparison's rules follow from the two sides' (``differ.policy_between``).
+Provenance = Literal["author", "catalog"]
+
+#: The model's sections, in the order its wire writes them.
+SECTIONS = (
+    "tables",
+    "enum_types",
+    "sequences",
+    "routines",
+    "views",
+    "triggers",
+    "tviews",
+    "other_objects",
+)
+
+#: What every reader reads: the sections a table-level comparison needs.
+_STRUCTURAL = ("tables", "enum_types", "sequences")
+
+
+@dataclass(frozen=True)
+class Coverage:
+    """What a reader read: each section of the model, and how deeply.
+
+    A model says what a schema holds only for the sections it covers. Silence in
+    a section nobody read is not absence: a database read without its views has
+    no views in its model, and a comparison must not call every declared view
+    missing. A tree covers every section it can declare; a live read, the
+    sections it was asked for.
+    """
+
+    sections: tuple[tuple[str, CoverageDepth], ...] = tuple(
+        (section, "definition") for section in _STRUCTURAL
+    )
+
+    @classmethod
+    def of(cls, sections: Mapping[str, CoverageDepth]) -> Coverage:
+        """The coverage of *sections*, in the model's own order."""
+        return cls(tuple((s, sections[s]) for s in SECTIONS if s in sections))
+
+    @classmethod
+    def every(cls) -> Coverage:
+        """Every section, whole: what reading DDL gives."""
+        return cls.of(dict.fromkeys(SECTIONS, "definition"))
+
+    def depth(self, section: str) -> CoverageDepth | None:
+        """How deeply *section* was read, or ``None`` when it was not."""
+        return dict(self.sections).get(section)
+
+    def shared(self, other: Coverage, section: str) -> CoverageDepth | None:
+        """How deeply both read *section*: the shallower of the two, or ``None``."""
+        mine, theirs = self.depth(section), other.depth(section)
+        if mine is None or theirs is None:
+            return None
+        return "definition" if mine == theirs == "definition" else "existence"
+
+
+@dataclass(frozen=True)
 class SchemaModel:
     """Everything one schema declares, each object under its :class:`ObjectRef`.
 
@@ -531,12 +729,18 @@ class SchemaModel:
     views: Mapping[ObjectRef, View] = field(default_factory=dict)
     triggers: Mapping[ObjectRef, Trigger] = field(default_factory=dict)
     tviews: Mapping[ObjectRef, TView] = field(default_factory=dict)
+    other_objects: Mapping[ObjectRef, OtherObject] = field(default_factory=dict)
+    #: What the reader read (:class:`Coverage`). Not what the schema is, so not
+    #: part of equality: a tree and the database built from it are one schema.
+    coverage: Coverage = field(default_factory=Coverage, compare=False)
+    #: Who wrote it (:data:`Provenance`). Like coverage, not what the schema is.
+    source: Provenance = field(default="author", compare=False)
 
     def __post_init__(self) -> None:
-        for mapping in fields(self):
-            value = getattr(self, mapping.name)
+        for name in SECTIONS:
+            value = getattr(self, name)
             if not isinstance(value, _ReadOnly):
-                object.__setattr__(self, mapping.name, _ReadOnly(value))
+                object.__setattr__(self, name, _ReadOnly(value))
 
     def all_routines(self) -> list[Routine]:
         """Every routine, overloads included, in identity order."""
@@ -556,6 +760,9 @@ class SchemaModel:
             "views": section(self.views),
             "triggers": section(self.triggers),
             "tviews": section(self.tviews),
+            "other_objects": section(self.other_objects),
+            "coverage": dict(self.coverage.sections),
+            "source": self.source,
         }
 
     def to_json(self) -> str:
@@ -655,14 +862,11 @@ def _view_from(data: dict[str, Any]) -> View:
     return View(**{**data, "indexes": tuple(_index_from(i) for i in data["indexes"])})
 
 
-_T = TypeVar("_T")
-
-
-def _keyed(
+def _keyed[T](
     items: list[dict[str, Any]],
-    read: Callable[[dict[str, Any]], _T],
-    ref: Callable[[_T], ObjectRef],
-) -> dict[ObjectRef, _T]:
+    read: Callable[[dict[str, Any]], T],
+    ref: Callable[[T], ObjectRef],
+) -> dict[ObjectRef, T]:
     return {ref(obj): obj for obj in map(read, items)}
 
 
@@ -687,6 +891,46 @@ def _model_from_dict(data: dict[str, Any]) -> SchemaModel:
         triggers=_keyed(data["triggers"], lambda d: Trigger(**d), trigger_ref),
         # A wire written before TVIEWs were modelled has none (#504).
         tviews=_keyed(data.get("tviews", []), lambda d: TView(**d), tview_ref),
+        other_objects=_keyed(data.get("other_objects", []), lambda d: OtherObject(**d), other_ref),
+        # A wire written before coverage was recorded claims only the structural
+        # sections, which every reader has always read.
+        coverage=Coverage.of(data["coverage"]) if "coverage" in data else Coverage(),
+        # A wire written before provenance was recorded does not say: read as an author's.
+        source=data.get("source", "author"),
+    )
+
+
+def _primary_key(table: Table) -> tuple[str, ...]:
+    declared = table.constraints_of("primary_key")
+    if declared:
+        return declared[0].columns
+    return tuple(column.folded for column in table.columns if column.primary_key)
+
+
+def with_referenced_keys(model: SchemaModel) -> SchemaModel:
+    """*model* with each foreign key naming the columns it references, as PostgreSQL holds it.
+
+    ``REFERENCES parent`` with no column list references ``parent``'s primary
+    key, and the catalog names those columns: the key is the same key written
+    either way. A target the model does not hold, or one with no primary key,
+    leaves the key as written.
+    """
+    keys = {table.relation.identity: _primary_key(table) for table in model.tables.values()}
+
+    def resolved(constraint: Constraint) -> Constraint:
+        if constraint.kind != "foreign_key" or constraint.ref_columns:
+            return constraint
+        if constraint.ref_table is None:
+            return constraint
+        key = keys.get(constraint.ref_table.identity, ())
+        return replace(constraint, ref_columns=key) if key else constraint
+
+    return replace(
+        model,
+        tables={
+            ref: replace(table, constraints=tuple(map(resolved, table.constraints)))
+            for ref, table in model.tables.items()
+        },
     )
 
 
@@ -700,14 +944,17 @@ def _model_from_dict(data: dict[str, Any]) -> SchemaModel:
 #: which fails the day PostgreSQL stops making it — so none can outlive its cause.
 PARITY_NORMALISATIONS: dict[str, str] = {
     "generated_names": (
-        "an unnamed constraint is given a name at apply time (child_pid_fkey); a name "
-        "of PostgreSQL's own shape is no name, on either side"
+        "an unnamed constraint or index is given a name at apply time (child_pid_fkey, "
+        "child_pid_idx); a name of PostgreSQL's own shape is no name, on either side"
     ),
     "analysed_expressions": (
-        "a default, a CHECK, a generation expression, an index's expression key and a "
-        "partial index's predicate are stored analysed — implicit casts added, IN "
-        "written back as = ANY (ARRAY[…]) — so what is compared is that one exists, "
-        "never its text; a key that is a plain column name is compared as written"
+        "a CHECK, a generation expression, an index's expression key and a partial "
+        "index's predicate are stored analysed — implicit casts added, IN written back "
+        "as = ANY (ARRAY[…]) — so what is compared is that one exists, never its text, "
+        "unless the tree is materialised (read back from a scratch database); a key "
+        "that is a plain column name is compared as written. A default is stored "
+        "analysed too; set aside here, the engine compares it as the value it is, a "
+        "parse tree whose constants the database's server spells (ddl_walk.same_value)"
     ),
     "spellings": (
         "a column's name, type and position as a file wrote them (`UserId`, "
@@ -746,8 +993,8 @@ PARITY_NORMALISATIONS: dict[str, str] = {
     "view_definitions": (
         "a view's query is stored as a parse tree and read back through "
         "pg_get_viewdef's deparse — qualified, reparenthesised, `*` expanded — so what "
-        "is compared is that one exists; comparing two through one deparser is "
-        "--check-body-views' question"
+        "is compared is that one exists, unless the tree is materialised and both "
+        "queries come through one deparser"
     ),
 }
 
@@ -762,78 +1009,131 @@ _COLUMN_KEY = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
 _DEFAULT_MAX = frozenset({2**15 - 1, 2**31 - 1, 2**63 - 1})
 
 
-def _parity_relation(relation: RelationName) -> RelationName:
+#: Every normalisation: what a comparison between a tree and a database applies.
+ALL_PARITY_RULES = frozenset(PARITY_NORMALISATIONS)
+
+
+def _fold_schema(schema: str | None, rules: frozenset[str]) -> str | None:
+    return (schema or DEFAULT_SCHEMA).lower() if "schema_spelling" in rules else schema
+
+
+def _parity_relation(relation: RelationName, rules: frozenset[str]) -> RelationName:
     """*relation* by its identity: the catalog always names the schema a tree may omit."""
-    return RelationName(*relation.identity)
+    return RelationName(*relation.identity) if "schema_spelling" in rules else relation
 
 
-def _generated_name(table: str, name: str) -> bool:
-    return bool(re.fullmatch(rf"{re.escape(table)}(_.+)?_(pkey|key|fkey|check|excl)\d*", name))
+def _generated_name(table: str, name: str | None) -> bool:
+    return name is not None and bool(
+        re.fullmatch(rf"{re.escape(table)}(_.+)?_(pkey|key|fkey|check|excl)\d*", name)
+    )
 
 
-def _parity_column(column: Column) -> Column:
-    serial = (column.raw_sql_type or "").upper() in SERIAL_TYPES or (
-        column.default or ""
-    ).startswith("nextval(")
+def _generated_index_name(table: str, name: str | None) -> bool:
+    return name is not None and bool(re.fullmatch(rf"{re.escape(table)}_.+_idx\d*", name))
+
+
+def _expression(text: str | None, rules: frozenset[str]) -> str | None:
+    if text is None or "analysed_expressions" not in rules:
+        return text
+    return _EXPRESSION
+
+
+def parity_column(column: Column, rules: frozenset[str] = ALL_PARITY_RULES) -> Column:
+    """*column* as *rules* compare it: spelling, ``serial`` and analysed expressions folded."""
+    if "serial" in rules and column.value_source is ValueSource.SEQUENCE:
+        # `type_key` already says `serial` is `integer`; only the spelling differs.
+        column = replace(column, raw_sql_type=None, not_null=True, default=None, default_kind=None)
+    if "spellings" in rules:
+        column = replace(column, name=column.folded, line=0, type_text=None)
     return replace(
         column,
-        name=column.folded,
-        line=0,
-        type_text=None,
-        # `type_key` already says `serial` is `integer`; only the spelling differs.
-        raw_sql_type=None if serial else column.raw_sql_type,
-        not_null=column.not_null or serial,
-        default=None if serial or column.default is None else _EXPRESSION,
-        generated=None if column.generated is None else _EXPRESSION,
+        default=_expression(column.default, rules),
+        generated=_expression(column.generated, rules),
     )
 
 
-def _parity_constraint(table: str, constraint: Constraint) -> Constraint:
+def parity_constraint(
+    table: str, constraint: Constraint, rules: frozenset[str] = ALL_PARITY_RULES
+) -> Constraint:
+    """*constraint* of *table* as *rules* compare it: a generated name is no name."""
+    generated = "generated_names" in rules and _generated_name(table, constraint.name)
     return replace(
         constraint,
-        name="" if _generated_name(table, constraint.name) else constraint.name,
-        expression=None if constraint.expression is None else _EXPRESSION,
-        ref_table=None if constraint.ref_table is None else _parity_relation(constraint.ref_table),
+        name="" if generated else constraint.name,
+        expression=_expression(constraint.expression, rules),
+        ref_table=(
+            None if constraint.ref_table is None else _parity_relation(constraint.ref_table, rules)
+        ),
     )
 
 
-def _parity_table(table: Table) -> Table:
-    constraints = [_parity_constraint(table.name, c) for c in table.constraints]
-    indexes = [_parity_index(ix) for ix in table.indexes if not ix.backs_constraint]
-    return replace(
-        table,
-        schema=(table.schema or DEFAULT_SCHEMA).lower(),
-        columns=tuple(_parity_column(c) for c in table.columns),
-        constraints=tuple(sorted(constraints, key=repr)),
-        indexes=tuple(sorted(indexes, key=repr)),
-    )
+def parity_indexes(
+    indexes: Iterable[Index],
+    rules: frozenset[str] = ALL_PARITY_RULES,
+    declared: frozenset[str] = frozenset(),
+) -> list[tuple[Index, Index]]:
+    """Each of *indexes* that *rules* compare, paired with how they compare it.
+
+    An index backing a constraint is the constraint's, which the DDL declares
+    instead (``backing_indexes``): it is not compared — unless the other side
+    *declared* an index of its name, as ``UNIQUE USING INDEX`` does.
+    """
+    return [
+        (index, _parity_index(index, rules))
+        for index in indexes
+        if not ("backing_indexes" in rules and index.backs_constraint) or index.name in declared
+    ]
 
 
-def _parity_index(index: Index) -> Index:
+def _parity_index(index: Index, rules: frozenset[str]) -> Index:
+    expressions = "analysed_expressions" in rules
+    generated = "generated_names" in rules and _generated_index_name(index.table.name, index.name)
     return replace(
         index,
-        table=_parity_relation(index.table),
-        columns=tuple(key if _COLUMN_KEY.fullmatch(key) else _EXPRESSION for key in index.columns),
-        where=None if index.where is None else _EXPRESSION,
+        name=None if generated else index.name,
+        table=_parity_relation(index.table, rules),
+        columns=tuple(
+            key if not expressions or _COLUMN_KEY.fullmatch(key) else _EXPRESSION
+            for key in index.columns
+        ),
+        where=_expression(index.where, rules),
     )
 
 
-def _parity_routine(routine: Routine) -> Routine:
+def _in_order[T](objects: list[T], rules: frozenset[str]) -> tuple[T, ...]:
+    return tuple(sorted(objects, key=repr) if "declaration_order" in rules else objects)
+
+
+def _parity_table(table: Table, rules: frozenset[str]) -> Table:
     return replace(
-        routine,
-        schema=(routine.schema or DEFAULT_SCHEMA).lower(),
-        signature="",
-        returns=None,
+        table,
+        schema=_fold_schema(table.schema, rules),
+        columns=tuple(parity_column(c, rules) for c in table.columns),
+        constraints=_in_order(
+            [parity_constraint(table.name, c, rules) for c in table.constraints], rules
+        ),
+        indexes=_in_order([seen for _, seen in parity_indexes(table.indexes, rules)], rules),
     )
 
 
-def _parity_view(view: View) -> View:
-    indexes = [_parity_index(ix) for ix in view.indexes if not ix.backs_constraint]
+def parity_routine(routine: Routine, rules: frozenset[str] = ALL_PARITY_RULES) -> Routine:
+    """*routine* as *rules* compare it: identity by ``signature_key``, never its spelling."""
+    routine = replace(routine, schema=_fold_schema(routine.schema, rules))
+    if "routine_spellings" not in rules:
+        return routine
+    return replace(routine, signature="", returns=None)
+
+
+def parity_view(view: View, rules: frozenset[str] = ALL_PARITY_RULES) -> View:
+    """*view* as *rules* compare it: that its query exists, and its own indexes."""
+    definition = view.definition
+    if definition is not None and "view_definitions" in rules:
+        definition = _EXPRESSION
     return replace(
         view,
-        schema=(view.schema or DEFAULT_SCHEMA).lower(),
-        definition=None if view.definition is None else _EXPRESSION,
-        indexes=tuple(sorted(indexes, key=repr)),
+        schema=_fold_schema(view.schema, rules),
+        definition=definition,
+        indexes=_in_order([seen for _, seen in parity_indexes(view.indexes, rules)], rules),
     )
 
 
@@ -842,47 +1142,56 @@ def _parity_view(view: View) -> View:
 _TVIEW_DEFAULT_FILLFACTOR = 85
 
 
-def _parity_tview(tview: TView) -> TView:
+def parity_tview(tview: TView, rules: frozenset[str] = ALL_PARITY_RULES) -> TView:
+    """*tview* as *rules* compare it: an option pg_tviews chose by default is no pin."""
+    tview = replace(tview, schema=_fold_schema(tview.schema, rules))
+    if "tview_defaults" not in rules:
+        return tview
     return replace(
         tview,
-        schema=(tview.schema or DEFAULT_SCHEMA).lower(),
         logged=True if tview.logged else None,
         fillfactor=None if tview.fillfactor == _TVIEW_DEFAULT_FILLFACTOR else tview.fillfactor,
     )
 
 
-def _parity_sequence(sequence: Sequence) -> Sequence:
+def _parity_sequence(sequence: Sequence, rules: frozenset[str]) -> Sequence:
+    sequence = replace(sequence, schema=_fold_schema(sequence.schema, rules))
     unbounded = sequence.min_value in (None, 1) and (
         sequence.max_value is None or sequence.max_value in _DEFAULT_MAX
     )
-    return replace(
-        sequence,
-        schema=(sequence.schema or DEFAULT_SCHEMA).lower(),
-        min_value=None if unbounded else sequence.min_value,
-        max_value=None if unbounded else sequence.max_value,
-    )
+    if "sequence_bounds" not in rules or not unbounded:
+        return sequence
+    return replace(sequence, min_value=None, max_value=None)
 
 
-def normalise_for_parity(model: SchemaModel) -> SchemaModel:
-    """*model* with every rewrite in :data:`PARITY_NORMALISATIONS` applied.
+def normalise_for_parity(
+    model: SchemaModel, rules: frozenset[str] = ALL_PARITY_RULES
+) -> SchemaModel:
+    """*model* with the rewrites in *rules* — every one of :data:`PARITY_NORMALISATIONS` by default.
 
     Applied to both sides of a parse/live comparison; what still differs after it
-    is a difference between the tree and the database, or a bug in a reader.
+    is a difference between the tree and the database, or a bug in a reader. The
+    differ applies the same rules, object by object, when it compares a tree with
+    a database (``differ.CATALOGUED``).
     """
     return SchemaModel(
-        tables={ref: _parity_table(t) for ref, t in model.tables.items()},
+        coverage=model.coverage,
+        source=model.source,
+        tables={ref: _parity_table(t, rules) for ref, t in model.tables.items()},
         enum_types={
-            ref: replace(e, schema=(e.schema or DEFAULT_SCHEMA).lower())
+            ref: replace(e, schema=_fold_schema(e.schema, rules))
             for ref, e in model.enum_types.items()
         },
-        sequences={ref: _parity_sequence(s) for ref, s in model.sequences.items()},
+        sequences={ref: _parity_sequence(s, rules) for ref, s in model.sequences.items()},
         routines={
-            ref: tuple(_parity_routine(r) for r in found) for ref, found in model.routines.items()
+            ref: tuple(parity_routine(r, rules) for r in found)
+            for ref, found in model.routines.items()
         },
-        views={ref: _parity_view(v) for ref, v in model.views.items()},
+        views={ref: parity_view(v, rules) for ref, v in model.views.items()},
         triggers={
-            ref: replace(t, schema=(t.schema or DEFAULT_SCHEMA).lower())
+            ref: replace(t, schema=_fold_schema(t.schema, rules))
             for ref, t in model.triggers.items()
         },
-        tviews={ref: _parity_tview(t) for ref, t in model.tviews.items()},
+        tviews={ref: parity_tview(t, rules) for ref, t in model.tviews.items()},
+        other_objects=model.other_objects,
     )

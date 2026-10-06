@@ -335,18 +335,25 @@ impl<F: Float> FloatMultConfig<F> {
   }
 }
 
-fn choose_config<F: Float>(sample: &[F]) -> Option<FloatMultConfig<F>> {
-  choose_config_by_trailing_zeros(sample).or_else(|| choose_config_by_euclidean(sample))
-}
-
 pub(crate) fn compute_bid<F: Float>(sample: &[F]) -> Option<Bid<F>> {
-  choose_config(sample).and_then(|config| {
-    let bits_saved_per_num = bits_saved_per_num_over_classic(config, sample)?;
-    Some(Bid {
-      mode: Mode::float_mult(config.base),
-      bits_saved_per_num,
-      split_fn: Box::new(move |nums| split_latents(nums, config)),
+  let candidates = [
+    choose_config_by_trailing_zeros(sample),
+    choose_config_by_euclidean(sample),
+  ];
+
+  let (config, bits_saved_per_num) = candidates
+    .into_iter()
+    .flatten()
+    .filter_map(|config| {
+      let bits_saved_per_num = bits_saved_per_num_over_classic(config, sample)?;
+      Some((config, bits_saved_per_num))
     })
+    .max_by(|(_, a), (_, b)| a.total_cmp(b))?;
+
+  Some(Bid {
+    mode: Mode::float_mult(config.base),
+    bits_saved_per_num,
+    split_fn: Box::new(move |nums| split_latents(nums, config)),
   })
 }
 
@@ -628,34 +635,65 @@ mod test {
     let sevenths_sample = &sevenths[..50];
 
     assert_eq!(
-      choose_config(&sevenths),
-      Some(FloatMultConfig {
-        base: 1.0 / 7.0,
-        inv_base: 7.0,
-      })
+      compute_bid(sevenths_sample).unwrap().mode,
+      Mode::float_mult(1.0_f32 / 7.0),
     );
     assert_eq!(
-      choose_config(&ones),
-      Some(FloatMultConfig {
-        base: 1.0,
-        inv_base: 1.0,
-      })
+      compute_bid(&noisy_decimals).unwrap().mode,
+      Mode::float_mult(1.0_f32 / 10.0),
     );
-    assert_eq!(
-      choose_config(&noisy_decimals),
-      Some(FloatMultConfig {
-        base: 1.0 / 10.0,
-        inv_base: 10.0,
-      })
-    );
-    // just check this last one terminates
+
+    // just check this terminates
     let mut big_nums = vec![f32::MAX; 10];
     big_nums.resize(20, f32::MAX * 0.6);
-    choose_config(&big_nums);
+    compute_bid(&big_nums);
 
-    assert!(compute_bid(sevenths_sample).is_some());
     // not enough distinct mults
     assert!(compute_bid(&ones).is_none());
     assert!(compute_bid(&junk).is_none());
+  }
+}
+
+#[cfg(feature = "bench")]
+mod micro {
+  use divan::{black_box, Bencher};
+  use half::f16;
+  use rand_xoshiro::rand_core::{RngCore, SeedableRng};
+  use rand_xoshiro::Xoroshiro128PlusPlus;
+
+  use super::*;
+  use crate::bench_utils::{uniform_latents, BENCH_N};
+  use crate::constants::FULL_BATCH_N;
+
+  const BASE: f64 = 0.01;
+  const MAX_MULT: u64 = 1000;
+  const ADJ_BITS: Bitlen = 4;
+
+  #[divan::bench(types = [f16, f32, f64])]
+  fn join_latents<F: Float>(bencher: Bencher) {
+    let base = F::from_f64(BASE);
+    let mut rng = Xoroshiro128PlusPlus::seed_from_u64(0);
+    let mults = (0..BENCH_N)
+      .map(|_| F::from_f64((rng.next_u64() % MAX_MULT) as f64).int_float_to_latent())
+      .collect::<Vec<_>>();
+    let adjs = uniform_latents::<F::L>(ADJ_BITS)
+      .into_iter()
+      .map(|ulps| F::L::MID.wrapping_add(ulps))
+      .collect::<Vec<_>>();
+    let mut dst = vec![F::ZERO; mults.len()];
+    bencher
+      .counter(divan::counter::ItemsCount::new(BENCH_N))
+      .bench_local(|| {
+        for (batch_idx, dst_batch) in dst.chunks_mut(FULL_BATCH_N).enumerate() {
+          let range = batch_idx * FULL_BATCH_N..batch_idx * FULL_BATCH_N + dst_batch.len();
+          super::join_latents(
+            black_box(base),
+            DynLatentSlice::new(&mults[range.clone()]),
+            Some(DynLatentSlice::new(&adjs[range])),
+            dst_batch,
+          )
+          .unwrap();
+        }
+      });
   }
 }

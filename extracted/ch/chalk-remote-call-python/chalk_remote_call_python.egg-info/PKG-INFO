@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalk-remote-call-python
-Version: 1.10.3
+Version: 1.10.4
 Summary: Chalk remote call Python runtime interface client
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -126,6 +126,8 @@ set `RUST_LOG=info,chalk_metrics::metrics::config=debug` to include them.
 | Variable | Description |
 |----------|-------------|
 | `CHALK_INPUT_ARGS` | Comma-separated list of column names (e.g. `x,y,z`). Renames incoming RecordBatch columns by index. If unset, the original column names are used. Reserved columns (below) are held out of this mapping and keep their own name. |
+| `CHALK_FNQ_CONSUMER_ENDPOINT` | Opt into DP API `FnqConsumerService` consumption (HTTP or HTTPS gRPC endpoint). Unset preserves direct Redis consumption. API errors never fall back to Redis. |
+| `CHALK_FUNCTION_QUEUE_TOKEN_FILE` | Controller-mounted working JWT, reopened per RPC to observe rotation. Defaults to `/var/run/secrets/chalk-function-queue/identity-token`. The shim does not exchange credentials. |
 | `CHALK_FNQ_QUEUE_PROTOCOL` | Self-consumer work transport: `list_v1` (default/backward compatible) or `stream_v1`. Deployment tooling sets this from immutable scaling-group revision metadata. |
 
 #### Reserved columns
@@ -245,3 +247,23 @@ Payloads are bounded for gRPC header limits. Truncation is marked explicitly,
 with complete tracebacks kept in server logs. Exception objects and locals are
 never pickled or sent. Chalk SDK-generated handlers identify their dispatch
 frames, and notebook source maps identify the deployed snapshot's lines.
+
+### Fnq integration test
+
+On Linux, build the native extension and the paired `chalk-private` test harness:
+
+```bash
+# chalk-private, inside the Nix dev shell
+bazel build //rust-crates/chalk/dataplane-api-server:fnq_test_server
+
+# chalk-remote-call-python
+uv pip install -e ".[dev]" redis PyJWT cryptography
+FNQ_TEST_SERVER=/path/to/chalk-private/bazel-bin/rust-crates/chalk/dataplane-api-server/fnq_test_server \
+REDIS_URL=redis://127.0.0.1:6379 .venv/bin/pytest tests/test_fnq_api_e2e.py -v
+```
+
+Use an isolated Redis instance. The tests create temporary signing keys and start
+the production JWT layer and Fnq service, then exercise real native-shim execution,
+lease renewal, result writes, token rotation, and environment isolation. These tests
+skip unless `FNQ_TEST_SERVER` and `REDIS_URL` are set. Deploy the service before
+setting `CHALK_FNQ_CONSUMER_ENDPOINT` on a workload.

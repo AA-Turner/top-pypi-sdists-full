@@ -628,7 +628,9 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # runs; the daemon records everything else, containers included.
     # 37 / ade24764057a: Track E -- the kind list says `evaluation` where it
     # said `inference` (the server bridges the old word; the CLI still takes it).
-    assert (agent_rules.POINTER_VERSION, digest) == (37, "ade24764057a"), (
+    # 38 / ade24764057a: POINTER_BODY unchanged; DAEMON_POINTER_BODY (versioned
+    # by the same stamp) gained the `probe session inline` line.
+    assert (agent_rules.POINTER_VERSION, digest) == (38, "ade24764057a"), (
         "POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

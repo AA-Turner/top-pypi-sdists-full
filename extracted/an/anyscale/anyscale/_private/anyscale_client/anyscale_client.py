@@ -97,6 +97,7 @@ from anyscale.client.openapi_client.models import (
     StartSessionOptions,
     StopSessionOptions,
     SystemWorkloadName,
+    UnifiedeventListResponse,
     UpdatePolicyRequest,
     UpsertResourceTagsRequest,
     UserGroup,
@@ -158,8 +159,6 @@ from anyscale.sdk.anyscale_client.models import (
     ClusterenvironmentbuildListResponse,
     ClusterEnvironmentBuildStatus,
     ClusterEnvironmentsQuery,
-    CreateBYODClusterEnvironment,
-    CreateBYODClusterEnvironmentConfigurationSchema,
     CreateClusterEnvironment,
     CreateClusterEnvironmentBuild,
     ProductionServiceV2VersionModel,
@@ -171,7 +170,6 @@ from anyscale.sdk.anyscale_client.models.page_query import PageQuery
 from anyscale.sdk.anyscale_client.rest import ApiException as ExternalApiException
 from anyscale.shared_anyscale_utils.bytes_util import Bytes
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
-from anyscale.shared_anyscale_utils.latest_ray_version import LATEST_RAY_VERSION
 from anyscale.util import (
     AWS_PRM_USER_AGENT_STRING,
     get_cluster_model_for_current_workspace,
@@ -1041,48 +1039,24 @@ class AnyscaleClient(AnyscaleClientInterface):
         cluster_env_name: str,
         anonymous: bool,
         *,
-        image_uri: Optional[str] = None,
-        registry_login_secret: Optional[str] = None,
-        ray_version: Optional[str] = None,
         cloud_id: Optional[str] = None,
     ) -> ClusterEnvironment:
         """
         Find or create a cluster environment with the given name.
 
-        There're two possible race conditions:
-        1) A tries to create a cluster env with the same name as B, but B has already created it.
-        -> A will get a 409 conflict error and should retry to get the existing cluster env.
-        2) A and B creates two identical builds under the same cluster env. This would cause job queue to
-        reject the job submission.
-        -> Cluster env and BYOD build are created within the same transaction, so the latter one will fail
-        with a 409 conflict error. The former one will succeed and the latter one should retry to get the
-        existing cluster env.
+        If another caller creates a cluster env with the same name first, creation fails with a 409
+        conflict and this retries to get the existing cluster env.
         """
         existing_cluster_env = self.get_cluster_env_by_name(cluster_env_name, cloud_id=cloud_id)
         if existing_cluster_env is not None:
             return existing_cluster_env
 
         try:
-            if image_uri:
-                # For BYOD builds, we should create a build along with the cluster env.
-                cluster_environment = self._external_api_client.create_byod_cluster_environment(
-                    CreateBYODClusterEnvironment(
-                        name=cluster_env_name,
-                        config_json=CreateBYODClusterEnvironmentConfigurationSchema(
-                            docker_image=image_uri,
-                            ray_version=ray_version if ray_version else LATEST_RAY_VERSION,
-                            registry_login_secret=registry_login_secret,
-                        ),
-                        anonymous=anonymous,
-                        cloud_id=cloud_id,
-                    )
-                ).result
-            else:
-                cluster_environment = self._external_api_client.create_cluster_environment(
-                    CreateClusterEnvironment(
-                        name=cluster_env_name, anonymous=anonymous, cloud_id=cloud_id
-                    )
-                ).result
+            cluster_environment = self._external_api_client.create_cluster_environment(
+                CreateClusterEnvironment(
+                    name=cluster_env_name, anonymous=anonymous, cloud_id=cloud_id
+                )
+            ).result
             return cluster_environment
         except ExternalApiException as e:
             if e.status != 409:
@@ -2331,6 +2305,48 @@ class AnyscaleClient(AnyscaleClientInterface):
             return project.directory_name
         else:
             return project.name
+
+    @handle_api_exceptions
+    def get_unified_events(  # noqa: PLR0913
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        origin: Optional[List[str]] = None,
+        level: Optional[List[str]] = None,
+        message: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        ascending_order: bool = False,
+        include_verbose_events: bool = False,
+        instance_id: Optional[str] = None,
+        instance_node_ip: Optional[str] = None,
+        autoscaler_resource_bundles: Optional[List[str]] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> UnifiedeventListResponse:
+        # Only forward the filters that were actually set, so the request carries no
+        # `origin=`/`level=` parameter at all when the caller wants everything.
+        kwargs: Dict[str, Any] = {
+            "ascending_order": ascending_order,
+            "include_verbose_events": include_verbose_events,
+        }
+        optional = {
+            "origin": origin,
+            "level": level,
+            "message": message,
+            "start_time": start_time,
+            "end_time": end_time,
+            "instance_id": instance_id,
+            "instance_node_ip": instance_node_ip,
+            "autoscaler_resource_bundles": autoscaler_resource_bundles,
+            "count": count,
+            "paging_token": paging_token,
+        }
+        kwargs.update({key: value for key, value in optional.items() if value is not None})
+        return self._internal_api_client.get_unified_events_api_v2_events_entity_type_entity_id_events_get(
+            entity_type, entity_id, **kwargs
+        )
 
     @handle_api_exceptions
     def download_aggregated_instance_usage_csv(

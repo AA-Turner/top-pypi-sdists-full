@@ -22,7 +22,11 @@ import probe
 from probe.sdk import errors, fluent, transport
 from tests.conftest import make_client
 
-_RUN_CREATE = re.compile(r"^/v1/(?:projects|experiments)/[^/]+/runs$|^/v1/runs$")
+#: Every run-create route: the experiment API's (`/v1/projects/{P}/experiments/{E}/runs`,
+#: light experiments X21), a project's direct runs, the unfiled create.
+_RUN_CREATE = re.compile(
+    r"^/v1/(?:projects|experiments)/[^/]+/(?:experiments/[^/]+/)?runs$|^/v1/runs$"
+)
 
 
 class FakeClock:

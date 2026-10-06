@@ -4,7 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 
 import datetime
+import concurrent.futures
 import itertools
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -22,6 +24,19 @@ class CustomParallelBackend:
     def map(self, func, *iterables):
         results = [func(*args) for args in zip(*iterables)]
         return results
+
+
+def make_cross_validation_model():
+    return SimpleNamespace(
+        history=pd.DataFrame(
+            {
+                "ds": pd.date_range("2020-01-01", periods=10, freq="D"),
+                "y": np.arange(10, dtype=float),
+            }
+        ),
+        seasonalities={},
+        uncertainty_samples=0,
+    )
 
 
 PARALLEL_METHODS = [None, "processes", "threads", CustomParallelBackend()]
@@ -83,6 +98,92 @@ class TestCrossValidation:
         assert len(np.unique(df_cv["cutoff"])) == 1
         with pytest.raises(ValueError):
             diagnostics.cross_validation(m, horizon="10 days", period="10 days", initial="140 days")
+
+    @pytest.mark.parametrize("raises", [False, True])
+    @pytest.mark.parametrize(
+        ("parallel_method", "executor_name"),
+        [("threads", "ThreadPoolExecutor"), ("processes", "ProcessPoolExecutor")],
+    )
+    def test_cross_validation_internal_executor_lifecycle(
+        self, monkeypatch, parallel_method, executor_name, raises
+    ):
+        m = make_cross_validation_model()
+        cutoff = m.history["ds"].iloc[3]
+        created = []
+
+        executor_type = concurrent.futures.ThreadPoolExecutor
+
+        class TrackingExecutor(executor_type):
+            def __init__(self, *args, **kwargs):
+                kwargs.pop("mp_context", None)
+                super().__init__(*args, **kwargs)
+                self.shutdown_calls = 0
+                created.append(self)
+
+            def map(self, func, *iterables):
+                if raises:
+                    raise RuntimeError("map failed")
+                return super().map(func, *iterables)
+
+            def shutdown(self, wait=True, *, cancel_futures=False):
+                self.shutdown_calls += 1
+                super().shutdown(wait=wait, cancel_futures=cancel_futures)
+
+        monkeypatch.setattr(
+            diagnostics.concurrent.futures, executor_name, TrackingExecutor
+        )
+        prediction = pd.DataFrame(
+            {"ds": [cutoff], "yhat": [0.0], "y": [0.0], "cutoff": [cutoff]}
+        )
+        monkeypatch.setattr(
+            diagnostics, "single_cutoff_forecast", lambda *args: prediction.copy()
+        )
+
+        if raises:
+            with pytest.raises(RuntimeError, match="map failed"):
+                diagnostics.cross_validation(
+                    m,
+                    horizon="1 day",
+                    cutoffs=[cutoff],
+                    parallel=parallel_method,
+                    disable_tqdm=True,
+                )
+        else:
+            for _ in range(3):
+                result = diagnostics.cross_validation(
+                    m,
+                    horizon="1 day",
+                    cutoffs=[cutoff],
+                    parallel=parallel_method,
+                    disable_tqdm=True,
+                )
+                assert result.loc[0, "yhat"] == 0.0
+
+        expected_calls = 1 if raises else 3
+        assert len(created) == expected_calls
+        assert [executor.shutdown_calls for executor in created] == [1] * expected_calls
+
+    def test_cross_validation_does_not_shutdown_caller_executor(self, monkeypatch):
+        m = make_cross_validation_model()
+        cutoff = m.history["ds"].iloc[3]
+        prediction = pd.DataFrame(
+            {"ds": [cutoff], "yhat": [0.0], "y": [0.0], "cutoff": [cutoff]}
+        )
+
+        monkeypatch.setattr(
+            diagnostics, "single_cutoff_forecast", lambda *args: prediction.copy()
+        )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            result = diagnostics.cross_validation(
+                m,
+                horizon="1 day",
+                cutoffs=[cutoff],
+                parallel=executor,
+                disable_tqdm=True,
+            )
+
+            assert result.loc[0, "yhat"] == 0.0
+            assert executor.submit(lambda: "still usable").result() == "still usable"
 
     def test_bad_parallel_methods(self, ts_short, backend):
         m = Prophet(stan_backend=backend)
@@ -176,6 +277,32 @@ class TestCrossValidation:
         assert (df_cv["cutoff"] < df_cv["ds"]).all()
         df_merged = pd.merge(df_cv, ts_short, "left", on="ds")
         assert np.sum((df_merged["y_x"] - df_merged["y_y"]) ** 2) == pytest.approx(0.0)
+
+    def test_cross_validation_shared_seasonality_condition(self, ts_short, backend):
+        df = ts_short.copy()
+        df["is_active"] = np.arange(len(df)) // 7 % 2 == 0
+        m = Prophet(stan_backend=backend, uncertainty_samples=0)
+        for name, period in [("conditional_weekly", 7), ("conditional_monthly", 30.5)]:
+            m.add_seasonality(
+                name=name, period=period, fourier_order=3, condition_name="is_active"
+            )
+        m.fit(df)
+        cutoffs = [df["ds"].iloc[-15], df["ds"].iloc[-8]]
+        horizon = pd.Timedelta("7 days")
+        df_cv = diagnostics.cross_validation(m, horizon=horizon, cutoffs=cutoffs)
+
+        assert set(df_cv["cutoff"]) == set(cutoffs)
+        for cutoff in cutoffs:
+            # A manual forecast already accepts a condition shared by multiple seasonalities.
+            model = diagnostics.prophet_copy(m, cutoff)
+            model.fit(df[df["ds"] <= cutoff])
+            future = df[(df["ds"] > cutoff) & (df["ds"] <= cutoff + horizon)]
+            expected = model.predict(future)
+            actual = df_cv[df_cv["cutoff"] == cutoff]
+            np.testing.assert_array_equal(actual["ds"], expected["ds"])
+            np.testing.assert_allclose(actual["yhat"], expected["yhat"])
+            np.testing.assert_array_equal(actual["y"], future["y"])
+            model.stan_backend.cleanup()
 
     def test_cross_validation_metrics_with_regressor_predictor(self, backend):
         rng = np.random.default_rng(2024)
@@ -340,6 +467,17 @@ class TestPerformanceMetrics:
                 metrics=["mse", "error_metric"],
             )
 
+    def test_performance_metrics_does_not_modify_metrics(self):
+        df_cv = pd.DataFrame({
+            "ds": pd.date_range("2020-01-02", periods=4),
+            "cutoff": pd.Timestamp("2020-01-01"),
+            "y": [0.0, 1.0, 2.0, 3.0],
+            "yhat": [0.5, 1.5, 2.5, 3.5],
+        })
+        metrics = ["mae", "mape", "coverage"]
+        diagnostics.performance_metrics(df_cv, metrics=metrics)
+        assert metrics == ["mae", "mape", "coverage"]
+
     def test_rolling_mean(self):
         x = np.arange(10)
         h = np.arange(10)
@@ -388,7 +526,8 @@ class TestPerformanceMetrics:
 
 class TestProphetCopy:
     @pytest.fixture(scope="class")
-    def data(self, daily_univariate_ts):
+    @staticmethod
+    def data(daily_univariate_ts):
         df = daily_univariate_ts.copy()
         df["cap"] = 200.0
         df["binary_feature"] = [0] * 255 + [1] * 255

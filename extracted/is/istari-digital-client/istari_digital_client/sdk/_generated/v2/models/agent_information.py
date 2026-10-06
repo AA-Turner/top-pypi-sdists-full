@@ -20,6 +20,7 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from istari_digital_client.sdk._generated.v2.models.worker_mode import WorkerMode
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -32,11 +33,12 @@ class AgentInformation(BaseModel):
     agent_id: StrictStr
     agent_version: StrictStr
     host_os: StrictStr
+    worker_mode: Optional[WorkerMode] = None
     tenant_id: Optional[StrictStr] = None
     created_by_id: Optional[StrictStr] = None
     api_hashes: Optional[StrictStr] = None
     capabilities: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["id", "created", "agent_id", "agent_version", "host_os", "tenant_id", "created_by_id", "api_hashes", "capabilities"]
+    __properties: ClassVar[List[str]] = ["id", "created", "agent_id", "agent_version", "host_os", "worker_mode", "tenant_id", "created_by_id", "api_hashes", "capabilities"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -109,6 +111,7 @@ class AgentInformation(BaseModel):
             "agent_id": obj.get("agent_id"),
             "agent_version": obj.get("agent_version"),
             "host_os": obj.get("host_os"),
+            "worker_mode": obj.get("worker_mode"),
             "tenant_id": obj.get("tenant_id"),
             "created_by_id": obj.get("created_by_id"),
             "api_hashes": obj.get("api_hashes"),

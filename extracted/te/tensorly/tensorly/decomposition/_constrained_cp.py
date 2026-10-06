@@ -11,7 +11,6 @@ from ..tenalg.proximal import proximal_operator, validate_constraints
 from ..tenalg.svd import svd_interface
 from ..tenalg import unfolding_dot_khatri_rao
 
-
 # Author: Jean Kossaifi
 #         Jeremy Cohen <jeremy.cohen@irisa.fr>
 #         Caglayan Tuna <caglayantun@gmail.com>
@@ -27,6 +26,7 @@ def initialize_constrained_parafac(
     random_state=None,
     non_negative=None,
     l1_reg=None,
+    group_lasso=None,
     l2_reg=None,
     l2_square_reg=None,
     unimodality=None,
@@ -64,6 +64,8 @@ def initialize_constrained_parafac(
         If it is True, non-negative constraint is applied to all modes.
     l1_reg : float or list or dictionary, optional
         Penalizes the factor with the l1 norm using the input value as regularization parameter.
+    group_lasso : float or list or dictionary, optional
+        Penalizes each row of the factor with the given group lasso regularization parameter.
     l2_reg : float or list or dictionary, optional
         Penalizes the factor with the l2 norm using the input value as regularization parameter.
     l2_square_reg : float or list or dictionary, optional
@@ -99,13 +101,19 @@ def initialize_constrained_parafac(
 
     if init == "random":
         weights, factors = random_cp(
-            tl.shape(tensor), rank, normalise_factors=False, **tl.context(tensor)
+            tl.shape(tensor),
+            rank,
+            random_state=rng,
+            normalise_factors=False,
+            **tl.context(tensor),
         )
 
     elif init == "svd":
         factors = []
         for mode in range(tl.ndim(tensor)):
-            U, S, _ = svd_interface(unfold(tensor, mode), n_eigenvecs=rank, method=svd)
+            U, S, _ = svd_interface(
+                unfold(tensor, mode), n_eigenvecs=rank, method=svd, random_state=rng
+            )
 
             # Put SVD initialization on the same scaling as the tensor in case normalize_factors=False
             if mode == 0:
@@ -146,6 +154,7 @@ def initialize_constrained_parafac(
             factors[i],
             non_negative=non_negative,
             l1_reg=l1_reg,
+            group_lasso=group_lasso,
             l2_reg=l2_reg,
             l2_square_reg=l2_square_reg,
             unimodality=unimodality,
@@ -179,6 +188,7 @@ def constrained_parafac(
     fixed_modes=None,
     non_negative=None,
     l1_reg=None,
+    group_lasso=None,
     l2_reg=None,
     l2_square_reg=None,
     unimodality=None,
@@ -231,6 +241,9 @@ def constrained_parafac(
         If it is True, non-negative constraint is applied to all modes.
     l1_reg : float or list or dictionary, optional
         Penalizes the factor with the l1 norm using the input value as regularization parameter.
+    group_lasso : float or list or dictionary, optional
+        Penalizes each row of the factor with the given group lasso regularization parameter,
+        following Yuan and Lin [3]_.
     l2_reg : float or list or dictionary, optional
         Penalizes the factor with the l2 norm using the input value as regularization parameter.
     l2_square_reg : float or list or dictionary, optional
@@ -279,11 +292,15 @@ def constrained_parafac(
     .. [2] Huang, Kejun, Nicholas D. Sidiropoulos, and Athanasios P. Liavas.
            "A flexible and efficient algorithmic framework for constrained matrix and tensor factorization." IEEE
            Transactions on Signal Processing 64.19 (2016): 5052-5065.
+    .. [3] Yuan, M. and Lin, Y. (2006). Model selection and estimation in
+           regression with grouped variables. Journal of the Royal Statistical
+           Society: Series B, 68(1), 49-67.
     """
     rank = validate_cp_rank(tl.shape(tensor), rank=rank)
     _, _ = validate_constraints(
         non_negative=non_negative,
         l1_reg=l1_reg,
+        group_lasso=group_lasso,
         l2_reg=l2_reg,
         l2_square_reg=l2_square_reg,
         unimodality=unimodality,
@@ -305,6 +322,7 @@ def constrained_parafac(
         random_state=random_state,
         non_negative=non_negative,
         l1_reg=l1_reg,
+        group_lasso=group_lasso,
         l2_reg=l2_reg,
         l2_square_reg=l2_square_reg,
         unimodality=unimodality,
@@ -364,6 +382,7 @@ def constrained_parafac(
                 order=mode,
                 non_negative=non_negative,
                 l1_reg=l1_reg,
+                group_lasso=group_lasso,
                 l2_reg=l2_reg,
                 l2_square_reg=l2_square_reg,
                 unimodality=unimodality,
@@ -465,6 +484,9 @@ class ConstrainedCP(DecompositionMixin):
         If it is True, non-negative constraint is applied to all modes.
     l1_reg : float or list or dictionary, optional
         Penalizes the factor with the l1 norm using the input value as regularization parameter.
+    group_lasso : float or list or dictionary, optional
+        Penalizes each row of the factor with the given group lasso regularization parameter,
+        following Yuan and Lin [3]_.
     l2_reg : float or list or dictionary, optional
         Penalizes the factor with the l2 norm using the input value as regularization parameter.
     l2_square_reg : float or list or dictionary, optional
@@ -513,6 +535,9 @@ class ConstrainedCP(DecompositionMixin):
     .. [2] Huang, Kejun, Nicholas D. Sidiropoulos, and Athanasios P. Liavas.
            "A flexible and efficient algorithmic framework for constrained matrix and tensor factorization." IEEE
            Transactions on Signal Processing 64.19 (2016): 5052-5065.
+    .. [3] Yuan, M. and Lin, Y. (2006). Model selection and estimation in
+           regression with grouped variables. Journal of the Royal Statistical
+           Society: Series B, 68(1), 49-67.
     """
 
     def __init__(
@@ -531,6 +556,7 @@ class ConstrainedCP(DecompositionMixin):
         fixed_modes=None,
         non_negative=None,
         l1_reg=None,
+        group_lasso=None,
         l2_reg=None,
         l2_square_reg=None,
         unimodality=None,
@@ -556,6 +582,7 @@ class ConstrainedCP(DecompositionMixin):
         self.fixed_modes = fixed_modes
         self.non_negative = non_negative
         self.l1_reg = l1_reg
+        self.group_lasso = group_lasso
         self.l2_reg = l2_reg
         self.l2_square_reg = l2_square_reg
         self.unimodality = unimodality
@@ -595,6 +622,7 @@ class ConstrainedCP(DecompositionMixin):
             fixed_modes=self.fixed_modes,
             non_negative=self.non_negative,
             l1_reg=self.l1_reg,
+            group_lasso=self.group_lasso,
             l2_reg=self.l2_reg,
             l2_square_reg=self.l2_square_reg,
             unimodality=self.unimodality,

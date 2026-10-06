@@ -13,7 +13,8 @@ mod frontmatter;
 pub mod fuzzy;
 pub mod hover;
 pub mod jinja;
-mod macro_args;
+pub mod macro_arg_choices;
+pub(crate) mod macro_args;
 pub mod model_alias_shortcut;
 pub mod placeholder;
 pub mod token;
@@ -31,8 +32,9 @@ pub use argument_syntax_edit::{
     normalize_xprompt_spacer_transition,
     plan_argument_colon_to_parentheses_edit,
     plan_argument_double_colon_to_parentheses_edit,
-    plan_xprompt_completion_spacer_to_parentheses_edit,
-    XpromptCompletionSpacerWire,
+    plan_argument_list_continuation_edit,
+    plan_macro_completion_spacer_to_parentheses_edit,
+    MacroCompletionSpacerWire,
 };
 pub use at_reference::{
     build_at_reference_menu, build_at_reference_menu_with_options,
@@ -63,7 +65,8 @@ pub use completion::{
 };
 pub use definition::{definition_at_position, DefinitionTarget};
 pub use diagnostics::{
-    analyze_artifact_refs, analyze_document, queue_directive_diagnostics,
+    analyze_artifact_refs, analyze_document, analyze_document_with_snapshot,
+    argument_diagnostics_with_snapshot, queue_directive_diagnostics,
     typed_launch_directive_diagnostics,
 };
 pub use directive::{
@@ -86,12 +89,21 @@ pub use file::{
 };
 pub use frontmatter::{
     field_schema as frontmatter_field_schema,
+    input_type_completion_at as frontmatter_input_type_completion_at,
     input_type_schema as frontmatter_input_type_schema,
     validate as validate_frontmatter,
     validate_field as validate_frontmatter_field,
+    FrontmatterInputTypeCompletion,
 };
 pub use fuzzy::{compare_fuzzy, fuzzy_match, FuzzyMatch};
-pub use hover::{hover_at_position, hover_at_position_with_flags};
+pub use hover::{
+    hover_at_position, hover_at_position_with_flags,
+    hover_at_position_with_snapshot,
+};
+pub use macro_arg_choices::{
+    macro_argument_choice_candidates, macro_input_type_label,
+    quote_macro_arg_value, MacroChoiceCandidateWire,
+};
 pub(crate) use macro_args::{
     find_matching_bracket_for_args, parse_macro_reference_body,
 };
@@ -133,15 +145,15 @@ pub use wire::{
     DirectiveModelAliasKey, DirectiveModelEntry,
     DirectiveSnippetRecipeContract, DirectiveSuggestedValue,
     DirectiveSuggestedValueWire, DirectiveSyntaxForm, DirectiveValueRole,
-    EditorDiagnostic, EditorPosition, EditorRange, EditorTextEdit,
-    FinalizerCatalogRequest, FinalizerCatalogResponse, FrontmatterFieldKind,
-    FrontmatterFieldSchema, FrontmatterInputType, HoverPayload,
-    MacroArgumentSource, MacroArgumentSpan, MacroArgumentSpanRole,
-    MacroArgumentSpanValidity, MacroAssistEntry, MacroCallNameSpan,
-    MacroInputHint, TokenInfo, VcsNamespaceEntry, VcsProjectCatalogWire,
-    VcsProjectEntry, VcsRefTrigger, VcsRepoCatalogRequest,
-    VcsRepoCatalogResponse, VcsRepoEntry, VcsRepoTrigger,
-    AGENT_CATALOG_SCHEMA_VERSION, EDITOR_WIRE_SCHEMA_VERSION,
+    EditorDiagnostic, EditorDiagnosticData, EditorDiagnosticSuggestion,
+    EditorPosition, EditorRange, EditorTextEdit, FinalizerCatalogRequest,
+    FinalizerCatalogResponse, FrontmatterFieldKind, FrontmatterFieldSchema,
+    FrontmatterInputType, HoverPayload, MacroArgumentSource, MacroArgumentSpan,
+    MacroArgumentSpanRole, MacroArgumentSpanValidity, MacroAssistEntry,
+    MacroCallNameSpan, MacroInputHint, TokenInfo, VcsNamespaceEntry,
+    VcsProjectCatalogWire, VcsProjectEntry, VcsRefTrigger,
+    VcsRepoCatalogRequest, VcsRepoCatalogResponse, VcsRepoEntry,
+    VcsRepoTrigger, AGENT_CATALOG_SCHEMA_VERSION, EDITOR_WIRE_SCHEMA_VERSION,
     FINALIZER_CATALOG_SCHEMA_VERSION, VCS_PROJECT_CATALOG_SCHEMA_VERSION,
     VCS_REPO_CATALOG_SCHEMA_VERSION,
 };

@@ -1139,6 +1139,15 @@ class ToolContext(BaseModel):
     cost_budget_remaining: float | None = None
     calls_remaining_this_conversation: int | None = None
 
+    guardrail_scope: str | None = None
+    """The guardrail history bucket for a run with no conversation (a screen
+    calling a tool: ``screen:<user>:<request>``). Its owner clears it when the
+    run ends. ``None`` = the conversation is the bucket, as for every agent turn."""
+
+    rate_scope: str | None = None
+    """The bucket a tool's ``max_calls_per_minute`` counts in when it must outlive
+    the run's own scope (``screen-user:<user>``: per person, across screen runs)."""
+
     gate_context: Any = None
     """What the agent is currently pursuing, for the tool-result content gate.
 
@@ -1575,6 +1584,14 @@ class ToolDefinition(BaseModel):
             "The execution may outlive its timeout and request task. Use for "
             "paid or otherwise irreversible work that must reach a provider "
             "terminal result before cancellation is propagated."
+        ),
+    )
+    screen_callable: bool = Field(
+        default=False,
+        description=(
+            "A screen may run this tool directly as the signed-in person, with no "
+            "agent and no conversation (the host's screen-run door). Declared as "
+            "``screen_callable: true`` in the row's annotations; off by default."
         ),
     )
     max_client_wait_seconds: int | None = None

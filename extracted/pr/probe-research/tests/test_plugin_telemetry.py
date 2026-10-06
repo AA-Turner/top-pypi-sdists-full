@@ -316,8 +316,8 @@ def test_batch_unauthenticated_machine_never_mints_a_person(tel) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_hooks_json_wires_exactly_the_decided_events() -> None:
-    hooks = json.loads((_HOOKS / "hooks.json").read_text())["hooks"]
+def test_routes_json_wires_exactly_the_decided_events() -> None:
+    hooks = json.loads((_HOOKS / "routes.json").read_text())["hooks"]
     # Exact set on purpose: every event here costs the user something on every
     # occurrence, so another one must be a decision, not a drive-by. PreCompact
     # joined in 2026-08 to reach long-lived sessions, which SessionStart cannot

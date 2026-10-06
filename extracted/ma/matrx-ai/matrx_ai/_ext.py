@@ -390,8 +390,9 @@ def get_turn_directive_handler() -> Any:
 #   * ``spawner(*, label, link_id) -> (execution_id, settle) | None`` —
 #     execution_id is pre-minted (synchronously known, e.g. for a
 #     HandoffOutcome); ``settle`` is ``async settle(*, success: bool,
-#     usage_history) -> None`` and MUST be awaited exactly once after the
-#     child run finishes (it detaches internally; a failure to settle is
+#     usage_history, cancelled: bool = False) -> None`` and MUST be awaited
+#     exactly once after the child run finishes (``cancelled=True`` — the
+#     child was cut off or stopped — settles CANCELLED with its real spend) (it detaches internally; a failure to settle is
 #     swept by the host's reaper).
 
 _CHILD_EXECUTION_SPAWNER_KEY = "child_execution_spawner"

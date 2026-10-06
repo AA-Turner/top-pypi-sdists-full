@@ -9,13 +9,18 @@ message and the agent reacts without polling.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from pydantic_ai.tools import RunContext
 from pydantic_ai.toolsets.function import FunctionToolset
+from pydantic_ai.workspaces import SupportsCommands
 
+from pydantic_deep.features.message_queue import QueueFullError
 from pydantic_deep.features.monitoring.manager import EventSink, MonitorManager
 from pydantic_deep.features.monitoring.types import MonitorEvent
+
+logger = logging.getLogger(__name__)
 
 START_MONITOR_DESCRIPTION = """\
 Start watching a long-running command and react to its output as it appears.
@@ -57,23 +62,28 @@ def _make_queue_sink(queue: Any) -> EventSink:
             )
         else:  # pragma: no cover - no-op event
             return
-        await queue.steer(msg, metadata={"source": "monitor", "monitor_id": event.monitor_id})
+        # MonitorManager._emit swallows sink exceptions, so a full queue would
+        # drop this batch without a trace.
+        try:
+            await queue.steer(msg, metadata={"source": "monitor", "monitor_id": event.monitor_id})
+        except QueueFullError:
+            logger.warning("monitor %s output dropped: message queue full", event.monitor_id)
 
     return sink
 
 
 def _manager(ctx: RunContext[Any]) -> MonitorManager | None:
     """Return (lazily creating) the deps-scoped MonitorManager, or None when the
-    backend can't run background processes."""
+    run's workspace can't run commands."""
     mgr = getattr(ctx.deps, "monitor_manager", None)
     if mgr is not None:
         return cast("MonitorManager", mgr)
-    backend = getattr(ctx.deps, "backend", None)
-    if backend is None or not hasattr(backend, "execute_background"):
+    workspace = ctx.workspace
+    if not workspace.attached or not isinstance(workspace.backend, SupportsCommands):
         return None
     queue = getattr(ctx.deps, "message_queue", None)
     on_event = _make_queue_sink(queue) if queue is not None else None
-    mgr = MonitorManager(backend, on_event=on_event)
+    mgr = MonitorManager(workspace, on_event=on_event)
     ctx.deps.monitor_manager = mgr
     return mgr
 
@@ -88,8 +98,8 @@ def create_monitor_toolset(
     toolset: FunctionToolset[Any] = FunctionToolset(id=id or "deep-monitor")
 
     _no_backend = (
-        "Error: monitoring needs a background-capable backend (e.g. LocalBackend); "
-        "this session's backend does not support it."
+        "Error: monitoring needs a workspace that runs commands (e.g. LocalWorkspace "
+        "or DockerWorkspace); this session's workspace does not."
     )
 
     @toolset.tool(description=descs.get("start_monitor", START_MONITOR_DESCRIPTION))
@@ -126,7 +136,11 @@ def create_monitor_toolset(
         mgr = _manager(ctx)
         if mgr is None:
             return _no_backend
-        stopped = await mgr.stop(monitor_id)
-        return f"Stopped monitor {monitor_id}." if stopped else f"No such monitor: {monitor_id}."
+        # The await on the returning line: see `MonitorManager.stop`.
+        return (
+            f"Stopped monitor {monitor_id}."
+            if await mgr.stop(monitor_id)
+            else f"No such monitor: {monitor_id}."
+        )
 
     return toolset

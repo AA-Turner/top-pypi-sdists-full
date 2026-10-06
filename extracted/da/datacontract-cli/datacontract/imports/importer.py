@@ -41,6 +41,7 @@ class ImportFormat(str, Enum):
     bigquery = "bigquery"
     odcs = "odcs"
     odata = "odata"
+    openapi = "openapi"
     unity = "unity"
     databricks = "databricks"
     spark = "spark"
@@ -62,6 +63,9 @@ class ImportFormat(str, Enum):
     adls = "adls"
     oracle = "oracle"
     trino = "trino"
+    clickhouse = "clickhouse"
+    hive = "hive"
+    xsd = "xsd"
 
     @classmethod
     def get_supported_formats(cls):

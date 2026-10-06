@@ -81,6 +81,60 @@ def test_adapter_type_detection_duckdb():
     )
     assert extractor.dialect == "duckdb"
 
+def test_adapter_type_detection_sqlserver():
+    """Test that SQL Server adapter type maps to tsql SQLGlot dialect."""
+    extractor = DbtColumnLineageExtractor(
+        manifest_path="tests/test_data/sqlserver/manifest.json",
+        catalog_path="tests/test_data/sqlserver/catalog.json",
+    )
+    assert extractor.dialect == "tsql"
+    assert extractor.adapter_type == "sqlserver"
+
+
+def test_adapter_type_detection_vertica(caplog):
+    """Vertica falls back to Postgres with an explicit support warning."""
+    from dbt_test_factory import ColumnDef, make_extractor
+
+    extractor = make_extractor(
+        "vertica",
+        source_columns=[ColumnDef("customer_id")],
+    )
+    assert extractor.dialect == "postgres"
+    assert extractor.adapter_type == "vertica"
+    assert "Vertica is not fully supported" in caplog.text
+    assert "lineage may be incomplete or incorrect" in caplog.text
+
+
+def test_vertica_quoted_columns_are_case_insensitive():
+    """Vertica treats quoted and unquoted identifiers case-insensitively."""
+    from dbt_test_factory import ColumnDef, make_extractor
+
+    extractor = make_extractor(
+        "vertica",
+        source_columns=[
+            ColumnDef("quotedColumnExample", quote=True),
+            ColumnDef("normal_col"),
+        ],
+    )
+    model_id = "model.test_project.my_model"
+    assert extractor.adapter_type == "vertica"
+    assert extractor.dialect == "postgres"
+    assert extractor._get_quoted_columns(model_id) == {}
+    assert extractor._resolve_column_name(
+        "quotedColumnExample", model_id
+    ) == "quotedcolumnexample"
+    assert extractor._resolve_column_name("normal_col", model_id) == "normal_col"
+
+    parents = extractor.extract_project_lineage()["lineage"]["parents"][model_id]
+    assert parents["quotedcolumnexample"] == [
+        {
+            "column": "quotedcolumnexample",
+            "dbt_node": "source.test_project.raw.source_table",
+            "lineage_type": "pass-through",
+        }
+    ]
+
+
 def test_extractor_initialization(dbt_valid_test_data_dir):
     """Test that the extractor can be initialized with valid parameters."""
     if dbt_valid_test_data_dir is None:
@@ -570,9 +624,13 @@ def test_column_lineage_with_real_data(dbt_valid_test_data_dir):
     
     # Verify the result
     assert columns_lineage
-    assert selected_models[0].lower() in columns_lineage
-    
-    model_columns = columns_lineage[selected_models[0].lower()]
+    # Node ids keep their original case (e.g. model.jaffle_shop.STG_CUSTOMERS)
+    model_key = next(
+        (k for k in columns_lineage if k.lower() == selected_models[0].lower()), None
+    )
+    assert model_key is not None
+
+    model_columns = columns_lineage[model_key]
     assert model_columns
     assert isinstance(model_columns, dict)
     
@@ -728,6 +786,65 @@ def make_extractor(manifest_nodes=None, nodes_with_columns=None):
     extractor._table_to_node = {k.lower(): v for k, v in extractor.nodes_with_columns.items()}
     extractor.dialect = 'clickhouse'  # Set dialect to clickhouse for the test
     return extractor
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "target_id"),
+    [
+        ("source", "source.test_project.bc.accounting_period"),
+        ("model", "model.test_project.stg_bc__gl_account"),
+    ],
+)
+def test_fabric_bracketed_relation_resolves_without_phantom_node(
+    resource_type, target_id
+):
+    model_node = "model.test_project.downstream"
+    target = {
+        "resource_type": resource_type,
+        "database": "Business Central Replication",
+        "schema": "dbo",
+        "name": "AccountingPeriod-50",
+        "identifier": "AccountingPeriod-50",
+        "relation_name": "[Business Central Replication].[dbo].[AccountingPeriod-50]",
+        "columns": {"No-1": {"name": "No-1"}},
+        "config": {"materialized": None if resource_type == "source" else "view"},
+    }
+    downstream = {
+        "resource_type": "model",
+        "database": "DBT Warehouse",
+        "schema": "dbt_tk",
+        "name": "downstream",
+        "alias": "downstream",
+        "relation_name": "[DBT Warehouse].[dbt_tk].[downstream]",
+        "raw_code": "select [No-1] from {{ ref_or_source() }}",
+        "columns": {},
+        "config": {"materialized": "view"},
+    }
+
+    extractor = object.__new__(DbtColumnLineageExtractor)
+    extractor.logger = logging.getLogger("colibri_test")
+    extractor.dialect = "fabric"
+    extractor.manifest = {"nodes": {model_node: downstream}, "sources": {}}
+    if resource_type == "source":
+        extractor.manifest["sources"][target_id] = target
+    else:
+        extractor.manifest["nodes"][target_id] = target
+    extractor.catalog = {"nodes": {}, "sources": {}}
+    extractor.nodes_with_columns = extractor.build_nodes_with_columns()
+    extractor._table_to_node = {
+        key.lower(): value for key, value in extractor.nodes_with_columns.items()
+    }
+
+    source = MockSource(
+        catalog="Business Central Replication",
+        db="dbo",
+        name="AccountingPeriod-50",
+    )
+    node = MockSqlglotNode(source, "AccountingPeriod-50.No-1")
+
+    result = extractor.get_dbt_node_from_sqlglot_table_node(node, model_node)
+
+    assert result == {"column": "no-1", "dbt_node": target_id}
 
 
 def test_clickhouse_leading_dot_table_matches():

@@ -15,20 +15,25 @@ from __future__ import annotations
 
 import base64
 import os
+import subprocess
+import sys
 import time
 
 import pytest
 
+from coord.key_spec import UnsupportedKey
 from coord.mac_native_driver import (
+    MacKeyEncoding,
     MacNativeRuntimeError,
     MacNativeSpecError,
     MacOSCalls,
     NativeRunner,
     NativeSpec,
     NativeStep,
+    _encode_mac_chord,
     _find_a11y_match,
+    _mac_key_encodings,
     _summarize_elements,
-    _vkey_for,
     parse_native_spec,
     run_native_spec,
 )
@@ -150,30 +155,109 @@ steps:
             )
 
 
-# ── _vkey_for ────────────────────────────────────────────────────────────────
+# ── _mac_key_encodings / _encode_mac_chord (#3639) ──────────────────────────
 
 
-class TestVkeyFor:
+def _enc(vkey=None, unicode_char=None, shift=False, ctrl=False, alt=False, cmd=False):
+    return MacKeyEncoding(vkey=vkey, unicode_char=unicode_char, shift=shift, ctrl=ctrl, alt=alt, cmd=cmd)
+
+
+class TestMacKeyEncodings:
     def test_named_keys_case_insensitive(self) -> None:
-        assert _vkey_for("enter") == (0x24, False)
-        assert _vkey_for("ENTER") == (0x24, False)
-        assert _vkey_for("Esc") == (0x35, False)
+        assert _mac_key_encodings("enter") == [_enc(vkey=0x24)]
+        assert _mac_key_encodings("ENTER") == [_enc(vkey=0x24)]
+        assert _mac_key_encodings("Esc") == [_enc(vkey=0x35)]
 
     def test_ctrl_combo(self) -> None:
-        assert _vkey_for("ctrl+c") == (0x08, False)
+        assert _mac_key_encodings("ctrl+c") == [_enc(vkey=0x08, ctrl=True)]
 
     def test_lowercase_literal_needs_no_shift(self) -> None:
-        assert _vkey_for("a") == (0x00, False)
+        assert _mac_key_encodings("a") == [_enc(vkey=0x00)]
 
     def test_uppercase_literal_needs_shift(self) -> None:
-        assert _vkey_for("A") == (0x00, True)
+        assert _mac_key_encodings("A") == [_enc(vkey=0x00, shift=True)]
 
     def test_digit_key(self) -> None:
-        assert _vkey_for("5") == (0x17, False)
+        assert _mac_key_encodings("5") == [_enc(vkey=0x17)]
 
     def test_unrecognized_key_raises(self) -> None:
         with pytest.raises(MacNativeSpecError, match="unrecognized key"):
-            _vkey_for("moonwalk")
+            _mac_key_encodings("moonwalk")
+
+    def test_alt_m(self) -> None:
+        # #3625: `alt+m` previously raised "unrecognized key".
+        assert _mac_key_encodings("alt+m") == [_enc(vkey=0x2E, alt=True)]
+
+    def test_cmd_shift_p(self) -> None:
+        assert _mac_key_encodings("cmd+shift+p") == [_enc(vkey=0x23, shift=True, cmd=True)]
+
+    def test_ctrl_shift_right(self) -> None:
+        assert _mac_key_encodings("ctrl+shift+right") == [_enc(vkey=0x7C, ctrl=True, shift=True)]
+
+    def test_shift_f3(self) -> None:
+        assert _mac_key_encodings("shift+f3") == [_enc(vkey=0x63, shift=True)]
+
+    def test_bare_unmapped_character_goes_through_unicode_string(self) -> None:
+        # Every ASCII punctuation character now has a real macOS keycode
+        # (see the chord/digit-symbol tests below), so only a character
+        # entirely outside that table — e.g. a non-ASCII letter — still
+        # goes through the plain Unicode-string event path when unadorned.
+        assert _mac_key_encodings("é") == [_enc(unicode_char="é")]
+
+    def test_punctuation_with_real_keycode_maps_colon_and_at(self) -> None:
+        # `:` is Shift+; and `@` is Shift+2 on a US ANSI layout — both now
+        # carry a real vkey (+ implied Shift) rather than vkey=0.
+        assert _mac_key_encodings(":") == [_enc(vkey=0x29, shift=True)]
+        assert _mac_key_encodings("@") == [_enc(vkey=0x13, shift=True)]
+
+    def test_shifted_digit_row_symbol_maps_to_digit_vkey(self) -> None:
+        # `$` is Shift+4 on a US ANSI layout.
+        assert _mac_key_encodings("$") == [_enc(vkey=0x15, shift=True)]
+
+    def test_cmd_bracket_and_slash_use_real_keycodes_not_vkey_zero(self) -> None:
+        # #3639 review finding: `cmd+[`/`cmd+]`/`cmd+/` previously posted
+        # vkey=0 (kVK_ANSI_A) + the Cmd flag — i.e. silently delivered as
+        # Cmd+A. They must now carry the real punctuation keycode.
+        assert _mac_key_encodings("cmd+[") == [_enc(vkey=0x21, cmd=True)]
+        assert _mac_key_encodings("cmd+]") == [_enc(vkey=0x1E, cmd=True)]
+        assert _mac_key_encodings("cmd+/") == [_enc(vkey=0x2C, cmd=True)]
+
+    def test_modifier_plus_unmappable_char_raises_unsupported(self) -> None:
+        # A character with no real macOS keycode at all (outside the
+        # letter/digit/punctuation tables) combined with a non-shift
+        # modifier must raise rather than silently post vkey=0.
+        with pytest.raises(UnsupportedKey):
+            _mac_key_encodings("cmd+é")
+
+    def test_chord_sequence_ctrl_k_ctrl_w(self) -> None:
+        assert _mac_key_encodings("ctrl+k ctrl+w") == [
+            _enc(vkey=0x28, ctrl=True),
+            _enc(vkey=0x0D, ctrl=True),
+        ]
+
+    def test_delete_and_backspace_use_different_keycodes(self) -> None:
+        # #3627: forward-delete and backspace are different physical keys.
+        delete = _mac_key_encodings("delete")[0]
+        backspace = _mac_key_encodings("backspace")[0]
+        assert delete.vkey != backspace.vkey
+        assert delete.vkey == 0x75
+        assert backspace.vkey == 0x33
+
+    def test_f21_has_no_macos_keycode_and_raises_unsupported(self) -> None:
+        with pytest.raises(UnsupportedKey):
+            _mac_key_encodings("f21")
+
+    def test_encode_mac_chord_raises_unsupported_for_an_unknown_named_key(self) -> None:
+        # Exercises `_encode_mac_chord` directly (what `_mac_key_encodings`
+        # calls per chord) so the raise itself (never a silent fallthrough)
+        # is proven reachable even for a named key the grammar accepts but
+        # this platform has no keycode for (#2096: a gate must be able to
+        # fail).
+        from coord.key_spec import KeyChord
+
+        bogus = KeyChord(modifiers=frozenset(), base="nonexistent", is_char=False)
+        with pytest.raises(UnsupportedKey):
+            _encode_mac_chord(bogus)
 
 
 # ── _find_a11y_match / _summarize_elements ──────────────────────────────────
@@ -708,6 +792,187 @@ class TestMacOSCallsPlatformGuard:
             pytest.skip("this guard only fires off macOS")
         with pytest.raises(MacNativeRuntimeError, match="macOS"):
             MacOSCalls()
+
+
+class _FakeQuartz:
+    """Records every posted ``CGEvent`` as a plain dict — enough to assert
+    the real ``send_key`` sequence (vkey, modifier flags, the Unicode
+    override) without pyobjc installed (#3639 review non-blocking concern:
+    the mac tests used to stop at the intermediate :class:`MacKeyEncoding`
+    dataclass, leaving the brand-new punctuation-keycode path and the
+    ``CGEventKeyboardSetUnicodeString`` call shape entirely unverified)."""
+
+    kCGEventFlagMaskShift = 0x00020000
+    kCGEventFlagMaskControl = 0x00040000
+    kCGEventFlagMaskAlternate = 0x00080000
+    kCGEventFlagMaskCommand = 0x00100000
+
+    def __init__(self) -> None:
+        self.posted: list[dict] = []
+
+    def CGEventCreateKeyboardEvent(self, _source, vkey, key_down):
+        return {"vkey": vkey, "down": key_down, "flags": 0, "unicode": None}
+
+    def CGEventKeyboardSetUnicodeString(self, event, _length, chars) -> None:
+        event["unicode"] = chars
+
+    def CGEventSetFlags(self, event, flags) -> None:
+        event["flags"] = flags
+
+    def CGEventPostToPid(self, _pid, event) -> None:
+        self.posted.append(dict(event))
+
+
+def _make_mac_calls(quartz: _FakeQuartz) -> MacOSCalls:
+    """Build a :class:`MacOSCalls` bypassing ``__init__``'s platform guard
+    (construction requires real macOS) with a fake ``quartz``."""
+    calls = object.__new__(MacOSCalls)
+    calls._quartz = quartz
+    return calls
+
+
+# ── #3622: MacOSCalls.launch() must track the REAL process's pid, not
+# ``/bin/sh``'s, for the lane's own prescribed compound ``--launch`` shape ──
+
+
+class TestMacOSCallsLaunchExecWraps:
+    """Tier-1 conformance guard for the bugbash finding (#3622): a bugbash
+    run of ``coord app-drive open mac-native --launch 'cd .smoke && HOME=
+    $PWD/home "<bin>" sample.txt'`` — the exact compound form this lane's
+    own HARD RULE prescribes — always failed with ``no on-screen window
+    appeared for pid=<N>``, because ``MacOSCalls.launch()`` tracked a bare
+    ``subprocess.Popen(command, shell=True)``'s own pid, and ``/bin/sh``
+    forks a child for the final (real-binary) command of a ``&&`` chain
+    instead of exec'ing into it in place — so the tracked pid never
+    matches the real window-owning process's pid.
+
+    Both tests construct a real :class:`MacOSCalls` (bypassing
+    ``__init__``'s macOS-only platform guard — exactly like
+    :func:`_make_mac_calls` above; ``launch()`` itself touches no
+    Quartz/AX call, so this is safe and real-process-exercising on any
+    POSIX platform, not just real macOS hardware) and fail against the
+    pre-fix ``launch()`` (a bare ``Popen(command, shell=True)``, which
+    leaves two live processes — ``/bin/sh`` and the real child — with
+    different pids) and pass against the fix (``Popen(
+    wrap_launch_command(command), shell=True)``, which collapses the
+    compound command's final simple command into a single ``execve()``).
+    """
+
+    @pytest.mark.skipif(os.name != "posix", reason="shell=True compound commands are POSIX here")
+    def test_compound_launch_pid_is_the_real_binary_not_the_shell(self, tmp_path) -> None:
+        marker = tmp_path / "pid.txt"
+        subdir = tmp_path / ".smoke"
+        subdir.mkdir()
+        # The lane's own prescribed shape: a leading `cd` plus an inline
+        # env-var assignment on the final simple command.
+        command = (
+            f"cd .smoke && HOME=$PWD/home {sys.executable} -c "
+            "\"import os, pathlib, time; "
+            f"pathlib.Path({str(marker)!r}).write_text(str(os.getpid())); "
+            "time.sleep(5)\""
+        )
+        calls = object.__new__(MacOSCalls)
+        pid = calls.launch(command, str(tmp_path))
+        try:
+            deadline = time.monotonic() + 5
+            while not marker.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            assert marker.exists(), (
+                "the launched process never wrote its own pid — the "
+                "compound launch command failed to start at all"
+            )
+            real_pid = int(marker.read_text())
+            assert pid == real_pid, (
+                f"MacOSCalls.launch() returned pid={pid} but the real "
+                f"binary's own pid is {real_pid} — the tracked pid is "
+                f"/bin/sh's, not the real process (#3622)"
+            )
+        finally:
+            try:
+                os.kill(pid, 9)
+            except ProcessLookupError:
+                pass
+            try:
+                os.kill(real_pid, 9)
+            except (ProcessLookupError, NameError):
+                pass
+
+    def test_launch_hands_popen_the_exec_wrapped_command(self, monkeypatch) -> None:
+        """Faster, non-spawning companion: pins that ``launch()`` really
+        does route through :func:`coord.shell_exec_wrap.wrap_launch_command`
+        rather than handing ``Popen`` the caller's command verbatim — so a
+        future edit that silently drops the wrap call fails here even
+        without spawning a real process."""
+        captured: dict[str, object] = {}
+
+        class _FakeProc:
+            pid = 4242
+
+        def fake_popen(command, **kwargs):
+            captured["command"] = command
+            captured["kwargs"] = kwargs
+            return _FakeProc()
+
+        monkeypatch.setattr(subprocess, "Popen", fake_popen)
+        calls = object.__new__(MacOSCalls)
+        pid = calls.launch("cd .smoke && HOME=$PWD/home ./bin sample.txt", "/repo")
+        assert pid == 4242
+        assert captured["command"] == (
+            "cd .smoke && exec env HOME=$PWD/home ./bin sample.txt"
+        )
+        assert captured["kwargs"]["shell"] is True
+        assert captured["kwargs"]["cwd"] == "/repo"
+
+
+class TestSendKeyRealSequence:
+    def test_cmd_bracket_posts_the_real_vkey_not_zero(self) -> None:
+        # #3639 blocking review finding: `cmd+[` used to post vkey=0
+        # (kVK_ANSI_A) plus the Cmd flag.
+        quartz = _FakeQuartz()
+        calls = _make_mac_calls(quartz)
+        calls.send_key(1, "cmd+[")
+        down, up = quartz.posted
+        assert down["vkey"] == 0x21
+        assert down["down"] is True
+        assert down["flags"] == quartz.kCGEventFlagMaskCommand
+        assert up["vkey"] == 0x21
+        assert up["down"] is False
+        assert up["flags"] == quartz.kCGEventFlagMaskCommand
+
+    def test_cmd_slash_posts_the_real_vkey(self) -> None:
+        quartz = _FakeQuartz()
+        calls = _make_mac_calls(quartz)
+        calls.send_key(1, "cmd+/")
+        down, _up = quartz.posted
+        assert down["vkey"] == 0x2C
+
+    def test_bare_unmapped_char_passes_the_string_itself_not_a_list(self) -> None:
+        # Pins the conventional pyobjc call shape (#3639 review concern):
+        # the string itself, not a one-element list of codepoint ints.
+        quartz = _FakeQuartz()
+        calls = _make_mac_calls(quartz)
+        calls.send_key(1, "é")
+        down, up = quartz.posted
+        assert down["vkey"] == 0
+        assert down["unicode"] == "é"
+        assert up["unicode"] == "é"
+
+    def test_chord_sequence_posts_each_chord_as_its_own_down_up_pair(self) -> None:
+        quartz = _FakeQuartz()
+        calls = _make_mac_calls(quartz)
+        calls.send_key(1, "ctrl+k ctrl+w")
+        assert len(quartz.posted) == 4
+        assert [e["vkey"] for e in quartz.posted] == [0x28, 0x28, 0x0D, 0x0D]
+
+    def test_delete_and_backspace_post_different_vkeys(self) -> None:
+        quartz = _FakeQuartz()
+        calls = _make_mac_calls(quartz)
+        calls.send_key(1, "delete")
+        delete_vkey = quartz.posted[0]["vkey"]
+        quartz.posted.clear()
+        calls.send_key(1, "backspace")
+        backspace_vkey = quartz.posted[0]["vkey"]
+        assert delete_vkey != backspace_vkey
 
 
 class TestImportQuartz:

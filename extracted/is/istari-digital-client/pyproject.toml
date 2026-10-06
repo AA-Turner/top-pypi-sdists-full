@@ -1,6 +1,6 @@
 [project]
 name = "istari-digital-client"
-version = "13.1.9"
+version = "13.2.0"
 description = "Python client for the Istari Digital platform"
 license = { file = "LICENSE" }
 readme = "README.md"
@@ -27,7 +27,7 @@ python = ">=3.10,<4.0"
 python-dotenv = "^1.0.1"
 pydantic = "^2.9.0"
 python-dateutil = "^2.9.0.post0"
-urllib3 = "^2.6.0"
+urllib3 = "^2.8.0"
 typing-extensions = "^4.12.2"
 types-python-dateutil = "^2.9.0.20240906"
 deprecation = "^2.1.0"
@@ -41,7 +41,7 @@ awscrt = { version = ">=0.19.0", optional = true }
 # ceiling for consumers (^46.0.0 forced #461; ^48.0.1 forced DPLAT-637), so pin
 # the floor and let consumers choose the ceiling.
 cryptography = ">=49.0.0"
-pyjwt = "^2.13.0"
+pyjwt = "^2.15.1"
 
 [tool.poetry.extras]
 s3 = ["boto3"]
@@ -150,6 +150,7 @@ exclude = [
   'istari_digital_client/sdk/_generated',
   'istari_digital_client/sdk/_storage',
   'istari_digital_client/sdk/_auth',
+  'istari_digital_client/sdk/_identity',
   'istari_digital_client/sdk/_compatibility',
   'istari_digital_client/sdk/_api_client.py',
   'istari_digital_client/sdk/_api_response.py',
@@ -162,7 +163,9 @@ exclude = [
   'istari_digital_client/legacy/v2',
   'istari_digital_client/legacy/v3',
   'istari_digital_client/legacy/storage',
-  'istari_digital_client/legacy/auth',
+  'istari_digital_client/identity/auth',
+  'istari_digital_client/identity/v1',
+  'istari_digital_client/identity/v2',
   'istari_digital_client/legacy/mixin',
   'istari_digital_client/legacy/protocol',
   'istari_digital_client/legacy/api_client.py',
@@ -183,18 +186,22 @@ exclude = [
   'istari_digital_client/sdk',
   # Legacy generated code
   'istari_digital_client/legacy',
+  # Generated identity-service v2 client
+  'istari_digital_client/identity/v2',
 ]
 
 [tool.ruff.format]
 exclude = [
   'istari_digital_client/sdk',
   'istari_digital_client/legacy',
+  'istari_digital_client/identity/v2',
 ]
 
 [tool.ruff.lint]
 exclude = [
   'istari_digital_client/sdk',
   'istari_digital_client/legacy',
+  'istari_digital_client/identity/v2',
 ]
 
 [tool.interrogate]
@@ -222,6 +229,7 @@ exclude = [
   # Exclude new facade code and legacy generated code
   "istari_digital_client/sdk",
   "istari_digital_client/legacy",
+  "istari_digital_client/identity/v2",
 ]
 ignore-regex = ["^get$", "^mock_.*", ".*BaseClass.*"]
 verbose = 1

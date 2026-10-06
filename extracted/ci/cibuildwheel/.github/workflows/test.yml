@@ -49,7 +49,7 @@ jobs:
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: "3.x"
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
     - uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
     - name: PyLint checks
       run: uvx nox -s pylint -- --output-format=github
@@ -66,7 +66,7 @@ jobs:
       name: Install Python
       with:
         python-version: "3.x"
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
     - name: Install dependencies
       run: uv sync --no-dev --group test
     - name: Generate a sample project
@@ -130,7 +130,7 @@ jobs:
         python-version: ${{ matrix.python_version }}
         allow-prereleases: true
 
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
     - name: Free up disk space
       if: runner.os == 'Linux' && matrix.test_select != 'android'
@@ -143,7 +143,7 @@ jobs:
     # for oci_container unit tests
     - name: Set up QEMU
       if: runner.os == 'Linux'
-      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
     - name: Set up Xcode
       if: ${{ startsWith(matrix.os, 'macos-15') }}
@@ -185,7 +185,7 @@ jobs:
         path: sample_proj
 
     - name: Run a sample build (GitHub Action)
-      uses: ./
+      uses: $/
       with:
         package-dir: sample_proj
         output-dir: wheelhouse
@@ -196,7 +196,7 @@ jobs:
         CIBW_TEST_RUNTIME: ${{ matrix.test_runtime }}
 
     - name: Run a sample build (GitHub Action, only)
-      uses: ./
+      uses: $/
       if: matrix.test_select == ''
       with:
         package-dir: sample_proj
@@ -216,7 +216,7 @@ jobs:
         EOF
 
     - name: Run a sample build (GitHub Action, config-file)
-      uses: ./
+      uses: $/
       env:
         CIBW_PLATFORM: ${{ matrix.test_select }}
         CIBW_TEST_RUNTIME: ${{ matrix.test_runtime }}
@@ -224,6 +224,8 @@ jobs:
         package-dir: sample_proj
         output-dir: wheelhouse_config_file
         config-file: sample_proj/cibw.toml
+        # Exercise the system-Python override on Linux.
+        python-path: ${{ runner.os == 'Linux' && 'python3' || '' }}
 
     - name: Check Action artifacts
       shell: bash
@@ -260,7 +262,7 @@ jobs:
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: "3.x"
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
     - name: Install dependencies
       run: uv sync --no-dev --group test
     - name: Get qemu emulated architectures
@@ -285,12 +287,12 @@ jobs:
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: "3.x"
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
     - name: Install dependencies
       run: uv sync --no-dev --group test
 
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
     - name: Run the emulation tests
       env:
@@ -310,7 +312,7 @@ jobs:
       name: Install Python 3.12
       with:
         python-version: '3.12'
-    - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+    - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
     - name: Install dependencies
       run: uv sync --no-dev --group test
@@ -322,7 +324,7 @@ jobs:
         path: sample_proj
 
     - name: Run a sample build (GitHub Action)
-      uses: ./
+      uses: $/
       with:
         package-dir: sample_proj
         output-dir: wheelhouse
@@ -364,7 +366,7 @@ jobs:
         name: sample_proj
         path: sample_proj
     - name: Run a sample build (GitHub Action)
-      uses: ./
+      uses: $/
       with:
         extras: uv
         package-dir: sample_proj

@@ -27,7 +27,8 @@ from functools import partial
 from . import cpu_count, get_context
 from . import util
 from .common import (
-    TERM_SIGNAL, human_status, pickle_loads, reset_signals, restart_state,
+    TERM_SIGNAL, clear_terminate_handler_fired, human_status, pickle_loads,
+    reset_signals, restart_state, terminate_handler_fired,
 )
 from .compat import get_errno, mem_rss, send_offset
 from .einfo import ExceptionInfo
@@ -362,11 +363,50 @@ class Worker:
                     try:
                         result = (True, prepare_result(fun(*args, **kwargs)))
                     except BaseException as exc:
+                        if terminate_handler_fired():
+                            # Our own signal handler has already run in this
+                            # process -- see common._shutdown_cleanup -- so we
+                            # are unwinding towards exit and this job did not
+                            # finish. There is no result to report: say
+                            # nothing and let the process go, and the parent
+                            # accounts for the job as lost with the worker.
+                            # Reporting it would make an interrupted job look
+                            # completed-with-failure, and a caller that
+                            # acknowledges work only once it is done -- Celery
+                            # with task_acks_late -- would then acknowledge a
+                            # task nothing ever ran to the end.
+                            #
+                            # Deliberately not narrowed to SystemExit. If the
+                            # job's own cleanup raises while that SystemExit
+                            # unwinds -- a finally, or an __exit__ that fails,
+                            # say a rollback on a connection the teardown has
+                            # already closed -- the exception arriving here is
+                            # that new error, and the job is every bit as
+                            # unfinished (reported by @kratos0718 on #464).
+                            #
+                            # Known limitation, in the safer direction: a job
+                            # that *swallows* the shutdown SystemExit leaves
+                            # this flag set with the worker still alive, so a
+                            # later job's own exception is reported as a lost
+                            # worker rather than as itself. A spurious loss is
+                            # redelivered rather than silently acked, and such
+                            # a job has already defeated shutdown. Do not put
+                            # the isinstance check back without first handling
+                            # the cleanup-raises case above.
+                            raise
                         result = (False, ExceptionInfo())
                         if isinstance(exc, (SystemExit, KeyboardInterrupt)):
-                            # The worker was told to exit (e.g. SIGTERM from a
-                            # hard time limit): report the result, then leave
-                            # instead of re-entering the shared inqueue.
+                            # Raised by the job itself: a result, and one the
+                            # caller should see rather than a WorkerLostError
+                            # (#427). Report it, then leave instead of
+                            # re-entering the shared inqueue.
+                            #
+                            # Reached only when the flag is clear, so these
+                            # really are the job's own: _shutdown_cleanup
+                            # raises SystemExit and sets the flag first, and
+                            # after_fork sets SIGINT to SIG_IGN, so a worker's
+                            # KeyboardInterrupt can only have come from the
+                            # job.
                             exit_exc = exc
                     try:
                         put((READY, (job, i, result, inqW_fd)))
@@ -420,6 +460,14 @@ class Worker:
         return False
 
     def after_fork(self):
+        # First, before self.initializer runs any user code: this child has
+        # not handled a terminate signal, whatever it inherited across the
+        # fork. Doing this here rather than as a side effect of
+        # reset_signals() below also closes the window where a signal
+        # arriving during a slow initializer (Celery's process_initializer)
+        # would be handled with the inherited flag still set.
+        clear_terminate_handler_fired()
+
         if hasattr(self.inq, '_writer'):
             self.inq._writer.close()
         if hasattr(self.outq, '_reader'):
@@ -998,6 +1046,28 @@ class Pool:
                  max_memory_per_child=None,
                  enable_timeouts=False,
                  **kwargs):
+        # bool subclasses int; processes=True would silently spawn 1 worker,
+        # and timeout/soft_timeout/lost_worker_timeout=True would become 1s.
+        for name, value in (
+            ("processes", processes),
+            ("maxtasksperchild", maxtasksperchild),
+            ("timeout", timeout),
+            ("soft_timeout", soft_timeout),
+            ("lost_worker_timeout", lost_worker_timeout),
+            ("max_memory_per_child", max_memory_per_child),
+            ("max_restarts", max_restarts),
+            ("max_restart_freq", max_restart_freq),
+        ):
+            if isinstance(value, bool):
+                raise TypeError(
+                    f"{name} must be an int or float, not bool (got {value!r})"
+                )
+        if processes is not None and processes < 1:
+            raise ValueError("Number of processes must be at least 1")
+        if maxtasksperchild is not None and (
+                not isinstance(maxtasksperchild, int) or maxtasksperchild < 1):
+            raise ValueError("maxtasksperchild must be a positive int or None")
+
         self._ctx = context or get_context()
         self.synack = synack
         self._setup_queues()

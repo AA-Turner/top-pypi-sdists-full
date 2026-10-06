@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 from copy import deepcopy
-from typing import Any
+from typing import Any, Generic, cast
 
 import numpy as np
+import numpy.typing as npt
 
 from gymnasium import Env, Space
 from gymnasium.core import ActType, ObsType, RenderFrame
@@ -18,12 +19,12 @@ from gymnasium.vector.utils import (
     create_empty_array,
     iterate,
 )
-from gymnasium.vector.vector_env import ArrayType, AutoresetMode, VectorEnv
+from gymnasium.vector.vector_env import AutoresetMode, VectorEnv
 
 __all__ = ["SyncVectorEnv"]
 
 
-class SyncVectorEnv(VectorEnv):
+class SyncVectorEnv(VectorEnv[ObsType, ActType, np.ndarray], Generic[ObsType, ActType]):
     """Vectorized environment that serially runs multiple environments.
 
     Example:
@@ -60,13 +61,28 @@ class SyncVectorEnv(VectorEnv):
         >>> envs.close()
     """
 
+    env_fns: Sequence[Callable[[], Env]]
+    copy: bool
+    observation_mode: str | tuple[Space, Space]
+    autoreset_mode: AutoresetMode
+    envs: list[Env]
+    num_envs: int
+    metadata: dict[str, Any]
+    render_mode: str | None
+    single_action_space: Space
+    action_space: Space
+    single_observation_space: Space
+    observation_space: Space
+
+    _observations: ObsType
+
     def __init__(
         self,
-        env_fns: Iterator[Callable[[], Env]] | Sequence[Callable[[], Env]],
+        env_fns: Sequence[Callable[[], Env]],
         copy: bool = True,
-        observation_mode: str | Space = "same",
+        observation_mode: str | tuple[Space, Space] = "same",
         autoreset_mode: str | AutoresetMode = AutoresetMode.NEXT_STEP,
-    ):
+    ) -> None:
         """Vectorized environment that serially runs multiple environments.
 
         Args:
@@ -98,7 +114,8 @@ class SyncVectorEnv(VectorEnv):
         # Define core attributes using the sub-environments
         # As we support `make_vec(spec)` then we can't include a `spec = self.envs[0].spec` as this doesn't guarantee we can actual recreate the vector env.
         self.num_envs = len(self.envs)
-        self.metadata = self.envs[0].metadata
+        # Copy the metadata such that we don't modify the sub-environment's (class-level) metadata
+        self.metadata = dict(self.envs[0].metadata)
         self.metadata["autoreset_mode"] = self.autoreset_mode
         self.render_mode = self.envs[0].render_mode
 
@@ -106,8 +123,12 @@ class SyncVectorEnv(VectorEnv):
         self.action_space = batch_space(self.single_action_space, self.num_envs)
 
         if isinstance(observation_mode, tuple) and len(observation_mode) == 2:
-            assert isinstance(observation_mode[0], Space)
-            assert isinstance(observation_mode[1], Space)
+            if not isinstance(observation_mode[0], Space) or not isinstance(
+                observation_mode[1], Space
+            ):
+                raise TypeError(
+                    f"Expected both elements of observation_mode to be Spaces, got {type(observation_mode[0])} and {type(observation_mode[1])}"
+                )
             self.observation_space, self.single_observation_space = observation_mode
         else:
             if observation_mode == "same":
@@ -128,24 +149,30 @@ class SyncVectorEnv(VectorEnv):
         # check sub-environment obs and action spaces
         for env in self.envs:
             if observation_mode == "same":
-                assert env.observation_space == self.single_observation_space, (
-                    f"SyncVectorEnv(..., observation_mode='same') however the sub-environments observation spaces are not equivalent. single_observation_space={self.single_observation_space}, sub-environment observation_space={env.observation_space}. If this is intentional, use `observation_mode='different'` instead."
-                )
+                if env.observation_space != self.single_observation_space:
+                    raise RuntimeError(
+                        f"SyncVectorEnv(..., observation_mode='same') however the sub-environments observation spaces are not equivalent. single_observation_space={self.single_observation_space}, sub-environment observation_space={env.observation_space}. If this is intentional, use `observation_mode='different'` instead."
+                    )
             else:
-                assert is_space_dtype_shape_equiv(
+                if not is_space_dtype_shape_equiv(
                     env.observation_space, self.single_observation_space
-                ), (
-                    f"SyncVectorEnv(..., observation_mode='different' or custom space) however the sub-environments observation spaces do not share a common shape and dtype, single_observation_space={self.single_observation_space}, sub-environment observation space={env.observation_space}"
-                )
+                ):
+                    raise RuntimeError(
+                        f"SyncVectorEnv(..., observation_mode='different' or custom space) however the sub-environments observation spaces do not share a common shape and dtype, single_observation_space={self.single_observation_space}, sub-environment observation space={env.observation_space}"
+                    )
 
-            assert env.action_space == self.single_action_space, (
-                f"Sub-environment action space doesn't make the `single_action_space`, action_space={env.action_space}, single_action_space={self.single_action_space}"
-            )
+            if env.action_space != self.single_action_space:
+                raise RuntimeError(
+                    f"Sub-environment action space doesn't make the `single_action_space`, action_space={env.action_space}, single_action_space={self.single_action_space}"
+                )
 
         # Initialise attributes used in `step` and `reset`
         self._env_obs = [None for _ in range(self.num_envs)]
-        self._observations = create_empty_array(
-            self.single_observation_space, n=self.num_envs, fn=np.zeros
+        self._observations = cast(
+            "ObsType",
+            create_empty_array(
+                self.single_observation_space, n=self.num_envs, fn=np.zeros
+            ),
         )
         self._rewards = np.zeros((self.num_envs,), dtype=np.float64)
         self._terminations = np.zeros((self.num_envs,), dtype=np.bool_)
@@ -185,24 +212,29 @@ class SyncVectorEnv(VectorEnv):
             seed = [None for _ in range(self.num_envs)]
         elif isinstance(seed, int):
             seed = [seed + i for i in range(self.num_envs)]
-        assert len(seed) == self.num_envs, (
-            f"If seeds are passed as a list the length must match num_envs={self.num_envs} but got length={len(seed)}."
-        )
+        if len(seed) != self.num_envs:
+            raise ValueError(
+                f"If seeds are passed as a list the length must match num_envs={self.num_envs} but got length={len(seed)}."
+            )
 
         if options is not None and "reset_mask" in options:
             reset_mask = options.pop("reset_mask")
-            assert isinstance(reset_mask, np.ndarray), (
-                f"`options['reset_mask': mask]` must be a numpy array, got {type(reset_mask)}"
-            )
-            assert reset_mask.shape == (self.num_envs,), (
-                f"`options['reset_mask': mask]` must have shape `({self.num_envs},)`, got {reset_mask.shape}"
-            )
-            assert reset_mask.dtype == np.bool_, (
-                f"`options['reset_mask': mask]` must have `dtype=np.bool_`, got {reset_mask.dtype}"
-            )
-            assert np.any(reset_mask), (
-                f"`options['reset_mask': mask]` must contain a boolean array, got reset_mask={reset_mask}"
-            )
+            if not isinstance(reset_mask, np.ndarray):
+                raise TypeError(
+                    f"`options['reset_mask']` must be a numpy array, got {type(reset_mask)}"
+                )
+            if reset_mask.shape != (self.num_envs,):
+                raise ValueError(
+                    f"`options['reset_mask']` must have shape `({self.num_envs},)`, got {reset_mask.shape}"
+                )
+            if reset_mask.dtype != np.bool_:
+                raise TypeError(
+                    f"`options['reset_mask']` must have `dtype=np.bool_`, got {reset_mask.dtype}"
+                )
+            if not np.any(reset_mask):
+                raise ValueError(
+                    f"`options['reset_mask']` must contain a boolean array with at least one True value, got reset_mask={reset_mask}"
+                )
 
             self._terminations[reset_mask] = False
             self._truncations[reset_mask] = False
@@ -232,23 +264,32 @@ class SyncVectorEnv(VectorEnv):
                 infos = self._add_info(infos, env_info, i)
 
         # Concatenate the observations
-        self._observations = concatenate(
-            self.single_observation_space, self._env_obs, self._observations
+        self._observations = cast(
+            "ObsType",
+            concatenate(
+                self.single_observation_space, self._env_obs, self._observations
+            ),
         )
         return deepcopy(self._observations) if self.copy else self._observations, infos
 
     def step(
         self, actions: ActType
-    ) -> tuple[ObsType, ArrayType, ArrayType, ArrayType, dict[str, Any]]:
+    ) -> tuple[
+        ObsType,
+        npt.NDArray[np.float64],
+        npt.NDArray[np.bool_],
+        npt.NDArray[np.bool_],
+        dict[str, Any],
+    ]:
         """Steps through each of the environments returning the batched results.
 
         Returns:
             The batched environment step results
         """
-        actions = iterate(self.action_space, actions)
+        actions_iter = iterate(self.action_space, actions)
 
         infos = {}
-        for i, (action, _) in enumerate(zip(actions, self.envs, strict=True)):
+        for i, (action, _) in enumerate(zip(actions_iter, self.envs, strict=True)):
             if self.autoreset_mode == AutoresetMode.NEXT_STEP:
                 if self._autoreset_envs[i]:
                     self._env_obs[i], env_info = self.envs[i].reset()
@@ -297,8 +338,11 @@ class SyncVectorEnv(VectorEnv):
             infos = self._add_info(infos, env_info, i)
 
         # Concatenate the observations
-        self._observations = concatenate(
-            self.single_observation_space, self._env_obs, self._observations
+        self._observations = cast(
+            "ObsType",
+            concatenate(
+                self.single_observation_space, self._env_obs, self._observations
+            ),
         )
         self._autoreset_envs = np.logical_or(self._terminations, self._truncations)
 
@@ -310,7 +354,7 @@ class SyncVectorEnv(VectorEnv):
             infos,
         )
 
-    def render(self) -> tuple[RenderFrame, ...] | None:
+    def render(self) -> tuple[RenderFrame, ...]:
         """Returns the rendered frames from the environments."""
         return tuple(env.render() for env in self.envs)
 
@@ -347,7 +391,7 @@ class SyncVectorEnv(VectorEnv):
         """
         return self.call(name)
 
-    def set_attr(self, name: str, values: list[Any] | tuple[Any, ...] | Any):
+    def set_attr(self, name: str, values: list[Any] | tuple[Any, ...] | Any) -> None:
         """Sets an attribute of the sub-environments.
 
         Args:
@@ -371,7 +415,7 @@ class SyncVectorEnv(VectorEnv):
         for env, value in zip(self.envs, values, strict=True):
             env.set_wrapper_attr(name, value)
 
-    def close_extras(self, **kwargs: Any):
+    def close_extras(self, **kwargs: Any) -> None:
         """Close the environments."""
         if hasattr(self, "envs"):
             [env.close() for env in self.envs]

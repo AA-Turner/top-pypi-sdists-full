@@ -32,32 +32,43 @@ from dataclasses import dataclass, field
 import pytest
 
 from coord.bugbash import (
+    DEFAULT_JOURNEYS_PER_WORKER,
+    GUI_LANE_DRIVER_KINDS,
     BugbashConfig,
     BugbashLane,
     CATALOGUE_PATH,
     COVERAGE_FENCE,
+    CatalogueResult,
     CoverageSummary,
     DedupeVerdict,
     ExploreOutcome,
     Finding,
     Journey,
     JourneyOutcome,
+    JourneyScheduler,
+    LaneChunkPlan,
     RoundReport,
     UNAVAILABLE_FENCE,
     UnavailableLane,
     _apply_outcome_to_round,
     _pick_lane_machine,
+    _ShardCostState,
     build_exploration_briefing,
+    catalogue_warning_for_lane,
+    chunk_journeys,
     compose_finding_issue_title,
     dedupe_finding,
     discover_lanes,
+    explore_lane_sharded,
     file_finding,
     harvest_outcome,
     journeys_for_lane,
+    max_concurrent_chunks_for_lane,
     parse_catalogue,
     parse_coverage_block,
     parse_findings_block,
     parse_unavailable_report,
+    plan_lane_chunks,
     run_bugbash,
 )
 
@@ -312,6 +323,38 @@ class TestParseUnavailableReport:
         text = f"```{UNAVAILABLE_FENCE}\n```\nthe screen is locked for this session"
         assert parse_unavailable_report(text) != ""
 
+    def test_final_message_with_findings_fence_suppresses_stale_signature(self):
+        """#3628: a signature earlier in the transcript (a failed
+        `app-drive open` call) must not override a final message that goes
+        on to carry a well-formed `bugbash-findings` fence."""
+        text = (
+            'early tool_result: {"status": "unavailable", "reason": "no session"}\n\n'
+            "worked around it and drove the app.\n\n"
+            "```bugbash-findings\n"
+            '[{"title": "x"}]\n'
+            "```"
+        )
+        final_message = text.rsplit("worked around", 1)[-1]
+        final_message = "worked around" + final_message
+        assert parse_unavailable_report(text, final_message=final_message) == ""
+
+    def test_final_message_without_either_fence_still_falls_back_to_signature(self):
+        """The #3628 guard only suppresses the fallback when the final
+        message itself carries a fence — a final message with neither
+        fence still lets an earlier signature decide the outcome."""
+        text = (
+            'early tool_result: {"status": "unavailable", "reason": "no session"}\n\n'
+            "stopped without reporting anything structured."
+        )
+        final_message = "stopped without reporting anything structured."
+        assert parse_unavailable_report(text, final_message=final_message) != ""
+
+    def test_default_final_message_keeps_pre_3628_behavior(self):
+        """Omitting `final_message` (every pre-#3628 call site) must not
+        change: the signature fallback still fires over the whole text."""
+        text = '{"status": "unavailable", "reason": "no session"}'
+        assert parse_unavailable_report(text) != ""
+
 
 # ── discover_lanes ────────────────────────────────────────────────────────
 
@@ -330,6 +373,9 @@ class _FakeDriverCfg:
     capability: str = ""
     routes: list = field(default_factory=list)
     platforms: list = field(default_factory=list)
+    setup: str = ""
+    run: str = ""
+    label: str = ""
 
 
 @dataclass
@@ -585,6 +631,68 @@ class TestDiscoverLanesPlatforms:
         ) is None
 
 
+class TestDiscoverLanesLabel:
+    """#3615: a route's own `label` disambiguates two sibling routes that
+    share one `kind` (e.g. vimcode's win-gui/win-terminal routes, both
+    `kind: win-native`) into distinct lanes, and each lane carries its
+    route's own `setup`/`run` strings."""
+
+    def test_two_routes_with_same_kind_get_distinct_labelled_platforms(self):
+        machine = _FakeMachine(name="dell64", repos=["vimcode"], capabilities=["windows"])
+        entry = _FakeDriverCfg(
+            routes=[
+                _FakeDriverCfg(
+                    kind="win-native", capability="windows", label="gui",
+                    setup="cargo xwin build --features win --bin vimcode",
+                    run="../target/release/vimcode.exe sample.txt",
+                ),
+                _FakeDriverCfg(
+                    kind="win-native", capability="windows", label="terminal",
+                    run="../target/release/vimcode-term.exe sample.txt",
+                ),
+            ]
+        )
+        cfg = _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig(drivers={"vimcode": entry}))
+        lanes = discover_lanes(cfg, "vimcode", http_client=_FakeHealthClient())
+        by_platform = {l.platform: l for l in lanes}
+        assert set(by_platform) == {"win-native:gui", "win-native:terminal"}
+        assert by_platform["win-native:gui"].setup == "cargo xwin build --features win --bin vimcode"
+        assert by_platform["win-native:gui"].launch_command == "../target/release/vimcode.exe sample.txt"
+        assert by_platform["win-native:terminal"].setup == ""
+        assert by_platform["win-native:terminal"].launch_command == "../target/release/vimcode-term.exe sample.txt"
+        # driver_kind stays the bare kind so catalogue/journey lane-matching
+        # (keyed off driver_kind, not the disambiguated label) is unaffected.
+        assert {l.driver_kind for l in lanes} == {"win-native"}
+
+    def test_route_without_label_is_unaffected(self):
+        machine = _FakeMachine(name="pc1", repos=["vimcode"], capabilities=["windows"])
+        entry = _FakeDriverCfg(
+            routes=[
+                _FakeDriverCfg(kind="win-native", capability="windows", run="vimcode.exe"),
+            ]
+        )
+        cfg = _FakeConfig(machines=[machine], acceptance=_FakeAcceptanceConfig(drivers={"vimcode": entry}))
+        lanes = discover_lanes(cfg, "vimcode", http_client=_FakeHealthClient())
+        assert [l.platform for l in lanes] == ["win-native"]
+        assert lanes[0].launch_command == "vimcode.exe"
+
+    def test_label_combines_with_platforms_suffix(self):
+        """A labelled route that also declares `platforms` gets
+        `kind:label:os_name` — label and OS-qualification compose rather
+        than one silently overriding the other."""
+        precision = _FakeMachine(name="precision", repos=["vimcode"], capabilities=["rust", "linux"])
+        entry = _FakeDriverCfg(
+            routes=[
+                _FakeDriverCfg(
+                    kind="tui-pty", capability="rust", label="smoke", platforms=["linux"],
+                ),
+            ]
+        )
+        cfg = _FakeConfig(machines=[precision], acceptance=_FakeAcceptanceConfig(drivers={"vimcode": entry}))
+        lanes = discover_lanes(cfg, "vimcode", http_client=_FakeHealthClient())
+        assert [l.platform for l in lanes] == ["tui-pty:smoke:linux"]
+
+
 class TestBuildExplorationBriefing:
     def test_includes_reference_backend_and_checklist(self):
         lane = BugbashLane(platform="win-native", driver_kind="win-native", machine="pc1", capability="windows")
@@ -704,6 +812,58 @@ class TestBuildExplorationBriefing:
         assert UNAVAILABLE_FENCE in out
         assert "stop" in out.lower()
 
+    # ── #3615: real setup/launch command, not a literal placeholder ────
+
+    def test_lane_with_launch_command_names_it_in_the_open_usage_line(self):
+        """#3615: a lane carrying its route's own `run:` must have that
+        EXACT string in the `--launch` value — never the
+        `'<app launch command>'` placeholder a worker would otherwise have
+        to guess at."""
+        from coord.bugbash import driver_command_for_lane
+
+        lane = BugbashLane(
+            platform="win-native", driver_kind="win-native", machine="pc1", capability="windows",
+            launch_command="cd .smoke && ../target/release/vimcode.exe sample.txt",
+        )
+        out = build_exploration_briefing(lane, reference_backend="win-native")
+        assert "cd .smoke && ../target/release/vimcode.exe sample.txt" in out
+        assert "<app launch command>" not in out
+        assert driver_command_for_lane(lane) == (
+            "coord app-drive open win-native --launch "
+            "'cd .smoke && ../target/release/vimcode.exe sample.txt' "
+            "--cwd '<repo checkout dir>'"
+        )
+
+    def test_lane_without_launch_command_still_uses_the_placeholder(self):
+        """Unchanged behaviour for a lane built without route context
+        (e.g. an older/direct `BugbashLane(...)` construction) — the
+        placeholder fallback, never a crash or an empty `--launch ''`."""
+        lane = BugbashLane(platform="win-native", driver_kind="win-native", machine="pc1", capability="windows")
+        out = build_exploration_briefing(lane, reference_backend="win-native")
+        assert "<app launch command>" in out
+
+    def test_lane_with_setup_gets_an_explicit_build_step_the_worker_must_run(self):
+        """#3615 requirement: the worker builds/provisions using the
+        route's own `setup:`, rather than inferring from repo docs — the
+        exact failure mode that produced "No win-native backend exists to
+        launch" against a backend that actually builds fine."""
+        lane = BugbashLane(
+            platform="win-native", driver_kind="win-native", machine="pc1", capability="windows",
+            setup="cargo xwin build --release --features win --bin vimcode",
+            launch_command="../target/release/vimcode.exe sample.txt",
+        )
+        out = build_exploration_briefing(lane, reference_backend="win-native")
+        assert "cargo xwin build --release --features win --bin vimcode" in out
+        assert "Build/provision" in out
+
+    def test_lane_without_setup_has_no_build_step_line(self):
+        lane = BugbashLane(
+            platform="win-native", driver_kind="win-native", machine="pc1", capability="windows",
+            launch_command="../target/release/vimcode.exe sample.txt",
+        )
+        out = build_exploration_briefing(lane, reference_backend="win-native")
+        assert "Build/provision" not in out
+
     # ── #3580: repo-supplied catalogue ────────────────────────────────
 
     def test_catalogue_present_lists_lane_filtered_journeys_in_priority_order(self):
@@ -822,6 +982,72 @@ journeys:
         )
         assert "Alt-M" in out
         assert "editor_mode" in out
+
+    # ── #3620 review finding 4: catalogue_warning threaded through
+    # journeys_override, for the sharded dispatcher ───────────────────────
+
+    def test_journeys_override_with_explicit_catalogue_warning_shows_note(self):
+        # chunk_explorer (coord/commands/bugbash.py) always passes a
+        # journeys_override (possibly empty), never None, so the ONLY way
+        # a worker handed an empty chunk sees the #3580-required NOTE is
+        # if the caller computes and passes catalogue_warning explicitly.
+        lane = BugbashLane(platform="win-native", driver_kind="win-native", machine="pc1", capability="")
+        out = build_exploration_briefing(
+            lane, reference_backend="mac-native", checklist=("panels",),
+            journeys_override=(), catalogue_warning="catalogue.yaml has no journey for win-native",
+        )
+        assert "panels" in out
+        assert "NOTE: catalogue.yaml has no journey for win-native" in out
+
+    def test_journeys_override_with_no_catalogue_warning_passed_shows_no_note(self):
+        # A non-empty override needs no warning at all -- confirms the
+        # parameter is additive, never forced on.
+        lane = BugbashLane(platform="tui-pty", driver_kind="tui-pty", machine="pc1", capability="")
+        journeys = _synthetic_journeys(1, lane="tui-pty")
+        out = build_exploration_briefing(
+            lane, reference_backend="win-native", journeys_override=journeys,
+        )
+        assert "NOTE:" not in out
+
+    def test_journeys_override_none_still_derives_its_own_warning(self):
+        # Backward compatibility: the unsharded path (journeys_override is
+        # explicitly None, never an override) must keep deriving its own
+        # warning from catalogue_text exactly as before #3620, regardless
+        # of whatever catalogue_warning default is passed.
+        lane = BugbashLane(platform="win-native", driver_kind="win-native", machine="pc1", capability="")
+        out = build_exploration_briefing(
+            lane, reference_backend="mac-native", checklist=("panels",),
+            catalogue_text="not: [valid, yaml: at: all",
+        )
+        assert "NOTE:" in out
+
+
+class TestCatalogueWarningForLane:
+    def test_no_warning_when_catalogue_clean_and_lane_has_journeys(self):
+        catalogue = CatalogueResult(journeys=_synthetic_journeys(1), source=CATALOGUE_PATH)
+        assert catalogue_warning_for_lane(catalogue, "tui-pty", _synthetic_journeys(1)) == ""
+
+    def test_catalogue_level_warning_passed_through_when_no_journeys_at_all(self):
+        catalogue = CatalogueResult(warning="no catalogue found at catalogue.yaml")
+        assert catalogue_warning_for_lane(catalogue, "tui-pty", ()) == (
+            "no catalogue found at catalogue.yaml"
+        )
+
+    def test_lane_specific_note_added_when_catalogue_has_journeys_but_none_for_this_lane(self):
+        catalogue = CatalogueResult(journeys=_synthetic_journeys(1, lane="mac-native"), source=CATALOGUE_PATH)
+        warning = catalogue_warning_for_lane(catalogue, "win-native", ())
+        assert "no journey declaring lane" in warning
+        assert "win-native" in warning
+
+    def test_catalogue_level_and_lane_specific_warnings_both_present(self):
+        catalogue = CatalogueResult(
+            journeys=_synthetic_journeys(1, lane="mac-native"),
+            warning="catalogue.yaml: dropped 1 invalid journey entry: bad (missing: expected)",
+            source=CATALOGUE_PATH,
+        )
+        warning = catalogue_warning_for_lane(catalogue, "win-native", ())
+        assert "dropped 1 invalid journey entry" in warning
+        assert "no journey declaring lane" in warning
 
 
 class TestParseCatalogue:
@@ -951,6 +1177,423 @@ class TestJourneysForLane:
         )
         result = journeys_for_lane(journeys, "tui-pty")
         assert [j.id for j in result] == ["a", "z", "b"]
+
+    def test_max_priority_drops_lower_priority_journeys(self):
+        # #3620 requirement 2: --max-priority is applied BEFORE sharding.
+        journeys = (
+            Journey(id="p1", lanes=("tui-pty",), reference="spec", expected="e", priority=1),
+            Journey(id="p2", lanes=("tui-pty",), reference="spec", expected="e", priority=2),
+            Journey(id="p3", lanes=("tui-pty",), reference="spec", expected="e", priority=3),
+        )
+        result = journeys_for_lane(journeys, "tui-pty", max_priority=1)
+        assert [j.id for j in result] == ["p1"]
+
+    def test_max_priority_none_keeps_pre_3620_behavior(self):
+        journeys = (
+            Journey(id="p1", lanes=("tui-pty",), reference="spec", expected="e", priority=1),
+            Journey(id="p3", lanes=("tui-pty",), reference="spec", expected="e", priority=3),
+        )
+        result = journeys_for_lane(journeys, "tui-pty")
+        assert [j.id for j in result] == ["p1", "p3"]
+
+
+# ── journey sharding / coverage-aware scheduling (#3620) ────────────────────
+
+
+def _synthetic_journeys(n: int, *, prefix: str = "j", lane: str = "tui-pty", priority: int = 1):
+    return tuple(
+        Journey(id=f"{prefix}{i}", lanes=(lane,), reference="spec", expected="e", priority=priority)
+        for i in range(n)
+    )
+
+
+class TestChunkJourneys:
+    def test_60_journeys_25_per_worker_yields_3_chunks(self):
+        chunks = chunk_journeys(_synthetic_journeys(60), 25)
+        assert [len(c) for c in chunks] == [25, 25, 10]
+
+    def test_empty_journeys_yields_no_chunks(self):
+        assert chunk_journeys((), 25) == []
+
+    def test_nonpositive_size_falls_back_to_one_chunk(self):
+        journeys = _synthetic_journeys(5)
+        assert chunk_journeys(journeys, 0) == [tuple(journeys)]
+
+
+class TestPlanLaneChunks:
+    def test_60_journey_lane_with_25_per_worker_plans_3_chunks(self):
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        plan = plan_lane_chunks(lane, _synthetic_journeys(60), journeys_per_worker=25)
+        assert len(plan.journeys) == 60
+        assert plan.chunk_count == 3
+
+    def test_max_priority_filters_before_chunking(self):
+        # Mirrors vimcode's real tui-pty catalogue shape (#3620 issue body):
+        # ~60 priority-1, ~80 priority-2, ~18 priority-3.
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        journeys = (
+            _synthetic_journeys(60, prefix="p1-", priority=1)
+            + _synthetic_journeys(80, prefix="p2-", priority=2)
+            + _synthetic_journeys(18, prefix="p3-", priority=3)
+        )
+        plan = plan_lane_chunks(lane, journeys, journeys_per_worker=25, max_priority=1)
+        assert len(plan.journeys) == 60
+        assert all(j.priority == 1 for j in plan.journeys)
+        assert plan.chunk_count == 3
+
+    def test_no_journeys_for_this_lane_plans_zero_chunks(self):
+        lane = _lane(platform="win-native", machine="pc1")
+        plan = plan_lane_chunks(lane, _synthetic_journeys(10, lane="tui-pty"), journeys_per_worker=25)
+        assert plan.journeys == ()
+        assert plan.chunk_count == 0
+
+    def test_returns_a_lane_chunk_plan_with_default_journeys_per_worker(self):
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        plan = plan_lane_chunks(lane, _synthetic_journeys(DEFAULT_JOURNEYS_PER_WORKER + 5))
+        assert isinstance(plan, LaneChunkPlan)
+        # Default --journeys-per-worker (unset) must match the CLI's own
+        # documented default, not an independently-drifting hardcoded
+        # value here.
+        assert plan.chunk_count == 2
+
+
+class TestMaxConcurrentChunksForLane:
+    def test_gui_lanes_always_serialize_regardless_of_host_capacity(self):
+        for kind in GUI_LANE_DRIVER_KINDS:
+            lane = _lane(platform=kind, machine="m1")
+            assert max_concurrent_chunks_for_lane(lane, host_max_workers=8) == 1
+
+    def test_tui_pty_bounded_by_host_max_workers(self):
+        lane = _lane(platform="tui-pty", machine="m1")
+        assert max_concurrent_chunks_for_lane(lane, host_max_workers=4) == 4
+
+    def test_tui_pty_never_below_one(self):
+        lane = _lane(platform="tui-pty", machine="m1")
+        assert max_concurrent_chunks_for_lane(lane, host_max_workers=0) == 1
+
+
+class TestJourneyScheduler:
+    def test_first_round_walks_everything_in_priority_order(self):
+        journeys = (
+            Journey(id="j1", lanes=("tui-pty",), reference="spec", expected="e", priority=1),
+            Journey(id="j2", lanes=("tui-pty",), reference="spec", expected="e", priority=1),
+            Journey(id="j3", lanes=("tui-pty",), reference="spec", expected="e", priority=2),
+            Journey(id="j4", lanes=("tui-pty",), reference="spec", expected="e", priority=3),
+        )
+        scheduler = JourneyScheduler(journeys=journeys, journeys_per_worker=2)
+        chunks = scheduler.chunks_for_round()
+        assert [j.id for c in chunks for j in c] == ["j1", "j2", "j3", "j4"]
+        assert [len(c) for c in chunks] == [2, 2]
+
+    def test_round_2_prioritizes_skipped_and_not_reached_over_passed(self):
+        journeys = _synthetic_journeys(4)  # j0..j3, all priority 1
+        scheduler = JourneyScheduler(journeys=journeys, journeys_per_worker=10)
+        # j0 passed, j1 was explicitly skipped; j2/j3 were never reached at
+        # all this round (never recorded).
+        scheduler.record([
+            JourneyOutcome(journey_id="j0", status="passed"),
+            JourneyOutcome(journey_id="j1", status="skipped", reason="no nvim"),
+        ])
+        ordered = [j.id for j in scheduler._ordered_for_round()]
+        assert ordered[-1] == "j0"
+        assert set(ordered[:-1]) == {"j1", "j2", "j3"}
+
+    def test_found_journeys_are_never_auto_requeued(self):
+        journeys = _synthetic_journeys(3)
+        scheduler = JourneyScheduler(journeys=journeys, journeys_per_worker=10)
+        scheduler.record([JourneyOutcome(journey_id="j0", status="found")])
+        ordered = [j.id for j in scheduler._ordered_for_round()]
+        assert "j0" not in ordered
+        assert set(ordered) == {"j1", "j2"}
+
+    def test_cumulative_summary_never_counts_a_not_reached_journey_as_attempted(self):
+        journeys = _synthetic_journeys(4)
+        scheduler = JourneyScheduler(journeys=journeys, journeys_per_worker=10)
+        scheduler.record([
+            JourneyOutcome(journey_id="j0", status="passed"),
+            JourneyOutcome(journey_id="j1", status="skipped", reason="no nvim"),
+        ])
+        summary = scheduler.cumulative_summary()
+        assert summary.attempted == 2
+        assert summary.passed == 1
+        assert summary.skipped == 1
+        assert summary.found == 0
+        assert len(scheduler.journeys) - summary.attempted == 2
+
+    def test_record_ignores_journey_ids_it_does_not_track(self):
+        # A chunk that fell back to the checklist reports coverage keyed by
+        # checklist item text, not a catalogue journey id -- must be a
+        # silent no-op, never a KeyError or a phantom tracked journey.
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(2), journeys_per_worker=10)
+        scheduler.record([JourneyOutcome(journey_id="panels", status="passed")])
+        assert scheduler.cumulative_summary().attempted == 0
+
+
+class TestExploreLaneSharded:
+    def test_dispatches_one_chunk_explorer_call_per_chunk(self):
+        # #3620 acceptance: a 60-journey lane with --journeys-per-worker 25
+        # dispatches 3 chunks.
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(60), journeys_per_worker=25)
+        calls = []
+
+        def chunk_explorer(lane, round_num, journeys):
+            calls.append(len(journeys))
+            return ExploreOutcome(
+                cost=1.0,
+                journey_outcomes=tuple(
+                    JourneyOutcome(journey_id=j.id, status="passed") for j in journeys
+                ),
+            )
+
+        outcome = explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=100.0, cost_cap_total=100.0,
+            max_concurrent_chunks=1,
+        )
+        assert calls == [25, 25, 10]
+        assert outcome.cost == 3.0
+        assert outcome.ok is True
+
+    def test_gui_lane_chunks_never_overlap_on_one_host(self):
+        lane = _lane(platform="win-native", machine="pc1")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(4), journeys_per_worker=1)
+        active = {"count": 0, "max": 0}
+        guard = threading.Lock()
+
+        def chunk_explorer(lane, round_num, journeys):
+            with guard:
+                active["count"] += 1
+                active["max"] = max(active["max"], active["count"])
+            time.sleep(0.05)
+            with guard:
+                active["count"] -= 1
+            return ExploreOutcome(cost=0.1)
+
+        explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=100.0, cost_cap_total=100.0,
+            max_concurrent_chunks=max_concurrent_chunks_for_lane(lane, host_max_workers=8),
+        )
+        assert active["max"] == 1
+
+    def test_tui_pty_chunks_overlap_up_to_max_workers(self):
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(4), journeys_per_worker=1)
+        active = {"count": 0, "max": 0}
+        guard = threading.Lock()
+
+        def chunk_explorer(lane, round_num, journeys):
+            with guard:
+                active["count"] += 1
+                active["max"] = max(active["max"], active["count"])
+            time.sleep(0.1)
+            with guard:
+                active["count"] -= 1
+            return ExploreOutcome(cost=0.1)
+
+        explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=100.0, cost_cap_total=100.0,
+            max_concurrent_chunks=max_concurrent_chunks_for_lane(lane, host_max_workers=3),
+        )
+        assert active["max"] >= 2
+
+    def test_total_cap_stops_new_chunks(self):
+        # #3620 acceptance: "the total cap stops new chunks."
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(4), journeys_per_worker=1)
+        calls = []
+
+        def chunk_explorer(lane, round_num, journeys):
+            calls.append(journeys)
+            return ExploreOutcome(cost=10.0)
+
+        outcome = explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=1000.0, cost_cap_total=15.0,
+            max_concurrent_chunks=1,
+        )
+        assert len(calls) < 4
+        assert outcome.cost == 10.0 * len(calls)
+
+    def test_per_lane_cap_stops_new_chunks_for_that_lane(self):
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(4), journeys_per_worker=1)
+        calls = []
+
+        def chunk_explorer(lane, round_num, journeys):
+            calls.append(journeys)
+            return ExploreOutcome(cost=10.0)
+
+        explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=15.0, cost_cap_total=1000.0,
+            max_concurrent_chunks=1,
+        )
+        assert len(calls) < 4
+
+    def test_unavailable_chunk_stops_remaining_chunks(self):
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(4), journeys_per_worker=1)
+        calls = []
+
+        def chunk_explorer(lane, round_num, journeys):
+            calls.append(journeys)
+            return ExploreOutcome(unavailable=True, notes="no pty available")
+
+        outcome = explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=100.0, cost_cap_total=100.0,
+            max_concurrent_chunks=1,
+        )
+        assert len(calls) == 1
+        assert outcome.unavailable is True
+
+    def test_no_catalogue_journeys_falls_back_to_single_checklist_chunk(self):
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=(), journeys_per_worker=25)
+        calls = []
+
+        def chunk_explorer(lane, round_num, journeys):
+            calls.append(journeys)
+            return ExploreOutcome(cost=1.0)
+
+        explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=100.0, cost_cap_total=100.0,
+            max_concurrent_chunks=1,
+        )
+        assert calls == [()]
+
+    def test_round_2_dispatches_round_1_skipped_journeys_first(self):
+        # #3620 acceptance: "round 2 dispatches round 1's skipped journeys
+        # first."
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        journeys = _synthetic_journeys(4)  # j0, j1, j2, j3, priority 1
+        scheduler = JourneyScheduler(journeys=journeys, journeys_per_worker=2)
+        dispatched_per_round: list[list[str]] = []
+
+        def make_chunk_explorer(outcomes_by_id):
+            def chunk_explorer(lane, round_num, chunk):
+                dispatched_per_round.append([j.id for j in chunk])
+                return ExploreOutcome(
+                    cost=1.0,
+                    journey_outcomes=tuple(
+                        JourneyOutcome(journey_id=j.id, status=outcomes_by_id.get(j.id, "passed"))
+                        for j in chunk
+                    ),
+                )
+            return chunk_explorer
+
+        # Round 1: first chunk [j0, j1] dispatches (j1 comes back skipped);
+        # the per-lane cap trips right after it, so the second chunk
+        # ([j2, j3]) never gets dispatched at all this round.
+        explore_lane_sharded(
+            lane, 1, chunk_explorer=make_chunk_explorer({"j1": "skipped"}),
+            scheduler=scheduler, cost_state=_ShardCostState(),
+            cost_cap_per_lane=1.0, cost_cap_total=1000.0, max_concurrent_chunks=1,
+        )
+        assert dispatched_per_round == [["j0", "j1"]]
+
+        # Round 2, fresh budget: j1 (skipped) and j2/j3 (never reached) must
+        # all come before j0 (already passed).
+        explore_lane_sharded(
+            lane, 2, chunk_explorer=make_chunk_explorer({}),
+            scheduler=scheduler, cost_state=_ShardCostState(),
+            cost_cap_per_lane=1000.0, cost_cap_total=1000.0, max_concurrent_chunks=1,
+        )
+        assert dispatched_per_round[1] == ["j1", "j2"]
+        assert dispatched_per_round[2] == ["j3", "j0"]
+
+    def test_protocol_error_chunk_never_recorded_by_scheduler(self):
+        # #3620 review finding 1: a chunk whose findings fence was
+        # unparseable (`protocol_error` non-empty) still carries
+        # `journey_outcomes` (see coord/commands/bugbash.py's
+        # `_dispatch_and_await_lane`), but marking a journey `found` from
+        # an untrustworthy report would both drop the finding silently
+        # (a `found` journey is never auto-requeued) and permanently stop
+        # re-walking it. The journey must stay schedulable for round 2.
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        journeys = _synthetic_journeys(2)
+        scheduler = JourneyScheduler(journeys=journeys, journeys_per_worker=10)
+
+        def chunk_explorer(lane, round_num, chunk):
+            return ExploreOutcome(
+                cost=1.0,
+                protocol_error="no parseable findings fence",
+                journey_outcomes=(JourneyOutcome(journey_id="j0", status="found"),),
+            )
+
+        outcome = explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=100.0, cost_cap_total=100.0,
+            max_concurrent_chunks=1,
+        )
+        assert outcome.protocol_error == "no parseable findings fence"
+        # The scheduler's own cumulative record must be untouched -- j0 is
+        # still schedulable, not permanently excluded as `found`.
+        ordered = [j.id for j in scheduler._ordered_for_round()]
+        assert "j0" in ordered
+
+    def test_all_chunks_skipped_by_cost_cap_returns_ok_false(self):
+        # #3620 review finding 2: if the cost cap already tripped (from a
+        # sibling lane sharing `cost_state`) BEFORE this lane's very first
+        # chunk reservation, every chunk is skipped and nothing was
+        # exercised this round at all -- this must never come back as the
+        # default `ok=True, findings=()` ("we looked, there weren't any"),
+        # or `run_bugbash` falls through to `reason="zero_findings"` for a
+        # round that explored nothing (the #3546 bug, routed around).
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(4), journeys_per_worker=1)
+        cost_state = _ShardCostState()
+        cost_state.record("tui-pty", 1000.0)  # cap already tripped before we start
+        calls = []
+
+        def chunk_explorer(lane, round_num, journeys):
+            calls.append(journeys)
+            return ExploreOutcome(cost=1.0)
+
+        outcome = explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=cost_state, cost_cap_per_lane=100.0, cost_cap_total=15.0,
+            max_concurrent_chunks=1,
+        )
+        assert calls == []
+        assert outcome.ok is False
+        assert outcome.unavailable is False
+        assert outcome.findings == ()
+
+    def test_unavailable_chunk_preserves_earlier_chunks_findings(self):
+        # #3620 review finding 3: an earlier chunk's real, verified
+        # findings/coverage must never be discarded just because a LATER
+        # chunk this round reports the lane unavailable -- the aggregate
+        # must report `ok=False` (never `unavailable=True`, which
+        # `_apply_outcome_to_round` treats as "never contributes findings
+        # this round, even defensively") with the findings intact.
+        lane = _lane(platform="tui-pty", machine="linuxbox")
+        scheduler = JourneyScheduler(journeys=_synthetic_journeys(2), journeys_per_worker=1)
+        finding = _finding(title="real bug seen before the session locked")
+        calls = []
+
+        def chunk_explorer(lane, round_num, chunk):
+            calls.append(chunk)
+            if len(calls) == 1:
+                return ExploreOutcome(
+                    cost=1.0, findings=(finding,),
+                    journey_outcomes=(JourneyOutcome(journey_id="j0", status="found"),),
+                )
+            return ExploreOutcome(unavailable=True, notes="session locked mid-round")
+
+        outcome = explore_lane_sharded(
+            lane, 1, chunk_explorer=chunk_explorer, scheduler=scheduler,
+            cost_state=_ShardCostState(), cost_cap_per_lane=100.0, cost_cap_total=100.0,
+            max_concurrent_chunks=1,
+        )
+        assert outcome.unavailable is False
+        assert outcome.ok is False
+        assert outcome.findings == (finding,)
+        assert "session locked mid-round" in outcome.notes
 
 
 class TestParseCoverageBlock:
@@ -1941,12 +2584,22 @@ class _FakeRealMachine:
     host: str
     capabilities: list = field(default_factory=list)
     repos: list = field(default_factory=list)
+    # #3620: `None` mirrors `coord.models.Machine.max_workers`'s own default
+    # ("no override, use the fleet-wide concurrency.max_workers") — needed
+    # now that `_effective_host_max_workers` resolves real chunk concurrency
+    # for every lane `bugbash_run_cmd` discovers, even in tests that don't
+    # care about sharding at all.
+    max_workers: int | None = None
 
 
 @dataclass
 class _FakeConcurrency:
     max_retries: int = 3
     backoff_base: float = 1.0
+    # #3620: mirrors `coord.config.ConcurrencyConfig.max_workers`'s own
+    # default — the fleet-wide fallback `_effective_host_max_workers`
+    # resolves to when a machine doesn't set its own override.
+    max_workers: int = 2
 
 
 @dataclass
@@ -2674,6 +3327,79 @@ class TestDispatchAndAwaitLane:
         assert "mac_native_driver" in outcome.notes
         assert outcome.findings == ()
 
+    def test_findings_fence_in_final_message_overrides_stale_unavailable_signature(
+        self, monkeypatch,
+    ):
+        """#3628 regression: a lane's EARLY `app-drive open` call surfaced
+        `"status": "unavailable"` in a tool result (one of
+        `_UNAVAILABLE_SIGNATURES`'s literal strings) — matching the real
+        `ed4cd8c232af` mac-native evidence transcript, where the worker then
+        found a working launch form, drove the app, and ended its session
+        with a well-formed `bugbash-findings` fence. That final message must
+        decide the outcome: the stale mid-session signature must never void
+        it back to `unavailable=True`/zero findings filed."""
+        import json
+
+        from coord.commands import bugbash as cmd_bugbash
+
+        cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        self._dispatch_ok(monkeypatch)
+        monkeypatch.setattr(
+            "coord.commands._common.poll_until_terminal",
+            lambda *a, **k: _FakePollOutcome("completed", exit_code=0),
+        )
+
+        early_tool_result = json.dumps({
+            "type": "user",
+            "message": {
+                "content": [{
+                    "type": "tool_result",
+                    "content": (
+                        'app-drive open failed: {"status": "unavailable", '
+                        '"reason": "no session"}'
+                    ),
+                }],
+            },
+        })
+        final_message = (
+            "Found a working launch form after the first attempt failed, "
+            "drove the app, and completed every journey.\n\n"
+            "```bugbash-findings\n"
+            '[{"title": "x", "expected": "e", "actual": "a", "repro": "r", '
+            '"evidence": "ev"}]\n'
+            "```\n"
+            "```bugbash-coverage\n"
+            '[{"journey_id": "j1", "attempted": true, "passed": true, '
+            '"found": 1, "skipped": false}]\n'
+            "```"
+        )
+        assistant_event = json.dumps({
+            "type": "assistant",
+            "message": {"content": [{"type": "text", "text": final_message}]},
+        })
+        result_event = json.dumps({"type": "result", "total_cost_usd": 3.97})
+        log_line = "\n".join([early_tool_result, assistant_event, result_event])
+
+        class _Resp:
+            status_code = 200
+            text = log_line
+
+            def raise_for_status(self):
+                pass
+
+        import httpx as httpx_mod
+        monkeypatch.setattr(httpx_mod, "get", lambda *a, **k: _Resp())
+
+        outcome = cmd_bugbash._dispatch_and_await_lane(
+            _prod_lane(machine="pc1", platform="mac-native"), 1,
+            repo_name="vimcode", config=cfg, reference_backend="win-native",
+        )
+        assert outcome.unavailable is False
+        assert outcome.protocol_error == ""
+        [finding] = outcome.findings
+        assert finding.title == "x"
+        assert outcome.cost == 3.97
+
 
 # ── coord bugbash harvest (#3569: recover a late-finishing explorer) ─────
 #
@@ -2808,6 +3534,78 @@ class TestPrintRoundCoverage:
         assert "1 found" in out
         assert "1 skipped" in out
         assert "no nvim" in out
+
+    def test_unavailable_lane_is_printed_with_its_reason(self, capsys):
+        """#3611: a round where a lane never ran at all (its driver's own
+        session-availability precheck refused, #3510) must say so by name
+        — previously `RoundReport.unavailable_lanes` fed the round's
+        termination reason but was never actually rendered here, so e.g.
+        every win-native/mac-native lane coming back unavailable read as a
+        silent, unexplained empty round."""
+        from coord.commands.bugbash import _print_round
+        from coord.bugbash import BugbashReport
+
+        report_round = RoundReport(round_num=1)
+        report_round.unavailable_lanes["win-native"] = (
+            "win-native driver requires a real Windows host"
+        )
+        report_round.unavailable_lanes["mac-native"] = "the screen is locked"
+        wrapped = BugbashReport(
+            repo="vimcode", rounds=[report_round], termination_reason="lanes_unavailable",
+        )
+        _print_round(wrapped)
+        out = capsys.readouterr().out
+        assert "lane UNAVAILABLE (win-native): win-native driver requires a real Windows host" in out
+        assert "lane UNAVAILABLE (mac-native): the screen is locked" in out
+
+    def test_round_header_names_unavailable_lanes_too(self, capsys):
+        """#3611 review nit: the per-lane `lane UNAVAILABLE (...)` lines
+        above exist, but the round HEADER itself (`round N: 0 finding(s),
+        ...`) only grew a `(lanes skipped: ...)` clause for
+        `skipped_lanes` — an all-unavailable round still read as a bare
+        "0 finding(s)" at a one-line scan, identically to a genuinely
+        clean round. Mirrors the existing `lanes skipped:` clause."""
+        from coord.commands.bugbash import _print_round
+        from coord.bugbash import BugbashReport
+
+        report_round = RoundReport(round_num=1)
+        report_round.unavailable_lanes["win-native"] = "no interactive Windows session"
+        wrapped = BugbashReport(
+            repo="vimcode", rounds=[report_round], termination_reason="lanes_unavailable",
+        )
+        _print_round(wrapped)
+        out = capsys.readouterr().out
+        assert "lanes unavailable: win-native" in out
+
+
+class TestPrintCumulativeCoverage:
+    def test_two_lanes_sharing_a_platform_on_different_hosts_report_separately(self, capsys):
+        # #3620 review non-blocking note: the real fleet can have two
+        # lanes sharing a platform on different hosts (see
+        # `_RoundExploreState`'s own docstring). `schedulers` must be
+        # keyed by `(platform, machine)`, not bare `lane.platform` --
+        # keying by platform alone would hand both lanes the SAME
+        # scheduler and print its coverage line twice instead of each
+        # lane's own.
+        from coord.commands.bugbash import _lane_key, _print_cumulative_coverage
+
+        lane_a = _prod_lane(machine="pc1", platform="tui-pty")
+        lane_b = _prod_lane(machine="pc2", platform="tui-pty")
+        scheduler_a = JourneyScheduler(journeys=_synthetic_journeys(2, prefix="a"), journeys_per_worker=10)
+        scheduler_a.record([JourneyOutcome(journey_id="a0", status="passed")])
+        scheduler_b = JourneyScheduler(journeys=_synthetic_journeys(3, prefix="b"), journeys_per_worker=10)
+        scheduler_b.record([
+            JourneyOutcome(journey_id="b0", status="passed"),
+            JourneyOutcome(journey_id="b1", status="found"),
+        ])
+        schedulers = {_lane_key(lane_a): scheduler_a, _lane_key(lane_b): scheduler_b}
+
+        _print_cumulative_coverage([lane_a, lane_b], schedulers)
+        out = capsys.readouterr().out
+        lines = [l for l in out.splitlines() if "cumulative coverage" in l]
+        assert len(lines) == 2
+        assert "1/2 attempted, 1 passed, 0 found" in lines[0]
+        assert "2/3 attempted, 1 passed, 1 found" in lines[1]
 
 
 # ── coord bugbash CLI (#3569: --lane-timeout, run/harvest subcommands) ───
@@ -2974,6 +3772,81 @@ class TestBugbashCli:
         assert CATALOGUE_PATH in result.output
         assert "win-native=1" in result.output
         assert "tui-pty=1" in result.output
+
+    def test_dry_run_with_max_priority_shows_filtered_journey_and_chunk_counts(self, monkeypatch):
+        """#3620 acceptance: `coord bugbash vimcode --max-priority 1
+        --dry-run` shows ~60 journeys and 3 chunks per lane (vimcode's real
+        tui-pty catalogue shape from the issue body: ~60 priority-1, ~80
+        priority-2, ~18 priority-3; DEFAULT_JOURNEYS_PER_WORKER=25)."""
+        import coord.commands.bugbash as cmd_bugbash
+        from click.testing import CliRunner
+        from coord.bugbash import BugbashReport
+
+        class _FakeRepoCfg:
+            github = "acme/vimcode"
+            default_branch = "develop"
+
+        fake_cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        fake_cfg.repo = lambda name: _FakeRepoCfg()
+        monkeypatch.setattr(cmd_bugbash, "_load_config", lambda path: fake_cfg)
+        monkeypatch.setattr(
+            cmd_bugbash, "discover_lanes",
+            lambda cfg, repo, reference_backend="": [_prod_lane(machine="pc1", platform="tui-pty")],
+        )
+
+        lines = ["version: 1", "journeys:"]
+        for priority, count in ((1, 60), (2, 80), (3, 18)):
+            for i in range(count):
+                lines += [
+                    f"  - id: p{priority}-{i}",
+                    "    lanes: [tui-pty]",
+                    "    reference: spec",
+                    "    expected: \"e\"",
+                    "    steps: \"s\"",
+                    f"    priority: {priority}",
+                ]
+        catalogue_text = "\n".join(lines) + "\n"
+        monkeypatch.setattr(cmd_bugbash, "_fetch_catalogue_text", lambda slug, branch: catalogue_text)
+        monkeypatch.setattr(
+            cmd_bugbash, "run_bugbash",
+            lambda bb_config, **kw: BugbashReport(
+                repo=bb_config.repo, rounds=[], termination_reason="round_cap", total_cost=0.0,
+            ),
+        )
+
+        result = CliRunner().invoke(
+            cmd_bugbash.bugbash_cmd,
+            ["vimcode", "--reference", "tui-pty", "--max-priority", "1", "--dry-run", "-y"],
+        )
+        assert result.exit_code == 0, result.output
+        assert "journeys: 60" in result.output
+        assert "chunks: 3" in result.output
+
+    def test_max_priority_zero_is_rejected_by_cli_validation(self):
+        # #3620 review non-blocking note: `--max-priority 0` (or negative)
+        # used to silently filter every journey out of every lane, falling
+        # back to the generic checklist with no warning. `click.IntRange`
+        # now rejects it outright instead.
+        import coord.commands.bugbash as cmd_bugbash
+        from click.testing import CliRunner
+
+        result = CliRunner().invoke(
+            cmd_bugbash.bugbash_cmd,
+            ["vimcode", "--reference", "tui-pty", "--max-priority", "0", "--dry-run", "-y"],
+        )
+        assert result.exit_code != 0
+        assert "max-priority" in result.output.lower()
+
+    def test_journeys_per_worker_zero_is_rejected_by_cli_validation(self):
+        import coord.commands.bugbash as cmd_bugbash
+        from click.testing import CliRunner
+
+        result = CliRunner().invoke(
+            cmd_bugbash.bugbash_cmd,
+            ["vimcode", "--reference", "tui-pty", "--journeys-per-worker", "0", "--dry-run", "-y"],
+        )
+        assert result.exit_code != 0
+        assert "journeys-per-worker" in result.output.lower()
 
     def test_dry_run_prints_the_per_lane_driver_command(self, monkeypatch):
         """#3590 acceptance: `coord bugbash REPO --dry-run` prints the exact
@@ -3151,6 +4024,91 @@ class TestBugbashCli:
         assert result.exit_code == 0, result.output
         captured["explorer"](_prod_lane(machine="pc1", platform="win-native"), 1)
         assert dispatch_kwargs.get("catalogue_text") == catalogue_text
+
+    def test_explorer_shards_a_large_catalogue_into_multiple_dispatch_calls(self, monkeypatch):
+        """#3620 end-to-end: the real `explorer` closure `bugbash_run_cmd`
+        builds must shard a lane with more journeys than
+        --journeys-per-worker into several `_dispatch_and_await_lane`
+        calls, each carrying its own `journeys_override` slice — not one
+        call handed the whole catalogue (the bug this issue reports).
+
+        A `tui-pty` lane's chunks are dispatched CONCURRENTLY (up to the
+        host's own `max_workers` — `_FakeConcurrency.max_workers` is 2
+        here), so the order in which the fake dispatcher is *entered* is a
+        genuine race and must not be asserted on: with 3 chunks and 2 pool
+        threads, `[25, 10, 25]` is as correct an interleaving as
+        `[25, 25, 10]`. Asserting the literal call order made this test
+        fail deterministically on a CPU-starved runner (CI's `test (3.13)`
+        leg) while passing on a 20-core workstation. What #3620 actually
+        requires — 3 chunks, sized 25/25/10, together covering all 60
+        journeys exactly once — is order-independent, so that is what is
+        pinned here. The serial (GUI-lane) path's exact chunk ORDER is
+        still pinned, deterministically, by
+        `TestExploreLaneSharded.test_dispatches_one_chunk_explorer_call_per_chunk`
+        (`max_concurrent_chunks=1`, so `[25, 25, 10]` there is a real
+        invariant rather than a race)."""
+        import coord.commands.bugbash as cmd_bugbash
+        from click.testing import CliRunner
+        from coord.bugbash import BugbashReport
+
+        class _FakeRepoCfg:
+            github = "acme/vimcode"
+            default_branch = "develop"
+
+        fake_cfg = _FakeRealConfig(machines=[_FakeRealMachine(name="pc1", host="pc1.local")])
+        fake_cfg.repo = lambda name: _FakeRepoCfg()
+        monkeypatch.setattr(cmd_bugbash, "_load_config", lambda path: fake_cfg)
+        monkeypatch.setattr(
+            cmd_bugbash, "discover_lanes",
+            lambda cfg, repo, reference_backend="": [_prod_lane(machine="pc1", platform="tui-pty")],
+        )
+        lines = ["version: 1", "journeys:"]
+        for i in range(60):
+            lines += [
+                f"  - id: j{i}",
+                "    lanes: [tui-pty]",
+                "    reference: spec",
+                "    expected: \"e\"",
+                "    steps: \"s\"",
+                "    priority: 1",
+            ]
+        catalogue_text = "\n".join(lines) + "\n"
+        monkeypatch.setattr(cmd_bugbash, "_fetch_catalogue_text", lambda slug, branch: catalogue_text)
+
+        captured = {}
+
+        def fake_run_bugbash(bb_config, *, explorer, runner, open_issues_fetcher, closed_issues_fetcher, confirm):
+            captured["explorer"] = explorer
+            return BugbashReport(repo=bb_config.repo, rounds=[], termination_reason="round_cap", total_cost=0.0)
+
+        monkeypatch.setattr(cmd_bugbash, "run_bugbash", fake_run_bugbash)
+
+        dispatch_calls = []
+        # Several pool threads call `fake_dispatch` at once for a `tui-pty`
+        # lane, so guard the shared list rather than relying on `append`
+        # happening to be atomic.
+        dispatch_lock = threading.Lock()
+
+        def fake_dispatch(lane, round_num, **kwargs):
+            with dispatch_lock:
+                dispatch_calls.append(kwargs.get("journeys_override"))
+            return ExploreOutcome(ok=True, cost=1.0)
+
+        monkeypatch.setattr(cmd_bugbash, "_dispatch_and_await_lane", fake_dispatch)
+
+        result = CliRunner().invoke(
+            cmd_bugbash.bugbash_cmd,
+            ["vimcode", "--reference", "tui-pty", "--dry-run", "-y"],
+        )
+        assert result.exit_code == 0, result.output
+        outcome = captured["explorer"](_prod_lane(machine="pc1", platform="tui-pty"), 1)
+        # Order-independent (see the docstring): 3 chunks, sized 25/25/10...
+        assert sorted(len(c) for c in dispatch_calls) == [10, 25, 25]
+        # ...and between them every one of the 60 journeys exactly once —
+        # no chunk handed the whole catalogue, none dropped, none doubled.
+        dispatched_ids = [j.id for call in dispatch_calls for j in call]
+        assert sorted(dispatched_ids) == sorted(f"j{i}" for i in range(60))
+        assert outcome.cost == 3.0
 
     def test_explorer_progress_lines_are_lane_prefixed(self, monkeypatch, capsys):
         """#3602 review round 1: the new lane-prefixed progress lines

@@ -578,6 +578,92 @@ fn argument_double_colon_to_parentheses_binding_returns_plain_edit_or_none() {
 }
 
 #[test]
+fn argument_list_continuation_binding_returns_plain_edit_or_none() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
+        module
+            .add_function(
+                wrap_pyfunction!(py_argument_list_continuation_edit, &module)
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let position =
+            json_value_to_py(py, &json!({"line": 0, "character": 11})).unwrap();
+        let edit = module
+            .getattr("argument_list_continuation_edit")
+            .unwrap()
+            .call1(("#foo(bar=1)", position.clone_ref(py)))
+            .unwrap();
+        assert_eq!(
+            py_to_json_value(&edit).unwrap(),
+            json!({
+                "range": {
+                    "start": {"line": 0, "character": 10},
+                    "end": {"line": 0, "character": 10}
+                },
+                "new_text": ","
+            })
+        );
+
+        let empty_position =
+            json_value_to_py(py, &json!({"line": 0, "character": 6})).unwrap();
+        let empty = module
+            .getattr("argument_list_continuation_edit")
+            .unwrap()
+            .call1(("#foo()", empty_position))
+            .unwrap();
+        assert_eq!(
+            py_to_json_value(&empty).unwrap(),
+            json!({
+                "range": {
+                    "start": {"line": 0, "character": 5},
+                    "end": {"line": 0, "character": 5}
+                },
+                "new_text": ""
+            })
+        );
+
+        let ordinary = module
+            .getattr("argument_list_continuation_edit")
+            .unwrap()
+            .call1(("%q(a)", position.clone_ref(py)))
+            .unwrap();
+        assert!(ordinary.is_none());
+
+        let utf16_position =
+            json_value_to_py(py, &json!({"line": 0, "character": 15})).unwrap();
+        let utf16 = module
+            .getattr("argument_list_continuation_edit")
+            .unwrap()
+            .call1(("é🙂 #foo(bar=1)", utf16_position))
+            .unwrap();
+        assert_eq!(
+            py_to_json_value(&utf16).unwrap()["range"],
+            json!({
+                "start": {"line": 0, "character": 14},
+                "end": {"line": 0, "character": 14}
+            })
+        );
+
+        let malformed_position =
+            json_value_to_py(py, &json!({"line": "0", "character": 11}))
+                .unwrap();
+        let error = module
+            .getattr("argument_list_continuation_edit")
+            .unwrap()
+            .call1(("#foo(bar=1)", malformed_position))
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("position is not a valid EditorPosition"),
+            "unexpected error: {error}"
+        );
+    });
+}
+
+#[test]
 fn xprompt_spacer_to_parentheses_binding_round_trips_utf16() {
     pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
@@ -585,7 +671,7 @@ fn xprompt_spacer_to_parentheses_binding_round_trips_utf16() {
         module
             .add_function(
                 wrap_pyfunction!(
-                    py_xprompt_completion_spacer_to_parentheses_edit,
+                    py_macro_completion_spacer_to_parentheses_edit,
                     &module
                 )
                 .unwrap(),
@@ -604,7 +690,7 @@ fn xprompt_spacer_to_parentheses_binding_round_trips_utf16() {
         )
         .unwrap();
         let edit = module
-            .getattr("xprompt_completion_spacer_to_parentheses_edit")
+            .getattr("macro_completion_spacer_to_parentheses_edit")
             .unwrap()
             .call1(("#optional ", position.clone_ref(py), record))
             .unwrap();
@@ -632,7 +718,7 @@ fn xprompt_spacer_to_parentheses_binding_round_trips_utf16() {
         let zero_position =
             json_value_to_py(py, &json!({"line": 0, "character": 7})).unwrap();
         let ordinary = module
-            .getattr("xprompt_completion_spacer_to_parentheses_edit")
+            .getattr("macro_completion_spacer_to_parentheses_edit")
             .unwrap()
             .call1(("#plain ", zero_position, zero_input_record))
             .unwrap();
@@ -651,7 +737,7 @@ fn xprompt_spacer_to_parentheses_binding_round_trips_utf16() {
         )
         .unwrap();
         let utf16_edit = module
-            .getattr("xprompt_completion_spacer_to_parentheses_edit")
+            .getattr("macro_completion_spacer_to_parentheses_edit")
             .unwrap()
             .call1(("é🙂\nText #optional ", utf16_position, utf16_record))
             .unwrap();
@@ -666,19 +752,19 @@ fn xprompt_spacer_to_parentheses_binding_round_trips_utf16() {
 }
 
 #[test]
-fn xprompt_argument_spans_binding_returns_open_structural_spans() {
+fn macro_argument_spans_binding_returns_open_structural_spans() {
     pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
         let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
         module
             .add_function(
-                wrap_pyfunction!(py_xprompt_argument_spans, &module).unwrap(),
+                wrap_pyfunction!(py_macro_argument_spans, &module).unwrap(),
             )
             .unwrap();
 
         let source = "#foo(key=42, other=true";
         let result = module
-            .getattr("xprompt_argument_spans")
+            .getattr("macro_argument_spans")
             .unwrap()
             .call1((source,))
             .unwrap();
@@ -702,98 +788,37 @@ fn xprompt_argument_spans_binding_returns_open_structural_spans() {
 }
 
 #[test]
-fn macro_binding_aliases_agree_with_legacy_names() {
+fn macro_bindings_are_canonical_and_legacy_names_are_absent() {
     pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
         let module = PyModule::new_bound(py, "sase_core_rs").unwrap();
-        module
-            .add_function(
-                wrap_pyfunction!(py_xprompt_argument_spans, &module).unwrap(),
-            )
-            .unwrap();
-        module
-            .add_function(
-                wrap_pyfunction!(py_macro_argument_spans, &module).unwrap(),
-            )
-            .unwrap();
-        module
-            .add_function(
-                wrap_pyfunction!(
-                    py_xprompt_skill_definition_wire_schema_version,
-                    &module
-                )
-                .unwrap(),
-            )
-            .unwrap();
-        module
-            .add_function(
-                wrap_pyfunction!(
-                    py_macro_skill_definition_wire_schema_version,
-                    &module
-                )
-                .unwrap(),
-            )
-            .unwrap();
-        module
-            .add_function(
-                wrap_pyfunction!(py_resolve_xprompt_skill_definition, &module)
-                    .unwrap(),
-            )
-            .unwrap();
-        module
-            .add_function(
-                wrap_pyfunction!(py_resolve_macro_skill_definition, &module)
-                    .unwrap(),
-            )
-            .unwrap();
-
-        let source = "#foo(key=1)";
-        let old = module
-            .getattr("xprompt_argument_spans")
-            .unwrap()
-            .call1((source,))
-            .unwrap();
-        let new = module
-            .getattr("macro_argument_spans")
-            .unwrap()
-            .call1((source,))
-            .unwrap();
-        assert_eq!(
-            py_to_json_value(&old).unwrap(),
-            py_to_json_value(&new).unwrap()
-        );
-
-        let old_version: u64 = module
+        crate::sase_core_rs(py, &module).unwrap();
+        assert!(module.getattr("xprompt_argument_spans").is_err());
+        assert!(module.getattr("resolve_xprompt_skill_definition").is_err());
+        assert!(module
             .getattr("xprompt_skill_definition_wire_schema_version")
-            .unwrap()
-            .call0()
-            .unwrap()
-            .extract()
-            .unwrap();
-        let new_version: u64 = module
+            .is_err());
+        assert!(module
+            .getattr("xprompt_completion_spacer_to_parentheses_edit")
+            .is_err());
+
+        let version: u64 = module
             .getattr("macro_skill_definition_wire_schema_version")
             .unwrap()
             .call0()
             .unwrap()
             .extract()
             .unwrap();
-        assert_eq!(old_version, new_version);
-        assert_eq!(old_version, 1);
+        assert_eq!(version, 1);
 
         let bad = PyDict::new_bound(py);
-        let old_err = module
-            .getattr("resolve_xprompt_skill_definition")
-            .unwrap()
-            .call1((&bad, py.None()))
-            .unwrap_err()
-            .to_string();
-        let new_err = module
+        let err = module
             .getattr("resolve_macro_skill_definition")
             .unwrap()
             .call1((&bad, py.None()))
             .unwrap_err()
             .to_string();
-        assert_eq!(old_err, new_err);
+        assert!(err.contains("MacroSkillDefinitionRequestWire"), "{err}");
     });
 }
 
@@ -1421,7 +1446,7 @@ fn catalog_options_accept_macro_aliases_with_duplicate_rejection() {
                 macros_dir.to_string_lossy().to_string(),
             )
             .unwrap();
-        let parsed = xprompt_catalog_options_from_py(Some(&options)).unwrap();
+        let parsed = macro_catalog_options_from_py(Some(&options)).unwrap();
         assert_eq!(parsed.package_macros_dir, Some(macros_dir.clone()));
         assert!(parsed.accept_legacy_xprompt_names);
 
@@ -1433,19 +1458,19 @@ fn catalog_options_accept_macro_aliases_with_duplicate_rejection() {
                 xprompts_dir.to_string_lossy().to_string(),
             )
             .unwrap();
-        let parsed = xprompt_catalog_options_from_py(Some(&options)).unwrap();
+        let parsed = macro_catalog_options_from_py(Some(&options)).unwrap();
         assert_eq!(parsed.package_xprompts_dir, Some(xprompts_dir.clone()));
 
         // Both spellings together are an error, even for empty maps.
         let options = PyDict::new_bound(py);
         options.set_item("package_xprompts_dir", "a").unwrap();
         options.set_item("package_macros_dir", "b").unwrap();
-        assert!(xprompt_catalog_options_from_py(Some(&options)).is_err());
+        assert!(macro_catalog_options_from_py(Some(&options)).is_err());
 
         let options = PyDict::new_bound(py);
         options.set_item("default_xprompts_dir", "a").unwrap();
         options.set_item("default_macros_dir", "b").unwrap();
-        assert!(xprompt_catalog_options_from_py(Some(&options)).is_err());
+        assert!(macro_catalog_options_from_py(Some(&options)).is_err());
 
         let empty_old = PyDict::new_bound(py);
         empty_old
@@ -1455,7 +1480,7 @@ fn catalog_options_accept_macro_aliases_with_duplicate_rejection() {
             )
             .unwrap();
         // An empty old map alone is fine.
-        assert!(xprompt_catalog_options_from_py(Some(&empty_old)).is_ok());
+        assert!(macro_catalog_options_from_py(Some(&empty_old)).is_ok());
         empty_old
             .set_item(
                 "plugin_macro_dirs",
@@ -1463,11 +1488,11 @@ fn catalog_options_accept_macro_aliases_with_duplicate_rejection() {
             )
             .unwrap();
         // Both present, even empty, is a duplicate.
-        assert!(xprompt_catalog_options_from_py(Some(&empty_old)).is_err());
+        assert!(macro_catalog_options_from_py(Some(&empty_old)).is_err());
 
         // Policy defaults true and is settable.
         assert!(
-            xprompt_catalog_options_from_py(None)
+            macro_catalog_options_from_py(None)
                 .unwrap()
                 .accept_legacy_xprompt_names
         );
@@ -1476,7 +1501,7 @@ fn catalog_options_accept_macro_aliases_with_duplicate_rejection() {
             .set_item("accept_legacy_xprompt_names", false)
             .unwrap();
         assert!(
-            !xprompt_catalog_options_from_py(Some(&options))
+            !macro_catalog_options_from_py(Some(&options))
                 .unwrap()
                 .accept_legacy_xprompt_names
         );

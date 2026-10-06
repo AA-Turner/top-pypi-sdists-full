@@ -22,23 +22,25 @@ from typing import Any, ClassVar, Dict, List, Optional
 from istari_digital_client.sdk._generated.v2.models.auth_integration_type import AuthIntegrationType
 from istari_digital_client.sdk._generated.v2.models.file_revision import FileRevision
 from istari_digital_client.sdk._generated.v2.models.function_auth_type import FunctionAuthType
+from istari_digital_client.sdk._generated.v2.models.oauth1_provider_data import Oauth1ProviderData
 from istari_digital_client.sdk._generated.v2.models.oidc_provider_data import OidcProviderData
 from typing import Optional, Set
 from typing_extensions import Self
 
 class NewAuthIntegration(BaseModel):
     """
-    A class representing a New Auth Integration.  ``name`` is an optional admin-set display name (lets a tenant run several integrations of the same type). ``oidc_provider_data`` and ``client_secret`` configure an OIDC provider; the client secret is sealed at rest and is never returned. Both are admin-only and absent for non-OIDC integrations.
+    A class representing a New Auth Integration.  ``name`` is an optional admin-set display name (lets a tenant run several integrations of the same type). The provider-data field matching ``auth_type`` plus ``client_secret`` configure a browser sign-in provider (``client_secret`` doubles as the OAuth 1.0a consumer secret); the secret is sealed at rest and is never returned. All are admin-only and absent for basic/token integrations.
     """ # noqa: E501
     auth_integration_type: AuthIntegrationType
     auth_type: FunctionAuthType
     revision: FileRevision
     name: Optional[StrictStr] = None
     oidc_provider_data: Optional[OidcProviderData] = None
+    oauth1_provider_data: Optional[Oauth1ProviderData] = None
     client_secret: Optional[StrictStr] = None
     integration_data: Optional[Dict[str, Any]] = None
     control_tag_ids: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["auth_integration_type", "auth_type", "revision", "name", "oidc_provider_data", "client_secret", "integration_data", "control_tag_ids"]
+    __properties: ClassVar[List[str]] = ["auth_integration_type", "auth_type", "revision", "name", "oidc_provider_data", "oauth1_provider_data", "client_secret", "integration_data", "control_tag_ids"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -85,6 +87,9 @@ class NewAuthIntegration(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of oidc_provider_data
         if self.oidc_provider_data:
             _dict['oidc_provider_data'] = self.oidc_provider_data.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of oauth1_provider_data
+        if self.oauth1_provider_data:
+            _dict['oauth1_provider_data'] = self.oauth1_provider_data.to_dict()
         # set to None if name (nullable) is None
         # and model_fields_set contains the field
         if self.name is None and "name" in self.model_fields_set:
@@ -94,6 +99,11 @@ class NewAuthIntegration(BaseModel):
         # and model_fields_set contains the field
         if self.oidc_provider_data is None and "oidc_provider_data" in self.model_fields_set:
             _dict['oidc_provider_data'] = None
+
+        # set to None if oauth1_provider_data (nullable) is None
+        # and model_fields_set contains the field
+        if self.oauth1_provider_data is None and "oauth1_provider_data" in self.model_fields_set:
+            _dict['oauth1_provider_data'] = None
 
         # set to None if client_secret (nullable) is None
         # and model_fields_set contains the field
@@ -122,6 +132,7 @@ class NewAuthIntegration(BaseModel):
             "revision": FileRevision.from_dict(obj["revision"]) if obj.get("revision") is not None else None,
             "name": obj.get("name"),
             "oidc_provider_data": OidcProviderData.from_dict(obj["oidc_provider_data"]) if obj.get("oidc_provider_data") is not None else None,
+            "oauth1_provider_data": Oauth1ProviderData.from_dict(obj["oauth1_provider_data"]) if obj.get("oauth1_provider_data") is not None else None,
             "client_secret": obj.get("client_secret"),
             "integration_data": obj.get("integration_data"),
             "control_tag_ids": obj.get("control_tag_ids")

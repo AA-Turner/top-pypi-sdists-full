@@ -186,6 +186,8 @@ pub(super) struct CatalogInput {
     pub(super) is_step_input: bool,
     pub(super) repeatable: bool,
     pub(super) choices: Vec<MobileInputChoiceWire>,
+    pub(super) named_type: Option<String>,
+    pub(super) value_role: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -261,21 +263,21 @@ pub(super) struct StructuredSource {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum WorkflowKind {
-    SimpleXprompt,
+    SimpleMacro,
     EmbeddableWorkflow,
     StandaloneWorkflow,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum DefinitionSection {
-    Xprompts,
+    Macros,
     Workflows,
 }
 
 impl DefinitionSection {
     pub(super) fn as_str(self) -> &'static str {
         match self {
-            Self::Xprompts => "xprompts",
+            Self::Macros => "macros",
             Self::Workflows => "workflows",
         }
     }

@@ -47,10 +47,16 @@ renames:
   seo-coach: {label: SEO Coach}
   seo-project-setup: {label: SEO Project Setup}
   seo-report: {label: SEO Report}
+  deslop: {label: "Deslop: Remove AI Writing Patterns"}
+
+# deslop sits in this repo but is Stephen D. Turner's (its own MIT LICENSE travels with it, appended
+# verbatim); its tropes catalog credits tropes.fyi inline. Imported 2026-10-05 (Arman's ruling that
+# every actual skill also gets our own version: library/seo matrx-writing-check is ours).
+skill_authors:
+  deslop: ["Stephen D. Turner"]
 
 skip_skills:
   create-repo-skill: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
-  deslop: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
   evaluate-skill: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
   maintain-greptile-rules: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"
   merge-ready: "source repo developer tooling (marked internal upstream), not an end-user SEO skill"

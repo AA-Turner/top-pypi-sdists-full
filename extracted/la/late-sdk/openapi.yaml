@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.213.1"
+  version: "1.218.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -194,6 +194,7 @@ x-documentation:
     - `review.updated` - A Google Business Profile reviewer edited their review text or rating, or a reply was posted through `POST /v1/inbox/reviews/{reviewId}/reply`. A reply written directly in Google's own interface does NOT fire this event, because Google emits no notification for it.
     - `lead.received` - New lead submitted against a Meta Lead Gen (Instant) Form. `lead.fields` is the question-key → answer map; `lead.formId`/`lead.adId` give provenance.
     - `ad.status_changed` - Ad, ad set, or campaign changed status on the ad platform (Meta: `in_process_ad_objects` entry/exit and `with_issues_ad_objects` violations)
+    - `ad.video.processed` - Meta finished processing a video uploaded with `POST /v1/ads/videos` and `async: true`. `video.status` is `ready` (usable as `video.id`) or `error`
     - `whatsapp.template.status_updated` - WhatsApp Business template completed (re)review by Meta. `template.status` carries the new state (APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION); `template.reason` is Meta's free-form reason or "NONE".
     - `whatsapp.template.category_updated` - Meta reclassified a WhatsApp Business template's category (drives tariff and marketing opt-out applicability). `template.changeType` is `scheduled` (24h advance notice) or `applied`; `template.category` is always the category right now.
     - `whatsapp.account.name_status_updated` - Meta finished reviewing a WhatsApp display-name change. `name.status` carries the outcome (APPROVED, DECLINED, PENDING_REVIEW). Fires only on a review outcome; a name applied without review (`name_status: AVAILABLE_WITHOUT_REVIEW`) produces no event.
@@ -242,7 +243,7 @@ x-documentation:
     | `post.platform.*`, `post.tiktok.url_resolved` | `account.accountId` (the target this event is about; `post.platforms[].accountId` lists every target) |
     | `post.scheduled`, `post.published`, `post.failed`, `post.partial`, `post.cancelled`, `post.recycled` | `post.platforms[].accountId`, one per target; there is no top-level account |
     | `post.external.*` | `account.accountId` (also `post.accountId`) |
-    | `ad.status_changed`, `whatsapp.template.*`, `whatsapp.account.*`, `whatsapp.contact.identity_changed` | `account.accountId` |
+    | `ad.status_changed`, `ad.video.processed`, `whatsapp.template.*`, `whatsapp.account.*`, `whatsapp.contact.identity_changed` | `account.accountId` |
     | `whatsapp.automatic_event` | top-level `accountId` |
     | `whatsapp.number.*`, `sms.registration.*` | none; `number.id` / `registration.id` are the number and registration ids, `number.profileId` / `registration.profileId` the profile |
     | `verification.*`, `phone_number.stock_available`, `api.changelog.published`, `webhook.test` | none |
@@ -574,7 +575,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted, webhook.test.
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
       Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, api.changelog.published and webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
@@ -936,6 +937,13 @@ components:
         is your own ad account's quota), `details.resetsAt` (ISO instant when
         Google accepts requests again) and `Retry-After` counting down to it.
         Retrying earlier cannot succeed.
+
+        Meta ads: every Meta throttle (codes 4, 17, 32, 613 and the
+        business-use-case codes 80000-80014) returns 429 `rate_limited`, even
+        when Meta itself answers HTTP 400. `Retry-After` comes from Meta's
+        `x-business-use-case-usage` estimate when Meta sends one, otherwise it
+        is Meta's documented 60-second minimum (30 seconds for the one-write-per-30-seconds
+        limit on a single object).
       headers:
         Retry-After:
           description: 'Seconds remaining until the upstream quota resets.'
@@ -958,6 +966,25 @@ components:
       headers:
         Retry-After:
           description: 'Seconds to wait before retrying a create on this ad account.'
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    MetaRateLimited:
+      description: |
+        Meta throttled the request (code `rate_limited`, `platform: meta`).
+        Every Meta throttle returns 429 here, even when Meta itself answers
+        HTTP 400: codes 4, 17 and 32 (app, user and page request limits), 613
+        (per-object call limits) and 80000-80014 (business-use-case limits per
+        ad account or business, e.g. 80000 ads insights, 80003 custom
+        audiences, 80004 ads management, 80014 catalog batch). Wait
+        `Retry-After` seconds before retrying: it is Meta's
+        `x-business-use-case-usage` estimate when Meta sends one, otherwise
+        Meta's documented 60-second minimum. Business-use-case limits are
+        scoped to one ad account, so other ad accounts are not affected.
+      headers:
+        Retry-After:
+          description: 'Seconds to wait before retrying.'
           schema: { type: integer }
       content:
         application/json:
@@ -2046,7 +2073,7 @@ components:
           type: object
           properties:
             url: { type: string, format: uri, description: "Public URL of the video to upload. Provide either `url` or `id`." }
-            id: { type: string, description: "Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`." }
+            id: { type: string, description: "Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`. Meta: a video still processing is waited on for up to 30 s, then answered 409 `invalid_resource_state` (poll GET /v1/ads/videos/{videoId})." }
             thumbnailUrl:
               type: string
               format: uri
@@ -2137,7 +2164,7 @@ components:
                 type: object
                 properties:
                   url: { type: string, format: uri, description: "Public URL of the video to upload. Provide either `url` or `id`." }
-                  id: { type: string, description: "Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`." }
+                  id: { type: string, description: "Reuse a video already uploaded to this ad account (list them with GET /v1/ads/videos) instead of re-uploading. Wins over `url`. Provide either `url` or `id`. Meta: a video still processing is waited on for up to 30 s, then answered 409 `invalid_resource_state` (poll GET /v1/ads/videos/{videoId})." }
                   thumbnailUrl:
                     type: string
                     format: uri
@@ -2163,7 +2190,7 @@ components:
             building a campaign, so the ad set keeps its learning phase. It then
             owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
             `budgetLevel`, `startDate`, `endDate`, `objective`, `campaignStatus`,
-            `existingCampaignId`, the special ad category fields and every
+            `adSetStatus`, `existingCampaignId`, the special ad category fields and every
             targeting field except `ageMin`, `ageMax`, `placements` and
             `advantageAudience` are rejected with a 400 alongside it. Its
             `destination_type` must match the ad's destination.
@@ -2432,6 +2459,23 @@ components:
             new ad set instead. Only meaningful when a new campaign is being
             created; rejected with a 400 alongside `adSetId` (the attach shape
             reuses an existing campaign).
+        adSetStatus:
+          type: string
+          enum: [ACTIVE, PAUSED]
+          description: |
+            Ad-set-level status, same semantics as `POST /v1/ads/create`. Sets
+            the new ad set's switch alone and overrides `status` for it. A
+            level status (`campaignStatus`, `adSetStatus`, `adStatus`) always
+            wins for its level, and `status: PAUSED` adds a hold of its own
+            only when none of them is PAUSED. Rejected with a 400 alongside
+            `adSetId` (that ad set already exists).
+        adStatus:
+          $ref: '#/components/schemas/AdActivationStatus'
+          description: |
+            Ad-level status, same semantics as `POST /v1/ads/create`. Sets the
+            new ads' switch and overrides `status` for them, also with
+            `adSetId`. Send `campaignStatus`, `adSetStatus` and `adStatus` all
+            PAUSED to create every object paused.
         bidStrategy:
           type: string
           enum:
@@ -2900,12 +2944,12 @@ components:
             (every Google account is affected and there is nothing to change on your side),
             `ACCOUNT` means your own ad account. A Meta 429 carries neither field.
 
-            A Zernio Google Ads budget 429 carries `budgetScope` instead, and never
+            A Zernio Google Ads burst-limit 429 carries `budgetScope` instead, and never
             `quotaExhausted`: these are Zernio's own limits, applied before the call
-            reaches Google. `user` is your own burst or daily allowance, so the work is
-            yours to reschedule; `platform` is the fleet-wide daily budget shared with
-            every other customer, so only waiting for the reset clears it. The two
-            scopes are separate axes from `quotaScope`, not the same pool named twice.
+            reaches Google, and both clear within a minute. `account` is the limit of 15
+            requests per minute per connected Google Ads account; `user` is the ceiling of
+            120 requests per minute per Zernio user across all their Google Ads accounts.
+            Both are separate axes from `quotaScope`, not the same pool named twice.
 
             A failed Meta ad create (`POST /v1/ads/create`, `POST /v1/ads/boost`,
             `POST /v1/ads/ctwa`) carries `stage`, `adAccountId` and `createdObjects`: where
@@ -2950,8 +2994,8 @@ components:
               description: 'Google Ads 429 only, when Google names the scope. DEVELOPER is the shared developer-token budget; ACCOUNT is your ad account.'
             budgetScope:
               type: string
-              enum: [user]
-              description: "Zernio Google Ads burst-limit 429 only (never set alongside `quotaExhausted`). `user` is your own per-minute allowance on user-driven Google Ads calls; it clears within a minute."
+              enum: [account, user]
+              description: "Zernio Google Ads burst-limit 429 only (never set alongside `quotaExhausted`). `account` is the limit of 15 requests per minute per connected Google Ads account; `user` is the ceiling of 120 requests per minute per Zernio user across all their Google Ads accounts. Both clear within a minute."
     CommentAutomationAudience:
       type: object
       description: |
@@ -3870,7 +3914,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -3878,7 +3922,7 @@ components:
         lastFiredAt:
           type: string
           format: date-time
-          description: Timestamp of last successful webhook delivery
+          description: 'Timestamp of the last successful webhook delivery. On a healthy endpoint it is refreshed at most once every 10 minutes, so it can trail the most recent delivery by up to 10 minutes.'
         failureCount:
           type: integer
           description: >-
@@ -4732,7 +4776,7 @@ components:
               type: object
               description: |
                 Ad context. Present only when the comment was made on paid content.
-                Instagram: populated from the webhook payload's value.media.ad_id and value.media.ad_title.
+                Instagram: populated from the webhook payload's value.media.ad_id, value.media.ad_title and value.media.original_media_id, each only when Meta includes it.
                 Facebook: populated via a Graph API lookup of the parent post's promotion_status.
                 Absent for comments on organic posts that are not currently promoted.
               properties:
@@ -4742,6 +4786,9 @@ components:
                 title:
                   type: string
                   description: Ad creative title (Instagram only).
+                originalMediaId:
+                  type: string
+                  description: 'Original media ID that Meta reports for the ad (Instagram only).'
                 promotionStatus:
                   type: string
                   description: |
@@ -6562,6 +6609,43 @@ components:
           type: string
           format: date-time
           description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    WebhookPayloadAdVideoProcessed:
+      type: object
+      description: |
+        Webhook payload for the `ad.video.processed` event. Fires once per
+        `POST /v1/ads/videos` call made with `async: true`, when Meta finishes
+        processing the video (Meta only).
+      required: [id, event, account, video, timestamp]
+      properties:
+        id:
+          type: string
+          description: 'Stable webhook event ID: the dedupe key, also sent as the X-Zernio-Event-Id header and identical on every retry and redelivery.'
+        event:
+          type: string
+          enum: [ad.video.processed]
+        account:
+          type: object
+          description: The connected ads account the video was uploaded with.
+          required: [accountId, profileId, platform, username]
+          properties:
+            accountId: { type: string, description: Internal Zernio account ID. }
+            profileId: { type: string, description: Internal Zernio profile ID this account belongs to. }
+            platform: { type: string, description: Ads connection platform. Currently always `metaads`., example: metaads }
+            username: { type: string }
+            displayName: { type: [string, "null"] }
+        video:
+          type: object
+          required: [id, platformAdAccountId, status, error, thumbnailUrl]
+          properties:
+            id: { type: string, description: "Meta video id, as returned by the 202 upload response." }
+            platformAdAccountId: { type: string, description: "Meta ad account id (act_<n>) the video was uploaded to." }
+            status: { type: string, enum: [ready, error], description: "`ready`: usable as `video.id` on the create endpoints. `error`: Meta could not process it; upload again." }
+            error: { type: [string, "null"], description: "Meta's processing error when status is `error`, otherwise null." }
+            thumbnailUrl: { type: [string, "null"], description: "Meta's auto-generated poster when status is `ready` and Meta produced one, otherwise null." }
+        timestamp:
+          type: string
+          format: date-time
+          description: UTC time at which Zernio generated this event.
     WebhookPayloadAdStatusChanged:
       type: object
       description: |
@@ -8097,6 +8181,37 @@ components:
           example: '105890561436614'
       description: Feed aspect ratio 0.5625-1.91, carousels up to 10 items, stories require media (no captions). User tag coordinates 0.0-1.0 from top-left. Images over 8 MB and videos over platform limits are auto-compressed.
 
+    InstagramBusinessDiscovery:
+      type: object
+      required: [profile, media]
+      properties:
+        profile:
+          type: object
+          required: [id, username]
+          properties:
+            id: { type: string, description: Instagram user ID of the looked-up account }
+            username: { type: string }
+            name: { type: [string, "null"] }
+            biography: { type: [string, "null"] }
+            website: { type: [string, "null"] }
+            profilePictureUrl: { type: [string, "null"], description: 'Temporary CDN URL; download it rather than storing the link.' }
+            followersCount: { type: [integer, "null"] }
+            followsCount: { type: [integer, "null"] }
+            mediaCount: { type: [integer, "null"] }
+        media:
+          type: array
+          description: 'Most recent media first, up to `limit`.'
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              caption: { type: [string, "null"] }
+              mediaType: { type: [string, "null"], description: 'IMAGE, VIDEO or CAROUSEL_ALBUM' }
+              mediaProductType: { type: [string, "null"], description: 'FEED or REELS' }
+              timestamp: { type: [string, "null"], format: date-time }
+              permalink: { type: [string, "null"] }
+              likeCount: { type: [integer, "null"], description: Null when the owner hides like counts }
+              commentsCount: { type: [integer, "null"] }
     InstagramAudioAsset:
       type: object
       description: 'One asset from the Instagram audio catalog. Licensed music carries artist/artwork fields; original sounds carry creator fields instead, so most fields are nullable.'
@@ -9838,7 +9953,7 @@ components:
         saves: { type: integer, example: 0, description: 'Number of saves/bookmarks (Instagram, Pinterest, X)' }
         clicks: { type: integer, example: 0, description: 'Link clicks where the platform reports them. Always 0 on Facebook Page stories: Meta exposes no link-click metric for stories.' }
         views: { type: integer, example: 0 }
-        follows: { type: [integer, "null"], example: 0, description: 'Instagram feed posts and stories only: organic accounts that started following from this post. Null on Instagram Reels and non-Reels video, where Meta does not expose this metric for the media. 0 for other platforms.' }
+        follows: { type: [integer, "null"], example: 0, description: 'Accounts that started following from this post. Instagram feed posts and stories (organic follows), Facebook Reels (Meta post_video_followers) and the TikTok business lane. Null on Instagram Reels and non-Reels video and on Facebook posts that are not Reels, where Meta does not expose this metric for the media. 0 for other platforms.' }
         igReelsAvgWatchTime: { type: integer, example: 0, description: 'Average watch time per play, in milliseconds, for Instagram Reels, Facebook Reels and TikTok videos (business accounts). On Facebook it includes replays within a play, so it can exceed the Reel length. 0 for other media and platforms, including regular Facebook videos.' }
         igReelsVideoViewTotalTime: { type: integer, example: 0, description: 'Total watch time including replays, in milliseconds, for Instagram Reels, Facebook Reels and TikTok videos (business accounts). 0 for other media and platforms, including regular Facebook videos.' }
         reelsSkipRate: { type: number, example: 48.8, description: 'Instagram Reels only: percentage (0-100) of initial views that skipped the reel within its first 3 seconds, as reported by Meta. Meta labels the metric estimated and in development, so it can move between syncs. 0 for non-Reels media and other platforms. When a post is published to several accounts, the aggregate is weighted by views.' }
@@ -9865,7 +9980,7 @@ components:
           type: object
           additionalProperties: { type: number }
           example: { "0": 0.9923, "1": 0.9937, "4": 0.8637, "8": 0.5313, "12": 0.3605 }
-          description: 'Facebook Reels only: share of plays still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Empty object for other media and platforms. Views-weighted across accounts like impressionSources.'
+          description: 'Facebook Reels only: share still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). The base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Empty object for other media and platforms. Views-weighted across accounts like impressionSources.'
         reposts: { type: integer, example: 0, description: 'Instagram accounts connected with Facebook Login only: reposts of the media by other users, minus deleted reposts, on feed posts, reels and stories. Meta does not expose this metric for accounts connected with Instagram Login, so those always report 0. 0 for other platforms, including Threads, where reposts are counted in shares instead.' }
         videoDurationSeconds: { type: [integer, "null"], example: 30, description: 'Video length in seconds. Currently Instagram Reels only; combine with igReelsAvgWatchTime (ms) to estimate retention. Null when unknown (other platforms, non-video media, or when Instagram does not expose the media URL, e.g. reels with copyrighted audio).' }
         engagementRate: { type: number, example: 6.59, description: 'Percentage, rounded to 2 decimals: (likes + comments + shares + saves) / (impressions or reach or views) * 100. Clicks and follows are never counted. The denominator is the FIRST of impressions, reach, views that is non-zero, so it is not the same basis on every post: a post with impressions divides by impressions, one without falls back to reach, then to views. If you need a single consistent basis (e.g. interactions / reach), compute it from the raw fields above. When this object is the post-level roll-up of a cross-posted post, the denominator is the SUM of the denominators resolved per platform entry: an entry reporting none of impressions, reach or views is excluded from both sides of the ratio. Each platformAnalytics entry below keeps its own single denominator. The engagementRate on the LinkedIn account endpoints is a different formula.' }
@@ -10080,7 +10195,7 @@ components:
             sends: { type: integer }
             clicks: { type: integer }
             views: { type: integer }
-            follows: { type: integer, description: 'Follows attributed to this post (Instagram)' }
+            follows: { type: integer, description: 'Follows attributed to this post (Instagram feed and stories, Facebook Reels, TikTok business lane)' }
             igReelsAvgWatchTime: { type: integer, description: 'Average watch time per play, in milliseconds (Instagram Reels, Facebook Reels, TikTok business videos)' }
             igReelsVideoViewTotalTime: { type: integer, description: 'Total watch time including replays, in milliseconds (Instagram Reels, Facebook Reels, TikTok business videos)' }
             reposts: { type: integer }
@@ -10092,7 +10207,7 @@ components:
             audienceTypes: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: follower / nonFollower and newViewer / returnViewer shares, fractions 0 to 1. Empty object elsewhere.' }
             audienceCountries: { type: object, additionalProperties: { type: number }, description: 'TikTok business lane: viewer-country shares keyed by ISO-3166 alpha-2, fractions 0 to 1, top 20 with the tail in `other`. Empty object elsewhere.' }
             replays: { type: integer, description: 'Facebook Reels only: plays that were replays. 0 elsewhere.' }
-            retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels only: share of plays still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Empty object elsewhere.' }
+            retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels only: share still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). The base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Empty object elsewhere.' }
     AnalyticsDeltaResponse:
       type: object
       required: [data, nextCursor, hasMore]
@@ -10878,6 +10993,10 @@ components:
     AdStatus:
       type: string
       enum: [active, paused, pending_review, rejected, completed, cancelled, error]
+    AdActivationStatus:
+      type: string
+      enum: [ACTIVE, PAUSED]
+      description: "Request-side publish switch for `adStatus` on ad creation endpoints only (`status`, `campaignStatus` and `adSetStatus` carry their own inline ACTIVE/PAUSED enum there; the status-update endpoints are a separate lowercase `active`/`paused` enum). Distinct from `AdStatus` (the platform-reported delivery status returned on reads)."
     AdReviewStatus:
       type: string
       enum: [in_review, approved, rejected, with_issues]
@@ -14758,6 +14877,48 @@ webhooks:
       responses:
         '200':
           description: Webhook received successfully
+  ad.video.processed:
+    post:
+      operationId: onAdVideoProcessed
+      summary: Ad video processed event
+      description: |
+        Fired once per `POST /v1/ads/videos` call made with `async: true`, when Meta finishes
+        processing the uploaded video. `video.status` is `ready` (reference it as `video.id`
+        on the create endpoints) or `error` (Meta could not process it; `video.error` carries
+        the reason).
+
+        Zernio watches the video for up to about 13 minutes after the upload request. A video
+        still processing after that sends no event, so keep `GET /v1/ads/videos/{videoId}`
+        as the source of truth for long videos.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayloadAdVideoProcessed'
+            examples:
+              ready:
+                summary: Video ready
+                value:
+                  id: "01J7K3P4N5Q6R7S8T9V0W1X2Z1"
+                  event: ad.video.processed
+                  account:
+                    accountId: "65c8f7e2a1b3c4d5e6f7a8b9"
+                    profileId: "65c8f7e2a1b3c4d5e6f7a800"
+                    platform: metaads
+                    username: acme-ads
+                    displayName: Acme Ads
+                  video:
+                    id: "1096002439847708"
+                    platformAdAccountId: act_2129800524463520
+                    status: ready
+                    error: null
+                    thumbnailUrl: "https://scontent.xx.fbcdn.net/v/t15.5256-10/poster.jpg"
+                  timestamp: "2026-10-05T15:25:27.944Z"
+      responses:
+        '200':
+          description: Webhook received successfully
   whatsapp.template.status_updated:
     post:
       operationId: onWhatsAppTemplateStatusUpdated
@@ -18348,7 +18509,7 @@ paths:
                         saves: { type: integer, description: "Total saves on this date" }
                         clicks: { type: integer, description: "Total clicks on this date" }
                         views: { type: integer, description: "Total views on this date" }
-                        follows: { type: integer, description: "Follows attributed to the post on this date (Instagram feed and stories, TikTok business lane); 0 elsewhere" }
+                        follows: { type: [integer, "null"], description: 'Follows attributed to the post on this date (Instagram feed and stories, Facebook Reels, TikTok business lane). Null on Instagram Reels and video and on Facebook posts that are not Reels, where Meta has no follows metric; 0 on other platforms.' }
                         completionRate: { type: number, description: "TikTok business lane: share of viewers who watched to the end on this date, 0 to 1; 0 elsewhere" }
                         profileViews: { type: integer, description: "TikTok business lane: profile views attributed to the post on this date; 0 elsewhere" }
                         websiteClicks: { type: integer, description: "TikTok business lane: website-link clicks attributed to the post on this date (also inside clicks); 0 elsewhere" }
@@ -18356,7 +18517,7 @@ paths:
                         audienceTypes: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: follower / nonFollower and newViewer / returnViewer shares on this date, fractions 0 to 1; empty object elsewhere" }
                         audienceCountries: { type: object, additionalProperties: { type: number }, description: "TikTok business lane: viewer-country shares on this date keyed by ISO-3166 alpha-2, fractions 0 to 1, top 20 with the tail in `other`; empty object elsewhere" }
                         replays: { type: integer, description: "Facebook Reels only: plays that were replays, as of this date; 0 elsewhere" }
-                        retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels only: share of plays still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Values are as of this date; empty object elsewhere.' }
+                        retentionCurve: { type: object, additionalProperties: { type: number }, description: 'Facebook Reels only: share still watching at each second of playback, fractions 0 to 1 (Meta post_video_retention_graph). The base is a subset of plays that Meta selects and does not expose: on small Reels it can be far below views (6 of 51 measured), so a value is a share of that subset, not of all plays. Keys are whole seconds from the start of a play ("3" is the share still watching at 3 s). Loops count as continued playback, so a short Reels curve runs past its length (an 8 s Reel has keys "0" to "12"); Meta returns at most 41 points, so a long Reel covers only its first 40 s. Values are as of this date; empty object elsewhere.' }
               examples:
                 single_platform:
                   summary: Single-platform post timeline
@@ -19072,7 +19233,7 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
-          description: "Cap on returned rows. Lower than the posting listing's 100 because each row triggers a SocialAccount Mongo lookup."
+          description: "Cap on returned rows. Lower than the posting listing's 100 because each row triggers a social account lookup."
       responses:
         '200':
           description: Top accounts leaderboard
@@ -19183,7 +19344,7 @@ paths:
                       type: object
                       properties:
                         conversationId: { type: string, description: "The platformConversationId (the same identity used by metadata.conversationId)" }
-                        mongoId: { type: [string, "null"], description: "The Conversation document _id, when a matching doc exists" }
+                        mongoId: { type: [string, "null"], description: "The Zernio conversation id, when a matching conversation exists" }
                         accountId: { type: string }
                         platform: { type: string }
                         participantName: { type: [string, "null"] }
@@ -19233,11 +19394,11 @@ paths:
         /v1/analytics/post-timeline: one conversation, daily totals,
         source mix.
 
-        The {conversationId} path param accepts EITHER the Mongo `_id` of
-        the Conversation document OR its `platformConversationId` (the
-        same identity used by metadata.conversationId at ingest time).
-        Ownership is verified in MongoDB against the caller's team
-        before the Tinybird query fires.
+        The {conversationId} path param accepts EITHER the Zernio
+        conversation id OR its `platformConversationId` (the same
+        identity used by metadata.conversationId at ingest time).
+        Ownership is verified against the caller's team before the
+        Tinybird query fires.
 
         Max date range is 365 days.
       security: [{ bearerAuth: [] }]
@@ -19246,7 +19407,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
-          description: Mongo _id or platformConversationId.
+          description: Zernio conversation id or platformConversationId.
         - name: fromDate
           in: query
           required: true
@@ -24331,13 +24492,16 @@ paths:
             with `details.accountStatus` (Meta's `account_status`) and, when Meta
             gives one, `details.disableReason`. Unsettled and in-grace accounts
             are accepted, matching the `selectable` flag of `GET /v1/ads/accounts`.
-            Setting a scope also removes already synced ads from de-scoped ad
-            accounts. On Meta the scope also decides which ad accounts Zernio
-            subscribes to ad-account webhooks: only the scoped ones, instead of
-            every ad account the login can reach. The scope is kept when this
-            call returns an `authUrl`, so the Meta Ads account created after
-            OAuth is scoped (and only its scoped ad accounts synced and
-            subscribed) from the start. For multiple accounts use `adAccountIds` instead.
+            Setting a scope also removes already synced ads, campaigns, ad sets
+            and keywords from de-scoped ad accounts. On Meta the scope also decides
+            which ad accounts Zernio subscribes to ad-account webhooks: only the
+            scoped ones, instead of every ad account the login can reach. The scope
+            is kept when this call returns an `authUrl`, so the Meta Ads account
+            created after OAuth is scoped (and only its scoped ad accounts synced and
+            subscribed) from the start. On `googleads` the scope is kept through
+            OAuth when `redirect_url` is set, so the Google Ads connection created
+            after OAuth syncs only its scoped customers from the first sync.
+            For multiple accounts use `adAccountIds` instead.
           example: act_1330190928038136
         - name: adAccountIds
           in: query
@@ -24351,7 +24515,8 @@ paths:
             support and id shapes as `adAccountId`). Repeat the param
             (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate
             (`?adAccountIds=act_1,act_2`). Persisted server-side; latest call
-            wins, and de-scoped ad accounts have their synced ads removed.
+            wins, and de-scoped ad accounts have their synced ads, campaigns,
+            ad sets and keywords removed.
             On Meta only the scoped ad accounts get webhook subscriptions,
             including when the call starts a fresh OAuth.
             Omitting both `adAccountId` and `adAccountIds` keeps any previously
@@ -29239,7 +29404,13 @@ paths:
       operationId: getFacebookPages
       tags: [Connect]
       summary: List Facebook pages
-      description: Returns all Facebook pages the connected account has access to, including the currently selected page.
+      description: >
+        Returns all Facebook Pages the connected account has access to, including the currently selected Page
+        and the Instagram professional account linked to each Page.
+        Works on `facebook` accounts and on `metaads` accounts (classic and Facebook Login for Business
+        connections). On a business-login `metaads` connection `selectedPageId` is the default Page ads run as,
+        and every listed Page can be passed as `pageId` on POST /v1/ads/create. A classic `metaads` connection
+        has no default Page, so `selectedPageId` is null there.
       parameters:
         - name: accountId
           in: path
@@ -29271,7 +29442,13 @@ paths:
                         username: { type: string }
                         category: { type: string }
                         fan_count: { type: integer }
-                  selectedPageId: { type: string }
+                        instagramAccount:
+                          type: [object, "null"]
+                          description: 'The Instagram professional account linked to the Page (Meta instagram_business_account), or null when none is linked or the list was served from a cache stored before this field existed (pass refresh=true to re-read it).'
+                          properties:
+                            id: { type: string, description: 'Instagram professional account id, usable as instagramAccountId on POST /v1/ads/create' }
+                            username: { type: [string, "null"] }
+                  selectedPageId: { type: [string, "null"] }
                   cached: { type: boolean, description: 'false when this response was just read from Meta (cold cache or a refresh that ran), true when served from the stored list (including a debounced refresh or an empty Meta answer)' }
               example:
                 pages:
@@ -29280,21 +29457,31 @@ paths:
                     username: "mybrand"
                     category: "Brand"
                     fan_count: 5000
+                    instagramAccount:
+                      id: "17841400000000000"
+                      username: "mybrand"
                   - id: "234567890123456"
                     name: "My Other Page"
                     username: "myotherpage"
                     category: "Business"
                     fan_count: 1200
+                    instagramAccount: null
                 selectedPageId: "123456789012345"
                 cached: true
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { description: Account not found }
+        '404': { description: 'Account not found, or not a facebook or metaads account' }
     put:
       x-resource-group: "accounts"
       operationId: updateFacebookPage
       tags: [Connect]
       summary: Update Facebook page
-      description: Switch which Facebook Page is active for a connected account.
+      description: >
+        Switch which Facebook Page is active for a connected account. On a `facebook` account this changes the
+        Page posts publish to. On a Facebook Login for Business `metaads` connection it changes the default Page
+        ads run as (and the Page whose leads are ingested). A classic `metaads` connection has no default Page and
+        answers 400; pass `pageId` per ad on POST /v1/ads/create instead. The Page must be in the list returned by
+        GET (use refresh=true to pick up newly granted Pages).
       parameters:
         - name: accountId
           in: path
@@ -29330,11 +29517,11 @@ paths:
                 selectedPage:
                   id: "123456789012345"
                   name: "My Brand Page"
-        '400': { description: Page not in available pages }
+        '400': { description: 'Page not in available pages, missing selectedPageId, or a classic metaads connection (no default Page)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { description: Account not found }
+        '404': { description: 'Account not found, or not a facebook or metaads account' }
         '409':
-          description: "Another account on this profile is already connected to that destination (profile_platform_conflict)."
+          description: "Another account on this profile is already connected to that destination (profile_platform_conflict), or the Page has no stored access token (reconnect_required)."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -30212,6 +30399,57 @@ paths:
         '404': { $ref: '#/components/responses/AccountUnavailable' }
 
         '502': { description: Instagram rejected the request }
+
+  /v1/accounts/{accountId}/instagram/business-discovery:
+    get:
+      x-resource-group: "analytics"
+      operationId: getInstagramBusinessDiscovery
+      tags: [Instagram]
+      summary: Look up a public Instagram Business account
+      description: |
+        Returns the public profile and most recent media of any Instagram
+        Business or Creator account, looked up by username through one of your
+        connected Instagram accounts. Useful for competitor and market research.
+        Personal accounts and private accounts cannot be looked up.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        serves business discovery on graph.facebook.com only, so accounts
+        connected with classic Instagram Login receive a 400
+        (`instagram_business_discovery_requires_facebook_login`) and must be
+        reconnected choosing the Facebook option. Any one such account can look
+        up any public Business or Creator handle.
+
+        `likeCount` is null when the owner hides like counts.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: 'The ID of a connected Instagram account (Facebook Login).'
+          schema: { type: string }
+        - name: username
+          in: query
+          required: true
+          description: 'Instagram handle to look up, with or without the leading @. Case-insensitive.'
+          schema: { type: string, maxLength: 31, example: nike }
+        - name: limit
+          in: query
+          required: false
+          description: 'How many of the most recent media to return.'
+          schema: { type: integer, minimum: 1, maximum: 25, default: 12 }
+      responses:
+        '200':
+          description: Public profile and recent media
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstagramBusinessDiscovery' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: 'The account is not reachable by the caller (`account_not_found`), or no public Business or Creator account has that username (`instagram_profile_not_found`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
 
   /v1/accounts/{accountId}/instagram/stories/{storyId}/insights:
     get:
@@ -32951,7 +33189,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -33108,7 +33346,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, account.ads.sync_failed, account.ads.sync_recovered, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.played, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, ad.video.processed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.account.quality_updated, whatsapp.account.status_updated, whatsapp.account.alert_received, whatsapp.contact.identity_changed, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, api.changelog.published, sms.registration.action_required, sms.registration.status_updated, branded_calling.identity.status_updated, branded_calling.identity.action_required, branded_calling.number.status_updated, rcs.agent.status_updated, commerce.product.created, commerce.product.updated, commerce.product.deleted]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -39179,7 +39417,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - { name: id, in: path, required: true, schema: { type: string }, description: WhatsAppPhoneNumber Mongo ID }
+        - { name: id, in: path, required: true, schema: { type: string }, description: WhatsApp phone number id }
       requestBody:
         required: true
         content:
@@ -51680,6 +51918,10 @@ paths:
         With `live=true` (which needs `limit` of 20 or less) each returned campaign's own switch
         (`platformCampaignStatus`) is read live. Live reads cover TikTok, Meta, Google and OpenAI.
         The rolled-up `status` is not re-derived by a live read.
+
+        **Budgets here are SYNCED**, never read live, including with `live=true`. To read the
+        current budgets (and status) of every campaign and ad set of a Meta ad account live in
+        one call, for example as a pre-write spend gate, use GET /v1/ads/accounts/live.
       security:
         - bearerAuth: []
       parameters:
@@ -51701,6 +51943,7 @@ paths:
         - { name: platform, in: query, schema: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai] } }
         - { name: status, in: query, schema: { $ref: '#/components/schemas/AdStatus' }, description: Filter by derived campaign status (post-aggregation) }
         - { name: adAccountId, in: query, schema: { type: string }, description: Platform ad account ID (e.g. act_123 for Meta) }
+        - { name: campaignId, in: query, schema: { type: string }, description: "Platform campaign ID (the `platformCampaignId` on each returned campaign). Returns only that campaign, or an empty list when it is not visible to the caller. Mirrors the same filter on /v1/ads and /v1/ads/tree." }
         - { name: pageId, in: query, schema: { type: string }, description: "Meta only: Facebook Page ID. Campaigns have no Page of their own, so this keeps campaigns having at least one ad backed by this Page, with adCount and metrics computed over those ads only. Mirrors the same filter on /v1/ads and /v1/ads/tree." }
         - { name: accountId, in: query, schema: { type: string }, description: Account ID }
         - { name: profileId, in: query, schema: { type: string }, description: Profile ID }
@@ -51879,7 +52122,9 @@ paths:
         `skipped: 1`, with the reason). Otherwise the switch is written (`updated: 1`), read back and
         stored, and the delivery status of the ads under it (up to 20) is re-read and stored, so an
         immediate GET returns what the platform now reports. A stored switch never skips a write, and
-        when the platform cannot be read the write always goes out.
+        when the platform cannot be read the write always goes out. On Meta the check reads the
+        campaign's own `status`, so a delivery status such as `IN_PROCESS` or `WITH_ISSUES` does not
+        force a write.
       security:
         - bearerAuth: []
       parameters:
@@ -52563,8 +52808,9 @@ paths:
                 renameStrategy:
                   type: string
                   enum: [DEEP_RENAME, ONLY_TOP_LEVEL_RENAME, NO_RENAME]
-                renamePrefix: { type: string }
-                renameSuffix: { type: string }
+                  description: "Meta's native `rename_strategy` values. `DEEP_RENAME` renames the copied campaign and every copied child (ad sets, ads) with `renamePrefix` / `renameSuffix`. `ONLY_TOP_LEVEL_RENAME` renames only the copied campaign; children keep their source names. `NO_RENAME` keeps every source name. With no rename option at all, Meta appends its own ` - Copy` suffix; LinkedIn defaults to `DEEP_RENAME` (its campaign group and campaigns are renamed). Ignored on TikTok, where `renamePrefix` / `renameSuffix` apply to every copied object."
+                renamePrefix: { type: string, description: "Text prepended to each renamed object's name." }
+                renameSuffix: { type: string, description: "Text appended to each renamed object's name. On LinkedIn an omitted suffix defaults to ` (Copy)`." }
                 syncAfter: { type: boolean, default: true, description: Trigger ads discovery on the owning account after the copy succeeds }
       responses:
         '200':
@@ -52821,6 +53067,14 @@ paths:
         until an ad joins it via `adSetId` on POST /v1/ads/create. Returns at most 500
         rows, newest first.
 
+        **This list is SYNCED, not live** (refreshed by background sync, see below). Each row also
+        carries the ad set's config (`targeting`, `bidStrategy`, `bidAmount`, `optimizationGoal`,
+        `billingEvent`, `promotedObject`), so `?accountId=...&adAccountId=act_...` returns the config of
+        every ad set of an ad account in one call, without a `campaignId`. To read
+        budgets, status, targeting, promoted object and bid strategy of every campaign and ad set of a
+        Meta ad account LIVE in one call (for example as a pre-write spend gate), use
+        GET /v1/ads/accounts/live instead.
+
         **Status freshness.** `status`, `configuredStatus`, `platformStatus`, `platformAdSetStatus`
         and `platformCampaignStatus` are the values Zernio last stored. Background sync refreshes
         them, typically within 15 to 60 minutes (Google up to about 3 hours), and ended or
@@ -52846,6 +53100,7 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: accountId, in: query, schema: { type: string }, description: Account ID }
+        - { name: adAccountId, in: query, schema: { type: string }, description: "Platform ad account id (Meta act_<n>). Lists every synced ad set of that ad account; no campaignId needed." }
         - { name: campaignId, in: query, schema: { type: string }, description: Platform campaign ID }
         - { name: adSetId, in: query, schema: { type: string }, description: Platform ad set ID }
         - { name: platform, in: query, schema: { type: string, enum: [facebook, instagram, tiktok, linkedin, pinterest, google, twitter, openai] } }
@@ -52889,13 +53144,16 @@ paths:
                             endDate: { type: string, format: date-time, description: "Absent when the ad set runs until it is stopped." }
                         targeting:
                           type: [object, "null"]
+                          additionalProperties: true
                           description: |
-                            The audience this ad set delivers to, as the platform reports it. LinkedIn only
-                            today; null for every other platform and for LinkedIn ad sets not yet re-synced.
+                            The audience this ad set delivers to, as the platform reports it at the last sync.
+                            LinkedIn and Meta; null for every other platform and for ad sets not yet re-synced.
 
-                            `include` and `exclude` are the campaign's `targetingCriteria` verbatim, so they
-                            can be read, edited and sent back without reconstructing them from our normalized
-                            targeting spec. Exclusions were previously not readable at all.
+                            On Meta it is the ad set's `targeting` verbatim (snake_case: geo_locations,
+                            age_min, custom_audiences, flexible_spec, ...), so it can be read, edited and sent
+                            back as is. On LinkedIn `include` and `exclude` (below) are the campaign's
+                            `targetingCriteria` verbatim, without reconstructing them from our normalized
+                            targeting spec.
                           properties:
                             include: { type: object, description: "LinkedIn `targetingCriteria.include`, verbatim (an `and` of `or` facet clauses)." }
                             exclude: { type: object, description: "LinkedIn `targetingCriteria.exclude`, verbatim. Absent when the campaign excludes nothing." }
@@ -52904,8 +53162,11 @@ paths:
                         isExternal: { type: [boolean, "null"] }
                         platformCreatedAt: { type: [string, "null"], format: date-time }
                         statusReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When `platformAdSetStatus` was read from the platform; null when this row was not read live." }
-                        optimizationGoal: { type: [string, "null"], description: "TikTok only, only with `live=true` and only on rows read live. The ad group's `optimization_goal` exactly as TikTok's adgroup/get returns it now (for example ENGAGED_VIEW, ENGAGED_VIEW_FIFTEEN, CLICK, CONVERT). Absent on rows not read live and on other platforms." }
-                        billingEvent: { type: [string, "null"], description: "TikTok only, only with `live=true` and only on rows read live. The ad group's `billing_event` exactly as TikTok's adgroup/get returns it now (for example CPV, CPC, OCPM)." }
+                        optimizationGoal: { type: [string, "null"], description: "The ad set's optimization goal as last synced, in the platform's own enum (Meta `optimization_goal`, for example OFFSITE_CONVERSIONS or LINK_CLICKS). On TikTok with `live=true`, rows read live carry the ad group's `optimization_goal` exactly as TikTok's adgroup/get returns it now (for example ENGAGED_VIEW, ENGAGED_VIEW_FIFTEEN, CLICK, CONVERT)." }
+                        billingEvent: { type: [string, "null"], description: "The ad set's billing event as last synced, where the platform reports one. On TikTok with `live=true`, rows read live carry the ad group's `billing_event` exactly as TikTok's adgroup/get returns it now (for example CPV, CPC, OCPM)." }
+                        bidStrategy: { type: [string, "null"], description: "The bid strategy as last synced, in the platform's own enum (Meta `bid_strategy`, for example LOWEST_COST_WITHOUT_CAP, COST_CAP). On Meta under a campaign budget this is the campaign's strategy." }
+                        bidAmount: { type: [number, "null"], description: "Bid cap or cost target in whole units of `currency`, as last synced. Null when the strategy has none." }
+                        promotedObject: { type: [object, "null"], additionalProperties: true, description: "Meta only. The ad set's `promoted_object` verbatim (snake_case, for example pixel_id + custom_event_type, page_id, application_id), as last synced from its most recent ad. Null on other platforms and on an ad set with no ad yet; GET /v1/ads/accounts/live reads it live for every ad set." }
                         nativeSettings: { type: object, additionalProperties: true, description: "TikTok only, only with `live=true` and only on rows read live. TikTok's adgroup/get record verbatim (snake_case, TikTok's own names and enums): operation_status, optimization_goal, optimization_event, billing_event, bid_type, bid_price, budget, budget_mode, pacing, schedule_type, schedule_start_time, schedule_end_time, dayparting, placement_type, placements, location_ids, age_groups, gender, languages, interest_category_ids, interest_keyword_ids, actions, audience_ids, excluded_audience_ids, operating_systems, frequency, frequency_schedule, smart_audience_enabled, smart_interest_behavior_enabled. schedule_start_time and schedule_end_time are UTC wall clocks (YYYY-MM-DD HH:MM:SS). location_ids holds TikTok's native location ids (GeoNames ids for countries); GET /v1/ads/targeting/search?dimension=geo returns them as `platformId` on country results. Plus advertiser_currency and advertiser_timezone from TikTok's advertiser/info. A field TikTok does not return is absent." }
                         configReadAt: { type: [string, "null"], format: date-time, description: "Only with `live=true`. When `nativeSettings` was read from the platform. Null on every row whose native settings were not read now (row past the cap, failed read, or a platform without a native read)." }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -53018,15 +53279,18 @@ paths:
               type: object
               required: [platform]
               properties:
-                platform: { type: string, enum: [facebook, instagram] }
+                platform: { type: string, enum: [facebook, instagram, tiktok] }
                 campaignId: { type: string, description: Destination platform campaign id (defaults to the source's campaign) }
                 deepCopy: { type: boolean, default: true, description: Copy child ads + creatives }
                 statusOption: { type: string, enum: [ACTIVE, PAUSED, INHERITED_FROM_SOURCE], default: PAUSED }
                 startTime: { type: string, format: date-time, description: "Reschedule the copy's start (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone." }
                 endTime: { type: string, format: date-time, description: "Reschedule the copy's end, read like `startTime`; a date-only end runs to 23:59:59 local." }
-                renameStrategy: { type: string, enum: [DEEP_RENAME, ONLY_TOP_LEVEL_RENAME, NO_RENAME] }
-                renamePrefix: { type: string }
-                renameSuffix: { type: string }
+                renameStrategy:
+                  type: string
+                  enum: [DEEP_RENAME, ONLY_TOP_LEVEL_RENAME, NO_RENAME]
+                  description: "Meta's native `rename_strategy` values. `DEEP_RENAME` renames the copied ad set and its copied ads with `renamePrefix` / `renameSuffix`. `ONLY_TOP_LEVEL_RENAME` renames only the copied ad set; its ads keep their source names. `NO_RENAME` keeps every source name. With no rename option at all, Meta appends its own ` - Copy` suffix. Ignored on TikTok, where `renamePrefix` / `renameSuffix` still apply."
+                renamePrefix: { type: string, description: "Text prepended to each renamed object's name." }
+                renameSuffix: { type: string, description: "Text appended to each renamed object's name." }
                 syncAfter: { type: boolean, default: true }
       responses:
         '200':
@@ -53044,7 +53308,7 @@ paths:
         '403':
           description: 'Returned with code `ads_allowance_exceeded` when the team has no payment method on file and has reached the 500 free live ads: add a card to resume.'
         '404': { description: Source ad set not found }
-        '501': { description: Only supported on Meta (facebook/instagram) }
+        '501': { description: Only supported on Meta (facebook/instagram) and TikTok }
 
   /v1/ads/{adId}/duplicate:
     post:
@@ -53087,9 +53351,12 @@ paths:
               properties:
                 adSetId: { type: string, description: Destination platform ad set id (defaults to the source's ad set) }
                 statusOption: { type: string, enum: [ACTIVE, PAUSED, INHERITED_FROM_SOURCE], default: PAUSED }
-                renameStrategy: { type: string, enum: [DEEP_RENAME, ONLY_TOP_LEVEL_RENAME, NO_RENAME] }
-                renamePrefix: { type: string }
-                renameSuffix: { type: string }
+                renameStrategy:
+                  type: string
+                  enum: [DEEP_RENAME, ONLY_TOP_LEVEL_RENAME, NO_RENAME]
+                  description: "Meta's native `rename_strategy` values. An ad has no copied children, so `DEEP_RENAME` and `ONLY_TOP_LEVEL_RENAME` both rename the copy with `renamePrefix` / `renameSuffix`, and `NO_RENAME` keeps the source name. With no rename option at all, Meta appends its own ` - Copy` suffix."
+                renamePrefix: { type: string, description: "Text prepended to the copy's name." }
+                renameSuffix: { type: string, description: "Text appended to the copy's name." }
                 syncAfter: { type: boolean, default: true }
                 reuseSourceCreative:
                   type: boolean
@@ -53407,7 +53674,9 @@ paths:
         the delivery status of its ads (up to 20) is re-read and stored, so an
         immediate GET returns what the platform now reports. A stored switch
         never skips a write, and when the platform cannot be read the write
-        always goes out.
+        always goes out. On Meta the check reads the ad set's own `status`, so
+        a repeated request skips even while `platformAdSetStatus` reads
+        `CAMPAIGN_PAUSED`, `WITH_ISSUES` or `IN_PROCESS`.
       security:
         - bearerAuth: []
       parameters:
@@ -55006,7 +55275,7 @@ paths:
                         html: { type: [string, "null"], description: "Meta's <iframe> snippet; null when Meta returned no preview for the format." }
         '400': { description: "Invalid input, or Meta rejected the creative spec / ad_format; the message carries Meta's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: Meta rate limit reached }
+        '429': { $ref: '#/components/responses/MetaRateLimited' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/{adId}/preview:
@@ -55043,7 +55312,7 @@ paths:
         '400': { description: "Invalid input, or Meta rejected the ad_format; the message carries Meta's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Ad not found }
-        '429': { description: Meta rate limit reached }
+        '429': { $ref: '#/components/responses/MetaRateLimited' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/{adId}/review:
@@ -55215,7 +55484,7 @@ paths:
                       nextPageToken: { type: [string, "null"], description: "Cursor for the next page; null when exhausted." }
         '400': { description: "Invalid input, or Google rejected the request; the message carries Google's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: "Per-user Google Ads burst limit (15 requests per minute) or a Google rate limit reached; the message says which and when to retry." }
+        '429': { description: "Zernio Google Ads burst limit (15 requests per minute per connected account, 120 per minute per user) or a Google rate limit reached; the message says which and when to retry." }
         '501': { description: Only supported on Google Ads }
 
   /v1/ads/keywords/historical-metrics:
@@ -55266,7 +55535,7 @@ paths:
                   aggregateMetricResults: { type: [object, "null"] }
         '400': { description: "Invalid input, or Google rejected the request; the message carries Google's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: "Per-user Google Ads burst limit (15 requests per minute) or a Google rate limit reached; the message says which and when to retry." }
+        '429': { description: "Zernio Google Ads burst limit (15 requests per minute per connected account, 120 per minute per user) or a Google rate limit reached; the message says which and when to retry." }
         '501': { description: Only supported on Google Ads }
 
   /v1/ads/insights:
@@ -55375,7 +55644,15 @@ paths:
         '400': { description: "Invalid input, or the platform rejected the query (unknown field, invalid breakdown combo, malformed GAQL); the message carries the platform's error" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: "TikTok only: the connection cannot read that advertiser." }
-        '429': { description: "Platform rate limit reached. For Google this is the per-user burst limit or a Google rate limit; the message says which and when to retry." }
+        '429':
+          description: "Platform rate limit reached. For Google this is the per-user burst limit or a Google rate limit; the message says which and when to retry. For Meta every throttle (codes 4, 17, 32, 613, 80000-80014) returns 429 `rate_limited` with `Retry-After`, even when Meta answers HTTP 400."
+          headers:
+            Retry-After:
+              description: 'Seconds to wait before retrying, when the platform gives an estimate.'
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '501': { description: "Only supported on Meta (facebook/instagram), Google Ads and TikTok" }
 
   /v1/ads/insights/reports:
@@ -55441,7 +55718,7 @@ paths:
                   status: { type: string, example: Job Started }
         '400': { description: "Invalid input, or Meta rejected the report parameters" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: Meta rate limit reached }
+        '429': { $ref: '#/components/responses/MetaRateLimited' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/insights/reports/{reportRunId}:
@@ -55487,7 +55764,7 @@ paths:
                       after: { type: [string, "null"] }
         '400': { description: "Invalid input, or the report run is not readable with this account's token" }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '429': { description: Meta rate limit reached }
+        '429': { $ref: '#/components/responses/MetaRateLimited' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/{adId}/analytics:
@@ -59791,6 +60068,138 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
+  /v1/ads/accounts/live:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdAccountLiveEntities
+      tags: ["Ad Accounts"]
+      x-platforms: ["meta"]
+      summary: Read an ad account's campaigns and ad sets live
+      description: |-
+        Reads the campaigns and ad sets of one Meta ad account **live from Meta**, in a single
+        Graph call per request (the account's `/campaigns` and `/adsets` edges, filtered by
+        `effective_status`), so it is cheap enough to run before every write: for example a
+        per-ad-account spend ceiling that must see the current `daily_budget` / `lifetime_budget`
+        rather than the synced copy.
+
+        **Live vs synced.** GET /v1/ads/campaigns and GET /v1/ads/ad-sets serve Zernio's synced
+        store, refreshed by background sync (typically 15 to 60 minutes behind Meta), and their
+        `live=true` re-reads only the on/off switches of at most 20 objects. This endpoint returns
+        what Meta reports at `readAt`, for every matching campaign and ad set, and stores nothing.
+
+        Budgets and bid amounts are converted from Meta's minor units to whole units of
+        `currency`, the same units as the synced rows. A campaign with a campaign budget
+        (Advantage+ campaign budget) carries `budget` and its ad sets have `budget: null`;
+        otherwise each ad set carries its own.
+
+        Each level returns at most `limit` rows. When more match, `paging.<level>.after` is a
+        cursor: pass it back as `after` together with `level` to read the next page of that
+        level only. Other platforms answer 501 rather than serving synced data.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>)." }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, example: "ACTIVE" }
+          description: |-
+            Comma-separated Meta `effective_status` values to keep: ACTIVE, PAUSED, IN_PROCESS,
+            WITH_ISSUES, DELETED, ARCHIVED, and CAMPAIGN_PAUSED (ad sets only; the campaigns level
+            ignores it). Defaults to every status except DELETED and ARCHIVED. An unknown value is a 400.
+        - { name: level, in: query, required: false, schema: { type: string, enum: [campaign, adSet] }, description: "Read only one level. Required with `after`. Both levels are read when omitted." }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 500, default: 200 }, description: "Maximum rows per level in this response." }
+        - { name: after, in: query, required: false, schema: { type: string }, description: "Cursor from `paging.campaigns.after` or `paging.adSets.after` of a previous response. Requires `level`." }
+      responses:
+        '200':
+          description: Live campaigns and ad sets
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId: { type: string }
+                  adAccountId: { type: string }
+                  platform: { type: string, enum: [facebook] }
+                  currency: { type: string, description: "ISO 4217 code every budget and bid amount is expressed in." }
+                  readAt: { type: string, format: date-time, description: "When Meta was read." }
+                  campaigns:
+                    type: array
+                    description: "Absent when `level=adSet`."
+                    items:
+                      type: object
+                      properties:
+                        platformCampaignId: { type: string }
+                        campaignName: { type: [string, "null"] }
+                        platformCampaignStatus: { type: [string, "null"], description: "Meta `effective_status`, for example ACTIVE, PAUSED, WITH_ISSUES." }
+                        configuredStatus: { type: [string, "null"], description: "Meta `status`: the campaign's own switch (ACTIVE, PAUSED, DELETED, ARCHIVED)." }
+                        status: { type: string, description: "Zernio's normalized status (active, paused, ...), derived from `platformCampaignStatus`." }
+                        budget:
+                          type: [object, "null"]
+                          description: "The campaign budget, same shape as the synced rows. Null when the budget lives on the ad sets."
+                          properties:
+                            amount: { type: number }
+                            type: { type: string, enum: [daily, lifetime] }
+                        dailyBudget: { type: [number, "null"], description: "Meta `daily_budget` in whole units of `currency`." }
+                        lifetimeBudget: { type: [number, "null"], description: "Meta `lifetime_budget` in whole units of `currency`." }
+                        budgetRemaining: { type: [number, "null"], description: "Meta `budget_remaining` in whole units of `currency`. Null when the campaign has no budget of its own." }
+                        spendCap: { type: [number, "null"], description: "Campaign spending limit (Meta `spend_cap`) in whole units of `currency`. Null when none is set." }
+                        bidStrategy: { type: [string, "null"], description: "Meta `bid_strategy`, set on campaigns with a campaign budget." }
+                  adSets:
+                    type: array
+                    description: "Absent when `level=campaign`."
+                    items:
+                      type: object
+                      properties:
+                        platformAdSetId: { type: string }
+                        adSetName: { type: [string, "null"] }
+                        platformCampaignId: { type: [string, "null"] }
+                        platformAdSetStatus: { type: [string, "null"], description: "Meta `effective_status`, for example ACTIVE, PAUSED, CAMPAIGN_PAUSED." }
+                        configuredStatus: { type: [string, "null"], description: "Meta `status`: the ad set's own switch." }
+                        status: { type: string, description: "Zernio's normalized status, derived from `platformAdSetStatus`." }
+                        budget:
+                          type: [object, "null"]
+                          description: "The ad set budget, same shape as the synced rows. Null under a campaign budget."
+                          properties:
+                            amount: { type: number }
+                            type: { type: string, enum: [daily, lifetime] }
+                        dailyBudget: { type: [number, "null"], description: "Meta `daily_budget` in whole units of `currency`." }
+                        lifetimeBudget: { type: [number, "null"], description: "Meta `lifetime_budget` in whole units of `currency`." }
+                        budgetRemaining: { type: [number, "null"], description: "Meta `budget_remaining` in whole units of `currency`. Null when the ad set has no budget of its own." }
+                        bidStrategy: { type: [string, "null"], description: "Meta `bid_strategy`." }
+                        bidAmount: { type: [number, "null"], description: "Meta `bid_amount` (bid cap or cost target) in whole units of `currency`. Null when the strategy has none." }
+                        optimizationGoal: { type: [string, "null"], description: "Meta `optimization_goal`." }
+                        billingEvent: { type: [string, "null"], description: "Meta `billing_event`." }
+                        promotedObject: { type: [object, "null"], additionalProperties: true, description: "Meta `promoted_object` verbatim (snake_case)." }
+                        targeting: { type: [object, "null"], additionalProperties: true, description: "Meta `targeting` verbatim (snake_case), as Meta returns it now." }
+                        schedule:
+                          type: [object, "null"]
+                          properties:
+                            startDate: { type: string, format: date-time }
+                            endDate: { type: string, format: date-time, description: "Absent when the ad set runs until it is stopped." }
+                  paging:
+                    type: object
+                    description: "One entry per level read. `after` is null on the last page."
+                    properties:
+                      campaigns:
+                        type: object
+                        properties:
+                          after: { type: [string, "null"] }
+                      adSets:
+                        type: object
+                        properties:
+                          after: { type: [string, "null"] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Meta rate limit reached; retry after the indicated delay." }
+        '501': { description: "The platform has no bulk live read (only Meta today). Use the synced GET /v1/ads/campaigns and GET /v1/ads/ad-sets there." }
+        '502': { description: "Meta did not return the ad account (for example a deleted ad account)." }
+
   /v1/ads/accounts:
     post:
       x-resource-group: "ads"
@@ -61131,11 +61540,26 @@ paths:
                 status:
                   type: string
                   enum: [ACTIVE, PAUSED]
-                  description: "Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default, back-compat); PAUSED pauses only the TOP-MOST object this call creates and switches everything below it on, so one resume of that object brings the new tree live and nothing that already existed is touched: a new campaign is held paused with its ad set and ad on; with `existingCampaignId` the new ad set is held paused with its ad on; with `adSetId` the new ad itself is paused. `campaignStatus: ACTIVE` with `status: PAUSED` moves the pause down to the new ad set. LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE; a new campaign in an existing group stays DRAFT. X has no per-ad switch, so its lowest level is the line item. Google Performance Max and Demand Gen accept PAUSED only (the campaign is created paused)."
+                  description: "Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default, back-compat); PAUSED pauses only the TOP-MOST object this call creates and switches everything below it on, so one resume of that object brings the new tree live and nothing that already existed is touched: a new campaign is held paused with its ad set and ad on; with `existingCampaignId` the new ad set is held paused with its ad on; with `adSetId` the new ad itself is paused. `campaignStatus: ACTIVE` with `status: PAUSED` moves the pause down to the new ad set. `campaignStatus`, `adSetStatus` and `adStatus` set one level each and always win for that level; `status: PAUSED` adds a hold of its own only when none of them is PAUSED. To create every object paused, send all three as PAUSED. LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE; a new campaign in an existing group stays DRAFT. X has no per-ad switch, so its lowest level is the line item. Google Performance Max and Demand Gen accept PAUSED only (the campaign is created paused)."
                 campaignStatus:
                   type: string
                   enum: [ACTIVE, PAUSED]
-                  description: "Meta, Google, and ChatGPT (OpenAI). Overrides `status` for the new campaign alone. `PAUSED` holds the campaign off with its ad set and ad on; `ACTIVE` with `status: PAUSED` switches the campaign on and holds the new ad set paused (its ad on). Omitted, it follows `status`."
+                  description: "Every platform. Sets the switch of the new campaign alone (LinkedIn: the campaign group) and overrides `status` for it. `PAUSED` holds the campaign off with its ad set and ad on unless `adSetStatus` or `adStatus` say otherwise; `ACTIVE` with `status: PAUSED` switches the campaign on and holds the new ad set paused (its ad on). Omitted, it follows `status`. Ignored when the request creates no campaign (`existingCampaignId` or `adSetId`)."
+                adSetStatus:
+                  type: string
+                  enum: [ACTIVE, PAUSED]
+                  description: |
+                    Every platform. Sets the switch of the new ad set alone (Google, TikTok, Pinterest and ChatGPT: the ad group; LinkedIn: the campaign, which stays DRAFT when held; X: the line item) and overrides `status` for it. Omitted, it follows `status`.
+
+                    Precedence: a level status (`campaignStatus`, `adSetStatus`, `adStatus`) always wins for its level. `status: PAUSED` then holds the top-most new object that has no level status, and only when no level status is PAUSED; every other new object is switched on. So `campaignStatus: ACTIVE` + `adSetStatus: PAUSED` + `adStatus: PAUSED` keeps the campaign on with the new ad set and ad off, and all three PAUSED creates the whole tree paused.
+
+                    Rejected with a 400 alongside `adSetId` (that ad set already exists; change it with PUT /v1/ads/ad-sets/{adSetId}/status). Performance Max and Demand Gen accept PAUSED only.
+                adStatus:
+                  $ref: '#/components/schemas/AdActivationStatus'
+                  description: |
+                    Sets the switch of the new ad alone, also when attaching to an existing ad set with `adSetId`, and overrides `status` for it. Same precedence as `adSetStatus`. Omitted, it follows `status`.
+
+                    X returns a 400: a promoted post has no switch of its own, so hold the line item with `adSetStatus`. `PAUSED` with `buyingType: RESERVED` returns a 400 (Meta creates the first Reach and Frequency ad ACTIVE). Performance Max and Demand Gen accept PAUSED only.
                 budgetLevel:
                   type: string
                   enum: [adset, campaign]
@@ -62826,9 +63250,16 @@ paths:
         limit, around 4.5 MB payload in practice, so larger videos must come via `videoUrl`.
 
         Returns the Meta `video.id` (reusable wherever `video.id` is accepted) plus Meta's
-        auto-generated poster URL when available. The endpoint waits until Meta reports the
-        video ready (chunked upload + transcode can take minutes; the handler runs up to
-        800 s).
+        auto-generated poster URL when available. By default the endpoint waits until Meta
+        reports the video ready (chunked upload + transcode can take minutes; the handler runs
+        up to 800 s) and answers 201.
+
+        **Async mode.** Send `async: true` to get a 202 as soon as Meta has accepted the bytes,
+        with `video.status: processing`. Then either poll `GET /v1/ads/videos/{videoId}` until
+        `status` is `ready`, or subscribe to the `ad.video.processed` webhook. A create call
+        that references the video while it is still processing waits up to 30 s, then answers
+        409 `invalid_resource_state` naming the status endpoint. With `videoUrl` the download
+        and byte transfer still happen inside the request; only Meta's transcode is skipped.
       security:
         - bearerAuth: []
       requestBody:
@@ -62844,6 +63275,7 @@ paths:
                 videoUrl: { type: string, description: "Public https URL of the video; downloaded server-side (SSRF-guarded) before chunked upload. Provide exactly one of videoUrl or videoBase64." }
                 videoBase64: { type: string, description: "Raw base64 video bytes, or a full data URL (the data:video/...;base64, prefix is stripped). Capped by Vercel's body limit (~4.5 MB payload). Provide exactly one of videoUrl or videoBase64." }
                 filename: { type: string, description: "Optional filename shown alongside the upload session. Applied only when uploading via videoBase64." }
+                async: { type: boolean, default: false, description: "true: answer 202 once Meta accepts the upload instead of waiting for processing. Poll GET /v1/ads/videos/{videoId} or subscribe to ad.video.processed." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
@@ -62859,7 +63291,22 @@ paths:
                     type: object
                     properties:
                       id: { type: string, description: "Meta video id, reusable as video.id on POST /v1/ads/create and inside POST /v1/ads/preview creativeSpec." }
+                      status: { type: string, enum: [ready] }
                       thumbnailUrl: { type: [string, "null"], description: "Meta-hosted poster URL if available; null when Meta has not produced a poster yet." }
+        '202':
+          description: "async: true. Meta accepted the upload and is processing it"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  video:
+                    type: object
+                    properties:
+                      id: { type: string, description: "Meta video id. Usable as video.id once GET /v1/ads/videos/{videoId} reports ready." }
+                      status: { type: string, enum: [processing] }
+                      thumbnailUrl: { type: [string, "null"], description: "Always null on 202; read it from GET /v1/ads/videos/{videoId} once ready." }
         '400': { description: "Invalid input, or Meta rejected the upload" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
@@ -62918,6 +63365,51 @@ paths:
         '501': { description: Only supported on Meta (facebook/instagram) }
 
   /v1/ads/videos/{videoId}:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdVideoStatus
+      tags: ["Ad Creatives"]
+      x-platforms: ["meta"]
+      summary: Get ad video processing status
+      description: |-
+        Reads a video's processing state live from Meta (`GET /{video-id}?fields=status`).
+        Poll this after `POST /v1/ads/videos` with `async: true` until `status` is `ready`;
+        the video is only usable as `video.id` on the create endpoints from then on.
+
+        `status` is normalised: `ready`, `error` (Meta's `error` or `expired`), and
+        `processing` for every other Meta state. `platformStatus` carries Meta's raw
+        `video_status` and `processingProgress` Meta's 0-100 percentage when it reports one.
+        Polling every 5 to 10 seconds is plenty.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: videoId, in: path, required: true, schema: { type: string }, description: "Meta ad video id (numeric)." }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Zernio SocialAccount id (posting or ads variant) used to resolve the Meta token." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account id (act_<n>) the video was uploaded to." }
+      responses:
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '200':
+          description: Processing status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  video:
+                    type: object
+                    required: [id, status, platformStatus, processingProgress, error, thumbnailUrl]
+                    properties:
+                      id: { type: string }
+                      status: { type: string, enum: [processing, ready, error] }
+                      platformStatus: { type: [string, "null"], description: "Meta's raw status.video_status, forwarded verbatim." }
+                      processingProgress: { type: [integer, "null"], minimum: 0, maximum: 100, description: "Meta's processing percentage when reported." }
+                      error: { type: [string, "null"], description: "Meta's processing error when status is error." }
+                      thumbnailUrl: { type: [string, "null"], description: "Meta's auto-generated poster once ready, when Meta produced one." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '501': { description: Only supported on Meta (facebook/instagram) }
     delete:
       x-resource-group: "ads"
       operationId: deleteAdVideo

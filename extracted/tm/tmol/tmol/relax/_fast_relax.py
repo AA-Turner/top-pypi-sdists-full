@@ -24,12 +24,11 @@ from tmol.pack import (
 from tmol.pack.rotamer import (
     FixedAAChiSampler,
     IncludeCurrentSampler,
+    NaChiRotamerSampler,
 )
 from tmol.optimization import (
-    CartesianSfxnNetwork,
+    CartesianMinimizer,
     run_cart_min,
-    run_kin_min,
-    run_min,
 )
 from tmol.types import Tensor
 from tmol.utility._device import synchronize_device
@@ -121,25 +120,6 @@ def _normalize_schedule(
     return normalized
 
 
-def _default_kin_min_fn(
-    pose_stack: PoseStack,
-    sfxn: ScoreFunction,
-    *,
-    fold_forest: FoldForest,
-    move_map: MoveMap | CartesianMoveMap,
-    verbose: bool,
-) -> PoseStack:
-    """Default minimization function: kinematic (torsion-space) LBFGS."""
-    return run_kin_min(
-        pose_stack,
-        sfxn,
-        fold_forest,
-        move_map,
-        verbose=verbose,
-        optimizer_kwargs={"verbose": verbose},
-    )
-
-
 def _default_cart_min_fn(
     pose_stack: PoseStack,
     sfxn: ScoreFunction,
@@ -165,8 +145,11 @@ class _DefaultCartesianMinimizer:
     """Cartesian minimizer that reuses rendering for unchanged pose topology."""
 
     def __init__(self, cuda_graph: bool):
-        self.cuda_graph = cuda_graph
-        self.network: CartesianSfxnNetwork | None = None
+        self.minimizer = CartesianMinimizer(cuda_graph=cuda_graph)
+
+    def release_retained_state(self) -> None:
+        """Release scorer and optimizer storage between relax stages."""
+        self.minimizer.release_retained_state()
 
     def __call__(
         self,
@@ -181,17 +164,10 @@ class _DefaultCartesianMinimizer:
         coord_mask = (
             move_map.coord_mask if isinstance(move_map, CartesianMoveMap) else None
         )
-        if self.network is None or not self.network._reset(
-            sfxn, pose_stack, coord_mask
-        ):
-            self.network = CartesianSfxnNetwork(
-                sfxn,
-                pose_stack,
-                coord_mask,
-                cuda_graph="forward_backward" if self.cuda_graph else False,
-            )
-        return run_min(
-            self.network,
+        return self.minimizer(
+            pose_stack,
+            sfxn,
+            coord_mask=coord_mask,
             verbose=verbose,
             optimizer_kwargs={"verbose": verbose},
         )
@@ -227,6 +203,7 @@ def fast_relax(  # noqa: C901
     schedule: Sequence[RelaxScheduleEntry] | None = None,
     min_fn: RelaxMinimizer | None = None,
     cuda_graph: bool | None = None,
+    release_between_stages: bool = True,
     verbose: bool = False,
 ) -> PoseStack:
     """Relax poses through repeated side-chain packing and minimization.
@@ -242,7 +219,8 @@ def fast_relax(  # noqa: C901
         move_map: Specifies which DOFs are free to move during minimization.
         fold_forest: Fold forest defining the kinematic connectivity.
         task_operations: In-place task configuration callbacks. By default,
-            restrict to repacking with Dunbrack, fixed-AA, and current rotamers.
+            restrict to repacking with the scoring database’s Dunbrack, fixed-AA,
+            current and nucleic-acid rotamers, sampling covalent groups jointly.
         num_repeats: Number of complete pack-minimize ramps.
         ramp_constraints: Ramp an active constraint weight to zero. Defaults
             to true; the input weight is restored after relaxation.
@@ -250,11 +228,23 @@ def fast_relax(  # noqa: C901
             minimize, and optional constraint fractions. Defaults to
             ``DEFAULT_RELAX_SCHEDULE``.
         min_fn: Minimizer called with the pose, score function, fold forest,
-            move map, and verbosity. Defaults to Cartesian minimization.
+            move map, and verbosity. If it provides ``release_retained_state()``,
+            FastRelax calls that hook after extracting each minimized pose so
+            packing does not overlap retained scorer or optimizer storage.
+            Defaults to Cartesian minimization.
+        release_between_stages: Drop the rendered scorer, CUDA graph and L-BFGS
+            history after each stage's minimization. On by default: a large
+            system is bound by that retained state through the next packing
+            phase, which is why the release exists. Turn it off when the setup
+            cost dominates instead -- a small pose on the default four-stage
+            schedule otherwise pays four network constructions, and four graph
+            captures, where one would do.
         cuda_graph: Capture the default Cartesian minimizer's repeated CUDA
             scoring path. By default, enable it automatically for CUDA poses
-            containing DNA or RNA, where launch overhead dominates. Pass ``False``
-            to disable it. It cannot be combined with a custom ``min_fn``.
+            containing DNA or RNA, where replay savings exceed capture setup.
+            Pass ``True`` for repeated protein workloads where steady-state
+            throughput matters more than first-call latency, or ``False`` to
+            disable it. It cannot be combined with a custom ``min_fn``.
         verbose: Print timing information for each step.
 
     Returns:
@@ -293,27 +283,40 @@ def fast_relax(  # noqa: C901
         from tmol.pack.rotamer.dunbrack import (
             create_dunbrack_sampler_from_database,
         )
-        import tmol.database
+        from tmol.pack.rotamer._conjugated_groups import add_conjugated_group_sampler
 
-        default_database = tmol.database.ParameterDatabase.get_default()
-        dun_sampler = create_dunbrack_sampler_from_database(
-            default_database, torch_device
-        )
+        samplers = [
+            create_dunbrack_sampler_from_database(sfxn._param_db, torch_device),
+            FixedAAChiSampler(),
+            IncludeCurrentSampler(),
+        ]
+        if any(
+            bt.properties.polymer.backbone_type in ("dna", "rna")
+            for bt in pose_stack.packed_block_types.active_block_types
+        ):
+            samplers.append(
+                NaChiRotamerSampler.from_database(sfxn._param_db, torch_device)
+            )
 
         def default_op(task: PackerTask) -> None:
             task.restrict_to_repacking()
-            fixed_sampler = FixedAAChiSampler()
-            task.add_conformer_sampler(dun_sampler)
-            task.add_conformer_sampler(fixed_sampler)
-            task.add_conformer_sampler(IncludeCurrentSampler())
+            for sampler in samplers:
+                task.add_conformer_sampler(sampler)
+            add_conjugated_group_sampler(task, pose_stack)
 
         task_operations = [default_op]
 
     fa_rep_start = float(sfxn.get_weight(ScoreType.fa_ljrep))
 
+    vary_protonation = getattr(packer_pallete, "protonation_alternatives", False)
     wpsm = sfxn.render_whole_pose_scoring_module(pose_stack)
     best_score = wpsm(pose_stack.coords)
-    best_ps = pose_stack.clone()
+    if vary_protonation:
+        from tmol.pack.protonation_alternatives import protonation_state_energy
+
+        best_score = best_score + protonation_state_energy(pose_stack)
+    del wpsm
+    best_ps = pose_stack.clone_sharing_topology()
 
     if min_fn is None:
         min_fn = _DefaultCartesianMinimizer(
@@ -335,10 +338,18 @@ def fast_relax(  # noqa: C901
                 task_operations=task_operations,
                 min_fn=min_fn,
                 verbose=verbose,
+                release_between_stages=release_between_stages,
             )
 
-        best_ps, best_score = accept_best(sfxn, best_ps, best_score, ps, verbose)
-        ps = best_ps.clone()
+        best_ps, best_score = accept_best(
+            sfxn,
+            best_ps,
+            best_score,
+            ps,
+            verbose,
+            protonation_alternatives=vary_protonation,
+        )
+        ps = best_ps.clone_sharing_topology()
     if use_constraints:
         # Restore original constraint weight to the score function
         sfxn.set_weight(ScoreType.constraint, constraint_weight_start)
@@ -357,6 +368,7 @@ def relax_pack_min_step(
     task_operations: Sequence[PackerTaskOperation],
     min_fn: RelaxMinimizer,
     verbose: bool,
+    release_between_stages: bool = True,
 ) -> PoseStack:
     """Execute one weighted packing and minimization stage.
 
@@ -410,6 +422,14 @@ def relax_pack_min_step(
         move_map=move_map,
         verbose=verbose,
     )
+    # Releasing costs a network construction and, with cuda_graph, a capture at
+    # every stage; retaining costs the scorer and L-BFGS history through the
+    # next packing phase. Large systems are bound by the second -- it is why
+    # this release exists -- and small ones by the first.
+    if release_between_stages:
+        release_retained_state = getattr(min_fn, "release_retained_state", None)
+        if release_retained_state is not None:
+            release_retained_state()
     if verbose:
         synchronize_device(pose_stack.device)
     end_time3 = time.perf_counter()
@@ -429,6 +449,8 @@ def accept_best(
     best_pose_score: Tensor[torch.float32][:],
     candidate_pose_stack: PoseStack,
     verbose: bool = False,
+    *,
+    protonation_alternatives: bool = False,
 ) -> tuple[PoseStack, Tensor[torch.float32][:]]:
     """Keep the lower-scoring conformation independently for each pose.
 
@@ -438,20 +460,34 @@ def accept_best(
         best_pose_score: Best scores shaped ``[n_poses]``.
         candidate_pose_stack: Newly minimized poses.
         verbose: Print accepted scores.
+        protonation_alternatives: Include the same pH offsets used by packing;
+            ``best_pose_score`` must include them too.
 
     Returns:
         Updated best poses and scores shaped ``[n_poses]``.
     """
     wpsm = sfxn.render_whole_pose_scoring_module(candidate_pose_stack)
     candidate_score = wpsm(candidate_pose_stack.coords)
+    if protonation_alternatives:
+        from tmol.pack.protonation_alternatives import protonation_state_energy
+
+        candidate_score = candidate_score + protonation_state_energy(
+            candidate_pose_stack
+        )
     better_mask = candidate_score < best_pose_score
 
     def select_better(tensor_name: str) -> torch.Tensor:
         tensor = getattr(best_pose_stack, tensor_name)
+        candidate = getattr(candidate_pose_stack, tensor_name)
+        if tensor_name == "coords":
+            # A selected protonation state can add or remove hydrogens.
+            width = max(tensor.shape[1], candidate.shape[1])
+            tensor = torch.nn.functional.pad(tensor, (0, 0, 0, width - tensor.shape[1]))
+            candidate = torch.nn.functional.pad(
+                candidate, (0, 0, 0, width - candidate.shape[1])
+            )
         new_tensor = tensor.detach().clone()
-        new_tensor[better_mask] = getattr(candidate_pose_stack, tensor_name)[
-            better_mask
-        ]
+        new_tensor[better_mask] = candidate[better_mask]
         return new_tensor
 
     if better_mask.any():

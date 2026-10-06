@@ -436,3 +436,59 @@ class TestCaseInsensitiveDialects:
         col_keys = list(model_lineage.keys())
         assert all(k == k.lower() for k in col_keys), \
             f"[{dialect}] All column keys should be lowercase, got: {col_keys}"
+
+
+# Quoted YAML column whose catalog spelling differs from the YAML spelling.
+# Compiled SQL refers to the catalog spelling, so lineage must resolve through it
+# while output keys keep the YAML spelling.
+CATALOG_CASING_CASES = [
+    ("snowflake", "is_gift", "IS_GIFT"),    # unquoted DDL upper-cases
+    ("oracle", "is_gift", "IS_GIFT"),       # unquoted DDL upper-cases
+    ("postgres", "isGift", "isgift"),       # unquoted DDL lower-cases
+    ("clickhouse", "isGift", "isgift"),
+    ("starrocks", "isGift", "isgift"),
+]
+
+
+@pytest.mark.parametrize("dialect,yaml_name,catalog_name", CATALOG_CASING_CASES)
+def test_quoted_column_resolves_via_catalog_casing(dialect, yaml_name, catalog_name):
+    source_columns = [
+        ColumnDef(yaml_name, "BOOLEAN", quote=True, catalog_name=catalog_name),
+        ColumnDef("normal_col", "NUMBER"),
+    ]
+    model_columns = [ColumnDef("out_col", "BOOLEAN"), ColumnDef("normal_col", "NUMBER")]
+    extractor = make_extractor(
+        dialect,
+        source_columns,
+        model_columns=model_columns,
+        model_column_sources={"out_col": yaml_name},
+    )
+    lineage = extractor.extract_project_lineage()["lineage"]
+
+    assert lineage["parents"][MODEL_ID]["out_col"] == [
+        {"column": yaml_name, "dbt_node": SOURCE_ID, "lineage_type": "rename"}
+    ], f"[{dialect}] lost parent edge"
+    assert lineage["children"][SOURCE_ID][yaml_name] == [
+        {"column": "out_col", "dbt_node": MODEL_ID}
+    ], f"[{dialect}] children not keyed by YAML spelling"
+
+
+def test_quoted_column_lookup_ignores_node_id_casing():
+    """Catalog unique_ids are lowercased; a mixed-case project must still match."""
+    columns = [ColumnDef("isGift", "BOOLEAN", quote=True)]
+    extractor = make_extractor(
+        "snowflake",
+        columns,
+        model_columns=[ColumnDef("out_col", "BOOLEAN")],
+        model_column_sources={"out_col": "isGift"},
+        project_name="MyProject",
+    )
+    parents = extractor.extract_project_lineage()["lineage"]["parents"]
+
+    assert parents["model.MyProject.my_model"]["out_col"] == [
+        {
+            "column": "isGift",
+            "dbt_node": "source.MyProject.raw.source_table",
+            "lineage_type": "rename",
+        }
+    ]

@@ -199,6 +199,10 @@ def _parse_cdp_ax_node(
         url=_get_cdp_property_value(properties, "url"),
         keyshortcuts=_get_cdp_property_value(properties, "keyshortcuts"),
         backend_dom_node_id=node.get("backendDOMNodeId"),
+        ignored=bool(node.get("ignored")),
+        ignored_reasons=tuple(
+            r.get("name", "") for r in node.get("ignoredReasons") or [] if isinstance(r, dict)
+        ) if node.get("ignored") else (),
         children=children,
     )
 

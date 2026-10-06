@@ -13,7 +13,7 @@ use crate::editor::wire::{
 fn classifies_primary_completion_modes() {
     let catalog = entries();
     for (text, col, kind) in [
-        ("#re", 3, CompletionContextKind::Xprompt),
+        ("#re", 3, CompletionContextKind::Macro),
         ("/ru", 3, CompletionContextKind::SlashSkill),
         ("./sr", 4, CompletionContextKind::FilePath),
         ("", 0, CompletionContextKind::FileHistory),
@@ -112,6 +112,9 @@ fn detects_narrow_argument_contexts() {
             default_display: None,
             position: 0,
             repeatable: false,
+            choices: Vec::new(),
+            named_type: None,
+            value_role: None,
         }],
         content_preview: None,
         description: None,
@@ -138,6 +141,9 @@ fn repeatable_positionals_keep_the_tail_input_and_active_element_range() {
         default_display: None,
         position: 0,
         repeatable: true,
+        choices: Vec::new(),
+        named_type: None,
+        value_role: None,
     }];
 
     for text in ["😀 #fork:planner,co", "😀 #fork(planner, co"] {
@@ -167,6 +173,9 @@ fn repeatable_agent_context_replaces_earlier_element_and_filters_selected() {
         default_display: None,
         position: 0,
         repeatable: true,
+        choices: Vec::new(),
+        named_type: None,
+        value_role: None,
     }];
     let text = "😀 #fork(co, planner)";
     let doc = DocumentSnapshot::new(text);

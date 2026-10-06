@@ -12,7 +12,6 @@ Provides:
 
 from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
-import sqlite3
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -145,56 +144,6 @@ def get_special_label(family: str, value) -> str:
         return labels.get(int(value), str(value))
     except (ValueError, TypeError):
         return str(value)
-
-
-
-def get_codtyp_groups(db_path: str, family: str
-                      ) -> List[Tuple[str, str, str]]:
-    """Return (code, label, sql_filter) tuples from CODTYP column in header.
-
-    For families in FAMILY_CODES (ai, sf, ua, gp, csr), grouping is done
-    by the CODTYP column in the header table — one plot per instrument type.
-
-    Reads the distinct CODTYP values actually present in the DB so only
-    types with real data are returned.
-
-    Returns
-    -------
-    List of (code_str, label, sql_filter) where:
-      code_str   : e.g. '42'
-      label      : e.g. 'AMDAR (42)' — used in filename and web viewer
-      sql_filter : e.g. "AND CODTYP = 42"
-
-    Returns empty list if the family is not in FAMILY_CODES or if the
-    CODTYP column does not exist in the DB.
-    """
-    if family not in FAMILY_CODES:
-        return []
-    allowed = set(FAMILY_CODES[family])
-    try:
-        with sqlite3.connect(db_path) as conn:
-            # Check CODTYP exists in moyenne (aggregated from header)
-            cols = [r[1] for r in
-                    conn.execute("PRAGMA table_info('moyenne');").fetchall()]
-            if 'CODTYP' not in cols:
-                return []
-            rows = conn.execute(
-                "SELECT DISTINCT CODTYP FROM moyenne "
-                "WHERE CODTYP IS NOT NULL ORDER BY CODTYP;"
-            ).fetchall()
-    except Exception:
-        return []
-
-    groups = []
-    for (code,) in rows:
-        code_str = str(int(code))
-        if code_str not in allowed:
-            continue
-        name       = DICT_CODTYP.get(code_str, code_str)
-        label      = f"{name} ({code_str})"
-        sql_filter = f"AND CODTYP = {int(code)}"
-        groups.append((code_str, label, sql_filter))
-    return groups
 
 
 def has_codtyp_groups(family: str) -> bool:

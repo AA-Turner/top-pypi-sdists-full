@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub const AGENT_STATS_WIRE_SCHEMA_VERSION: u32 = 7;
+pub const AGENT_STATS_WIRE_SCHEMA_VERSION: u32 = 8;
 
 fn default_bucket_seconds() -> u64 {
     24 * 60 * 60
@@ -62,21 +62,13 @@ pub struct AgentRunStatsRequestWire {
     #[serde(default = "default_work_top_n")]
     pub work_top_n: u32,
     /// Maximum number of ranked macro rows returned.
-    #[serde(
-        default = "default_macro_top_n",
-        rename = "xprompt_top_n",
-        alias = "macro_top_n"
-    )]
+    #[serde(default = "default_macro_top_n")]
     pub macro_top_n: u32,
     /// Maximum number of model/project/partner rows per ranked macro.
-    #[serde(
-        default = "default_macro_breakdown_n",
-        rename = "xprompt_breakdown_top_n",
-        alias = "macro_breakdown_top_n"
-    )]
+    #[serde(default = "default_macro_breakdown_n")]
     pub macro_breakdown_top_n: u32,
     /// Exact macro name to include as an unbounded focused breakdown.
-    #[serde(default, rename = "xprompt_focus", alias = "macro_focus")]
+    #[serde(default)]
     pub macro_focus: Option<String>,
 }
 
@@ -329,16 +321,10 @@ pub struct AgentMacroFocusWire {
 }
 
 /// Launch-boundary macro usage across the selected run window.
-///
-/// The Rust type and fields are macro-named; every serialized key stays on
-/// the legacy `xprompt` spelling.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct AgentMacroStatsWire {
-    #[serde(rename = "runs_with_xprompts", alias = "runs_with_macros")]
     pub runs_with_macros: u64,
-    #[serde(rename = "runs_without_xprompts", alias = "runs_without_macros")]
     pub runs_without_macros: u64,
-    #[serde(rename = "distinct_xprompts", alias = "distinct_macros")]
     pub distinct_macros: u64,
     pub total_references: u64,
     pub rows: Vec<AgentMacroStatsRowWire>,
@@ -443,8 +429,7 @@ pub struct AgentRunStatsResponseWire {
     #[serde(default)]
     pub runners: Option<AgentRunnerStatsWire>,
     /// Launch-boundary macro usage is absent in older response payloads.
-    /// Emits the legacy `xprompts` key.
-    #[serde(default, rename = "xprompts", alias = "macros")]
+    #[serde(default)]
     pub macros: Option<AgentMacroStatsWire>,
     /// In-window rows whose cached `record_json` could not be decoded.
     pub malformed_rows_skipped: u64,
@@ -527,13 +512,13 @@ mod tests {
     }
 
     #[test]
-    fn older_run_stats_payload_without_xprompts_deserializes() {
+    fn older_run_stats_payload_without_macros_deserializes() {
         let mut payload =
             serde_json::to_value(AgentRunStatsResponseWire::default()).unwrap();
         let Value::Object(fields) = &mut payload else {
             panic!("run statistics response must serialize as an object");
         };
-        fields.remove("xprompts");
+        fields.remove("macros");
 
         let decoded: AgentRunStatsResponseWire =
             serde_json::from_value(payload).unwrap();
@@ -541,16 +526,17 @@ mod tests {
     }
 
     #[test]
-    fn macro_request_keys_emit_legacy_xprompt_spellings() {
+    fn macro_request_keys_emit_macro_spellings() {
         let decoded: AgentRunStatsRequestWire = serde_json::from_value(
             serde_json::json!({"start_ts": 1, "end_ts": 2}),
         )
         .unwrap();
         let emitted = serde_json::to_value(&decoded).unwrap();
-        assert_eq!(emitted["xprompt_top_n"], serde_json::json!(40));
-        assert_eq!(emitted["xprompt_breakdown_top_n"], serde_json::json!(5));
-        assert!(emitted.get("macro_top_n").is_none());
-        assert!(emitted.get("macro_breakdown_top_n").is_none());
+        assert_eq!(emitted["macro_top_n"], serde_json::json!(40));
+        assert_eq!(emitted["macro_breakdown_top_n"], serde_json::json!(5));
+        assert_eq!(emitted["macro_focus"], serde_json::Value::Null);
+        assert!(emitted.get("xprompt_top_n").is_none()); // legacy xprompt spelling
+        assert!(emitted.get("xprompt_breakdown_top_n").is_none()); // legacy xprompt spelling
 
         let from_new: AgentRunStatsRequestWire =
             serde_json::from_value(serde_json::json!({
@@ -568,30 +554,23 @@ mod tests {
             serde_json::from_value(serde_json::to_value(&from_new).unwrap())
                 .unwrap();
         assert_eq!(round_tripped, from_new);
-
-        let both = serde_json::json!({
-            "start_ts": 1,
-            "end_ts": 2,
-            "xprompt_top_n": 3,
-            "macro_top_n": 3,
-        });
-        assert!(
-            serde_json::from_value::<AgentRunStatsRequestWire>(both).is_err()
-        );
     }
 
     #[test]
-    fn macro_stats_response_emits_legacy_xprompt_keys() {
+    fn macro_stats_response_emits_macro_keys() {
         let decoded = AgentRunStatsResponseWire::default();
         let emitted = serde_json::to_value(&decoded).unwrap();
-        assert!(emitted.get("xprompts").is_some());
-        assert!(emitted.get("macros").is_none());
+        assert!(emitted.get("macros").is_some());
+        assert!(emitted.get("xprompts").is_none()); // legacy xprompt spelling
 
         let stats = AgentMacroStatsWire::default();
         let stats_value = serde_json::to_value(&stats).unwrap();
-        assert!(stats_value.get("runs_with_xprompts").is_some());
-        assert!(stats_value.get("runs_without_xprompts").is_some());
-        assert!(stats_value.get("distinct_xprompts").is_some());
+        assert!(stats_value.get("runs_with_macros").is_some());
+        assert!(stats_value.get("runs_without_macros").is_some());
+        assert!(stats_value.get("distinct_macros").is_some());
+        assert!(stats_value.get("runs_with_xprompts").is_none()); // legacy xprompt spelling
+        assert!(stats_value.get("runs_without_xprompts").is_none()); // legacy xprompt spelling
+        assert!(stats_value.get("distinct_xprompts").is_none()); // legacy xprompt spelling
         let back: AgentMacroStatsWire =
             serde_json::from_value(stats_value).unwrap();
         assert_eq!(back, stats);
@@ -612,7 +591,7 @@ mod tests {
     }
 
     #[test]
-    fn older_run_stats_request_uses_xprompt_defaults() {
+    fn older_run_stats_request_uses_macro_defaults() {
         let decoded: AgentRunStatsRequestWire = serde_json::from_value(
             serde_json::json!({"start_ts": 1, "end_ts": 2}),
         )
@@ -638,7 +617,7 @@ mod tests {
     }
 
     #[test]
-    fn older_xprompt_row_without_truncation_counts_defaults() {
+    fn older_macro_row_without_truncation_counts_defaults() {
         let mut payload =
             serde_json::to_value(AgentMacroStatsRowWire::default()).unwrap();
         let Value::Object(fields) = &mut payload else {

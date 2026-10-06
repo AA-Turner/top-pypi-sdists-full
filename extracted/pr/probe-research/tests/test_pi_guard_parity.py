@@ -61,6 +61,18 @@ def test_the_daemon_profile_allows_the_same_commands():
     assert ts_set(COMMANDS, "DAEMON_AGENT_WRITES") == session_marker.DAEMON_AGENT_WRITES
 
 
+def test_an_inline_session_is_read_the_same_way():
+    # `sessionIsInline` ports `session_marker.is_inline`: `full` plus a marker
+    # naming one of these, beside the state file.
+    assert ts_set(GUARD, "INLINE_FROM") == set(session_marker.INLINE_FROM)
+    assert ts_string(GUARD, "INLINE_SUFFIX") == session_marker.INLINE_SUFFIX
+
+
+def test_the_inline_agent_is_refused_the_same_switch_in_the_same_words():
+    assert ts_set(COMMANDS, "RESEARCHER_SWITCH") == session_marker.RESEARCHER_SWITCH
+    assert ts_string(GUARD, "INLINE_SWITCH_DENY") == session_marker.INLINE_SWITCH_DENY
+
+
 def test_the_classifier_knows_the_same_words():
     for name in (
         "TOP_LEVEL_WRITES",

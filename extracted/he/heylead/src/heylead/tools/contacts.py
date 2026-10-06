@@ -6,6 +6,8 @@ One master record per person across all campaigns.
 
 from __future__ import annotations
 
+from ..services.campaign_naming import cut_at_word
+
 import asyncio
 import io
 import json
@@ -23,6 +25,7 @@ from ..linkedin import (
     get_linkedin_client,
 )
 from ..formatter import source_badge, stars, table
+from ..linkedin.headline_split import company_from_headline
 from ..db.async_bridge import run_db
 from ..services.count_words import count_noun
 
@@ -218,11 +221,14 @@ async def run_contacts(
         return await _handle_search(query, lifecycle_stage, tag, min_fit_score, limit)
     elif action == "view":
         return await _handle_view(contact_id)
-    elif action == "tag":
-        return await _handle_tag(contact_id, tag)
-    elif action == "note":
-        return await _handle_note(contact_id, note)
-    elif action == "stage":
+    elif action in ("tag", "note", "stage"):
+        refused = _hosted_label_refusal(action)
+        if refused:
+            return refused
+        if action == "tag":
+            return await _handle_tag(contact_id, tag)
+        if action == "note":
+            return await _handle_note(contact_id, note)
         return await _handle_stage(contact_id, lifecycle_stage)
     elif action == "stats":
         return await _handle_stats()
@@ -365,13 +371,13 @@ async def _handle_view(contact_id: str) -> str:
             # Show messages
             for msg in msgs[-3:]:  # Last 3 messages
                 role = "You" if msg.get("role") == "sdr" else "Them"
-                text = (msg.get("text") or "")[:80]
+                text = cut_at_word(msg.get("text") or "", 80)
                 lines.append(f"      [{role}] {text}")
 
             # Show engagements
             for eng in engs[-2:]:  # Last 2 engagements
                 atype = eng.get("action_type", "?")
-                text = (eng.get("text") or eng.get("reaction_type") or "")[:60]
+                text = cut_at_word(eng.get("text") or eng.get("reaction_type") or "", 60)
                 lines.append(f"      [{atype}] {text}")
 
     # Signals
@@ -381,13 +387,37 @@ async def _handle_view(contact_id: str) -> str:
         lines.append("-" * 60)
         for sig in signals[:5]:
             stype = sig.get("signal_type", "?")
-            content = (sig.get("content") or "")[:60]
+            content = cut_at_word(sig.get("content") or "", 60)
             when = _ts_to_relative(sig.get("detected_at"))
             lines.append(f"  [{stype}] {content} ({when})")
 
     lines.append("")
     lines.append(f"ID: {contact_id}")
     return "\n".join(lines)
+
+
+def _hosted_label_refusal(action: str) -> str:
+    """A hosted account's tags, notes and stages live in its workspace.
+
+    This tool writes global_contacts on this machine, which the workspace
+    never reads. On 4 Oct 2026 five stage changes and five notes on a hosted
+    account landed here and nowhere else (heylead-api#2122). There is no
+    route for this client to write them to the workspace yet, so the honest
+    answer is a refusal that says where they do live.
+    """
+    from ..config import is_backend_mode
+
+    if not is_backend_mode():
+        return ""
+    what = {"tag": "Tags", "note": "Notes", "stage": "Stages"}[action]
+    return (
+        f"{what} for a hosted account live in your HeyLead workspace, and "
+        "this client has no way to write them there: a change here would "
+        "stay on this machine. Nothing was changed. Use the dashboard, or "
+        "the hosted assistant's update_contact. To leave a prospect out of "
+        "a campaign, prospect(action='skip', reason_code='not_a_fit') works "
+        "from here."
+    )
 
 
 async def _handle_tag(contact_id: str, tag: str) -> str:
@@ -561,8 +591,8 @@ async def _handle_export(lifecycle_stage: str, tag: str, fmt: str) -> str:
         rows = []
         for c in contacts[:50]:  # Cap table at 50 rows
             rows.append([
-                (c.get("name") or "?")[:25],
-                (c.get("company") or "—")[:20],
+                cut_at_word(c.get("name") or "?", 25),
+                cut_at_word(c.get("company") or "—", 20),
                 f"{_lifecycle_icon(c.get('lifecycle_stage', 'prospect'))} {c.get('lifecycle_stage', 'prospect')}",
                 stars(c.get("fit_score") or 0),
                 str(c.get("total_campaigns") or 0),
@@ -825,9 +855,9 @@ async def _handle_linkedin_search(query: str, limit: int) -> str:
                     if not person.get("title") and profile.get("headline"):
                         person["title"] = profile["headline"]
                     if not person.get("company"):
-                        headline = profile.get("headline", "")
-                        if " at " in headline:
-                            person["company"] = headline.rsplit(" at ", 1)[1]
+                        company = company_from_headline(profile.get("headline", ""))
+                        if company:
+                            person["company"] = company
                     enriched_count += 1
             except Exception as e:
                 logger.debug("Enrich failed for %s: %s", lid, e)
@@ -890,7 +920,7 @@ async def _handle_linkedin_search(query: str, limit: int) -> str:
                 location=person.get("location", ""),
                 profile_json=person.get("_profile_json", ""),
                 source="linkedin_lookup",
-                source_detail=f"Search: {query[:80]}",
+                source_detail=f"Search: {cut_at_word(query, 80)}",
             )
             saved_ids.append(gid)
         except Exception:
@@ -1458,7 +1488,7 @@ def _format_contact_list(
 
         details = f"   {stage}"
         if title_str:
-            details += f"  |  {title_str[:40]}"
+            details += f"  |  {cut_at_word(title_str, 60)}"
         details += f"  |  {stars(score)}"
         if tags:
             details += f"  |  #{', #'.join(tags[:3])}"

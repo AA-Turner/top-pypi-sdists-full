@@ -33,7 +33,7 @@ if t.TYPE_CHECKING:
 
 # Can be automatically overridden in builds
 package = "neo4j-driver"
-version = "5.28.6"
+version = "5.28.7"
 deprecated_package = True
 
 

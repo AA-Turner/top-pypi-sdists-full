@@ -191,6 +191,14 @@ EXIT_DO_NOT_RESPAWN = 3
 #: Store facts: where `read only (daemon)` began (first event seq, turn), while it lasts.
 READ_ONLY_FROM = "read_only_from"
 READ_ONLY_TURN = "read_only_turn"
+#: `{since: [first, last]}`: per takeover, the turns the writer left to the agent
+#: (`probe session inline`), until it is told once that takeover ended.
+INLINE_SKIPPED = "inline_skipped"
+#: The takeovers (`since` keys) the writer was already told about: a late event
+#: from one of them is still left to the agent, without a second notice.
+INLINE_ANNOUNCED = "inline_announced"
+#: That telling (Richard's approved text, 2026-10-05).
+INLINE_NOTICE = "the daemon skipped {turns}: the agent took Probe over (inline)"
 #: The worker crashed: the supervisor waits before it starts another.
 EXIT_CRASHED = 4
 #: The worker left because of the SWITCH (unreadable, or not `daemon`): the
@@ -293,6 +301,11 @@ class Worker:
         self.probe_refused_key = False
         #: The reader (daemon reads), started in `loop` when reads are on.
         self.reader = None
+        #: `probe session inline`: the intervals the last marking pass saw, and the
+        #: highest event seq it examined (only newer events are checked until the
+        #: intervals change).
+        self._inline_seen: tuple = ()
+        self._inline_seq = 0
         #: While the switch reads `read only (daemon)`: the first event seq, and the
         #: turn, it began at. Events from there are the reader's alone (never
         #: recorded). Kept in the store, so a worker started after a crash knows.
@@ -323,12 +336,12 @@ class Worker:
     def _renew(self) -> bool:
         """Renew the write lease -- only while recording works (A1): never while a
         release this worker made stands (a refused key, the budget), never when
-        the switch is not `daemon`, never over another
-        process's live lease."""
+        the writer does not record the session (`lease.records`: `daemon`, or
+        taken over from it), never over another process's live lease."""
         if self.released_reason is not None:
             return False
         sid = self.session.session_id
-        if self.replay is None and (lease.session_state(sid) != STATE_DAEMON or _foreign_lease(sid)):
+        if self.replay is None and (not lease.records(sid) or _foreign_lease(sid)):
             return False
         return lease.renew(sid)
 
@@ -348,7 +361,8 @@ class Worker:
         self._renew()
 
     def _lease_ours(self) -> bool:
-        """Do we still hold a live lease for a switch at `daemon` (the replay has none)?"""
+        """Do we still hold a live lease while the writer records the session
+        (`lease.records`; the replay has none)?"""
         if self.replay is not None:
             return True
         return lease.may_write(self.session.session_id) is None
@@ -363,7 +377,7 @@ class Worker:
         if self.replay is not None:
             return None
         sid = self.session.session_id
-        if lease.session_state(sid) != STATE_DAEMON:
+        if not lease.records(sid):
             return "the session's switch cannot be read"
         if _foreign_lease(sid):
             return "another daemon process holds the session's write lease"
@@ -440,6 +454,7 @@ class Worker:
             added += self._read_stream(stream, path, None if until is None else until[stream])
         if until is None or "sdk" in until:
             added += self._read_inbox(None if until is None else until["sdk"])
+        self._mark_inline()
         return added
 
     def _end_offsets(self) -> dict[str, int]:
@@ -667,7 +682,7 @@ class Worker:
             for msg in messages:
                 try:
                     added += self.store.add([Event(kind=Kind.RUN_EVENT, stream="sdk", offset=self.store.next_offset(),
-                                                   text=_describe_sdk(msg))])
+                                                   text=_describe_sdk(msg), ts=_stamp(msg.get("received_at")))])
                 except sqlite3.OperationalError:
                     raise
                 except Exception as exc:  # noqa: BLE001
@@ -1381,14 +1396,15 @@ class Worker:
             await folders.check_async(self.store, self.session.cwd, self.session.home, workdirs=workdirs, emit=emit)
         except Exception as exc:  # noqa: BLE001
             log.warning("folder check failed: %s: %s", type(exc).__name__, exc)
+        self._mark_inline()  # a file the agent changed while it held Probe is its own
 
     async def tick(self) -> int | None:
         """One poll. An exit code when the worker is done, else None."""
         state = lease.session_state(self.session.session_id)
         if self.replay is None:
-            if lease.reads_only(self.session.session_id, state):
+            if lease.writer_paused(self.session.session_id, state):
                 return await self._read_only_tick()
-            if state is not None and state != STATE_DAEMON:
+            if state is not None and not lease.records(self.session.session_id, state):
                 self._release(lease.REASON_STOPPED)
                 return 0
             if state is None:
@@ -1397,12 +1413,15 @@ class Worker:
                     return code
             else:
                 self.switch_unreadable_since = None
-        if self.read_only_from is not None and state == STATE_DAEMON:
+        if self.read_only_from is not None and (
+            state == STATE_DAEMON or (self.replay is None and lease.records(self.session.session_id, state))
+        ):
             await self._end_read_only()
         if not self.stopping and self._parent_gone():
             log.info("capture is gone: finishing what is queued")
             self.begin_stopping()
         self._take_input()
+        await self._inline_tick()
         # Renewed first: a yes settled below runs on a fresh lease, not the end of an old one.
         self._renew()
         await self.settle_answers()
@@ -1482,6 +1501,73 @@ class Worker:
             self.store.set_fact(READ_ONLY_TURN, None)
         if self.released_reason == lease.REASON_STOPPED:
             self.released_reason = None
+
+    def _mark_inline(self) -> None:
+        """`probe session inline` (Richard 2026-10-05): the events stamped inside a
+        stretch the agent held Probe are the agent's, so no bite ever covers them.
+        Runs wherever events enter the store (`read_new`: the poll, the reader's
+        tick, between model rounds), so the writer never sees one unmarked. By the
+        events' own stamps against the times the switch wrote, not by when this
+        worker noticed: a takeover shorter than a poll, or one made while no worker
+        ran, is still the agent's. Only events newer than the last pass are
+        checked until the set of intervals changes."""
+        if self.replay is None:
+            from probe.sdk import session_marker
+
+            intervals = tuple(session_marker.inline_intervals(self.session.session_id))
+        else:
+            intervals = ()
+        if not intervals:
+            self._inline_seen = intervals
+            return
+        after = self._inline_seq if intervals == self._inline_seen else 0
+        self._inline_seen = intervals
+        self._inline_seq = self.store.next_seq() - 1
+        marked = self.store.leave_unrecorded_in(list(intervals), after_seq=after)
+        if not marked:
+            return
+        with self.store.tx():
+            spans = _spans(self.store.fact(INLINE_SKIPPED))
+            announced = set(self.store.fact(INLINE_ANNOUNCED) or [])
+            for since, turn in marked:
+                key = repr(since)
+                if key in announced:
+                    continue
+                first, last = spans.get(key, (turn, turn))
+                spans[key] = [min(first, turn), max(last, turn)]
+            self.store.set_fact(INLINE_SKIPPED, spans or None)
+
+    async def _inline_tick(self) -> None:
+        """Each tick on the recording path. While the agent holds Probe the
+        folders are looked at as often as ever (FOLDER_CHECK_S), not only when a
+        bite is due: each change gets its own event, stamped with the file's
+        mtime and left to whoever held Probe then (`_mark_inline`), instead of
+        one diff spanning the takeover. Then the writer is told once per ended
+        takeover which turns it left to the agent -- the notice and its
+        bookkeeping in one transaction, so a restart cannot tell it twice."""
+        if self.replay is not None:
+            return
+        sid = self.session.session_id
+        if lease.inline_from(sid) is not None:
+            await self._check_folders(folders.working_folders(self.store, self.session.cwd, self.session.home))
+        spans = _spans(self.store.fact(INLINE_SKIPPED))
+        if not spans:
+            return
+        from probe.sdk import session_marker
+
+        open_since = {repr(since) for since, until in session_marker.inline_intervals(sid) if until is None}
+        ended = {key: span for key, span in spans.items() if key not in open_since}
+        if not ended:
+            return
+        notices = []
+        for first, last in sorted(ended.values()):
+            turns_text = f"turn {first}" if first == last else f"turns {first}-{last}"
+            notices.append(_notice_event(self.store, INLINE_NOTICE.format(turns=turns_text)))
+        with self.store.tx():
+            self.store.add(notices)
+            self.store.set_fact(INLINE_SKIPPED, {k: v for k, v in spans.items() if k in open_since} or None)
+            announced = list(self.store.fact(INLINE_ANNOUNCED) or [])
+            self.store.set_fact(INLINE_ANNOUNCED, announced + [k for k in ended if k not in announced])
 
     def handing_over(self) -> bool:
         """The session ended, and a resumed session's worker waits for the lock
@@ -1693,6 +1779,27 @@ def _gateway_failure(exc: BaseException) -> bool:
     except ImportError:  # pragma: no cover
         return isinstance(exc, ConnectionError)
     return isinstance(exc, (ConnectionError, httpx.TransportError))
+
+
+def _spans(value: object) -> dict:
+    """The INLINE_SKIPPED fact as `{since: [first, last]}`; any other shape (a
+    store written by an earlier build) reads as none."""
+    if not isinstance(value, dict):
+        return {}
+    return {k: v for k, v in value.items() if isinstance(v, list) and len(v) == 2}
+
+
+def _stamp(at: object) -> str | None:
+    """An epoch time (the supervisor's `received_at`) as an event's ISO stamp, so
+    an SDK message is placed against inline takeovers like any transcript line."""
+    if isinstance(at, bool) or not isinstance(at, (int, float)):
+        return None
+    from datetime import datetime, timezone
+
+    try:
+        return datetime.fromtimestamp(at, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    except (OverflowError, OSError, ValueError):
+        return None
 
 
 def _describe_sdk(msg: dict) -> str:

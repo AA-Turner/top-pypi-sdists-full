@@ -27,10 +27,10 @@ from matrx_orm.operations.db_functions import call_db_function
 
 from .db import models_seo as m
 from .orm_identity import normalize_keyword_phrase
+from .reuse import reuse_window_seconds
 
 logger = logging.getLogger(__name__)
 
-VOLUME_REFRESH_TTL_DAYS = 30
 DEFAULT_LOCATION_CODE = 2840  # United States (Google Ads / DataForSEO int)
 
 
@@ -84,11 +84,13 @@ async def keywords_needing_volume_refresh(
     *,
     language: str = "en",
     location_code: int = DEFAULT_LOCATION_CODE,
-    ttl_days: int = VOLUME_REFRESH_TTL_DAYS,
+    organization_id: str | None,
+    user_id: str | None,
     force_refresh: bool = False,
 ) -> list[str]:
     """Filter ``phrases`` down to the ones whose ``seo.keyword_market`` row is
-    missing or stale (``metrics_fetched_at`` older than ``ttl_days``) for
+    missing or stale (``metrics_fetched_at`` older than the
+    ``seo.reuse_hours.keyword_metrics`` knob for this organization and person) for
     ``location_code``. Callers batch the survivors into as few provider
     requests as possible (≤1,000 keywords/request — cost is per REQUEST).
 
@@ -110,7 +112,9 @@ async def keywords_needing_volume_refresh(
         deleted_at__isnull=True,
     ).all()
     keyword_by_id = {str(keyword.id): str(keyword.normalized_phrase) for keyword in keywords}
-    fresh_cutoff = datetime.now(UTC) - timedelta(days=ttl_days)
+    fresh_cutoff = datetime.now(UTC) - timedelta(
+        seconds=await reuse_window_seconds("keyword_metrics", organization_id, user_id)
+    )
     fresh: set[str] = set()
     if keyword_by_id:
         markets = await m.KeywordMarket.filter(
@@ -127,7 +131,6 @@ async def keywords_needing_volume_refresh(
 
 __all__ = [
     "DEFAULT_LOCATION_CODE",
-    "VOLUME_REFRESH_TTL_DAYS",
     "ingest_keyword_research",
     "keywords_needing_volume_refresh",
     "reject_keyword_edge",

@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich.table import Table
 
 from confiture.cli.commands.validate_checks import (
     ValidateOptions,
@@ -16,6 +15,7 @@ from confiture.cli.commands.validate_checks import (
 from confiture.cli.dsn import param_is_explicit, require_readable_config
 from confiture.cli.error_json import cli_boundary
 from confiture.cli.helpers import _resolve_config, console, emit, is_json
+from confiture.cli.markup import Table
 from confiture.cli.options import (
     CONFITURE_YAML,
     CheckSignatureSchemasOpt,
@@ -68,11 +68,11 @@ def _pattern_catalog_payload(opts: Any) -> dict[str, Any] | None:
     table.add_column("description")
     for entry in entries:
         table.add_row(
-            entry["id"],
-            entry["severity"],
+            t"{entry['id']}",
+            t"{entry['severity']}",
             "yes" if entry["has_skip_regex"] else "no",
             "yes" if entry["has_auto_fix"] else "no",
-            entry["description"],
+            t"{entry['description']}",
         )
     console.print(table)
     return None
@@ -191,7 +191,9 @@ CheckLiveDriftOpt = Annotated[
         "column_order_mismatch, missing_index / extra_index, missing_constraint / "
         "extra_constraint, constraint_mismatch, missing_view / extra_view, missing_matview / "
         "extra_matview, missing_trigger / extra_trigger, missing_routine / "
-        "extra_routine, missing_tview / extra_tview / tview_option_mismatch (pg_tviews). "
+        "extra_routine, missing_tview / extra_tview / tview_option_mismatch (pg_tviews), "
+        "missing_object / extra_object (an extension, schema, domain, policy, … — "
+        "subject.kind says which). "
         "Sequences are not compared; grants and ownership are "
         "separate checks (--check-acls, --check-ownership-coverage). "
         "Requires --config and a database connection.",
@@ -202,6 +204,15 @@ IgnoreColumnOrderOpt = Annotated[
     typer.Option(
         "--ignore-column-order",
         help="With --check-live-drift: do not report column_order_mismatch (#226)",
+    ),
+]
+ExtraObjectsOpt = Annotated[
+    str | None,
+    typer.Option(
+        "--extra-objects",
+        help="With --check-live-drift: 'all' reports every stray schema, extension, policy, … "
+        "as a warning extra_object; 'declared' (default) only those of a kind the DDL "
+        "declares, as info. Also drift.extra_objects in the config",
     ),
 ]
 CheckSignaturesOpt = Annotated[
@@ -437,6 +448,7 @@ def migrate_validate(
     dry_run: DryRunOpt = False,
     check_live_drift: CheckLiveDriftOpt = False,
     ignore_column_order: IgnoreColumnOrderOpt = False,
+    extra_objects: ExtraObjectsOpt = None,
     check_signatures: CheckSignaturesOpt = False,
     check_imports: CheckImportsOpt = False,
     check_body: CheckBodyOpt = False,
@@ -578,6 +590,7 @@ def migrate_validate(
         check_imports=check_imports,
         check_live_drift=check_live_drift,
         ignore_column_order=ignore_column_order,
+        extra_objects=extra_objects,
         check_signatures=check_signatures,
         check_body_views=check_body_views,
         check_body_replay=check_body_replay,

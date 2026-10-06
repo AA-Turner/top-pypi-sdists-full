@@ -36,6 +36,9 @@ fn gh_entry() -> MacroAssistEntry {
             default_display: None,
             position: 0,
             repeatable: false,
+            choices: Vec::new(),
+            named_type: None,
+            value_role: None,
         }],
         content_preview: None,
         description: None,
@@ -207,7 +210,7 @@ fn classifies_vcs_repo_then_vcs_ref_before_xprompt_argument_hints() {
     )
     .unwrap();
     assert_eq!(context.kind, CompletionContextKind::VcsRef);
-    assert_eq!(context.active_xprompt.as_deref(), None);
+    assert_eq!(context.active_macro.as_deref(), None);
 
     let doc = DocumentSnapshot::new("#foo:bbugyi200/");
     let context =

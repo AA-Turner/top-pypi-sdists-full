@@ -50,6 +50,12 @@ SkillCatalogScope = Literal["owned", "visible"]
 _CATALOG_TTL_SECONDS = 300.0
 _SYSTEM_PUBLIC_KEY = "__system_public__"
 
+_ALL_ACTIVE_KEY = "__all_active__"
+_READABLE_PREFIX = "readable:"
+#: platform.entity_types token for skill.definition — what iam.accessible_entity_ids is asked about.
+SKILL_ENTITY_TOKEN = "skill"
+_readable_failure_announced = False
+
 _catalog_lock = asyncio.Lock()
 # dimension -> (loaded_at_monotonic, rows)
 _categories_cache: dict[str, tuple[float, list[Any]]] = {}
@@ -194,10 +200,11 @@ def _row_to_body(row: Any, category_path: list[str]) -> SkillBody:
 class DbSkillProvider:
     """Postgres-backed provider. Reads via matrx-orm-generated managers.
 
-    Ownership filter: when ``user_id`` is passed, results are scoped to
-    skills the user owns (``created_by``) OR system skills (``is_system=true``)
-    OR skills published to the web (``published_to_web``). Mirrors ``_visible_rows`` in
-    ``aidream/api/routers/skills.py``.
+    Readability: when ``user_id`` is passed, a skill is readable exactly when the
+    platform's access rule says so (``iam.accessible_entity_ids('skill')`` as the
+    person — ownership, organization lanes, shares, grants, the open library);
+    see ``_readable_ids``. ``scope="owned"`` is a list filter (the person's own),
+    not a permission.
     """
 
     def __init__(self) -> None:
@@ -325,6 +332,64 @@ class DbSkillProvider:
             _skills_cache[_SYSTEM_PUBLIC_KEY] = (time.monotonic(), rows)
             return rows
 
+    async def _get_all_active_rows(self) -> list[Any]:
+        """Every active skill row, process-cached (filtered per person by ``_readable_ids``)."""
+        cached = _skills_cache.get(_ALL_ACTIVE_KEY)
+        if _cache_fresh(cached):
+            return cached[1]
+        async with _catalog_lock:
+            cached = _skills_cache.get(_ALL_ACTIVE_KEY)
+            if _cache_fresh(cached):
+                return cached[1]
+            rows = await self._defs_manager().filter_items(is_active=True)
+            _skills_cache[_ALL_ACTIVE_KEY] = (time.monotonic(), rows)
+            return rows
+
+    async def _readable_ids(self, user_id: UUID | str) -> set[str] | None:
+        """The skill ids this person may read — the platform's ONE access rule.
+
+        ``iam.accessible_entity_ids('skill', 'viewer')`` as the person: ownership,
+        organization lanes, shares, grants, the open library — the same answer RLS
+        gives. Never a hand-written ``created_by`` / published filter. ``None`` means
+        the rule could not be asked (it screams once); callers then fall back to the
+        published-or-owned floor, which is never wider than the rule.
+        """
+        global _readable_failure_announced
+        key = f"{_READABLE_PREFIX}{user_id}"
+        cached = _skills_cache.get(key)
+        if _cache_fresh(cached):
+            return cached[1]
+        try:
+            from matrx_orm import platform_accessible_ids
+
+            ids = {str(i) for i in await platform_accessible_ids(str(user_id), SKILL_ENTITY_TOKEN, "viewer")}
+        except Exception as exc:  # noqa: BLE001 — a read never errors; it degrades loudly
+            if not _readable_failure_announced:
+                _readable_failure_announced = True
+                vcprint(
+                    "[skills] 🚨 iam.accessible_entity_ids('skill') could not be asked "
+                    f"({type(exc).__name__}: {exc}) — skills shared through an organization "
+                    "or a grant are invisible to runs until it answers; only published and "
+                    "own skills resolve. This message prints once per process.",
+                    color="red",
+                )
+            return None
+        _skills_cache[key] = (time.monotonic(), ids)
+        return ids
+
+    async def readable_ids(self, user_id: UUID | str) -> set[str] | None:
+        """Public door to ``_readable_ids`` — the ONE skill-readability answer for every caller."""
+        return await self._readable_ids(user_id)
+
+    async def is_readable(self, row: Any, user_id: UUID | str | None) -> bool:
+        """Whether this person may read this skill row (the one rule; floor when unaskable)."""
+        if user_id is None:
+            return is_published(row)
+        readable = await self._readable_ids(user_id)
+        if readable is not None:
+            return str(row.id) in readable
+        return str(getattr(row, "created_by", "") or "") == str(user_id) or is_published(row)
+
     async def _get_user_rows(self, user_id: UUID) -> list[Any]:
         """A single user's own active skills, process-cached per user_id."""
         key = str(user_id)
@@ -352,10 +417,22 @@ class DbSkillProvider:
         # filtered query path the ORM record-cache can't serve is gone.
         if scope not in ("owned", "visible"):
             raise ValueError(f"unsupported skill catalog scope: {scope!r}")
+        cat = str(category_id) if category_id is not None else None
+        readable = (
+            await self._readable_ids(user_id)
+            if scope == "visible" and user_id is not None
+            else None
+        )
+        if readable is not None:
+            return [
+                row
+                for row in await self._get_all_active_rows()
+                if str(row.id) in readable
+                and (cat is None or str(getattr(row, "category_id", "")) == cat)
+            ]
+
         user_rows = await self._get_user_rows(user_id) if user_id is not None else []
         system_public = await self._get_system_public_rows() if scope == "visible" else []
-
-        cat = str(category_id) if category_id is not None else None
 
         # Dedup by id, preserving stable order: system/public → owned.
         seen: set[str] = set()
@@ -427,14 +504,9 @@ class DbSkillProvider:
         if row is None or not getattr(row, "is_active", True):
             return None
 
-        # Ownership gate — same shape as the universe in _fetch_visible.
-        # `is_system` alone doesn't grant access (see _get_system_public_rows) —
-        # a non-owner needs the row to actually be published to the web.
-        if user_id is not None:
-            is_owner = str(getattr(row, "created_by", "") or "") == str(user_id)
-            is_public = is_published(row)
-            if not (is_owner or is_public):
-                return None
+        # Readability — the same rule as the universe in _fetch_visible.
+        if user_id is not None and not await self.is_readable(row, user_id):
+            return None
 
         return _row_to_body(row, self._category_path(getattr(row, "category_id", None)))
 

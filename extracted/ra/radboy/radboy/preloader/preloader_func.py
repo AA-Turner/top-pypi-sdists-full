@@ -23086,4 +23086,195 @@ def experimentName_power_useage():
     x=f"""{fmla}\n{x}"""
     
     return x
+
+
+def experimentName_Text(name='trip-text',fields=None,header="Experiment",footer='End Experiment'):
+    if fields == None:
+        fields={
+    'Trip Name':{'type':'string',
+        'default':None,
+        'help':"What would you like to call this entry",
+        'ptext':'Trip Name',
+    },
+    'Who Is Driving/Or In Control':{
+        'type':'string',
+        'default':None,
+        'help':"wherever you started from",
+        'ptext':'Start Location Name/Address',
+    },
+    'Start':{
+        'type':'string',
+        'default':None,
+        'help':"wherever you started from",
+        'ptext':'Start Location Name/Address',
+    },
+    'Destination':{
+        'type':'string',
+        'default':None,
+        'help':"wherever you are going to",
+        'ptext':'Destination Location Name/Address',
+    },
+    'DTOE':{
+        'type':'datetime',
+        'default':datetime.now(),
+        'help':"DTOE",
+        'ptext':'DTOE',
+    },
+    'Duration (1/(Duration))':{
+        'type':'timedelta',
+        'default':timedelta(minutes=0),
+        'help':"Duration",
+        'ptext':'Duration',
+    },
+    'Distance':{
+        'type':'float',
+        'default':0,
+        'help':"Distance",
+        'ptext':'Distance',
+    },
+    'Distance Unit':{
+        'type':'string',
+        'default':'miles',
+        'help':"Distance Unit",
+        'ptext':'Distance Unit',
+    },
+    'Transport Miles-Per-Gallon':{
+        'type':'float',
+        'default':None,
+        'help':"Transport Miles-Per-Gallon; if walking/or self-powered, use None",
+        'ptext':'Transport Miles-Per-Gallon',
+    },
+    'Transport Miles-Per-Gallon Unit':{
+        'type':'string',
+        'default':'mpg',
+        'help':"Transport Miles-Per-Gallon Unit",
+        'ptext':'Transport Miles-Per-Gallon Unit',
+    },
+    'Trips':{
+        'type':'float',
+        'default':1,
+        'help':"Trips taken",
+        'ptext':'Trips',
+    },
+    }
+    for k in fields.keys():
+        field=fields[k]
+        try:
+            if isinstance(fields[k]['default'],float) or isinstance(fields[k]['default'],int) or isinstance(fields[k]['default'],bool) or fields[k]['type'] in ['float','integer','boolea']:
+                fields[k]['default']=detectGetOrSet(f"xprmnt txt {name} {sys._getframe().f_code.co_name} {k}",None,setValue=False,literal=False)
+            elif isinstance(fields[k]['default'],str) or fields[k]['type'] in ['string','str','varchar']:
+                fields[k]['default']=detectGetOrSet(f"xprmnt txt {name} {sys._getframe().f_code.co_name} {k}",None,setValue=False,literal=True)
+            else:
+                pass 
+        except Exception as e:
+            print(e)
+    fmla=f"--- {header} ---"
+    footer=f"||| {footer} |||\n"
+    fb=FormBuilder(data=fields,passThruText=fmla)
+    if fb in BooleanAnswers.NONE:
+        return
+    #mod=fod_()
+    x=[]
+    cta=len(list(fb.keys()))
+    for num,k in enumerate(fb):
+        if fb[k] != fields[k]['default']:
+            try:
+                if isinstance(fb[k],float) or isinstance(fb[k],int) or isinstance(fb[k],bool):
+                    detectGetOrSet(f"xprmnt txt {name} {sys._getframe().f_code.co_name} {k}",fb[k],setValue=True,literal=False)
+                elif isinstance(fb[k],str):
+                    detectGetOrSet(f"xprmnt txt {name} {sys._getframe().f_code.co_name} {k}",fb[k],setValue=True,literal=True)
+                else:
+                    pass
+            except Exception as e:
+                print(e)
+        x.append(std_colorize(f"{k} = '{fb[k]}'",num,cta))
+    x='\n'.join(x)
+    x=f"""{fmla}\n{x}\n{footer}"""
     
+    return x
+
+experimentName_power_useage2_fields={
+    'Recipe/Operation':{
+        'type':'string',
+        'default':'cooking mac and cheese (Kraft)',
+        'help':"Recipe/Operation",
+        'ptext':'Recipe/Operation',
+    },
+    'Machine/Appliance Used':{
+        'type':'string',
+        'default':'microwave oven',
+        'help':"Machine/Appliance Used",
+        'ptext':'Machine/Appliance Used',
+    },
+    'DTOE':{
+        'type':'datetime',
+        'default':datetime.now(),
+        'help':"DTOE",
+        'ptext':'DTOE',
+    },
+    'Duration (1/(Duration))':{
+        'type':'timedelta',
+        'default':timedelta(minutes=0),
+        'help':"Duration",
+        'ptext':'Duration',
+    },
+    'Kilo Watt Hour Value':{
+        'type':'float',
+        'default':0,
+        'help':"Kilo Watt Hour",
+        'ptext':'Kilo Watt Hour',
+    },
+    'Kilo Watt Hour Unit':{
+        'type':'string',
+        'default':'kWh',
+        'help':"Kilo Watt Hour Unit",
+        'ptext':'Kilo Watt Hour Unit',
+    },  
+    }
+
+experimentName_shift_text_fields={
+    'Employer/Location':{
+        'type':'string',
+        'default':None,
+        'help':"7Eleven",
+        'ptext':'Who is your employer; it is optional but could you please provide your employer\'s location, or address?',
+    },
+    'Start DTOE':{
+        'type':'datetime',
+        'default':None,
+        'help':"shift start DTOE",
+        'ptext':'Start DTOE',
+    },
+    'End DTOE':{
+        'type':'datetime',
+        'default':None,
+        'help':"shift end DTOE",
+        'ptext':'End DTOE',
+    },
+    'Duration':{
+        'type':'timedelta',
+        'default':None,
+        'help':"DTOE",
+        'ptext':'DTOE',
+    },
+    'Wage Type':{
+        'type':'string',
+        'default':'hourly',
+        'help':"what type of wage is paid? hourly, daily, per-job, etc",
+        'ptext':'What is you wage type?',
+    },
+    'Wage':{
+        'type':'float',
+        'default':None,
+        'help':"how much is being paid to you as per the wage type",
+        'ptext':'Wage/Pay-Rate/Hourly-Rate/Per-Job/etc...',
+    },
+    'Pay Period Length in Days':{
+        'type':'float',
+        'default':None,
+        'help':"how long is your pay-period in days?",
+        'ptext':'Pay-Period-Length',
+    }
+    }
+experimentName_power_useage2=lambda experimentName_power_useage2_fields=experimentName_power_useage2_fields: experimentName_Text(name='experimentName_power_useage2',fields=experimentName_power_useage2_fields)
+experimentName_shift_text=lambda experimentName_power_useage2_fields=experimentName_shift_text_fields: experimentName_Text(name='experimentName_shift_text',fields=experimentName_shift_text_fields)

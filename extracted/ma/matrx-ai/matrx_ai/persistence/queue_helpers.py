@@ -39,7 +39,7 @@ from matrx_ai.persistence.conversation_org import (
 )
 from matrx_ai.persistence.coordinator import Coordinator
 from matrx_ai.persistence.postgres_text import sanitize_postgres_text
-from matrx_ai.persistence.registry import register_table
+from matrx_ai.persistence.registry import get_model, register_table
 
 logger = logging.getLogger("matrx_ai.persistence.queue_helpers")
 
@@ -69,9 +69,7 @@ class OrganizationlessInsertError(ValueError):
 # INSERT into one of these must stamp the request's org or the not-null constraint
 # rejects it. This is the single chokepoint for cx_message / cx_tool_call (which
 # never pass through the conversation gate); conversation / user_request are also
-# stamped here as belt-and-suspenders behind their gate-side stamp. Tables WITHOUT
-# the column (request / request_snapshot / tool_trace / media) MUST NOT appear here
-# — stamping a non-existent column would fail the INSERT.
+# stamped here as belt-and-suspenders behind their gate-side stamp.
 _ORG_SCOPED_INSERT_TABLES: frozenset[str] = frozenset(
     {
         "chat.conversation",
@@ -80,6 +78,23 @@ _ORG_SCOPED_INSERT_TABLES: frozenset[str] = frozenset(
         "chat.tool_call",
         "chat.observational_memory",
         "chat.agent_memory",
+    }
+)
+
+
+# Child tables whose NOT-NULL organization_id the database fills from the PARENT
+# conversation (trigger ``inherit_org_from_parent``). A row with no conversation —
+# a tool run a screen made through the screen-run door, which has none — has no
+# parent to inherit from, so it takes the organization its own run was admitted
+# in, or is refused by name. (Before: a NOT NULL violation at the commit barrier
+# that failed the whole request after the tool had already answered.)
+_PARENT_ORG_CHILD_TABLES: frozenset[str] = frozenset(
+    {
+        "chat.media",
+        "chat.observational_memory_event",
+        "chat.request",
+        "chat.request_snapshot",
+        "chat.tool_trace",
     }
 )
 
@@ -678,7 +693,10 @@ def _queue_or_drop(
                     parent_org=parent_org,
                     from_payload=explicit is not None,
                 )
-        elif table in _ORG_SCOPED_INSERT_TABLES and "organization_id" not in payload:
+        elif "organization_id" not in payload and (
+            table in _ORG_SCOPED_INSERT_TABLES
+            or (table in _PARENT_ORG_CHILD_TABLES and not payload.get("conversation_id"))
+        ):
             ctx = _resolve_app_context()
             org_id = str(getattr(ctx, "organization_id", None) or "").strip() if ctx else ""
             if not org_id:
@@ -781,6 +799,17 @@ def queue_conversation_create(*, id: str, **fields: Any) -> str:
             f"created_by=<user_id>; got keys={sorted(fields)}.",
             color="red",
         )
+    # An UPDATE queued BEFORE this INSERT carries metadata keys; the coalescer
+    # would let the INSERT's metadata replace (or be replaced by) them whole.
+    # Key-merge instead so neither writer's keys are lost.
+    if isinstance(fields.get("metadata"), dict):
+        pending = _pending_conversation_metadata(id)
+        if pending is not None:
+            merged = merge_conversation_metadata(fields["metadata"], pending)
+            fields = {**fields, "metadata": merged}
+            # The earlier UPDATE op still carries only its own keys and the
+            # coalescer lets it overwrite the INSERT's field: hand it the merge.
+            _rewrite_pending_conversation_metadata(id, merged)
     return _queue_or_drop(
         "chat.conversation",
         {"id": id, **fields},
@@ -788,11 +817,101 @@ def queue_conversation_create(*, id: str, **fields: Any) -> str:
     )
 
 
+# ``chat.conversation.metadata`` is ONE jsonb object shared by many writers
+# (frontend run_configuration, request-context track, memory gate, group-chat
+# stamp, remark handles, ...). The write layer replaces the object whole and the
+# coalescer is last-write-wins per FIELD, so a writer that queued
+# ``metadata={...its keys...}`` erased every key it did not carry — measured
+# 2026-10-05: a new chat's first-turn picks (run_configuration.outputKinds) were
+# erased by request_context_track's metadata write. Every server writer of the
+# column goes through the three helpers below: key-level merge, one level deeper
+# for the keys named here.
+CONVERSATION_METADATA_NESTED_MERGE_KEYS: tuple[str, ...] = ("run_configuration",)
+
+
+def merge_conversation_metadata(
+    base: dict[str, Any] | None, patch: dict[str, Any] | None
+) -> dict[str, Any]:
+    """``base`` with ``patch`` laid over it per key; nested-merge keys merge one level down."""
+    merged: dict[str, Any] = dict(base or {})
+    for key, value in (patch or {}).items():
+        current = merged.get(key)
+        if (
+            key in CONVERSATION_METADATA_NESTED_MERGE_KEYS
+            and isinstance(current, dict)
+            and isinstance(value, dict)
+        ):
+            merged[key] = {**current, **value}
+        else:
+            merged[key] = value
+    return merged
+
+
+def _pending_conversation_metadata(conversation_id: str) -> dict[str, Any] | None:
+    """The metadata the request's coordinator already holds queued for this conversation, or None."""
+    coord = get_coordinator()
+    session = getattr(coord, "_session", None) if coord is not None else None
+    if session is None:
+        return None
+    try:
+        model_cls = get_model("chat.conversation")
+        ops = session.pending_ops_for(model_cls)
+    except Exception:  # noqa: BLE001 — no pending view means no pending merge, never a failed write
+        return None
+    pending: dict[str, Any] | None = None
+    for op in ops:
+        if str(getattr(op, "pk_value", "")) != str(conversation_id):
+            continue
+        if getattr(op, "op_type", None) == "delete":
+            pending = None
+            continue
+        meta = (getattr(op, "payload", None) or {}).get("metadata")
+        if isinstance(meta, dict):
+            pending = merge_conversation_metadata(pending, meta)
+    return pending
+
+
+def _rewrite_pending_conversation_metadata(conversation_id: str, metadata: dict[str, Any]) -> None:
+    coord = get_coordinator()
+    session = getattr(coord, "_session", None) if coord is not None else None
+    if session is None:
+        return
+    for op in session.pending_ops_for(get_model("chat.conversation")):
+        if str(getattr(op, "pk_value", "")) == str(conversation_id) and isinstance(
+            (getattr(op, "payload", None) or {}).get("metadata"), dict
+        ):
+            op.payload["metadata"] = dict(metadata)
+
+
+def queue_conversation_metadata_patch(
+    id: str,
+    patch: dict[str, Any],
+    *,
+    db_metadata: dict[str, Any] | None = None,
+) -> str:
+    """Queue ``patch`` into the conversation's metadata WITHOUT erasing any other key.
+
+    Base = what this request already queued for the row, else ``db_metadata`` (the
+    caller's fresh read of the stored object; None for a row not yet written).
+    Pass ONLY the keys you own in ``patch`` — never a copy of the whole object.
+    """
+    pending = _pending_conversation_metadata(id)
+    base = merge_conversation_metadata(db_metadata, pending) if pending is not None else db_metadata
+    return queue_conversation_update(id, metadata=merge_conversation_metadata(base, patch))
+
+
 def queue_conversation_update(id: str, **fields: Any) -> str:
     # A conversation that MOVES organization moves its children with it — keep
     # the child-row answer in step with the row.
     if fields.get("organization_id"):
         remember_conversation_organization(id, fields.get("organization_id"))
+    # Same-request metadata already queued for this row is the base: a later
+    # writer's whole-object copy can add or change its keys but never drop the
+    # keys an earlier writer queued (see the note above).
+    if isinstance(fields.get("metadata"), dict):
+        pending = _pending_conversation_metadata(id)
+        if pending is not None:
+            fields = {**fields, "metadata": merge_conversation_metadata(pending, fields["metadata"])}
     return _queue_or_drop(
         "chat.conversation",
         fields,
@@ -1047,6 +1166,8 @@ def queue_tool_trace_create(*, id: str, **fields: Any) -> str:
     deps: tuple[tuple[str, str], ...] = (
         (("chat.conversation", conversation_id),) if conversation_id else ()
     )
+    # No conversation → no parent to inherit an organization from: the shared
+    # insert path stamps the run's own (``_PARENT_ORG_CHILD_TABLES``).
     return _queue_or_drop(
         "chat.tool_trace",
         {"id": id, **fields},

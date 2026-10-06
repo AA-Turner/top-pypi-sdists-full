@@ -4,6 +4,7 @@ import tensorly as tl
 def validate_constraints(
     non_negative=None,
     l1_reg=None,
+    group_lasso=None,
     l2_reg=None,
     l2_square_reg=None,
     unimodality=None,
@@ -28,6 +29,8 @@ def validate_constraints(
         If it is True, non-negative constraint is applied to all modes.
     l1_reg : float or list or dictionary, optional
         Penalizes the factor with the l1 norm using the input value as regularization parameter.
+    group_lasso : float or list or dictionary, optional
+        Penalizes each row of the factor with the given group lasso regularization parameter.
     l2_reg : float or list or dictionary, optional
         Penalizes the factor with the l2 norm using the input value as regularization parameter.
     l2_square_reg : float or list or dictionary, optional
@@ -48,21 +51,24 @@ def validate_constraints(
     smoothness : float or list or dictionary, optional
         Optimizes the factors by solving a banded system
     monotonicity : bool or dictionary, optional
-        Projects columns to monotonically decreasing distrbution
+        Projects columns to monotonically increasing distribution
         Applied to each column seperately.
         If it is True, monotonicity constraint is applied to all modes.
     hard_sparsity : float or list or dictionary, optional
-        Hard thresholding with the given threshold
+        Hard thresholding: keeps the given number of largest-magnitude entries
     n_const : int
         Number of constraints. If it is None, function returns input tensor.
         Default : 1
     order : int
         Specifies which constraint to implement if several constraints are selected as input
         Default : 0
+
     Returns
     -------
     constraint : string
-    parameter : float
+        Name of the constraint for mode ``order`` (None if unconstrained).
+    parameter : float, bool or None
+        Parameter of the corresponding proximal operator.
     """
     constraints = [None] * n_const
     parameters = [None] * n_const
@@ -70,6 +76,7 @@ def validate_constraints(
     constraints_list = [
         non_negative,
         l1_reg,
+        group_lasso,
         l2_reg,
         l2_square_reg,
         unimodality,
@@ -85,6 +92,7 @@ def validate_constraints(
     constraints_names = [
         "non_negative",
         "l1_reg",
+        "group_lasso",
         "l2_reg",
         "l2_square_reg",
         "unimodality",
@@ -149,6 +157,7 @@ def proximal_operator(
     tensor,
     non_negative=None,
     l1_reg=None,
+    group_lasso=None,
     l2_reg=None,
     l2_square_reg=None,
     unimodality=None,
@@ -164,9 +173,14 @@ def proximal_operator(
 ):
     """
     Proximal operator solves a convex optimization problem. Let f be a
-    convex proper lower-semicontinuous function, the proximal operator of f is :math:`\\argmin_x(f(x) + 1/2||x - v||_2^2)`.
+    convex proper lower-semicontinuous function, the proximal operator of f is :math:`\\operatorname{argmin}_x \\left(f(x) + \\frac{1}{2}||x - v||_2^2\\right)`.
     This operator can be used to solve constrained optimization problems as a generalization to projections on convex sets.
-    Therefore, proximal gradients are used for constrained tensor decomposition problems in the literature.
+    Therefore, proximal gradients are used for constrained tensor decomposition problems in the literature [1]_, [2]_.
+
+    Only one constraint is applied per call. Each constraint argument can be given as a single value
+    (applied to all ``n_const`` modes), a list (one value per mode, falsy entries mean no constraint)
+    or a dictionary ``{mode: value}``. ``order`` selects the mode whose constraint is applied.
+    A mode cannot be given two different constraints.
 
     Parameters
     ----------
@@ -175,11 +189,14 @@ def proximal_operator(
         This constraint is clipping negative values to '0'.
         If it is True, non-negative constraint is applied to all modes.
     l1_reg : float or list or dictionary, optional
-        Penalizes the factor with the given regularizer
+        Penalizes the factor with the l1 norm using the given regularizer (soft thresholding).
+    group_lasso : float or list or dictionary, optional
+        Penalizes each row of the factor with the given group lasso regularizer,
+        following Yuan and Lin [3]_.
     l2_reg : float or list or dictionary, optional
-        Penalizes the factor with the given regularizer
+        Penalizes the factor with the l2 norm using the given regularizer (block soft thresholding).
     l2_square_reg : float or list or dictionary, optional
-        Penalizes the factor with the given regularizer
+        Penalizes the factor with the squared l2 norm using the given regularizer.
     unimodality : bool or dictionary, optional
         If it is True, unimodality constraint is applied to all modes.
         Applied to each column seperately.
@@ -192,21 +209,22 @@ def proximal_operator(
     normalized_sparsity : float or list or dictionary, optional
         Normalizes with the norm after hard thresholding
     soft_sparsity : float or list or dictionary, optional
-        Simplex operator using soft thresholding
+        Projects onto the l1 ball of the given radius, using soft thresholding
     smoothness : float or list or dictionary, optional
         Optimizes the factors by solving a banded system
     monotonicity : bool or dictionary, optional
-        Projects columns to monotonically decreasing distrbution
+        Projects columns to monotonically increasing distribution
         Applied to each column seperately.
         If it is True, monotonicity constraint is applied to all modes.
     hard_sparsity : float or list or dictionary, optional
-        Hard thresholding with the given threshold
+        Hard thresholding: keeps the given number of largest-magnitude entries
     n_const : int
         Number of constraints. If it is None, function returns input tensor.
         Default : 1
     order : int
         Specifies which constraint to implement if several constraints are selected as input
         Default : 0
+
     Returns
     -------
     tensor : updated tensor according to the selected constraint, which is the solution of the optimization problem above.
@@ -218,12 +236,16 @@ def proximal_operator(
             Comptes rendus hebdomadaires des séances de l'Académie des sciences, 255, 2897-2899.
     .. [2]: Parikh, N., & Boyd, S. (2014). Proximal algorithms.
             Foundations and Trends in optimization, 1(3), 127-239.
+    .. [3] Yuan, M. and Lin, Y. (2006). Model selection and estimation in
+           regression with grouped variables. Journal of the Royal Statistical
+           Society: Series B, 68(1), 49-67.
     """
     if n_const is None:
         return tensor
     constraint, parameter = validate_constraints(
         non_negative=non_negative,
         l1_reg=l1_reg,
+        group_lasso=group_lasso,
         l2_reg=l2_reg,
         l2_square_reg=l2_square_reg,
         unimodality=unimodality,
@@ -243,6 +265,8 @@ def proximal_operator(
         return tl.clip(tensor, 0, tl.max(tensor))
     elif constraint == "l1_reg":
         return soft_thresholding(tensor, parameter)
+    elif constraint == "group_lasso":
+        return group_lasso_prox(tensor, parameter)
     elif constraint == "l2_reg":
         return l2_prox(tensor, parameter)
     elif constraint == "l2_square_reg":
@@ -270,10 +294,14 @@ def proximal_operator(
 def smoothness_prox(tensor, regularizer):
     """Proximal operator for smoothness
 
+    Solves the tridiagonal system ``(I + regularizer * L) x = tensor`` where ``L`` is the
+    1D second-difference operator along the first axis, which smooths each column.
+
     Parameters
     ----------
     tensor : ndarray
     regularizer : float
+        Smoothness strength
 
     Returns
     -------
@@ -284,7 +312,7 @@ def smoothness_prox(tensor, regularizer):
         tl.diag(2 * regularizer * tl.ones(tl.shape(tensor)[0]) + 1)
         + tl.diag(-regularizer * tl.ones(tl.shape(tensor)[0] - 1), k=-1)
         + tl.diag(-regularizer * tl.ones(tl.shape(tensor)[0] - 1), k=1),
-        **tl.context(tensor)
+        **tl.context(tensor),
     )
     return tl.solve(diag_matrix, tensor)
 
@@ -300,10 +328,11 @@ def monotonicity_prox(tensor, decreasing=False):
     Parameters
     ----------
     tensor : ndarray
-    decreasing : If it is True, function returns columnwise
-                 monotone decreasing tensor. Otherwise, returned array
-                 will be monotone increasing.
-                 Default: True
+    decreasing : bool, optional
+        If it is True, function returns columnwise
+        monotone decreasing tensor. Otherwise, returned array
+        will be monotone increasing.
+        Default: False
 
     Returns
     -------
@@ -359,7 +388,7 @@ def monotonicity_prox(tensor, decreasing=False):
 def unimodality_prox(tensor):
     """
     This function projects each column of the input array on the set of arrays so that
-          x[1] <= x[2] <= x[j] >= x[j+1]... >= x[n]
+          x[1] <= x[2] <= ... <= x[j] >= x[j+1] >= ... >= x[n]
     is satisfied columnwise.
 
     Parameters
@@ -393,7 +422,7 @@ def unimodality_prox(tensor):
     values = tl.tensor(
         tl.to_numpy((tensor - monotone_decreasing >= 0))
         * tl.to_numpy((tensor - monotone_increasing >= 0)),
-        **tl.context(tensor)
+        **tl.context(tensor),
     )
 
     sum_inc = tl.where(
@@ -482,7 +511,7 @@ def l2_prox(tensor, regularizer):
     -----
     .. math::
         \\begin{equation}
-            prox_{\\gamma} ||x||_2 = (1 - \\gamma / \\max(|x||_2, \\gamma ))\\times x
+            prox_{\\gamma} ||x||_2 = (1 - \\gamma / \\max(||x||_2, \\gamma ))\\times x
         \\end{equation}
     """
     norm = tl.norm(tensor)
@@ -493,11 +522,38 @@ def l2_prox(tensor, regularizer):
     return tensor - (tensor * regularizer / bigger_value)
 
 
+def group_lasso_prox(tensor, regularizer):
+    """
+    Proximal operator of a row-wise group lasso penalty.
+
+    Each row is treated as one group. For CP factors this couples the
+    coefficients of a single feature across all components.
+
+    Parameters
+    ----------
+    tensor : ndarray
+    regularizer : float
+
+    Returns
+    -------
+    ndarray
+    """
+
+    row_norms = tl.sqrt(tl.sum(tensor * tensor, axis=1))
+    safe_row_norms = tl.where(
+        row_norms > 0,
+        row_norms,
+        tl.ones(tl.shape(row_norms), **tl.context(tensor)),
+    )
+    shrinkage = tl.clip(1 - regularizer / safe_row_norms, 0, 1)
+    return tensor * tl.reshape(shrinkage, (-1, 1))
+
+
 def normalized_sparsity_prox(tensor, threshold):
     """
     Normalized sparsity operator by using hard thresholding.
-    The input is projected on the intersection of the unit l2 ball with the set of threshold-sparse vectors
-    \\{||x||_2^2=1 and ||x||_0\\leq threshold \\}
+    The input is projected on the intersection of the unit l2 sphere with the set of threshold-sparse vectors
+    :math:`\\{x: ||x||_2=1, ||x||_0\\leq threshold \\}`
 
     Parameters
     ----------
@@ -519,7 +575,7 @@ def normalized_sparsity_prox(tensor, threshold):
     -----
     .. math::
         \\begin{equation}
-            prox_\\threshold (||tensor||_0) / ||prox_(\\threshold ||tensor||_0)||_2
+            \\frac{H_{t}(x)}{||H_{t}(x)||_2}, \\quad H_t = \\text{hard thresholding keeping } t \\text{ entries}
         \\end{equation}
     """
     tensor_hard = hard_thresholding(tensor, threshold)
@@ -528,12 +584,15 @@ def normalized_sparsity_prox(tensor, threshold):
 
 def soft_sparsity_prox(tensor, threshold):
     """
-    Projects the input tensor on the set of tensors with l1 norm smaller than threshold, using Soft Thresholding.
+    Projects each column onto the l1 ball of radius ``threshold``.
+
+    Columns already inside the ball are unchanged.
 
     Parameters
     ----------
     tensor : ndarray
-    threshold :
+    threshold : float
+        Radius of the l1 ball
 
     Returns
     -------
@@ -547,22 +606,33 @@ def soft_sparsity_prox(tensor, threshold):
 
     Notes
     -----
+    For columns outside the ball, projection is given by
+
     .. math::
         \\begin{equation}
-           \\lambda: prox_\\lambda (||tensor||_1) \\leq parameter
+           \\text{result} = \\text{sign}(x) \\odot \\text{proj}_{\\Delta_{t}}(|x|), \\quad ||\\text{result}||_1 \\leq t
         \\end{equation}
     """
-    return simplex_prox(tl.abs(tensor), threshold) * tl.sign(tensor)
+    if threshold == 0:
+        return tl.zeros(tl.shape(tensor), **tl.context(tensor))
+    projected = tl.reshape(simplex_prox(tl.abs(tensor), threshold), tl.shape(tensor))
+    return tl.where(
+        tl.sum(tl.abs(tensor), axis=0, keepdims=True) <= threshold,
+        tensor,
+        projected * tl.sign(tensor),
+    )
 
 
 def simplex_prox(tensor, parameter):
     """
-    Projects the input tensor on the simplex of radius parameter.
+    Projects each column of the input tensor on the simplex of radius parameter,
+    i.e. the set of non-negative vectors whose entries sum to ``parameter``.
 
     Parameters
     ----------
     tensor : ndarray
     parameter : float
+        Radius of the simplex
 
     Returns
     -------
@@ -584,11 +654,11 @@ def simplex_prox(tensor, parameter):
     tensor_sort = tl.flip(tl.sort(tensor, axis=0), axis=0)
     # Broadcasting is used to divide rows by 1,2,3...
     cumsum_min_param_by_k = (tl.cumsum(tensor_sort, axis=0) - parameter) / tl.cumsum(
-        tl.ones([row, 1]), axis=0
+        tl.ones([row, 1], **tl.context(tensor)), axis=0
     )
     # Added -1 to correspond to a Python index
     to_change = tl.sum(tl.where(tensor_sort > cumsum_min_param_by_k, 1, 0), axis=0) - 1
-    difference = tl.zeros(col)
+    difference = tl.zeros_like(tensor[0])
     for i in range(col):
         difference = tl.index_update(
             difference, tl.index[i], cumsum_min_param_by_k[to_change[i], i]
@@ -601,13 +671,14 @@ def simplex_prox(tensor, parameter):
 
 def hard_thresholding(tensor, number_of_non_zero):
     """
-    Proximal operator of the l0 ``norm''
-    Keeps greater "number_of_non_zero" elements untouched and sets other elements to zero.
+    Proximal operator of the l0 "norm" (hard thresholding).
+    Keeps the ``number_of_non_zero`` entries of largest magnitude untouched and sets other entries to zero.
 
     Parameters
     ----------
     tensor : ndarray
     number_of_non_zero : int
+        Number of entries to keep
 
     Returns
     -------
@@ -649,8 +720,8 @@ def soft_thresholding(tensor, threshold):
     --------
     Basic shrinkage
 
-    >>> import tensorly.backend as T
-    >>> from tensorly.solvers.proximal import soft_thresholding
+    >>> import tensorly as tl
+    >>> from tensorly.tenalg.proximal import soft_thresholding
     >>> tensor = tl.tensor([[1, -2, 1.5], [-4, 3, -0.5]])
     >>> soft_thresholding(tensor, 1.1)
     array([[ 0. , -0.9,  0.4],
@@ -678,6 +749,7 @@ def svd_thresholding(matrix, threshold):
     ----------
     matrix : ndarray
     threshold : float
+        Threshold applied (by soft thresholding) to the singular values
 
     Returns
     -------

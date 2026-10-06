@@ -30,14 +30,19 @@ dependencies = [
     "celery>=4.0.2",
     "celery_once>=3.0.1",
     "django-bitfield>=2.2",
-    "django-esi>=8,<10",
+    "django-esi>=8,<11",
     "django>=4.2,<7",
     "requests",
     "typing_extensions",
 ]
 
 [project.optional-dependencies]
-test = ["coverage", "factory_boy", "pook"]
+test = [
+    "coverage",
+    "factory_boy",
+    # Fork of pook with httpx2 support (used by django-esi 10). Switch back once pook supports it.
+    "pookx",
+]
 
 [project.urls]
 Homepage = "https://github.com/AllianceAuth-Apps/django-eveuniverse"

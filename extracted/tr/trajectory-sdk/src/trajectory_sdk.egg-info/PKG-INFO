@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trajectory-sdk
-Version: 0.8.12
+Version: 0.8.13
 Summary: Generated Trajectory API client and high-level workflows
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
@@ -42,8 +42,7 @@ default. An explicit `Client(timeout=...)` overrides the supplied client; a reso
 `timeout=` overrides that request. `timeout=None` disables timeouts. Retry counts are unchanged.
 
 The generated resource methods map directly to the public HTTP API. Benchmark submission
-and file-upload workflows are available from `trajectory.lib`. Detailed authored guides are
-not currently available without documentation access; the core workflow is included here.
+and file-upload workflows are available from `trajectory.lib`.
 
 ## Native benchmark harness
 

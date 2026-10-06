@@ -72,7 +72,7 @@ from confiture.core.builder import files_under
 from confiture.core.idempotency.python_migration_extractor import is_migration_file
 from confiture.core.migration_reads import MigrationRead, reads
 from confiture.core.tree_allocator import PrefixConfig, PrefixScheme, TreeAllocator
-from confiture.core.tree_prefix import is_hex_group, is_numbered, prefix_text
+from confiture.core.tree_prefix import disk_entries, numbering, order, prefix_text
 from confiture.exceptions import ValidationError
 
 
@@ -254,29 +254,23 @@ class TreeRenumber:
                 order ``confiture build`` reads the tree in.
         """
         directory = directory.resolve()
-        children = sorted(
-            (
-                child
-                for child in directory.iterdir()
-                if is_numbered(child.name) and (child.is_dir() or child.suffix == ".sql")
-            ),
-            key=lambda child: child.name,
-        )
+        # In build order: a name sort puts `10_x` before `9_y`, and compacting in
+        # that order would reorder the build it means to keep.
+        children = [entry.path for entry in disk_entries(directory)]
         if not children:
             return []
         raws = [prefix_text(child.name) or "" for child in children]
-        widths = [len(raw) for raw in raws]
+        hexadecimal, width = numbering(child.name for child in children) or (False, 1)
         config = PrefixConfig(
-            scheme=PrefixScheme.HEX
-            if is_hex_group(child.name for child in children)
-            else PrefixScheme.DECIMAL,
-            width=max(set(widths), key=widths.count),
+            scheme=PrefixScheme.HEX if hexadecimal else PrefixScheme.DECIMAL, width=width
         )
         plans: list[RenumberPlan] = []
-        for value, (child, raw) in enumerate(zip(children, raws, strict=True), start=config.start):
-            new_path = directory / (
-                TreeAllocator._format_prefix(value, config) + child.name[len(raw) :]
-            )
+        numbers = TreeAllocator.prefixes(config)
+        # `numbers` never ends: the children decide how many are drawn.
+        for (child, raw), (_, prefix) in zip(
+            zip(children, raws, strict=True), numbers, strict=False
+        ):
+            new_path = directory / (prefix + child.name[len(raw) :])
             if new_path.name == child.name:
                 continue
             stem = "" if child.is_dir() else _stem_from_path(child)
@@ -430,13 +424,24 @@ class TreeRenumber:
         return changes
 
     def _refuse_reordering(self, plans: list[RenumberPlan]) -> None:
-        """Refuse plans whose new names change the order the build reads the tree in."""
-        before = [path.resolve() for path in files_under(self.schema_dir)]
-        after = sorted(before, key=lambda path: _destination(path, plans))
-        if after != before:
-            moved = next(a for a, b in zip(after, before, strict=True) if a != b)
+        """Refuse plans whose new names change the order the build reads the tree in.
+
+        Compaction keeps each directory's numbers in their order and leaves its
+        unnumbered entries last, as the build reads them, so this holds by
+        construction; it is checked, against the build's own order, so a change
+        to either cannot make it false unnoticed (``VALID_005``).
+        """
+        # The build's order on both sides (`tree_prefix.order`), not a path sort:
+        # `9_y` builds before `10_x`, whatever their names sort as.
+        before = order(path.resolve() for path in files_under(self.schema_dir))
+        destination = {path: _destination(path, plans) for path in before}
+        after = order(destination.values())
+        if after != [destination[path] for path in before]:
+            moved = next(
+                a for a, b in zip(after, (destination[p] for p in before), strict=True) if a != b
+            )
             raise ValidationError(
-                f"compaction refused: {_destination(moved, plans)} would be built in a "
+                f"compaction refused: {moved} would be built in a "
                 "different position than it is now",
                 error_code="VALID_005",
                 resolution_hint=(
@@ -504,7 +509,7 @@ class TreeRenumber:
                 check=False,
                 timeout=30,
             )
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except FileNotFoundError, subprocess.TimeoutExpired:
             return None
         # Exit 128 → not a git repo.  Exit 1 → no matches (treated as empty).
         if proc.returncode == 128:
@@ -561,18 +566,16 @@ class TreeRenumber:
         # Detect or default prefix config from the target directory.
         allocator = TreeAllocator(self.schema_dir)
         if new_dir.exists():
-            config = allocator._detect_config(new_dir)
-            existing = allocator._collect_prefixes(new_dir, config.scheme)
+            config = allocator.detect_config(new_dir)
+            existing = allocator.collect_prefixes(new_dir, config.scheme)
         else:
             config = PrefixConfig()
             existing = []
-
-        next_val = (max(existing) + config.step) if existing else config.start
+        numbers = TreeAllocator.prefixes(config, after=max(existing, default=None))
 
         plans: list[RenumberPlan] = []
-        for sql_file in sql_files:
+        for sql_file, (_, prefix) in zip(sql_files, numbers, strict=False):
             stem = _stem_from_path(sql_file)
-            prefix = TreeAllocator._format_prefix(next_val, config)
             new_path = new_dir / f"{prefix}_{stem}.sql"
             plans.append(
                 RenumberPlan(
@@ -582,7 +585,6 @@ class TreeRenumber:
                     new_name=stem,
                 )
             )
-            next_val += config.step
 
         return plans
 

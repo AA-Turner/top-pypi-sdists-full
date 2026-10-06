@@ -13,31 +13,47 @@ each run, with the tests of pikobs.stats on the mean and the sigma.
 
 import math
 import os
-import re
 import sys
 from typing import Any, Dict, Optional
 
 import matplotlib as mpl
-mpl.use('Agg')
+
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
 import pikobs
-from pikobs.figures import save_figure
+from pikobs.figures import fit_texts, legend_ncol, match_badge, save_figure
 from pikobs.obsdb import open_result
-from pikobs.stats import (MIN_CONFIDENCE, is_significant, ks_from_counts,
-                          paired_ttest_confidence, ttest_confidence,
-                          sigma_confidence)
+from pikobs.stats.stats import BOOT_MIN_PAIRS
+from pikobs.stats import (
+    cycle_bootstrap_confidence,
+    cycle_changes,
+    is_significant,
+    ks_from_counts,
+    ttest_confidence,
+    sigma_confidence,
+)
 from pikobs.zone.zone_plot import members_text
 
 # The look comes from one place, so blue means the control and red the
 # experience in every module, and a figure of histogram sits next to one
 # of profile without a jarring change of palette.
-from pikobs.configobs.style import (CTL_BETTER, CTL_COLOUR, DPI, EXP_BETTER,
-                                    EXP_COLOUR, GREY_TEXT as _GREY_TEXT,
-                                    QC_ASSIMILATED, QC_BLUES,
-                                    QC_OTHER as QC_OTHER_COLOUR, QC_PALETTE,
-                                    STYLE as _STYLE)
+from pikobs.configobs.style import (
+    font_size,
+    CTL_BETTER,
+    CTL_COLOUR,
+    DPI,
+    EXP_BETTER,
+    EXP_COLOUR,
+    GREY_TEXT as _GREY_TEXT,
+    QC_ASSIMILATED,
+    QC_BLUES,
+    QC_OTHER as QC_OTHER_COLOUR,
+    QC_PALETTE,
+    STYLE as _STYLE,
+)
+from pikobs.obsdb import safe_name as _safe
 
 MIN_OBS_PER_HISTOGRAM = 100
 
@@ -52,68 +68,92 @@ def _qc_colours(order):
     """
     out, pal = {}, iter(QC_PALETTE)
     for label in order:
-        bits = label.split('  ', 1)[0]
+        bits = label.split("  ", 1)[0]
         if label == "OTHER COMBINATIONS":
             out[label] = QC_OTHER_COLOUR
-        elif bits == '12':
+        elif bits == "12":
             out[label] = QC_ASSIMILATED
         else:
-            out[label] = next(pal, '#666666')
+            out[label] = next(pal, "#666666")
     return out
 
 
 def _qc_legend_label(name: str, share: float) -> str:
     """Share first, long names over two lines, so the legend stays narrow."""
     import textwrap
+
     pct = "<0.1 %" if 0 < share < 0.05 else f"{share:.1f} %"
     # the bits only: what each bit means is in the table beside
-    bits = "other" if name == "OTHER COMBINATIONS" else name.split('  ', 1)[0]
+    bits = "other" if name == "OTHER COMBINATIONS" else name.split("  ", 1)[0]
     body = "\n".join(textwrap.wrap(bits, 30)) or bits
     return f"{pct:>7s}  " + body.replace("\n", "\n" + " " * 10)
 
-LABELS = {'omp': 'O-P', 'oma': 'O-A', 'omp_norm': '(O-P) / sigma_o',
-          'oma_norm': '(O-A) / sigma_o', 'omp_std': 'O-P / sigma',
-          'oma_std': 'O-A / sigma'}
 
-
-def _safe(text: Any) -> str:
-    return re.sub(r'[^A-Za-z0-9._+-]', '_', str(text))
+LABELS = {
+    "omp": "O-P",
+    "oma": "O-A",
+    "omp_norm": "(O-P) / sigma_o",
+    "oma_norm": "(O-A) / sigma_o",
+    "omp_std": "O-P / sigma",
+    "oma_std": "O-A / sigma",
+}
 
 
 def figure_name(task: Dict[str, Any]) -> str:
     # the surface and the special value after the region, only when
     # they split something: the naming convention of every module
-    extra = "".join(f"_{_safe(x)}" for x in (task.get('land_ocean', 'all'),
-                                             task.get('special_label', 'all'))
-                    if x not in (None, '', 'all'))
-    return (f"histogram_{'_vs_'.join(_safe(n) for n in task['names'])}_"
-            f"{_safe(task['family'])}_{task['function']}_"
-            f"varno{_safe(task['varno'])}_lev{_safe(task['lkey'])}_"
-            f"{_safe(task['stn_tag'])}_{_safe(task['region'])}{extra}_"
-            f"{_safe(task['flag'])}.png")
+    extra = "".join(
+        f"_{_safe(x)}"
+        for x in (task.get("land_ocean", "all"), task.get("special_label", "all"))
+        if x not in (None, "", "all")
+    )
+    return (
+        f"histogram_{'_vs_'.join(_safe(n) for n in task['names'])}_"
+        f"{_safe(task['family'])}_{task['function']}_"
+        f"varno{_safe(task['varno'])}_lev{_safe(task['lkey'])}_"
+        f"{_safe(task['stn_tag'])}_{_safe(task['region'])}{extra}_"
+        f"{_safe(task['flag'])}"
+        f"{('_match' + task['match_mode']) if task.get('matched') and task.get('match_mode') in ('off', 'no') else ''}.png"
+    )
 
 
 def _where(task):
-    return ("region = ? AND flag = ? AND land_ocean = ? AND id_stn = ? "
-            "AND special IS ? AND varno = ? AND lkey = ? AND fonction = ?",
-            [task['region'], task['flag'], task['land_ocean'],
-             task['id_stn'], task['special'], task['varno'], task['lkey'],
-             task['function']])
+    return (
+        "region = ? AND flag = ? AND land_ocean = ? AND id_stn = ? "
+        "AND special IS ? AND varno = ? AND lkey = ? AND fonction = ?",
+        [
+            task["region"],
+            task["flag"],
+            task["land_ocean"],
+            task["id_stn"],
+            task["special"],
+            task["varno"],
+            task["lkey"],
+            task["function"],
+        ],
+    )
 
 
 def read_flag_combinations(task):
     """({sig: n} with O-P, {sig: n} without) for this selection."""
     try:
-        with open_result(task['db_file']) as conn:
+        with open_result(task["db_file"]) as conn:
             rows = conn.execute(
                 "SELECT has_omp, sig, SUM(n), SUM(sx), SUM(sxx) "
                 "FROM flagcomb WHERE region = ? "
                 "AND flag = ? AND land_ocean = ? AND id_stn = ? "
                 "AND special IS ? AND varno = ? AND lkey = ? "
                 "GROUP BY has_omp, sig;",
-                (task['region'], task['flag'], task['land_ocean'],
-                 task['id_stn'], task['special'], task['varno'],
-                 task['lkey'])).fetchall()
+                (
+                    task["region"],
+                    task["flag"],
+                    task["land_ocean"],
+                    task["id_stn"],
+                    task["special"],
+                    task["varno"],
+                    task["lkey"],
+                ),
+            ).fetchall()
     except Exception:
         return {}, {}
     inside, outside = {}, {}
@@ -134,7 +174,7 @@ def _bits(sig: int) -> str:
     return "+".join(str(b) for b in range(24) if sig >> b & 1) or "none"
 
 
-def _flag_table(ax, inside, outside, max_rows: int = 10) -> None:
+def _flag_table(ax, inside, outside, max_rows: int = 10):
     """The flag combinations of the selection, and what their bits mean.
 
     One line per combination -- its share of all the observations of the
@@ -145,37 +185,35 @@ def _flag_table(ax, inside, outside, max_rows: int = 10) -> None:
     """
     try:
         from pikobs.configobs.flag_groups import BIT_DESCRIPTIONS
-    except Exception:                                      # pragma: no cover
+    except Exception:  # pragma: no cover
         BIT_DESCRIPTIONS = {}
-    total = (sum(v[0] for v in inside.values())
-             + sum(v[0] for v in outside.values()))
+    total = sum(v[0] for v in inside.values()) + sum(v[0] for v in outside.values())
     if not total:
-        return
-    _panel_title(ax, "Flag combinations",
-                 "share of the selection, and the O-P of each one")
+        return []
+    if ax is not None:
+        _panel_title(ax, "Flag combinations", "share of the selection, and the O-P of each one")
     lines = []
     seen_bits = set()
 
     def block(title, counts):
         n = sum(v[0] for v in counts.values())
         lines.append(f"{title}  {100.0 * n / total:.1f} %")
-        lines.append(f"  {'share':>7s}  {'N':>9s} {'mean':>7s} {'sigma':>7s}"
-                     f"  bits")
+        lines.append(f"  {'share':>7s}  {'N':>9s} {'mean':>7s} {'sigma':>7s}" f"  bits")
         top = sorted(counts.items(), key=lambda kv: -kv[1][0])
         for sig, (c, mean, sigma) in top[:max_rows]:
             share = 100.0 * c / total
             pct = "<0.1 %" if share < 0.05 else f"{share:.1f} %"
-            stat = (f"{mean:7.3f} {sigma:7.3f}"
-                    if mean is not None and sigma is not None
-                    else f"{'--':>7s} {'--':>7s}")
+            stat = (
+                f"{mean:7.3f} {sigma:7.3f}"
+                if mean is not None and sigma is not None
+                else f"{'--':>7s} {'--':>7s}"
+            )
             lines.append(f"  {pct:>7s}  {int(c):>9d} {stat}  {_bits(sig)}")
             seen_bits.update(b for b in range(24) if sig >> b & 1)
         if len(top) > max_rows:
             rest = sum(v[0] for _, v in top[max_rows:])
-            pct = "<0.1 %" if 0 < 100.0 * rest / total < 0.05 \
-                else f"{100.0 * rest / total:.1f} %"
-            lines.append(f"  {pct:>7s}  {int(rest):>9d} {'':15s}  "
-                         f"{len(top) - max_rows} more")
+            pct = "<0.1 %" if 0 < 100.0 * rest / total < 0.05 else f"{100.0 * rest / total:.1f} %"
+            lines.append(f"  {pct:>7s}  {int(rest):>9d} {'':15s}  " f"{len(top) - max_rows} more")
         lines.append("")
 
     block("IN THE HISTOGRAM (O-P)", inside)
@@ -186,15 +224,24 @@ def _flag_table(ax, inside, outside, max_rows: int = 10) -> None:
         lines.append(f"  {b:2d}  {BIT_DESCRIPTIONS.get(b, '')[:34]}")
     try:
         from pikobs.histogram.histogram import QC_INFO_BITS
-    except Exception:                                      # pragma: no cover
+    except Exception:  # pragma: no cover
         QC_INFO_BITS = (5, 6, 10)
-    lines.append(f"  ({', '.join(map(str, QC_INFO_BITS))} not counted: "
-                 f"not decisions)")
+    lines.append(f"  ({', '.join(map(str, QC_INFO_BITS))} not counted: " f"not decisions)")
+    if ax is None:
+        return lines                                   # for the block above the histogram
     # large type; smaller only when the table would not fit otherwise
     size = float(np.clip(12.0 * 40 / max(len(lines), 40), 8.5, 12.0))
-    ax.text(0.0, 0.91, "\n".join(lines), fontsize=size, family='monospace',
-            va='top', color='#222222', transform=ax.transAxes,
-            bbox=dict(boxstyle='round,pad=0.5', fc='#f7f7f7', ec='#bbbbbb'))
+    ax.text(
+        0.0,
+        0.91,
+        "\n".join(lines),
+        fontsize=size,
+        family="monospace",
+        va="top",
+        color="#222222",
+        transform=ax.transAxes,
+        bbox=dict(boxstyle="round,pad=0.5", fc="#f7f7f7", ec="#bbbbbb"),
+    )
 
 
 def _read_one(db_file, task, where, args):
@@ -203,24 +250,50 @@ def _read_one(db_file, task, where, args):
         spec = conn.execute(
             "SELECT w, kmin, kmax FROM binspec WHERE family = ? AND "
             "fonction = ? AND varno = ? AND lkey = ?;",
-            (task['family'], task.get('source_function', task['function']),
-             task['varno'],
-             task['lkey'])).fetchone()
-        rows = conn.execute(f"SELECT bin, SUM(n_ctl) FROM hist WHERE {where} "
-                            f"GROUP BY bin;", args).fetchall()
-        mom = conn.execute(f"SELECT SUM(n), SUM(c1), SUM(c2), SUM(c3), "
-                           f"SUM(c4) FROM moments WHERE {where};",
-                           args).fetchone()
+            (
+                task["family"],
+                task.get("source_function", task["function"]),
+                task["varno"],
+                task["lkey"],
+            ),
+        ).fetchone()
+        rows = conn.execute(
+            f"SELECT bin, SUM(n_ctl) FROM hist WHERE {where} " f"GROUP BY bin;", args
+        ).fetchall()
+        mom = conn.execute(
+            f"SELECT SUM(n), SUM(c1), SUM(c2), SUM(c3), " f"SUM(c4) FROM moments WHERE {where};",
+            args,
+        ).fetchone()
     return spec, rows, [float(x) if x is not None else 0.0 for x in mom]
+
+
+def _cycle_tests(conn, where, args):
+    """(mean confidence, sigma confidence, cycles) of a matched histogram:
+    the change of each cycle (cycles of at least BOOT_MIN_PAIRS pairs) and
+    the cycle block bootstrap of its mean -- NaN with too few cycles. None
+    for a base without the cycles (made before they were kept)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(moments);")}
+    if "date" not in cols:
+        return None
+    rows = conn.execute(
+        f"SELECT date, SUM(n), SUM(c1), SUM(c2), SUM(e1), SUM(e2) FROM moments "
+        f"WHERE {where} AND e1 IS NOT NULL GROUP BY date HAVING SUM(n) >= {BOOT_MIN_PAIRS};",
+        args,
+    ).fetchall()
+    if not rows:
+        return (np.nan, np.nan, 0)
+    k = np.asarray([r[1:] for r in rows], float)
+    bias, d_sig = cycle_changes(k[:, 0], k[:, 1], k[:, 2], None, k[:, 3], k[:, 4])
+    return (float(cycle_bootstrap_confidence(bias)), float(cycle_bootstrap_confidence(d_sig)), len(rows))
 
 
 def read_histogram(task) -> Optional[Dict[str, Any]]:
     where, args = _where(task)
-    if task.get('db_ctl'):
+    if task.get("db_ctl"):
         # each run with all its observations and its own flags: two bases,
         # the same bins, and a different N on each side
-        spec_c, rows_c, mom_c = _read_one(task['db_ctl'], task, where, args)
-        spec_e, rows_e, mom_e = _read_one(task['db_exp'], task, where, args)
+        spec_c, rows_c, mom_c = _read_one(task["db_ctl"], task, where, args)
+        spec_e, rows_e, mom_e = _read_one(task["db_exp"], task, where, args)
         spec = spec_c or spec_e
         if not spec:
             return None
@@ -232,25 +305,44 @@ def read_histogram(task) -> Optional[Dict[str, Any]]:
                 i = int(b) - (kmin - 1)
                 if 0 <= i < len(k):
                     arr[i] += n or 0
-        return {'w': float(w), 'k': k, 'ctl': ctl, 'exp': exp, 'qc': {},
-                'n_c': mom_c[0], 'n_e': mom_e[0], 'mc': mom_c[1:5],
-                'me': mom_e[1:5], 'ce': None, 'paired': False}
-    with open_result(task['db_file']) as conn:
+        return {
+            "w": float(w),
+            "k": k,
+            "ctl": ctl,
+            "exp": exp,
+            "qc": {},
+            "n_c": mom_c[0],
+            "n_e": mom_e[0],
+            "mc": mom_c[1:5],
+            "me": mom_e[1:5],
+            "ce": None,
+            "paired": False,
+        }
+    with open_result(task["db_file"]) as conn:
         spec = conn.execute(
             "SELECT w, kmin, kmax FROM binspec WHERE family = ? AND "
             "fonction = ? AND varno = ? AND lkey = ?;",
-            (task['family'], task.get('source_function', task['function']),
-             task['varno'],
-             task['lkey'])).fetchone()
+            (
+                task["family"],
+                task.get("source_function", task["function"]),
+                task["varno"],
+                task["lkey"],
+            ),
+        ).fetchone()
         if not spec:
             return None
-        rows = conn.execute(f"SELECT bin, qc, SUM(n_ctl), SUM(n_exp) FROM "
-                            f"hist WHERE {where} GROUP BY bin, qc;",
-                            args).fetchall()
-        mom = conn.execute(f"SELECT SUM(n), SUM(c1), SUM(c2), SUM(c3), "
-                           f"SUM(c4), SUM(e1), SUM(e2), SUM(e3), SUM(e4), "
-                           f"SUM(ce) FROM moments WHERE {where};",
-                           args).fetchone()
+        rows = conn.execute(
+            f"SELECT bin, qc, SUM(n_ctl), SUM(n_exp) FROM "
+            f"hist WHERE {where} GROUP BY bin, qc;",
+            args,
+        ).fetchall()
+        mom = conn.execute(
+            f"SELECT SUM(n), SUM(c1), SUM(c2), SUM(c3), "
+            f"SUM(c4), SUM(e1), SUM(e2), SUM(e3), SUM(e4), "
+            f"SUM(ce) FROM moments WHERE {where};",
+            args,
+        ).fetchone()
+        boot = _cycle_tests(conn, where, args)
     w, kmin, kmax = spec
     k = np.arange(kmin - 1, kmax + 2)
     ctl = np.zeros(len(k))
@@ -261,12 +353,23 @@ def read_histogram(task) -> Optional[Dict[str, Any]]:
         if 0 <= i < len(k):
             ctl[i] += nc or 0
             exp[i] += ne or 0
-            if qc and qc != 'all':
+            if qc and qc != "all":
                 by_qc.setdefault(qc, np.zeros(len(k)))[i] += nc or 0
     mom = [float(x) if x is not None else np.nan for x in mom]
-    return {'w': float(w), 'k': k, 'ctl': ctl, 'exp': exp, 'qc': by_qc,
-            'n_c': mom[0], 'n_e': mom[0], 'mc': mom[1:5], 'me': mom[5:9],
-            'ce': mom[9], 'paired': True}
+    return {
+        "w": float(w),
+        "k": k,
+        "ctl": ctl,
+        "exp": exp,
+        "qc": by_qc,
+        "boot": boot,
+        "n_c": mom[0],
+        "n_e": mom[0],
+        "mc": mom[1:5],
+        "me": mom[5:9],
+        "ce": mom[9],
+        "paired": True,
+    }
 
 
 def _merged(counts, k, w, n, m=None):
@@ -297,9 +400,9 @@ def _moments(n, s1, s2, s3, s4):
     sd = np.sqrt(var)
     if sd <= 0:
         return m, 0.0, np.nan, np.nan
-    m3 = s3 / n - 3 * m * s2 / n + 2 * m ** 3
-    m4 = s4 / n - 4 * m * s3 / n + 6 * m * m * s2 / n - 3 * m ** 4
-    return m, sd, m3 / sd ** 3, m4 / sd ** 4 - 3.0
+    m3 = s3 / n - 3 * m * s2 / n + 2 * m**3
+    m4 = s4 / n - 4 * m * s3 / n + 6 * m * m * s2 / n - 3 * m**4
+    return m, sd, m3 / sd**3, m4 / sd**4 - 3.0
 
 
 def _beyond(counts, k, w, mean, sd, n_sig=3.0):
@@ -316,14 +419,16 @@ def _scale_of(limit: float):
     exp = int(np.floor(np.log10(abs(limit))))
     if -2 <= exp <= 3:
         return 1.0, ""
-    sup = str.maketrans("-0123456789", "\u207b\u2070\u00b9\u00b2\u00b3"
-                        "\u2074\u2075\u2076\u2077\u2078\u2079")
-    return 10.0 ** exp, "10" + str(exp).translate(sup) + " "
+    sup = str.maketrans(
+        "-0123456789", "\u207b\u2070\u00b9\u00b2\u00b3" "\u2074\u2075\u2076\u2077\u2078\u2079"
+    )
+    return 10.0**exp, "10" + str(exp).translate(sup) + " "
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Style: clean axes, a header, tables instead of loose text
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _style_axes(ax) -> None:
     """Light frame, soft grid, grid under the data."""
@@ -338,55 +443,64 @@ def _style_axes(ax) -> None:
 
 
 def _panel_title(ax, title: str, subtitle: str = "", y: float = 0.995):
-    ax.text(0.0, y, title, transform=ax.transAxes, ha="left", va="top",
-            fontsize=13, fontweight="bold", color="#222222")
+    ax.text(
+        0.0,
+        y,
+        title,
+        transform=ax.transAxes,
+        ha="left",
+        va="top",
+        fontsize=13 * FS,
+        fontweight="bold",
+        color="#222222",
+    )
     if subtitle:
-        ax.text(0.0, y - 0.04, subtitle, transform=ax.transAxes, ha="left",
-                va="top", fontsize=9.5, color=_GREY_TEXT)
+        ax.text(
+            0.0,
+            y - 0.04,
+            subtitle,
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=9.5 * FS,
+            color=_GREY_TEXT,
+        )
 
 
 def _stat_words(cnt, stt, k, w) -> str:
-    """One run's statistics, each number with what it says."""
+    """One run's statistics, short enough for one line at the size of the
+    text: what each number means (symmetric, Gaussian tails, 0.27 % beyond
+    3 sigma) is said once, on the grey line of notes. A word is added only
+    where a shape is not Gaussian."""
     s, kurt = stt[2], stt[3]
-    if not np.isfinite(s):
-        skew = "skewness -"
-    elif abs(s) < 0.2:
-        skew = f"skewness {s:.2f} (symmetric)"
-    else:
-        skew = (f"skewness {s:.2f} (longer tail to the "
-                f"{'right' if s > 0 else 'left'})")
-    if not np.isfinite(kurt):
-        kur = "excess kurtosis -"
-    elif abs(kurt) < 0.5:
-        kur = f"excess kurtosis {kurt:.2f} (tails like a Gaussian)"
-    else:
-        kur = (f"excess kurtosis {kurt:.2f} ("
-               f"{'heavier' if kurt > 0 else 'lighter'} tails than a Gaussian)")
+    skew = "skewness -" if not np.isfinite(s) else (
+        f"skewness {s:.2f}" + ("" if abs(s) < 0.2 else f" ({'right' if s > 0 else 'left'} tail)"))
+    kur = "kurtosis -" if not np.isfinite(kurt) else (
+        f"kurtosis {kurt:.2f}" + ("" if abs(kurt) < 0.5 else f" ({'heavy' if kurt > 0 else 'light'} tails)"))
     b = _beyond(cnt, k, w, stt[0], stt[1])
     ratio = b / 0.27
-    far = (f"beyond 3 sigma {b:.2f} % ({ratio:.1f}x a Gaussian's 0.27 %)"
-           if ratio >= 1.5 or ratio <= 0.67 else
-           f"beyond 3 sigma {b:.2f} % (a Gaussian: 0.27 %)")
+    far = f"beyond 3 sigma {b:.2f} %" + (f" ({ratio:.1f}x)" if ratio >= 1.5 or ratio <= 0.67 else "")
     return "   ".join([skew, kur, far])
 
 
 def _stat_table(ax, runs, k, w, fmt, top: float, height: float) -> None:
     """The statistics of each run, as a table in the run colours."""
-    rows = [("N", [f"{int(r[1].sum()):,}" for r in runs]),
-            ("mean", [fmt(r[2][0]) for r in runs]),
-            ("sigma", [fmt(r[2][1]) for r in runs]),
-            ("skewness", [f"{r[2][2]:.2f}" if np.isfinite(r[2][2]) else "-"
-                          for r in runs]),
-            ("excess kurtosis", [f"{r[2][3]:.2f}" if np.isfinite(r[2][3])
-                                 else "-" for r in runs]),
-            ("beyond 3 sigma",
-             [f"{_beyond(r[1], k, w, r[2][0], r[2][1]):.2f} %"
-              for r in runs])]
-    table = ax.table(cellText=[[lab] + vals for lab, vals in rows],
-                     colLabels=[""] + [r[0] for r in runs],
-                     cellLoc="left", colLoc="left",
-                     bbox=[0.0, top - height, 0.98, height],
-                     colWidths=[0.44] + [0.54 / len(runs)] * len(runs))
+    rows = [
+        ("N", [f"{int(r[1].sum()):,}" for r in runs]),
+        ("mean", [fmt(r[2][0]) for r in runs]),
+        ("sigma", [fmt(r[2][1]) for r in runs]),
+        ("skewness", [f"{r[2][2]:.2f}" if np.isfinite(r[2][2]) else "-" for r in runs]),
+        ("excess kurtosis", [f"{r[2][3]:.2f}" if np.isfinite(r[2][3]) else "-" for r in runs]),
+        ("beyond 3 sigma", [f"{_beyond(r[1], k, w, r[2][0], r[2][1]):.2f} %" for r in runs]),
+    ]
+    table = ax.table(
+        cellText=[[lab] + vals for lab, vals in rows],
+        colLabels=[""] + [r[0] for r in runs],
+        cellLoc="left",
+        colLoc="left",
+        bbox=[0.0, top - height, 0.98, height],
+        colWidths=[0.44] + [0.54 / len(runs)] * len(runs),
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(9)
     for (row, col), cell in table.get_celld().items():
@@ -399,56 +513,60 @@ def _stat_table(ax, runs, k, w, fmt, top: float, height: float) -> None:
             cell.set_text_props(fontweight="bold", color=colour)
         else:
             cell.set_facecolor("white")
-            cell.set_text_props(color="#333333",
-                                fontweight="bold" if col == 0 else "normal")
+            cell.set_text_props(color="#333333", fontweight="bold" if col == 0 else "normal")
 
 
 def _test_rows(names, data, stats_ctl, stats_exp, paired, normalised, n):
     """[(name, confidence, verdict, colour)] of the three tests."""
     m_c, s_c = stats_ctl[0], stats_ctl[1]
     m_e, s_e = stats_exp[0], stats_exp[1]
-    n_c, n_e = data['n_c'], data['n_e']
-    if paired:
-        cov = data['ce'] / n - m_c * m_e
-        t_conf = float(paired_ttest_confidence(
-            np.array([m_c]), np.array([m_e]), np.array([s_c ** 2]),
-            np.array([s_e ** 2]), np.array([cov]), np.array([n]))[0])
+    n_c, n_e = data["n_c"], data["n_e"]
+    # the t-test on the bias and the F-test on the sigma: on the pairs with
+    # MATCH on (both runs have n of them), on each run's own with off --
+    # the tests of cardio and timeserie, until histogram keeps its cycles
+    boot = data.get("boot") if paired else None
+    if boot is not None:
+        # MATCH on: the cycle block bootstrap of the change of each cycle
+        t_conf, f_conf, n_cyc = boot
     else:
-        t_conf = float(ttest_confidence(
-            np.array([m_c]), np.array([s_c]), np.array([n_c]),
-            np.array([m_e]), np.array([s_e]), np.array([n_e]))[0])
-    # the sigma: Pitman-Morgan on the pairs (the covariance the paired
-    # t-test uses), the F-test when the runs were not matched --
-    # stats.sigma_confidence decides from whether a covariance is given
-    if paired:
-        f_conf = float(sigma_confidence(
-            np.array([s_c ** 2]), np.array([s_e ** 2]), np.array([n]),
-            cov=np.array([cov]))[0])
-    else:
-        f_conf = float(sigma_confidence(
-            np.array([s_c ** 2]), np.array([s_e ** 2]), np.array([n_c]),
-            np.array([n_e]))[0])
+        if paired:
+            n_c = n_e = n
+        t_conf = float(ttest_confidence(np.array([m_c]), np.array([s_c]), np.array([n_c]),
+                                        np.array([m_e]), np.array([s_e]), np.array([n_e]))[0])
+        f_conf = float(sigma_confidence(np.array([s_c**2]), np.array([s_e**2]),
+                                        np.array([n_c]), np.array([n_e]))[0])
     # a normalised sigma is better the closer it is to 1
-    sigma_better = (abs(s_e - 1.0) < abs(s_c - 1.0)) if normalised \
-        else (s_e < s_c)
+    sigma_better = (abs(s_e - 1.0) < abs(s_c - 1.0)) if normalised else (s_e < s_c)
     out = []
+    word_t, word_f = ("bootstrap", "bootstrap") if boot is not None else ("t-test", "F-test")
     for name, conf, better in (
-            ("mean, " + ("paired t" if paired else "Welch t"), t_conf,
-             abs(m_e) < abs(m_c)),
-            ("sigma, " + ("Pitman-Morgan" if paired else "F"), f_conf,
-             sigma_better)):
+        (f"mean, {word_t}", t_conf, abs(m_e) < abs(m_c)),
+        (f"sigma, {word_f}", f_conf, sigma_better),
+    ):
+        if not np.isfinite(conf):
+            out.append((name, 0.0, f"not tested ({boot[2] if boot else 0} cycles)", "#8A9199"))
+            continue
         if is_significant(np.array([conf]))[0]:
-            out.append((name, conf,
-                        "Exp better" if better else "Ctl better",
-                        EXP_BETTER if better else CTL_BETTER))
+            out.append(
+                (
+                    name,
+                    conf,
+                    "Exp better" if better else "Ctl better",
+                    EXP_BETTER if better else CTL_BETTER,
+                )
+            )
         else:
             out.append((name, conf, "not significant", "#777777"))
-    d_ks, ks_conf = ks_from_counts(data['ctl'], data['exp'])
+    d_ks, ks_conf = ks_from_counts(data["ctl"], data["exp"])
     differ = bool(is_significant(np.array([ks_conf]))[0])
-    out.append(("shape, KS", ks_conf,
-                (f"shapes differ, D = {d_ks:.3f}" if differ
-                 else f"same shape, D = {d_ks:.3f}"),
-                "#333333" if differ else "#777777"))
+    out.append(
+        (
+            "shape, KS",
+            ks_conf,
+            (f"shapes differ, D = {d_ks:.3f}" if differ else f"same shape, D = {d_ks:.3f}"),
+            "#333333" if differ else "#777777",
+        )
+    )
     return out
 
 
@@ -457,83 +575,156 @@ def histogram_plot(task: Dict[str, Any]) -> Optional[str]:
         return _histogram_plot(task)
 
 
-def _histogram_plot(task: Dict[str, Any]) -> Optional[str]:
-    data = read_histogram(task)
-    if data is None:
-        return None
-    matched = task['matched']
-    n_c, n_e = data['n_c'], data['n_e']
-    min_obs = int(task.get('min_obs', MIN_OBS_PER_HISTOGRAM))
-    if not n_c or n_c < min_obs or (matched and (not n_e or n_e < min_obs)):
-        return None
-    n = n_c
-    w, k = data['w'], data['k']
-    edges = np.append(k, k[-1] + 1) * w
-    stats_ctl = _moments(n_c, *data['mc'])
-    stats_exp = _moments(n_e, *data['me']) if matched else None
-    if stats_ctl[1] <= 0:
-        return None                     # O-P identical everywhere: no shape
-    paired = bool(data.get('paired', True))
+#: the figure's width follows FS_FIG: the title (15 pt) at the shared size
+#: (style.font_size)
+FS_FIG = font_size("title") / 15.0
+#: every text of a histogram, its header and its margins follow FS: 30 %
+#: above the shared size, the figure kept -- as in profile and scatter
+FS = FS_FIG * 1.3
+#: the height of one line of the flag table and of the tests, in the
+#: fractions of a 10-inch figure the header is written in
+_LINE = 0.021
 
-    family = task['family']
-    var_name, units, _ = pikobs.type_varno(str(task['varno']))
-    gpsro = bool(task.get('gpsro'))
-    label = LABELS[task['function']]
-    normalised = task['function'].endswith('_norm')
-    unit = "[-]" if (gpsro or normalised) else units
-    f, st = _scale_of(max(abs(edges[0]), abs(edges[-1])))
-    if task['function'].endswith('_std'):
-        # in sigmas of the control (of the run itself when alone): the
-        # unit factor becomes that sigma, the bins stay the same
-        f, st, unit = stats_ctl[1], "", "[sigma]"
-    u = str(unit).strip().strip('[]')
-    x_label = (f"({label}) / B_ref" if gpsro and not normalised else label) \
-        + (f"  [{st}{u}]" if (u or st) and u != '-' else "")
 
-    # ---- layout: the histogram, its statistics, and the flags ---------------
-    with_flags = bool(task.get('qc_split')) and not matched
-    fig = plt.figure(figsize=(19.5 if with_flags else 17.0, 10.0),
-                     facecolor='white')
-    # the header holds the statistics, one line per run; the right column
-    # holds the flag table of a single run, or the tests of a comparison
+def _hy(fig, y: float) -> float:
+    """A height given for the 10-inch figure, kept in inches from the top
+    and scaled with the text."""
+    return 1.0 - (1.0 - y) * 10.0 * FS / fig.get_figheight()
+
+
+def _flag_columns(lines):
+    """The flag table in two columns side by side: the combinations, then
+    what is left out and the bits."""
+    if len(lines) <= 12:
+        return [lines]
+    cut = next((i for i, l in enumerate(lines) if l.startswith(("LEFT OUT", "BITS"))), len(lines) // 2)
+    return [lines[:cut], lines[cut:]]
+
+
+def _histogram_figure(task, matched, flag_lines=None):
+    """The layout: the histogram (and the difference below it) across the
+    whole width; above them, under the header, the tests of a comparison or
+    the flag table of a single run -- nothing on the right."""
+    with_flags = bool(task.get("qc_split")) and not matched and bool(flag_lines)
     head = 0.215 if matched else 0.175
-    gs = fig.add_gridspec(2 if matched else 1, 2,
-                          height_ratios=[3.3, 1.1] if matched else [1],
-                          width_ratios=([2.35, 1.35] if with_flags
-                                        else [2.8, 1.2]),
-                          hspace=0.06, wspace=0.08, left=0.055, right=0.985,
-                          top=1.0 - head, bottom=0.075)
+    tests = matched and task.get("match_mode") != "no"
+    rows = max(len(c) for c in _flag_columns(flag_lines)) if with_flags else 0
+    # the tests take one line, two when they do not fit: room for two
+    # the height of a line of the table (8.5 pt, spacing 1.25) in the units
+    # of the header -- tenths of the 10-inch figure, before FS
+    table_line = 8.5 * 1.25 / 72.0 / 10.0
+    block = (3.0 * _LINE if tests else 0.0) + (rows * table_line + 0.02 if with_flags else 0.0)
+    # tall enough that the labels of the two panels never meet
+    plot_in = 10.5 if matched else (11.5 if with_flags else 9.0)
+    top_in = (head + block) * 10.0 * FS + 0.15
+    bottom_in = 0.75 * FS
+    W = 17.0 * (1 + 0.45 * (FS_FIG - 1))
+    H = top_in + plot_in + bottom_in
+    fig = plt.figure(figsize=(W, H), facecolor="white")
+    gs = fig.add_gridspec(
+        2 if matched else 1,
+        1,
+        height_ratios=[3.3, 1.1] if matched else [1],
+        hspace=0.06,
+        left=0.075,
+        right=0.985,
+        top=1.0 - top_in / H,
+        bottom=bottom_in / H,
+    )
     ax = fig.add_subplot(gs[0, 0])
     axd = fig.add_subplot(gs[1, 0], sharex=ax) if matched else None
-    axt = fig.add_subplot(gs[:, 1])
-    axt.axis('off')
-    axf = axt if with_flags else None
     _style_axes(ax)
     if axd is not None:
         _style_axes(axd)
+    return with_flags, fig, head, ax, axd
 
-    names = task['names']
+
+def _top_block(fig, ax, head, matched, task, names, data, stats_ctl, stats_exp,
+               paired, normalised, n, flag_lines, with_flags) -> None:
+    """Under the header: the tests of a comparison on one line, in their
+    colours, or the flag table of a single run; then the key of the curves
+    in rows just above the histogram."""
+    y = _hy(fig, 1.0 - head - 0.006)
+    if matched and task.get("match_mode") != "no":
+        renderer = fig.canvas.get_renderer()
+        x, line = 0.055, 0
+        rows = _test_rows(names, data, stats_ctl, stats_exp, paired, normalised, n)
+        for i, (name, conf, verdict, colour) in enumerate(rows):
+            shown = verdict if verdict.startswith("not tested") else f"{verdict}  ({conf:.1f} %)"
+            pieces = [(f"{name}: ", "#333333", "bold"), (shown, colour, "bold")]
+            # a test that would run past the edge starts the second line
+            probe = fig.text(0, 0, "".join(p[0] for p in pieces), fontsize=11.5 * FS, fontweight="bold")
+            wide = probe.get_window_extent(renderer).width / fig.bbox.width
+            probe.remove()
+            if i and x + 0.03 + wide > 0.985 and line == 0:
+                x, line = 0.055, 1
+            elif i:
+                pieces = [("   \u00b7   ", "#9AA0A6", "normal")] + pieces
+            yl = _hy(fig, 1.0 - head - 0.006 - line * 1.4 * _LINE)
+            for text, col, weight in pieces:
+                t = fig.text(x, yl, text, ha="left", va="top", fontsize=11.5 * FS,
+                             fontweight=weight, color=col)
+                x = t.get_window_extent(renderer).x1 / fig.bbox.width
+        y = _hy(fig, 1.0 - head - 0.006 - 3.0 * _LINE)
+    if with_flags:
+        cols = _flag_columns(flag_lines)
+        for i, col_lines in enumerate(cols):
+            fig.text(0.055 + i * 0.47, y, "\n".join(col_lines), ha="left", va="top",
+                     fontsize=8.5 * FS, family="monospace", color="#222222", linespacing=1.25)
+    # the key of the curves, in rows above the histogram
+    handles, labels = ax.get_legend_handles_labels()
+    if handles:
+        size = 10.5 * FS
+        width_pt = ax.get_position().width * fig.get_figwidth() * 72.0
+        ncol = legend_ncol(labels, size, width_pt)
+        n_rows = -(-len(labels) // ncol)
+        room = (n_rows * 1.45 * size / 72.0 + 0.12) / fig.get_figheight()
+        gs = ax.get_subplotspec().get_gridspec()
+        gs.update(top=gs.top - room)
+        for a in fig.axes:
+            if a.get_subplotspec() is not None:
+                a.set_position(a.get_subplotspec().get_position(fig))
+        fig.legend(handles, labels, loc="lower left", bbox_to_anchor=(ax.get_position().x0, gs.top + 0.004),
+                   ncol=ncol, fontsize=size, frameon=False, borderaxespad=0.0, columnspacing=1.6)
+
+
+def _histogram_runs(task, matched, data, stats_ctl, stats_exp, edges, k, w):
+    """The runs in their colours, and one grouping of the bins for both."""
+
+    names = task["names"]
     # without a control the single run is an experience, so it is red
     # Ctl and Exp in the legend, the table and the tests; the names of the
     # runs once, in the header
-    runs = [("Ctl" if matched else "Exp", data['ctl'], stats_ctl,
-             CTL_COLOUR if matched else EXP_COLOUR)]
+    runs = [
+        (
+            "Ctl" if matched else "Exp",
+            data["ctl"],
+            stats_ctl,
+            CTL_COLOUR if matched else EXP_COLOUR,
+        )
+    ]
     if matched:
-        runs.append(("Exp", data['exp'], stats_exp, EXP_COLOUR))
+        runs.append(("Exp", data["exp"], stats_exp, EXP_COLOUR))
     xs = np.linspace(edges[0], edges[-1], 700)
     # one grouping of the bins for both runs, from the smaller of the two,
     # so their densities sit on the same bins and can be subtracted
     totals = [r[1].sum() for r in runs]
-    _, _, m_common = _merged(data['ctl'], k, w, max(1.0, min(totals)))
+    _, _, m_common = _merged(data["ctl"], k, w, max(1.0, min(totals)))
+
+    return names, runs, xs, m_common
+
+
+def _draw_qc_split(with_flags, data, k, w, m_common, task, ax, f):
+    """The QC split of a single run: one colour per combination of flags."""
 
     # ---- the QC split: one colour per flag combination ----------------------
-    qc_counts = data['qc'] if with_flags else {}
+    qc_counts = data["qc"] if with_flags else {}
     if qc_counts:
-        total = data['ctl'].sum()
-        _, e_q, _ = _merged(data['ctl'], k, w, total, m_common)
+        total = data["ctl"].sum()
+        _, e_q, _ = _merged(data["ctl"], k, w, total, m_common)
         widths_q = np.diff(e_q)
         bottom = np.zeros(len(widths_q))
-        order = task.get('qc_order') or sorted(qc_counts)
+        order = task.get("qc_order") or sorted(qc_counts)
         colours = _qc_colours(order)
         for name in order:
             if name not in qc_counts:
@@ -541,10 +732,23 @@ def _histogram_plot(task: Dict[str, Any]) -> Optional[str]:
             c_q, _, _ = _merged(qc_counts[name], k, w, total, m_common)
             d_q = c_q / (total * widths_q)
             share = 100.0 * qc_counts[name].sum() / total
-            ax.stairs((bottom + d_q) * f, e_q / f, baseline=bottom * f,
-                      fill=True, color=colours[name], alpha=0.8,
-                      linewidth=0, label=_qc_legend_label(name, share))
+            ax.stairs(
+                (bottom + d_q) * f,
+                e_q / f,
+                baseline=bottom * f,
+                fill=True,
+                color=colours[name],
+                alpha=0.8,
+                linewidth=0,
+                label=_qc_legend_label(name, share),
+            )
             bottom = bottom + d_q
+
+    return qc_counts
+
+
+def _draw_runs(edges, runs, k, w, m_common, qc_counts, ax, f, xs, normalised, task, n):
+    """The runs and their Gaussians, the +/-3 sigma marks and the axes."""
 
     # ---- the runs and their Gaussians ------------------------------------------
     dens, e_m, merge = {}, edges, 1
@@ -554,108 +758,108 @@ def _histogram_plot(task: Dict[str, Any]) -> Optional[str]:
         d = c_m / (total * np.diff(e_m)) if total else c_m
         dens[name] = d
         if not qc_counts:
-            ax.stairs(d * f, e_m / f, color=colour, alpha=0.08, fill=True,
-                      linewidth=0)
-        ax.stairs(d * f, e_m / f, color=colour, lw=1.9, label=name,
-                  zorder=6)
+            ax.stairs(d * f, e_m / f, color=colour, alpha=0.08, fill=True, linewidth=0)
+        ax.stairs(d * f, e_m / f, color=colour, lw=1.9, label=name, zorder=6)
         if sd > 0:
             g = np.exp(-0.5 * ((xs - m) / sd) ** 2) / (sd * np.sqrt(2 * np.pi))
-            ax.plot(xs / f, g * f, color=colour, lw=1.1, ls='--', alpha=0.8,
-                    zorder=5)
+            ax.plot(xs / f, g * f, color=colour, lw=1.1, ls="--", alpha=0.8, zorder=5)
     xmin, xmax = edges[0] / f, edges[-1] / f
     if xmin <= 0 <= xmax:
-        ax.axvline(0, color='#444444', ls=':', lw=1.0, zorder=4)
+        ax.axvline(0, color="#444444", ls=":", lw=1.0, zorder=4)
 
     # +/-3 sigma of the reference run: a Gaussian leaves 0.27 % outside
     m_ref, sd_ref = runs[0][2][0], runs[0][2][1]
     if sd_ref > 0:
         lo3, hi3 = (m_ref - 3 * sd_ref) / f, (m_ref + 3 * sd_ref) / f
         share3 = _beyond(runs[0][1], k, w, m_ref, sd_ref)
-        ax.axvline(lo3, color='#8C510A', lw=1.2, ls='-.', alpha=0.9,
-                   label=f"+/-3 sigma: {share3:.2f} % outside "
-                         f"(Gaussian 0.27 %)")
-        ax.axvline(hi3, color='#8C510A', lw=1.2, ls='-.', alpha=0.9)
-        ax.axvspan(xmin, lo3, color='#8C510A', alpha=0.045, zorder=0)
-        ax.axvspan(hi3, xmax, color='#8C510A', alpha=0.045, zorder=0)
+        ax.axvline(
+            lo3,
+            color="#8C510A",
+            lw=1.2,
+            ls="-.",
+            alpha=0.9,
+            label=f"+/-3 sigma: {share3:.2f} % outside " f"(Gaussian 0.27 %)",
+        )
+        ax.axvline(hi3, color="#8C510A", lw=1.2, ls="-.", alpha=0.9)
+        ax.axvspan(xmin, lo3, color="#8C510A", alpha=0.045, zorder=0)
+        ax.axvspan(hi3, xmax, color="#8C510A", alpha=0.045, zorder=0)
     if normalised:
-        g1 = np.exp(-0.5 * xs ** 2) / np.sqrt(2 * np.pi)
-        ax.plot(xs / f, g1 * f, color='#2CA02C', lw=2.0, alpha=0.85,
-                label="N(0, 1): errors as assigned")
+        g1 = np.exp(-0.5 * xs**2) / np.sqrt(2 * np.pi)
+        ax.plot(
+            xs / f,
+            g1 * f,
+            color="#2CA02C",
+            lw=2.0,
+            alpha=0.85,
+            label="N(0, 1): errors as assigned",
+        )
 
-    log_scale = task.get('log_scale', True)
+    log_scale = task.get("log_scale", True)
     if log_scale:
-        ax.set_yscale('log')
+        ax.set_yscale("log")
         top = max(np.nanmax(v * f) for v in dens.values())
-        positive = [np.min(v[v > 0] * f) for v in dens.values()
-                    if np.any(v > 0)]
+        positive = [np.min(v[v > 0] * f) for v in dens.values() if np.any(v > 0)]
         low = min(positive) if positive else top * 1e-5
         ax.set_ylim(max(low * 0.4, top * 1e-7), top * 3)
-    ax.set_ylabel("density" + (" (log scale: each line x10)" if log_scale
-                               else ""), fontsize=12.5)
+    ax.set_ylabel("density" + ("\nlog scale, each line x10" if log_scale else ""), fontsize=12.5 * FS)
     ax.set_xlim(xmin, xmax)
     # said in the notes of the right column, where it covers no data
     bin_note = "first and last bins: everything beyond 6 sigmas"
     if merge > 1:
         bin_note += f"\nbins merged by {merge} for {int(n):,} observations"
 
+    return dens, e_m, bin_note
+
+
+def _draw_difference(matched, dens, f, axd, e_m, x_label, ax):
+    """The difference of the two densities, under the histogram."""
+
     # ---- the difference of the densities ---------------------------------------
     if matched:
         diff = (dens["Exp"] - dens["Ctl"]) * f
         top_d = float(np.nanmax(np.abs(diff))) if np.any(diff) else 1.0
         fd, sd_txt = _scale_of(top_d)
-        axd.bar(e_m[:-1] / f, diff / fd, width=np.diff(e_m) / f,
-                align='edge', linewidth=0, alpha=0.75,
-                color=np.where(diff > 0, EXP_COLOUR, CTL_COLOUR))
-        axd.axhline(0, color='#333333', lw=0.9)
-        axd.set_ylabel("Exp - Ctl"
-                       + (f"\n[{sd_txt.strip()}]" if sd_txt else ""),
-                       fontsize=11)
-        axd.set_xlabel(x_label, fontsize=12.5)
-        ax.tick_params(axis='x', labelbottom=False)
+        axd.bar(
+            e_m[:-1] / f,
+            diff / fd,
+            width=np.diff(e_m) / f,
+            align="edge",
+            linewidth=0,
+            alpha=0.75,
+            color=np.where(diff > 0, EXP_COLOUR, CTL_COLOUR),
+        )
+        axd.axhline(0, color="#333333", lw=0.9)
+        axd.set_ylabel("Exp - Ctl" + (f"\n[{sd_txt.strip()}]" if sd_txt else ""), fontsize=11 * FS)
+        axd.set_xlabel(x_label, fontsize=12.5 * FS)
+        ax.tick_params(axis="x", labelbottom=False)
     else:
-        ax.set_xlabel(x_label, fontsize=12.5)
+        ax.set_xlabel(x_label, fontsize=12.5 * FS)
 
-    # ---- the right column: the tests or the flag table, then the legend --------
-    handles, labels = ax.get_legend_handles_labels()
-    legend_title = ("flag bits of each colour, share of the histogram\n"
-                    "(meaning of the bits in the table above)\n"
-                    "dashed: Gaussian of the same mean and sigma"
-                    if qc_counts else
-                    "dashed: Gaussian of the same mean and sigma")
-    legend_at = 0.97
-    if matched:
-        y = 0.995
-        _panel_title(axt, "Tests (pikobs.stats)",
-                     f"a change counts above {MIN_CONFIDENCE:.0f} %", y=y)
-        y -= 0.095
-        for name, conf, verdict, colour in _test_rows(
-                names, data, stats_ctl, stats_exp, paired, normalised, n):
-            axt.text(0.0, y, name, transform=axt.transAxes, fontsize=12.5,
-                     fontweight='bold', color='#333333', va='top')
-            axt.text(0.98, y, f"{conf:.1f} %", transform=axt.transAxes,
-                     fontsize=12.5, color='#333333', va='top', ha='right')
-            axt.text(0.0, y - 0.042, verdict, transform=axt.transAxes,
-                     fontsize=12, fontweight='bold', color=colour, va='top')
-            y -= 0.115
-        axt.text(0.0, y - 0.005,
-                 "significant is not the same as large: D is the share of the\n"
-                 "observations on the other side, 0.01 = 1 %. "
-                 + ("Matched samples:\nKS is a screening, see pikobs.stats."
-                    if paired else
-                    "Independent\nsamples: the tests are the cautious forms."),
-                 transform=axt.transAxes, fontsize=9.5, va='top',
-                 color=_GREY_TEXT, linespacing=1.35)
-        legend_at = y - 0.12
-    if axf is not None:
-        inside, outside = read_flag_combinations(task)
-        _flag_table(axf, inside, outside)
-    # off the curves, in the right column: under the tests, under the flag
-    # table (at the bottom of the column), or at its top
-    axt.legend(handles, labels, loc=('lower left' if axf is not None
-                                      else 'upper left'),
-               bbox_to_anchor=((0, 0) if axf is not None else (0, legend_at)),
-               fontsize=11, framealpha=0.97, edgecolor='#DDDDDD',
-               title=legend_title, title_fontsize=10)
+
+def _draw_histogram_header(
+    task,
+    family,
+    fig,
+    var_name,
+    units,
+    unit,
+    label,
+    matched,
+    names,
+    f,
+    runs,
+    k,
+    w,
+    bin_note,
+    normalised,
+    st,
+    u,
+    n_c,
+    n_e,
+    paired,
+    head,
+):
+    """The header: the variable, what the figure holds, the runs and their statistics, the notes."""
 
     # ---- the header, as in scatter, zone and cardio ---------------------------
     # the variable in bold, a grey line with what the figure holds, the runs
@@ -664,44 +868,67 @@ def _histogram_plot(task: Dict[str, Any]) -> Optional[str]:
         s = str(stamp)
         return f"{s[:4]}-{s[4:6]}-{s[6:8]} {s[8:10]} UTC"
 
-    if task['lkey'] == 'join':
+    if task["lkey"] == "join":
         try:
-            radiance = str(pikobs.family(family)[5]).upper() == 'CANAL'
+            radiance = str(pikobs.family(family)[5]).upper() == "CANAL"
         except Exception:
             radiance = False
         lev = "all channels" if radiance else "whole column"
-    elif ' | ' in str(task['lkey']):
+    elif " | " in str(task["lkey"]):
         lev = f"layer {str(task['lkey']).split(' | ', 1)[1]}"
     else:
         lev = f"level {task['lkey']}"
-    surface = task.get('land_ocean', 'all')
+    surface = task.get("land_ocean", "all")
     # join is every station (or type) together: said in words
-    word_m = task.get('member_word', 'station')
-    member = members_text(task['db_file'], task['id_stn'])
-    parts = [family,
-             task['region'] if surface in (None, '', 'all')
-             else f"{task['region']} ({surface})",
-             f"flag {task['flag']}",
-             (f"all {word_m}s" if member == 'join' else f"{word_m} {member}"),
-             lev]
-    if task.get('special_label') and task['special_label'] != 'all':
+    word_m = task.get("member_word", "station")
+    member = members_text(task["db_file"], task["id_stn"])
+    parts = [
+        family,
+        task["region"] if surface in (None, "", "all") else f"{task['region']} ({surface})",
+        f"flag {task['flag']}",
+        (f"all {word_m}s" if member == "join" else f"{word_m} {member}"),
+        lev,
+    ]
+    if task.get("special_label") and task["special_label"] != "all":
         parts.append(f"method {task['special_label']}")
-    fig.text(0.055, 0.978, f"{var_name} "
-             f"{units if task['function'].endswith('_std') else unit}  ·  "
-             f"{label}", ha='left',
-             va='top', fontsize=15, fontweight='bold', color='#1F2933')
-    fig.text(0.985, 0.975, f"{_when(task['datestart'])}  to  "
-             f"{_when(task['dateend'])}", ha='right', va='top', fontsize=10,
-             color=_GREY_TEXT)
-    fig.text(0.055, 0.944, "  ·  ".join(parts), ha='left', va='top',
-             fontsize=10.5, color=_GREY_TEXT)
-    who = ([("Exp", names[1], EXP_COLOUR), ("Ctl", names[0], CTL_COLOUR)]
-           if matched else [("Exp", names[0], EXP_COLOUR)])
+    fig.text(
+        0.055,
+        _hy(fig, 0.978),
+        f"{var_name} " f"{units if task['function'].endswith('_std') else unit}  ·  " f"{label}",
+        ha="left",
+        va="top",
+        fontsize=15 * FS,
+        fontweight="bold",
+        color="#1F2933",
+    )
+    # the period on the grey line: the MATCH badge sits at the top right
+    fig.text(
+        0.055, _hy(fig, 0.944),
+        "  ·  ".join([f"{_when(task['datestart'])} to {_when(task['dateend'])}"] + list(parts)),
+        ha="left", va="top", fontsize=10.5 * FS, color=_GREY_TEXT
+    )
+    who = (
+        [("Exp", names[1], EXP_COLOUR), ("Ctl", names[0], CTL_COLOUR)]
+        if matched
+        else [("Exp", names[0], EXP_COLOUR)]
+    )
     y_run = 0.914
+    name_ends = []
+    renderer = fig.canvas.get_renderer()
     for word, name, colour in who:
-        fig.text(0.055, y_run, f"{word}  {name}", ha='left', va='top',
-                 fontsize=11.5, fontweight='bold', color=colour)
+        t_name = fig.text(
+            0.055,
+            _hy(fig, y_run),
+            f"{word}  {name}",
+            ha="left",
+            va="top",
+            fontsize=11.5 * FS,
+            fontweight="bold",
+            color=colour,
+        )
+        name_ends.append(t_name.get_window_extent(renderer).x1 / fig.bbox.width)
         y_run -= 0.026
+
     # the statistics, one line per run in its colour: they were a table in
     # the right column, which is now the flags' or the tests'
     def _num(v):
@@ -710,47 +937,180 @@ def _histogram_plot(task: Dict[str, Any]) -> Optional[str]:
         return f"{v / f:.3g}" if f != 1 else f"{v:.3g}"
 
     y_st = 0.914
-    for (word, name, colour), run in zip(who, ([runs[1], runs[0]] if matched
-                                               else runs)):
+    for (word, name, colour), run in zip(who, ([runs[1], runs[0]] if matched else runs)):
         cnt, stt = run[1], run[2]
-        fig.text(0.20, y_st - 0.002,
-                 f"N {int(cnt.sum()):,}   mean {_num(stt[0])}   "
-                 f"sigma {_num(stt[1])}   " + _stat_words(cnt, stt, k, w),
-                 ha='left', va='top', fontsize=11, color=colour)
+        fig.text(
+            max(name_ends) + 0.02,                        # after the longest name
+            _hy(fig, y_st - 0.002),
+            f"N {int(cnt.sum()):,}   mean {_num(stt[0])}   "
+            f"sigma {_num(stt[1])}   " + _stat_words(cnt, stt, k, w),
+            ha="left",
+            va="top",
+            fontsize=11 * FS,
+            color=colour,
+        )
         y_st -= 0.026
-    notes = ["a Gaussian: skewness 0, kurtosis 0, 0.27 % beyond 3 sigma",
-             bin_note]
+    notes = ["a Gaussian: skewness 0, kurtosis 0, 0.27 % beyond 3 sigma", bin_note]
     if normalised:
         notes.append("sigma 1 = the assigned errors are right")
-    if (st or u) and u != '-':
+    if (st or u) and u != "-":
         notes.append(f"units: {st}{u}")
     if matched:
-        change = 100.0 * (n_e - n_c) / n_c if n_c else float('nan')
-        notes.insert(0, "the same observations in both runs" if paired else
-                     f"each run with all its observations ({change:+.1f} % in Exp)")
-    fig.text(0.055, y_st - 0.004, "   ·   ".join(notes), ha='left', va='top',
-             fontsize=9.5, color=_GREY_TEXT)
-    rule = 1.0 - head + 0.018
-    fig.add_artist(mpl.lines.Line2D([0.055, 0.985], [rule, rule],
-                                    transform=fig.transFigure,
-                                    color='#D9DDE2', lw=0.9))
+        change = 100.0 * (n_e - n_c) / n_c if n_c else float("nan")
+        notes.insert(
+            0,
+            (
+                "the same observations in both runs"
+                if paired
+                else f"each run with all its observations ({change:+.1f} % in Exp)"
+            ),
+        )
+    fig.text(
+        0.055,
+        _hy(fig, y_st - 0.004),
+        "   ·   ".join(notes),
+        ha="left",
+        va="top",
+        fontsize=9.5 * FS,
+        color=_GREY_TEXT,
+    )
+    rule = _hy(fig, 1.0 - head + 0.018)
+    fig.add_artist(
+        mpl.lines.Line2D(
+            [0.055, 0.985], [rule, rule], transform=fig.transFigure, color="#D9DDE2", lw=0.9
+        )
+    )
 
-    out_dir = os.path.join(task['pathwork'], family)
+
+def _fit_ylabels(fig, floor: float = 0.6) -> None:
+    """The label of each axis no taller than its panel: one that would reach
+    the panel above or below is made smaller, just enough (never under 60 %)."""
+    renderer = fig.canvas.get_renderer()
+    for a in fig.axes:
+        label = a.yaxis.label
+        if not label.get_text():
+            continue
+        room = a.get_window_extent(renderer).height
+        size = label.get_fontsize()
+        low = floor * size
+        while label.get_window_extent(renderer).height > room and size > low:
+            size *= 0.95
+            label.set_fontsize(size)
+
+
+def _badge(fig, task, paired, boot=None) -> None:
+    """MATCH on (the pairs) or off (each run's own): what the tests compare.
+    No badge for a single run or with MATCH no."""
+    mode = task.get("match_mode")
+    if not task.get("matched") or mode not in ("on", "off"):
+        return
+    on = mode == "on" and paired
+    fig._pikobs_badge = match_badge(
+        fig, on, top_in=0.12 * FS,
+        method=(None if boot is not None else "t-test and F-test, 95 %") if on else None)
+
+
+def _save_histogram(task, family, fig):
+    """Write the figure; returns its path."""
+
+    out_dir = os.path.join(task["pathwork"], family)
     os.makedirs(out_dir, exist_ok=True)
     out_file = os.path.join(out_dir, figure_name(task))
-    save_figure(fig, out_file, svg=task.get('svg', False), dpi=DPI)
+    save_figure(fig, out_file, svg=task.get("svg", False), dpi=DPI)
     plt.close(fig)
     return out_file
 
 
+def _histogram_plot(task: Dict[str, Any]) -> Optional[str]:
+    data = read_histogram(task)
+    if data is None:
+        return None
+    matched = task["matched"]
+    n_c, n_e = data["n_c"], data["n_e"]
+    min_obs = int(task.get("min_obs", MIN_OBS_PER_HISTOGRAM))
+    if not n_c or n_c < min_obs or (matched and (not n_e or n_e < min_obs)):
+        return None
+    n = n_c
+    w, k = data["w"], data["k"]
+    edges = np.append(k, k[-1] + 1) * w
+    stats_ctl = _moments(n_c, *data["mc"])
+    stats_exp = _moments(n_e, *data["me"]) if matched else None
+    if stats_ctl[1] <= 0:
+        return None  # O-P identical everywhere: no shape
+    paired = bool(data.get("paired", True))
+
+    family = task["family"]
+    var_name, units, _ = pikobs.type_varno(str(task["varno"]))
+    gpsro = bool(task.get("gpsro"))
+    label = LABELS[task["function"]]
+    normalised = task["function"].endswith("_norm")
+    unit = "[-]" if (gpsro or normalised) else units
+    f, st = _scale_of(max(abs(edges[0]), abs(edges[-1])))
+    if task["function"].endswith("_std"):
+        # in sigmas of the control (of the run itself when alone): the
+        # unit factor becomes that sigma, the bins stay the same
+        f, st, unit = stats_ctl[1], "", "[sigma]"
+    u = str(unit).strip().strip("[]")
+    x_label = (f"({label}) / B_ref" if gpsro and not normalised else label) + (
+        f"  [{st}{u}]" if (u or st) and u != "-" else ""
+    )
+
+    flag_lines = (_flag_table(None, *read_flag_combinations(task))
+                  if task.get("qc_split") and not matched else None)
+    with_flags, fig, head, ax, axd = _histogram_figure(task, matched, flag_lines)
+    names, runs, xs, m_common = _histogram_runs(
+        task, matched, data, stats_ctl, stats_exp, edges, k, w
+    )
+    qc_counts = _draw_qc_split(with_flags, data, k, w, m_common, task, ax, f)
+    dens, e_m, bin_note = _draw_runs(
+        edges, runs, k, w, m_common, qc_counts, ax, f, xs, normalised, task, n
+    )
+    _draw_difference(matched, dens, f, axd, e_m, x_label, ax)
+    _top_block(fig, ax, head, matched, task, names, data, stats_ctl, stats_exp,
+               paired, normalised, n, flag_lines, with_flags)
+    _draw_histogram_header(
+        task,
+        family,
+        fig,
+        var_name,
+        units,
+        unit,
+        label,
+        matched,
+        names,
+        f,
+        runs,
+        k,
+        w,
+        bin_note,
+        normalised,
+        st,
+        u,
+        n_c,
+        n_e,
+        paired,
+        head,
+    )
+    _badge(fig, task, paired, data.get("boot"))
+    fit_texts(fig, getattr(fig, "_pikobs_badge", None))
+    _fit_ylabels(fig)
+    for a in fig.axes:                                  # the numbers of the axes
+        a.tick_params(labelsize=10 * FS, length=4 * FS, width=0.8 * FS)
+    return _save_histogram(task, family, fig)
+
+
 def histogram_plot_task(task: Dict[str, Any]) -> Optional[str]:
     import traceback
+
     try:
         return histogram_plot(task)
     except Exception:
-        print(f"[histogram] plot failed for {task.get('family')} "
-              f"{task.get('id_stn')} varno {task.get('varno')} level "
-              f"{task.get('lkey')}:\n{traceback.format_exc()}",
-              file=sys.stderr, flush=True)
-        plt.close('all')
+        print(
+            f"[histogram] plot failed for {task.get('family')} "
+            f"{task.get('id_stn')} varno {task.get('varno')} level "
+            f"{task.get('lkey')}:\n{traceback.format_exc()}",
+            file=sys.stderr,
+            flush=True,
+        )
+        plt.close("all")
         return None

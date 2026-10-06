@@ -266,6 +266,28 @@ def test_trajectory_rmsf_aligned(get_fn):
         eq(calculated, reference, decimal=3)
 
 
+@pytest.mark.parametrize("parallel", [True, False], ids=["parallel", "serial"])
+def test_trajectory_rmsf_by_residue(get_fn, parallel):
+    t = md.load(get_fn("traj.h5"))
+    # t0 = time.time()
+    calculated = md.rmsf(t, t, 0, parallel=parallel, mode="residue")
+    # print(time.time() - t0)
+    # raise ValueError
+    t.superpose(t, 0)
+    avg_xyz = np.average(t.xyz, axis=0)
+    reference = np.zeros(t.topology.n_residues)
+    masses = np.array([a.element.mass for a in t.topology.atoms])
+
+    for i in range(t.topology.n_residues):
+        indices = t.topology.select(f"resid {i}")
+        msf = 3 * np.mean((t.xyz[:, indices] - avg_xyz[indices]) ** 2, axis=(0, 2))
+        reference[i] = np.sqrt(np.sum(msf * masses[indices]) / np.sum(masses[indices]))
+    assert np.sum(np.abs(calculated)) > 0  # check trivial error
+    eq(calculated, reference, decimal=3)
+
+    # raise ValueError
+
+
 def test_rmsd_atom_indices_vs_ref_indices():
     n_frames = 1
     n_atoms_1 = 1
@@ -292,3 +314,21 @@ def test_rmsd_atom_indices_vs_ref_indices():
     md.rmsd(trj_1, trj_2, atom_indices=[0], ref_atom_indices=[1])
     md.rmsd(trj_2, trj_1, atom_indices=[1], ref_atom_indices=[0])
     # if this don't fail then it's good no matter the result
+
+
+def test_superpose_with_empty_atom_raises_exception():
+    # Test that superpose with an empty atom_indices list produces NaN coordinates
+    n_frames = 5
+    n_atoms = 20
+
+    xyz = rng.standard_normal((n_frames, n_atoms, 3), dtype=np.float32)
+    traj = md.Trajectory(xyz=xyz, topology=None)
+
+    with pytest.raises(ValueError, match="Number of atom indices must be greater than 0"):
+        traj.superpose(traj, frame=0, atom_indices=[])
+
+    # Super posing with valid indices should behave as expected afterwards
+    traj.superpose(traj, frame=0, atom_indices=[0])
+
+    # Coordinates should be finite after superposing
+    assert np.all(np.isfinite(traj.xyz))

@@ -12,7 +12,7 @@ from tmol.types import (
     Tensor,
     validate_args,
 )
-from tmol.chemical import RefinedResidueType
+from tmol.chemical import RefinedResidueType, l_base_name
 from tmol.pose import (
     PackedBlockTypes,
     PoseStack,
@@ -38,10 +38,10 @@ class FixedAAChiSampler(ChiSampler):
             return False
         if rt.properties.polymer.polymer_type != "amino_acid":
             return False
-        if rt.properties.polymer.backbone_type != "alpha":
+        if rt.properties.polymer.backbone_type != "alpha_aa":
             return False
 
-        if rt.base_name[:3] == "GLY" or rt.base_name[:3] == "ALA":
+        if l_base_name(rt) in ("GLY", "ALA"):
             return True
 
         return False
@@ -53,16 +53,22 @@ class FixedAAChiSampler(ChiSampler):
 
     @validate_args
     def first_sc_atoms_for_rt(self, rt: RefinedResidueType) -> Tuple[str, ...]:
-        if rt.base_name == "GLY":
-            return ("HA3",)
-        if rt.base_name == "ALA":
+        base = l_base_name(rt)
+        if base == "GLY":
+            # Glycine's alpha hydrogens exchange under reflection. Rebuilding
+            # only one can place it on top of the retained hydrogen, and a
+            # glycine-to-amino-acid design must not inherit an arbitrary one.
+            ca, mainchain = rt.atom_to_idx["CA"], rt.properties.polymer.mainchain_atoms
+            names = (rt.atoms[j].name for i, j in rt.bond_indices if i == ca)
+            return tuple(name for name in names if name not in mainchain)
+        elif base == "ALA":
             return ("CB",)
 
     def annotate_residue_type(self, block_type):
         if hasattr(block_type, "fixed_aa_chi_sampler_builds_bt"):
             return
         builds_bt = False
-        if block_type.base_name == "GLY" or block_type.base_name[:3] == "ALA":
+        if l_base_name(block_type) in ("GLY", "ALA"):
             builds_bt = True
         setattr(block_type, "fixed_aa_chi_sampler_builds_bt", builds_bt)
 

@@ -9,6 +9,8 @@ Wraps four endpoints introduced in EPMCDME-13983:
 
 from ..utils.http import ApiRequestHandler, TokenSource
 
+MCP_CUSTOM_SERVERS_DISABLED_COMPONENT_ID = "mcpCustomServersDisabled"
+
 
 class CustomerConfigService:
     """Service for managing customer configuration overrides via the admin endpoint."""
@@ -58,6 +60,22 @@ class CustomerConfigService:
             "/v1/config",
             list[dict],
             wrap_response=False,
+        )
+
+    def is_mcp_custom_servers_disabled(self) -> bool:
+        """Typed read of the effective MCP governance toggle.
+
+        Backend's resolve_components() filters GET /v1/config to enabled==true
+        components only, so the component is PRESENT when the toggle is ON and
+        ABSENT when OFF — presence, not an ``enabled`` field, is the signal.
+
+        Returns:
+            True when hand-written/custom MCP servers are currently disallowed
+            on save paths (toggle ON); False otherwise (toggle OFF, default).
+        """
+        return any(
+            c.get("id") == MCP_CUSTOM_SERVERS_DISABLED_COMPONENT_ID
+            for c in self.get_config()
         )
 
     def save_setting(self, component_id: str, settings: dict) -> dict:

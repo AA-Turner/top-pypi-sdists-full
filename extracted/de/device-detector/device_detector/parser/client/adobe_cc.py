@@ -1,6 +1,7 @@
-from . import BaseClientParser
 from device_detector.enums import AppType
+
 from ...lazy_regex import RegexLazyIgnore
+from . import BaseClientParser
 
 ADOBE_CC = RegexLazyIgnore(r'\b(?P<name>[\w ]+)/(?P<version>[\.\d]+) com\.adobe\.[\w+\.-]+/')
 

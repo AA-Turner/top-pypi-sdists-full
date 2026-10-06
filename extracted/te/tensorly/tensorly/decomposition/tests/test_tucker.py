@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import tensorly as tl
 from .._tucker import (
+    initialize_tucker,
     tucker,
     partial_tucker,
     non_negative_tucker,
@@ -145,6 +146,47 @@ def test_tucker(monkeypatch):
     )
 
 
+def test_tucker_factors_only_init_recomputes_core():
+    rng = tl.check_random_state(1234)
+    rank = (2, 3, 2)
+    core, factors = random_tucker((4, 5, 6), rank=rank, random_state=rng)
+    tensor = tucker_to_tensor((core, factors))
+
+    initialized_core, initialized_factors = initialize_tucker(
+        tensor,
+        rank=rank,
+        modes=list(range(tl.ndim(tensor))),
+        random_state=rng,
+        init=[tl.copy(factor) for factor in factors],
+    )
+
+    expected_core = multi_mode_dot(
+        tensor, initialized_factors, modes=list(range(tl.ndim(tensor))), transpose=True
+    )
+
+    assert_array_equal(initialized_core, expected_core)
+    for factor, expected_factor in zip(initialized_factors, factors):
+        assert_array_equal(factor, expected_factor)
+
+
+def test_tucker_runs_with_factors_only_init():
+    rng = tl.check_random_state(1234)
+    rank = (2, 2, 2)
+    core, factors = random_tucker((3, 4, 5), rank=rank, random_state=rng)
+    tensor = tucker_to_tensor((core, factors))
+
+    decomposition = tucker(
+        tensor,
+        rank=rank,
+        init=[tl.copy(factor) for factor in factors],
+        n_iter_max=5,
+    )
+    reconstruction_error = tl.norm(tucker_to_tensor(decomposition) - tensor, 2)
+    reconstruction_error /= tl.norm(tensor, 2)
+
+    assert_(reconstruction_error < 1e-6)
+
+
 def test_masked_tucker():
     """Test for the masked Tucker decomposition.
     This checks that a mask of 1's is identical to the unmasked case.
@@ -189,7 +231,11 @@ def test_non_negative_tucker(init, hals, monkeypatch):
     else:
         nn_method = non_negative_tucker
 
-    nn_core, nn_factors = nn_method(tensor, rank=[3, 4, 3], init=init, n_iter_max=100)
+    # This outer tol may never trigger early stopping on backends with lower
+    # numerical precision (e.g. jax/tensorflow), letting this run to
+    # n_iter_max regardless. 40 already reaches well within tol_norm_2/
+    # tol_max_abs below for both the hals and multiplicative-update variants.
+    nn_core, nn_factors = nn_method(tensor, rank=[3, 4, 3], init=init, n_iter_max=40)
 
     # Make sure all components are positive
     for factor in nn_factors:
@@ -239,3 +285,43 @@ def test_non_negative_tucker(init, hals, monkeypatch):
             ignore_args={"return_errors"},
             rank=3,
         )
+
+
+@pytest.mark.skipif(
+    tl.get_backend() == "tensorflow",
+    reason="Active set is not supported with the tensorflow backend",
+)
+@pytest.mark.parametrize("init", ["svd", "random"])
+def test_non_negative_tucker_hals_active_set(init):
+    """Test non_negative_tucker_hals with algorithm="active_set" (issue #581)"""
+    tol_norm_2 = 10e-1
+    tol_max_abs = 10e-1
+    core, factors = random_tucker((3, 4, 3), rank=[3, 4, 3], non_negative=True)
+    tensor = tucker_to_tensor((core, factors))
+
+    nn_core, nn_factors = non_negative_tucker_hals(
+        tensor, rank=[3, 4, 3], init=init, n_iter_max=40, algorithm="active_set"
+    )
+
+    # Make sure all components are non-negative
+    for factor in nn_factors:
+        assert_(tl.all(factor >= 0))
+    assert_(tl.all(nn_core >= 0))
+
+    nn_reconstructed_tensor = tucker_to_tensor((nn_core, nn_factors))
+    error = tl.norm(tensor - nn_reconstructed_tensor, 2)
+    error /= tl.norm(tensor, 2)
+    assert_(error < tol_norm_2, "norm 2 of reconstruction error higher than tol")
+    assert_(
+        tl.norm(tensor - nn_reconstructed_tensor, "inf") < tol_max_abs,
+        "abs norm of reconstruction error higher than tol",
+    )
+
+    # A single rank is used for all modes
+    rank = 3
+    core, factors = non_negative_tucker_hals(
+        tensor, rank=rank, n_iter_max=2, algorithm="active_set"
+    )
+    assert_(tl.shape(core) == (rank,) * tl.ndim(tensor))
+    for i, f in enumerate(factors):
+        assert_(tl.shape(f) == (tl.shape(tensor)[i], rank))

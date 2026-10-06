@@ -7,6 +7,7 @@ from tmol.pose import (
     PackedBlockTypes,
     PoseStack,
 )
+from tmol.pose._conjugated_groups import lockstep_group_for_block
 from tmol.score.common import (
     TermWholePoseScoringModule,
     TermBlockPairScoringModule,
@@ -48,25 +49,33 @@ class EnergyTerm:
         """
         raise NotImplementedError()
 
+    def accepts_shared_rotamer_dispatch(self):
+        """Whether this term accepts a compatible rotamer-pair index list."""
+        return False
+
+    def rotamer_dispatch_key(self):
+        """Compatibility key for reusable rotamer-pair dispatch layouts."""
+        return None
+
+    def get_packing_rotamer_score_term_function(self):
+        """Return an optional bounded packing-score iterator."""
+        return None
+
     def setup_block_type(self, block_type: RefinedResidueType):
         """Make a one-time CPU annotation on a block type.
 
-        These annotations may require slow string comparisons; they should be
-        performed only once, so the EnergyTerm must check that its annotation
-        is not already present in the block type. Annotations should be in
-        numpy data structures (and stored on the CPU).
+        These annotations may require slow string comparisons. Store and
+        retrieve them through :mod:`tmol.score._annotation_cache`, keyed by
+        every immutable parameter source that affects their value. Annotations
+        should use NumPy data structures and remain on the CPU.
 
         If the annotation requires more than one array, use a Python class to
         store those arrays.
 
-        If the kind of annotation made depends on data that may change
-        between different instances of the same term, then the annotation
-        should be a map whose key is a function of the perhaps-changing
-        data. The term should calculate that key at its construction to
-        make retrieval efficient. (Any such data that sways how the
-        calculation is made should never change over the lifetime of the
-        instance; if new values for that data are needed a separate
-        instance should be created.)
+        Annotation keys use weak source identity, not content equality. Build
+        a new immutable database snapshot when parameters change. Compatibility
+        attributes published on the block type must be listed when storing so
+        a cache hit can restore them after another term overwrites them.
         """
         pass
 
@@ -78,8 +87,9 @@ class EnergyTerm:
         variable residue dimensions with a sentinel such as ``-1`` and cache
         all tensors on the packed block types' device. If setup depends on
         instance-specific parameters, key the cached annotation by those
-        immutable parameters so distinct term instances cannot reuse
-        incompatible data.
+        immutable source objects and the resolved device so distinct term
+        instances cannot reuse incompatible data. List every public packed
+        attribute when storing the snapshot so alternating terms restore it.
         """
         pass
 
@@ -99,7 +109,9 @@ class EnergyTerm:
 
         Subclasses may override this method to extract configuration values
         that affect scoring behavior, such as boolean flags, numeric
-        parameters, or other settings. The base implementation is a no-op.
+        parameters, or other settings. This dictionary replaces the previous
+        options; omitted keys must restore their defaults. The base
+        implementation is a no-op.
         """
         pass
 
@@ -111,6 +123,12 @@ class EnergyTerm:
 
     def get_rotamer_score_term_function(self):
         raise NotImplementedError()
+
+    def get_block_neighbor_cutoff(self):
+        """Maximum whole-pose block-neighbor reach, or ``None`` if unused."""
+        return None
+
+    score_only_in_no_grad = False
 
     def get_rotamer_score_term_attributes(
         self, pose_stack: PoseStack, rotamer_set: RotamerSet
@@ -147,12 +165,15 @@ class EnergyTerm:
                 pose_stack.device,
             )
         f = self.get_pose_score_term_function()
+        term_attributes = self.get_score_term_attributes(pose_stack)
 
         return TermWholePoseScoringModule(
             self.class_name(),
             pose_stack,
-            self.get_score_term_attributes(pose_stack),
+            term_attributes,
             f,
+            self.get_block_neighbor_cutoff(),
+            score_only_in_no_grad=self.score_only_in_no_grad,
         )
 
     def render_block_pair_scoring_module(
@@ -175,6 +196,7 @@ class EnergyTerm:
             pose_stack,
             self.get_score_term_attributes(pose_stack),
             f,
+            self.get_block_neighbor_cutoff(),
         )
 
     def render_rotamer_scoring_module(
@@ -190,4 +212,9 @@ class EnergyTerm:
             rotamer_set,
             self.get_rotamer_score_term_attributes(pose_stack, rotamer_set),
             f,
+            lockstep_group_for_block(pose_stack, rotamer_set),
+            self.get_block_neighbor_cutoff(),
+            self.accepts_shared_rotamer_dispatch(),
+            self.rotamer_dispatch_key(),
+            self.get_packing_rotamer_score_term_function(),
         )

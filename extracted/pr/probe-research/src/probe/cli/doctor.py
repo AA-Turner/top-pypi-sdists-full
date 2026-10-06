@@ -431,7 +431,7 @@ def _who_records_rows() -> list[str]:
             continue  # pi is not set up here: nothing records for it
         who = session_marker.recorder(harness.id)
         value = wizard.RECORDER_WORDS.get(who, who)
-        if profile is not None and profile != who:
+        if profile is not None and profile not in (who, pi_config.PROFILE_TRACKING_OFF):
             value += f" (but its Probe package is on the {profile} profile: switch Who records again)"
         if machine_daemon and who != daemon:
             value += " — can use the daemon now: `probe wizard` › Who records, Enter"
@@ -577,8 +577,28 @@ def _version_rows(caps: Capabilities) -> list[str]:
     return lines
 
 
-def render(caps: Capabilities) -> str:
-    """The full report. Pure, so it can be asserted in tests without a machine."""
+def codex_hook_rows(caps: Capabilities) -> list[str]:
+    """The "Codex hooks" section when Codex is installed (asks Codex, ~0.2s), else none.
+
+    Codex skips a hook it has not approved without a word, and a Probe update
+    that changes a hooks.json entry needs that approval again: the one failure
+    no other row can see, because nothing of Probe's runs to report it.
+    """
+    # Whenever Codex is installed, whichever agent this report is for: a plain
+    # terminal reports for Claude Code, and that is where someone checks.
+    if not caps.codex_available:
+        return []
+    from probe.cli import codex_hooks
+
+    return codex_hooks.rows(codex_hooks.status(), _row)
+
+
+def render(caps: Capabilities, codex_hooks: list[str] | None = None) -> str:
+    """The full report. Pure, so it can be asserted in tests without a machine.
+
+    `codex_hooks` is `codex_hook_rows(caps)`, gathered by the caller because it
+    asks Codex; omitted, the section is left out.
+    """
     lines: list[str] = ["Probe Research doctor", ""]
 
     lines.append("Versions")
@@ -650,8 +670,15 @@ def render(caps: Capabilities) -> str:
             else "unknown"
         )
         lines.append(_row("MCP OAuth", mcp_status))
-    lines.append(_row("Status", _OK if caps.tracking_on else _OFF))
+    # The MCP answer every surface prints (Capabilities.mcp_state): "on" only
+    # when the credential this agent's MCP sends is there; a login it needs
+    # names the command, and the daemon profile says the daemon reads.
+    lines.append(_row("MCP", caps.mcp_status()))
     lines.append("")
+
+    if codex_hooks:
+        lines.extend(codex_hooks)
+        lines.append("")
 
     lines.append("Session capture")
     tap_name = TAP_PLUGIN_NAME
@@ -993,6 +1020,12 @@ def collect() -> Capabilities:
             "state, so capture can appear off in the menu yet still be on."
         )
 
+    from probe.cli.capabilities import check_mcp
+
+    # The per-agent MCP answer (Capabilities.mcp_state): Codex's reuses the
+    # `codex mcp list` read above instead of asking again.
+    mcp_kind, mcp_check = check_mcp(selected_agent, codex_auth=mcp_authenticated)
+
     from probe.cli import versions as versions_mod
 
     version_rows, manifest_age = _version_comparison()
@@ -1026,6 +1059,8 @@ def collect() -> Capabilities:
         capture_last_stop=_capture_last_stop(),
         mcp_authenticated=mcp_authenticated,
         mcp_token_held=_mcp_token_held(),
+        mcp_kind=mcp_kind,
+        mcp_check=mcp_check,
         agent_rules_installed=agent_rules.is_installed(),
         agent_rules_stale=(agent_rules.is_installed() and not agent_rules.is_current()),
         auto_update_enabled=settings_autoupdate.enabled,

@@ -17,6 +17,15 @@ config:
   # prod should pin an immutable `<version>` or `main-<sha>` tag.
   agent-chat-internal:server-image-tag: "main-607c26d"
   agent-chat-internal:playground-image-tag: "main-3d11889"
+  # Ordered list of local agent entries the playground renders (agui-sdk
+  # `AGUI_AGENTS`). `id` keeps the existing /chat/ops and /chat/cloud URLs
+  # and stored threads; `persona` is the server persona each entry posts to.
+  agent-chat-internal:playground-agents: '[{"id":"ops","persona":"ops"},{"id":"cloud","persona":"cloud"}]'
+  # Thin mtx Builder playground image from
+  # airbytehq/airbyte-transforms-poc; it calls the shared agui-server backend
+  # at /chat/api. `mtx-playground-preview-image` overrides the preview twin's
+  # image and defaults to this value.
+  agent-chat-internal:mtx-playground-image: ghcr.io/airbytehq/airbyte-mtx-agui-playground:dev-3eb5f54
   agent-chat-internal:mcp-url: https://mcp.internal.airbyte.ai/ops-mcp
   agent-chat-internal:agent-model: claude-sonnet-4-5
   agent-chat-internal:chat-enabled: "true"

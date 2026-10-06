@@ -52,17 +52,20 @@ from istari_digital_client.sdk._generated.v2.models.change_request_create_reques
 from istari_digital_client.sdk._generated.v2.models.change_request_diff_page import ChangeRequestDiffPage
 from istari_digital_client.sdk._generated.v2.models.change_request_diff_type import ChangeRequestDiffType
 from istari_digital_client.sdk._generated.v2.models.change_request_merge_request import ChangeRequestMergeRequest
+from istari_digital_client.sdk._generated.v2.models.change_request_response_model import ChangeRequestResponseModel
 from istari_digital_client.sdk._generated.v2.models.change_request_status import ChangeRequestStatus
 from istari_digital_client.sdk._generated.v2.models.change_request_summary import ChangeRequestSummary
 from istari_digital_client.sdk._generated.v2.models.change_request_update_request import ChangeRequestUpdateRequest
 from istari_digital_client.sdk._generated.v2.models.comment import Comment
 from istari_digital_client.sdk._generated.v2.models.compare_diff_page import CompareDiffPage
+from istari_digital_client.sdk._generated.v2.models.compare_live_diff_page import CompareLiveDiffPage
 from istari_digital_client.sdk._generated.v2.models.control_tag import ControlTag
 from istari_digital_client.sdk._generated.v2.models.control_tag_revision import ControlTagRevision
 from istari_digital_client.sdk._generated.v2.models.control_tagging_object_type import ControlTaggingObjectType
 from istari_digital_client.sdk._generated.v2.models.create_document_request import CreateDocumentRequest
 from istari_digital_client.sdk._generated.v2.models.create_upstream_remote_sync import CreateUpstreamRemoteSync
 from istari_digital_client.sdk._generated.v2.models.credential_update import CredentialUpdate
+from istari_digital_client.sdk._generated.v2.models.credential_validation import CredentialValidation
 from istari_digital_client.sdk._generated.v2.models.deprecation_reason import DeprecationReason
 from istari_digital_client.sdk._generated.v2.models.document import Document
 from istari_digital_client.sdk._generated.v2.models.file import File
@@ -79,6 +82,7 @@ from istari_digital_client.sdk._generated.v2.models.healthcheck_report import He
 from istari_digital_client.sdk._generated.v2.models.infosec_level import InfosecLevel
 from istari_digital_client.sdk._generated.v2.models.infosec_level_object_type import InfosecLevelObjectType
 from istari_digital_client.sdk._generated.v2.models.integration_catalog_entry import IntegrationCatalogEntry
+from istari_digital_client.sdk._generated.v2.models.integration_health_report import IntegrationHealthReport
 from istari_digital_client.sdk._generated.v2.models.job import Job
 from istari_digital_client.sdk._generated.v2.models.job_status_message import JobStatusMessage
 from istari_digital_client.sdk._generated.v2.models.job_status_name import JobStatusName
@@ -108,26 +112,27 @@ from istari_digital_client.sdk._generated.v2.models.new_job_assigned_agent impor
 from istari_digital_client.sdk._generated.v2.models.new_job_assigned_agent_pool import NewJobAssignedAgentPool
 from istari_digital_client.sdk._generated.v2.models.new_module_author import NewModuleAuthor
 from istari_digital_client.sdk._generated.v2.models.new_operating_system import NewOperatingSystem
+from istari_digital_client.sdk._generated.v2.models.new_service_connection import NewServiceConnection
 from istari_digital_client.sdk._generated.v2.models.new_snapshot import NewSnapshot
 from istari_digital_client.sdk._generated.v2.models.new_snapshot_tag import NewSnapshotTag
 from istari_digital_client.sdk._generated.v2.models.new_stored_credential import NewStoredCredential
 from istari_digital_client.sdk._generated.v2.models.new_system import NewSystem
 from istari_digital_client.sdk._generated.v2.models.new_system_configuration import NewSystemConfiguration
+from istari_digital_client.sdk._generated.v2.models.new_system_webhook import NewSystemWebhook
 from istari_digital_client.sdk._generated.v2.models.new_tool import NewTool
 from istari_digital_client.sdk._generated.v2.models.new_tool_version import NewToolVersion
 from istari_digital_client.sdk._generated.v2.models.os import OS
 from istari_digital_client.sdk._generated.v2.models.oidc_config_health_check_request import OidcConfigHealthCheckRequest
-from istari_digital_client.sdk._generated.v2.models.oidc_health_report import OidcHealthReport
 from istari_digital_client.sdk._generated.v2.models.operating_system import OperatingSystem
 from istari_digital_client.sdk._generated.v2.models.page_agent import PageAgent
 from istari_digital_client.sdk._generated.v2.models.page_agent_pool import PageAgentPool
 from istari_digital_client.sdk._generated.v2.models.page_agent_pool_agent_membership_with_agent import PageAgentPoolAgentMembershipWithAgent
 from istari_digital_client.sdk._generated.v2.models.page_agent_pool_user_membership_with_user import PageAgentPoolUserMembershipWithUser
 from istari_digital_client.sdk._generated.v2.models.page_agent_status import PageAgentStatus
-from istari_digital_client.sdk._generated.v2.models.page_annotated_union_open_change_request_response_merged_change_request_response_closed_change_request_response_field_info_annotation_none_type_required_true_discriminator_status import PageAnnotatedUnionOpenChangeRequestResponseMergedChangeRequestResponseClosedChangeRequestResponseFieldInfoAnnotationNoneTypeRequiredTrueDiscriminatorStatus
 from istari_digital_client.sdk._generated.v2.models.page_artifact import PageArtifact
 from istari_digital_client.sdk._generated.v2.models.page_auth_integration import PageAuthIntegration
 from istari_digital_client.sdk._generated.v2.models.page_change_request_event import PageChangeRequestEvent
+from istari_digital_client.sdk._generated.v2.models.page_change_request_response_model import PageChangeRequestResponseModel
 from istari_digital_client.sdk._generated.v2.models.page_comment import PageComment
 from istari_digital_client.sdk._generated.v2.models.page_configuration_revision_search_item import PageConfigurationRevisionSearchItem
 from istari_digital_client.sdk._generated.v2.models.page_document_list_item import PageDocumentListItem
@@ -149,8 +154,10 @@ from istari_digital_client.sdk._generated.v2.models.page_snapshot_tag import Pag
 from istari_digital_client.sdk._generated.v2.models.page_subsystem import PageSubsystem
 from istari_digital_client.sdk._generated.v2.models.page_system import PageSystem
 from istari_digital_client.sdk._generated.v2.models.page_system_configuration import PageSystemConfiguration
+from istari_digital_client.sdk._generated.v2.models.page_system_webhook import PageSystemWebhook
 from istari_digital_client.sdk._generated.v2.models.page_tool import PageTool
 from istari_digital_client.sdk._generated.v2.models.page_tool_version import PageToolVersion
+from istari_digital_client.sdk._generated.v2.models.page_tracked_container import PageTrackedContainer
 from istari_digital_client.sdk._generated.v2.models.page_tracked_file import PageTrackedFile
 from istari_digital_client.sdk._generated.v2.models.page_type_var_customized_resource_search_item import PageTypeVarCustomizedResourceSearchItem
 from istari_digital_client.sdk._generated.v2.models.page_upstream_remote import PageUpstreamRemote
@@ -164,11 +171,7 @@ from istari_digital_client.sdk._generated.v2.models.platform_infosec_settings im
 from istari_digital_client.sdk._generated.v2.models.rename_folder_prefix import RenameFolderPrefix
 from istari_digital_client.sdk._generated.v2.models.resource_control_tagging import ResourceControlTagging
 from istari_digital_client.sdk._generated.v2.models.resource_type import ResourceType
-from istari_digital_client.sdk._generated.v2.models.response_create_change_request import ResponseCreateChangeRequest
 from istari_digital_client.sdk._generated.v2.models.response_create_snapshot import ResponseCreateSnapshot
-from istari_digital_client.sdk._generated.v2.models.response_get_change_request import ResponseGetChangeRequest
-from istari_digital_client.sdk._generated.v2.models.response_merge_change_request import ResponseMergeChangeRequest
-from istari_digital_client.sdk._generated.v2.models.response_update_change_request import ResponseUpdateChangeRequest
 from istari_digital_client.sdk._generated.v2.models.restore import Restore
 from istari_digital_client.sdk._generated.v2.models.set_platform_infosec_settings import SetPlatformInfosecSettings
 from istari_digital_client.sdk._generated.v2.models.snapshot import Snapshot
@@ -179,6 +182,8 @@ from istari_digital_client.sdk._generated.v2.models.stored_credential_control_ta
 from istari_digital_client.sdk._generated.v2.models.system import System
 from istari_digital_client.sdk._generated.v2.models.system_baseline import SystemBaseline
 from istari_digital_client.sdk._generated.v2.models.system_configuration import SystemConfiguration
+from istari_digital_client.sdk._generated.v2.models.system_webhook import SystemWebhook
+from istari_digital_client.sdk._generated.v2.models.system_webhook_delivery import SystemWebhookDelivery
 from istari_digital_client.sdk._generated.v2.models.token_with_properties import TokenWithProperties
 from istari_digital_client.sdk._generated.v2.models.tool import Tool
 from istari_digital_client.sdk._generated.v2.models.tool_include import ToolInclude
@@ -188,6 +193,7 @@ from istari_digital_client.sdk._generated.v2.models.update_access_relationship_l
 from istari_digital_client.sdk._generated.v2.models.update_control_tag import UpdateControlTag
 from istari_digital_client.sdk._generated.v2.models.update_document_request import UpdateDocumentRequest
 from istari_digital_client.sdk._generated.v2.models.update_system import UpdateSystem
+from istari_digital_client.sdk._generated.v2.models.update_system_webhook import UpdateSystemWebhook
 from istari_digital_client.sdk._generated.v2.models.update_tag import UpdateTag
 from istari_digital_client.sdk._generated.v2.models.update_tool import UpdateTool
 from istari_digital_client.sdk._generated.v2.models.upstream_remote_compatibility_result import UpstreamRemoteCompatibilityResult
@@ -238,7 +244,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Artifact:
 
-        """
+        """(Deprecated)
         Upload artifact file
 
         :param model_id: ID of the parent resource (model or artifact) to attach the artifact to. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
@@ -251,6 +257,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models/{model_id}/artifacts is deprecated.", DeprecationWarning)
 
         _param = self.__create_artifact_serialize(
             model_id=model_id,
@@ -294,7 +301,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Artifact]:
 
-        """
+        """(Deprecated)
         Upload artifact file
 
         :param model_id: ID of the parent resource (model or artifact) to attach the artifact to. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
@@ -307,6 +314,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models/{model_id}/artifacts is deprecated.", DeprecationWarning)
 
         _param = self.__create_artifact_serialize(
             model_id=model_id,
@@ -350,7 +358,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Upload artifact file
 
         :param model_id: ID of the parent resource (model or artifact) to attach the artifact to. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
@@ -363,6 +371,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models/{model_id}/artifacts is deprecated.", DeprecationWarning)
 
         _param = self.__create_artifact_serialize(
             model_id=model_id,
@@ -1172,7 +1181,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Upload a file
 
         :param file_revision: (required)
@@ -1181,6 +1190,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/files is deprecated.", DeprecationWarning)
 
         _param = self.__create_file_serialize(
             file_revision=file_revision,
@@ -1220,7 +1230,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Upload a file
 
         :param file_revision: (required)
@@ -1229,6 +1239,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/files is deprecated.", DeprecationWarning)
 
         _param = self.__create_file_serialize(
             file_revision=file_revision,
@@ -1268,7 +1279,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Upload a file
 
         :param file_revision: (required)
@@ -1277,6 +1288,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/files is deprecated.", DeprecationWarning)
 
         _param = self.__create_file_serialize(
             file_revision=file_revision,
@@ -1607,7 +1619,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Model:
 
-        """
+        """(Deprecated)
         Upload model file
 
         :param file_revision: (required)
@@ -1618,6 +1630,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models is deprecated.", DeprecationWarning)
 
         _param = self.__create_model_serialize(
             file_revision=file_revision,
@@ -1659,7 +1672,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Model]:
 
-        """
+        """(Deprecated)
         Upload model file
 
         :param file_revision: (required)
@@ -1670,6 +1683,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models is deprecated.", DeprecationWarning)
 
         _param = self.__create_model_serialize(
             file_revision=file_revision,
@@ -1711,7 +1725,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Upload model file
 
         :param file_revision: (required)
@@ -1722,6 +1736,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models is deprecated.", DeprecationWarning)
 
         _param = self.__create_model_serialize(
             file_revision=file_revision,
@@ -1832,7 +1847,7 @@ class V2Api:
     @log_method
     def _create_model_job(
         self,
-        model_id: Annotated[StrictStr, Field(description="ID of the input resource (model or artifact) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
+        model_id: Annotated[StrictStr, Field(description="ID of the input resource (model, artifact, connected resource, or connected container) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         function_name: Annotated[StrictStr, Field(description="The function name for the job.")],
         new_job: NewJob,
         function_version: Annotated[Optional[StrictStr], Field(description="The version of the function.")] = None,
@@ -1842,6 +1857,7 @@ class V2Api:
         assigned_agent_id: Annotated[Optional[StrictStr], Field(description="The agent id for the agent assigned to execute the job.")] = None,
         assigned_agent_pool_id: Annotated[Optional[StrictStr], Field(description="The agent pool id for the agent pool assigned to execute the job.")] = None,
         agent_id: Annotated[Optional[StrictStr], Field(description="The agent id for the agent that created the job.")] = None,
+        module_name: Annotated[Optional[StrictStr], Field(description="The name of the module publishing the function. Supply this when the same function name is published by more than one module, which is otherwise ambiguous.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1852,7 +1868,7 @@ class V2Api:
         """
         Submit analysis job
 
-        :param model_id: ID of the input resource (model or artifact) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
+        :param model_id: ID of the input resource (model, artifact, connected resource, or connected container) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
         :type model_id: str
         :param function_name: The function name for the job. (required)
         :type function_name: str
@@ -1872,6 +1888,8 @@ class V2Api:
         :type assigned_agent_pool_id: str
         :param agent_id: The agent id for the agent that created the job.
         :type agent_id: str
+        :param module_name: The name of the module publishing the function. Supply this when the same function name is published by more than one module, which is otherwise ambiguous.
+        :type module_name: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -1888,6 +1906,7 @@ class V2Api:
             assigned_agent_id=assigned_agent_id,
             assigned_agent_pool_id=assigned_agent_pool_id,
             agent_id=agent_id,
+            module_name=module_name,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1916,7 +1935,7 @@ class V2Api:
     @validate_call
     def _create_model_job_with_http_info(
         self,
-        model_id: Annotated[StrictStr, Field(description="ID of the input resource (model or artifact) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
+        model_id: Annotated[StrictStr, Field(description="ID of the input resource (model, artifact, connected resource, or connected container) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         function_name: Annotated[StrictStr, Field(description="The function name for the job.")],
         new_job: NewJob,
         function_version: Annotated[Optional[StrictStr], Field(description="The version of the function.")] = None,
@@ -1926,6 +1945,7 @@ class V2Api:
         assigned_agent_id: Annotated[Optional[StrictStr], Field(description="The agent id for the agent assigned to execute the job.")] = None,
         assigned_agent_pool_id: Annotated[Optional[StrictStr], Field(description="The agent pool id for the agent pool assigned to execute the job.")] = None,
         agent_id: Annotated[Optional[StrictStr], Field(description="The agent id for the agent that created the job.")] = None,
+        module_name: Annotated[Optional[StrictStr], Field(description="The name of the module publishing the function. Supply this when the same function name is published by more than one module, which is otherwise ambiguous.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -1936,7 +1956,7 @@ class V2Api:
         """
         Submit analysis job
 
-        :param model_id: ID of the input resource (model or artifact) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
+        :param model_id: ID of the input resource (model, artifact, connected resource, or connected container) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
         :type model_id: str
         :param function_name: The function name for the job. (required)
         :type function_name: str
@@ -1956,6 +1976,8 @@ class V2Api:
         :type assigned_agent_pool_id: str
         :param agent_id: The agent id for the agent that created the job.
         :type agent_id: str
+        :param module_name: The name of the module publishing the function. Supply this when the same function name is published by more than one module, which is otherwise ambiguous.
+        :type module_name: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -1972,6 +1994,7 @@ class V2Api:
             assigned_agent_id=assigned_agent_id,
             assigned_agent_pool_id=assigned_agent_pool_id,
             agent_id=agent_id,
+            module_name=module_name,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2000,7 +2023,7 @@ class V2Api:
     @validate_call
     def _create_model_job_without_preload_content(
         self,
-        model_id: Annotated[StrictStr, Field(description="ID of the input resource (model or artifact) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
+        model_id: Annotated[StrictStr, Field(description="ID of the input resource (model, artifact, connected resource, or connected container) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         function_name: Annotated[StrictStr, Field(description="The function name for the job.")],
         new_job: NewJob,
         function_version: Annotated[Optional[StrictStr], Field(description="The version of the function.")] = None,
@@ -2010,6 +2033,7 @@ class V2Api:
         assigned_agent_id: Annotated[Optional[StrictStr], Field(description="The agent id for the agent assigned to execute the job.")] = None,
         assigned_agent_pool_id: Annotated[Optional[StrictStr], Field(description="The agent pool id for the agent pool assigned to execute the job.")] = None,
         agent_id: Annotated[Optional[StrictStr], Field(description="The agent id for the agent that created the job.")] = None,
+        module_name: Annotated[Optional[StrictStr], Field(description="The name of the module publishing the function. Supply this when the same function name is published by more than one module, which is otherwise ambiguous.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2020,7 +2044,7 @@ class V2Api:
         """
         Submit analysis job
 
-        :param model_id: ID of the input resource (model or artifact) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
+        :param model_id: ID of the input resource (model, artifact, connected resource, or connected container) to submit the job against. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
         :type model_id: str
         :param function_name: The function name for the job. (required)
         :type function_name: str
@@ -2040,6 +2064,8 @@ class V2Api:
         :type assigned_agent_pool_id: str
         :param agent_id: The agent id for the agent that created the job.
         :type agent_id: str
+        :param module_name: The name of the module publishing the function. Supply this when the same function name is published by more than one module, which is otherwise ambiguous.
+        :type module_name: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -2056,6 +2082,7 @@ class V2Api:
             assigned_agent_id=assigned_agent_id,
             assigned_agent_pool_id=assigned_agent_pool_id,
             agent_id=agent_id,
+            module_name=module_name,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -2088,6 +2115,7 @@ class V2Api:
         assigned_agent_id,
         assigned_agent_pool_id,
         agent_id,
+        module_name,
         _request_auth,
         _content_type,
         _headers,
@@ -2143,6 +2171,10 @@ class V2Api:
         if agent_id is not None:
 
             _query_params.append(('agent_id', agent_id))
+
+        if module_name is not None:
+
+            _query_params.append(('module_name', module_name))
 
         # process the header parameters
         # process the form parameters
@@ -2210,7 +2242,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Artifact:
 
-        """
+        """(Deprecated)
         Upload new artifact revision
 
         :param artifact_id: The id of the artifact to update. This is a required field. (required)
@@ -2223,6 +2255,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_artifact_serialize(
             artifact_id=artifact_id,
@@ -2266,7 +2299,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Artifact]:
 
-        """
+        """(Deprecated)
         Upload new artifact revision
 
         :param artifact_id: The id of the artifact to update. This is a required field. (required)
@@ -2279,6 +2312,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_artifact_serialize(
             artifact_id=artifact_id,
@@ -2322,7 +2356,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Upload new artifact revision
 
         :param artifact_id: The id of the artifact to update. This is a required field. (required)
@@ -2335,6 +2369,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_artifact_serialize(
             artifact_id=artifact_id,
@@ -2922,7 +2957,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Upload new file revision
 
         :param file_id: The id of the file to update. (required)
@@ -2933,6 +2968,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_file_serialize(
             file_id=file_id,
@@ -2974,7 +3010,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Upload new file revision
 
         :param file_id: The id of the file to update. (required)
@@ -2985,6 +3021,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_file_serialize(
             file_id=file_id,
@@ -3026,7 +3063,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Upload new file revision
 
         :param file_id: The id of the file to update. (required)
@@ -3037,6 +3074,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_file_serialize(
             file_id=file_id,
@@ -3154,7 +3192,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Update file metadata
 
         :param file_id: The id of the file to update. (required)
@@ -3165,6 +3203,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/files/{file_id}/properties is deprecated.", DeprecationWarning)
 
         _param = self.__update_file_properties_serialize(
             file_id=file_id,
@@ -3206,7 +3245,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Update file metadata
 
         :param file_id: The id of the file to update. (required)
@@ -3217,6 +3256,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/files/{file_id}/properties is deprecated.", DeprecationWarning)
 
         _param = self.__update_file_properties_serialize(
             file_id=file_id,
@@ -3258,7 +3298,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Update file metadata
 
         :param file_id: The id of the file to update. (required)
@@ -3269,6 +3309,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/files/{file_id}/properties is deprecated.", DeprecationWarning)
 
         _param = self.__update_file_properties_serialize(
             file_id=file_id,
@@ -3619,7 +3660,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Model:
 
-        """
+        """(Deprecated)
         Upload new model revision
 
         :param model_id: The id of the model to update. (required)
@@ -3632,6 +3673,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_model_serialize(
             model_id=model_id,
@@ -3675,7 +3717,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Model]:
 
-        """
+        """(Deprecated)
         Upload new model revision
 
         :param model_id: The id of the model to update. (required)
@@ -3688,6 +3730,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_model_serialize(
             model_id=model_id,
@@ -3731,7 +3774,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Upload new model revision
 
         :param model_id: The id of the model to update. (required)
@@ -3744,6 +3787,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("PUT /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self.__update_model_serialize(
             model_id=model_id,
@@ -4331,7 +4375,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Artifact:
 
-        """
+        """(Deprecated)
         Archive an artifact
 
         :param artifact_id: The id of the artifact to archive. This is a required field. (required)
@@ -4342,6 +4386,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_artifact_serialize(
             artifact_id=artifact_id,
@@ -4383,7 +4428,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Artifact]:
 
-        """
+        """(Deprecated)
         Archive an artifact
 
         :param artifact_id: The id of the artifact to archive. This is a required field. (required)
@@ -4394,6 +4439,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_artifact_serialize(
             artifact_id=artifact_id,
@@ -4435,7 +4481,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Archive an artifact
 
         :param artifact_id: The id of the artifact to archive. This is a required field. (required)
@@ -4446,6 +4492,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_artifact_serialize(
             artifact_id=artifact_id,
@@ -5463,7 +5510,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Archive a file
 
         :param file_id: The id of the file to archive. (required)
@@ -5474,6 +5521,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_file_serialize(
             file_id=file_id,
@@ -5515,7 +5563,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Archive a file
 
         :param file_id: The id of the file to archive. (required)
@@ -5526,6 +5574,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_file_serialize(
             file_id=file_id,
@@ -5567,7 +5616,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Archive a file
 
         :param file_id: The id of the file to archive. (required)
@@ -5578,6 +5627,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_file_serialize(
             file_id=file_id,
@@ -5695,7 +5745,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> FileRevision:
 
-        """
+        """(Deprecated)
         Archive a revision
 
         :param revision_id: The id of the file revision to archive. (required)
@@ -5706,6 +5756,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_file_revision_serialize(
             revision_id=revision_id,
@@ -5747,7 +5798,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[FileRevision]:
 
-        """
+        """(Deprecated)
         Archive a revision
 
         :param revision_id: The id of the file revision to archive. (required)
@@ -5758,6 +5809,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_file_revision_serialize(
             revision_id=revision_id,
@@ -5799,7 +5851,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Archive a revision
 
         :param revision_id: The id of the file revision to archive. (required)
@@ -5810,6 +5862,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_file_revision_serialize(
             revision_id=revision_id,
@@ -6159,7 +6212,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Model:
 
-        """
+        """(Deprecated)
         Archive a model
 
         :param model_id: The id of the model to archive. (required)
@@ -6170,6 +6223,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_model_serialize(
             model_id=model_id,
@@ -6211,7 +6265,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Model]:
 
-        """
+        """(Deprecated)
         Archive a model
 
         :param model_id: The id of the model to archive. (required)
@@ -6222,6 +6276,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_model_serialize(
             model_id=model_id,
@@ -6263,7 +6318,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Archive a model
 
         :param model_id: The id of the model to archive. (required)
@@ -6274,6 +6329,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("DELETE /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self._archive_model_serialize(
             model_id=model_id,
@@ -7739,7 +7795,7 @@ class V2Api:
         component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
         change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
         allow_head_refresh: Annotated[Optional[StrictBool], Field(description="Allow head refresh")] = None,
         x_head_pair_token: Annotated[Optional[StrictStr], Field(description="Head pair token")] = None,
@@ -7763,7 +7819,7 @@ class V2Api:
         :type change_types: List[ChangeRequestDiffType]
         :param search: Name filter
         :type search: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param limit: Page size
         :type limit: int
@@ -7819,7 +7875,7 @@ class V2Api:
         component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
         change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
         allow_head_refresh: Annotated[Optional[StrictBool], Field(description="Allow head refresh")] = None,
         x_head_pair_token: Annotated[Optional[StrictStr], Field(description="Head pair token")] = None,
@@ -7843,7 +7899,7 @@ class V2Api:
         :type change_types: List[ChangeRequestDiffType]
         :param search: Name filter
         :type search: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param limit: Page size
         :type limit: int
@@ -7899,7 +7955,7 @@ class V2Api:
         component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
         change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
         allow_head_refresh: Annotated[Optional[StrictBool], Field(description="Allow head refresh")] = None,
         x_head_pair_token: Annotated[Optional[StrictStr], Field(description="Head pair token")] = None,
@@ -7923,7 +7979,7 @@ class V2Api:
         :type change_types: List[ChangeRequestDiffType]
         :param search: Name filter
         :type search: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param limit: Page size
         :type limit: int
@@ -8077,7 +8133,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> OidcHealthReport:
+    ) -> IntegrationHealthReport:
 
         """
         Health-check a candidate auth integration configuration
@@ -8098,7 +8154,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "OidcHealthReport",
+            '200': "IntegrationHealthReport",
             '422': "HTTPValidationError",
         }
 
@@ -8125,7 +8181,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[OidcHealthReport]:
+    ) -> ApiResponse[IntegrationHealthReport]:
 
         """
         Health-check a candidate auth integration configuration
@@ -8146,7 +8202,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "OidcHealthReport",
+            '200': "IntegrationHealthReport",
             '422': "HTTPValidationError",
         }
 
@@ -8194,7 +8250,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "OidcHealthReport",
+            '200': "IntegrationHealthReport",
             '422': "HTTPValidationError",
         }
 
@@ -8294,7 +8350,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> OidcHealthReport:
+    ) -> IntegrationHealthReport:
 
         """
         Health-check an auth integration
@@ -8315,7 +8371,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "OidcHealthReport",
+            '200': "IntegrationHealthReport",
             '422': "HTTPValidationError",
         }
 
@@ -8342,7 +8398,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[OidcHealthReport]:
+    ) -> ApiResponse[IntegrationHealthReport]:
 
         """
         Health-check an auth integration
@@ -8363,7 +8419,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "OidcHealthReport",
+            '200': "IntegrationHealthReport",
             '422': "HTTPValidationError",
         }
 
@@ -8411,7 +8467,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "OidcHealthReport",
+            '200': "IntegrationHealthReport",
             '422': "HTTPValidationError",
         }
 
@@ -8684,7 +8740,7 @@ class V2Api:
         component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
         change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8708,7 +8764,7 @@ class V2Api:
         :type change_types: List[ChangeRequestDiffType]
         :param search: Name filter
         :type search: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param limit: Page size
         :type limit: int
@@ -8760,7 +8816,7 @@ class V2Api:
         component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
         change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8784,7 +8840,7 @@ class V2Api:
         :type change_types: List[ChangeRequestDiffType]
         :param search: Name filter
         :type search: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param limit: Page size
         :type limit: int
@@ -8836,7 +8892,7 @@ class V2Api:
         component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
         change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
         search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8860,7 +8916,7 @@ class V2Api:
         :type change_types: List[ChangeRequestDiffType]
         :param search: Name filter
         :type search: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param limit: Page size
         :type limit: int
@@ -9000,6 +9056,334 @@ class V2Api:
 
     @validate_call
     @log_method
+    def compare_tag_to_live(
+        self,
+        system_id: Annotated[StrictStr, Field(description="System id")],
+        target_tag_id: Annotated[StrictStr, Field(description="Branch (tag) id whose head snapshot is the diff base")],
+        component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
+        change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
+        x_live_diff_token: Annotated[Optional[StrictStr], Field(description="Live diff pin token from a prior page")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CompareLiveDiffPage:
+
+        """
+        Compare a branch head to the configuration's live tracked state
+
+        :param system_id: System id (required)
+        :type system_id: str
+        :param target_tag_id: Branch (tag) id whose head snapshot is the diff base (required)
+        :type target_tag_id: str
+        :param component_type: Comparison kind
+        :type component_type: ChangeRequestComponentType
+        :param change_types: Change types to include
+        :type change_types: List[ChangeRequestDiffType]
+        :param search: Name filter
+        :type search: str
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param limit: Page size
+        :type limit: int
+        :param x_live_diff_token: Live diff pin token from a prior page
+        :type x_live_diff_token: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._compare_tag_to_live_serialize(
+            system_id=system_id,
+            target_tag_id=target_tag_id,
+            component_type=component_type,
+            change_types=change_types,
+            search=search,
+            cursor=cursor,
+            limit=limit,
+            x_live_diff_token=x_live_diff_token,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CompareLiveDiffPage",
+            '409': "StaleLiveStateResponse",
+            '400': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def compare_tag_to_live_with_http_info(
+        self,
+        system_id: Annotated[StrictStr, Field(description="System id")],
+        target_tag_id: Annotated[StrictStr, Field(description="Branch (tag) id whose head snapshot is the diff base")],
+        component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
+        change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
+        x_live_diff_token: Annotated[Optional[StrictStr], Field(description="Live diff pin token from a prior page")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CompareLiveDiffPage]:
+
+        """
+        Compare a branch head to the configuration's live tracked state
+
+        :param system_id: System id (required)
+        :type system_id: str
+        :param target_tag_id: Branch (tag) id whose head snapshot is the diff base (required)
+        :type target_tag_id: str
+        :param component_type: Comparison kind
+        :type component_type: ChangeRequestComponentType
+        :param change_types: Change types to include
+        :type change_types: List[ChangeRequestDiffType]
+        :param search: Name filter
+        :type search: str
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param limit: Page size
+        :type limit: int
+        :param x_live_diff_token: Live diff pin token from a prior page
+        :type x_live_diff_token: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._compare_tag_to_live_serialize(
+            system_id=system_id,
+            target_tag_id=target_tag_id,
+            component_type=component_type,
+            change_types=change_types,
+            search=search,
+            cursor=cursor,
+            limit=limit,
+            x_live_diff_token=x_live_diff_token,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CompareLiveDiffPage",
+            '409': "StaleLiveStateResponse",
+            '400': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def compare_tag_to_live_without_preload_content(
+        self,
+        system_id: Annotated[StrictStr, Field(description="System id")],
+        target_tag_id: Annotated[StrictStr, Field(description="Branch (tag) id whose head snapshot is the diff base")],
+        component_type: Annotated[Optional[ChangeRequestComponentType], Field(description="Comparison kind")] = None,
+        change_types: Annotated[Optional[List[ChangeRequestDiffType]], Field(description="Change types to include")] = None,
+        search: Annotated[Optional[StrictStr], Field(description="Name filter")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        limit: Annotated[Optional[Annotated[int, Field(le=100, strict=True)]], Field(description="Page size")] = None,
+        x_live_diff_token: Annotated[Optional[StrictStr], Field(description="Live diff pin token from a prior page")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Compare a branch head to the configuration's live tracked state
+
+        :param system_id: System id (required)
+        :type system_id: str
+        :param target_tag_id: Branch (tag) id whose head snapshot is the diff base (required)
+        :type target_tag_id: str
+        :param component_type: Comparison kind
+        :type component_type: ChangeRequestComponentType
+        :param change_types: Change types to include
+        :type change_types: List[ChangeRequestDiffType]
+        :param search: Name filter
+        :type search: str
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param limit: Page size
+        :type limit: int
+        :param x_live_diff_token: Live diff pin token from a prior page
+        :type x_live_diff_token: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._compare_tag_to_live_serialize(
+            system_id=system_id,
+            target_tag_id=target_tag_id,
+            component_type=component_type,
+            change_types=change_types,
+            search=search,
+            cursor=cursor,
+            limit=limit,
+            x_live_diff_token=x_live_diff_token,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CompareLiveDiffPage",
+            '409': "StaleLiveStateResponse",
+            '400': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _compare_tag_to_live_serialize(
+        self,
+        system_id,
+        target_tag_id,
+        component_type,
+        change_types,
+        search,
+        cursor,
+        limit,
+        x_live_diff_token,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'change_types': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        # process the query parameters
+        if target_tag_id is not None:
+
+            _query_params.append(('target_tag_id', target_tag_id))
+
+        if component_type is not None:
+
+            _query_params.append(('component_type', component_type.value))
+
+        if change_types is not None:
+
+            _query_params.append(('change_types', change_types))
+
+        if search is not None:
+
+            _query_params.append(('search', search))
+
+        if cursor is not None:
+
+            _query_params.append(('cursor', cursor))
+
+        if limit is not None:
+
+            _query_params.append(('limit', limit))
+
+        # process the header parameters
+        if x_live_diff_token is not None:
+            _header_params['X-Live-Diff-Token'] = x_live_diff_token
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2/systems/{system_id}/compare-live',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def copy_revision_to_existing_file(
         self,
         revision_id: Annotated[StrictStr, Field(description="The id of the revision to copy")],
@@ -9011,7 +9395,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Copy revision to existing file
 
         :param revision_id: The id of the revision to copy (required)
@@ -9022,6 +9406,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/copy/file/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._copy_revision_to_existing_file_serialize(
             revision_id=revision_id,
@@ -9063,7 +9448,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Copy revision to existing file
 
         :param revision_id: The id of the revision to copy (required)
@@ -9074,6 +9459,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/copy/file/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._copy_revision_to_existing_file_serialize(
             revision_id=revision_id,
@@ -9115,7 +9501,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Copy revision to existing file
 
         :param revision_id: The id of the revision to copy (required)
@@ -9126,6 +9512,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/copy/file/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._copy_revision_to_existing_file_serialize(
             revision_id=revision_id,
@@ -9229,7 +9616,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Copy revision to new file
 
         :param revision_id: The id of the revision to copy (required)
@@ -9238,6 +9625,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/copy/file is deprecated.", DeprecationWarning)
 
         _param = self._copy_revision_to_new_file_serialize(
             revision_id=revision_id,
@@ -9277,7 +9665,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Copy revision to new file
 
         :param revision_id: The id of the revision to copy (required)
@@ -9286,6 +9674,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/copy/file is deprecated.", DeprecationWarning)
 
         _param = self._copy_revision_to_new_file_serialize(
             revision_id=revision_id,
@@ -9325,7 +9714,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Copy revision to new file
 
         :param revision_id: The id of the revision to copy (required)
@@ -9334,6 +9723,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/copy/file is deprecated.", DeprecationWarning)
 
         _param = self._copy_revision_to_new_file_serialize(
             revision_id=revision_id,
@@ -9916,7 +10306,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PersonalAccessToken:
 
-        """
+        """(Deprecated)
         Create agent access token
 
         :param name: The name of the personal access token. (required)
@@ -9925,6 +10315,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/pat/agent is deprecated.", DeprecationWarning)
 
         _param = self._create_agent_personal_access_token_serialize(
             name=name,
@@ -9964,7 +10355,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PersonalAccessToken]:
 
-        """
+        """(Deprecated)
         Create agent access token
 
         :param name: The name of the personal access token. (required)
@@ -9973,6 +10364,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/pat/agent is deprecated.", DeprecationWarning)
 
         _param = self._create_agent_personal_access_token_serialize(
             name=name,
@@ -10012,7 +10404,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Create agent access token
 
         :param name: The name of the personal access token. (required)
@@ -10021,6 +10413,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/pat/agent is deprecated.", DeprecationWarning)
 
         _param = self._create_agent_personal_access_token_serialize(
             name=name,
@@ -10772,7 +11165,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ResponseCreateChangeRequest:
+    ) -> ChangeRequestResponseModel:
 
         """
         Create a change request for a system
@@ -10796,7 +11189,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseCreateChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -10824,7 +11217,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[ResponseCreateChangeRequest]:
+    ) -> ApiResponse[ChangeRequestResponseModel]:
 
         """
         Create a change request for a system
@@ -10848,7 +11241,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseCreateChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -10900,7 +11293,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseCreateChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -12322,7 +12715,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PersonalAccessToken:
 
-        """
+        """(Deprecated)
         Create personal access token
 
         :param name: The name of the personal access token. (required)
@@ -12331,6 +12724,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/pat is deprecated.", DeprecationWarning)
 
         _param = self._create_personal_access_token_serialize(
             name=name,
@@ -12370,7 +12764,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PersonalAccessToken]:
 
-        """
+        """(Deprecated)
         Create personal access token
 
         :param name: The name of the personal access token. (required)
@@ -12379,6 +12773,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/pat is deprecated.", DeprecationWarning)
 
         _param = self._create_personal_access_token_serialize(
             name=name,
@@ -12418,7 +12813,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Create personal access token
 
         :param name: The name of the personal access token. (required)
@@ -12427,6 +12822,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/pat is deprecated.", DeprecationWarning)
 
         _param = self._create_personal_access_token_serialize(
             name=name,
@@ -12501,6 +12897,223 @@ class V2Api:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/api/v2/pat',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def create_service_connection(
+        self,
+        new_service_connection: NewServiceConnection,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> StoredCredential:
+
+        """
+        Create a service connection without linking
+
+        :param new_service_connection: (required)
+        :type new_service_connection: NewServiceConnection
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_service_connection_serialize(
+            new_service_connection=new_service_connection,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '201': "StoredCredential",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def create_service_connection_with_http_info(
+        self,
+        new_service_connection: NewServiceConnection,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[StoredCredential]:
+
+        """
+        Create a service connection without linking
+
+        :param new_service_connection: (required)
+        :type new_service_connection: NewServiceConnection
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_service_connection_serialize(
+            new_service_connection=new_service_connection,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '201': "StoredCredential",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def create_service_connection_without_preload_content(
+        self,
+        new_service_connection: NewServiceConnection,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Create a service connection without linking
+
+        :param new_service_connection: (required)
+        :type new_service_connection: NewServiceConnection
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_service_connection_serialize(
+            new_service_connection=new_service_connection,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '201': "StoredCredential",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _create_service_connection_serialize(
+        self,
+        new_service_connection,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if new_service_connection is not None:
+            _body_params = new_service_connection
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v2/credentials/service_connection',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -13648,6 +14261,238 @@ class V2Api:
 
     @validate_call
     @log_method
+    def create_webhook_api_v2_systems_system_id_webhooks_post(
+        self,
+        system_id: StrictStr,
+        new_system_webhook: NewSystemWebhook,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> SystemWebhook:
+
+        """
+        Create a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param new_system_webhook: (required)
+        :type new_system_webhook: NewSystemWebhook
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_webhook_api_v2_systems_system_id_webhooks_post_serialize(
+            system_id=system_id,
+            new_system_webhook=new_system_webhook,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def create_webhook_api_v2_systems_system_id_webhooks_post_with_http_info(
+        self,
+        system_id: StrictStr,
+        new_system_webhook: NewSystemWebhook,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[SystemWebhook]:
+
+        """
+        Create a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param new_system_webhook: (required)
+        :type new_system_webhook: NewSystemWebhook
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_webhook_api_v2_systems_system_id_webhooks_post_serialize(
+            system_id=system_id,
+            new_system_webhook=new_system_webhook,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def create_webhook_api_v2_systems_system_id_webhooks_post_without_preload_content(
+        self,
+        system_id: StrictStr,
+        new_system_webhook: NewSystemWebhook,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Create a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param new_system_webhook: (required)
+        :type new_system_webhook: NewSystemWebhook
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_webhook_api_v2_systems_system_id_webhooks_post_serialize(
+            system_id=system_id,
+            new_system_webhook=new_system_webhook,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _create_webhook_api_v2_systems_system_id_webhooks_post_serialize(
+        self,
+        system_id,
+        new_system_webhook,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if new_system_webhook is not None:
+            _body_params = new_system_webhook
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v2/systems/{system_id}/webhooks',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def customer_usage_metrics(
         self,
         start: Annotated[date, Field(description="YYYY-MM-DD")],
@@ -14281,6 +15126,225 @@ class V2Api:
         return self.api_client.param_serialize(
             method='DELETE',
             resource_path='/api/v2/pat/{pat_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def delete_webhook_api_v2_systems_system_id_webhooks_webhook_id_delete(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Delete a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._delete_webhook_api_v2_systems_system_id_webhooks_webhook_id_delete_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def delete_webhook_api_v2_systems_system_id_webhooks_webhook_id_delete_with_http_info(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Delete a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._delete_webhook_api_v2_systems_system_id_webhooks_webhook_id_delete_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def delete_webhook_api_v2_systems_system_id_webhooks_webhook_id_delete_without_preload_content(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Delete a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._delete_webhook_api_v2_systems_system_id_webhooks_webhook_id_delete_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _delete_webhook_api_v2_systems_system_id_webhooks_webhook_id_delete_serialize(
+        self,
+        system_id,
+        webhook_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        if webhook_id is not None:
+            _path_params['webhook_id'] = webhook_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v2/systems/{system_id}/webhooks/{webhook_id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -15912,7 +16976,7 @@ class V2Api:
         self,
         agent_id: Annotated[StrictStr, Field(description="The identifier for the agent")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -15927,7 +16991,7 @@ class V2Api:
         :type agent_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -15968,7 +17032,7 @@ class V2Api:
         self,
         agent_id: Annotated[StrictStr, Field(description="The identifier for the agent")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -15983,7 +17047,7 @@ class V2Api:
         :type agent_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -16024,7 +17088,7 @@ class V2Api:
         self,
         agent_id: Annotated[StrictStr, Field(description="The identifier for the agent")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -16039,7 +17103,7 @@ class V2Api:
         :type agent_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -17158,7 +18222,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Artifact:
 
-        """
+        """(Deprecated)
         Get an artifact
 
         :param artifact_id: The id of the artifact to get. This is a required field. (required)
@@ -17167,6 +18231,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_artifact_serialize(
             artifact_id=artifact_id,
@@ -17207,7 +18272,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Artifact]:
 
-        """
+        """(Deprecated)
         Get an artifact
 
         :param artifact_id: The id of the artifact to get. This is a required field. (required)
@@ -17216,6 +18281,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_artifact_serialize(
             artifact_id=artifact_id,
@@ -17256,7 +18322,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Get an artifact
 
         :param artifact_id: The id of the artifact to get. This is a required field. (required)
@@ -17265,6 +18331,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_artifact_serialize(
             artifact_id=artifact_id,
@@ -18588,7 +19655,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ResponseGetChangeRequest:
+    ) -> ChangeRequestResponseModel:
 
         """
         Get a change request
@@ -18612,7 +19679,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseGetChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -18640,7 +19707,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[ResponseGetChangeRequest]:
+    ) -> ApiResponse[ChangeRequestResponseModel]:
 
         """
         Get a change request
@@ -18664,7 +19731,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseGetChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -18716,7 +19783,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseGetChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -20847,7 +21914,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Get a file
 
         :param file_id: The id of the file to get. (required)
@@ -20856,6 +21923,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_file_serialize(
             file_id=file_id,
@@ -20896,7 +21964,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Get a file
 
         :param file_id: The id of the file to get. (required)
@@ -20905,6 +21973,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_file_serialize(
             file_id=file_id,
@@ -20945,7 +22014,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Get a file
 
         :param file_id: The id of the file to get. (required)
@@ -20954,6 +22023,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_file_serialize(
             file_id=file_id,
@@ -21054,7 +22124,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Get file by revision ID
 
         :param revision_id: The revision id of the file to get. (required)
@@ -21063,6 +22133,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_file_by_revision_id_serialize(
             revision_id=revision_id,
@@ -21102,7 +22173,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Get file by revision ID
 
         :param revision_id: The revision id of the file to get. (required)
@@ -21111,6 +22182,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_file_by_revision_id_serialize(
             revision_id=revision_id,
@@ -21150,7 +22222,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Get file by revision ID
 
         :param revision_id: The revision id of the file to get. (required)
@@ -21159,6 +22231,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_file_by_revision_id_serialize(
             revision_id=revision_id,
@@ -22464,7 +23537,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Model:
 
-        """
+        """(Deprecated)
         Get a model
 
         :param model_id: The model ID to get. This is a required field. (required)
@@ -22473,6 +23546,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_model_serialize(
             model_id=model_id,
@@ -22513,7 +23587,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Model]:
 
-        """
+        """(Deprecated)
         Get a model
 
         :param model_id: The model ID to get. This is a required field. (required)
@@ -22522,6 +23596,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_model_serialize(
             model_id=model_id,
@@ -22562,7 +23637,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Get a model
 
         :param model_id: The model ID to get. This is a required field. (required)
@@ -22571,6 +23646,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_model_serialize(
             model_id=model_id,
@@ -24096,7 +25172,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> FileRevision:
 
-        """
+        """(Deprecated)
         Get a revision
 
         :param revision_id: The id of the revision to get (required)
@@ -24105,6 +25181,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_revision_serialize(
             revision_id=revision_id,
@@ -24144,7 +25221,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[FileRevision]:
 
-        """
+        """(Deprecated)
         Get a revision
 
         :param revision_id: The id of the revision to get (required)
@@ -24153,6 +25230,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_revision_serialize(
             revision_id=revision_id,
@@ -24192,7 +25270,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Get a revision
 
         :param revision_id: The id of the revision to get (required)
@@ -24201,6 +25279,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/revisions/{revision_id} is deprecated.", DeprecationWarning)
 
         _param = self._get_revision_serialize(
             revision_id=revision_id,
@@ -26534,6 +27613,225 @@ class V2Api:
 
     @validate_call
     @log_method
+    def get_webhook_api_v2_systems_system_id_webhooks_webhook_id_get(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> SystemWebhook:
+
+        """
+        Get a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_webhook_api_v2_systems_system_id_webhooks_webhook_id_get_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_webhook_api_v2_systems_system_id_webhooks_webhook_id_get_with_http_info(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[SystemWebhook]:
+
+        """
+        Get a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_webhook_api_v2_systems_system_id_webhooks_webhook_id_get_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_webhook_api_v2_systems_system_id_webhooks_webhook_id_get_without_preload_content(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_webhook_api_v2_systems_system_id_webhooks_webhook_id_get_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_webhook_api_v2_systems_system_id_webhooks_webhook_id_get_serialize(
+        self,
+        system_id,
+        webhook_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        if webhook_id is not None:
+            _path_params['webhook_id'] = webhook_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2/systems/{system_id}/webhooks/{webhook_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def link_credential(
         self,
         new_credential_link: NewCredentialLink,
@@ -26545,7 +27843,7 @@ class V2Api:
     ) -> StoredCredential:
 
         """
-        Complete an OIDC link
+        Complete a browser link
 
         :param new_credential_link: (required)
         :type new_credential_link: NewCredentialLink
@@ -26593,7 +27891,7 @@ class V2Api:
     ) -> ApiResponse[StoredCredential]:
 
         """
-        Complete an OIDC link
+        Complete a browser link
 
         :param new_credential_link: (required)
         :type new_credential_link: NewCredentialLink
@@ -26641,7 +27939,7 @@ class V2Api:
     ) -> RESTResponseType:
 
         """
-        Complete an OIDC link
+        Complete a browser link
 
         :param new_credential_link: (required)
         :type new_credential_link: NewCredentialLink
@@ -26974,7 +28272,7 @@ class V2Api:
         self,
         agent_pool_id: Annotated[StrictStr, Field(description="The id of the agent pool to list agents for")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -26990,7 +28288,7 @@ class V2Api:
         :type agent_pool_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27034,7 +28332,7 @@ class V2Api:
         self,
         agent_pool_id: Annotated[StrictStr, Field(description="The id of the agent pool to list agents for")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27050,7 +28348,7 @@ class V2Api:
         :type agent_pool_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27094,7 +28392,7 @@ class V2Api:
         self,
         agent_pool_id: Annotated[StrictStr, Field(description="The id of the agent pool to list agents for")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27110,7 +28408,7 @@ class V2Api:
         :type agent_pool_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27229,7 +28527,7 @@ class V2Api:
         self,
         agent_pool_id: Annotated[StrictStr, Field(description="The id of the agent pool to list users for")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27245,7 +28543,7 @@ class V2Api:
         :type agent_pool_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27289,7 +28587,7 @@ class V2Api:
         self,
         agent_pool_id: Annotated[StrictStr, Field(description="The id of the agent pool to list users for")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27305,7 +28603,7 @@ class V2Api:
         :type agent_pool_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27349,7 +28647,7 @@ class V2Api:
         self,
         agent_pool_id: Annotated[StrictStr, Field(description="The id of the agent pool to list users for")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27365,7 +28663,7 @@ class V2Api:
         :type agent_pool_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27484,7 +28782,7 @@ class V2Api:
         self,
         all_users: Annotated[Optional[StrictBool], Field(description="Show agent pools owned by all users (requires admin privileges)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -27501,7 +28799,7 @@ class V2Api:
         :type all_users: bool
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -27548,7 +28846,7 @@ class V2Api:
         self,
         all_users: Annotated[Optional[StrictBool], Field(description="Show agent pools owned by all users (requires admin privileges)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -27565,7 +28863,7 @@ class V2Api:
         :type all_users: bool
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -27612,7 +28910,7 @@ class V2Api:
         self,
         all_users: Annotated[Optional[StrictBool], Field(description="Show agent pools owned by all users (requires admin privileges)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -27629,7 +28927,7 @@ class V2Api:
         :type all_users: bool
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -27758,7 +29056,7 @@ class V2Api:
         self,
         agent_id: Annotated[StrictStr, Field(description="The ID of the agent to get.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27774,7 +29072,7 @@ class V2Api:
         :type agent_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27818,7 +29116,7 @@ class V2Api:
         self,
         agent_id: Annotated[StrictStr, Field(description="The ID of the agent to get.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27834,7 +29132,7 @@ class V2Api:
         :type agent_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -27878,7 +29176,7 @@ class V2Api:
         self,
         agent_id: Annotated[StrictStr, Field(description="The ID of the agent to get.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -27894,7 +29192,7 @@ class V2Api:
         :type agent_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -28022,7 +29320,7 @@ class V2Api:
         in_agent_pools: Annotated[Optional[StrictBool], Field(description="Filter results by (non-)membership in an active agent pool (customer admins only)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -28056,7 +29354,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -28118,7 +29416,7 @@ class V2Api:
         in_agent_pools: Annotated[Optional[StrictBool], Field(description="Filter results by (non-)membership in an active agent pool (customer admins only)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -28152,7 +29450,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -28214,7 +29512,7 @@ class V2Api:
         in_agent_pools: Annotated[Optional[StrictBool], Field(description="Filter results by (non-)membership in an active agent pool (customer admins only)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -28248,7 +29546,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -28639,7 +29937,7 @@ class V2Api:
         self,
         artifact_id: Annotated[StrictStr, Field(description="The id of the artifact to get comments for. This is a required field.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -28649,14 +29947,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageComment:
 
-        """
+        """(Deprecated)
         List artifact comments
 
         :param artifact_id: The id of the artifact to get comments for. This is a required field. (required)
         :type artifact_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -28666,6 +29964,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts/{artifact_id}/comments is deprecated.", DeprecationWarning)
 
         _param = self._list_artifact_comments_serialize(
             artifact_id=artifact_id,
@@ -28703,7 +30002,7 @@ class V2Api:
         self,
         artifact_id: Annotated[StrictStr, Field(description="The id of the artifact to get comments for. This is a required field.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -28713,14 +30012,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageComment]:
 
-        """
+        """(Deprecated)
         List artifact comments
 
         :param artifact_id: The id of the artifact to get comments for. This is a required field. (required)
         :type artifact_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -28730,6 +30029,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts/{artifact_id}/comments is deprecated.", DeprecationWarning)
 
         _param = self._list_artifact_comments_serialize(
             artifact_id=artifact_id,
@@ -28767,7 +30067,7 @@ class V2Api:
         self,
         artifact_id: Annotated[StrictStr, Field(description="The id of the artifact to get comments for. This is a required field.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -28777,14 +30077,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         List artifact comments
 
         :param artifact_id: The id of the artifact to get comments for. This is a required field. (required)
         :type artifact_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -28794,6 +30094,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts/{artifact_id}/comments is deprecated.", DeprecationWarning)
 
         _param = self._list_artifact_comments_serialize(
             artifact_id=artifact_id,
@@ -28910,7 +30211,7 @@ class V2Api:
     def list_artifacts(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter artifacts by created by user or shared with user. (created_by_id, -created_by_id)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -28921,12 +30222,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageArtifact:
 
-        """
+        """(Deprecated)
         List artifacts
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter artifacts by created by user or shared with user. (created_by_id, -created_by_id)
         :type filter_by: FilterBy
@@ -28938,6 +30239,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts is deprecated.", DeprecationWarning)
 
         _param = self._list_artifacts_serialize(
             page=page,
@@ -28974,7 +30276,7 @@ class V2Api:
     def list_artifacts_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter artifacts by created by user or shared with user. (created_by_id, -created_by_id)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -28985,12 +30287,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageArtifact]:
 
-        """
+        """(Deprecated)
         List artifacts
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter artifacts by created by user or shared with user. (created_by_id, -created_by_id)
         :type filter_by: FilterBy
@@ -29002,6 +30304,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts is deprecated.", DeprecationWarning)
 
         _param = self._list_artifacts_serialize(
             page=page,
@@ -29038,7 +30341,7 @@ class V2Api:
     def list_artifacts_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter artifacts by created by user or shared with user. (created_by_id, -created_by_id)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -29049,12 +30352,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         List artifacts
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter artifacts by created by user or shared with user. (created_by_id, -created_by_id)
         :type filter_by: FilterBy
@@ -29066,6 +30369,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/artifacts is deprecated.", DeprecationWarning)
 
         _param = self._list_artifacts_serialize(
             page=page,
@@ -29187,7 +30491,7 @@ class V2Api:
         auth_type: Optional[FunctionAuthType] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -29206,7 +30510,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -29251,7 +30555,7 @@ class V2Api:
         auth_type: Optional[FunctionAuthType] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -29270,7 +30574,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -29315,7 +30619,7 @@ class V2Api:
         auth_type: Optional[FunctionAuthType] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -29334,7 +30638,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -29458,7 +30762,7 @@ class V2Api:
     def list_authors(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -29472,7 +30776,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -29514,7 +30818,7 @@ class V2Api:
     def list_authors_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -29528,7 +30832,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -29570,7 +30874,7 @@ class V2Api:
     def list_authors_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -29584,7 +30888,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -29700,7 +31004,7 @@ class V2Api:
         system_id: Annotated[StrictStr, Field(description="System id")],
         change_request_id: Annotated[StrictStr, Field(description="Change request id")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -29717,7 +31021,7 @@ class V2Api:
         :type change_request_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -29760,7 +31064,7 @@ class V2Api:
         system_id: Annotated[StrictStr, Field(description="System id")],
         change_request_id: Annotated[StrictStr, Field(description="Change request id")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -29777,7 +31081,7 @@ class V2Api:
         :type change_request_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -29820,7 +31124,7 @@ class V2Api:
         system_id: Annotated[StrictStr, Field(description="System id")],
         change_request_id: Annotated[StrictStr, Field(description="Change request id")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -29837,7 +31141,7 @@ class V2Api:
         :type change_request_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -29956,13 +31260,13 @@ class V2Api:
         target_tag_id: Annotated[Optional[StrictStr], Field(description="Filter by target tag id")] = None,
         created_by_id: Annotated[Optional[StrictStr], Field(description="Filter by created_by_id")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> PageAnnotatedUnionOpenChangeRequestResponseMergedChangeRequestResponseClosedChangeRequestResponseFieldInfoAnnotationNoneTypeRequiredTrueDiscriminatorStatus:
+    ) -> PageChangeRequestResponseModel:
 
         """
         List change requests for a system
@@ -29979,7 +31283,7 @@ class V2Api:
         :type created_by_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -30001,7 +31305,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "PageAnnotatedUnionOpenChangeRequestResponseMergedChangeRequestResponseClosedChangeRequestResponseFieldInfoAnnotationNoneTypeRequiredTrueDiscriminatorStatus",
+            '200': "PageChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -30028,13 +31332,13 @@ class V2Api:
         target_tag_id: Annotated[Optional[StrictStr], Field(description="Filter by target tag id")] = None,
         created_by_id: Annotated[Optional[StrictStr], Field(description="Filter by created_by_id")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[PageAnnotatedUnionOpenChangeRequestResponseMergedChangeRequestResponseClosedChangeRequestResponseFieldInfoAnnotationNoneTypeRequiredTrueDiscriminatorStatus]:
+    ) -> ApiResponse[PageChangeRequestResponseModel]:
 
         """
         List change requests for a system
@@ -30051,7 +31355,7 @@ class V2Api:
         :type created_by_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -30073,7 +31377,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "PageAnnotatedUnionOpenChangeRequestResponseMergedChangeRequestResponseClosedChangeRequestResponseFieldInfoAnnotationNoneTypeRequiredTrueDiscriminatorStatus",
+            '200': "PageChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -30100,7 +31404,7 @@ class V2Api:
         target_tag_id: Annotated[Optional[StrictStr], Field(description="Filter by target tag id")] = None,
         created_by_id: Annotated[Optional[StrictStr], Field(description="Filter by created_by_id")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -30123,7 +31427,7 @@ class V2Api:
         :type created_by_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -30145,7 +31449,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "PageAnnotatedUnionOpenChangeRequestResponseMergedChangeRequestResponseClosedChangeRequestResponseFieldInfoAnnotationNoneTypeRequiredTrueDiscriminatorStatus",
+            '200': "PageChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -30258,7 +31562,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list documents for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -30275,7 +31579,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -30322,7 +31626,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list documents for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -30339,7 +31643,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -30386,7 +31690,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list documents for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -30403,7 +31707,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -30530,7 +31834,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list revisions for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -30546,7 +31850,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -30590,7 +31894,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list revisions for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -30606,7 +31910,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -30650,7 +31954,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list revisions for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -30666,7 +31970,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -30785,7 +32089,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list subsystems for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to subsystems whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -30802,7 +32106,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to subsystems whose name contains this value (case-insensitive).
         :type name: str
@@ -30849,7 +32153,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list subsystems for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to subsystems whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -30866,7 +32170,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to subsystems whose name contains this value (case-insensitive).
         :type name: str
@@ -30913,7 +32217,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list subsystems for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to subsystems whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -30930,7 +32234,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to subsystems whose name contains this value (case-insensitive).
         :type name: str
@@ -31448,7 +32752,7 @@ class V2Api:
     def list_documents(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by documents created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         configuration_id: Annotated[Optional[StrictStr], Field(description="Filter by configuration ID")] = None,
@@ -31467,7 +32771,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by documents created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -31524,7 +32828,7 @@ class V2Api:
     def list_documents_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by documents created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         configuration_id: Annotated[Optional[StrictStr], Field(description="Filter by configuration ID")] = None,
@@ -31543,7 +32847,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by documents created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -31600,7 +32904,7 @@ class V2Api:
     def list_documents_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by documents created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         configuration_id: Annotated[Optional[StrictStr], Field(description="Filter by configuration ID")] = None,
@@ -31619,7 +32923,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by documents created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -31773,7 +33077,7 @@ class V2Api:
     def list_files(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -31784,12 +33088,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageFile:
 
-        """
-        List files
+        """(Deprecated)
+        List files (deprecated)
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -31801,6 +33105,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files is deprecated.", DeprecationWarning)
 
         _param = self._list_files_serialize(
             page=page,
@@ -31837,7 +33142,7 @@ class V2Api:
     def list_files_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -31848,12 +33153,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageFile]:
 
-        """
-        List files
+        """(Deprecated)
+        List files (deprecated)
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -31865,6 +33170,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files is deprecated.", DeprecationWarning)
 
         _param = self._list_files_serialize(
             page=page,
@@ -31901,7 +33207,7 @@ class V2Api:
     def list_files_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -31912,12 +33218,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
-        List files
+        """(Deprecated)
+        List files (deprecated)
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -31929,6 +33235,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/files is deprecated.", DeprecationWarning)
 
         _param = self._list_files_serialize(
             page=page,
@@ -32259,7 +33566,7 @@ class V2Api:
         input_user_models: Annotated[Optional[UserModelInputs], Field(description="Filter functions by input user models (single, multiple)")] = None,
         status: Annotated[Optional[UsabilityStatusParams], Field(description="Filter functions by usability status (supported, deprecated, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -32289,7 +33596,7 @@ class V2Api:
         :type status: UsabilityStatusParams
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -32347,7 +33654,7 @@ class V2Api:
         input_user_models: Annotated[Optional[UserModelInputs], Field(description="Filter functions by input user models (single, multiple)")] = None,
         status: Annotated[Optional[UsabilityStatusParams], Field(description="Filter functions by usability status (supported, deprecated, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -32377,7 +33684,7 @@ class V2Api:
         :type status: UsabilityStatusParams
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -32435,7 +33742,7 @@ class V2Api:
         input_user_models: Annotated[Optional[UserModelInputs], Field(description="Filter functions by input user models (single, multiple)")] = None,
         status: Annotated[Optional[UsabilityStatusParams], Field(description="Filter functions by usability status (supported, deprecated, all)")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -32465,7 +33772,7 @@ class V2Api:
         :type status: UsabilityStatusParams
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -33025,7 +34332,7 @@ class V2Api:
         assigned_agent_pool_id: Annotated[Optional[StrictStr], Field(description="Show only jobs assigned to this agent pool (requires admin privileges or pool membership)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter jobs whose function name contains this value (case-insensitive).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter jobs by archive status")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -33050,7 +34357,7 @@ class V2Api:
         :type name: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter jobs by archive status
         :type archive_status: ArchiveStatus
@@ -33105,7 +34412,7 @@ class V2Api:
         assigned_agent_pool_id: Annotated[Optional[StrictStr], Field(description="Show only jobs assigned to this agent pool (requires admin privileges or pool membership)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter jobs whose function name contains this value (case-insensitive).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter jobs by archive status")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -33130,7 +34437,7 @@ class V2Api:
         :type name: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter jobs by archive status
         :type archive_status: ArchiveStatus
@@ -33185,7 +34492,7 @@ class V2Api:
         assigned_agent_pool_id: Annotated[Optional[StrictStr], Field(description="Show only jobs assigned to this agent pool (requires admin privileges or pool membership)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter jobs whose function name contains this value (case-insensitive).")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter jobs by archive status")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -33210,7 +34517,7 @@ class V2Api:
         :type name: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter jobs by archive status
         :type archive_status: ArchiveStatus
@@ -33570,7 +34877,7 @@ class V2Api:
         self,
         model_id: Annotated[StrictStr, Field(description="ID of the parent resource (model or artifact) to list artifacts for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter model artifacts by created by user or shared with user (created_by_id, -created_by_id)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -33581,14 +34888,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageArtifact:
 
-        """
+        """(Deprecated)
         List model artifacts
 
         :param model_id: ID of the parent resource (model or artifact) to list artifacts for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
         :type model_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter model artifacts by created by user or shared with user (created_by_id, -created_by_id)
         :type filter_by: FilterBy
@@ -33600,6 +34907,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/artifacts is deprecated.", DeprecationWarning)
 
         _param = self._list_model_artifacts_serialize(
             model_id=model_id,
@@ -33638,7 +34946,7 @@ class V2Api:
         self,
         model_id: Annotated[StrictStr, Field(description="ID of the parent resource (model or artifact) to list artifacts for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter model artifacts by created by user or shared with user (created_by_id, -created_by_id)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -33649,14 +34957,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageArtifact]:
 
-        """
+        """(Deprecated)
         List model artifacts
 
         :param model_id: ID of the parent resource (model or artifact) to list artifacts for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
         :type model_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter model artifacts by created by user or shared with user (created_by_id, -created_by_id)
         :type filter_by: FilterBy
@@ -33668,6 +34976,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/artifacts is deprecated.", DeprecationWarning)
 
         _param = self._list_model_artifacts_serialize(
             model_id=model_id,
@@ -33706,7 +35015,7 @@ class V2Api:
         self,
         model_id: Annotated[StrictStr, Field(description="ID of the parent resource (model or artifact) to list artifacts for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter model artifacts by created by user or shared with user (created_by_id, -created_by_id)")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -33717,14 +35026,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         List model artifacts
 
         :param model_id: ID of the parent resource (model or artifact) to list artifacts for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
         :type model_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter model artifacts by created by user or shared with user (created_by_id, -created_by_id)
         :type filter_by: FilterBy
@@ -33736,6 +35045,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/artifacts is deprecated.", DeprecationWarning)
 
         _param = self._list_model_artifacts_serialize(
             model_id=model_id,
@@ -33859,7 +35169,7 @@ class V2Api:
         self,
         model_id: Annotated[StrictStr, Field(description="The model ID to which the comment belongs.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -33869,14 +35179,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageComment:
 
-        """
+        """(Deprecated)
         List model comments
 
         :param model_id: The model ID to which the comment belongs. (required)
         :type model_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -33886,6 +35196,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/comments is deprecated.", DeprecationWarning)
 
         _param = self._list_model_comments_serialize(
             model_id=model_id,
@@ -33923,7 +35234,7 @@ class V2Api:
         self,
         model_id: Annotated[StrictStr, Field(description="The model ID to which the comment belongs.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -33933,14 +35244,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageComment]:
 
-        """
+        """(Deprecated)
         List model comments
 
         :param model_id: The model ID to which the comment belongs. (required)
         :type model_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -33950,6 +35261,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/comments is deprecated.", DeprecationWarning)
 
         _param = self._list_model_comments_serialize(
             model_id=model_id,
@@ -33987,7 +35299,7 @@ class V2Api:
         self,
         model_id: Annotated[StrictStr, Field(description="The model ID to which the comment belongs.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -33997,14 +35309,14 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         List model comments
 
         :param model_id: The model ID to which the comment belongs. (required)
         :type model_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -34014,6 +35326,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/comments is deprecated.", DeprecationWarning)
 
         _param = self._list_model_comments_serialize(
             model_id=model_id,
@@ -34132,7 +35445,7 @@ class V2Api:
         model_id: Annotated[StrictStr, Field(description="ID of the input resource (model or artifact) to list jobs for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         status_name: Annotated[Optional[JobStatusName], Field(description="Filter results by job status name")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -34142,7 +35455,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageJob:
 
-        """
+        """(Deprecated)
         List model jobs
 
         :param model_id: ID of the input resource (model or artifact) to list jobs for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
@@ -34151,7 +35464,7 @@ class V2Api:
         :type status_name: JobStatusName
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -34161,6 +35474,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/jobs is deprecated.", DeprecationWarning)
 
         _param = self._list_model_jobs_serialize(
             model_id=model_id,
@@ -34200,7 +35514,7 @@ class V2Api:
         model_id: Annotated[StrictStr, Field(description="ID of the input resource (model or artifact) to list jobs for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         status_name: Annotated[Optional[JobStatusName], Field(description="Filter results by job status name")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -34210,7 +35524,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageJob]:
 
-        """
+        """(Deprecated)
         List model jobs
 
         :param model_id: ID of the input resource (model or artifact) to list jobs for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
@@ -34219,7 +35533,7 @@ class V2Api:
         :type status_name: JobStatusName
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -34229,6 +35543,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/jobs is deprecated.", DeprecationWarning)
 
         _param = self._list_model_jobs_serialize(
             model_id=model_id,
@@ -34268,7 +35583,7 @@ class V2Api:
         model_id: Annotated[StrictStr, Field(description="ID of the input resource (model or artifact) to list jobs for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies.")],
         status_name: Annotated[Optional[JobStatusName], Field(description="Filter results by job status name")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -34278,7 +35593,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         List model jobs
 
         :param model_id: ID of the input resource (model or artifact) to list jobs for. The `model_id` name is deprecated; the distinction between models and artifacts no longer applies. (required)
@@ -34287,7 +35602,7 @@ class V2Api:
         :type status_name: JobStatusName
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -34297,6 +35612,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models/{model_id}/jobs is deprecated.", DeprecationWarning)
 
         _param = self._list_model_jobs_serialize(
             model_id=model_id,
@@ -34419,7 +35735,7 @@ class V2Api:
     def list_models(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -34430,12 +35746,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageModelListItem:
 
-        """
-        List models
+        """(Deprecated)
+        List models (deprecated)
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -34447,6 +35763,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models is deprecated.", DeprecationWarning)
 
         _param = self._list_models_serialize(
             page=page,
@@ -34483,7 +35800,7 @@ class V2Api:
     def list_models_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -34494,12 +35811,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageModelListItem]:
 
-        """
-        List models
+        """(Deprecated)
+        List models (deprecated)
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -34511,6 +35828,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models is deprecated.", DeprecationWarning)
 
         _param = self._list_models_serialize(
             page=page,
@@ -34547,7 +35865,7 @@ class V2Api:
     def list_models_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -34558,12 +35876,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
-        List models
+        """(Deprecated)
+        List models (deprecated)
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by models that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -34575,6 +35893,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/models is deprecated.", DeprecationWarning)
 
         _param = self._list_models_serialize(
             page=page,
@@ -34693,7 +36012,7 @@ class V2Api:
     def list_module_versions(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         version: Annotated[Optional[StrictStr], Field(description="Filter results to module versions whose version contains this value (case-insensitive).")] = None,
         status: Annotated[Optional[UsabilityStatusName], Field(description="Filter results to module versions with this usability status.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -34709,7 +36028,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param version: Filter results to module versions whose version contains this value (case-insensitive).
         :type version: str
@@ -34757,7 +36076,7 @@ class V2Api:
     def list_module_versions_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         version: Annotated[Optional[StrictStr], Field(description="Filter results to module versions whose version contains this value (case-insensitive).")] = None,
         status: Annotated[Optional[UsabilityStatusName], Field(description="Filter results to module versions with this usability status.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -34773,7 +36092,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param version: Filter results to module versions whose version contains this value (case-insensitive).
         :type version: str
@@ -34821,7 +36140,7 @@ class V2Api:
     def list_module_versions_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         version: Annotated[Optional[StrictStr], Field(description="Filter results to module versions whose version contains this value (case-insensitive).")] = None,
         status: Annotated[Optional[UsabilityStatusName], Field(description="Filter results to module versions with this usability status.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -34837,7 +36156,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param version: Filter results to module versions whose version contains this value (case-insensitive).
         :type version: str
@@ -34967,7 +36286,7 @@ class V2Api:
     def list_modules(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to modules whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -34982,7 +36301,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to modules whose name contains this value (case-insensitive).
         :type name: str
@@ -35027,7 +36346,7 @@ class V2Api:
     def list_modules_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to modules whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -35042,7 +36361,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to modules whose name contains this value (case-insensitive).
         :type name: str
@@ -35087,7 +36406,7 @@ class V2Api:
     def list_modules_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to modules whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -35102,7 +36421,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to modules whose name contains this value (case-insensitive).
         :type name: str
@@ -35224,7 +36543,7 @@ class V2Api:
     def list_operating_systems(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -35238,7 +36557,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -35280,7 +36599,7 @@ class V2Api:
     def list_operating_systems_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -35294,7 +36613,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -35336,7 +36655,7 @@ class V2Api:
     def list_operating_systems_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -35350,7 +36669,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -35464,7 +36783,7 @@ class V2Api:
     def list_personal_access_tokens(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -35478,7 +36797,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -35520,7 +36839,7 @@ class V2Api:
     def list_personal_access_tokens_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -35534,7 +36853,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -35576,7 +36895,7 @@ class V2Api:
     def list_personal_access_tokens_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -35590,7 +36909,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -35955,7 +37274,7 @@ class V2Api:
     def list_resources(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         id: Annotated[Optional[List[Optional[StrictStr]]], Field(description="A list of resource IDs to filter on")] = None,
         file_name: Annotated[Optional[List[Optional[StrictStr]]], Field(description="A list of file names to filter on (single value performs a like comparison)")] = None,
         type_name: Annotated[Optional[List[ResourceType]], Field(description="A list of resource types to filer on")] = None,
@@ -35980,12 +37299,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageResourceSearchItem:
 
-        """
+        """(Deprecated)
         List resources
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param id: A list of resource IDs to filter on
         :type id: List[Optional[str]]
@@ -36025,6 +37344,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/resources is deprecated.", DeprecationWarning)
 
         _param = self._list_resources_serialize(
             page=page,
@@ -36075,7 +37395,7 @@ class V2Api:
     def list_resources_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         id: Annotated[Optional[List[Optional[StrictStr]]], Field(description="A list of resource IDs to filter on")] = None,
         file_name: Annotated[Optional[List[Optional[StrictStr]]], Field(description="A list of file names to filter on (single value performs a like comparison)")] = None,
         type_name: Annotated[Optional[List[ResourceType]], Field(description="A list of resource types to filer on")] = None,
@@ -36100,12 +37420,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageResourceSearchItem]:
 
-        """
+        """(Deprecated)
         List resources
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param id: A list of resource IDs to filter on
         :type id: List[Optional[str]]
@@ -36145,6 +37465,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/resources is deprecated.", DeprecationWarning)
 
         _param = self._list_resources_serialize(
             page=page,
@@ -36195,7 +37516,7 @@ class V2Api:
     def list_resources_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         id: Annotated[Optional[List[Optional[StrictStr]]], Field(description="A list of resource IDs to filter on")] = None,
         file_name: Annotated[Optional[List[Optional[StrictStr]]], Field(description="A list of file names to filter on (single value performs a like comparison)")] = None,
         type_name: Annotated[Optional[List[ResourceType]], Field(description="A list of resource types to filer on")] = None,
@@ -36220,12 +37541,12 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         List resources
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param id: A list of resource IDs to filter on
         :type id: List[Optional[str]]
@@ -36265,6 +37586,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("GET /api/v2/resources is deprecated.", DeprecationWarning)
 
         _param = self._list_resources_serialize(
             page=page,
@@ -36483,7 +37805,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the snapshot to list items for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -36499,7 +37821,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -36543,7 +37865,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the snapshot to list items for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -36559,7 +37881,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -36603,7 +37925,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the snapshot to list items for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -36619,7 +37941,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -36738,7 +38060,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the system snapshot to list revisions for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[List[StrictStr]], Field(description="A list of file names to filter on (single value performs a like comparison)")] = None,
         extension: Annotated[Optional[List[StrictStr]], Field(description="A list of file extensions to filter on (single value performs a like comparison)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -36756,7 +38078,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: A list of file names to filter on (single value performs a like comparison)
         :type name: List[str]
@@ -36806,7 +38128,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the system snapshot to list revisions for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[List[StrictStr]], Field(description="A list of file names to filter on (single value performs a like comparison)")] = None,
         extension: Annotated[Optional[List[StrictStr]], Field(description="A list of file extensions to filter on (single value performs a like comparison)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -36824,7 +38146,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: A list of file names to filter on (single value performs a like comparison)
         :type name: List[str]
@@ -36874,7 +38196,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the system snapshot to list revisions for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[List[StrictStr]], Field(description="A list of file names to filter on (single value performs a like comparison)")] = None,
         extension: Annotated[Optional[List[StrictStr]], Field(description="A list of file extensions to filter on (single value performs a like comparison)")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -36892,7 +38214,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: A list of file names to filter on (single value performs a like comparison)
         :type name: List[str]
@@ -37029,7 +38351,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the snapshot to list subsystems for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -37044,7 +38366,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -37085,7 +38407,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the snapshot to list subsystems for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -37100,7 +38422,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -37141,7 +38463,7 @@ class V2Api:
         self,
         snapshot_id: Annotated[StrictStr, Field(description="The id of the snapshot to list subsystems for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -37156,7 +38478,7 @@ class V2Api:
         :type snapshot_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
@@ -37269,7 +38591,7 @@ class V2Api:
         configuration_id: Annotated[Optional[StrictStr], Field(description="The id of the configuration to filter snapshots by")] = None,
         tag: Annotated[Optional[StrictStr], Field(description="The tag to filter snapshots by")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -37289,7 +38611,7 @@ class V2Api:
         :type tag: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -37337,7 +38659,7 @@ class V2Api:
         configuration_id: Annotated[Optional[StrictStr], Field(description="The id of the configuration to filter snapshots by")] = None,
         tag: Annotated[Optional[StrictStr], Field(description="The tag to filter snapshots by")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -37357,7 +38679,7 @@ class V2Api:
         :type tag: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -37405,7 +38727,7 @@ class V2Api:
         configuration_id: Annotated[Optional[StrictStr], Field(description="The id of the configuration to filter snapshots by")] = None,
         tag: Annotated[Optional[StrictStr], Field(description="The tag to filter snapshots by")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -37425,7 +38747,7 @@ class V2Api:
         :type tag: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -37558,7 +38880,7 @@ class V2Api:
         self,
         system_id: Annotated[StrictStr, Field(description="The id of the system to list configurations for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to configurations whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -37576,7 +38898,7 @@ class V2Api:
         :type system_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -37626,7 +38948,7 @@ class V2Api:
         self,
         system_id: Annotated[StrictStr, Field(description="The id of the system to list configurations for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to configurations whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -37644,7 +38966,7 @@ class V2Api:
         :type system_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -37694,7 +39016,7 @@ class V2Api:
         self,
         system_id: Annotated[StrictStr, Field(description="The id of the system to list configurations for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to configurations whose name contains this value (case-insensitive).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -37712,7 +39034,7 @@ class V2Api:
         :type system_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param archive_status: Filter results by archive status (active, archived, all)
         :type archive_status: ArchiveStatus
@@ -37846,12 +39168,14 @@ class V2Api:
     def list_systems(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by systems that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to systems whose name contains this value (case-insensitive).")] = None,
         description: Annotated[Optional[StrictStr], Field(description="Filter results to systems whose description contains this value (case-insensitive).")] = None,
+        recently_viewed: Annotated[Optional[StrictBool], Field(description="If true, restrict results to systems the requesting user recently viewed, most recently viewed first (composes with the other filters).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -37864,7 +39188,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by systems that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -37874,8 +39198,12 @@ class V2Api:
         :type name: str
         :param description: Filter results to systems whose description contains this value (case-insensitive).
         :type description: str
+        :param recently_viewed: If true, restrict results to systems the requesting user recently viewed, most recently viewed first (composes with the other filters).
+        :type recently_viewed: bool
         :param sort:
         :type sort: str
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -37888,7 +39216,9 @@ class V2Api:
             archive_status=archive_status,
             name=name,
             description=description,
+            recently_viewed=recently_viewed,
             sort=sort,
+            include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -37918,12 +39248,14 @@ class V2Api:
     def list_systems_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by systems that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to systems whose name contains this value (case-insensitive).")] = None,
         description: Annotated[Optional[StrictStr], Field(description="Filter results to systems whose description contains this value (case-insensitive).")] = None,
+        recently_viewed: Annotated[Optional[StrictBool], Field(description="If true, restrict results to systems the requesting user recently viewed, most recently viewed first (composes with the other filters).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -37936,7 +39268,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by systems that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -37946,8 +39278,12 @@ class V2Api:
         :type name: str
         :param description: Filter results to systems whose description contains this value (case-insensitive).
         :type description: str
+        :param recently_viewed: If true, restrict results to systems the requesting user recently viewed, most recently viewed first (composes with the other filters).
+        :type recently_viewed: bool
         :param sort:
         :type sort: str
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -37960,7 +39296,9 @@ class V2Api:
             archive_status=archive_status,
             name=name,
             description=description,
+            recently_viewed=recently_viewed,
             sort=sort,
+            include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -37990,12 +39328,14 @@ class V2Api:
     def list_systems_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         filter_by: Annotated[Optional[FilterBy], Field(description="Filter results by systems that were created by the user (created_by_id) or shared with the user (-created_by_id).")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Filter results by archive status (active, archived, all)")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to systems whose name contains this value (case-insensitive).")] = None,
         description: Annotated[Optional[StrictStr], Field(description="Filter results to systems whose description contains this value (case-insensitive).")] = None,
+        recently_viewed: Annotated[Optional[StrictBool], Field(description="If true, restrict results to systems the requesting user recently viewed, most recently viewed first (composes with the other filters).")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -38008,7 +39348,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param filter_by: Filter results by systems that were created by the user (created_by_id) or shared with the user (-created_by_id).
         :type filter_by: FilterBy
@@ -38018,8 +39358,12 @@ class V2Api:
         :type name: str
         :param description: Filter results to systems whose description contains this value (case-insensitive).
         :type description: str
+        :param recently_viewed: If true, restrict results to systems the requesting user recently viewed, most recently viewed first (composes with the other filters).
+        :type recently_viewed: bool
         :param sort:
         :type sort: str
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -38032,7 +39376,9 @@ class V2Api:
             archive_status=archive_status,
             name=name,
             description=description,
+            recently_viewed=recently_viewed,
             sort=sort,
+            include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -38061,7 +39407,9 @@ class V2Api:
         archive_status,
         name,
         description,
+        recently_viewed,
         sort,
+        include_total,
         _request_auth,
         _content_type,
         _headers,
@@ -38108,9 +39456,17 @@ class V2Api:
 
             _query_params.append(('description', description))
 
+        if recently_viewed is not None:
+
+            _query_params.append(('recently_viewed', recently_viewed))
+
         if sort is not None:
 
             _query_params.append(('sort', sort))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
 
         # process the header parameters
         # process the form parameters
@@ -38158,7 +39514,7 @@ class V2Api:
         snapshot_id: Annotated[Optional[StrictStr], Field(description="The id of the snapshot to filter tags by")] = None,
         archive_status: Optional[ArchiveStatus] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -38180,7 +39536,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -38230,7 +39586,7 @@ class V2Api:
         snapshot_id: Annotated[Optional[StrictStr], Field(description="The id of the snapshot to filter tags by")] = None,
         archive_status: Optional[ArchiveStatus] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -38252,7 +39608,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -38302,7 +39658,7 @@ class V2Api:
         snapshot_id: Annotated[Optional[StrictStr], Field(description="The id of the snapshot to filter tags by")] = None,
         archive_status: Optional[ArchiveStatus] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -38324,7 +39680,7 @@ class V2Api:
         :type archive_status: ArchiveStatus
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -38462,7 +39818,7 @@ class V2Api:
     def list_tool_versions(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -38476,7 +39832,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -38518,7 +39874,7 @@ class V2Api:
     def list_tool_versions_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -38532,7 +39888,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -38574,7 +39930,7 @@ class V2Api:
     def list_tool_versions_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -38588,7 +39944,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -38702,7 +40058,7 @@ class V2Api:
     def list_tools(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include: Annotated[Optional[List[ToolInclude]], Field(description="Whether to include functions in response")] = None,
         include_deprecated: Annotated[Optional[StrictBool], Field(description="If true (default), return all tools including those with only deprecated modules. If false, only return tools that have at least one non-deprecated module.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -38718,7 +40074,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include: Whether to include functions in response
         :type include: List[ToolInclude]
@@ -38766,7 +40122,7 @@ class V2Api:
     def list_tools_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include: Annotated[Optional[List[ToolInclude]], Field(description="Whether to include functions in response")] = None,
         include_deprecated: Annotated[Optional[StrictBool], Field(description="If true (default), return all tools including those with only deprecated modules. If false, only return tools that have at least one non-deprecated module.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -38782,7 +40138,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include: Whether to include functions in response
         :type include: List[ToolInclude]
@@ -38830,7 +40186,7 @@ class V2Api:
     def list_tools_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include: Annotated[Optional[List[ToolInclude]], Field(description="Whether to include functions in response")] = None,
         include_deprecated: Annotated[Optional[StrictBool], Field(description="If true (default), return all tools including those with only deprecated modules. If false, only return tools that have at least one non-deprecated module.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
@@ -38846,7 +40202,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include: Whether to include functions in response
         :type include: List[ToolInclude]
@@ -38974,11 +40330,266 @@ class V2Api:
 
     @validate_call
     @log_method
+    def list_tracked_containers(
+        self,
+        configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list tracked containers for.")],
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        sort: Optional[Annotated[str, Field(strict=True)]] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> PageTrackedContainer:
+
+        """
+        List tracked containers
+
+        :param configuration_id: The id of the configuration to list tracked containers for. (required)
+        :type configuration_id: str
+        :param page: Page number
+        :type page: int
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param sort:
+        :type sort: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_tracked_containers_serialize(
+            configuration_id=configuration_id,
+            page=page,
+            size=size,
+            sort=sort,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PageTrackedContainer",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_tracked_containers_with_http_info(
+        self,
+        configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list tracked containers for.")],
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        sort: Optional[Annotated[str, Field(strict=True)]] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[PageTrackedContainer]:
+
+        """
+        List tracked containers
+
+        :param configuration_id: The id of the configuration to list tracked containers for. (required)
+        :type configuration_id: str
+        :param page: Page number
+        :type page: int
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param sort:
+        :type sort: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_tracked_containers_serialize(
+            configuration_id=configuration_id,
+            page=page,
+            size=size,
+            sort=sort,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PageTrackedContainer",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_tracked_containers_without_preload_content(
+        self,
+        configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list tracked containers for.")],
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        sort: Optional[Annotated[str, Field(strict=True)]] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List tracked containers
+
+        :param configuration_id: The id of the configuration to list tracked containers for. (required)
+        :type configuration_id: str
+        :param page: Page number
+        :type page: int
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param sort:
+        :type sort: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_tracked_containers_serialize(
+            configuration_id=configuration_id,
+            page=page,
+            size=size,
+            sort=sort,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PageTrackedContainer",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_tracked_containers_serialize(
+        self,
+        configuration_id,
+        page,
+        size,
+        sort,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if configuration_id is not None:
+            _path_params['configuration_id'] = configuration_id
+        # process the query parameters
+        if page is not None:
+
+            _query_params.append(('page', page))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        if sort is not None:
+
+            _query_params.append(('sort', sort))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2/systems/configurations/{configuration_id}/tracked-containers',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def list_tracked_files(
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list tracked files for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to tracked files whose name contains this value (case-insensitive).")] = None,
         path_prefix: Annotated[Optional[StrictStr], Field(description="Optional `system_id`-rooted folder path used to scope the listing to that folder. Example: `<system_id_hex>.engineering.aero`.")] = None,
         recursive: Annotated[Optional[StrictBool], Field(description="When ``path_prefix`` is supplied, ``recursive=true`` includes descendants of the prefix folder; ``recursive=false`` (default) returns only direct children.")] = None,
@@ -38997,7 +40608,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to tracked files whose name contains this value (case-insensitive).
         :type name: str
@@ -39050,7 +40661,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list tracked files for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to tracked files whose name contains this value (case-insensitive).")] = None,
         path_prefix: Annotated[Optional[StrictStr], Field(description="Optional `system_id`-rooted folder path used to scope the listing to that folder. Example: `<system_id_hex>.engineering.aero`.")] = None,
         recursive: Annotated[Optional[StrictBool], Field(description="When ``path_prefix`` is supplied, ``recursive=true`` includes descendants of the prefix folder; ``recursive=false`` (default) returns only direct children.")] = None,
@@ -39069,7 +40680,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to tracked files whose name contains this value (case-insensitive).
         :type name: str
@@ -39122,7 +40733,7 @@ class V2Api:
         self,
         configuration_id: Annotated[StrictStr, Field(description="The id of the configuration to list tracked files for.")],
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter results to tracked files whose name contains this value (case-insensitive).")] = None,
         path_prefix: Annotated[Optional[StrictStr], Field(description="Optional `system_id`-rooted folder path used to scope the listing to that folder. Example: `<system_id_hex>.engineering.aero`.")] = None,
         recursive: Annotated[Optional[StrictBool], Field(description="When ``path_prefix`` is supplied, ``recursive=true`` includes descendants of the prefix folder; ``recursive=false`` (default) returns only direct children.")] = None,
@@ -39141,7 +40752,7 @@ class V2Api:
         :type configuration_id: str
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param name: Filter results to tracked files whose name contains this value (case-insensitive).
         :type name: str
@@ -39283,7 +40894,7 @@ class V2Api:
     def list_upstream_remotes(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -39297,7 +40908,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -39339,7 +40950,7 @@ class V2Api:
     def list_upstream_remotes_with_http_info(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -39353,7 +40964,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -39395,7 +41006,7 @@ class V2Api:
     def list_upstream_remotes_without_preload_content(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         sort: Optional[Annotated[str, Field(strict=True)]] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -39409,7 +41020,7 @@ class V2Api:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param sort:
         :type sort: str
@@ -39743,6 +41354,463 @@ class V2Api:
 
     @validate_call
     @log_method
+    def list_webhook_deliveries_api_v2_systems_system_id_webhooks_webhook_id_deliveries_get(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[SystemWebhookDelivery]:
+
+        """
+        List webhook deliveries
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_webhook_deliveries_api_v2_systems_system_id_webhooks_webhook_id_deliveries_get_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[SystemWebhookDelivery]",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_webhook_deliveries_api_v2_systems_system_id_webhooks_webhook_id_deliveries_get_with_http_info(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[SystemWebhookDelivery]]:
+
+        """
+        List webhook deliveries
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_webhook_deliveries_api_v2_systems_system_id_webhooks_webhook_id_deliveries_get_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[SystemWebhookDelivery]",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_webhook_deliveries_api_v2_systems_system_id_webhooks_webhook_id_deliveries_get_without_preload_content(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List webhook deliveries
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_webhook_deliveries_api_v2_systems_system_id_webhooks_webhook_id_deliveries_get_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[SystemWebhookDelivery]",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_webhook_deliveries_api_v2_systems_system_id_webhooks_webhook_id_deliveries_get_serialize(
+        self,
+        system_id,
+        webhook_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        if webhook_id is not None:
+            _path_params['webhook_id'] = webhook_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2/systems/{system_id}/webhooks/{webhook_id}/deliveries',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def list_webhooks_api_v2_systems_system_id_webhooks_get(
+        self,
+        system_id: StrictStr,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> PageSystemWebhook:
+
+        """
+        List webhooks
+
+        :param system_id: (required)
+        :type system_id: str
+        :param page: Page number
+        :type page: int
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_webhooks_api_v2_systems_system_id_webhooks_get_serialize(
+            system_id=system_id,
+            page=page,
+            size=size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PageSystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_webhooks_api_v2_systems_system_id_webhooks_get_with_http_info(
+        self,
+        system_id: StrictStr,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[PageSystemWebhook]:
+
+        """
+        List webhooks
+
+        :param system_id: (required)
+        :type system_id: str
+        :param page: Page number
+        :type page: int
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_webhooks_api_v2_systems_system_id_webhooks_get_serialize(
+            system_id=system_id,
+            page=page,
+            size=size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PageSystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_webhooks_api_v2_systems_system_id_webhooks_get_without_preload_content(
+        self,
+        system_id: StrictStr,
+        page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List webhooks
+
+        :param system_id: (required)
+        :type system_id: str
+        :param page: Page number
+        :type page: int
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_webhooks_api_v2_systems_system_id_webhooks_get_serialize(
+            system_id=system_id,
+            page=page,
+            size=size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "PageSystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_webhooks_api_v2_systems_system_id_webhooks_get_serialize(
+        self,
+        system_id,
+        page,
+        size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        # process the query parameters
+        if page is not None:
+
+            _query_params.append(('page', page))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v2/systems/{system_id}/webhooks',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def liveness_check(
         self,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -39941,7 +42009,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ResponseMergeChangeRequest:
+    ) -> ChangeRequestResponseModel:
 
         """
         Merge change request
@@ -39974,7 +42042,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseMergeChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -40005,7 +42073,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[ResponseMergeChangeRequest]:
+    ) -> ApiResponse[ChangeRequestResponseModel]:
 
         """
         Merge change request
@@ -40038,7 +42106,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseMergeChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -40102,7 +42170,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseMergeChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -45250,7 +47318,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Artifact:
 
-        """
+        """(Deprecated)
         Restore an artifact
 
         :param artifact_id: The id of the artifact to restore. This is a required field. (required)
@@ -45261,6 +47329,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/artifacts/{artifact_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_artifact_serialize(
             artifact_id=artifact_id,
@@ -45302,7 +47371,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Artifact]:
 
-        """
+        """(Deprecated)
         Restore an artifact
 
         :param artifact_id: The id of the artifact to restore. This is a required field. (required)
@@ -45313,6 +47382,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/artifacts/{artifact_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_artifact_serialize(
             artifact_id=artifact_id,
@@ -45354,7 +47424,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Restore an artifact
 
         :param artifact_id: The id of the artifact to restore. This is a required field. (required)
@@ -45365,6 +47435,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/artifacts/{artifact_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_artifact_serialize(
             artifact_id=artifact_id,
@@ -45946,7 +48017,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Restore a file
 
         :param file_id: The id of the file to restore. (required)
@@ -45957,6 +48028,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/files/{file_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_file_serialize(
             file_id=file_id,
@@ -45998,7 +48070,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Restore a file
 
         :param file_id: The id of the file to restore. (required)
@@ -46009,6 +48081,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/files/{file_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_file_serialize(
             file_id=file_id,
@@ -46050,7 +48123,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Restore a file
 
         :param file_id: The id of the file to restore. (required)
@@ -46061,6 +48134,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/files/{file_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_file_serialize(
             file_id=file_id,
@@ -46178,7 +48252,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> FileRevision:
 
-        """
+        """(Deprecated)
         Restore a revision
 
         :param revision_id: The id of the file revision to restore. (required)
@@ -46189,6 +48263,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_file_revision_serialize(
             revision_id=revision_id,
@@ -46230,7 +48305,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[FileRevision]:
 
-        """
+        """(Deprecated)
         Restore a revision
 
         :param revision_id: The id of the file revision to restore. (required)
@@ -46241,6 +48316,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_file_revision_serialize(
             revision_id=revision_id,
@@ -46282,7 +48358,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Restore a revision
 
         :param revision_id: The id of the file revision to restore. (required)
@@ -46293,6 +48369,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_file_revision_serialize(
             revision_id=revision_id,
@@ -46642,7 +48719,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> Model:
 
-        """
+        """(Deprecated)
         Restore a model
 
         :param model_id: The id of the model to restore. (required)
@@ -46653,6 +48730,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models/{model_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_model_serialize(
             model_id=model_id,
@@ -46694,7 +48772,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[Model]:
 
-        """
+        """(Deprecated)
         Restore a model
 
         :param model_id: The id of the model to restore. (required)
@@ -46705,6 +48783,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models/{model_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_model_serialize(
             model_id=model_id,
@@ -46746,7 +48825,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Restore a model
 
         :param model_id: The id of the model to restore. (required)
@@ -46757,6 +48836,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/models/{model_id}:restore is deprecated.", DeprecationWarning)
 
         _param = self._restore_model_serialize(
             model_id=model_id,
@@ -47495,7 +49575,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> PageTypeVarCustomizedResourceSearchItem:
 
-        """
+        """(Deprecated)
         Search resources
 
         :param full_text_search: (required)
@@ -47504,6 +49584,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/resources/search is deprecated.", DeprecationWarning)
 
         _param = self._search_resources_serialize(
             full_text_search=full_text_search,
@@ -47543,7 +49624,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[PageTypeVarCustomizedResourceSearchItem]:
 
-        """
+        """(Deprecated)
         Search resources
 
         :param full_text_search: (required)
@@ -47552,6 +49633,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/resources/search is deprecated.", DeprecationWarning)
 
         _param = self._search_resources_serialize(
             full_text_search=full_text_search,
@@ -47591,7 +49673,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Search resources
 
         :param full_text_search: (required)
@@ -47600,6 +49682,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/resources/search is deprecated.", DeprecationWarning)
 
         _param = self._search_resources_serialize(
             full_text_search=full_text_search,
@@ -48147,7 +50230,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> FileRevision:
 
-        """
+        """(Deprecated)
         Transfer revision to existing artifact
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48158,6 +50241,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/artifact/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_existing_artifact_serialize(
             revision_id=revision_id,
@@ -48199,7 +50283,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[FileRevision]:
 
-        """
+        """(Deprecated)
         Transfer revision to existing artifact
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48210,6 +50294,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/artifact/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_existing_artifact_serialize(
             revision_id=revision_id,
@@ -48251,7 +50336,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Transfer revision to existing artifact
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48262,6 +50347,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/artifact/{artifact_id} is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_existing_artifact_serialize(
             revision_id=revision_id,
@@ -48366,7 +50452,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Transfer revision to existing file
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48377,6 +50463,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/file/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_existing_file_serialize(
             revision_id=revision_id,
@@ -48418,7 +50505,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Transfer revision to existing file
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48429,6 +50516,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/file/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_existing_file_serialize(
             revision_id=revision_id,
@@ -48470,7 +50558,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Transfer revision to existing file
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48481,6 +50569,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/file/{file_id} is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_existing_file_serialize(
             revision_id=revision_id,
@@ -48585,7 +50674,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> FileRevision:
 
-        """
+        """(Deprecated)
         Transfer revision to new artifact
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48596,6 +50685,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/model/{model_id}/artifact is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_new_artifact_serialize(
             revision_id=revision_id,
@@ -48637,7 +50727,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[FileRevision]:
 
-        """
+        """(Deprecated)
         Transfer revision to new artifact
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48648,6 +50738,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/model/{model_id}/artifact is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_new_artifact_serialize(
             revision_id=revision_id,
@@ -48689,7 +50780,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Transfer revision to new artifact
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48700,6 +50791,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/model/{model_id}/artifact is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_new_artifact_serialize(
             revision_id=revision_id,
@@ -48803,7 +50895,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> File:
 
-        """
+        """(Deprecated)
         Transfer revision to new file
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48812,6 +50904,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/file is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_new_file_serialize(
             revision_id=revision_id,
@@ -48851,7 +50944,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> ApiResponse[File]:
 
-        """
+        """(Deprecated)
         Transfer revision to new file
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48860,6 +50953,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/file is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_new_file_serialize(
             revision_id=revision_id,
@@ -48899,7 +50993,7 @@ class V2Api:
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
     ) -> RESTResponseType:
 
-        """
+        """(Deprecated)
         Transfer revision to new file
 
         :param revision_id: The id of the revision to transfer (required)
@@ -48908,6 +51002,7 @@ class V2Api:
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
+        warnings.warn("POST /api/v2/revisions/{revision_id}/transfer/file is deprecated.", DeprecationWarning)
 
         _param = self._transfer_revision_to_new_file_serialize(
             revision_id=revision_id,
@@ -51403,7 +53498,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ResponseUpdateChangeRequest:
+    ) -> ChangeRequestResponseModel:
 
         """
         Update a change request
@@ -51430,7 +53525,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseUpdateChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -51459,7 +53554,7 @@ class V2Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[ResponseUpdateChangeRequest]:
+    ) -> ApiResponse[ChangeRequestResponseModel]:
 
         """
         Update a change request
@@ -51486,7 +53581,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseUpdateChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -51542,7 +53637,7 @@ class V2Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ResponseUpdateChangeRequest",
+            '200': "ChangeRequestResponseModel",
             '422': "HTTPValidationError",
         }
 
@@ -53962,6 +56057,457 @@ class V2Api:
         return self.api_client.param_serialize(
             method='PUT',
             resource_path='/api/v2/tools/{tool_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def update_webhook_api_v2_systems_system_id_webhooks_webhook_id_patch(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        update_system_webhook: UpdateSystemWebhook,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> SystemWebhook:
+
+        """
+        Update a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param update_system_webhook: (required)
+        :type update_system_webhook: UpdateSystemWebhook
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_webhook_api_v2_systems_system_id_webhooks_webhook_id_patch_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            update_system_webhook=update_system_webhook,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_webhook_api_v2_systems_system_id_webhooks_webhook_id_patch_with_http_info(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        update_system_webhook: UpdateSystemWebhook,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[SystemWebhook]:
+
+        """
+        Update a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param update_system_webhook: (required)
+        :type update_system_webhook: UpdateSystemWebhook
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_webhook_api_v2_systems_system_id_webhooks_webhook_id_patch_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            update_system_webhook=update_system_webhook,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_webhook_api_v2_systems_system_id_webhooks_webhook_id_patch_without_preload_content(
+        self,
+        system_id: StrictStr,
+        webhook_id: StrictStr,
+        update_system_webhook: UpdateSystemWebhook,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update a webhook
+
+        :param system_id: (required)
+        :type system_id: str
+        :param webhook_id: (required)
+        :type webhook_id: str
+        :param update_system_webhook: (required)
+        :type update_system_webhook: UpdateSystemWebhook
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_webhook_api_v2_systems_system_id_webhooks_webhook_id_patch_serialize(
+            system_id=system_id,
+            webhook_id=webhook_id,
+            update_system_webhook=update_system_webhook,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SystemWebhook",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _update_webhook_api_v2_systems_system_id_webhooks_webhook_id_patch_serialize(
+        self,
+        system_id,
+        webhook_id,
+        update_system_webhook,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        if webhook_id is not None:
+            _path_params['webhook_id'] = webhook_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if update_system_webhook is not None:
+            _body_params = update_system_webhook
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PATCH',
+            resource_path='/api/v2/systems/{system_id}/webhooks/{webhook_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def validate_credential(
+        self,
+        credential_id: Annotated[StrictStr, Field(description="The credential to probe.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CredentialValidation:
+
+        """
+        Probe a stored credential's liveness
+
+        :param credential_id: The credential to probe. (required)
+        :type credential_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._validate_credential_serialize(
+            credential_id=credential_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CredentialValidation",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def validate_credential_with_http_info(
+        self,
+        credential_id: Annotated[StrictStr, Field(description="The credential to probe.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CredentialValidation]:
+
+        """
+        Probe a stored credential's liveness
+
+        :param credential_id: The credential to probe. (required)
+        :type credential_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._validate_credential_serialize(
+            credential_id=credential_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CredentialValidation",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def validate_credential_without_preload_content(
+        self,
+        credential_id: Annotated[StrictStr, Field(description="The credential to probe.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Probe a stored credential's liveness
+
+        :param credential_id: The credential to probe. (required)
+        :type credential_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._validate_credential_serialize(
+            credential_id=credential_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CredentialValidation",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _validate_credential_serialize(
+        self,
+        credential_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if credential_id is not None:
+            _path_params['credential_id'] = credential_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v2/credentials/{credential_id}:validate',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

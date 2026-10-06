@@ -6,6 +6,8 @@ follow-up cadence, engagement behavior, and timing preferences.
 
 from __future__ import annotations
 
+from ..services.campaign_naming import cut_at_word
+
 import json
 import logging
 
@@ -75,6 +77,7 @@ async def run_edit_campaign(
     followup_delay_days: str = "",
     weekly_meeting_target: int = -1,
     # Invite settings
+    invite_note: str = "",
     withdraw_stale_invites: str = "",
     stale_invite_days: int = 0,
     # InMail escalation settings
@@ -141,6 +144,9 @@ async def run_edit_campaign(
             keeps the current value.
         followup_delay_days: Custom day intervals as comma-separated list
             (e.g., "1,3,7,14"). Leave empty to keep current.
+        invite_note: Invitations carry a note: "on" (default) or "off". Off sends
+            the bare invitation; the first words are the DM a working day after
+            they accept.
         withdraw_stale_invites: Auto-withdraw stale invites: "on" or "off".
         stale_invite_days: Days before withdrawing stale invites (7-60). 0 to keep current.
         inmail_fallback: Escalate quiet invitations with one InMail: "on" or "off".
@@ -200,7 +206,9 @@ async def run_edit_campaign(
     has_followup_settings = max_followups > 0 or bool(followup_delay_days)
     # 0 is a real value (no goal this week), so the "unset" sentinel is -1.
     has_target = weekly_meeting_target >= 0
-    has_invite_settings = bool(withdraw_stale_invites) or stale_invite_days > 0
+    has_invite_settings = (
+        bool(invite_note) or bool(withdraw_stale_invites) or stale_invite_days > 0
+    )
     has_inmail_settings = (
         bool(inmail_fallback) or inmail_fallback_days > 0 or bool(inmail_first_touch)
     )
@@ -266,6 +274,7 @@ async def run_edit_campaign(
             "  followup_delay_days: e.g. \"1,3,7,14\"\n"
             "\n"
             "  Invites:\n"
+            "  invite_note: on or off\n"
             "  withdraw_stale_invites: on or off\n"
             "  stale_invite_days: 7-60\n"
             "\n"
@@ -299,6 +308,7 @@ async def run_edit_campaign(
         ("exclude_connections", exclude_connections),
         ("connections_only", connections_only),
         ("exclude_competitors", exclude_competitors),
+        ("invite_note", invite_note),
         ("withdraw_stale_invites", withdraw_stale_invites),
         ("inmail_fallback", inmail_fallback),
         ("inmail_first_touch", inmail_first_touch),
@@ -451,6 +461,7 @@ async def run_edit_campaign(
         "exclude_connections": "Exclude existing connections",
         "connections_only": "Connections only",
         "exclude_competitors": "Exclude competitor companies",
+        "invite_note": "Note on invitations",
         "withdraw_stale_invites": "Withdraw stale invites",
         "inmail_fallback": "InMail fallback",
         "inmail_first_touch": "InMail first touch",
@@ -468,6 +479,7 @@ async def run_edit_campaign(
         ("exclude_connections", exclude_connections),
         ("connections_only", connections_only),
         ("exclude_competitors", exclude_competitors),
+        ("invite_note", invite_note),
         ("withdraw_stale_invites", withdraw_stale_invites),
         ("inmail_fallback", inmail_fallback),
         ("inmail_first_touch", inmail_first_touch),
@@ -676,28 +688,28 @@ async def run_edit_campaign(
             existing_ctx["offerings"] = offerings
             ctx_changed = True
             source_changed = True
-            change_descriptions.append(f"Offerings: {offerings[:80]}{'...' if len(offerings) > 80 else ''}")
+            change_descriptions.append(f"Offerings: {cut_at_word(offerings, 80)}")
         if case_studies:
             existing_ctx["case_studies"] = case_studies
             ctx_changed = True
             source_changed = True
-            change_descriptions.append(f"Case studies: {case_studies[:80]}{'...' if len(case_studies) > 80 else ''}")
+            change_descriptions.append(f"Case studies: {cut_at_word(case_studies, 80)}")
         if social_proofs:
             existing_ctx["social_proofs"] = social_proofs
             ctx_changed = True
             source_changed = True
-            change_descriptions.append(f"Social proofs: {social_proofs[:80]}{'...' if len(social_proofs) > 80 else ''}")
+            change_descriptions.append(f"Social proofs: {cut_at_word(social_proofs, 80)}")
         if campaign_preferences:
             existing_ctx["campaign_preferences"] = campaign_preferences
             ctx_changed = True
             source_changed = True
-            change_descriptions.append(f"Preferences: {campaign_preferences[:80]}{'...' if len(campaign_preferences) > 80 else ''}")
+            change_descriptions.append(f"Preferences: {cut_at_word(campaign_preferences, 80)}")
         if project_brief:
             existing_ctx["project_brief"] = project_brief
             ctx_changed = True
             source_changed = True
             change_descriptions.append(
-                f"Project brief: {project_brief[:80]}{'...' if len(project_brief) > 80 else ''}"
+                f"Project brief: {cut_at_word(project_brief, 80)}"
             )
 
         # ── Offer card: re-distil on a source-field edit, overlay manual
@@ -750,7 +762,7 @@ async def run_edit_campaign(
             defects = offer_card_defects(card)
             if defects:
                 return "❌ Offer card not saved: " + "; ".join(defects)
-            change_descriptions.append("Offer card: " + card.outcome[:80])
+            change_descriptions.append("Offer card: " + cut_at_word(card.outcome, 80))
             existing_ctx["offer"] = card_to_dict(card)
             ctx_changed = True
 
@@ -865,6 +877,7 @@ async def run_edit_campaign(
         ("exclude_connections", exclude_connections),
         ("connections_only", connections_only),
         ("exclude_competitors", exclude_competitors),
+        ("invite_note", invite_note),
         ("withdraw_stale_invites", withdraw_stale_invites),
         ("inmail_fallback", inmail_fallback),
         ("inmail_first_touch", inmail_first_touch),

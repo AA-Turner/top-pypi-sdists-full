@@ -33,6 +33,29 @@ from .ops_log import run_traced
 _CHANGELOG = """\
 # HeyLead Changelog
 
+## v0.10.429 (2026-10-05)
+- Fix: client twin of #2171: the first DM after a note waits a day; rewrites see the thread
+
+## v0.10.428 (2026-10-05)
+- Fix: a search result LinkedIn does not name is never enrolled (D4umak/heylead-api#2164)
+
+## v0.10.427 (2026-10-05)
+- New: an investor ICP carries investor vocabulary (D4umak/heylead-api#2156)
+- Fix: a line that quotes a person's text ends on a whole word, part 1 (#2136)
+- Fix: a keyword that names a title is dropped through the shared title matcher
+- Fix: a title alone is not a fit — a row needs industry or keyword evidence to clear the floor (#2149)
+- Fix: a landed message is recognised whatever line breaks it got (#2142)
+- Fix: a line that quotes a person's text ends on a whole word (#2136)
+
+## v0.10.426 (2026-10-05)
+- Fix: a prospect nobody has written to cannot be closed as won, and close needs an outcome (#2122)
+- Fix: a contact's company stops where the headline's self-description begins (#2128)
+- Fix: a hosted account never sends, plans, spawns or alerts from the laptop (#2120)
+- Fix: a late or skipped run is flagged by the gap between runs (#2108)
+- Fix: a failed engine or a missing week is said out loud (#2108)
+- Fix: keep the guard's phrase out of the helper's comment
+- Fix: strip the withdrawn AI sentence from past sent text before any prompt (heylead-api#1766)
+
 ## v0.10.425 (2026-09-30)
 - Fix: a key or token left in the fallback secrets file is found when the keychain is in use, and moved into the keychain (#2061)
 
@@ -923,7 +946,7 @@ _CHANGELOG = """\
 - Fix: treat accepted_at as DM-eligible and stop logging expected gates as outages
 
 ## v0.10.297 (2026-08-27)
-- Change: hosted sending defaults to the cloud for every existing and new campaign. This machine no longer takes over when the host is quiet, and no longer covers first-touch InMail or opening DMs. Move the whole account here with `scheduler(action='send_from', host='local')`. Launch no longer enables the local sender.
+- Change: hosted sending defaults to the cloud for every existing and new campaign. This machine no longer takes over when the host is quiet, and no longer covers first-touch InMail or opening DMs. (The local opt-in that followed was removed on 5 Oct 2026: a hosted account never sends from this machine.) Launch no longer enables the local sender.
 
 ## v0.10.296 (2026-08-26)
 - Fix: reschedule deferred jobs and use IANA business hours
@@ -1412,7 +1435,7 @@ _CHANGELOG = """\
 - Engagement mode: auto (30/70 react/comment), comment_only, or react_only
 - Follow-up customization: max_followups (1-5), followup_delay_days (custom schedule)
 - Send timing: send_in_business_hours (on/off), active_days (choose which days to send)
-- Stale invite settings: withdraw_stale_invites (on/off), stale_invite_days (7-60)
+- Invite settings: invite_note (on/off: invitations carry a note, default on), withdraw_stale_invites (on/off), stale_invite_days (7-60)
 - show_status now displays non-default campaign settings
 - All settings stored in config_json with backwards-compatible defaults
 
@@ -2917,6 +2940,7 @@ async def edit_campaign(
     max_followups: int = 0,
     weekly_meeting_target: int = -1,
     followup_delay_days: str = "",
+    invite_note: str = "",
     withdraw_stale_invites: str = "",
     stale_invite_days: int = 0,
     inmail_fallback: str = "",
@@ -3013,6 +3037,9 @@ async def edit_campaign(
             campaign is on track. 0 means no goal this week; -1 keeps current.
         followup_delay_days: Custom day intervals as comma-separated list
             (e.g., "1,3,7,14"). Leave empty to keep current.
+        invite_note: Invitations carry a note: "on" (default) or "off". Off sends
+            the bare invitation; the first words are the DM a working day after
+            they accept.
         withdraw_stale_invites: Auto-withdraw stale invites: "on" or "off".
         stale_invite_days: Days before withdrawing stale invites (7-60). 0 to keep current.
         inmail_fallback: Escalate quiet invitations with one InMail: "on" or "off".
@@ -3072,6 +3099,7 @@ async def edit_campaign(
                 max_followups=max_followups,
                 weekly_meeting_target=weekly_meeting_target,
                 followup_delay_days=followup_delay_days,
+                invite_note=invite_note,
                 withdraw_stale_invites=withdraw_stale_invites,
                 stale_invite_days=stale_invite_days,
                 inmail_fallback=inmail_fallback,
@@ -3098,7 +3126,7 @@ async def _prospect_impl(
     action: str,
     outreach_id: str = "",
     campaign_id: str = "",
-    outcome: str = "won",
+    outcome: str = "",
     reason: str = "",
     meeting_link: str = "",
     confirm: bool = False,
@@ -3409,9 +3437,9 @@ async def _scheduler_impl(
             "report" — Configure periodic email campaign reports
             "backfill_cloud" — One-shot push of ALL local history (every campaign,
                 any mode/status) to the hosted dashboard (backend mode only)
-            "send_from" — Move all campaign outbound to the cloud or this machine.
-                Pass host="cloud" (default for hosted accounts) or host="local".
-                Local turns the cloud scheduler off so both never send.
+            "send_from" — Hosted accounts send from the cloud; host="cloud"
+                switches the cloud scheduler on. Any other host is refused for
+                a hosted account (a self-hosted install always sends locally).
         enabled: True to enable, False to disable (for 'toggle').
             For 'report': True to enable email reports, False to disable.
         cloud: If True, toggle the cloud scheduler, which runs with your laptop closed (for 'toggle').
@@ -3424,7 +3452,7 @@ async def _scheduler_impl(
         event_type: Filter events by type for 'logs'.
             For 'report': recipient email (empty = use login email).
         campaign_id: Filter by campaign for 'logs', 'activity', and 'diagnostics'.
-        host: For 'send_from': "cloud" or "local".
+        host: For 'send_from': "cloud" (the only sender for a hosted account).
     """
     from .tools.scheduler import run_scheduler
     from .tools.organization import refuse_if_viewer
@@ -4444,7 +4472,7 @@ async def prospect(
     action: str,
     outreach_id: str = "",
     campaign_id: str = "",
-    outcome: str = "won",
+    outcome: str = "",
     reason: str = "",
     meeting_link: str = "",
     confirm: bool = False,
@@ -4455,6 +4483,9 @@ async def prospect(
 ) -> str:
     """Skip a prospect, close one with an outcome, or dismiss it.
 
+    Someone who is not a fit is skipped, not closed: skip leaves them out of
+    this campaign and records nothing else. Close records a result and
+    needs an outcome; won and lost are for people HeyLead has written to.
     Closing with outcome="opt_out" stops all future contact with that person.
     Reading a prospect is prospect_view.
 
@@ -4462,11 +4493,13 @@ async def prospect(
         action: "skip", "close" or "dismiss".
         outreach_id: Which outreach.
         campaign_id: Which campaign. Uses the active one if empty.
-        outcome: "won", "lost" or "opt_out" (close).
+        outcome: "won", "lost" or "opt_out". Required for close; there is
+            no default.
         reason: Why, recorded with the outcome.
         meeting_link: The booked meeting, recorded with a won outcome.
         confirm: Required where the action cannot be undone.
-        reason_code: A coded reason, for reporting.
+        reason_code: Why, for skip and close: "not_a_fit", "negative_reply",
+            "asked_to_stop", "handled_elsewhere" or "other".
         reason_note: A free note alongside the code.
         deal_value: What the won deal is worth (close with outcome="won").
         deal_currency: Three-letter code, e.g. USD. Defaults to the last deal's.
@@ -4500,7 +4533,7 @@ async def scheduler(
             "send_from" or "report".
         enabled: True to enable, False to disable (toggle, report).
         cloud: Act on the hosted scheduler rather than this machine's.
-        host: Which machine should send (send_from).
+        host: "cloud" (send_from); a hosted account never sends from here.
         hours: The reporting interval (report).
         campaign_id: Which campaign (report).
     """

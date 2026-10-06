@@ -69,8 +69,8 @@ a control:
 Two live instances, both made by ``run_doc_examples.sh`` from the same
 two suites over the same days, and refreshed with the documentation:
 
-* `one run on its own <https://goc-dx-u3.science.gc.ca/~dlo001/sites8/pikobs_doc_verifprofile_exp/pikobs_verifprofile_viewer.html>`__
-* `G0 against G2 <https://goc-dx-u3.science.gc.ca/~dlo001/sites8/pikobs_doc_verifprofile/pikobs_verifprofile_viewer.html>`__, the operational suite as the control, with the comparison panels and the tests
+* :live:`one run on its own <pikobs_doc_verifprofile_exp/pikobs_verifprofile_viewer.html>`
+* :live:`G0 against G2 <pikobs_doc_verifprofile/pikobs_verifprofile_viewer.html>`, the operational suite as the control, with the comparison panels and the tests
 
 How long a run takes, and how big a node to ask for: :doc:`runtime`.
 
@@ -114,17 +114,17 @@ Only the ``USER SETTINGS`` block of a wrapper is meant to be edited.
 
 With a control, four panels in a row, sharing the vertical axis:
 
-+----------------+-----------------------------------------------------------------------------------------+
-| Panel          | What it shows                                                                           |
-+================+=========================================================================================+
-| Mean           | the mean departure of each run: control black with squares, experience red with circles |
-+----------------+-----------------------------------------------------------------------------------------+
-| Bias change    | abs(mean_exp) - abs(mean_ctl) at its own scale, with the paired t-test dots             |
-+----------------+-----------------------------------------------------------------------------------------+
-| Relative sigma | 100 x (sigma_exp - sigma_ctl) / sigma_ctl, with the sigma-test dots                     |
-+----------------+-----------------------------------------------------------------------------------------+
-| Observations   | matched observations per level, as bars                                                 |
-+----------------+-----------------------------------------------------------------------------------------+
++----------------+---------------------------------------------------------------------------------------------+
+| Panel          | What it shows                                                                               |
++================+=============================================================================================+
+| Mean           | the mean departure of each run: control black with squares, experience red with circles     |
++----------------+---------------------------------------------------------------------------------------------+
+| Bias change    | abs(mean_exp) - abs(mean_ctl) at its own scale, with the dots of the test (see MATCH below) |
++----------------+---------------------------------------------------------------------------------------------+
+| Relative sigma | 100 x (sigma_exp - sigma_ctl) / sigma_ctl, with the sigma-test dots                         |
++----------------+---------------------------------------------------------------------------------------------+
+| Observations   | matched observations per level, as bars                                                     |
++----------------+---------------------------------------------------------------------------------------------+
 
 .. image:: _static/verifprofile_comparison.png
    :alt: Four panels of a comparison, MLS ozone
@@ -139,17 +139,19 @@ comes closer to zero and blue on the other.
 
 Each level of the two change panels carries a mark on its left edge:
 
-+------------+------------------------------------------------------------------+
-| Mark       | Meaning                                                          |
-+============+==================================================================+
-| red dot    | the experience is better at that level, and the test passes 95 % |
-+------------+------------------------------------------------------------------+
-| blue dot   | the control is better, and the test passes 95 %                  |
-+------------+------------------------------------------------------------------+
-| hollow dot | the change is not larger than noise                              |
-+------------+------------------------------------------------------------------+
-| grey cross | the level cannot be tested: the control has no sigma there       |
-+------------+------------------------------------------------------------------+
++------------+--------------------------------------------------------------------------------------------------+
+| Mark       | Meaning                                                                                          |
++============+==================================================================================================+
+| red dot    | the experience is better at that level, and the test passes 95 %                                 |
++------------+--------------------------------------------------------------------------------------------------+
+| blue dot   | the control is better, and the test passes 95 %                                                  |
++------------+--------------------------------------------------------------------------------------------------+
+| hollow dot | the change is not larger than noise                                                              |
++------------+--------------------------------------------------------------------------------------------------+
+| thin lines | the same with many channels, where dots would pile up; the mouse shows the channel in the viewer |
++------------+--------------------------------------------------------------------------------------------------+
+| grey cross | the level cannot be tested: the control has no sigma there                                       |
++------------+--------------------------------------------------------------------------------------------------+
 
 Without a control, three panels give the profile of the run itself:
 
@@ -208,11 +210,88 @@ observation; they are dropped, and the header says so.
 6. The tests
 ============
 
-The bias is tested with the paired t-test and the sigma with the Pitman-Morgan test,
-both from :doc:`stats`, which explains them with formulas and worked
-examples. The pairing is what makes them sharp here: both sides of a level
-are the same observations, so what the two runs share cancels, and even a
-small change can be seen.
+Each level is tested on its own, bias and sigma apart; the dots beside
+the panels carry the result, red where the experience is better, blue
+where the control is, hollow where the change is within the noise.
+
+
+Which observations, and which test: MATCH
+-----------------------------------------
+
+Two runs rarely keep the same observations, so ``MATCH`` decides what a
+comparison is made of.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 10 35 35 20
+
+   * - ``MATCH``
+     - Observations
+     - Test of each level
+     - On the figure
+   * - ``on``
+     - those both runs hold, paired one by one
+     - a cycle block bootstrap: the change of every cycle, then whether their mean is more than the cycles' own scatter. It needs 20 cycles; with fewer, the cell is drawn grey with its number of cycles, not tested
+     - green **MATCH ON**
+   * - ``off``
+     - every observation of each run
+     - the t-test on the bias, the F-test on the sigma
+     - orange **MATCH OFF**
+   * - ``no``
+     - every observation of each run
+     - none
+     - no badge, no test
+
+**How a pair is found.** An observation is known by where and when it was
+taken: station, date, time, latitude, longitude, ``varno`` and level. No
+two observations of one run share all seven, so the same seven in the
+control and in the experience are one observation, seen by both runs.
+With ``on`` it is compared only when it passes the flags of the figure in
+both runs:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 12 12 22 12 12 12 18
+
+   * - station
+     - time
+     - lat, lon
+     - level
+     - Ctl O-P
+     - Exp O-P
+     - with ``on``
+   * - 71119
+     - 00 UTC
+     - 53.55, -114.10
+     - 500 hPa
+     - 0.8
+     - 0.5
+     - a pair
+   * - 71119
+     - 00 UTC
+     - 53.55, -114.10
+     - 850 hPa
+     - -0.2
+     - rejected
+     - left out
+   * - 72201
+     - 00 UTC
+     - 24.55, -81.75
+     - 500 hPa
+     - --
+     - 1.1
+     - left out: Exp only
+
+The rare report that a run holds twice is paired one to one, by value,
+and counted in the log.
+
+Start with ``on``: the change then comes from the experience, not from a
+different sample. ``off`` is for an experience that changes which
+observations go in (a new instrument, another quality control). Ask for
+several, ``MATCH="on off no"``, and the viewer's **Match** selector flips
+between them; the files of ``off`` and ``no`` end in ``_matchoff`` and
+``_matchno``. The tests are explained in :doc:`stats`.
+
 
 It cuts both ways. MLS brings close to three hundred thousand observations
 per level over a season, and at that size almost any change is
@@ -230,7 +309,8 @@ With a control, the run ends with one more figure per function and
 criterion: every family, variable and region of the comparison in a single
 table, by layers of height, with the change of the experience against the
 control in each cell. It is made from the figures that pool every station
-(``join`` in ``ID_STN``).
+(``join`` in ``ID_STN``), and only for the families observed in profiles:
+a family of channels has no layers to score.
 
 .. image:: _static/verifprofile_scorecard.png
    :alt: The O-P scorecard of an experiment, by layers of height
@@ -260,10 +340,15 @@ only when its change holds over the cycles and reaches 0.5 %; grey
 otherwise. The test is not the one of section 6. With a season of
 observations those call almost any change real, since the observations
 of one cycle share the error of that forecast. Here the change of the
-cell is computed cycle by cycle, and
-:func:`pikobs.stats.cycle_confidence` asks whether its mean over the
-cycles is away from zero at 95 %, counting the memory from one cycle to
-the next: a change made by a few days does not pass. It is empty when the family does not reach the layer
+cell is computed cycle by cycle, and a cycle block bootstrap,
+:func:`pikobs.stats.cycle_bootstrap_confidence`, asks whether its mean
+over the cycles is away from zero at 95 %. It draws whole blocks of
+consecutive cycles, as long as the memory from one cycle to the next asks,
+and keeps the width of the t-test on the cycles, so a change made by a few
+days does not pass. A cell needs 20 cycles to be tested; with fewer it
+stays grey. On a two-week experiment it agrees with the t-test on the
+cycles in 98 % of the cells, the others sitting right at 95 %; that t-test
+is still in the CSV, beside it. It is empty when the family does not reach the layer
 or the layer holds fewer than 30 observations. Quantities of the whole
 column, such as total ozone, have no height and are left out. The numbers
 of every cell, with their counts and confidences, are in a CSV next to the
@@ -304,8 +389,8 @@ the title lists them: ``C% -> COSMIC2-E1, COSMIC2-E2, ... (+5 more)``.
 Experience, Family, Fonction, Region, Criteria, Station, Special,
 Land/ocean and Varno. With several experiences each is its own comparison,
 and **Flip** switches between them on the same axes. With
-``RATIO_FIGURE="on"`` and two experiences or more, ``all vs <control>``
-adds one figure with every sigma ratio on the same axes. The scorecard
+two experiences or more, ``all vs <control>`` adds one figure with
+every sigma ratio on the same axes. The scorecard
 is the family ``scorecard``: the sections it holds entirely -- the
 regions, the variables, the stations -- show every button on.
 
@@ -337,14 +422,10 @@ Bugs and feature requests:
 
 import json
 import os
-import shutil
 import sys
-import tempfile
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-import dask
-from dask.distributed import Client
 
 import pikobs
 from pikobs.figures import svg_enabled
@@ -359,10 +440,19 @@ from pikobs.verifprofile.verifprofile_plot import (MIN_OBS_PER_LEVEL,
                                                    verifprofile_scale_task)
 from pikobs.web.viewer import generate_web
 from pikobs.web.runs import runs_block
-from pikobs.zone.zone import (RO_FAMILIES, _distinct, _extract_task,
-                              _index_task, _is_composite, _safe, _selections,
-                              _special_label, _split_tokens)
+from pikobs.selection import (  # shared: the same selections as zone
+    distinct as _distinct,
+    is_composite as _is_composite,
+    selections as _selections,
+    special_label as _special_label,
+)
+from pikobs.configobs.landmask import RO_FAMILIES
+from pikobs.obsdb import safe_name as _safe
+from pikobs.obsdb import split_tokens as _split_tokens
+from pikobs.zone.zone import extract_task as _extract_task, index_task as _index_task  # zone's own extraction
 from pikobs.zone.zone_plot import LAND_OCEAN_CHOICES
+from pikobs.parallel import start_workers, stop_workers
+from pikobs.obsdb import run_db_path
 
 # The profile has no latitude axis: one band per hemisphere is enough,
 # and the bands are summed away when the profile is read.
@@ -371,9 +461,7 @@ PROFILE_BAND = 180.0
 
 def db_path(work_path: str, family: str, tag: str, date_start: str,
             date_end: str) -> str:
-    return os.path.join(work_path, family,
-                        f"verifprofile_{_safe(tag)}_{date_start}_{date_end}_"
-                        f"{family}.db")
+    return run_db_path("verifprofile", work_path, family, tag, date_start, date_end)
 
 
 def _plot_tasks(work_path, family, tag, date_start, date_end, functions,
@@ -437,17 +525,18 @@ def make_verifprofile(runs, pathwork, datestart, dateend, regions, families,
                       n_cpu, control=None, svg: bool = False,
                       min_obs: int = MIN_OBS_PER_LEVEL,
                       special_on: bool = True,
-                      ratio_figure: bool = False,
+                      ratio_figure: bool = True,     # always drawn now; kept for callers
                  match: bool = True) -> int:
     """Read the cycles, match them, draw one profile per selection."""
     # MATCH: on, off, or the fields of the key -- pikobs.match decides.
     # Past this point match is True / False as before; the key travels
     # in match_spec.
-    from pikobs.match import parse_match
-    if match is True or match is False:
-        match = 'on' if match else 'off'
-    match_spec = parse_match(match)
-    match = match_spec.enabled
+    from pikobs.match import parse_modes
+    # MATCH: on, off, no (or empty: no test), several at once -- each asked
+    # mode is drawn, a switch in the viewer between them
+    modes, match_spec = parse_modes(match)
+    match = "on" in modes
+    both = len(modes) > 1
     p = "[verifprofile]"
     regions = _split_tokens(regions)
     flags = _split_tokens(flags_criteria)
@@ -459,6 +548,9 @@ def make_verifprofile(runs, pathwork, datestart, dateend, regions, families,
     # with the option off the task never gets a control file, so the
     # extraction takes its unmatched branch and nothing else changes
     matched = control is not None and match
+    # MATCH off with a control: each run alone, every observation of it,
+    # and the control beside each experience (Welch and F)
+    off_cmp = control is not None and ("off" in modes or "no" in modes)
     all_runs = ([control] if control else []) + list(runs)
 
     print(f"{p} runs: {', '.join(n for n, _ in all_runs)}", flush=True)
@@ -498,55 +590,62 @@ def make_verifprofile(runs, pathwork, datestart, dateend, regions, families,
     for family in families:
         pikobs.delete_create_folder(pathwork, family)
 
-    comparisons = [
-        {'label': f"{name} vs {control[0]}" if matched else name,
-         'tag': f"{control[0]}_vs_{name}" if matched else name,
-         'names': [control[0], name] if matched else [name], 'path': path}
-        for name, path in runs]
+    # what is drawn: each experience against the control, MATCH on (its
+    # pairs) and / or off (the two runs, each with all its observations);
+    # without a control, each run alone
+    comparisons = []
+    if matched:
+        comparisons += [{'label': f"{name} vs {control[0]}", 'tag': f"{control[0]}_vs_{name}",
+                         'names': [control[0], name], 'path': path, 'mode': 'on'}
+                        for name, path in runs]
+    if off_cmp:
+        # off and no draw the same two runs apart; no without any test
+        comparisons += [{'label': f"{name} vs {control[0]}", 'tag': name, 'ctl_tag': control[0],
+                         'names': [control[0], name], 'path': path, 'mode': mode}
+                        for mode in ("off", "no") if mode in modes
+                        for name, path in runs]
+    if control is None:
+        comparisons = [{'label': name, 'tag': name, 'names': [name], 'path': path, 'mode': ''}
+                       for name, path in runs]
+    # what is extracted: the pairs of each MATCH on comparison, and every run
+    # alone -- the control too -- for MATCH off
+    extractions = [(c['tag'], c['path'], True) for c in comparisons if c['mode'] == 'on']
+    singles = ([control] + list(runs)) if off_cmp else (list(runs) if control is None else [])
+    extractions += [(name, path, False) for name, path in singles]
     selectors = {f: _selections(stn_tokens, f) for f in families}
 
     tasks = []
-    for comp in comparisons:
+    for ext_tag, ext_path, paired in extractions:
         for cycle in cycle_list:
             for family in families:
                 for sel in selectors[family]:
                     task = {
                         'family': family,
                         'db_new': db_path(pathwork, family,
-                                          f"{comp['tag']}_{sel.tag}",
+                                          f"{ext_tag}_{sel.tag}",
                                           datestart, dateend),
                         'regions': regions, 'flags': flags,
                         'channels': ['all'], 'land_oceans': land_oceans,
                         'id_stn_sql': sel.sql(), 'stn_label': sel.label,
                         'special_on': special_on, 'varnos': varnos,
-                        'box_y': PROFILE_BAND, 'pathwork': pathwork,
+                        'lat_band': PROFILE_BAND, 'pathwork': pathwork,   # zone's name since LAT_BAND
                         # GPS-RO is normalised by its reference profile and
                         # passes the operational quality gates
                         'gpsro': family in RO_FAMILIES,
                     }
-                    if matched:
+                    if paired:
                         task['ctl_file'] = cycle_path(control[1], cycle,
                                                       family)
                         task['match_fields'] = match_spec.fields
                         task['names'] = (control[0], 'experience')
-                        task['exp_file'] = cycle_path(comp['path'], cycle,
+                        task['exp_file'] = cycle_path(ext_path, cycle,
                                                       family)
                     else:
-                        task['filein'] = cycle_path(comp['path'], cycle,
+                        task['filein'] = cycle_path(ext_path, cycle,
                                                     family)
                     tasks.append(task)
 
-    client, dask_dir = None, None
-    if n_cpu > 1:
-        os.environ["DASK_LOGGING__DISTRIBUTED"] = "error"
-        dask_dir = tempfile.mkdtemp(prefix="pikobs_verifprofile_dask_",
-                                    dir=os.environ.get("TMPDIR") or None)
-        os.environ["DASK_TEMPORARY_DIRECTORY"] = dask_dir
-        os.environ["SQLITE_TMPDIR"] = dask_dir
-        dask.config.set({"temporary-directory": dask_dir,
-                         "logging.distributed": "error"})
-        client = Client(processes=True, threads_per_worker=1, n_workers=n_cpu,
-                        silence_logs=50, dashboard_address=None)
+    client, dask_dir = start_workers(n_cpu, "verifprofile")
     plot_tasks: List[Dict[str, Any]] = []
     results: List[Any] = []
     try:
@@ -577,10 +676,20 @@ def make_verifprofile(runs, pathwork, datestart, dateend, regions, families,
         for comp in comparisons:
             for family in families:
                 for sel in selectors[family]:
-                    plot_tasks += _plot_tasks(
+                    new = _plot_tasks(
                         pathwork, family, f"{comp['tag']}_{sel.tag}",
-                        datestart, dateend, functions, matched,
+                        datestart, dateend, functions, comp['mode'] == 'on',
                         comp['names'], svg, min_obs, comp['label'])
+                    for t in new:
+                        t['match_mode'] = comp['mode']
+                        if comp['mode'] in ('off', 'no'):
+                            # the experience's figure reads the control's
+                            # profile too, from its own database
+                            t['compare_off'] = True
+                            t['db_ctl'] = db_path(pathwork, family,
+                                                  f"{comp['ctl_tag']}_{sel.tag}",
+                                                  datestart, dateend)
+                    plot_tasks += new
         if not plot_tasks:
             print(f"{p} WARNING: nothing to plot, check the selectors.",
                   file=sys.stderr, flush=True)
@@ -614,12 +723,14 @@ def make_verifprofile(runs, pathwork, datestart, dateend, regions, families,
               flush=True)
 
         # with a control and at least two experiences, one more figure per
-        # selection: the sigma ratio of every experience against it, on
-        # the same axes. With a single experience it would only repeat the
-        # middle panel of its own figure
-        if matched and ratio_figure and len(runs) > 1:
+        # selection, always: the sigma ratio of every experience against
+        # it, on the same axes. With a single experience it would only
+        # repeat the middle panel of its own figure
+        if matched and len(runs) > 1:
             overlays: Dict[tuple, Dict[str, Any]] = {}
             for t in plot_tasks:
+                if not t.get('matched'):          # the ratio is of the pairs
+                    continue
                 key = (t['family'], t['region'], t['flag'], t['land_ocean'],
                        t['id_stn'], str(t['special']), str(t['varno']),
                        t['function'])
@@ -640,17 +751,7 @@ def make_verifprofile(runs, pathwork, datestart, dateend, regions, families,
             plot_tasks += overlay_tasks
             results = list(results) + list(overlay_results)
     finally:
-        if client is not None:
-            try:
-                client.close(timeout=30)
-            except Exception:
-                pass
-            try:
-                client.shutdown()
-            except Exception:
-                pass
-        if dask_dir:
-            shutil.rmtree(dask_dir, ignore_errors=True)
+        stop_workers(client, dask_dir)
 
     # the scorecard: every family, variable and region of a comparison, by
     # layers of height -- where the experience is better, where it is worse
@@ -670,14 +771,15 @@ def make_verifprofile(runs, pathwork, datestart, dateend, regions, families,
               'fonction': t['function'], 'region': t['region'],
               'flag_criteria': t['flag'], 'id_stn': t['id_stn'],
               'special': t['special_label'], 'land_ocean': t['land_ocean'],
-              'varno': str(t['varno']), 'filename': os.path.basename(r)}
+              'varno': str(t['varno']), 'match': t.get('match_mode', ''),
+              'filename': os.path.basename(r)}
              for t, r in zip(plot_tasks, results) if r]
     if not items:
         print(f"{p} ERROR: no figure was produced.", file=sys.stderr,
               flush=True)
         return 1
     keys = ["experience", "family", "fonction", "region", "flag_criteria",
-            "id_stn", "special", "land_ocean", "varno"]
+            "id_stn", "special", "land_ocean", "varno"] + (["match"] if both else [])
     generate_web(
         items, keys, os.path.join(pathwork, "pikobs_verifprofile_viewer.html"),
         title="Pikobs Vertical Profile Viewer",
@@ -726,14 +828,16 @@ def arg_call() -> None:
     ap.add_argument('--special_column', default='off', choices=['on', 'off'])
     ap.add_argument('--min_obs', default=MIN_OBS_PER_LEVEL, type=int,
                     help="Levels with fewer observations are dropped.")
-    ap.add_argument('--ratio_figure', default='off', choices=['on', 'off'],
-                    help="on: with two or more experiences, one more figure "
-                         "per selection with the sigma ratio of all of "
-                         "them against the control (default off).")
+    # the ratio figure is always drawn now (two experiences or more):
+    # the option an older wrapper passes is accepted and has no effect
+    ap.add_argument('--ratio_figure', default=None, choices=['on', 'off'],
+                    help=argparse.SUPPRESS)
     ap.add_argument('--match', nargs='+', default=['on'],
-                      help="on: with a control, the same observations in both "
-                         "runs, paired tests. off: each run with all its "
-                         "observations and its own flags, Welch and F tests.")
+                      help=("on: only the observations both runs hold, paired one by one. "
+             "off: every observation of each run (t-test and F-test). "
+             "no: every observation, no test. Several at once draw each, "
+             "with a Match switch in the viewer: on off no."),
+    )
     ap.add_argument('--svg', default='off', choices=['on', 'off'])
     ap.add_argument('--n_cpus', '--n_cpu', default=1, type=int,
                     dest='n_cpus')
@@ -778,13 +882,16 @@ def arg_call() -> None:
         control = (ctl_name,
                    args.path_control_files.strip().rstrip('/') or '/')
 
+    if args.ratio_figure == 'off':
+        print("[verifprofile] RATIO_FIGURE is gone: with two experiences or "
+              "more the ratio figure is always drawn", flush=True)
     maybe_submit_to_pbs(args)
     sys.exit(make_verifprofile(
         runs, args.pathwork, args.datestart, args.dateend, args.region,
         _split_tokens(args.family), args.flags_criteria, args.fonction,
         _split_tokens(args.varnos), args.id_stn, args.land_ocean,
         args.n_cpus, control, svg_enabled(args.svg), args.min_obs,
-        args.special_column == 'on', args.ratio_figure == 'on',
+        args.special_column == 'on', True,
                  match=args.match))
 
 

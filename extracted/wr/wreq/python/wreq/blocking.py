@@ -19,6 +19,7 @@ from . import (
 from .cookie import Cookie, Jar
 from .header import HeaderMap
 from .redirect import History
+from .runtime import Runtime
 from .tls import TlsInfo
 
 
@@ -89,7 +90,7 @@ class Response:
 
     def stream(self) -> Streamer:
         r"""
-        Get the response into a `Streamer` of `bytes` from the body.
+        Stream the body as read-only memoryviews, with HeaderMap frames for trailers.
         """
         ...
 
@@ -104,23 +105,30 @@ class Response:
         Get the JSON content of the response.
         """
 
-    def bytes(self) -> bytes:
+    def bytes(self) -> memoryview:
         r"""
-        Get the bytes content of the response.
+        Read the body as a read-only memoryview without copying it into Python bytes.
+        The view remains valid after the response is closed or deleted.
+        Use bytes(view) or view.tobytes() for a copy; view.release() releases this view.
         """
         ...
 
     def close(self) -> None:
         r"""
-        Close the response.
-
-        This method closes the network connection regardless of whether connection pooling is
-        enabled or not. It is recommended to use context managers (`with` statement) to properly
-        manage response lifecycle instead of calling this method manually.
+        Discard the retained body and mark its connection as non-reusable.
+        This does not guarantee an immediate socket shutdown or interrupt an active read.
+        Do not close concurrently with a body read. A body transferred to a Streamer
+        is managed separately; previously returned memoryviews remain valid.
+        `with` instead releases the body and keeps a fully read connection reusable.
         """
 
     def __enter__(self) -> Any: ...
-    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None: ...
+    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None:
+        r"""
+        Release the body without forbidding reuse: a fully read connection returns
+        to the pool, while an unread HTTP/1 body drains or closes its connection.
+        """
+
     def __str__(self) -> str: ...
 
 
@@ -202,7 +210,11 @@ class WebSocket:
         """
 
     def __enter__(self) -> Any: ...
-    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None: ...
+    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None:
+        r"""
+        Close the WebSocket connection without a close code or reason, unless already closed.
+        """
+
     def __str__(self) -> str: ...
 
 
@@ -210,6 +222,9 @@ class Client:
     r"""
     A blocking client for making HTTP requests.
     """
+
+    runtime: Runtime
+    """Read-only shared runtime used by this client and its responses."""
 
     cookie_jar: Jar | None
     r"""
@@ -245,9 +260,8 @@ class Client:
 
     def close(self) -> None:
         r"""
-        Closes the client and any associated resources.
-
-        After calling this method, the client should not be used to make further requests.
+        Cancels pending requests and rejects new ones with `asyncio.CancelledError`.
+        Existing responses, WebSockets and the shared runtime remain usable.
 
         Examples:
 
@@ -484,7 +498,10 @@ class Client:
         ...
 
     def __enter__(self) -> Any: ...
-    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None: ...
+    def __exit__(self, _exc_type: Any, _exc_value: Any, _traceback: Any) -> None:
+        r"""
+        Close the client like `close()`: cancel pending requests and reject new ones.
+        """
 
 
 def delete(

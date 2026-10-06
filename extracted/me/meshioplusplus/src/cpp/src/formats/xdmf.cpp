@@ -20,8 +20,10 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <numeric>
 #include <sstream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -37,6 +39,7 @@
 #include "xdmf_sets.hpp"
 
 // Project includes
+#include "../detail/library_lock.hpp"
 #include "meshioplusplus/formats/xdmf.hpp"
 #include "meshioplusplus/detail/fast_number.hpp"
 #include "meshioplusplus/detail/classic_stream.hpp"
@@ -50,6 +53,7 @@
 #include "meshioplusplus/region.hpp"
 
 #include "../detail/text_cursor.hpp"
+#include "../detail/typed_view.hpp"
 
 #ifdef MESHIOPLUSPLUS_HAS_HDF5
 #include "meshioplusplus/detail/hdf5_util.hpp"
@@ -230,9 +234,29 @@ NDArray read_data_item(const pugi::xml_node& rItem, const fs::path& rBaseDir) {
     std::string h5file = info.substr(0, colon);
     std::string h5path = info.substr(colon + 1);
 
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     fs::path full = rBaseDir / h5file;
     h5::Hid f = h5::open_file_read(full.string());
+    if (!dims.empty()) {
+        // read_dataset allocates and reads the file's own extent, which the
+        // XML does not bound: a corrupt dataset declaring millions of unwritten
+        // chunks makes H5Dread crawl (HDF5 1.10 walks every chunk). A dataset
+        // larger than its DataItem says is refused before it is read; a smaller
+        // one is read as before.
+        std::size_t stored = 1;
+        bool too_big = false;
+        for (std::size_t d : h5::dataset_shape(f, h5path)) {
+            if (d != 0 && stored > std::numeric_limits<std::size_t>::max() / d) {
+                too_big = true;
+                break;
+            }
+            stored *= d;
+        }
+        if (too_big || stored > total)
+            throw ReadError("XDMF: HDF dataset '" + h5path +
+                            "' is larger than the Dimensions its DataItem declares");
+    }
     NDArray a = h5::read_dataset(f, h5path);
     a.Reshape(dims);  // stored shape is authoritative in the XML
     return a;
@@ -248,8 +272,9 @@ void translate_mixed(const NDArray& rFlat, Mesh& rMesh) {
     std::vector<int> types;
     std::vector<std::size_t> offsets;
     std::size_t r = 0;
+    const detail::Int64View flat_values(rFlat);
     while (r < n) {
-        int xt = static_cast<int>(detail::read_int(rFlat, r));
+        int xt = static_cast<int>(flat_values[r]);
         types.push_back(xt);
         offsets.push_back(r);
         const auto nn = static_cast<std::size_t>(xdmf_idx_num_nodes(xt));
@@ -259,7 +284,7 @@ void translate_mixed(const NDArray& rFlat, Mesh& rMesh) {
         const std::size_t head = (xt == 1 || xt == 2) ? 2 : 1;
         if (r + head + nn > n)
             throw ReadError("XDMF: mixed topology ends inside a cell");
-        if (head == 2 && static_cast<std::size_t>(detail::read_int(rFlat, r + 1)) != nn)
+        if (head == 2 && static_cast<std::size_t>(flat_values[r + 1]) != nn)
             throw ReadError(xt == 1 ? "XDMF: only 1-point polyvertices supported"
                                     : "XDMF: only 2-point lines supported");
         r += head + nn;
@@ -283,7 +308,7 @@ void translate_mixed(const NDArray& rFlat, Mesh& rMesh) {
                 const std::size_t base = offsets[start + b] + head;
                 for (int j = 0; j < nn; ++j) {
                     if constexpr (std::is_floating_point_v<T>)
-                        dp[b * nn + j] = detail::read_int(rFlat, base + j);
+                        dp[b * nn + j] = detail::typed_view_int<T>(src[base + j]);
                     else
                         dp[b * nn + j] = static_cast<std::int64_t>(src[base + j]);
                 }
@@ -343,8 +368,12 @@ double xdmf_step_time(const pugi::xml_node& rStep) {
 
 std::vector<std::int64_t> xdmf_int_values(const NDArray& rArr) {
     std::vector<std::int64_t> out(rArr.Size());
-    for (std::size_t i = 0; i < out.size(); ++i)
-        out[i] = detail::read_int(rArr, i);
+    // One dtype switch for the array, and no converted copy beside `out`.
+    detail::dispatch_dtype(rArr.Dtype(), [&]<class T>() {
+        const T* src = rArr.As<T>();
+        for (std::size_t i = 0; i < out.size(); ++i)
+            out[i] = detail::typed_view_int<T>(src[i]);
+    });
     return out;
 }
 
@@ -760,6 +789,10 @@ void xdmf_write_sets(pugi::xml_node grid, xdmfcommon::DataItemStore& rStore, con
 
 void write_xdmf(const std::string& rPath, const Mesh& rMesh, const std::string& rDataFormat,
                 int gzip_level) {
+    // Only the HDF flavour reaches HDF5; XML and Binary writes need no lock.
+    std::optional<detail::LibraryLock> lock;
+    if (rDataFormat == "HDF")
+        lock.emplace();
 #ifdef MESHIOPLUSPLUS_HAS_HDF5
     const bool hdf_ok = true;
 #else

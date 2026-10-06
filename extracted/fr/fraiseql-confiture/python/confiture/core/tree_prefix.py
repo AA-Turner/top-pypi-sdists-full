@@ -30,7 +30,10 @@ base 16 puts 100 before 154 when the author wrote 256 after 154.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections import defaultdict
+from collections.abc import Iterable, Iterator, Sequence
+from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 
 #: The run of hex digits before the first underscore.
@@ -85,6 +88,52 @@ def is_hex_group(names: Iterable[str]) -> bool:
     )
 
 
+def bare_prefix(stem: str) -> bool:
+    """Whether *stem* is a prefix and nothing else — ``0042``, ``00a1`` — with no verb after it."""
+    return prefix_text(f"{stem}_") == stem
+
+
+def format_prefix(value: int, *, width: int, hexadecimal: bool) -> str:
+    """*value* as a prefix: zero-padded to *width*, in base 16 or 10.
+
+    Example:
+        >>> format_prefix(26, width=4, hexadecimal=True)
+        '001a'
+        >>> format_prefix(26, width=4, hexadecimal=False)
+        '0026'
+    """
+    return format(value, f"0{width}{'x' if hexadecimal else 'd'}")
+
+
+def prefixes(
+    start: int, *, step: int = 1, width: int, hexadecimal: bool
+) -> Iterator[tuple[int, str]]:
+    """``(value, prefix)`` from *start* on, by *step* — each one a reader takes for a number.
+
+    A hex value written without a decimal digit (``aba``, ``fff``) reads as a word,
+    as ``add`` in ``add_column`` must: it is skipped, never written.
+    """
+    value = start
+    while True:
+        written = format_prefix(value, width=width, hexadecimal=hexadecimal)
+        if prefix_text(f"{written}_") == written:
+            yield value, written
+        value += step
+
+
+def numbering(names: Iterable[str]) -> tuple[bool, int] | None:
+    """How sibling *names* are numbered: ``(hexadecimal, width)``, or ``None`` when none is.
+
+    Hexadecimal when any prefix carries a hex letter (:func:`is_hex_group`); the
+    width is the one most of them are written at.
+    """
+    prefixes = [raw for raw in (prefix_text(name) for name in names) if raw is not None]
+    if not prefixes:
+        return None
+    widths = [len(raw) for raw in prefixes]
+    return any(has_hex_letter(raw) for raw in prefixes), max(set(widths), key=widths.count)
+
+
 def prefix_value(name: str, *, hex_group: bool | None = None) -> int | None:
     """The integer value of *name*'s prefix, or ``None`` when it carries none.
 
@@ -95,7 +144,8 @@ def prefix_value(name: str, *, hex_group: bool | None = None) -> int | None:
             this name alone, which is all a caller holding one name can do.
 
     Returns:
-        The prefix's value, or ``None``.
+        The prefix's value, or ``None`` — also for a hex prefix among siblings
+        numbered in decimal.
 
     Example:
         >>> prefix_value("000a_middle.sql")
@@ -108,7 +158,10 @@ def prefix_value(name: str, *, hex_group: bool | None = None) -> int | None:
     raw = prefix_text(name)
     if raw is None:
         return None
-    return int(raw, 16 if (has_hex_letter(raw) if hex_group is None else hex_group) else 10)
+    hexadecimal = has_hex_letter(raw) if hex_group is None else hex_group
+    if not hexadecimal and has_hex_letter(raw):
+        return None  # a decimal group cannot read a hex prefix: it is not one of its numbers
+    return int(raw, 16 if hexadecimal else 10)
 
 
 def _component_key(name: str, *, hex_group: bool) -> tuple[int, int, str]:
@@ -178,3 +231,124 @@ def order(paths: Iterable[Path]) -> list[Path]:
     materialised = list(paths)
     hex_parents = _hex_parents(materialised)
     return sorted(materialised, key=lambda path: sort_key(path, hex_parents))
+
+
+@dataclass(frozen=True)
+class NumberedEntry:
+    """One entry of a directory: a file the build reads, or a directory on the way to one.
+
+    Attributes:
+        path: Where the entry is.
+        is_dir: Whether it is a directory. A finding about a file points at its
+            first line; a directory has none.
+        order: The position of the first file the build reads at or under this
+            entry, so a finding can report the order it produces.
+    """
+
+    path: Path
+    is_dir: bool
+    order: int
+
+    @property
+    def label(self) -> str:
+        """The entry's name, with a trailing slash when it is a directory."""
+        return f"{self.path.name}/" if self.is_dir else self.path.name
+
+
+def build_entries(files: Sequence[Path], roots: Sequence[Path]) -> dict[Path, list[NumberedEntry]]:
+    """**The build's view**: every entry the build reads, grouped by its directory.
+
+    Derived from the files the build reads rather than walked, so a directory the
+    environment excludes contributes no entry and takes no number. Groups are in
+    build order, as *files* is. An entry above a root is not part of the tree.
+
+    Args:
+        files: The SQL files the build reads, in the order it reads them.
+        roots: The include directories they were found under.
+    """
+    deepest_first = sorted(roots, key=lambda root: len(root.parts), reverse=True)
+    entries: dict[Path, NumberedEntry] = {}
+    children: dict[Path, list[Path]] = defaultdict(list)
+    for index, sql_file in enumerate(files):
+        root = next((r for r in deepest_first if sql_file.is_relative_to(r)), None)
+        if root is None:
+            continue
+        relative = sql_file.relative_to(root).parts
+        for depth in range(1, len(relative) + 1):
+            path = root.joinpath(*relative[:depth])
+            if path not in entries:
+                entries[path] = NumberedEntry(path=path, is_dir=depth < len(relative), order=index)
+                children[path.parent].append(path)
+    return {parent: [entries[child] for child in kids] for parent, kids in children.items()}
+
+
+def disk_entries(directory: Path) -> list[NumberedEntry]:
+    """**The disk's view**: *directory*'s numbered ``.sql`` files and subdirectories, in build order.
+
+    For the tools that act on files the build has not read yet — allocating the
+    next number, renumbering — which see a directory as it is on disk.
+    """
+    found = [
+        child
+        for child in directory.iterdir()
+        if is_numbered(child.name) and (child.is_dir() or child.suffix == ".sql")
+    ]
+    return [
+        NumberedEntry(path=path, is_dir=path.is_dir(), order=index)
+        for index, path in enumerate(order(found))
+    ]
+
+
+#: One value of a directory's numbering, and the entries that take it.
+Taken = tuple[int, list[NumberedEntry]]
+
+
+@dataclass(frozen=True)
+class Numbering:
+    """A directory's numbering: its base, the values its entries take, and its step."""
+
+    hexadecimal: bool
+    taken: list[Taken]
+
+    @property
+    def step(self) -> int:
+        """The step it counts in (:func:`step`)."""
+        return step([value for value, _ in self.taken], hexadecimal=self.hexadecimal)
+
+    def gaps(self) -> list[tuple[Taken, Taken]]:
+        """Each pair of neighbouring values further apart than the step."""
+        every = self.step
+        return [(low, high) for low, high in pairwise(self.taken) if high[0] - low[0] > every]
+
+
+def sequence(entries: Iterable[NumberedEntry]) -> Numbering:
+    """How *entries* are numbered: the values they take, ascending, each with its entries.
+
+    One numbering per directory: hexadecimal when any entry's prefix carries a hex
+    letter, file and directory alike, as the build orders them. A file and a
+    directory sharing a value are one value (their collision is a finding of its
+    own, not a gap).
+    """
+    numbered = [entry for entry in entries if is_numbered(entry.path.name)]
+    hexadecimal = is_hex_group(entry.path.name for entry in numbered)
+    taken: dict[int, list[NumberedEntry]] = defaultdict(list)
+    for entry in numbered:
+        value = prefix_value(entry.path.name, hex_group=hexadecimal)
+        if value is not None:
+            taken[value].append(entry)
+    return Numbering(hexadecimal, sorted(taken.items()))
+
+
+def step(values: Sequence[int], *, hexadecimal: bool) -> int:
+    """The step a directory's numbering counts in, read from the numbers themselves.
+
+    A directory numbered ``10_tables``, ``20_views``, ``30_functions`` leaves room
+    between its entries on purpose: when every value is a multiple of the base
+    (10, or 16 in hex) — or of its square, … — that is its step. Otherwise it is 1,
+    the step ``TreeAllocator`` numbers files with. Two numbers cannot say more.
+    """
+    base = 16 if hexadecimal else 10
+    found = 1
+    while values and max(values) >= found * base and all(v % (found * base) == 0 for v in values):
+        found *= base
+    return found

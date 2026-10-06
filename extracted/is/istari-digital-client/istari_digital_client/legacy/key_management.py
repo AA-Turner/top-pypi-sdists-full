@@ -20,21 +20,32 @@ Two families with different prerequisites:
   is left to the server.
 
 A prerequisite that is not satisfied raises `ConfigurationError`.
+
+Every method takes `api_version`, an `IdentityApiVersion` or its string (default
+``"auto"``), and routes as the helper it wraps: CRUD uses identity-service's v2 key
+routes when the identity API version in force is `v2` and v2 can address the call, and
+the deprecated v1 routes, with a token from the v1 token endpoint, otherwise; the
+exchange always uses v1 with the PAT. A call that reaches a v1 route warns once per
+process.
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from istari_digital_client.legacy.auth import (
-    ExchangePatResult,
+from istari_digital_client.identity.auth import (
     GeneratedClientCredentials,
+    IdentityApiVersion,
     IdentityServiceClient,
+    PrincipalKind,
+    RetryPolicy,
+)
+from istari_digital_client.identity.auth.identity_service import IdentityApiVersionLike
+from istari_digital_client.identity.v1 import (
+    ExchangePatResult,
     KeyMetadata,
     PrincipalKeys,
-    PrincipalKind,
     RegisterKeyResult,
-    RetryPolicy,
     exchange_pat,
     generate_keypair_and_exchange,
     generate_keypair_and_register,
@@ -72,17 +83,18 @@ class KeyManagement:
     def _require_ir_url(self) -> str:
         """Return the derived Identity Service base URL, or raise if it cannot be derived.
 
-        The Identity Service base URL is derived from ``digital_api_url`` (the gateway serves the
-        Identity Service under ``<digital_api_url>/identity``).
+        The gateway derivation ``<digital_api_url>/identity`` wins when ``digital_api_url``
+        is set; otherwise ``identity_url`` addresses the Identity Service directly.
 
-        :raises ConfigurationError: when `digital_api_url` is not configured.
+        :raises ConfigurationError: when neither `digital_api_url` nor `identity_url` is set.
         """
         url = self._config._identity_service_base_url()
         if not url:
             raise ConfigurationError(
                 "Identity Service URL could not be derived; key exchange requires it. "
-                "Set the digital API URL via the ISTARI_DIGITAL_API_URL env variable "
-                "or the digital_api_url attribute on the Configuration."
+                "Set ISTARI_DIGITAL_API_URL (or digital_api_url) to address it through "
+                "the gateway, or ISTARI_IDENTITY_URL (or identity_url) to address it "
+                "directly."
             )
         return url
 
@@ -95,7 +107,7 @@ class KeyManagement:
         if identity_service_client is None:
             raise ConfigurationError(
                 "Identity Service mode is not enabled; key management requires it. "
-                "Enable it via the ISTARI_CLIENT_IDENTITY_SERVICE_ENABLED env "
+                "Enable it via the ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED env "
                 "variable (with the Identity Service credentials configured) or the "
                 "identity_service_enabled attribute on the Configuration."
             )
@@ -154,6 +166,7 @@ class KeyManagement:
         validate_public_key: bool = True,
         name: Optional[str] = None,
         retry_policy: Optional[RetryPolicy] = None,
+        api_version: Optional[IdentityApiVersionLike] = IdentityApiVersion.AUTO,
     ) -> ExchangePatResult:
         """Exchange a Zitadel PAT for identity-service credentials using your own key.
 
@@ -170,6 +183,8 @@ class KeyManagement:
         :param name: Optional human-readable label for the key. When omitted (or
                      blank) the identity-service defaults the name to the key id.
         :param retry_policy: Bounded retry/backoff; defaults to the SDK retry knobs.
+        :param api_version: An `IdentityApiVersion` or its string, ``"auto"`` (default),
+                            ``"v1"`` or ``"v2"``, routed as the wrapped helper routes it.
         :raises ConfigurationError: when `digital_api_url` (from which the Identity Service base
                                     URL is derived) is not configured, or when no PAT
                                     is given and no `registry_auth_token` is configured.
@@ -182,6 +197,7 @@ class KeyManagement:
             retry_policy=self._policy(retry_policy),
             validate_public_key=validate_public_key,
             name=name,
+            api_version=api_version,
         )
 
     def generate_keypair_and_exchange(
@@ -192,6 +208,7 @@ class KeyManagement:
         key_id: Optional[str] = None,
         name: Optional[str] = None,
         retry_policy: Optional[RetryPolicy] = None,
+        api_version: Optional[IdentityApiVersionLike] = IdentityApiVersion.AUTO,
     ) -> ExchangePatResult:
         """Generate a P-384 keypair and exchange it for Identity Service credentials in one step.
 
@@ -205,6 +222,8 @@ class KeyManagement:
         :param name: Optional human-readable label for the key. When omitted (or
                      blank) the identity-service defaults the name to the key id.
         :param retry_policy: Bounded retry/backoff; defaults to the SDK retry knobs.
+        :param api_version: An `IdentityApiVersion` or its string, ``"auto"`` (default),
+                            ``"v1"`` or ``"v2"``, routed as the wrapped helper routes it.
         :raises ConfigurationError: when `digital_api_url` (from which the Identity Service base
                                     URL is derived) is not configured, or when no PAT
                                     is given and no `registry_auth_token` is configured.
@@ -216,6 +235,7 @@ class KeyManagement:
             key_id=key_id,
             retry_policy=self._policy(retry_policy),
             name=name,
+            api_version=api_version,
         )
 
     # -- CRUD family (needs Identity Service mode enabled) ----------------------
@@ -244,6 +264,7 @@ class KeyManagement:
         username: Optional[str] = None,
         display_name: Optional[str] = None,
         retry_policy: Optional[RetryPolicy] = None,
+        api_version: Optional[IdentityApiVersionLike] = IdentityApiVersion.AUTO,
     ) -> KeyMetadata:
         """Register a principal's ECDSA P-384 public key with the identity-service.
 
@@ -264,6 +285,8 @@ class KeyManagement:
                         key for a not-yet-existing agent.
         :param display_name: Optional; seeds a new agent's display name.
         :param retry_policy: Bounded retry/backoff; defaults to the SDK retry knobs.
+        :param api_version: An `IdentityApiVersion` or its string, ``"auto"`` (default),
+                            ``"v1"`` or ``"v2"``, routed as the wrapped helper routes it.
         :raises ConfigurationError: when Identity Service mode is not enabled.
         :raises ValueError: when `kind` is `AGENT` with no explicit `principal_id`
                             (`"me"` is not valid on agent routes).
@@ -279,6 +302,7 @@ class KeyManagement:
             name=name,
             username=username,
             display_name=display_name,
+            api_version=api_version,
         )
 
     def list(
@@ -287,6 +311,7 @@ class KeyManagement:
         principal_id: str = _ME,
         kind: PrincipalKind = PrincipalKind.USER,
         retry_policy: Optional[RetryPolicy] = None,
+        api_version: Optional[IdentityApiVersionLike] = IdentityApiVersion.AUTO,
     ) -> PrincipalKeys:
         """List a principal's registered keys (metadata only, no key material).
 
@@ -298,6 +323,8 @@ class KeyManagement:
                             explicit agent id — `"me"` is not valid there.
         :param kind: Whether the principal is a human USER (default) or AGENT.
         :param retry_policy: Bounded retry/backoff; defaults to the SDK retry knobs.
+        :param api_version: An `IdentityApiVersion` or its string, ``"auto"`` (default),
+                            ``"v1"`` or ``"v2"``, routed as the wrapped helper routes it.
         :raises ConfigurationError: when Identity Service mode is not enabled.
         :raises ValueError: when `kind` is `AGENT` with no explicit `principal_id`
                             (`"me"` is not valid on agent routes).
@@ -308,6 +335,7 @@ class KeyManagement:
             principal_id,
             kind=kind,
             retry_policy=self._policy(retry_policy),
+            api_version=api_version,
         )
 
     def get(
@@ -317,6 +345,7 @@ class KeyManagement:
         principal_id: str = _ME,
         kind: PrincipalKind = PrincipalKind.USER,
         retry_policy: Optional[RetryPolicy] = None,
+        api_version: Optional[IdentityApiVersionLike] = IdentityApiVersion.AUTO,
     ) -> KeyMetadata:
         """Fetch the metadata for a single registered key.
 
@@ -329,6 +358,8 @@ class KeyManagement:
                             explicit agent id — `"me"` is not valid there.
         :param kind: Whether the principal is a human USER (default) or AGENT.
         :param retry_policy: Bounded retry/backoff; defaults to the SDK retry knobs.
+        :param api_version: An `IdentityApiVersion` or its string, ``"auto"`` (default),
+                            ``"v1"`` or ``"v2"``, routed as the wrapped helper routes it.
         :raises ConfigurationError: when Identity Service mode is not enabled.
         :raises ValueError: when `kind` is `AGENT` with no explicit `principal_id`
                             (`"me"` is not valid on agent routes).
@@ -340,6 +371,7 @@ class KeyManagement:
             key_id,
             kind=kind,
             retry_policy=self._policy(retry_policy),
+            api_version=api_version,
         )
 
     def revoke(
@@ -349,6 +381,7 @@ class KeyManagement:
         principal_id: str = _ME,
         kind: PrincipalKind = PrincipalKind.USER,
         retry_policy: Optional[RetryPolicy] = None,
+        api_version: Optional[IdentityApiVersionLike] = IdentityApiVersion.AUTO,
     ) -> None:
         """Revoke (hard-delete) a single registered key.
 
@@ -361,6 +394,8 @@ class KeyManagement:
                             explicit agent id — `"me"` is not valid there.
         :param kind: Whether the principal is a human USER (default) or AGENT.
         :param retry_policy: Bounded retry/backoff; defaults to the SDK retry knobs.
+        :param api_version: An `IdentityApiVersion` or its string, ``"auto"`` (default),
+                            ``"v1"`` or ``"v2"``, routed as the wrapped helper routes it.
         :raises ConfigurationError: when Identity Service mode is not enabled.
         :raises ValueError: when `kind` is `AGENT` with no explicit `principal_id`
                             (`"me"` is not valid on agent routes).
@@ -372,6 +407,7 @@ class KeyManagement:
             key_id,
             kind=kind,
             retry_policy=self._policy(retry_policy),
+            api_version=api_version,
         )
 
     def generate_keypair_and_register(
@@ -382,6 +418,7 @@ class KeyManagement:
         key_id: Optional[str] = None,
         name: Optional[str] = None,
         retry_policy: Optional[RetryPolicy] = None,
+        api_version: Optional[IdentityApiVersionLike] = IdentityApiVersion.AUTO,
     ) -> RegisterKeyResult:
         """Generate a P-384 keypair and register it for a principal in one step.
 
@@ -406,6 +443,8 @@ class KeyManagement:
         :param name: Optional human-readable label for the key. When omitted (or
                      blank) the identity-service defaults the name to the key id.
         :param retry_policy: Bounded retry/backoff; defaults to the SDK retry knobs.
+        :param api_version: An `IdentityApiVersion` or its string, ``"auto"`` (default),
+                            ``"v1"`` or ``"v2"``, routed as the wrapped helper routes it.
         :raises ConfigurationError: when Identity Service mode is not enabled.
         :raises ValueError: when `kind` is `AGENT` with no explicit `principal_id`
                             (an agent cannot register its own keys).
@@ -421,6 +460,7 @@ class KeyManagement:
             key_id=key_id,
             retry_policy=self._policy(retry_policy),
             name=name,
+            api_version=api_version,
         )
 
 
@@ -441,5 +481,10 @@ class KeyManagementMixin:
 
     @property
     def keys(self) -> KeyManagement:
-        """Identity-service key exchange and CRUD operations for this client."""
+        """Identity-service key exchange and CRUD operations for this client.
+
+        Each call uses identity-service's v2 key routes where it can and the deprecated
+        v1 routes otherwise (see `KeyManagement`); for v2-only key management use
+        `IstariAdmin.identity.keys`.
+        """
         return KeyManagement(self._identity_service_config)

@@ -7,7 +7,7 @@ requires = [ "setuptools>=81.0.0", "packaging>=26.3.0" ]
 
 [project]
 name = "pkg_about"
-version = "2.4.5"
+version = "2.4.6"
 description = "Unified access to Python package metadata at runtime."
 keywords = [ "pkg_about", "pkg-about", "__about__", "packaging" ]
 license = "Zlib"
@@ -59,7 +59,8 @@ dependencies = [
 [dependency-groups]
 base = [
   "pip>=26.2.1; platform_python_implementation!='GraalVM'",
-  "pip>=24.3.1; platform_python_implementation=='GraalVM'",
+  "pip>=26.1.2; platform_python_implementation=='GraalVM' and python_version~='3.13.0'",
+  "pip>=24.3.1; platform_python_implementation=='GraalVM' and python_version~='3.12.0'",
   "setuptools>=81.0.0",
 ]
 test = [

@@ -59,3 +59,17 @@ def test_single_quotes_and_self_describing():
     assert d is not None
     assert [(o.label, o.text) for o in d.options] == [("A", "first"), ("Plain label only", "Plain label only")]
     assert d.prompt == "P"
+
+
+def test_model_id_is_the_choice_id_opt_n_when_missing_or_duplicate():
+    from matrx_ai.processing.blocks.parsers.decision_parser import parse_decision
+
+    d = parse_decision(
+        '<option id="x" label="A">a</option><option label="B">b</option><option id="x" label="C">c</option>',
+        {"prompt": "p"},
+    )
+    assert d is not None
+    assert [o.id for o in d.options] == ["x", "opt-1", "opt-2"]
+    d2 = parse_decision_from_raw_xml(LINE_START)
+    assert d2 is not None
+    assert [o.id for o in d2.options] == ["subscription", "freemium", "one-time"]

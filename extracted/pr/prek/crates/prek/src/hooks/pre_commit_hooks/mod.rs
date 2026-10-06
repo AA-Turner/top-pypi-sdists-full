@@ -87,6 +87,7 @@ pub(crate) fn hook_filenames<'a>(
 
 /// Runs blocking file checks, preserving filename order in the combined output.
 /// Explicit filenames finish serially before selected filenames run in parallel.
+/// Each check receives the path joined to `file_base` for I/O and the original path for diagnostics.
 pub(crate) async fn run_blocking_file_checks<F>(
     file_base: &Path,
     explicit: &[PathBuf],
@@ -222,33 +223,6 @@ mod tests {
         assert_eq!(result.exit_status, 1);
         assert_eq!(result.file_changes, crate::hooks::FileChanges::Modified);
         assert_eq!(fs_err::read(dir.path().join("shared"))?, b"3");
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn blocking_checks_preserve_input_order_with_overlapping_checks() -> Result<()> {
-        // A single worker cannot overlap these checks.
-        if rayon::current_num_threads() < 2 {
-            return Ok(());
-        }
-        let (send, recv) = std::sync::mpsc::channel();
-        let recv = std::sync::Mutex::new(recv);
-        let selected = [Path::new("first"), Path::new("second")];
-        let result = run_blocking_file_checks(Path::new(""), &[], &selected, move |_, name| {
-            if name == Path::new("first") {
-                recv.lock()
-                    .map_err(|error| anyhow::anyhow!("{error}"))?
-                    .recv()?;
-                Ok(HookOutput::unchanged(1, b"first".to_vec()))
-            } else {
-                send.send(())?;
-                Ok(HookOutput::unchanged(2, b"second".to_vec()))
-            }
-        })
-        .await?;
-        assert_eq!(result.output, b"firstsecond");
-        assert_eq!(result.exit_status, 3);
-        assert_eq!(result.file_changes, crate::hooks::FileChanges::Unchanged);
         Ok(())
     }
 }

@@ -17,8 +17,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List
+from istari_digital_client.sdk._generated.v3.models.receiving_connection_owner_dto import ReceivingConnectionOwnerDto
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -26,8 +27,8 @@ class SetReceivingConnectionOwnersDto(BaseModel):
     """
     Request body for setting the owners of a receiving connection.
     """ # noqa: E501
-    user_ids: List[StrictStr] = Field(description="The complete list of user IDs to set as owners.")
-    __properties: ClassVar[List[str]] = ["user_ids"]
+    owners: List[ReceivingConnectionOwnerDto] = Field(description="The complete list of owners to set. Owners without an explicit access_level are EDITOR.")
+    __properties: ClassVar[List[str]] = ["owners"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -68,6 +69,13 @@ class SetReceivingConnectionOwnersDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of each item in owners (list)
+        _items = []
+        if self.owners:
+            for _item_owners in self.owners:
+                if _item_owners:
+                    _items.append(_item_owners.to_dict())
+            _dict['owners'] = _items
         return _dict
 
     @classmethod
@@ -80,6 +88,6 @@ class SetReceivingConnectionOwnersDto(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "user_ids": obj.get("user_ids")
+            "owners": [ReceivingConnectionOwnerDto.from_dict(_item) for _item in obj["owners"]] if obj.get("owners") is not None else None
         })
         return _obj

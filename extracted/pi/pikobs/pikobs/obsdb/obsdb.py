@@ -166,6 +166,48 @@ def input_size(runs: Sequence[Tuple[str, str]], families: Sequence[str],
     return n, size
 
 
+def safe_name(text: Any) -> str:
+    """A string fit for a file name: anything but letters, digits and
+    . _ + - becomes _. Every module names its figures and databases with it."""
+    return re.sub(r"[^A-Za-z0-9._+-]", "_", str(text))
+
+
+def run_db_path(module: str, work_path: str, family: str, name: str,
+                date_start: str, date_end: str) -> str:
+    """The result database of one run of a module:
+    <work>/<family>/<module>_<name>_<start>_<end>_<family>.db."""
+    return os.path.join(work_path, family, f"{module}_{safe_name(name)}_"
+                        f"{date_start}_{date_end}_{family}.db")
+
+
+def pair_db_path(work_path: str, family: str, ctl: str, exp: str,
+                 date_start: str, date_end: str) -> str:
+    """The database of the pairs of two runs (cardio, vdedr)."""
+    return os.path.join(work_path, family, f"pairs_{safe_name(ctl)}_vs_"
+                        f"{safe_name(exp)}_{date_start}_{date_end}_{family}.db")
+
+
+def query_distinct(db_paths: Sequence[str], sql: str, params: Sequence[Any] = (),
+                   label: str = "pikobs") -> List[tuple]:
+    """The rows of one query over several result databases, each row once,
+    in the order first met. A missing file is skipped; a database the query
+    fails on is said in the log (with the module's label) and skipped."""
+    seen: Dict[tuple, None] = {}
+    for path in db_paths:
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open_result(path) as conn:
+                rows = conn.execute(sql, params).fetchall()
+        except Exception as exc:
+            print(f"[{label}] query failed on {os.path.basename(path)}: {exc}",
+                  file=sys.stderr, flush=True)
+            continue
+        for r in rows:
+            seen.setdefault(tuple(r), None)
+    return list(seen)
+
+
 def fmt_bytes(n: float) -> str:
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if n < 1024 or unit == "TB":

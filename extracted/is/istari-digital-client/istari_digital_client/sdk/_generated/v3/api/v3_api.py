@@ -17,16 +17,41 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictBool, StrictStr
-from typing import List, Optional
+from datetime import datetime
+from pydantic import Field, StrictBool, StrictInt, StrictStr
+from typing import Any, List, Optional
 from typing_extensions import Annotated
+from istari_digital_client.sdk._generated.v3.models.ai_config_dto import AiConfigDto
+from istari_digital_client.sdk._generated.v3.models.ai_config_update_request import AiConfigUpdateRequest
+from istari_digital_client.sdk._generated.v3.models.ai_conversation_dto import AiConversationDto
+from istari_digital_client.sdk._generated.v3.models.ai_message_dto import AiMessageDto
+from istari_digital_client.sdk._generated.v3.models.append_message_request import AppendMessageRequest
 from istari_digital_client.sdk._generated.v3.models.archive_status import ArchiveStatus
+from istari_digital_client.sdk._generated.v3.models.available_hosts_response import AvailableHostsResponse
+from istari_digital_client.sdk._generated.v3.models.batch_resolve_users_request import BatchResolveUsersRequest
+from istari_digital_client.sdk._generated.v3.models.batch_resolve_users_response import BatchResolveUsersResponse
+from istari_digital_client.sdk._generated.v3.models.browse_entry_dto import BrowseEntryDto
 from istari_digital_client.sdk._generated.v3.models.bulk_inbox_action_dto import BulkInboxActionDto
 from istari_digital_client.sdk._generated.v3.models.bulk_inbox_action_result_dto import BulkInboxActionResultDto
 from istari_digital_client.sdk._generated.v3.models.chat_request import ChatRequest
 from istari_digital_client.sdk._generated.v3.models.chat_response import ChatResponse
 from istari_digital_client.sdk._generated.v3.models.comment_dto import CommentDto
+from istari_digital_client.sdk._generated.v3.models.connected_container_create_dto import ConnectedContainerCreateDto
+from istari_digital_client.sdk._generated.v3.models.connected_container_dto import ConnectedContainerDto
+from istari_digital_client.sdk._generated.v3.models.connected_resource_create_dto import ConnectedResourceCreateDto
+from istari_digital_client.sdk._generated.v3.models.connected_resource_dto import ConnectedResourceDto
+from istari_digital_client.sdk._generated.v3.models.connected_resource_status_dto import ConnectedResourceStatusDto
+from istari_digital_client.sdk._generated.v3.models.connected_source_create_dto import ConnectedSourceCreateDto
+from istari_digital_client.sdk._generated.v3.models.connected_source_dto import ConnectedSourceDto
+from istari_digital_client.sdk._generated.v3.models.container_selection_dto import ContainerSelectionDto
+from istari_digital_client.sdk._generated.v3.models.create_conversation_request import CreateConversationRequest
+from istari_digital_client.sdk._generated.v3.models.cursor_page_ai_conversation_dto import CursorPageAiConversationDto
 from istari_digital_client.sdk._generated.v3.models.cursor_page_comment_dto import CursorPageCommentDto
+from istari_digital_client.sdk._generated.v3.models.cursor_page_connected_resource_dto import CursorPageConnectedResourceDto
+from istari_digital_client.sdk._generated.v3.models.cursor_page_connected_source_dto import CursorPageConnectedSourceDto
+from istari_digital_client.sdk._generated.v3.models.cursor_page_container_snapshot_child_dto import CursorPageContainerSnapshotChildDto
+from istari_digital_client.sdk._generated.v3.models.cursor_page_container_snapshot_dto import CursorPageContainerSnapshotDto
+from istari_digital_client.sdk._generated.v3.models.cursor_page_favorite_dto import CursorPageFavoriteDto
 from istari_digital_client.sdk._generated.v3.models.cursor_page_object_store_dto import CursorPageObjectStoreDto
 from istari_digital_client.sdk._generated.v3.models.cursor_page_receiving_connection_dto import CursorPageReceivingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.cursor_page_remote_file_share_dto import CursorPageRemoteFileShareDto
@@ -38,8 +63,16 @@ from istari_digital_client.sdk._generated.v3.models.cursor_page_sending_connecti
 from istari_digital_client.sdk._generated.v3.models.cursor_page_shareable_sending_connection_dto import CursorPageShareableSendingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.cursor_page_sync_status_update_dto_customized import CursorPageSyncStatusUpdateDtoCustomized
 from istari_digital_client.sdk._generated.v3.models.cursor_page_workflow_log_entry_dto import CursorPageWorkflowLogEntryDto
+from istari_digital_client.sdk._generated.v3.models.evaluate_sending_tag_sets_with_hypothetical_rule_set_dto import EvaluateSendingTagSetsWithHypotheticalRuleSetDto
+from istari_digital_client.sdk._generated.v3.models.favorite_ids_dto import FavoriteIdsDto
+from istari_digital_client.sdk._generated.v3.models.favorite_type import FavoriteType
 from istari_digital_client.sdk._generated.v3.models.inbox_item_dto import InboxItemDto
 from istari_digital_client.sdk._generated.v3.models.inbox_page_dto import InboxPageDto
+from istari_digital_client.sdk._generated.v3.models.lineage_entry_dto import LineageEntryDto
+from istari_digital_client.sdk._generated.v3.models.llm_config_response import LlmConfigResponse
+from istari_digital_client.sdk._generated.v3.models.llm_endpoint_dto import LlmEndpointDto
+from istari_digital_client.sdk._generated.v3.models.llm_model_dto import LlmModelDto
+from istari_digital_client.sdk._generated.v3.models.manifest_catalog_validation_dto import ManifestCatalogValidationDto
 from istari_digital_client.sdk._generated.v3.models.mark_inbox_item_dto import MarkInboxItemDto
 from istari_digital_client.sdk._generated.v3.models.new_comment_create_dto import NewCommentCreateDto
 from istari_digital_client.sdk._generated.v3.models.new_revision_relationship_dto import NewRevisionRelationshipDto
@@ -47,25 +80,47 @@ from istari_digital_client.sdk._generated.v3.models.notification_page_dto import
 from istari_digital_client.sdk._generated.v3.models.receiving_connection_control_tag_dto import ReceivingConnectionControlTagDto
 from istari_digital_client.sdk._generated.v3.models.receiving_connection_create_dto import ReceivingConnectionCreateDto
 from istari_digital_client.sdk._generated.v3.models.receiving_connection_dto import ReceivingConnectionDto
+from istari_digital_client.sdk._generated.v3.models.receiving_connection_infosec_level_dto import ReceivingConnectionInfosecLevelDto
+from istari_digital_client.sdk._generated.v3.models.receiving_connection_infosec_level_mapping_dto import ReceivingConnectionInfosecLevelMappingDto
 from istari_digital_client.sdk._generated.v3.models.receiving_connection_owner_dto import ReceivingConnectionOwnerDto
+from istari_digital_client.sdk._generated.v3.models.receiving_connection_update_result_dto import ReceivingConnectionUpdateResultDto
 from istari_digital_client.sdk._generated.v3.models.remote_file_share_dto import RemoteFileShareDto
+from istari_digital_client.sdk._generated.v3.models.reorder_model_request import ReorderModelRequest
 from istari_digital_client.sdk._generated.v3.models.resource_create_dto import ResourceCreateDto
 from istari_digital_client.sdk._generated.v3.models.resource_dto import ResourceDto
 from istari_digital_client.sdk._generated.v3.models.resource_revision_create_dto import ResourceRevisionCreateDto
 from istari_digital_client.sdk._generated.v3.models.resource_revision_dto import ResourceRevisionDto
+from istari_digital_client.sdk._generated.v3.models.resource_revision_update_dto import ResourceRevisionUpdateDto
 from istari_digital_client.sdk._generated.v3.models.resource_sync_status_by_connection_dto import ResourceSyncStatusByConnectionDto
 from istari_digital_client.sdk._generated.v3.models.revision_relationship_dto import RevisionRelationshipDto
 from istari_digital_client.sdk._generated.v3.models.search_entity_type import SearchEntityType
 from istari_digital_client.sdk._generated.v3.models.search_page import SearchPage
-from istari_digital_client.sdk._generated.v3.models.sending_connection_control_tag_dto import SendingConnectionControlTagDto
+from istari_digital_client.sdk._generated.v3.models.selection_update_dto import SelectionUpdateDto
 from istari_digital_client.sdk._generated.v3.models.sending_connection_create_dto import SendingConnectionCreateDto
 from istari_digital_client.sdk._generated.v3.models.sending_connection_dto import SendingConnectionDto
+from istari_digital_client.sdk._generated.v3.models.sending_connection_permitted_sender_dto import SendingConnectionPermittedSenderDto
+from istari_digital_client.sdk._generated.v3.models.sending_connection_update_result_dto import SendingConnectionUpdateResultDto
+from istari_digital_client.sdk._generated.v3.models.sending_tag_set_evaluation_dto import SendingTagSetEvaluationDto
+from istari_digital_client.sdk._generated.v3.models.set_auto_switch_request import SetAutoSwitchRequest
+from istari_digital_client.sdk._generated.v3.models.set_max_identical_tool_calls_request import SetMaxIdenticalToolCallsRequest
+from istari_digital_client.sdk._generated.v3.models.set_receiving_connection_infosec_level_mappings_dto import SetReceivingConnectionInfosecLevelMappingsDto
 from istari_digital_client.sdk._generated.v3.models.set_receiving_connection_owners_dto import SetReceivingConnectionOwnersDto
-from istari_digital_client.sdk._generated.v3.models.set_sending_connection_control_tags_dto import SetSendingConnectionControlTagsDto
+from istari_digital_client.sdk._generated.v3.models.set_sending_connection_permitted_senders_dto import SetSendingConnectionPermittedSendersDto
 from istari_digital_client.sdk._generated.v3.models.share_file_to_sending_remote_dto import ShareFileToSendingRemoteDto
+from istari_digital_client.sdk._generated.v3.models.suggested_item_type import SuggestedItemType
+from istari_digital_client.sdk._generated.v3.models.suggested_items_dto import SuggestedItemsDto
+from istari_digital_client.sdk._generated.v3.models.suggestion_signal import SuggestionSignal
+from istari_digital_client.sdk._generated.v3.models.tag_match_mode import TagMatchMode
 from istari_digital_client.sdk._generated.v3.models.update_comment_dto import UpdateCommentDto
+from istari_digital_client.sdk._generated.v3.models.update_conversation_request import UpdateConversationRequest
 from istari_digital_client.sdk._generated.v3.models.update_receiving_connection_dto import UpdateReceivingConnectionDto
 from istari_digital_client.sdk._generated.v3.models.update_sending_connection_dto import UpdateSendingConnectionDto
+from istari_digital_client.sdk._generated.v3.models.update_user_steering_request import UpdateUserSteeringRequest
+from istari_digital_client.sdk._generated.v3.models.upsert_endpoint_request import UpsertEndpointRequest
+from istari_digital_client.sdk._generated.v3.models.upsert_model_request import UpsertModelRequest
+from istari_digital_client.sdk._generated.v3.models.user_selectable_models_response import UserSelectableModelsResponse
+from istari_digital_client.sdk._generated.v3.models.user_steering_dto import UserSteeringDto
+from istari_digital_client.sdk._generated.v3.models.validate_manifest_catalog_dto import ValidateManifestCatalogDto
 from istari_digital_client.sdk._generated.v3.models.workflow_log_entry_create_dto import WorkflowLogEntryCreateDto
 from istari_digital_client.sdk._generated.v3.models.workflow_log_entry_detail_dto import WorkflowLogEntryDetailDto
 from istari_digital_client.sdk._generated.v3.models.workflow_log_entry_dto import WorkflowLogEntryDto
@@ -315,6 +370,2820 @@ class V3Api:
 
     @validate_call
     @log_method
+    def ai_config_create_llm_endpoint(
+        self,
+        upsert_endpoint_request: UpsertEndpointRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> LlmEndpointDto:
+
+        """
+        Create an LLM endpoint
+
+        :param upsert_endpoint_request: (required)
+        :type upsert_endpoint_request: UpsertEndpointRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_create_llm_endpoint_serialize(
+            upsert_endpoint_request=upsert_endpoint_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmEndpointDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_create_llm_endpoint_with_http_info(
+        self,
+        upsert_endpoint_request: UpsertEndpointRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[LlmEndpointDto]:
+
+        """
+        Create an LLM endpoint
+
+        :param upsert_endpoint_request: (required)
+        :type upsert_endpoint_request: UpsertEndpointRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_create_llm_endpoint_serialize(
+            upsert_endpoint_request=upsert_endpoint_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmEndpointDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_create_llm_endpoint_without_preload_content(
+        self,
+        upsert_endpoint_request: UpsertEndpointRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Create an LLM endpoint
+
+        :param upsert_endpoint_request: (required)
+        :type upsert_endpoint_request: UpsertEndpointRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_create_llm_endpoint_serialize(
+            upsert_endpoint_request=upsert_endpoint_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmEndpointDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_create_llm_endpoint_serialize(
+        self,
+        upsert_endpoint_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if upsert_endpoint_request is not None:
+            _body_params = upsert_endpoint_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/ai/config/llm/endpoints',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_create_llm_model(
+        self,
+        endpoint_id: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> LlmModelDto:
+
+        """
+        Add a model to an LLM endpoint
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_create_llm_model_serialize(
+            endpoint_id=endpoint_id,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_create_llm_model_with_http_info(
+        self,
+        endpoint_id: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[LlmModelDto]:
+
+        """
+        Add a model to an LLM endpoint
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_create_llm_model_serialize(
+            endpoint_id=endpoint_id,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_create_llm_model_without_preload_content(
+        self,
+        endpoint_id: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Add a model to an LLM endpoint
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_create_llm_model_serialize(
+            endpoint_id=endpoint_id,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_create_llm_model_serialize(
+        self,
+        endpoint_id,
+        upsert_model_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if endpoint_id is not None:
+            _path_params['endpoint_id'] = endpoint_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if upsert_model_request is not None:
+            _body_params = upsert_model_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/ai/config/llm/endpoints/{endpoint_id}/models',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_delete_llm_endpoint(
+        self,
+        endpoint_id: StrictStr,
+        expected_revision: StrictInt,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> object:
+
+        """
+        Delete an LLM endpoint and its configurations
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param expected_revision: (required)
+        :type expected_revision: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_delete_llm_endpoint_serialize(
+            endpoint_id=endpoint_id,
+            expected_revision=expected_revision,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_delete_llm_endpoint_with_http_info(
+        self,
+        endpoint_id: StrictStr,
+        expected_revision: StrictInt,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[object]:
+
+        """
+        Delete an LLM endpoint and its configurations
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param expected_revision: (required)
+        :type expected_revision: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_delete_llm_endpoint_serialize(
+            endpoint_id=endpoint_id,
+            expected_revision=expected_revision,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_delete_llm_endpoint_without_preload_content(
+        self,
+        endpoint_id: StrictStr,
+        expected_revision: StrictInt,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Delete an LLM endpoint and its configurations
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param expected_revision: (required)
+        :type expected_revision: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_delete_llm_endpoint_serialize(
+            endpoint_id=endpoint_id,
+            expected_revision=expected_revision,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_delete_llm_endpoint_serialize(
+        self,
+        endpoint_id,
+        expected_revision,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if endpoint_id is not None:
+            _path_params['endpoint_id'] = endpoint_id
+        # process the query parameters
+        if expected_revision is not None:
+
+            _query_params.append(('expected_revision', expected_revision))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/ai/config/llm/endpoints/{endpoint_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_delete_llm_model(
+        self,
+        model_pk: StrictStr,
+        expected_revision: StrictInt,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> object:
+
+        """
+        Delete an LLM model configuration
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param expected_revision: (required)
+        :type expected_revision: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_delete_llm_model_serialize(
+            model_pk=model_pk,
+            expected_revision=expected_revision,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_delete_llm_model_with_http_info(
+        self,
+        model_pk: StrictStr,
+        expected_revision: StrictInt,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[object]:
+
+        """
+        Delete an LLM model configuration
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param expected_revision: (required)
+        :type expected_revision: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_delete_llm_model_serialize(
+            model_pk=model_pk,
+            expected_revision=expected_revision,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_delete_llm_model_without_preload_content(
+        self,
+        model_pk: StrictStr,
+        expected_revision: StrictInt,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Delete an LLM model configuration
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param expected_revision: (required)
+        :type expected_revision: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_delete_llm_model_serialize(
+            model_pk=model_pk,
+            expected_revision=expected_revision,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "object",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_delete_llm_model_serialize(
+        self,
+        model_pk,
+        expected_revision,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if model_pk is not None:
+            _path_params['model_pk'] = model_pk
+        # process the query parameters
+        if expected_revision is not None:
+
+            _query_params.append(('expected_revision', expected_revision))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/ai/config/llm/models/{model_pk}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_list_available_hosts(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> AvailableHostsResponse:
+
+        """
+        List available LLM host slots
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_list_available_hosts_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AvailableHostsResponse",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_list_available_hosts_with_http_info(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[AvailableHostsResponse]:
+
+        """
+        List available LLM host slots
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_list_available_hosts_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AvailableHostsResponse",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_list_available_hosts_without_preload_content(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List available LLM host slots
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_list_available_hosts_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AvailableHostsResponse",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_list_available_hosts_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/config/llm/available-hosts',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_list_llm_endpoints(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> LlmConfigResponse:
+
+        """
+        List LLM endpoints and their model configurations
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_list_llm_endpoints_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmConfigResponse",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_list_llm_endpoints_with_http_info(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[LlmConfigResponse]:
+
+        """
+        List LLM endpoints and their model configurations
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_list_llm_endpoints_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmConfigResponse",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_list_llm_endpoints_without_preload_content(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List LLM endpoints and their model configurations
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_list_llm_endpoints_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmConfigResponse",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_list_llm_endpoints_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/config/llm/endpoints',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_reorder_llm_model(
+        self,
+        model_pk: StrictStr,
+        reorder_model_request: ReorderModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> LlmModelDto:
+
+        """
+        Reorder an LLM model in the failover priority list
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param reorder_model_request: (required)
+        :type reorder_model_request: ReorderModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_reorder_llm_model_serialize(
+            model_pk=model_pk,
+            reorder_model_request=reorder_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_reorder_llm_model_with_http_info(
+        self,
+        model_pk: StrictStr,
+        reorder_model_request: ReorderModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[LlmModelDto]:
+
+        """
+        Reorder an LLM model in the failover priority list
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param reorder_model_request: (required)
+        :type reorder_model_request: ReorderModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_reorder_llm_model_serialize(
+            model_pk=model_pk,
+            reorder_model_request=reorder_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_reorder_llm_model_without_preload_content(
+        self,
+        model_pk: StrictStr,
+        reorder_model_request: ReorderModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Reorder an LLM model in the failover priority list
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param reorder_model_request: (required)
+        :type reorder_model_request: ReorderModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_reorder_llm_model_serialize(
+            model_pk=model_pk,
+            reorder_model_request=reorder_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_reorder_llm_model_serialize(
+        self,
+        model_pk,
+        reorder_model_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if model_pk is not None:
+            _path_params['model_pk'] = model_pk
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if reorder_model_request is not None:
+            _body_params = reorder_model_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/config/llm/models/{model_pk}/priority',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_set_llm_auto_switch(
+        self,
+        set_auto_switch_request: SetAutoSwitchRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> SetAutoSwitchRequest:
+
+        """
+        Enable or disable availability-based model failover (stored-only; not yet enforced)
+
+        :param set_auto_switch_request: (required)
+        :type set_auto_switch_request: SetAutoSwitchRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_set_llm_auto_switch_serialize(
+            set_auto_switch_request=set_auto_switch_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SetAutoSwitchRequest",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_set_llm_auto_switch_with_http_info(
+        self,
+        set_auto_switch_request: SetAutoSwitchRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[SetAutoSwitchRequest]:
+
+        """
+        Enable or disable availability-based model failover (stored-only; not yet enforced)
+
+        :param set_auto_switch_request: (required)
+        :type set_auto_switch_request: SetAutoSwitchRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_set_llm_auto_switch_serialize(
+            set_auto_switch_request=set_auto_switch_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SetAutoSwitchRequest",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_set_llm_auto_switch_without_preload_content(
+        self,
+        set_auto_switch_request: SetAutoSwitchRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Enable or disable availability-based model failover (stored-only; not yet enforced)
+
+        :param set_auto_switch_request: (required)
+        :type set_auto_switch_request: SetAutoSwitchRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_set_llm_auto_switch_serialize(
+            set_auto_switch_request=set_auto_switch_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SetAutoSwitchRequest",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_set_llm_auto_switch_serialize(
+        self,
+        set_auto_switch_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if set_auto_switch_request is not None:
+            _body_params = set_auto_switch_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/config/llm/auto-switch',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_set_llm_max_identical_tool_calls(
+        self,
+        set_max_identical_tool_calls_request: SetMaxIdenticalToolCallsRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> SetMaxIdenticalToolCallsRequest:
+
+        """
+        Set the cluster-wide identical-tool-call loop guard
+
+        :param set_max_identical_tool_calls_request: (required)
+        :type set_max_identical_tool_calls_request: SetMaxIdenticalToolCallsRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_set_llm_max_identical_tool_calls_serialize(
+            set_max_identical_tool_calls_request=set_max_identical_tool_calls_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SetMaxIdenticalToolCallsRequest",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_set_llm_max_identical_tool_calls_with_http_info(
+        self,
+        set_max_identical_tool_calls_request: SetMaxIdenticalToolCallsRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[SetMaxIdenticalToolCallsRequest]:
+
+        """
+        Set the cluster-wide identical-tool-call loop guard
+
+        :param set_max_identical_tool_calls_request: (required)
+        :type set_max_identical_tool_calls_request: SetMaxIdenticalToolCallsRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_set_llm_max_identical_tool_calls_serialize(
+            set_max_identical_tool_calls_request=set_max_identical_tool_calls_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SetMaxIdenticalToolCallsRequest",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_set_llm_max_identical_tool_calls_without_preload_content(
+        self,
+        set_max_identical_tool_calls_request: SetMaxIdenticalToolCallsRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Set the cluster-wide identical-tool-call loop guard
+
+        :param set_max_identical_tool_calls_request: (required)
+        :type set_max_identical_tool_calls_request: SetMaxIdenticalToolCallsRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_set_llm_max_identical_tool_calls_serialize(
+            set_max_identical_tool_calls_request=set_max_identical_tool_calls_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SetMaxIdenticalToolCallsRequest",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_set_llm_max_identical_tool_calls_serialize(
+        self,
+        set_max_identical_tool_calls_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if set_max_identical_tool_calls_request is not None:
+            _body_params = set_max_identical_tool_calls_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/config/llm/max-identical-tool-calls',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_update_llm_endpoint(
+        self,
+        endpoint_id: StrictStr,
+        upsert_endpoint_request: UpsertEndpointRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> LlmEndpointDto:
+
+        """
+        Update an LLM endpoint
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param upsert_endpoint_request: (required)
+        :type upsert_endpoint_request: UpsertEndpointRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_update_llm_endpoint_serialize(
+            endpoint_id=endpoint_id,
+            upsert_endpoint_request=upsert_endpoint_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmEndpointDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_update_llm_endpoint_with_http_info(
+        self,
+        endpoint_id: StrictStr,
+        upsert_endpoint_request: UpsertEndpointRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[LlmEndpointDto]:
+
+        """
+        Update an LLM endpoint
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param upsert_endpoint_request: (required)
+        :type upsert_endpoint_request: UpsertEndpointRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_update_llm_endpoint_serialize(
+            endpoint_id=endpoint_id,
+            upsert_endpoint_request=upsert_endpoint_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmEndpointDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_update_llm_endpoint_without_preload_content(
+        self,
+        endpoint_id: StrictStr,
+        upsert_endpoint_request: UpsertEndpointRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update an LLM endpoint
+
+        :param endpoint_id: (required)
+        :type endpoint_id: str
+        :param upsert_endpoint_request: (required)
+        :type upsert_endpoint_request: UpsertEndpointRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_update_llm_endpoint_serialize(
+            endpoint_id=endpoint_id,
+            upsert_endpoint_request=upsert_endpoint_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmEndpointDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_update_llm_endpoint_serialize(
+        self,
+        endpoint_id,
+        upsert_endpoint_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if endpoint_id is not None:
+            _path_params['endpoint_id'] = endpoint_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if upsert_endpoint_request is not None:
+            _body_params = upsert_endpoint_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/config/llm/endpoints/{endpoint_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_config_update_llm_model(
+        self,
+        model_pk: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> LlmModelDto:
+
+        """
+        Update an LLM model configuration
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_update_llm_model_serialize(
+            model_pk=model_pk,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_config_update_llm_model_with_http_info(
+        self,
+        model_pk: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[LlmModelDto]:
+
+        """
+        Update an LLM model configuration
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_update_llm_model_serialize(
+            model_pk=model_pk,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_config_update_llm_model_without_preload_content(
+        self,
+        model_pk: StrictStr,
+        upsert_model_request: UpsertModelRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update an LLM model configuration
+
+        :param model_pk: (required)
+        :type model_pk: str
+        :param upsert_model_request: (required)
+        :type upsert_model_request: UpsertModelRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_config_update_llm_model_serialize(
+            model_pk=model_pk,
+            upsert_model_request=upsert_model_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "LlmModelDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_config_update_llm_model_serialize(
+        self,
+        model_pk,
+        upsert_model_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if model_pk is not None:
+            _path_params['model_pk'] = model_pk
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if upsert_model_request is not None:
+            _body_params = upsert_model_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/config/llm/models/{model_pk}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def ai_list_user_models(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> UserSelectableModelsResponse:
+
+        """
+        List selectable chat models
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_list_user_models_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSelectableModelsResponse",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def ai_list_user_models_with_http_info(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[UserSelectableModelsResponse]:
+
+        """
+        List selectable chat models
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_list_user_models_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSelectableModelsResponse",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def ai_list_user_models_without_preload_content(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List selectable chat models
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._ai_list_user_models_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSelectableModelsResponse",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _ai_list_user_models_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/models',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def append_ai_conversation_message(
+        self,
+        conversation_id: StrictStr,
+        append_message_request: AppendMessageRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> AiMessageDto:
+
+        """
+        Append a conversation message
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param append_message_request: (required)
+        :type append_message_request: AppendMessageRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._append_ai_conversation_message_serialize(
+            conversation_id=conversation_id,
+            append_message_request=append_message_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiMessageDto",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def append_ai_conversation_message_with_http_info(
+        self,
+        conversation_id: StrictStr,
+        append_message_request: AppendMessageRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[AiMessageDto]:
+
+        """
+        Append a conversation message
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param append_message_request: (required)
+        :type append_message_request: AppendMessageRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._append_ai_conversation_message_serialize(
+            conversation_id=conversation_id,
+            append_message_request=append_message_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiMessageDto",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def append_ai_conversation_message_without_preload_content(
+        self,
+        conversation_id: StrictStr,
+        append_message_request: AppendMessageRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Append a conversation message
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param append_message_request: (required)
+        :type append_message_request: AppendMessageRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._append_ai_conversation_message_serialize(
+            conversation_id=conversation_id,
+            append_message_request=append_message_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiMessageDto",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _append_ai_conversation_message_serialize(
+        self,
+        conversation_id,
+        append_message_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if conversation_id is not None:
+            _path_params['conversation_id'] = conversation_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if append_message_request is not None:
+            _body_params = append_message_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/ai/conversations/{conversation_id}/messages',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def archive_comment(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the parent resource.")],
@@ -523,6 +3392,216 @@ class V3Api:
         return self.api_client.param_serialize(
             method='DELETE',
             resource_path='/api/v3/resources/{resource_id}/comments/{comment_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def archive_connected_source(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedSourceDto:
+
+        """
+        Archive a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._archive_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def archive_connected_source_with_http_info(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedSourceDto]:
+
+        """
+        Archive a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._archive_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def archive_connected_source_without_preload_content(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Archive a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._archive_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _archive_connected_source_serialize(
+        self,
+        connected_source_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_source_id is not None:
+            _path_params['connected_source_id'] = connected_source_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/connected-sources/{connected_source_id}',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1179,6 +4258,706 @@ class V3Api:
 
     @validate_call
     @log_method
+    def batch_resolve_users(
+        self,
+        batch_resolve_users_request: BatchResolveUsersRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> BatchResolveUsersResponse:
+
+        """
+        Resolve users by principal id
+
+        :param batch_resolve_users_request: (required)
+        :type batch_resolve_users_request: BatchResolveUsersRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._batch_resolve_users_serialize(
+            batch_resolve_users_request=batch_resolve_users_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BatchResolveUsersResponse",
+            '422': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def batch_resolve_users_with_http_info(
+        self,
+        batch_resolve_users_request: BatchResolveUsersRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[BatchResolveUsersResponse]:
+
+        """
+        Resolve users by principal id
+
+        :param batch_resolve_users_request: (required)
+        :type batch_resolve_users_request: BatchResolveUsersRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._batch_resolve_users_serialize(
+            batch_resolve_users_request=batch_resolve_users_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BatchResolveUsersResponse",
+            '422': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def batch_resolve_users_without_preload_content(
+        self,
+        batch_resolve_users_request: BatchResolveUsersRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Resolve users by principal id
+
+        :param batch_resolve_users_request: (required)
+        :type batch_resolve_users_request: BatchResolveUsersRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._batch_resolve_users_serialize(
+            batch_resolve_users_request=batch_resolve_users_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BatchResolveUsersResponse",
+            '422': None,
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _batch_resolve_users_serialize(
+        self,
+        batch_resolve_users_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if batch_resolve_users_request is not None:
+            _body_params = batch_resolve_users_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/users/batch-resolve',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def browse_connected_source(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        locator: Annotated[StrictStr, Field(description="JSON-encoded connector-specific address of the container to list.")],
+        depth: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="How many levels to return. 1 (the default) lists direct children only. Higher values nest them under each container's `children`. There is no depth ceiling because depth is not the cost: the response is capped across all depths by the same node count a selection commit allows, and a container that does not fit comes back with a null `children` for the client to browse itself — never a partial list. Containers whose `expand_by_default` is false are not descended into.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[BrowseEntryDto]:
+
+        """
+        Browse a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param locator: JSON-encoded connector-specific address of the container to list. (required)
+        :type locator: str
+        :param depth: How many levels to return. 1 (the default) lists direct children only. Higher values nest them under each container's `children`. There is no depth ceiling because depth is not the cost: the response is capped across all depths by the same node count a selection commit allows, and a container that does not fit comes back with a null `children` for the client to browse itself — never a partial list. Containers whose `expand_by_default` is false are not descended into.
+        :type depth: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._browse_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            locator=locator,
+            depth=depth,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[BrowseEntryDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def browse_connected_source_with_http_info(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        locator: Annotated[StrictStr, Field(description="JSON-encoded connector-specific address of the container to list.")],
+        depth: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="How many levels to return. 1 (the default) lists direct children only. Higher values nest them under each container's `children`. There is no depth ceiling because depth is not the cost: the response is capped across all depths by the same node count a selection commit allows, and a container that does not fit comes back with a null `children` for the client to browse itself — never a partial list. Containers whose `expand_by_default` is false are not descended into.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[BrowseEntryDto]]:
+
+        """
+        Browse a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param locator: JSON-encoded connector-specific address of the container to list. (required)
+        :type locator: str
+        :param depth: How many levels to return. 1 (the default) lists direct children only. Higher values nest them under each container's `children`. There is no depth ceiling because depth is not the cost: the response is capped across all depths by the same node count a selection commit allows, and a container that does not fit comes back with a null `children` for the client to browse itself — never a partial list. Containers whose `expand_by_default` is false are not descended into.
+        :type depth: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._browse_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            locator=locator,
+            depth=depth,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[BrowseEntryDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def browse_connected_source_without_preload_content(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        locator: Annotated[StrictStr, Field(description="JSON-encoded connector-specific address of the container to list.")],
+        depth: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="How many levels to return. 1 (the default) lists direct children only. Higher values nest them under each container's `children`. There is no depth ceiling because depth is not the cost: the response is capped across all depths by the same node count a selection commit allows, and a container that does not fit comes back with a null `children` for the client to browse itself — never a partial list. Containers whose `expand_by_default` is false are not descended into.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Browse a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param locator: JSON-encoded connector-specific address of the container to list. (required)
+        :type locator: str
+        :param depth: How many levels to return. 1 (the default) lists direct children only. Higher values nest them under each container's `children`. There is no depth ceiling because depth is not the cost: the response is capped across all depths by the same node count a selection commit allows, and a container that does not fit comes back with a null `children` for the client to browse itself — never a partial list. Containers whose `expand_by_default` is false are not descended into.
+        :type depth: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._browse_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            locator=locator,
+            depth=depth,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[BrowseEntryDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _browse_connected_source_serialize(
+        self,
+        connected_source_id,
+        locator,
+        depth,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_source_id is not None:
+            _path_params['connected_source_id'] = connected_source_id
+        # process the query parameters
+        if locator is not None:
+
+            _query_params.append(('locator', locator))
+
+        if depth is not None:
+
+            _query_params.append(('depth', depth))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connected-sources/{connected_source_id}/browse',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def browse_connection(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        depth: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="How many levels to return, with the same capping rules as the source-level browse. This is how a client reaches levels below the container, since the listing always starts at the container itself.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[BrowseEntryDto]:
+
+        """
+        Browse an existing container connection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param depth: How many levels to return, with the same capping rules as the source-level browse. This is how a client reaches levels below the container, since the listing always starts at the container itself.
+        :type depth: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._browse_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            depth=depth,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[BrowseEntryDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def browse_connection_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        depth: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="How many levels to return, with the same capping rules as the source-level browse. This is how a client reaches levels below the container, since the listing always starts at the container itself.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[BrowseEntryDto]]:
+
+        """
+        Browse an existing container connection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param depth: How many levels to return, with the same capping rules as the source-level browse. This is how a client reaches levels below the container, since the listing always starts at the container itself.
+        :type depth: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._browse_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            depth=depth,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[BrowseEntryDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def browse_connection_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        depth: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="How many levels to return, with the same capping rules as the source-level browse. This is how a client reaches levels below the container, since the listing always starts at the container itself.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Browse an existing container connection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param depth: How many levels to return, with the same capping rules as the source-level browse. This is how a client reaches levels below the container, since the listing always starts at the container itself.
+        :type depth: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._browse_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            depth=depth,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[BrowseEntryDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _browse_connection_serialize(
+        self,
+        connected_resource_id,
+        depth,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        if depth is not None:
+
+            _query_params.append(('depth', depth))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections/{connected_resource_id}/browse',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def bulk_action_inbox_items(
         self,
         bulk_inbox_action_dto: BulkInboxActionDto,
@@ -1379,6 +5158,223 @@ class V3Api:
         return self.api_client.param_serialize(
             method='PUT',
             resource_path='/api/v3/inbox/items',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def create_ai_conversation(
+        self,
+        create_conversation_request: CreateConversationRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> AiConversationDto:
+
+        """
+        Create an AI chat conversation
+
+        :param create_conversation_request: (required)
+        :type create_conversation_request: CreateConversationRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_ai_conversation_serialize(
+            create_conversation_request=create_conversation_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConversationDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def create_ai_conversation_with_http_info(
+        self,
+        create_conversation_request: CreateConversationRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[AiConversationDto]:
+
+        """
+        Create an AI chat conversation
+
+        :param create_conversation_request: (required)
+        :type create_conversation_request: CreateConversationRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_ai_conversation_serialize(
+            create_conversation_request=create_conversation_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConversationDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def create_ai_conversation_without_preload_content(
+        self,
+        create_conversation_request: CreateConversationRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Create an AI chat conversation
+
+        :param create_conversation_request: (required)
+        :type create_conversation_request: CreateConversationRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_ai_conversation_serialize(
+            create_conversation_request=create_conversation_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConversationDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _create_ai_conversation_serialize(
+        self,
+        create_conversation_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if create_conversation_request is not None:
+            _body_params = create_conversation_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/ai/conversations',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -1617,6 +5613,708 @@ class V3Api:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/api/v3/resources/{resource_id}/comments',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def create_connected_source(
+        self,
+        connected_source_create_dto: ConnectedSourceCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedSourceDto:
+
+        """
+        Create a connected source
+
+        :param connected_source_create_dto: (required)
+        :type connected_source_create_dto: ConnectedSourceCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_connected_source_serialize(
+            connected_source_create_dto=connected_source_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '400': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def create_connected_source_with_http_info(
+        self,
+        connected_source_create_dto: ConnectedSourceCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedSourceDto]:
+
+        """
+        Create a connected source
+
+        :param connected_source_create_dto: (required)
+        :type connected_source_create_dto: ConnectedSourceCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_connected_source_serialize(
+            connected_source_create_dto=connected_source_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '400': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def create_connected_source_without_preload_content(
+        self,
+        connected_source_create_dto: ConnectedSourceCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Create a connected source
+
+        :param connected_source_create_dto: (required)
+        :type connected_source_create_dto: ConnectedSourceCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_connected_source_serialize(
+            connected_source_create_dto=connected_source_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '400': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _create_connected_source_serialize(
+        self,
+        connected_source_create_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if connected_source_create_dto is not None:
+            _body_params = connected_source_create_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/connected-sources',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def create_connection(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        connected_resource_create_dto: ConnectedResourceCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedResourceDto:
+
+        """
+        Connect a single external file
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param connected_resource_create_dto: (required)
+        :type connected_resource_create_dto: ConnectedResourceCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_connection_serialize(
+            connected_source_id=connected_source_id,
+            connected_resource_create_dto=connected_resource_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def create_connection_with_http_info(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        connected_resource_create_dto: ConnectedResourceCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedResourceDto]:
+
+        """
+        Connect a single external file
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param connected_resource_create_dto: (required)
+        :type connected_resource_create_dto: ConnectedResourceCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_connection_serialize(
+            connected_source_id=connected_source_id,
+            connected_resource_create_dto=connected_resource_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def create_connection_without_preload_content(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        connected_resource_create_dto: ConnectedResourceCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Connect a single external file
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param connected_resource_create_dto: (required)
+        :type connected_resource_create_dto: ConnectedResourceCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_connection_serialize(
+            connected_source_id=connected_source_id,
+            connected_resource_create_dto=connected_resource_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _create_connection_serialize(
+        self,
+        connected_source_id,
+        connected_resource_create_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_source_id is not None:
+            _path_params['connected_source_id'] = connected_source_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if connected_resource_create_dto is not None:
+            _body_params = connected_resource_create_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/connected-sources/{connected_source_id}/connections',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def create_container(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        connected_container_create_dto: ConnectedContainerCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedContainerDto:
+
+        """
+        Connect an external container
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param connected_container_create_dto: (required)
+        :type connected_container_create_dto: ConnectedContainerCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_container_serialize(
+            connected_source_id=connected_source_id,
+            connected_container_create_dto=connected_container_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedContainerDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def create_container_with_http_info(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        connected_container_create_dto: ConnectedContainerCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedContainerDto]:
+
+        """
+        Connect an external container
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param connected_container_create_dto: (required)
+        :type connected_container_create_dto: ConnectedContainerCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_container_serialize(
+            connected_source_id=connected_source_id,
+            connected_container_create_dto=connected_container_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedContainerDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def create_container_without_preload_content(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        connected_container_create_dto: ConnectedContainerCreateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Connect an external container
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param connected_container_create_dto: (required)
+        :type connected_container_create_dto: ConnectedContainerCreateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._create_container_serialize(
+            connected_source_id=connected_source_id,
+            connected_container_create_dto=connected_container_create_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedContainerDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _create_container_serialize(
+        self,
+        connected_source_id,
+        connected_container_create_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_source_id is not None:
+            _path_params['connected_source_id'] = connected_source_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if connected_container_create_dto is not None:
+            _body_params = connected_container_create_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/connected-sources/{connected_source_id}/containers',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -3234,6 +7932,1695 @@ class V3Api:
 
     @validate_call
     @log_method
+    def delete_connection(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedResourceDto:
+
+        """
+        Soft-stop a connection
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._delete_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def delete_connection_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedResourceDto]:
+
+        """
+        Soft-stop a connection
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._delete_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def delete_connection_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Soft-stop a connection
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._delete_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _delete_connection_serialize(
+        self,
+        connected_resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/connections/{connected_resource_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def download_connected_content(
+        self,
+        file_revision_id: Annotated[StrictStr, Field(description="The connected resource revision to download.")],
+        t: Annotated[StrictStr, Field(description="Signed, short-lived grant issued by the download-url endpoint.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Download connected content
+
+        :param file_revision_id: The connected resource revision to download. (required)
+        :type file_revision_id: str
+        :param t: Signed, short-lived grant issued by the download-url endpoint. (required)
+        :type t: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._download_connected_content_serialize(
+            file_revision_id=file_revision_id,
+            t=t,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': None,
+            '401': None,
+            '403': None,
+            '404': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def download_connected_content_with_http_info(
+        self,
+        file_revision_id: Annotated[StrictStr, Field(description="The connected resource revision to download.")],
+        t: Annotated[StrictStr, Field(description="Signed, short-lived grant issued by the download-url endpoint.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Download connected content
+
+        :param file_revision_id: The connected resource revision to download. (required)
+        :type file_revision_id: str
+        :param t: Signed, short-lived grant issued by the download-url endpoint. (required)
+        :type t: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._download_connected_content_serialize(
+            file_revision_id=file_revision_id,
+            t=t,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': None,
+            '401': None,
+            '403': None,
+            '404': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def download_connected_content_without_preload_content(
+        self,
+        file_revision_id: Annotated[StrictStr, Field(description="The connected resource revision to download.")],
+        t: Annotated[StrictStr, Field(description="Signed, short-lived grant issued by the download-url endpoint.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Download connected content
+
+        :param file_revision_id: The connected resource revision to download. (required)
+        :type file_revision_id: str
+        :param t: Signed, short-lived grant issued by the download-url endpoint. (required)
+        :type t: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._download_connected_content_serialize(
+            file_revision_id=file_revision_id,
+            t=t,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': None,
+            '401': None,
+            '403': None,
+            '404': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _download_connected_content_serialize(
+        self,
+        file_revision_id,
+        t,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if file_revision_id is not None:
+            _path_params['file_revision_id'] = file_revision_id
+        # process the query parameters
+        if t is not None:
+
+            _query_params.append(('t', t))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connected-content/{file_revision_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def evaluate_sending_remote_tag_sets(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote whose tag rules should be applied.")],
+        evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: EvaluateSendingTagSetsWithHypotheticalRuleSetDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[SendingTagSetEvaluationDto]:
+
+        """
+        Preview what a sending remote's tag rules do to given control tag sets
+
+        :param remote_id: The ID of the sending remote whose tag rules should be applied. (required)
+        :type remote_id: str
+        :param evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: (required)
+        :type evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: EvaluateSendingTagSetsWithHypotheticalRuleSetDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._evaluate_sending_remote_tag_sets_serialize(
+            remote_id=remote_id,
+            evaluate_sending_tag_sets_with_hypothetical_rule_set_dto=evaluate_sending_tag_sets_with_hypothetical_rule_set_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[SendingTagSetEvaluationDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def evaluate_sending_remote_tag_sets_with_http_info(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote whose tag rules should be applied.")],
+        evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: EvaluateSendingTagSetsWithHypotheticalRuleSetDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[SendingTagSetEvaluationDto]]:
+
+        """
+        Preview what a sending remote's tag rules do to given control tag sets
+
+        :param remote_id: The ID of the sending remote whose tag rules should be applied. (required)
+        :type remote_id: str
+        :param evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: (required)
+        :type evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: EvaluateSendingTagSetsWithHypotheticalRuleSetDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._evaluate_sending_remote_tag_sets_serialize(
+            remote_id=remote_id,
+            evaluate_sending_tag_sets_with_hypothetical_rule_set_dto=evaluate_sending_tag_sets_with_hypothetical_rule_set_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[SendingTagSetEvaluationDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def evaluate_sending_remote_tag_sets_without_preload_content(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote whose tag rules should be applied.")],
+        evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: EvaluateSendingTagSetsWithHypotheticalRuleSetDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Preview what a sending remote's tag rules do to given control tag sets
+
+        :param remote_id: The ID of the sending remote whose tag rules should be applied. (required)
+        :type remote_id: str
+        :param evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: (required)
+        :type evaluate_sending_tag_sets_with_hypothetical_rule_set_dto: EvaluateSendingTagSetsWithHypotheticalRuleSetDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._evaluate_sending_remote_tag_sets_serialize(
+            remote_id=remote_id,
+            evaluate_sending_tag_sets_with_hypothetical_rule_set_dto=evaluate_sending_tag_sets_with_hypothetical_rule_set_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[SendingTagSetEvaluationDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _evaluate_sending_remote_tag_sets_serialize(
+        self,
+        remote_id,
+        evaluate_sending_tag_sets_with_hypothetical_rule_set_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if remote_id is not None:
+            _path_params['remote_id'] = remote_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if evaluate_sending_tag_sets_with_hypothetical_rule_set_dto is not None:
+            _body_params = evaluate_sending_tag_sets_with_hypothetical_rule_set_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/remotes/sending/{remote_id}/tag-sets:evaluate',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def favorite_connection(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Star a secure connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def favorite_connection_with_http_info(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Star a secure connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def favorite_connection_without_preload_content(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Star a secure connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _favorite_connection_serialize(
+        self,
+        connection_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/user/favorites/connections/{connection_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def favorite_resource(
+        self,
+        resource_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Favorite a resource
+
+        :param resource_id: (required)
+        :type resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_resource_serialize(
+            resource_id=resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def favorite_resource_with_http_info(
+        self,
+        resource_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Favorite a resource
+
+        :param resource_id: (required)
+        :type resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_resource_serialize(
+            resource_id=resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def favorite_resource_without_preload_content(
+        self,
+        resource_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Favorite a resource
+
+        :param resource_id: (required)
+        :type resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_resource_serialize(
+            resource_id=resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _favorite_resource_serialize(
+        self,
+        resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if resource_id is not None:
+            _path_params['resource_id'] = resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/user/favorites/resources/{resource_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def favorite_system(
+        self,
+        system_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Favorite a system
+
+        :param system_id: (required)
+        :type system_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_system_serialize(
+            system_id=system_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def favorite_system_with_http_info(
+        self,
+        system_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Favorite a system
+
+        :param system_id: (required)
+        :type system_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_system_serialize(
+            system_id=system_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def favorite_system_without_preload_content(
+        self,
+        system_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Favorite a system
+
+        :param system_id: (required)
+        :type system_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._favorite_system_serialize(
+            system_id=system_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '403': None,
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _favorite_system_serialize(
+        self,
+        system_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/user/favorites/systems/{system_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_ai_config(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> AiConfigDto:
+
+        """
+        Get AI configuration
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_ai_config_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConfigDto",
+            '403': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_ai_config_with_http_info(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[AiConfigDto]:
+
+        """
+        Get AI configuration
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_ai_config_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConfigDto",
+            '403': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_ai_config_without_preload_content(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get AI configuration
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_ai_config_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConfigDto",
+            '403': None,
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_ai_config_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/config',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_ai_user_steering(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> UserSteeringDto:
+
+        """
+        Get my AI steering text
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_ai_user_steering_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSteeringDto",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_ai_user_steering_with_http_info(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[UserSteeringDto]:
+
+        """
+        Get my AI steering text
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_ai_user_steering_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSteeringDto",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_ai_user_steering_without_preload_content(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get my AI steering text
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_ai_user_steering_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSteeringDto",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_ai_user_steering_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/user-steering',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def get_comment(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the parent resource.")],
@@ -3439,6 +9826,1059 @@ class V3Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v3/resources/{resource_id}/comments/{comment_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_connected_source(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedSourceDto:
+
+        """
+        Get a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_connected_source_with_http_info(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedSourceDto]:
+
+        """
+        Get a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_connected_source_without_preload_content(
+        self,
+        connected_source_id: Annotated[StrictStr, Field(description="The ID of the connected source.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get a connected source
+
+        :param connected_source_id: The ID of the connected source. (required)
+        :type connected_source_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connected_source_serialize(
+            connected_source_id=connected_source_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedSourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_connected_source_serialize(
+        self,
+        connected_source_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_source_id is not None:
+            _path_params['connected_source_id'] = connected_source_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connected-sources/{connected_source_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_connection(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedResourceDto:
+
+        """
+        Get a connected resource
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_connection_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedResourceDto]:
+
+        """
+        Get a connected resource
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_connection_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get a connected resource
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_connection_serialize(
+        self,
+        connected_resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections/{connected_resource_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_connection_lineage(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[LineageEntryDto]:
+
+        """
+        Get a connection's ancestor containers
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_lineage_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[LineageEntryDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_connection_lineage_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[LineageEntryDto]]:
+
+        """
+        Get a connection's ancestor containers
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_lineage_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[LineageEntryDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_connection_lineage_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get a connection's ancestor containers
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_lineage_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[LineageEntryDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_connection_lineage_serialize(
+        self,
+        connected_resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections/{connected_resource_id}/lineage',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_connection_selection(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ContainerSelectionDto:
+
+        """
+        Get a container connection's selection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_selection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ContainerSelectionDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_connection_selection_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ContainerSelectionDto]:
+
+        """
+        Get a container connection's selection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_selection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ContainerSelectionDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_connection_selection_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get a container connection's selection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_selection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ContainerSelectionDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_connection_selection_serialize(
+        self,
+        connected_resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections/{connected_resource_id}/selection',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_connection_status(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedResourceStatusDto:
+
+        """
+        Get a connection's sync status
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_status_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceStatusDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_connection_status_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedResourceStatusDto]:
+
+        """
+        Get a connection's sync status
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_status_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceStatusDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_connection_status_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get a connection's sync status
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_connection_status_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceStatusDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_connection_status_serialize(
+        self,
+        connected_resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections/{connected_resource_id}/status',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -3853,6 +11293,426 @@ class V3Api:
         return self.api_client.param_serialize(
             method='GET',
             resource_path='/api/v3/remotes/receiving/{remote_id}/control-tags',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_receiving_connection_infosec_level_mappings(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get infosec level mappings for.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[ReceivingConnectionInfosecLevelMappingDto]:
+
+        """
+        Get receiving connection infosec level mappings
+
+        :param remote_id: The ID of the receiving remote to get infosec level mappings for. (required)
+        :type remote_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_receiving_connection_infosec_level_mappings_serialize(
+            remote_id=remote_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelMappingDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_receiving_connection_infosec_level_mappings_with_http_info(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get infosec level mappings for.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[ReceivingConnectionInfosecLevelMappingDto]]:
+
+        """
+        Get receiving connection infosec level mappings
+
+        :param remote_id: The ID of the receiving remote to get infosec level mappings for. (required)
+        :type remote_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_receiving_connection_infosec_level_mappings_serialize(
+            remote_id=remote_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelMappingDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_receiving_connection_infosec_level_mappings_without_preload_content(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get infosec level mappings for.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get receiving connection infosec level mappings
+
+        :param remote_id: The ID of the receiving remote to get infosec level mappings for. (required)
+        :type remote_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_receiving_connection_infosec_level_mappings_serialize(
+            remote_id=remote_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelMappingDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_receiving_connection_infosec_level_mappings_serialize(
+        self,
+        remote_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if remote_id is not None:
+            _path_params['remote_id'] = remote_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/remotes/receiving/{remote_id}/infosec-levels/mappings',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def get_receiving_connection_infosec_levels(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get infosec levels for.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[ReceivingConnectionInfosecLevelDto]:
+
+        """
+        Get receiving connection incoming infosec levels
+
+        :param remote_id: The ID of the receiving remote to get infosec levels for. (required)
+        :type remote_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_receiving_connection_infosec_levels_serialize(
+            remote_id=remote_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_receiving_connection_infosec_levels_with_http_info(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get infosec levels for.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[ReceivingConnectionInfosecLevelDto]]:
+
+        """
+        Get receiving connection incoming infosec levels
+
+        :param remote_id: The ID of the receiving remote to get infosec levels for. (required)
+        :type remote_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_receiving_connection_infosec_levels_serialize(
+            remote_id=remote_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_receiving_connection_infosec_levels_without_preload_content(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get infosec levels for.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Get receiving connection incoming infosec levels
+
+        :param remote_id: The ID of the receiving remote to get infosec levels for. (required)
+        :type remote_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._get_receiving_connection_infosec_levels_serialize(
+            remote_id=remote_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelDto]",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _get_receiving_connection_infosec_levels_serialize(
+        self,
+        remote_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if remote_id is not None:
+            _path_params['remote_id'] = remote_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/remotes/receiving/{remote_id}/infosec-levels',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -4719,27 +12579,27 @@ class V3Api:
 
     @validate_call
     @log_method
-    def get_sending_connection_control_tags(
+    def get_sending_connection_permitted_senders(
         self,
-        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get control tags for.")],
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get permitted senders for.")],
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> List[SendingConnectionControlTagDto]:
+    ) -> List[SendingConnectionPermittedSenderDto]:
 
         """
-        Get sending connection control tags
+        Get sending connection permitted senders
 
-        :param remote_id: The ID of the sending remote to get control tags for. (required)
+        :param remote_id: The ID of the sending remote to get permitted senders for. (required)
         :type remote_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
 
-        _param = self._get_sending_connection_control_tags_serialize(
+        _param = self._get_sending_connection_permitted_senders_serialize(
             remote_id=remote_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -4748,7 +12608,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[SendingConnectionControlTagDto]",
+            '200': "List[SendingConnectionPermittedSenderDto]",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -4769,27 +12629,27 @@ class V3Api:
 
 
     @validate_call
-    def get_sending_connection_control_tags_with_http_info(
+    def get_sending_connection_permitted_senders_with_http_info(
         self,
-        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get control tags for.")],
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get permitted senders for.")],
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[List[SendingConnectionControlTagDto]]:
+    ) -> ApiResponse[List[SendingConnectionPermittedSenderDto]]:
 
         """
-        Get sending connection control tags
+        Get sending connection permitted senders
 
-        :param remote_id: The ID of the sending remote to get control tags for. (required)
+        :param remote_id: The ID of the sending remote to get permitted senders for. (required)
         :type remote_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
 
-        _param = self._get_sending_connection_control_tags_serialize(
+        _param = self._get_sending_connection_permitted_senders_serialize(
             remote_id=remote_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -4798,7 +12658,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[SendingConnectionControlTagDto]",
+            '200': "List[SendingConnectionPermittedSenderDto]",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -4819,9 +12679,9 @@ class V3Api:
 
 
     @validate_call
-    def get_sending_connection_control_tags_without_preload_content(
+    def get_sending_connection_permitted_senders_without_preload_content(
         self,
-        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get control tags for.")],
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get permitted senders for.")],
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -4830,16 +12690,16 @@ class V3Api:
     ) -> RESTResponseType:
 
         """
-        Get sending connection control tags
+        Get sending connection permitted senders
 
-        :param remote_id: The ID of the sending remote to get control tags for. (required)
+        :param remote_id: The ID of the sending remote to get permitted senders for. (required)
         :type remote_id: str
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
 
-        _param = self._get_sending_connection_control_tags_serialize(
+        _param = self._get_sending_connection_permitted_senders_serialize(
             remote_id=remote_id,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -4848,7 +12708,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[SendingConnectionControlTagDto]",
+            '200': "List[SendingConnectionPermittedSenderDto]",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -4863,7 +12723,7 @@ class V3Api:
         return response_data.response
 
 
-    def _get_sending_connection_control_tags_serialize(
+    def _get_sending_connection_permitted_senders_serialize(
         self,
         remote_id,
         _request_auth,
@@ -4911,7 +12771,7 @@ class V3Api:
 
         return self.api_client.param_serialize(
             method='GET',
-            resource_path='/api/v3/remotes/sending/{remote_id}/control-tags',
+            resource_path='/api/v3/remotes/sending/{remote_id}/permitted-senders',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -5364,11 +13224,492 @@ class V3Api:
 
     @validate_call
     @log_method
+    def list_ai_conversation_messages(
+        self,
+        conversation_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[AiMessageDto]:
+
+        """
+        List conversation messages
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_ai_conversation_messages_serialize(
+            conversation_id=conversation_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[AiMessageDto]",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_ai_conversation_messages_with_http_info(
+        self,
+        conversation_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[AiMessageDto]]:
+
+        """
+        List conversation messages
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_ai_conversation_messages_serialize(
+            conversation_id=conversation_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[AiMessageDto]",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_ai_conversation_messages_without_preload_content(
+        self,
+        conversation_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List conversation messages
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_ai_conversation_messages_serialize(
+            conversation_id=conversation_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[AiMessageDto]",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_ai_conversation_messages_serialize(
+        self,
+        conversation_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if conversation_id is not None:
+            _path_params['conversation_id'] = conversation_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/conversations/{conversation_id}/messages',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def list_ai_conversations(
+        self,
+        q: Annotated[Optional[StrictStr], Field(description="Filter by title or message content.")] = None,
+        include_archived: Annotated[Optional[StrictBool], Field(description="Include archived conversations.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CursorPageAiConversationDto:
+
+        """
+        List chat conversations
+
+        :param q: Filter by title or message content.
+        :type q: str
+        :param include_archived: Include archived conversations.
+        :type include_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_ai_conversations_serialize(
+            q=q,
+            include_archived=include_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageAiConversationDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_ai_conversations_with_http_info(
+        self,
+        q: Annotated[Optional[StrictStr], Field(description="Filter by title or message content.")] = None,
+        include_archived: Annotated[Optional[StrictBool], Field(description="Include archived conversations.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CursorPageAiConversationDto]:
+
+        """
+        List chat conversations
+
+        :param q: Filter by title or message content.
+        :type q: str
+        :param include_archived: Include archived conversations.
+        :type include_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_ai_conversations_serialize(
+            q=q,
+            include_archived=include_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageAiConversationDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_ai_conversations_without_preload_content(
+        self,
+        q: Annotated[Optional[StrictStr], Field(description="Filter by title or message content.")] = None,
+        include_archived: Annotated[Optional[StrictBool], Field(description="Include archived conversations.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List chat conversations
+
+        :param q: Filter by title or message content.
+        :type q: str
+        :param include_archived: Include archived conversations.
+        :type include_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_ai_conversations_serialize(
+            q=q,
+            include_archived=include_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageAiConversationDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_ai_conversations_serialize(
+        self,
+        q,
+        include_archived,
+        cursor,
+        size,
+        include_total,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if q is not None:
+
+            _query_params.append(('q', q))
+
+        if include_archived is not None:
+
+            _query_params.append(('include_archived', include_archived))
+
+        if cursor is not None:
+
+            _query_params.append(('cursor', cursor))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/ai/conversations',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def list_comments(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the resource whose comments to list.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         comment_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by one or more comment IDs (UUID).  Repeat the parameter for multiple values.  Supports `!` negation prefix.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the comment.  Supports `!` negation prefix and multiple values.")] = None,
@@ -5384,9 +13725,9 @@ class V3Api:
 
         :param resource_id: Unique identifier of the resource whose comments to list. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -5436,8 +13777,8 @@ class V3Api:
     def list_comments_with_http_info(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the resource whose comments to list.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         comment_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by one or more comment IDs (UUID).  Repeat the parameter for multiple values.  Supports `!` negation prefix.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the comment.  Supports `!` negation prefix and multiple values.")] = None,
@@ -5453,9 +13794,9 @@ class V3Api:
 
         :param resource_id: Unique identifier of the resource whose comments to list. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -5505,8 +13846,8 @@ class V3Api:
     def list_comments_without_preload_content(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the resource whose comments to list.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         comment_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by one or more comment IDs (UUID).  Repeat the parameter for multiple values.  Supports `!` negation prefix.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the comment.  Supports `!` negation prefix and multiple values.")] = None,
@@ -5522,9 +13863,9 @@ class V3Api:
 
         :param resource_id: Unique identifier of the resource whose comments to list. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -5658,10 +13999,1584 @@ class V3Api:
 
     @validate_call
     @log_method
+    def list_connected_sources(
+        self,
+        show_archived: Annotated[Optional[StrictBool], Field(description="Include archived connected sources.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CursorPageConnectedSourceDto:
+
+        """
+        List connected sources
+
+        :param show_archived: Include archived connected sources.
+        :type show_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_connected_sources_serialize(
+            show_archived=show_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageConnectedSourceDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_connected_sources_with_http_info(
+        self,
+        show_archived: Annotated[Optional[StrictBool], Field(description="Include archived connected sources.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CursorPageConnectedSourceDto]:
+
+        """
+        List connected sources
+
+        :param show_archived: Include archived connected sources.
+        :type show_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_connected_sources_serialize(
+            show_archived=show_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageConnectedSourceDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_connected_sources_without_preload_content(
+        self,
+        show_archived: Annotated[Optional[StrictBool], Field(description="Include archived connected sources.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List connected sources
+
+        :param show_archived: Include archived connected sources.
+        :type show_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_connected_sources_serialize(
+            show_archived=show_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageConnectedSourceDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_connected_sources_serialize(
+        self,
+        show_archived,
+        cursor,
+        size,
+        include_total,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if show_archived is not None:
+
+            _query_params.append(('show_archived', show_archived))
+
+        if cursor is not None:
+
+            _query_params.append(('cursor', cursor))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connected-sources',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def list_connections(
+        self,
+        connected_source_id: Annotated[Optional[StrictStr], Field(description="Only return connections under this connected source.")] = None,
+        root_containers_only: Annotated[Optional[StrictBool], Field(description="Only return containers that no other container holds — the roots of the trees connected here, which is what a source's top-level listing wants. Excludes single connected files, since those are not containers.")] = None,
+        show_archived: Annotated[Optional[StrictBool], Field(description="Include connections that have been disconnected. Archived rows are filtered in SQL, so a page's counts and cursors describe what the caller can actually show.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CursorPageConnectedResourceDto:
+
+        """
+        List connected resources
+
+        :param connected_source_id: Only return connections under this connected source.
+        :type connected_source_id: str
+        :param root_containers_only: Only return containers that no other container holds — the roots of the trees connected here, which is what a source's top-level listing wants. Excludes single connected files, since those are not containers.
+        :type root_containers_only: bool
+        :param show_archived: Include connections that have been disconnected. Archived rows are filtered in SQL, so a page's counts and cursors describe what the caller can actually show.
+        :type show_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_connections_serialize(
+            connected_source_id=connected_source_id,
+            root_containers_only=root_containers_only,
+            show_archived=show_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageConnectedResourceDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_connections_with_http_info(
+        self,
+        connected_source_id: Annotated[Optional[StrictStr], Field(description="Only return connections under this connected source.")] = None,
+        root_containers_only: Annotated[Optional[StrictBool], Field(description="Only return containers that no other container holds — the roots of the trees connected here, which is what a source's top-level listing wants. Excludes single connected files, since those are not containers.")] = None,
+        show_archived: Annotated[Optional[StrictBool], Field(description="Include connections that have been disconnected. Archived rows are filtered in SQL, so a page's counts and cursors describe what the caller can actually show.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CursorPageConnectedResourceDto]:
+
+        """
+        List connected resources
+
+        :param connected_source_id: Only return connections under this connected source.
+        :type connected_source_id: str
+        :param root_containers_only: Only return containers that no other container holds — the roots of the trees connected here, which is what a source's top-level listing wants. Excludes single connected files, since those are not containers.
+        :type root_containers_only: bool
+        :param show_archived: Include connections that have been disconnected. Archived rows are filtered in SQL, so a page's counts and cursors describe what the caller can actually show.
+        :type show_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_connections_serialize(
+            connected_source_id=connected_source_id,
+            root_containers_only=root_containers_only,
+            show_archived=show_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageConnectedResourceDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_connections_without_preload_content(
+        self,
+        connected_source_id: Annotated[Optional[StrictStr], Field(description="Only return connections under this connected source.")] = None,
+        root_containers_only: Annotated[Optional[StrictBool], Field(description="Only return containers that no other container holds — the roots of the trees connected here, which is what a source's top-level listing wants. Excludes single connected files, since those are not containers.")] = None,
+        show_archived: Annotated[Optional[StrictBool], Field(description="Include connections that have been disconnected. Archived rows are filtered in SQL, so a page's counts and cursors describe what the caller can actually show.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List connected resources
+
+        :param connected_source_id: Only return connections under this connected source.
+        :type connected_source_id: str
+        :param root_containers_only: Only return containers that no other container holds — the roots of the trees connected here, which is what a source's top-level listing wants. Excludes single connected files, since those are not containers.
+        :type root_containers_only: bool
+        :param show_archived: Include connections that have been disconnected. Archived rows are filtered in SQL, so a page's counts and cursors describe what the caller can actually show.
+        :type show_archived: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_connections_serialize(
+            connected_source_id=connected_source_id,
+            root_containers_only=root_containers_only,
+            show_archived=show_archived,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageConnectedResourceDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_connections_serialize(
+        self,
+        connected_source_id,
+        root_containers_only,
+        show_archived,
+        cursor,
+        size,
+        include_total,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if connected_source_id is not None:
+
+            _query_params.append(('connected_source_id', connected_source_id))
+
+        if root_containers_only is not None:
+
+            _query_params.append(('root_containers_only', root_containers_only))
+
+        if show_archived is not None:
+
+            _query_params.append(('show_archived', show_archived))
+
+        if cursor is not None:
+
+            _query_params.append(('cursor', cursor))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def list_container_snapshot_children(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        snapshot_id: Annotated[StrictStr, Field(description="The snapshot to inspect; must belong to that container.")],
+        claimed_by_me: Annotated[Optional[StrictBool], Field(description="Return only the children the caller had selected when this snapshot was taken.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CursorPageContainerSnapshotChildDto:
+
+        """
+        List what a container snapshot froze
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param snapshot_id: The snapshot to inspect; must belong to that container. (required)
+        :type snapshot_id: str
+        :param claimed_by_me: Return only the children the caller had selected when this snapshot was taken.
+        :type claimed_by_me: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_container_snapshot_children_serialize(
+            connected_resource_id=connected_resource_id,
+            snapshot_id=snapshot_id,
+            claimed_by_me=claimed_by_me,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageContainerSnapshotChildDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_container_snapshot_children_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        snapshot_id: Annotated[StrictStr, Field(description="The snapshot to inspect; must belong to that container.")],
+        claimed_by_me: Annotated[Optional[StrictBool], Field(description="Return only the children the caller had selected when this snapshot was taken.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CursorPageContainerSnapshotChildDto]:
+
+        """
+        List what a container snapshot froze
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param snapshot_id: The snapshot to inspect; must belong to that container. (required)
+        :type snapshot_id: str
+        :param claimed_by_me: Return only the children the caller had selected when this snapshot was taken.
+        :type claimed_by_me: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_container_snapshot_children_serialize(
+            connected_resource_id=connected_resource_id,
+            snapshot_id=snapshot_id,
+            claimed_by_me=claimed_by_me,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageContainerSnapshotChildDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_container_snapshot_children_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        snapshot_id: Annotated[StrictStr, Field(description="The snapshot to inspect; must belong to that container.")],
+        claimed_by_me: Annotated[Optional[StrictBool], Field(description="Return only the children the caller had selected when this snapshot was taken.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List what a container snapshot froze
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param snapshot_id: The snapshot to inspect; must belong to that container. (required)
+        :type snapshot_id: str
+        :param claimed_by_me: Return only the children the caller had selected when this snapshot was taken.
+        :type claimed_by_me: bool
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_container_snapshot_children_serialize(
+            connected_resource_id=connected_resource_id,
+            snapshot_id=snapshot_id,
+            claimed_by_me=claimed_by_me,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageContainerSnapshotChildDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_container_snapshot_children_serialize(
+        self,
+        connected_resource_id,
+        snapshot_id,
+        claimed_by_me,
+        cursor,
+        size,
+        include_total,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        if snapshot_id is not None:
+            _path_params['snapshot_id'] = snapshot_id
+        # process the query parameters
+        if claimed_by_me is not None:
+
+            _query_params.append(('claimed_by_me', claimed_by_me))
+
+        if cursor is not None:
+
+            _query_params.append(('cursor', cursor))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections/{connected_resource_id}/snapshots/{snapshot_id}/children',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def list_container_snapshots(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        file_revision_id: Annotated[Optional[StrictStr], Field(description="Return only the snapshot whose manifest is this revision.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CursorPageContainerSnapshotDto:
+
+        """
+        List a container connection's snapshots
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param file_revision_id: Return only the snapshot whose manifest is this revision.
+        :type file_revision_id: str
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_container_snapshots_serialize(
+            connected_resource_id=connected_resource_id,
+            file_revision_id=file_revision_id,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageContainerSnapshotDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_container_snapshots_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        file_revision_id: Annotated[Optional[StrictStr], Field(description="Return only the snapshot whose manifest is this revision.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CursorPageContainerSnapshotDto]:
+
+        """
+        List a container connection's snapshots
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param file_revision_id: Return only the snapshot whose manifest is this revision.
+        :type file_revision_id: str
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_container_snapshots_serialize(
+            connected_resource_id=connected_resource_id,
+            file_revision_id=file_revision_id,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageContainerSnapshotDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_container_snapshots_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        file_revision_id: Annotated[Optional[StrictStr], Field(description="Return only the snapshot whose manifest is this revision.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List a container connection's snapshots
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param file_revision_id: Return only the snapshot whose manifest is this revision.
+        :type file_revision_id: str
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_container_snapshots_serialize(
+            connected_resource_id=connected_resource_id,
+            file_revision_id=file_revision_id,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageContainerSnapshotDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_container_snapshots_serialize(
+        self,
+        connected_resource_id,
+        file_revision_id,
+        cursor,
+        size,
+        include_total,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        if file_revision_id is not None:
+
+            _query_params.append(('file_revision_id', file_revision_id))
+
+        if cursor is not None:
+
+            _query_params.append(('cursor', cursor))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/connections/{connected_resource_id}/snapshots',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def list_favorite_ids(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> FavoriteIdsDto:
+
+        """
+        List the requesting user's favorite ids
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_favorite_ids_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FavoriteIdsDto",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_favorite_ids_with_http_info(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[FavoriteIdsDto]:
+
+        """
+        List the requesting user's favorite ids
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_favorite_ids_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FavoriteIdsDto",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_favorite_ids_without_preload_content(
+        self,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List the requesting user's favorite ids
+
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_favorite_ids_serialize(
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "FavoriteIdsDto",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_favorite_ids_serialize(
+        self,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/user/favorites/ids',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def list_favorites(
+        self,
+        favorite_type: Annotated[Optional[FavoriteType], Field(description="Only return favorites of this target type (`system` or `resource`).")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> CursorPageFavoriteDto:
+
+        """
+        List the requesting user's favorites
+
+        :param favorite_type: Only return favorites of this target type (`system` or `resource`).
+        :type favorite_type: FavoriteType
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_favorites_serialize(
+            favorite_type=favorite_type,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageFavoriteDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_favorites_with_http_info(
+        self,
+        favorite_type: Annotated[Optional[FavoriteType], Field(description="Only return favorites of this target type (`system` or `resource`).")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[CursorPageFavoriteDto]:
+
+        """
+        List the requesting user's favorites
+
+        :param favorite_type: Only return favorites of this target type (`system` or `resource`).
+        :type favorite_type: FavoriteType
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_favorites_serialize(
+            favorite_type=favorite_type,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageFavoriteDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_favorites_without_preload_content(
+        self,
+        favorite_type: Annotated[Optional[FavoriteType], Field(description="Only return favorites of this target type (`system` or `resource`).")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
+        include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List the requesting user's favorites
+
+        :param favorite_type: Only return favorites of this target type (`system` or `resource`).
+        :type favorite_type: FavoriteType
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
+        :type cursor: str
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
+        :type size: int
+        :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
+        :type include_total: bool
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_favorites_serialize(
+            favorite_type=favorite_type,
+            cursor=cursor,
+            size=size,
+            include_total=include_total,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "CursorPageFavoriteDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_favorites_serialize(
+        self,
+        favorite_type,
+        cursor,
+        size,
+        include_total,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if favorite_type is not None:
+
+            _query_params.append(('favorite_type', favorite_type.value))
+
+        if cursor is not None:
+
+            _query_params.append(('cursor', cursor))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        if include_total is not None:
+
+            _query_params.append(('include_total', include_total))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/user/favorites',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def list_inbox_items(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         read: Optional[StrictBool] = None,
         done: Optional[StrictBool] = None,
         archived: Optional[StrictBool] = None,
@@ -5676,9 +15591,9 @@ class V3Api:
         """
         List the authenticated user's persisted inbox items
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param read:
         :type read: bool
@@ -5728,8 +15643,8 @@ class V3Api:
     @validate_call
     def list_inbox_items_with_http_info(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         read: Optional[StrictBool] = None,
         done: Optional[StrictBool] = None,
         archived: Optional[StrictBool] = None,
@@ -5744,9 +15659,9 @@ class V3Api:
         """
         List the authenticated user's persisted inbox items
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param read:
         :type read: bool
@@ -5796,8 +15711,8 @@ class V3Api:
     @validate_call
     def list_inbox_items_without_preload_content(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         read: Optional[StrictBool] = None,
         done: Optional[StrictBool] = None,
         archived: Optional[StrictBool] = None,
@@ -5812,9 +15727,9 @@ class V3Api:
         """
         List the authenticated user's persisted inbox items
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param read:
         :type read: bool
@@ -6137,8 +16052,8 @@ class V3Api:
     @log_method
     def list_object_stores(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -6150,9 +16065,9 @@ class V3Api:
         """
         List object stores
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -6194,8 +16109,8 @@ class V3Api:
     @validate_call
     def list_object_stores_with_http_info(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -6207,9 +16122,9 @@ class V3Api:
         """
         List object stores
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -6251,8 +16166,8 @@ class V3Api:
     @validate_call
     def list_object_stores_without_preload_content(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -6264,9 +16179,9 @@ class V3Api:
         """
         List object stores
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -6382,8 +16297,8 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get status for.")],
         only_with_updates: Annotated[Optional[StrictBool], Field(description="Only return sync status updates that carried per-resource sync status notifications.")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -6399,9 +16314,9 @@ class V3Api:
         :type remote_id: str
         :param only_with_updates: Only return sync status updates that carried per-resource sync status notifications.
         :type only_with_updates: bool
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -6448,8 +16363,8 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get status for.")],
         only_with_updates: Annotated[Optional[StrictBool], Field(description="Only return sync status updates that carried per-resource sync status notifications.")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -6465,9 +16380,9 @@ class V3Api:
         :type remote_id: str
         :param only_with_updates: Only return sync status updates that carried per-resource sync status notifications.
         :type only_with_updates: bool
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -6514,8 +16429,8 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to get status for.")],
         only_with_updates: Annotated[Optional[StrictBool], Field(description="Only return sync status updates that carried per-resource sync status notifications.")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -6531,9 +16446,9 @@ class V3Api:
         :type remote_id: str
         :param only_with_updates: Only return sync status updates that carried per-resource sync status notifications.
         :type only_with_updates: bool
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -6658,10 +16573,11 @@ class V3Api:
     @log_method
     def list_receiving_remotes(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived receiving remotes.")] = None,
+        only_starred: Annotated[Optional[StrictBool], Field(description="Only include receiving remotes the caller has starred.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -6672,14 +16588,16 @@ class V3Api:
         """
         List receiving remotes
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
         :param show_archived: Include archived receiving remotes.
         :type show_archived: bool
+        :param only_starred: Only include receiving remotes the caller has starred.
+        :type only_starred: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -6690,6 +16608,7 @@ class V3Api:
             size=size,
             include_total=include_total,
             show_archived=show_archived,
+            only_starred=only_starred,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -6719,10 +16638,11 @@ class V3Api:
     @validate_call
     def list_receiving_remotes_with_http_info(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived receiving remotes.")] = None,
+        only_starred: Annotated[Optional[StrictBool], Field(description="Only include receiving remotes the caller has starred.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -6733,14 +16653,16 @@ class V3Api:
         """
         List receiving remotes
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
         :param show_archived: Include archived receiving remotes.
         :type show_archived: bool
+        :param only_starred: Only include receiving remotes the caller has starred.
+        :type only_starred: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -6751,6 +16673,7 @@ class V3Api:
             size=size,
             include_total=include_total,
             show_archived=show_archived,
+            only_starred=only_starred,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -6780,10 +16703,11 @@ class V3Api:
     @validate_call
     def list_receiving_remotes_without_preload_content(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived receiving remotes.")] = None,
+        only_starred: Annotated[Optional[StrictBool], Field(description="Only include receiving remotes the caller has starred.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -6794,14 +16718,16 @@ class V3Api:
         """
         List receiving remotes
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
         :param show_archived: Include archived receiving remotes.
         :type show_archived: bool
+        :param only_starred: Only include receiving remotes the caller has starred.
+        :type only_starred: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -6812,6 +16738,7 @@ class V3Api:
             size=size,
             include_total=include_total,
             show_archived=show_archived,
+            only_starred=only_starred,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -6839,6 +16766,7 @@ class V3Api:
         size,
         include_total,
         show_archived,
+        only_starred,
         _request_auth,
         _content_type,
         _headers,
@@ -6876,6 +16804,10 @@ class V3Api:
         if show_archived is not None:
 
             _query_params.append(('show_archived', show_archived))
+
+        if only_starred is not None:
+
+            _query_params.append(('only_starred', only_starred))
 
         # process the header parameters
         # process the form parameters
@@ -6919,8 +16851,8 @@ class V3Api:
     def list_resource_revisions(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the resource whose revisions to list.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         file_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by one or more revision IDs (UUID).  Repeat the parameter for multiple values.  Supports `!` negation prefix.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the revision.  Supports `!` negation prefix and multiple values.")] = None,
@@ -6930,6 +16862,12 @@ class V3Api:
         external_identifier: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifier (exact match).  Supports `!` negation prefix.")] = None,
         display_name: Annotated[Optional[List[StrictStr]], Field(description="Filter by display name (exact match).  Supports `!` negation prefix.")] = None,
         mime_type: Annotated[Optional[List[StrictStr]], Field(description="Filter by MIME type (exact match), e.g. `model/stl`.  Supports `!` negation prefix.")] = None,
+        name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by revision file name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        description__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by revision description containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        version_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by version label containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        external_identifier__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifier containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        display_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by display name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        mime_type__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by MIME type containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -6942,9 +16880,9 @@ class V3Api:
 
         :param resource_id: Unique identifier of the resource whose revisions to list. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -6964,6 +16902,18 @@ class V3Api:
         :type display_name: List[str]
         :param mime_type: Filter by MIME type (exact match), e.g. `model/stl`.  Supports `!` negation prefix.
         :type mime_type: List[str]
+        :param name__contains: Filter by revision file name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type name__contains: List[str]
+        :param description__contains: Filter by revision description containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type description__contains: List[str]
+        :param version_name__contains: Filter by version label containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type version_name__contains: List[str]
+        :param external_identifier__contains: Filter by external identifier containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type external_identifier__contains: List[str]
+        :param display_name__contains: Filter by display name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type display_name__contains: List[str]
+        :param mime_type__contains: Filter by MIME type containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type mime_type__contains: List[str]
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -6982,6 +16932,12 @@ class V3Api:
             external_identifier=external_identifier,
             display_name=display_name,
             mime_type=mime_type,
+            name__contains=name__contains,
+            description__contains=description__contains,
+            version_name__contains=version_name__contains,
+            external_identifier__contains=external_identifier__contains,
+            display_name__contains=display_name__contains,
+            mime_type__contains=mime_type__contains,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7012,8 +16968,8 @@ class V3Api:
     def list_resource_revisions_with_http_info(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the resource whose revisions to list.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         file_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by one or more revision IDs (UUID).  Repeat the parameter for multiple values.  Supports `!` negation prefix.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the revision.  Supports `!` negation prefix and multiple values.")] = None,
@@ -7023,6 +16979,12 @@ class V3Api:
         external_identifier: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifier (exact match).  Supports `!` negation prefix.")] = None,
         display_name: Annotated[Optional[List[StrictStr]], Field(description="Filter by display name (exact match).  Supports `!` negation prefix.")] = None,
         mime_type: Annotated[Optional[List[StrictStr]], Field(description="Filter by MIME type (exact match), e.g. `model/stl`.  Supports `!` negation prefix.")] = None,
+        name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by revision file name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        description__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by revision description containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        version_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by version label containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        external_identifier__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifier containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        display_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by display name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        mime_type__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by MIME type containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -7035,9 +16997,9 @@ class V3Api:
 
         :param resource_id: Unique identifier of the resource whose revisions to list. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -7057,6 +17019,18 @@ class V3Api:
         :type display_name: List[str]
         :param mime_type: Filter by MIME type (exact match), e.g. `model/stl`.  Supports `!` negation prefix.
         :type mime_type: List[str]
+        :param name__contains: Filter by revision file name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type name__contains: List[str]
+        :param description__contains: Filter by revision description containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type description__contains: List[str]
+        :param version_name__contains: Filter by version label containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type version_name__contains: List[str]
+        :param external_identifier__contains: Filter by external identifier containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type external_identifier__contains: List[str]
+        :param display_name__contains: Filter by display name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type display_name__contains: List[str]
+        :param mime_type__contains: Filter by MIME type containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type mime_type__contains: List[str]
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -7075,6 +17049,12 @@ class V3Api:
             external_identifier=external_identifier,
             display_name=display_name,
             mime_type=mime_type,
+            name__contains=name__contains,
+            description__contains=description__contains,
+            version_name__contains=version_name__contains,
+            external_identifier__contains=external_identifier__contains,
+            display_name__contains=display_name__contains,
+            mime_type__contains=mime_type__contains,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7105,8 +17085,8 @@ class V3Api:
     def list_resource_revisions_without_preload_content(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the resource whose revisions to list.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         file_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by one or more revision IDs (UUID).  Repeat the parameter for multiple values.  Supports `!` negation prefix.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the revision.  Supports `!` negation prefix and multiple values.")] = None,
@@ -7116,6 +17096,12 @@ class V3Api:
         external_identifier: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifier (exact match).  Supports `!` negation prefix.")] = None,
         display_name: Annotated[Optional[List[StrictStr]], Field(description="Filter by display name (exact match).  Supports `!` negation prefix.")] = None,
         mime_type: Annotated[Optional[List[StrictStr]], Field(description="Filter by MIME type (exact match), e.g. `model/stl`.  Supports `!` negation prefix.")] = None,
+        name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by revision file name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        description__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by revision description containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        version_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by version label containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        external_identifier__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifier containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        display_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by display name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        mime_type__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by MIME type containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -7128,9 +17114,9 @@ class V3Api:
 
         :param resource_id: Unique identifier of the resource whose revisions to list. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -7150,6 +17136,18 @@ class V3Api:
         :type display_name: List[str]
         :param mime_type: Filter by MIME type (exact match), e.g. `model/stl`.  Supports `!` negation prefix.
         :type mime_type: List[str]
+        :param name__contains: Filter by revision file name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type name__contains: List[str]
+        :param description__contains: Filter by revision description containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type description__contains: List[str]
+        :param version_name__contains: Filter by version label containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type version_name__contains: List[str]
+        :param external_identifier__contains: Filter by external identifier containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type external_identifier__contains: List[str]
+        :param display_name__contains: Filter by display name containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type display_name__contains: List[str]
+        :param mime_type__contains: Filter by MIME type containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type mime_type__contains: List[str]
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -7168,6 +17166,12 @@ class V3Api:
             external_identifier=external_identifier,
             display_name=display_name,
             mime_type=mime_type,
+            name__contains=name__contains,
+            description__contains=description__contains,
+            version_name__contains=version_name__contains,
+            external_identifier__contains=external_identifier__contains,
+            display_name__contains=display_name__contains,
+            mime_type__contains=mime_type__contains,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7203,6 +17207,12 @@ class V3Api:
         external_identifier,
         display_name,
         mime_type,
+        name__contains,
+        description__contains,
+        version_name__contains,
+        external_identifier__contains,
+        display_name__contains,
+        mime_type__contains,
         _request_auth,
         _content_type,
         _headers,
@@ -7220,6 +17230,12 @@ class V3Api:
             'external_identifier': 'multi',
             'display_name': 'multi',
             'mime_type': 'multi',
+            'name__contains': 'multi',
+            'description__contains': 'multi',
+            'version_name__contains': 'multi',
+            'external_identifier__contains': 'multi',
+            'display_name__contains': 'multi',
+            'mime_type__contains': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -7278,6 +17294,30 @@ class V3Api:
         if mime_type is not None:
 
             _query_params.append(('mime_type', mime_type))
+
+        if name__contains is not None:
+
+            _query_params.append(('name__contains', name__contains))
+
+        if description__contains is not None:
+
+            _query_params.append(('description__contains', description__contains))
+
+        if version_name__contains is not None:
+
+            _query_params.append(('version_name__contains', version_name__contains))
+
+        if external_identifier__contains is not None:
+
+            _query_params.append(('external_identifier__contains', external_identifier__contains))
+
+        if display_name__contains is not None:
+
+            _query_params.append(('display_name__contains', display_name__contains))
+
+        if mime_type__contains is not None:
+
+            _query_params.append(('mime_type__contains', mime_type__contains))
 
         # process the header parameters
         # process the form parameters
@@ -7530,8 +17570,8 @@ class V3Api:
     @log_method
     def list_resources(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         resource_id: Annotated[Optional[List[Optional[StrictStr]]], Field(description="Filter by one or more resource IDs (UUID).  Repeat the parameter for multiple values.  Prefix any value with `!` to exclude it, e.g. `!550e8400-e29b-41d4-a716-446655440000`.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the resource.  Supports `!` negation prefix and multiple values.")] = None,
@@ -7545,8 +17585,21 @@ class V3Api:
         upstream_remote_id: Annotated[Optional[List[StrictStr]], Field(description="Filter to resources received via the given receiving remote secure connection (UUID).  Supports `!` negation prefix and multiple values.")] = None,
         upstream_file_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the resource's file ID on the upstream remote (UUID).  Supports `!` negation prefix and multiple values.")] = None,
         has_parents: Annotated[Optional[StrictBool], Field(description="If set, restrict results to resources that have (`true`) or do not have (`false`) parent resources.  Combine with `type_name` to e.g. list artifacts without parents.")] = None,
+        recently_viewed: Annotated[Optional[StrictBool], Field(description="If true, restrict results to resources the requesting user recently viewed, most recently viewed first (composes with the other filters).")] = None,
         has_children: Annotated[Optional[StrictBool], Field(description="If set, restrict results to resources that have (`true`) or do not have (`false`) child resources.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Control which resources are included based on archive state.  `active` (default) — only non-archived resources.  `archived` — only archived resources.  `all` — both active and archived resources.")] = None,
+        created_after: Annotated[Optional[datetime], Field(description="Filter to resources created on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.")] = None,
+        created_before: Annotated[Optional[datetime], Field(description="Filter to resources created before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.")] = None,
+        updated_after: Annotated[Optional[datetime], Field(description="Filter to resources updated on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.")] = None,
+        updated_before: Annotated[Optional[datetime], Field(description="Filter to resources updated before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.")] = None,
+        name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by resource names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        description__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by descriptions containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        display_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by display names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        external_identifier__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifiers containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        control_tag_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by control tag IDs (UUID).  Resources must have an active tagging with this tag.  Supports `!` negation prefix and multiple values.")] = None,
+        control_tag_name: Annotated[Optional[List[StrictStr]], Field(description="Filter by control tag names.  Resources must have an active tagging with a tag matching this name.  Supports `!` negation prefix and multiple values.")] = None,
+        tag_match: Annotated[Optional[TagMatchMode], Field(description="How to match when multiple control tags are specified.  `any` (default) — resource must have at least one of the tags.  `all` — resource must have all of the specified tags.")] = None,
+        own_files_first: Annotated[Optional[StrictBool], Field(description="Pagination strategy hint. When true, the service favors a bounded PostgreSQL candidate search before falling back to LookupResources. The page size is a maximum, so a nonempty short page may include `next_page`.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -7557,9 +17610,9 @@ class V3Api:
         """
         List resources
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -7587,10 +17640,36 @@ class V3Api:
         :type upstream_file_id: List[str]
         :param has_parents: If set, restrict results to resources that have (`true`) or do not have (`false`) parent resources.  Combine with `type_name` to e.g. list artifacts without parents.
         :type has_parents: bool
+        :param recently_viewed: If true, restrict results to resources the requesting user recently viewed, most recently viewed first (composes with the other filters).
+        :type recently_viewed: bool
         :param has_children: If set, restrict results to resources that have (`true`) or do not have (`false`) child resources.
         :type has_children: bool
         :param archive_status: Control which resources are included based on archive state.  `active` (default) — only non-archived resources.  `archived` — only archived resources.  `all` — both active and archived resources.
         :type archive_status: ArchiveStatus
+        :param created_after: Filter to resources created on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.
+        :type created_after: datetime
+        :param created_before: Filter to resources created before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.
+        :type created_before: datetime
+        :param updated_after: Filter to resources updated on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.
+        :type updated_after: datetime
+        :param updated_before: Filter to resources updated before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.
+        :type updated_before: datetime
+        :param name__contains: Filter by resource names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type name__contains: List[str]
+        :param description__contains: Filter by descriptions containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type description__contains: List[str]
+        :param display_name__contains: Filter by display names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type display_name__contains: List[str]
+        :param external_identifier__contains: Filter by external identifiers containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type external_identifier__contains: List[str]
+        :param control_tag_id: Filter by control tag IDs (UUID).  Resources must have an active tagging with this tag.  Supports `!` negation prefix and multiple values.
+        :type control_tag_id: List[str]
+        :param control_tag_name: Filter by control tag names.  Resources must have an active tagging with a tag matching this name.  Supports `!` negation prefix and multiple values.
+        :type control_tag_name: List[str]
+        :param tag_match: How to match when multiple control tags are specified.  `any` (default) — resource must have at least one of the tags.  `all` — resource must have all of the specified tags.
+        :type tag_match: TagMatchMode
+        :param own_files_first: Pagination strategy hint. When true, the service favors a bounded PostgreSQL candidate search before falling back to LookupResources. The page size is a maximum, so a nonempty short page may include `next_page`.
+        :type own_files_first: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -7612,8 +17691,21 @@ class V3Api:
             upstream_remote_id=upstream_remote_id,
             upstream_file_id=upstream_file_id,
             has_parents=has_parents,
+            recently_viewed=recently_viewed,
             has_children=has_children,
             archive_status=archive_status,
+            created_after=created_after,
+            created_before=created_before,
+            updated_after=updated_after,
+            updated_before=updated_before,
+            name__contains=name__contains,
+            description__contains=description__contains,
+            display_name__contains=display_name__contains,
+            external_identifier__contains=external_identifier__contains,
+            control_tag_id=control_tag_id,
+            control_tag_name=control_tag_name,
+            tag_match=tag_match,
+            own_files_first=own_files_first,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7642,8 +17734,8 @@ class V3Api:
     @validate_call
     def list_resources_with_http_info(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         resource_id: Annotated[Optional[List[Optional[StrictStr]]], Field(description="Filter by one or more resource IDs (UUID).  Repeat the parameter for multiple values.  Prefix any value with `!` to exclude it, e.g. `!550e8400-e29b-41d4-a716-446655440000`.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the resource.  Supports `!` negation prefix and multiple values.")] = None,
@@ -7657,8 +17749,21 @@ class V3Api:
         upstream_remote_id: Annotated[Optional[List[StrictStr]], Field(description="Filter to resources received via the given receiving remote secure connection (UUID).  Supports `!` negation prefix and multiple values.")] = None,
         upstream_file_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the resource's file ID on the upstream remote (UUID).  Supports `!` negation prefix and multiple values.")] = None,
         has_parents: Annotated[Optional[StrictBool], Field(description="If set, restrict results to resources that have (`true`) or do not have (`false`) parent resources.  Combine with `type_name` to e.g. list artifacts without parents.")] = None,
+        recently_viewed: Annotated[Optional[StrictBool], Field(description="If true, restrict results to resources the requesting user recently viewed, most recently viewed first (composes with the other filters).")] = None,
         has_children: Annotated[Optional[StrictBool], Field(description="If set, restrict results to resources that have (`true`) or do not have (`false`) child resources.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Control which resources are included based on archive state.  `active` (default) — only non-archived resources.  `archived` — only archived resources.  `all` — both active and archived resources.")] = None,
+        created_after: Annotated[Optional[datetime], Field(description="Filter to resources created on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.")] = None,
+        created_before: Annotated[Optional[datetime], Field(description="Filter to resources created before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.")] = None,
+        updated_after: Annotated[Optional[datetime], Field(description="Filter to resources updated on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.")] = None,
+        updated_before: Annotated[Optional[datetime], Field(description="Filter to resources updated before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.")] = None,
+        name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by resource names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        description__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by descriptions containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        display_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by display names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        external_identifier__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifiers containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        control_tag_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by control tag IDs (UUID).  Resources must have an active tagging with this tag.  Supports `!` negation prefix and multiple values.")] = None,
+        control_tag_name: Annotated[Optional[List[StrictStr]], Field(description="Filter by control tag names.  Resources must have an active tagging with a tag matching this name.  Supports `!` negation prefix and multiple values.")] = None,
+        tag_match: Annotated[Optional[TagMatchMode], Field(description="How to match when multiple control tags are specified.  `any` (default) — resource must have at least one of the tags.  `all` — resource must have all of the specified tags.")] = None,
+        own_files_first: Annotated[Optional[StrictBool], Field(description="Pagination strategy hint. When true, the service favors a bounded PostgreSQL candidate search before falling back to LookupResources. The page size is a maximum, so a nonempty short page may include `next_page`.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -7669,9 +17774,9 @@ class V3Api:
         """
         List resources
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -7699,10 +17804,36 @@ class V3Api:
         :type upstream_file_id: List[str]
         :param has_parents: If set, restrict results to resources that have (`true`) or do not have (`false`) parent resources.  Combine with `type_name` to e.g. list artifacts without parents.
         :type has_parents: bool
+        :param recently_viewed: If true, restrict results to resources the requesting user recently viewed, most recently viewed first (composes with the other filters).
+        :type recently_viewed: bool
         :param has_children: If set, restrict results to resources that have (`true`) or do not have (`false`) child resources.
         :type has_children: bool
         :param archive_status: Control which resources are included based on archive state.  `active` (default) — only non-archived resources.  `archived` — only archived resources.  `all` — both active and archived resources.
         :type archive_status: ArchiveStatus
+        :param created_after: Filter to resources created on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.
+        :type created_after: datetime
+        :param created_before: Filter to resources created before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.
+        :type created_before: datetime
+        :param updated_after: Filter to resources updated on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.
+        :type updated_after: datetime
+        :param updated_before: Filter to resources updated before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.
+        :type updated_before: datetime
+        :param name__contains: Filter by resource names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type name__contains: List[str]
+        :param description__contains: Filter by descriptions containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type description__contains: List[str]
+        :param display_name__contains: Filter by display names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type display_name__contains: List[str]
+        :param external_identifier__contains: Filter by external identifiers containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type external_identifier__contains: List[str]
+        :param control_tag_id: Filter by control tag IDs (UUID).  Resources must have an active tagging with this tag.  Supports `!` negation prefix and multiple values.
+        :type control_tag_id: List[str]
+        :param control_tag_name: Filter by control tag names.  Resources must have an active tagging with a tag matching this name.  Supports `!` negation prefix and multiple values.
+        :type control_tag_name: List[str]
+        :param tag_match: How to match when multiple control tags are specified.  `any` (default) — resource must have at least one of the tags.  `all` — resource must have all of the specified tags.
+        :type tag_match: TagMatchMode
+        :param own_files_first: Pagination strategy hint. When true, the service favors a bounded PostgreSQL candidate search before falling back to LookupResources. The page size is a maximum, so a nonempty short page may include `next_page`.
+        :type own_files_first: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -7724,8 +17855,21 @@ class V3Api:
             upstream_remote_id=upstream_remote_id,
             upstream_file_id=upstream_file_id,
             has_parents=has_parents,
+            recently_viewed=recently_viewed,
             has_children=has_children,
             archive_status=archive_status,
+            created_after=created_after,
+            created_before=created_before,
+            updated_after=updated_after,
+            updated_before=updated_before,
+            name__contains=name__contains,
+            description__contains=description__contains,
+            display_name__contains=display_name__contains,
+            external_identifier__contains=external_identifier__contains,
+            control_tag_id=control_tag_id,
+            control_tag_name=control_tag_name,
+            tag_match=tag_match,
+            own_files_first=own_files_first,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7754,8 +17898,8 @@ class V3Api:
     @validate_call
     def list_resources_without_preload_content(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         resource_id: Annotated[Optional[List[Optional[StrictStr]]], Field(description="Filter by one or more resource IDs (UUID).  Repeat the parameter for multiple values.  Prefix any value with `!` to exclude it, e.g. `!550e8400-e29b-41d4-a716-446655440000`.")] = None,
         created_by_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the UUID of the user who created the resource.  Supports `!` negation prefix and multiple values.")] = None,
@@ -7769,8 +17913,21 @@ class V3Api:
         upstream_remote_id: Annotated[Optional[List[StrictStr]], Field(description="Filter to resources received via the given receiving remote secure connection (UUID).  Supports `!` negation prefix and multiple values.")] = None,
         upstream_file_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by the resource's file ID on the upstream remote (UUID).  Supports `!` negation prefix and multiple values.")] = None,
         has_parents: Annotated[Optional[StrictBool], Field(description="If set, restrict results to resources that have (`true`) or do not have (`false`) parent resources.  Combine with `type_name` to e.g. list artifacts without parents.")] = None,
+        recently_viewed: Annotated[Optional[StrictBool], Field(description="If true, restrict results to resources the requesting user recently viewed, most recently viewed first (composes with the other filters).")] = None,
         has_children: Annotated[Optional[StrictBool], Field(description="If set, restrict results to resources that have (`true`) or do not have (`false`) child resources.")] = None,
         archive_status: Annotated[Optional[ArchiveStatus], Field(description="Control which resources are included based on archive state.  `active` (default) — only non-archived resources.  `archived` — only archived resources.  `all` — both active and archived resources.")] = None,
+        created_after: Annotated[Optional[datetime], Field(description="Filter to resources created on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.")] = None,
+        created_before: Annotated[Optional[datetime], Field(description="Filter to resources created before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.")] = None,
+        updated_after: Annotated[Optional[datetime], Field(description="Filter to resources updated on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.")] = None,
+        updated_before: Annotated[Optional[datetime], Field(description="Filter to resources updated before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.")] = None,
+        name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by resource names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        description__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by descriptions containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        display_name__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by display names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        external_identifier__contains: Annotated[Optional[List[StrictStr]], Field(description="Filter by external identifiers containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.")] = None,
+        control_tag_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by control tag IDs (UUID).  Resources must have an active tagging with this tag.  Supports `!` negation prefix and multiple values.")] = None,
+        control_tag_name: Annotated[Optional[List[StrictStr]], Field(description="Filter by control tag names.  Resources must have an active tagging with a tag matching this name.  Supports `!` negation prefix and multiple values.")] = None,
+        tag_match: Annotated[Optional[TagMatchMode], Field(description="How to match when multiple control tags are specified.  `any` (default) — resource must have at least one of the tags.  `all` — resource must have all of the specified tags.")] = None,
+        own_files_first: Annotated[Optional[StrictBool], Field(description="Pagination strategy hint. When true, the service favors a bounded PostgreSQL candidate search before falling back to LookupResources. The page size is a maximum, so a nonempty short page may include `next_page`.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -7781,9 +17938,9 @@ class V3Api:
         """
         List resources
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -7811,10 +17968,36 @@ class V3Api:
         :type upstream_file_id: List[str]
         :param has_parents: If set, restrict results to resources that have (`true`) or do not have (`false`) parent resources.  Combine with `type_name` to e.g. list artifacts without parents.
         :type has_parents: bool
+        :param recently_viewed: If true, restrict results to resources the requesting user recently viewed, most recently viewed first (composes with the other filters).
+        :type recently_viewed: bool
         :param has_children: If set, restrict results to resources that have (`true`) or do not have (`false`) child resources.
         :type has_children: bool
         :param archive_status: Control which resources are included based on archive state.  `active` (default) — only non-archived resources.  `archived` — only archived resources.  `all` — both active and archived resources.
         :type archive_status: ArchiveStatus
+        :param created_after: Filter to resources created on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.
+        :type created_after: datetime
+        :param created_before: Filter to resources created before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.
+        :type created_before: datetime
+        :param updated_after: Filter to resources updated on or after this timestamp (inclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-15T00:00:00Z`.
+        :type updated_after: datetime
+        :param updated_before: Filter to resources updated before this timestamp (exclusive).  Must be an ISO 8601 datetime with timezone, e.g. `2024-01-16T00:00:00Z`.
+        :type updated_before: datetime
+        :param name__contains: Filter by resource names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type name__contains: List[str]
+        :param description__contains: Filter by descriptions containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type description__contains: List[str]
+        :param display_name__contains: Filter by display names containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type display_name__contains: List[str]
+        :param external_identifier__contains: Filter by external identifiers containing this substring (case-insensitive ILIKE).  Requires at least 3 characters.  Supports `!` negation prefix.
+        :type external_identifier__contains: List[str]
+        :param control_tag_id: Filter by control tag IDs (UUID).  Resources must have an active tagging with this tag.  Supports `!` negation prefix and multiple values.
+        :type control_tag_id: List[str]
+        :param control_tag_name: Filter by control tag names.  Resources must have an active tagging with a tag matching this name.  Supports `!` negation prefix and multiple values.
+        :type control_tag_name: List[str]
+        :param tag_match: How to match when multiple control tags are specified.  `any` (default) — resource must have at least one of the tags.  `all` — resource must have all of the specified tags.
+        :type tag_match: TagMatchMode
+        :param own_files_first: Pagination strategy hint. When true, the service favors a bounded PostgreSQL candidate search before falling back to LookupResources. The page size is a maximum, so a nonempty short page may include `next_page`.
+        :type own_files_first: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -7836,8 +18019,21 @@ class V3Api:
             upstream_remote_id=upstream_remote_id,
             upstream_file_id=upstream_file_id,
             has_parents=has_parents,
+            recently_viewed=recently_viewed,
             has_children=has_children,
             archive_status=archive_status,
+            created_after=created_after,
+            created_before=created_before,
+            updated_after=updated_after,
+            updated_before=updated_before,
+            name__contains=name__contains,
+            description__contains=description__contains,
+            display_name__contains=display_name__contains,
+            external_identifier__contains=external_identifier__contains,
+            control_tag_id=control_tag_id,
+            control_tag_name=control_tag_name,
+            tag_match=tag_match,
+            own_files_first=own_files_first,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -7875,8 +18071,21 @@ class V3Api:
         upstream_remote_id,
         upstream_file_id,
         has_parents,
+        recently_viewed,
         has_children,
         archive_status,
+        created_after,
+        created_before,
+        updated_after,
+        updated_before,
+        name__contains,
+        description__contains,
+        display_name__contains,
+        external_identifier__contains,
+        control_tag_id,
+        control_tag_name,
+        tag_match,
+        own_files_first,
         _request_auth,
         _content_type,
         _headers,
@@ -7897,6 +18106,12 @@ class V3Api:
             'mime_type': 'multi',
             'upstream_remote_id': 'multi',
             'upstream_file_id': 'multi',
+            'name__contains': 'multi',
+            'description__contains': 'multi',
+            'display_name__contains': 'multi',
+            'external_identifier__contains': 'multi',
+            'control_tag_id': 'multi',
+            'control_tag_name': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -7970,6 +18185,10 @@ class V3Api:
 
             _query_params.append(('has_parents', has_parents))
 
+        if recently_viewed is not None:
+
+            _query_params.append(('recently_viewed', recently_viewed))
+
         if has_children is not None:
 
             _query_params.append(('has_children', has_children))
@@ -7977,6 +18196,90 @@ class V3Api:
         if archive_status is not None:
 
             _query_params.append(('archive_status', archive_status.value))
+
+        if created_after is not None:
+            if isinstance(created_after, datetime):
+                _query_params.append(
+                    (
+                        'created_after',
+                        created_after.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('created_after', created_after))
+
+        if created_before is not None:
+            if isinstance(created_before, datetime):
+                _query_params.append(
+                    (
+                        'created_before',
+                        created_before.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('created_before', created_before))
+
+        if updated_after is not None:
+            if isinstance(updated_after, datetime):
+                _query_params.append(
+                    (
+                        'updated_after',
+                        updated_after.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('updated_after', updated_after))
+
+        if updated_before is not None:
+            if isinstance(updated_before, datetime):
+                _query_params.append(
+                    (
+                        'updated_before',
+                        updated_before.strftime(
+                            self.api_client.configuration.datetime_format
+                        )
+                    )
+                )
+            else:
+                _query_params.append(('updated_before', updated_before))
+
+        if name__contains is not None:
+
+            _query_params.append(('name__contains', name__contains))
+
+        if description__contains is not None:
+
+            _query_params.append(('description__contains', description__contains))
+
+        if display_name__contains is not None:
+
+            _query_params.append(('display_name__contains', display_name__contains))
+
+        if external_identifier__contains is not None:
+
+            _query_params.append(('external_identifier__contains', external_identifier__contains))
+
+        if control_tag_id is not None:
+
+            _query_params.append(('control_tag_id', control_tag_id))
+
+        if control_tag_name is not None:
+
+            _query_params.append(('control_tag_name', control_tag_name))
+
+        if tag_match is not None:
+
+            _query_params.append(('tag_match', tag_match.value))
+
+        if own_files_first is not None:
+
+            _query_params.append(('own_files_first', own_files_first))
 
         # process the header parameters
         # process the form parameters
@@ -8019,8 +18322,8 @@ class V3Api:
     @log_method
     def list_revision_relationship_types(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8032,9 +18335,9 @@ class V3Api:
         """
         List relationship types
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8075,8 +18378,8 @@ class V3Api:
     @validate_call
     def list_revision_relationship_types_with_http_info(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8088,9 +18391,9 @@ class V3Api:
         """
         List relationship types
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8131,8 +18434,8 @@ class V3Api:
     @validate_call
     def list_revision_relationship_types_without_preload_content(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8144,9 +18447,9 @@ class V3Api:
         """
         List relationship types
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8260,8 +18563,8 @@ class V3Api:
     def list_revision_relationships(
         self,
         revision_id: Annotated[StrictStr, Field(description="The revision ID to list relationships for.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         left_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by left revision IDs. Use !uuid for negation.")] = None,
         right_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by right revision IDs. Use !uuid for negation.")] = None,
@@ -8278,9 +18581,9 @@ class V3Api:
 
         :param revision_id: The revision ID to list relationships for. (required)
         :type revision_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8332,8 +18635,8 @@ class V3Api:
     def list_revision_relationships_with_http_info(
         self,
         revision_id: Annotated[StrictStr, Field(description="The revision ID to list relationships for.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         left_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by left revision IDs. Use !uuid for negation.")] = None,
         right_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by right revision IDs. Use !uuid for negation.")] = None,
@@ -8350,9 +18653,9 @@ class V3Api:
 
         :param revision_id: The revision ID to list relationships for. (required)
         :type revision_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8404,8 +18707,8 @@ class V3Api:
     def list_revision_relationships_without_preload_content(
         self,
         revision_id: Annotated[StrictStr, Field(description="The revision ID to list relationships for.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         left_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by left revision IDs. Use !uuid for negation.")] = None,
         right_revision_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by right revision IDs. Use !uuid for negation.")] = None,
@@ -8422,9 +18725,9 @@ class V3Api:
 
         :param revision_id: The revision ID to list relationships for. (required)
         :type revision_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8569,8 +18872,8 @@ class V3Api:
     def list_sending_remote_shares_for_resource(
         self,
         resource_id: Annotated[StrictStr, Field(description="The ID of the resource to list sending-remote shares for.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived (revoked) remote file shares.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -8585,9 +18888,9 @@ class V3Api:
 
         :param resource_id: The ID of the resource to list sending-remote shares for. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8635,8 +18938,8 @@ class V3Api:
     def list_sending_remote_shares_for_resource_with_http_info(
         self,
         resource_id: Annotated[StrictStr, Field(description="The ID of the resource to list sending-remote shares for.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived (revoked) remote file shares.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -8651,9 +18954,9 @@ class V3Api:
 
         :param resource_id: The ID of the resource to list sending-remote shares for. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8701,8 +19004,8 @@ class V3Api:
     def list_sending_remote_shares_for_resource_without_preload_content(
         self,
         resource_id: Annotated[StrictStr, Field(description="The ID of the resource to list sending-remote shares for.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived (revoked) remote file shares.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
@@ -8717,9 +19020,9 @@ class V3Api:
 
         :param resource_id: The ID of the resource to list sending-remote shares for. (required)
         :type resource_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8848,8 +19151,8 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get status for.")],
         only_with_updates: Annotated[Optional[StrictBool], Field(description="Only return sync status updates that carried per-resource sync status notifications.")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8865,9 +19168,9 @@ class V3Api:
         :type remote_id: str
         :param only_with_updates: Only return sync status updates that carried per-resource sync status notifications.
         :type only_with_updates: bool
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8914,8 +19217,8 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get status for.")],
         only_with_updates: Annotated[Optional[StrictBool], Field(description="Only return sync status updates that carried per-resource sync status notifications.")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8931,9 +19234,9 @@ class V3Api:
         :type remote_id: str
         :param only_with_updates: Only return sync status updates that carried per-resource sync status notifications.
         :type only_with_updates: bool
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -8980,8 +19283,8 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to get status for.")],
         only_with_updates: Annotated[Optional[StrictBool], Field(description="Only return sync status updates that carried per-resource sync status notifications.")] = None,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -8997,9 +19300,9 @@ class V3Api:
         :type remote_id: str
         :param only_with_updates: Only return sync status updates that carried per-resource sync status notifications.
         :type only_with_updates: bool
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -9124,10 +19427,11 @@ class V3Api:
     @log_method
     def list_sending_remotes(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived sending remotes.")] = None,
+        only_starred: Annotated[Optional[StrictBool], Field(description="Only include sending remotes the caller has starred.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -9138,14 +19442,16 @@ class V3Api:
         """
         List sending remotes
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
         :param show_archived: Include archived sending remotes.
         :type show_archived: bool
+        :param only_starred: Only include sending remotes the caller has starred.
+        :type only_starred: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -9156,6 +19462,7 @@ class V3Api:
             size=size,
             include_total=include_total,
             show_archived=show_archived,
+            only_starred=only_starred,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -9185,10 +19492,11 @@ class V3Api:
     @validate_call
     def list_sending_remotes_with_http_info(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived sending remotes.")] = None,
+        only_starred: Annotated[Optional[StrictBool], Field(description="Only include sending remotes the caller has starred.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -9199,14 +19507,16 @@ class V3Api:
         """
         List sending remotes
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
         :param show_archived: Include archived sending remotes.
         :type show_archived: bool
+        :param only_starred: Only include sending remotes the caller has starred.
+        :type only_starred: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -9217,6 +19527,7 @@ class V3Api:
             size=size,
             include_total=include_total,
             show_archived=show_archived,
+            only_starred=only_starred,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -9246,10 +19557,11 @@ class V3Api:
     @validate_call
     def list_sending_remotes_without_preload_content(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         show_archived: Annotated[Optional[StrictBool], Field(description="Include archived sending remotes.")] = None,
+        only_starred: Annotated[Optional[StrictBool], Field(description="Only include sending remotes the caller has starred.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -9260,14 +19572,16 @@ class V3Api:
         """
         List sending remotes
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
         :param show_archived: Include archived sending remotes.
         :type show_archived: bool
+        :param only_starred: Only include sending remotes the caller has starred.
+        :type only_starred: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -9278,6 +19592,7 @@ class V3Api:
             size=size,
             include_total=include_total,
             show_archived=show_archived,
+            only_starred=only_starred,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -9305,6 +19620,7 @@ class V3Api:
         size,
         include_total,
         show_archived,
+        only_starred,
         _request_auth,
         _content_type,
         _headers,
@@ -9342,6 +19658,10 @@ class V3Api:
         if show_archived is not None:
 
             _query_params.append(('show_archived', show_archived))
+
+        if only_starred is not None:
+
+            _query_params.append(('only_starred', only_starred))
 
         # process the header parameters
         # process the form parameters
@@ -9384,8 +19704,8 @@ class V3Api:
     @log_method
     def list_shareable_sending_connections(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -9397,9 +19717,9 @@ class V3Api:
         """
         List the sending connections a file may be shared to
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -9441,8 +19761,8 @@ class V3Api:
     @validate_call
     def list_shareable_sending_connections_with_http_info(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -9454,9 +19774,9 @@ class V3Api:
         """
         List the sending connections a file may be shared to
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -9498,8 +19818,8 @@ class V3Api:
     @validate_call
     def list_shareable_sending_connections_without_preload_content(
         self,
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
@@ -9511,9 +19831,9 @@ class V3Api:
         """
         List the sending connections a file may be shared to
 
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -9625,11 +19945,253 @@ class V3Api:
 
     @validate_call
     @log_method
+    def list_suggested_items(
+        self,
+        item_type: Annotated[Optional[List[SuggestedItemType]], Field(description="Repeatable.  Restrict to these target types; omit for both.")] = None,
+        signal: Annotated[Optional[List[SuggestionSignal]], Field(description="Repeatable.  Restrict ranking to these signals; omit for all.  `recently_shared_with_me` applies to resources only.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=50, strict=True, ge=1)]], Field(description="Maximum items per group.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> SuggestedItemsDto:
+
+        """
+        List suggested systems and resources for the requesting user
+
+        :param item_type: Repeatable.  Restrict to these target types; omit for both.
+        :type item_type: List[SuggestedItemType]
+        :param signal: Repeatable.  Restrict ranking to these signals; omit for all.  `recently_shared_with_me` applies to resources only.
+        :type signal: List[SuggestionSignal]
+        :param size: Maximum items per group.
+        :type size: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_suggested_items_serialize(
+            item_type=item_type,
+            signal=signal,
+            size=size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SuggestedItemsDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def list_suggested_items_with_http_info(
+        self,
+        item_type: Annotated[Optional[List[SuggestedItemType]], Field(description="Repeatable.  Restrict to these target types; omit for both.")] = None,
+        signal: Annotated[Optional[List[SuggestionSignal]], Field(description="Repeatable.  Restrict ranking to these signals; omit for all.  `recently_shared_with_me` applies to resources only.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=50, strict=True, ge=1)]], Field(description="Maximum items per group.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[SuggestedItemsDto]:
+
+        """
+        List suggested systems and resources for the requesting user
+
+        :param item_type: Repeatable.  Restrict to these target types; omit for both.
+        :type item_type: List[SuggestedItemType]
+        :param signal: Repeatable.  Restrict ranking to these signals; omit for all.  `recently_shared_with_me` applies to resources only.
+        :type signal: List[SuggestionSignal]
+        :param size: Maximum items per group.
+        :type size: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_suggested_items_serialize(
+            item_type=item_type,
+            signal=signal,
+            size=size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SuggestedItemsDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def list_suggested_items_without_preload_content(
+        self,
+        item_type: Annotated[Optional[List[SuggestedItemType]], Field(description="Repeatable.  Restrict to these target types; omit for both.")] = None,
+        signal: Annotated[Optional[List[SuggestionSignal]], Field(description="Repeatable.  Restrict ranking to these signals; omit for all.  `recently_shared_with_me` applies to resources only.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=50, strict=True, ge=1)]], Field(description="Maximum items per group.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        List suggested systems and resources for the requesting user
+
+        :param item_type: Repeatable.  Restrict to these target types; omit for both.
+        :type item_type: List[SuggestedItemType]
+        :param signal: Repeatable.  Restrict ranking to these signals; omit for all.  `recently_shared_with_me` applies to resources only.
+        :type signal: List[SuggestionSignal]
+        :param size: Maximum items per group.
+        :type size: int
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._list_suggested_items_serialize(
+            item_type=item_type,
+            signal=signal,
+            size=size,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "SuggestedItemsDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _list_suggested_items_serialize(
+        self,
+        item_type,
+        signal,
+        size,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+            'item_type': 'multi',
+            'signal': 'multi',
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        if item_type is not None:
+
+            _query_params.append(('item_type', item_type))
+
+        if signal is not None:
+
+            _query_params.append(('signal', signal))
+
+        if size is not None:
+
+            _query_params.append(('size', size))
+
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v3/suggested-items',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def list_workflow_log_entries(
         self,
         system_id: Annotated[StrictStr, Field(description="The system whose workflow log entries are listed.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         branch_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by branch ID.  Repeat the parameter for multiple values.  Prefix any value with `!` to exclude it.")] = None,
         title: Annotated[Optional[List[StrictStr]], Field(description="Filter by entry title (case-insensitive substring).  Supports `!` negation prefix and multiple values.")] = None,
@@ -9647,9 +20209,9 @@ class V3Api:
 
         :param system_id: The system whose workflow log entries are listed. (required)
         :type system_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -9706,8 +20268,8 @@ class V3Api:
     def list_workflow_log_entries_with_http_info(
         self,
         system_id: Annotated[StrictStr, Field(description="The system whose workflow log entries are listed.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         branch_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by branch ID.  Repeat the parameter for multiple values.  Prefix any value with `!` to exclude it.")] = None,
         title: Annotated[Optional[List[StrictStr]], Field(description="Filter by entry title (case-insensitive substring).  Supports `!` negation prefix and multiple values.")] = None,
@@ -9725,9 +20287,9 @@ class V3Api:
 
         :param system_id: The system whose workflow log entries are listed. (required)
         :type system_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -9784,8 +20346,8 @@ class V3Api:
     def list_workflow_log_entries_without_preload_content(
         self,
         system_id: Annotated[StrictStr, Field(description="The system whose workflow log entries are listed.")],
-        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
         branch_id: Annotated[Optional[List[StrictStr]], Field(description="Filter by branch ID.  Repeat the parameter for multiple values.  Prefix any value with `!` to exclude it.")] = None,
         title: Annotated[Optional[List[StrictStr]], Field(description="Filter by entry title (case-insensitive substring).  Supports `!` negation prefix and multiple values.")] = None,
@@ -9803,9 +20365,9 @@ class V3Api:
 
         :param system_id: The system whose workflow log entries are listed. (required)
         :type system_id: str
-        :param cursor: Opaque pagination cursor returned in the previous response's `cursor` field.  Pass this value to retrieve the next page of results.  Omit (or pass `null`) to start from the first page.
+        :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param include_total: Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.
         :type include_total: bool
@@ -11306,6 +21868,247 @@ class V3Api:
 
     @validate_call
     @log_method
+    def set_receiving_connection_infosec_level_mappings(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to set infosec level mappings for.")],
+        set_receiving_connection_infosec_level_mappings_dto: SetReceivingConnectionInfosecLevelMappingsDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> List[ReceivingConnectionInfosecLevelMappingDto]:
+
+        """
+        Set receiving connection infosec level mappings
+
+        :param remote_id: The ID of the receiving remote to set infosec level mappings for. (required)
+        :type remote_id: str
+        :param set_receiving_connection_infosec_level_mappings_dto: (required)
+        :type set_receiving_connection_infosec_level_mappings_dto: SetReceivingConnectionInfosecLevelMappingsDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._set_receiving_connection_infosec_level_mappings_serialize(
+            remote_id=remote_id,
+            set_receiving_connection_infosec_level_mappings_dto=set_receiving_connection_infosec_level_mappings_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelMappingDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def set_receiving_connection_infosec_level_mappings_with_http_info(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to set infosec level mappings for.")],
+        set_receiving_connection_infosec_level_mappings_dto: SetReceivingConnectionInfosecLevelMappingsDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[List[ReceivingConnectionInfosecLevelMappingDto]]:
+
+        """
+        Set receiving connection infosec level mappings
+
+        :param remote_id: The ID of the receiving remote to set infosec level mappings for. (required)
+        :type remote_id: str
+        :param set_receiving_connection_infosec_level_mappings_dto: (required)
+        :type set_receiving_connection_infosec_level_mappings_dto: SetReceivingConnectionInfosecLevelMappingsDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._set_receiving_connection_infosec_level_mappings_serialize(
+            remote_id=remote_id,
+            set_receiving_connection_infosec_level_mappings_dto=set_receiving_connection_infosec_level_mappings_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelMappingDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def set_receiving_connection_infosec_level_mappings_without_preload_content(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to set infosec level mappings for.")],
+        set_receiving_connection_infosec_level_mappings_dto: SetReceivingConnectionInfosecLevelMappingsDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Set receiving connection infosec level mappings
+
+        :param remote_id: The ID of the receiving remote to set infosec level mappings for. (required)
+        :type remote_id: str
+        :param set_receiving_connection_infosec_level_mappings_dto: (required)
+        :type set_receiving_connection_infosec_level_mappings_dto: SetReceivingConnectionInfosecLevelMappingsDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._set_receiving_connection_infosec_level_mappings_serialize(
+            remote_id=remote_id,
+            set_receiving_connection_infosec_level_mappings_dto=set_receiving_connection_infosec_level_mappings_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "List[ReceivingConnectionInfosecLevelMappingDto]",
+            '400': None,
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _set_receiving_connection_infosec_level_mappings_serialize(
+        self,
+        remote_id,
+        set_receiving_connection_infosec_level_mappings_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if remote_id is not None:
+            _path_params['remote_id'] = remote_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if set_receiving_connection_infosec_level_mappings_dto is not None:
+            _body_params = set_receiving_connection_infosec_level_mappings_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/remotes/receiving/{remote_id}/infosec-levels/mappings',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def set_receiving_connection_owners(
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to set owners for.")],
@@ -11544,32 +22347,32 @@ class V3Api:
 
     @validate_call
     @log_method
-    def set_sending_connection_control_tags(
+    def set_sending_connection_permitted_senders(
         self,
-        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to set control tags for.")],
-        set_sending_connection_control_tags_dto: SetSendingConnectionControlTagsDto,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to set permitted senders for.")],
+        set_sending_connection_permitted_senders_dto: SetSendingConnectionPermittedSendersDto,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> List[SendingConnectionControlTagDto]:
+    ) -> List[SendingConnectionPermittedSenderDto]:
 
         """
-        Set sending connection control tags
+        Set sending connection permitted senders
 
-        :param remote_id: The ID of the sending remote to set control tags for. (required)
+        :param remote_id: The ID of the sending remote to set permitted senders for. (required)
         :type remote_id: str
-        :param set_sending_connection_control_tags_dto: (required)
-        :type set_sending_connection_control_tags_dto: SetSendingConnectionControlTagsDto
+        :param set_sending_connection_permitted_senders_dto: (required)
+        :type set_sending_connection_permitted_senders_dto: SetSendingConnectionPermittedSendersDto
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
 
-        _param = self._set_sending_connection_control_tags_serialize(
+        _param = self._set_sending_connection_permitted_senders_serialize(
             remote_id=remote_id,
-            set_sending_connection_control_tags_dto=set_sending_connection_control_tags_dto,
+            set_sending_connection_permitted_senders_dto=set_sending_connection_permitted_senders_dto,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -11577,7 +22380,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[SendingConnectionControlTagDto]",
+            '200': "List[SendingConnectionPermittedSenderDto]",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -11598,32 +22401,32 @@ class V3Api:
 
 
     @validate_call
-    def set_sending_connection_control_tags_with_http_info(
+    def set_sending_connection_permitted_senders_with_http_info(
         self,
-        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to set control tags for.")],
-        set_sending_connection_control_tags_dto: SetSendingConnectionControlTagsDto,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to set permitted senders for.")],
+        set_sending_connection_permitted_senders_dto: SetSendingConnectionPermittedSendersDto,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[List[SendingConnectionControlTagDto]]:
+    ) -> ApiResponse[List[SendingConnectionPermittedSenderDto]]:
 
         """
-        Set sending connection control tags
+        Set sending connection permitted senders
 
-        :param remote_id: The ID of the sending remote to set control tags for. (required)
+        :param remote_id: The ID of the sending remote to set permitted senders for. (required)
         :type remote_id: str
-        :param set_sending_connection_control_tags_dto: (required)
-        :type set_sending_connection_control_tags_dto: SetSendingConnectionControlTagsDto
+        :param set_sending_connection_permitted_senders_dto: (required)
+        :type set_sending_connection_permitted_senders_dto: SetSendingConnectionPermittedSendersDto
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
 
-        _param = self._set_sending_connection_control_tags_serialize(
+        _param = self._set_sending_connection_permitted_senders_serialize(
             remote_id=remote_id,
-            set_sending_connection_control_tags_dto=set_sending_connection_control_tags_dto,
+            set_sending_connection_permitted_senders_dto=set_sending_connection_permitted_senders_dto,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -11631,7 +22434,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[SendingConnectionControlTagDto]",
+            '200': "List[SendingConnectionPermittedSenderDto]",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -11652,10 +22455,10 @@ class V3Api:
 
 
     @validate_call
-    def set_sending_connection_control_tags_without_preload_content(
+    def set_sending_connection_permitted_senders_without_preload_content(
         self,
-        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to set control tags for.")],
-        set_sending_connection_control_tags_dto: SetSendingConnectionControlTagsDto,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to set permitted senders for.")],
+        set_sending_connection_permitted_senders_dto: SetSendingConnectionPermittedSendersDto,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -11664,20 +22467,20 @@ class V3Api:
     ) -> RESTResponseType:
 
         """
-        Set sending connection control tags
+        Set sending connection permitted senders
 
-        :param remote_id: The ID of the sending remote to set control tags for. (required)
+        :param remote_id: The ID of the sending remote to set permitted senders for. (required)
         :type remote_id: str
-        :param set_sending_connection_control_tags_dto: (required)
-        :type set_sending_connection_control_tags_dto: SetSendingConnectionControlTagsDto
+        :param set_sending_connection_permitted_senders_dto: (required)
+        :type set_sending_connection_permitted_senders_dto: SetSendingConnectionPermittedSendersDto
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
         """ # noqa: E501
 
-        _param = self._set_sending_connection_control_tags_serialize(
+        _param = self._set_sending_connection_permitted_senders_serialize(
             remote_id=remote_id,
-            set_sending_connection_control_tags_dto=set_sending_connection_control_tags_dto,
+            set_sending_connection_permitted_senders_dto=set_sending_connection_permitted_senders_dto,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -11685,7 +22488,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "List[SendingConnectionControlTagDto]",
+            '200': "List[SendingConnectionPermittedSenderDto]",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -11700,10 +22503,10 @@ class V3Api:
         return response_data.response
 
 
-    def _set_sending_connection_control_tags_serialize(
+    def _set_sending_connection_permitted_senders_serialize(
         self,
         remote_id,
-        set_sending_connection_control_tags_dto,
+        set_sending_connection_permitted_senders_dto,
         _request_auth,
         _content_type,
         _headers,
@@ -11731,8 +22534,8 @@ class V3Api:
         # process the header parameters
         # process the form parameters
         # process the body parameter
-        if set_sending_connection_control_tags_dto is not None:
-            _body_params = set_sending_connection_control_tags_dto
+        if set_sending_connection_permitted_senders_dto is not None:
+            _body_params = set_sending_connection_permitted_senders_dto
 
 
         # set the HTTP header `Accept`
@@ -11764,7 +22567,7 @@ class V3Api:
 
         return self.api_client.param_serialize(
             method='PUT',
-            resource_path='/api/v3/remotes/sending/{remote_id}/control-tags',
+            resource_path='/api/v3/remotes/sending/{remote_id}/permitted-senders',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -12038,6 +22841,1506 @@ class V3Api:
 
     @validate_call
     @log_method
+    def sync_connection(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ConnectedResourceStatusDto:
+
+        """
+        Sync a connection now
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._sync_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceStatusDto",
+            '404': None,
+            '403': None,
+            '400': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def sync_connection_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ConnectedResourceStatusDto]:
+
+        """
+        Sync a connection now
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._sync_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceStatusDto",
+            '404': None,
+            '403': None,
+            '400': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def sync_connection_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the connection.")],
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Sync a connection now
+
+        :param connected_resource_id: The ID of the connection. (required)
+        :type connected_resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._sync_connection_serialize(
+            connected_resource_id=connected_resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ConnectedResourceStatusDto",
+            '404': None,
+            '403': None,
+            '400': None,
+            '502': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _sync_connection_serialize(
+        self,
+        connected_resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/connections/{connected_resource_id}/sync',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def unfavorite_connection(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Unstar a secure connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def unfavorite_connection_with_http_info(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Unstar a secure connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def unfavorite_connection_without_preload_content(
+        self,
+        connection_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Unstar a secure connection
+
+        :param connection_id: (required)
+        :type connection_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_connection_serialize(
+            connection_id=connection_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _unfavorite_connection_serialize(
+        self,
+        connection_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connection_id is not None:
+            _path_params['connection_id'] = connection_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/user/favorites/connections/{connection_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def unfavorite_resource(
+        self,
+        resource_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Unfavorite a resource
+
+        :param resource_id: (required)
+        :type resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_resource_serialize(
+            resource_id=resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def unfavorite_resource_with_http_info(
+        self,
+        resource_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Unfavorite a resource
+
+        :param resource_id: (required)
+        :type resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_resource_serialize(
+            resource_id=resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def unfavorite_resource_without_preload_content(
+        self,
+        resource_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Unfavorite a resource
+
+        :param resource_id: (required)
+        :type resource_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_resource_serialize(
+            resource_id=resource_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _unfavorite_resource_serialize(
+        self,
+        resource_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if resource_id is not None:
+            _path_params['resource_id'] = resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/user/favorites/resources/{resource_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def unfavorite_system(
+        self,
+        system_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> None:
+
+        """
+        Unfavorite a system
+
+        :param system_id: (required)
+        :type system_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_system_serialize(
+            system_id=system_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def unfavorite_system_with_http_info(
+        self,
+        system_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[None]:
+
+        """
+        Unfavorite a system
+
+        :param system_id: (required)
+        :type system_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_system_serialize(
+            system_id=system_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def unfavorite_system_without_preload_content(
+        self,
+        system_id: StrictStr,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Unfavorite a system
+
+        :param system_id: (required)
+        :type system_id: str
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._unfavorite_system_serialize(
+            system_id=system_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '204': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _unfavorite_system_serialize(
+        self,
+        system_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if system_id is not None:
+            _path_params['system_id'] = system_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='DELETE',
+            resource_path='/api/v3/user/favorites/systems/{system_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def update_ai_config(
+        self,
+        ai_config_update_request: AiConfigUpdateRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> AiConfigDto:
+
+        """
+        Update AI configuration
+
+        :param ai_config_update_request: (required)
+        :type ai_config_update_request: AiConfigUpdateRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_config_serialize(
+            ai_config_update_request=ai_config_update_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConfigDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_ai_config_with_http_info(
+        self,
+        ai_config_update_request: AiConfigUpdateRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[AiConfigDto]:
+
+        """
+        Update AI configuration
+
+        :param ai_config_update_request: (required)
+        :type ai_config_update_request: AiConfigUpdateRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_config_serialize(
+            ai_config_update_request=ai_config_update_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConfigDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_ai_config_without_preload_content(
+        self,
+        ai_config_update_request: AiConfigUpdateRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update AI configuration
+
+        :param ai_config_update_request: (required)
+        :type ai_config_update_request: AiConfigUpdateRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_config_serialize(
+            ai_config_update_request=ai_config_update_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConfigDto",
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _update_ai_config_serialize(
+        self,
+        ai_config_update_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if ai_config_update_request is not None:
+            _body_params = ai_config_update_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/config',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def update_ai_conversation(
+        self,
+        conversation_id: StrictStr,
+        update_conversation_request: UpdateConversationRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> AiConversationDto:
+
+        """
+        Update an AI chat conversation
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param update_conversation_request: (required)
+        :type update_conversation_request: UpdateConversationRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_conversation_serialize(
+            conversation_id=conversation_id,
+            update_conversation_request=update_conversation_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConversationDto",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_ai_conversation_with_http_info(
+        self,
+        conversation_id: StrictStr,
+        update_conversation_request: UpdateConversationRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[AiConversationDto]:
+
+        """
+        Update an AI chat conversation
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param update_conversation_request: (required)
+        :type update_conversation_request: UpdateConversationRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_conversation_serialize(
+            conversation_id=conversation_id,
+            update_conversation_request=update_conversation_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConversationDto",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_ai_conversation_without_preload_content(
+        self,
+        conversation_id: StrictStr,
+        update_conversation_request: UpdateConversationRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update an AI chat conversation
+
+        :param conversation_id: (required)
+        :type conversation_id: str
+        :param update_conversation_request: (required)
+        :type update_conversation_request: UpdateConversationRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_conversation_serialize(
+            conversation_id=conversation_id,
+            update_conversation_request=update_conversation_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "AiConversationDto",
+            '404': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _update_ai_conversation_serialize(
+        self,
+        conversation_id,
+        update_conversation_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if conversation_id is not None:
+            _path_params['conversation_id'] = conversation_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if update_conversation_request is not None:
+            _body_params = update_conversation_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PATCH',
+            resource_path='/api/v3/ai/conversations/{conversation_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def update_ai_user_steering(
+        self,
+        update_user_steering_request: UpdateUserSteeringRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> UserSteeringDto:
+
+        """
+        Set my AI steering text
+
+        :param update_user_steering_request: (required)
+        :type update_user_steering_request: UpdateUserSteeringRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_user_steering_serialize(
+            update_user_steering_request=update_user_steering_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSteeringDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_ai_user_steering_with_http_info(
+        self,
+        update_user_steering_request: UpdateUserSteeringRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[UserSteeringDto]:
+
+        """
+        Set my AI steering text
+
+        :param update_user_steering_request: (required)
+        :type update_user_steering_request: UpdateUserSteeringRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_user_steering_serialize(
+            update_user_steering_request=update_user_steering_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSteeringDto",
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_ai_user_steering_without_preload_content(
+        self,
+        update_user_steering_request: UpdateUserSteeringRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Set my AI steering text
+
+        :param update_user_steering_request: (required)
+        :type update_user_steering_request: UpdateUserSteeringRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_ai_user_steering_serialize(
+            update_user_steering_request=update_user_steering_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "UserSteeringDto",
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _update_ai_user_steering_serialize(
+        self,
+        update_user_steering_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if update_user_steering_request is not None:
+            _body_params = update_user_steering_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PUT',
+            resource_path='/api/v3/ai/user-steering',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def update_comment(
         self,
         resource_id: Annotated[StrictStr, Field(description="Unique identifier of the parent resource.")],
@@ -12291,6 +24594,250 @@ class V3Api:
 
     @validate_call
     @log_method
+    def update_connection_selection(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        selection_update_dto: SelectionUpdateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ContainerSelectionDto:
+
+        """
+        Update a container connection's selection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param selection_update_dto: (required)
+        :type selection_update_dto: SelectionUpdateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_connection_selection_serialize(
+            connected_resource_id=connected_resource_id,
+            selection_update_dto=selection_update_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ContainerSelectionDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '409': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_connection_selection_with_http_info(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        selection_update_dto: SelectionUpdateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ContainerSelectionDto]:
+
+        """
+        Update a container connection's selection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param selection_update_dto: (required)
+        :type selection_update_dto: SelectionUpdateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_connection_selection_serialize(
+            connected_resource_id=connected_resource_id,
+            selection_update_dto=selection_update_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ContainerSelectionDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '409': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_connection_selection_without_preload_content(
+        self,
+        connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
+        selection_update_dto: SelectionUpdateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update a container connection's selection
+
+        :param connected_resource_id: The ID of the container connection. (required)
+        :type connected_resource_id: str
+        :param selection_update_dto: (required)
+        :type selection_update_dto: SelectionUpdateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_connection_selection_serialize(
+            connected_resource_id=connected_resource_id,
+            selection_update_dto=selection_update_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ContainerSelectionDto",
+            '400': None,
+            '404': None,
+            '403': None,
+            '409': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _update_connection_selection_serialize(
+        self,
+        connected_resource_id,
+        selection_update_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if connected_resource_id is not None:
+            _path_params['connected_resource_id'] = connected_resource_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if selection_update_dto is not None:
+            _body_params = selection_update_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PATCH',
+            resource_path='/api/v3/connections/{connected_resource_id}/selection',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
     def update_inbox_item(
         self,
         item_id: StrictStr,
@@ -12527,12 +25074,13 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to update.")],
         update_receiving_connection_dto: UpdateReceivingConnectionDto,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Validate and preview the update without applying it.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ReceivingConnectionDto:
+    ) -> ReceivingConnectionUpdateResultDto:
 
         """
         Update a receiving remote
@@ -12541,6 +25089,8 @@ class V3Api:
         :type remote_id: str
         :param update_receiving_connection_dto: (required)
         :type update_receiving_connection_dto: UpdateReceivingConnectionDto
+        :param dry_run: Validate and preview the update without applying it.
+        :type dry_run: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -12549,6 +25099,7 @@ class V3Api:
         _param = self._update_receiving_remote_serialize(
             remote_id=remote_id,
             update_receiving_connection_dto=update_receiving_connection_dto,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12556,7 +25107,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ReceivingConnectionDto",
+            '200': "ReceivingConnectionUpdateResultDto",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -12581,12 +25132,13 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to update.")],
         update_receiving_connection_dto: UpdateReceivingConnectionDto,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Validate and preview the update without applying it.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[ReceivingConnectionDto]:
+    ) -> ApiResponse[ReceivingConnectionUpdateResultDto]:
 
         """
         Update a receiving remote
@@ -12595,6 +25147,8 @@ class V3Api:
         :type remote_id: str
         :param update_receiving_connection_dto: (required)
         :type update_receiving_connection_dto: UpdateReceivingConnectionDto
+        :param dry_run: Validate and preview the update without applying it.
+        :type dry_run: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -12603,6 +25157,7 @@ class V3Api:
         _param = self._update_receiving_remote_serialize(
             remote_id=remote_id,
             update_receiving_connection_dto=update_receiving_connection_dto,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12610,7 +25165,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ReceivingConnectionDto",
+            '200': "ReceivingConnectionUpdateResultDto",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -12635,6 +25190,7 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to update.")],
         update_receiving_connection_dto: UpdateReceivingConnectionDto,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Validate and preview the update without applying it.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -12649,6 +25205,8 @@ class V3Api:
         :type remote_id: str
         :param update_receiving_connection_dto: (required)
         :type update_receiving_connection_dto: UpdateReceivingConnectionDto
+        :param dry_run: Validate and preview the update without applying it.
+        :type dry_run: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -12657,6 +25215,7 @@ class V3Api:
         _param = self._update_receiving_remote_serialize(
             remote_id=remote_id,
             update_receiving_connection_dto=update_receiving_connection_dto,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12664,7 +25223,7 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "ReceivingConnectionDto",
+            '200': "ReceivingConnectionUpdateResultDto",
             '404': None,
             '403': None,
             '422': "HTTPValidationError",
@@ -12683,6 +25242,7 @@ class V3Api:
         self,
         remote_id,
         update_receiving_connection_dto,
+        dry_run,
         _request_auth,
         _content_type,
         _headers,
@@ -12707,6 +25267,10 @@ class V3Api:
         if remote_id is not None:
             _path_params['remote_id'] = remote_id
         # process the query parameters
+        if dry_run is not None:
+
+            _query_params.append(('dry_run', dry_run))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -12761,16 +25325,270 @@ class V3Api:
 
     @validate_call
     @log_method
-    def update_sending_remote(
+    def update_resource_revision(
         self,
-        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to update.")],
-        update_sending_connection_dto: UpdateSendingConnectionDto,
+        resource_id: Annotated[StrictStr, Field(description="Unique identifier of the parent resource.")],
+        revision_id: Annotated[StrictStr, Field(description="Unique identifier of the revision to update.")],
+        resource_revision_update_dto: ResourceRevisionUpdateDto,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> SendingConnectionDto:
+    ) -> ResourceRevisionDto:
+
+        """
+        Update a revision's properties
+
+        :param resource_id: Unique identifier of the parent resource. (required)
+        :type resource_id: str
+        :param revision_id: Unique identifier of the revision to update. (required)
+        :type revision_id: str
+        :param resource_revision_update_dto: (required)
+        :type resource_revision_update_dto: ResourceRevisionUpdateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_resource_revision_serialize(
+            resource_id=resource_id,
+            revision_id=revision_id,
+            resource_revision_update_dto=resource_revision_update_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceRevisionDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def update_resource_revision_with_http_info(
+        self,
+        resource_id: Annotated[StrictStr, Field(description="Unique identifier of the parent resource.")],
+        revision_id: Annotated[StrictStr, Field(description="Unique identifier of the revision to update.")],
+        resource_revision_update_dto: ResourceRevisionUpdateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ResourceRevisionDto]:
+
+        """
+        Update a revision's properties
+
+        :param resource_id: Unique identifier of the parent resource. (required)
+        :type resource_id: str
+        :param revision_id: Unique identifier of the revision to update. (required)
+        :type revision_id: str
+        :param resource_revision_update_dto: (required)
+        :type resource_revision_update_dto: ResourceRevisionUpdateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_resource_revision_serialize(
+            resource_id=resource_id,
+            revision_id=revision_id,
+            resource_revision_update_dto=resource_revision_update_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceRevisionDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def update_resource_revision_without_preload_content(
+        self,
+        resource_id: Annotated[StrictStr, Field(description="Unique identifier of the parent resource.")],
+        revision_id: Annotated[StrictStr, Field(description="Unique identifier of the revision to update.")],
+        resource_revision_update_dto: ResourceRevisionUpdateDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Update a revision's properties
+
+        :param resource_id: Unique identifier of the parent resource. (required)
+        :type resource_id: str
+        :param revision_id: Unique identifier of the revision to update. (required)
+        :type revision_id: str
+        :param resource_revision_update_dto: (required)
+        :type resource_revision_update_dto: ResourceRevisionUpdateDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._update_resource_revision_serialize(
+            resource_id=resource_id,
+            revision_id=revision_id,
+            resource_revision_update_dto=resource_revision_update_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ResourceRevisionDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _update_resource_revision_serialize(
+        self,
+        resource_id,
+        revision_id,
+        resource_revision_update_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if resource_id is not None:
+            _path_params['resource_id'] = resource_id
+        if revision_id is not None:
+            _path_params['revision_id'] = revision_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if resource_revision_update_dto is not None:
+            _body_params = resource_revision_update_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='PATCH',
+            resource_path='/api/v3/resources/{resource_id}/revisions/{revision_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def update_sending_remote(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to update.")],
+        update_sending_connection_dto: UpdateSendingConnectionDto,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Validate and preview the update without applying it.")] = None,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> SendingConnectionUpdateResultDto:
 
         """
         Update a sending remote
@@ -12779,6 +25597,8 @@ class V3Api:
         :type remote_id: str
         :param update_sending_connection_dto: (required)
         :type update_sending_connection_dto: UpdateSendingConnectionDto
+        :param dry_run: Validate and preview the update without applying it.
+        :type dry_run: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -12787,6 +25607,7 @@ class V3Api:
         _param = self._update_sending_remote_serialize(
             remote_id=remote_id,
             update_sending_connection_dto=update_sending_connection_dto,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12794,10 +25615,11 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "SendingConnectionDto",
+            '200': "SendingConnectionUpdateResultDto",
             '400': None,
             '404': None,
             '403': None,
+            '405': None,
             '422': "HTTPValidationError",
         }
 
@@ -12820,12 +25642,13 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to update.")],
         update_sending_connection_dto: UpdateSendingConnectionDto,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Validate and preview the update without applying it.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
-    ) -> ApiResponse[SendingConnectionDto]:
+    ) -> ApiResponse[SendingConnectionUpdateResultDto]:
 
         """
         Update a sending remote
@@ -12834,6 +25657,8 @@ class V3Api:
         :type remote_id: str
         :param update_sending_connection_dto: (required)
         :type update_sending_connection_dto: UpdateSendingConnectionDto
+        :param dry_run: Validate and preview the update without applying it.
+        :type dry_run: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -12842,6 +25667,7 @@ class V3Api:
         _param = self._update_sending_remote_serialize(
             remote_id=remote_id,
             update_sending_connection_dto=update_sending_connection_dto,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12849,10 +25675,11 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "SendingConnectionDto",
+            '200': "SendingConnectionUpdateResultDto",
             '400': None,
             '404': None,
             '403': None,
+            '405': None,
             '422': "HTTPValidationError",
         }
 
@@ -12875,6 +25702,7 @@ class V3Api:
         self,
         remote_id: Annotated[StrictStr, Field(description="The ID of the sending remote to update.")],
         update_sending_connection_dto: UpdateSendingConnectionDto,
+        dry_run: Annotated[Optional[StrictBool], Field(description="Validate and preview the update without applying it.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -12889,6 +25717,8 @@ class V3Api:
         :type remote_id: str
         :param update_sending_connection_dto: (required)
         :type update_sending_connection_dto: UpdateSendingConnectionDto
+        :param dry_run: Validate and preview the update without applying it.
+        :type dry_run: bool
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional
 
@@ -12897,6 +25727,7 @@ class V3Api:
         _param = self._update_sending_remote_serialize(
             remote_id=remote_id,
             update_sending_connection_dto=update_sending_connection_dto,
+            dry_run=dry_run,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -12904,10 +25735,11 @@ class V3Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "SendingConnectionDto",
+            '200': "SendingConnectionUpdateResultDto",
             '400': None,
             '404': None,
             '403': None,
+            '405': None,
             '422': "HTTPValidationError",
         }
 
@@ -12924,6 +25756,7 @@ class V3Api:
         self,
         remote_id,
         update_sending_connection_dto,
+        dry_run,
         _request_auth,
         _content_type,
         _headers,
@@ -12948,6 +25781,10 @@ class V3Api:
         if remote_id is not None:
             _path_params['remote_id'] = remote_id
         # process the query parameters
+        if dry_run is not None:
+
+            _query_params.append(('dry_run', dry_run))
+
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -12985,6 +25822,244 @@ class V3Api:
         return self.api_client.param_serialize(
             method='PUT',
             resource_path='/api/v3/remotes/sending/{remote_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def validate_receiving_remote_manifest_catalog(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to validate the manifest catalog against.")],
+        validate_manifest_catalog_dto: ValidateManifestCatalogDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ManifestCatalogValidationDto:
+
+        """
+        Validate a manifest's control tag catalog against a receiving remote
+
+        :param remote_id: The ID of the receiving remote to validate the manifest catalog against. (required)
+        :type remote_id: str
+        :param validate_manifest_catalog_dto: (required)
+        :type validate_manifest_catalog_dto: ValidateManifestCatalogDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._validate_receiving_remote_manifest_catalog_serialize(
+            remote_id=remote_id,
+            validate_manifest_catalog_dto=validate_manifest_catalog_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ManifestCatalogValidationDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def validate_receiving_remote_manifest_catalog_with_http_info(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to validate the manifest catalog against.")],
+        validate_manifest_catalog_dto: ValidateManifestCatalogDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[ManifestCatalogValidationDto]:
+
+        """
+        Validate a manifest's control tag catalog against a receiving remote
+
+        :param remote_id: The ID of the receiving remote to validate the manifest catalog against. (required)
+        :type remote_id: str
+        :param validate_manifest_catalog_dto: (required)
+        :type validate_manifest_catalog_dto: ValidateManifestCatalogDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._validate_receiving_remote_manifest_catalog_serialize(
+            remote_id=remote_id,
+            validate_manifest_catalog_dto=validate_manifest_catalog_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ManifestCatalogValidationDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def validate_receiving_remote_manifest_catalog_without_preload_content(
+        self,
+        remote_id: Annotated[StrictStr, Field(description="The ID of the receiving remote to validate the manifest catalog against.")],
+        validate_manifest_catalog_dto: ValidateManifestCatalogDto,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Validate a manifest's control tag catalog against a receiving remote
+
+        :param remote_id: The ID of the receiving remote to validate the manifest catalog against. (required)
+        :type remote_id: str
+        :param validate_manifest_catalog_dto: (required)
+        :type validate_manifest_catalog_dto: ValidateManifestCatalogDto
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._validate_receiving_remote_manifest_catalog_serialize(
+            remote_id=remote_id,
+            validate_manifest_catalog_dto=validate_manifest_catalog_dto,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "ManifestCatalogValidationDto",
+            '404': None,
+            '403': None,
+            '422': "HTTPValidationError",
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _validate_receiving_remote_manifest_catalog_serialize(
+        self,
+        remote_id,
+        validate_manifest_catalog_dto,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if remote_id is not None:
+            _path_params['remote_id'] = remote_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if validate_manifest_catalog_dto is not None:
+            _body_params = validate_manifest_catalog_dto
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/remotes/receiving/{remote_id}/catalog:validate',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

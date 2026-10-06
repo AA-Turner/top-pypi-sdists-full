@@ -1561,7 +1561,7 @@ def create_server(
         ### TOOL SPECIFIC PARAMETERS:
 
         1. `refs` - the entity's address (slug or uuid)
-        2. `view` - what to read: `card` (the default) lists this entity's views; most are self explanatory, 4 are explained below.
+        2. `view` - `card` (default) lists available views; choose by the question.
         3. `view_options` - (optional) per-view options, listed below
         4. `verbose` - (default off) response bookkeeping, for debugging
 
@@ -1586,7 +1586,8 @@ def create_server(
         - `trial:<rollout span id>` from a run's trials view
 
         ### FYI:
-        `summary` = `document`, the researcher's authored Markdown: a block INSIDE a project's or experiment's Overview page that the AI may not rewrite. Whole-document, last-write-wins, unlike hidden `notes`, which append. Read back is RENDERED, so not byte-identical
+        `overview` = full saved project/experiment page: generated content, authored edits and chart data. Null HTML means unavailable. Follow `next_cursor`; content changes require restarting.
+        `summary` = `document`, authored Markdown INSIDE a project's or experiment's Overview page; the AI may not rewrite it. Whole-document, last-write-wins; read back is RENDERED, not byte-identical. `notes` = hidden operational notes.
         """
         if filters is not None:
             # Bound so it is never silently DROPPED: FastMCP builds its argument

@@ -1,4 +1,5 @@
-//! Self-consume the Redis function queue on the scaling-group (sg) pod.
+//! Self-consume Fnq on the scaling-group (sg) pod, through DP API when
+//! `CHALK_FNQ_CONSUMER_ENDPOINT` is set, or directly through Redis otherwise.
 //!
 //! This runs *alongside* the gRPC server, which is untouched: the synchronous
 //! / direct `CallFunction` path keeps serving inbound calls.
@@ -31,6 +32,10 @@
 //!   caller. The semaphore still admits one slot per call, so it remains the
 //!   producer of the concurrency the coalescer batches.
 
+use base64::Engine;
+use chalk_remote_call_proto::chalk::common::v1::ChalkException;
+use chalk_remote_call_proto::chalk::runtime::v1::report_results_request::Result as ResultEvent;
+use chalk_remote_call_proto::chalk::runtime::v1::{AcquireWorkRequest, ReportResultsRequest};
 use std::collections::HashMap;
 use std::panic::AssertUnwindSafe;
 use std::str::FromStr;
@@ -48,7 +53,7 @@ use futures_util::FutureExt;
 use redis::aio::ConnectionManager;
 use redis::Client;
 use tokio::sync::mpsc;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use chalk_metrics::metrics::tags::Mode;
@@ -232,14 +237,132 @@ impl ResultDestination {
     }
 }
 
+type OutputError = Box<dyn std::error::Error + Send + Sync>;
+
+enum CallOutput {
+    Redis {
+        queue: FunctionQueue,
+        conn: ConnectionManager,
+        destination: ResultDestination,
+        call_id: Uuid,
+    },
+    Fnq {
+        client: crate::fnq_client::FnqClient,
+        handle: String,
+        trace_id: String,
+    },
+}
+
+impl CallOutput {
+    fn redis(
+        queue: &FunctionQueue,
+        conn: &ConnectionManager,
+        work: &QueuedCall,
+    ) -> Result<Self, OutputError> {
+        let call_id = Uuid::parse_str(&work.call_id)?;
+        Ok(Self::Redis {
+            queue: queue.clone(),
+            conn: conn.clone(),
+            destination: ResultDestination::for_call(queue, work, call_id),
+            call_id,
+        })
+    }
+
+    async fn begin(&mut self, trace_id: &str) {
+        match self {
+            Self::Redis { queue, call_id, .. } => {
+                let _ = queue.update_status(*call_id, "running").await;
+            }
+            Self::Fnq {
+                trace_id: current, ..
+            } => *current = trace_id.to_owned(),
+        }
+    }
+
+    async fn complete(&self, status: &str, summary: &str, trace_id: Option<String>) {
+        if let Self::Redis { queue, call_id, .. } = self {
+            let _ = queue
+                .complete_status(*call_id, status, summary, trace_id)
+                .await;
+        }
+    }
+
+    async fn report(&self, sequence: u64, result: ResultEvent) -> Result<(), OutputError> {
+        if let Self::Fnq {
+            client,
+            handle,
+            trace_id,
+        } = self
+        {
+            client
+                .report(ReportResultsRequest {
+                    work_handle: handle.clone(),
+                    sequence,
+                    result: Some(result),
+                    processing_trace_id: trace_id.clone(),
+                })
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn write_chunk(&mut self, seq: u64, data: &[u8]) -> Result<(), OutputError> {
+        match self {
+            Self::Redis {
+                conn, destination, ..
+            } => Ok(destination.write_chunk(conn, seq, data).await?),
+            Self::Fnq { .. } => {
+                self.report(seq, ResultEvent::Chunk(data.to_vec().into()))
+                    .await
+            }
+        }
+    }
+
+    async fn write_end(&mut self, seq: u64) -> Result<(), OutputError> {
+        match self {
+            Self::Redis {
+                conn, destination, ..
+            } => Ok(destination.write_end(conn, seq).await?),
+            Self::Fnq { .. } => self.report(seq, ResultEvent::End(())).await,
+        }
+    }
+
+    async fn write_error(
+        &mut self,
+        seq: u64,
+        exc_type: &str,
+        message: &str,
+        traceback: Option<&str>,
+    ) -> Result<(), OutputError> {
+        match self {
+            Self::Redis {
+                conn, destination, ..
+            } => Ok(destination
+                .write_error(conn, seq, exc_type, message, traceback)
+                .await?),
+            Self::Fnq { .. } => {
+                self.report(
+                    seq,
+                    ResultEvent::Error(ChalkException {
+                        kind: exc_type.to_owned(),
+                        message: message.to_owned(),
+                        stacktrace: traceback.unwrap_or_default().to_owned(),
+                        ..Default::default()
+                    }),
+                )
+                .await
+            }
+        }
+    }
+}
+
 /// Configuration for the self-consumer, read from the environment.
 ///
-/// [`from_env`](Self::from_env) returns `None` when `CHALK_FNQ_REDIS_URL` is
-/// unset — the pod then runs gRPC-only (the synchronous path) and does not
-/// self-consume. That is the contract that lets a single shim binary serve both
-/// roles depending on how the pod was provisioned.
+/// Without an API endpoint or Redis URL, the pod serves inbound gRPC only.
+/// When configured, the API endpoint takes precedence over Redis.
 pub struct SelfConsumerConfig {
     pub redis_url: String,
+    pub consumer_endpoint: Option<String>,
     pub tenant: String,
     pub function_name: String,
     pub max_concurrent: u32,
@@ -253,26 +376,23 @@ pub struct SelfConsumerConfig {
 
 impl SelfConsumerConfig {
     pub fn from_env() -> Option<Self> {
-        // No Redis URL → not provisioned to self-consume. Silent: this is the
-        // ordinary gRPC-only pod, not a misconfiguration.
-        let redis_url = std::env::var(ENV_REDIS_URL)
+        let consumer_endpoint = std::env::var("CHALK_FNQ_CONSUMER_ENDPOINT")
             .ok()
-            .filter(|s| !s.is_empty())?;
-
-        // Redis URL present means we intend to self-consume, so tenant + fn are
-        // now required; missing them is a real misconfiguration worth surfacing.
-        let tenant = match std::env::var(ENV_TENANT) {
-            Ok(t) if !t.is_empty() => t,
-            _ => {
-                warn!("{ENV_REDIS_URL} is set but {ENV_TENANT} is missing; self-consumer disabled");
-                return None;
-            }
-        };
+            .filter(|s| !s.is_empty());
+        let redis_url = std::env::var(ENV_REDIS_URL).unwrap_or_default();
+        if consumer_endpoint.is_none() && redis_url.is_empty() {
+            return None;
+        }
+        let tenant = std::env::var(ENV_TENANT).unwrap_or_default();
+        if consumer_endpoint.is_none() && tenant.is_empty() {
+            warn!("{ENV_TENANT} is required for Redis consumption; self-consumer disabled");
+            return None;
+        }
         let function_name = match std::env::var(ENV_FUNCTION_NAME) {
             Ok(f) if !f.is_empty() => f,
             _ => {
                 warn!(
-                    "{ENV_REDIS_URL} is set but {ENV_FUNCTION_NAME} is missing; self-consumer disabled"
+                    "Fnq consumption is configured but {ENV_FUNCTION_NAME} is missing; self-consumer disabled"
                 );
                 return None;
             }
@@ -329,6 +449,7 @@ impl SelfConsumerConfig {
 
         Some(Self {
             redis_url,
+            consumer_endpoint,
             tenant,
             function_name,
             max_concurrent,
@@ -357,6 +478,9 @@ pub async fn run(
     metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if config.consumer_endpoint.is_some() {
+        return run_fnq(config, handler, metrics_pipeline, coalescing_queue).await;
+    }
     let client = Client::open(config.redis_url.clone())?;
     let conn = ConnectionManager::new(client).await?;
     let queue = FunctionQueue::new(conn.clone(), config.tenant.clone());
@@ -426,6 +550,162 @@ pub async fn run(
         coalescing_queue,
     )
     .await
+}
+
+/// API consumption shares the Python execution and output-buffering paths with
+/// Redis consumption. There is deliberately no fallback after choosing the API.
+async fn run_fnq(
+    config: SelfConsumerConfig,
+    handler: Arc<PythonHandler>,
+    metrics_pipeline: Option<Arc<PublishingMetricsPipeline>>,
+    coalescing_queue: Option<Arc<CoalescingQueue>>,
+) -> Result<(), OutputError> {
+    let endpoint = config
+        .consumer_endpoint
+        .as_deref()
+        .ok_or("missing Fnq endpoint")?;
+    let token_file = std::env::var("CHALK_FUNCTION_QUEUE_TOKEN_FILE")
+        .unwrap_or_else(|_| "/var/run/secrets/chalk-function-queue/identity-token".into());
+    let client = crate::fnq_client::FnqClient::new(endpoint, token_file.into())?;
+    let live: Arc<DashMap<String, ()>> = Arc::new(DashMap::new());
+    let renewal_client = client.clone();
+    let renewal_live = live.clone();
+    let consumer_id = Uuid::new_v4().to_string();
+    let renew_interval = SEM_RENEW_INTERVAL.min(config.sem_ttl / 3);
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(renew_interval);
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            interval.tick().await;
+            let handles: Vec<_> = renewal_live
+                .iter()
+                .map(|entry| entry.key().clone())
+                .collect();
+            for batch in handles.chunks(1024) {
+                match renewal_client.renew(batch.to_vec()).await {
+                    Ok(lost) => {
+                        for handle in lost {
+                            renewal_live.remove(&handle);
+                            warn!(%handle, "Fnq work lease lost; further output will be rejected");
+                        }
+                    }
+                    Err(error) => warn!(%error, "Fnq lease renewal failed; will retry"),
+                }
+            }
+        }
+    });
+    let mut tasks = tokio::task::JoinSet::new();
+    let mut backoff = config.poll_backoff_initial;
+    loop {
+        while tasks.try_join_next().is_some() {}
+        let available = config.max_concurrent.saturating_sub(tasks.len() as u32);
+        if available == 0 {
+            tokio::time::sleep(config.poll_backoff_initial).await;
+            continue;
+        }
+        let request = AcquireWorkRequest {
+            function_name: config.function_name.clone(),
+            request_id: Uuid::new_v4().to_string(),
+            consumer_id: consumer_id.clone(),
+            max_calls: available.min(config.stream_read_count as u32).min(64),
+            max_concurrent: config.max_concurrent,
+            lease_duration_seconds: config.sem_ttl.as_secs().try_into()?,
+        };
+        let result = client
+            .acquire(request, |delivery| {
+                let handle = delivery.work_handle.clone();
+                live.insert(handle.clone(), ());
+                let client = client.clone();
+                let live = live.clone();
+                let handler = handler.clone();
+                let coalescer = coalescing_queue.clone();
+                let metrics = metrics_pipeline.clone();
+                let flush_timeout = config.flush_timeout;
+                tasks.spawn(async move {
+                    let result = AssertUnwindSafe(async {
+                        let mut output = CallOutput::Fnq {
+                            client,
+                            handle: handle.clone(),
+                            trace_id: String::new(),
+                        };
+                        let call = delivery.call.ok_or("Fnq response missing call")?;
+                        let work = QueuedCall {
+                            call_id: delivery.call_id,
+                            call: chalk_queue::types::CallPayload {
+                                name: call.name,
+                                feather_stream: base64::engine::general_purpose::STANDARD
+                                    .encode(call.feather_stream),
+                            },
+                            metadata: chalk_queue::types::CallMetadata {
+                                otel_headers: delivery.metadata,
+                            },
+                            result_ttl_seconds: 86400,
+                            batch_result: None,
+                            max_retries: (delivery.max_attempts > 1)
+                                .then_some((delivery.max_attempts - 1) as u32),
+                        };
+                        if delivery.attempt > delivery.max_attempts {
+                            return output
+                                .write_error(
+                                    1,
+                                    "RetryAttemptsExhausted",
+                                    "Fnq retry attempts exhausted",
+                                    None,
+                                )
+                                .await;
+                        }
+                        let final_attempt = delivery.attempt == delivery.max_attempts;
+                        let completed = if let Some(coalescer) = coalescer {
+                            coalesced_execute_and_write(
+                                &coalescer,
+                                &mut output,
+                                work,
+                                final_attempt,
+                                metrics.as_ref(),
+                            )
+                            .await?
+                        } else {
+                            execute_and_write(
+                                &handler,
+                                &mut output,
+                                work,
+                                flush_timeout,
+                                final_attempt,
+                                metrics.as_ref(),
+                            )
+                            .await?
+                        };
+                        if !completed {
+                            output.report(1, ResultEvent::Retry(())).await?;
+                        }
+                        Ok::<(), OutputError>(())
+                    })
+                    .catch_unwind()
+                    .await;
+                    live.remove(&handle);
+                    match result {
+                        Ok(Ok(())) => {}
+                        Ok(Err(error)) => {
+                            warn!(%handle, %error, "Fnq call failed; lease will expire")
+                        }
+                        Err(_) => {
+                            error!(%handle, "Fnq execution task panicked; lease will expire")
+                        }
+                    }
+                });
+            })
+            .await;
+        match result {
+            Ok(count) if count > 0 => backoff = config.poll_backoff_initial,
+            result => {
+                if let Err(error) = result {
+                    warn!(%error, "Fnq acquisition failed; will retry");
+                }
+                tokio::time::sleep(backoff).await;
+                backoff = (backoff * 2).min(config.poll_backoff_max);
+            }
+        }
+    }
 }
 
 /// Consume the legacy Redis List queue one call at a time. Streams use their
@@ -577,7 +857,7 @@ async fn run_stream_dispatch_loop(
                     .await
                 {
                     Ok(legacy) if !legacy.is_empty() => {
-                        info!(function = %input_queue.function_name(), count = legacy.len(), "draining legacy List items during Stream migration");
+                        debug!(function = %input_queue.function_name(), count = legacy.len(), "draining legacy List items during Stream migration");
                         deliveries.extend(legacy);
                     }
                     Ok(_) => {}
@@ -715,7 +995,7 @@ async fn run_one_call(
             attempt,
             max_attempts,
         } => {
-            info!(%call_id, attempt, max_attempts, "executing queued call attempt");
+            debug!(%call_id, attempt, max_attempts, "executing queued call attempt");
             attempt == max_attempts
         }
         DeliveryAttempt::Exhausted {
@@ -751,10 +1031,17 @@ async fn run_one_call(
             return;
         }
     };
+    let mut output = match CallOutput::redis(&queue, &conn, &work) {
+        Ok(output) => output,
+        Err(error) => {
+            error!(%call_id, %error, "invalid queued call");
+            finish_delivery(&input_queue, &receipt, false, &call_id, lease, &live_calls).await;
+            return;
+        }
+    };
     let completed = match AssertUnwindSafe(execute_and_write(
         &handler,
-        &queue,
-        &mut conn,
+        &mut output,
         work.clone(),
         flush_timeout,
         final_attempt,
@@ -874,7 +1161,7 @@ async fn run_one_coalesced_call(
             attempt,
             max_attempts,
         } => {
-            info!(%call_id, attempt, max_attempts, "executing coalesced queued call attempt");
+            debug!(%call_id, attempt, max_attempts, "executing coalesced queued call attempt");
             attempt == max_attempts
         }
         DeliveryAttempt::Exhausted {
@@ -910,10 +1197,17 @@ async fn run_one_coalesced_call(
             return;
         }
     };
+    let mut output = match CallOutput::redis(&queue, &conn, &work) {
+        Ok(output) => output,
+        Err(error) => {
+            error!(%call_id, %error, "invalid queued call");
+            finish_delivery(&input_queue, &receipt, false, &call_id, lease, &live_calls).await;
+            return;
+        }
+    };
     let completed = match coalesced_execute_and_write(
         &coalescing_queue,
-        &queue,
-        &mut conn,
+        &mut output,
         work,
         final_attempt,
         metrics_pipeline.as_ref(),
@@ -947,22 +1241,19 @@ async fn run_one_coalesced_call(
 /// coalescing path, which likewise produced one response per caller.
 async fn coalesced_execute_and_write(
     coalescing_queue: &Arc<CoalescingQueue>,
-    queue: &FunctionQueue,
-    conn: &mut ConnectionManager,
+    output: &mut CallOutput,
     work: QueuedCall,
     final_attempt: bool,
     metrics_pipeline: Option<&Arc<PublishingMetricsPipeline>>,
 ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    let call_uuid = Uuid::parse_str(&work.call_id)?;
-    let result_destination = ResultDestination::for_call(queue, &work, call_uuid);
     let ipc_bytes = work.call.feather_bytes()?;
     let function_name = work.call.name.clone();
     let mut metadata = work.metadata.otel_headers.clone();
     let processing_trace_id = ensure_traceparent(&mut metadata);
     let started = Instant::now();
 
-    let _ = queue.update_status(call_uuid, "running").await;
-    info!(call_id = %work.call_id, function = %function_name, "running coalesced queued call");
+    output.begin(&processing_trace_id).await;
+    debug!(call_id = %work.call_id, function = %function_name, "running coalesced queued call");
 
     // Capacity 1: the coalescing dispatch sends exactly one message per caller.
     let (tx, mut rx) = mpsc::channel(1);
@@ -996,19 +1287,12 @@ async fn coalesced_execute_and_write(
 
     match response {
         Some(Ok(resp)) => {
-            result_destination
-                .write_chunk(conn, 1, &resp.feather_stream)
-                .await?;
-            result_destination.write_end(conn, 2).await?;
-            let _ = queue
-                .complete_status(
-                    call_uuid,
-                    "completed",
-                    "1 chunk(s)",
-                    Some(processing_trace_id),
-                )
+            output.write_chunk(1, &resp.feather_stream).await?;
+            output.write_end(2).await?;
+            output
+                .complete("completed", "1 chunk(s)", Some(processing_trace_id))
                 .await;
-            info!(call_id = %work.call_id, "coalesced queued call completed");
+            debug!(call_id = %work.call_id, "coalesced queued call completed");
         }
         Some(Err(status)) => {
             if !final_attempt {
@@ -1017,12 +1301,12 @@ async fn coalesced_execute_and_write(
             }
             // Parity with the enqueue/poll path: only a message string is
             // available, so exc_type is a fixed placeholder.
-            result_destination
-                .write_error(conn, 1, "RemoteFunctionError", status.message(), None)
+            output
+                .write_error(1, "RemoteFunctionError", status.message(), None)
                 .await?;
             let summary: String = status.message().chars().take(200).collect();
-            let _ = queue
-                .complete_status(call_uuid, "failed", &summary, Some(processing_trace_id))
+            output
+                .complete("failed", &summary, Some(processing_trace_id))
                 .await;
             error!(call_id = %work.call_id, error = %status, "coalesced queued call failed");
         }
@@ -1035,11 +1319,11 @@ async fn coalesced_execute_and_write(
                 warn!(call_id = %work.call_id, "{msg}; leaving delivery pending for retry");
                 return Ok(false);
             }
-            result_destination
-                .write_error(conn, 1, "RemoteFunctionError", msg, None)
+            output
+                .write_error(1, "RemoteFunctionError", msg, None)
                 .await?;
-            let _ = queue
-                .complete_status(call_uuid, "failed", msg, Some(processing_trace_id))
+            output
+                .complete("failed", msg, Some(processing_trace_id))
                 .await;
             error!(call_id = %work.call_id, "{msg}");
         }
@@ -1068,23 +1352,20 @@ fn ensure_traceparent(headers: &mut HashMap<String, String>) -> String {
 /// the way.
 async fn execute_and_write(
     handler: &PythonHandler,
-    queue: &FunctionQueue,
-    conn: &mut ConnectionManager,
+    output: &mut CallOutput,
     work: QueuedCall,
     flush_timeout: Duration,
     final_attempt: bool,
     metrics_pipeline: Option<&Arc<PublishingMetricsPipeline>>,
 ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-    let call_uuid = Uuid::parse_str(&work.call_id)?;
-    let result_destination = ResultDestination::for_call(queue, &work, call_uuid);
     let ipc_bytes = work.call.feather_bytes()?;
     let function_name = work.call.name.clone();
     let mut metadata = work.metadata.otel_headers.clone();
     let processing_trace_id = ensure_traceparent(&mut metadata);
     let started = Instant::now();
 
-    let _ = queue.update_status(call_uuid, "running").await;
-    info!(call_id = %work.call_id, function = %function_name, "running queued call");
+    output.begin(&processing_trace_id).await;
+    debug!(call_id = %work.call_id, function = %function_name, "running queued call");
 
     // The Python bridge appends each generator yield into `buffer`. Calls
     // without retries flush incrementally; retry-enabled calls retain chunks
@@ -1123,7 +1404,7 @@ async fn execute_and_write(
             res = &mut handler_fut => break res,
             _ = tokio::time::timeout(flush_timeout, notify_handle.notified()) => {
                 if !buffer_until_terminal {
-                    if let Err(e) = flush_new(conn, &result_destination, &buffer, &mut flushed, &mut seq).await {
+                    if let Err(e) = flush_new(output, &buffer, &mut flushed, &mut seq).await {
                         // Non-fatal: keep draining; the cursor didn't advance past the
                         // failed chunk, so the next wait retries it without duplicating.
                         warn!(call_id = %work.call_id, error = %e, "failed to flush partial results; retrying");
@@ -1155,27 +1436,28 @@ async fn execute_and_write(
     // this is everything). This happens even if the handler panicked mid-execution,
     // so partial output is always preserved. Parity with the enqueue/poll path: a
     // generator that yields then raises surfaces its chunks followed by the error.
-    if let Err(e) = flush_new(conn, &result_destination, &buffer, &mut flushed, &mut seq).await {
-        warn!(call_id = %work.call_id, error = %e, "failed to flush final chunks");
+    if let Err(error) = flush_new(output, &buffer, &mut flushed, &mut seq).await {
+        match output {
+            CallOutput::Fnq { .. } => return Err(error),
+            CallOutput::Redis { .. } => warn!(%error, "final chunk flush failed"),
+        }
     }
 
     match result {
         Ok(()) => {
-            result_destination.write_end(conn, seq).await?;
-            let _ = queue
-                .complete_status(
-                    call_uuid,
+            output.write_end(seq).await?;
+            output
+                .complete(
                     "completed",
                     &format!("{flushed} chunk(s)"),
                     Some(processing_trace_id),
                 )
                 .await;
-            info!(call_id = %work.call_id, chunks = flushed, "queued call completed");
+            debug!(call_id = %work.call_id, chunks = flushed, "queued call completed");
         }
         Err(e) => {
-            result_destination
+            output
                 .write_error(
-                    conn,
                     seq,
                     "RemoteFunctionError",
                     &e.to_string(),
@@ -1183,8 +1465,8 @@ async fn execute_and_write(
                 )
                 .await?;
             let summary: String = e.to_string().chars().take(200).collect();
-            let _ = queue
-                .complete_status(call_uuid, "failed", &summary, Some(processing_trace_id))
+            output
+                .complete("failed", &summary, Some(processing_trace_id))
                 .await;
             error!(
                 call_id = %work.call_id,
@@ -1231,12 +1513,11 @@ async fn write_terminal_error(
 /// is never blocked on Redis I/O. On a write error the cursor stops at the
 /// failed chunk, so a retry re-sends only the unwritten tail (no gaps, no dupes).
 async fn flush_new(
-    conn: &mut ConnectionManager,
-    result_destination: &ResultDestination,
+    output: &mut CallOutput,
     buffer: &Arc<Mutex<ChunkBuffer>>,
     flushed: &mut usize,
     seq: &mut u64,
-) -> Result<(), redis::RedisError> {
+) -> Result<(), OutputError> {
     let new: Vec<Vec<u8>> = {
         let buf = buffer
             .lock()
@@ -1247,7 +1528,7 @@ async fn flush_new(
             .collect()
     };
     for chunk in &new {
-        result_destination.write_chunk(conn, *seq, chunk).await?;
+        output.write_chunk(*seq, chunk).await?;
         *seq += 1;
         *flushed += 1;
     }

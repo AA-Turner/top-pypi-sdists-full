@@ -12,7 +12,7 @@ the stopped call's cost row is written ``completed`` instead of ``cancelled``;
 a run that finished normally is marked stopped. Seam: the real
 ``_stopped_call_response`` and the real ``persist_completed_request``; only the
 queue writers, the model lookup and the app context are doubles (the same
-harness as test_system_run_cost_only_persistence.py).
+harness as test_system_run_keeps_full_history.py).
 """
 
 from __future__ import annotations

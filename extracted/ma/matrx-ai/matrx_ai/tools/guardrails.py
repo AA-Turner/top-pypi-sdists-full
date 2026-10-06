@@ -40,8 +40,37 @@ class GuardrailEngine:
     """
 
     def __init__(self) -> None:
-        # conversation_id → list[_CallRecord]
+        # scope key (conversation_id, or ctx.guardrail_scope) → list[_CallRecord]
         self._history: dict[str, list[_CallRecord]] = defaultdict(list)
+        # ctx.rate_scope → call records of the last minute only (pruned on write).
+        # A run with no conversation (a screen calling a tool) has a per-run
+        # scope cleared at its end, so its per-minute limit has to outlive the
+        # run: it is counted per person here.
+        self._rate_history: dict[str, list[_CallRecord]] = defaultdict(list)
+
+    @staticmethod
+    def scope_key(ctx: ToolContext) -> str:
+        """The history bucket a call is judged in: the run's own declared scope
+        when it has one (``ToolContext.guardrail_scope``), else its conversation.
+        A run with neither is a defect — every such call would share one bucket."""
+        scope = getattr(ctx, "guardrail_scope", None)
+        if scope:
+            return str(scope)
+        conversation_id = ctx.conversation_id
+        if not conversation_id:
+            logger.warning(
+                "[guardrails] call %s has no conversation and no guardrail_scope; "
+                "judged in a per-call bucket so it can never share history",
+                ctx.call_id,
+            )
+            return f"call:{ctx.call_id}"
+        return str(conversation_id)
+
+    def _rate_records(self, ctx: ToolContext) -> list[_CallRecord]:
+        rate_scope = getattr(ctx, "rate_scope", None)
+        if rate_scope:
+            return self._rate_history.get(str(rate_scope), [])
+        return self._history.get(self.scope_key(ctx), [])
 
     async def check(
         self,
@@ -64,15 +93,23 @@ class GuardrailEngine:
         return GuardrailResult(blocked=False)
 
     def record_call(self, tool_name: str, arguments: dict, ctx: ToolContext) -> None:
-        self._history[ctx.conversation_id].append(
-            _CallRecord(
-                tool_name=tool_name,
-                args_hash=self._hash_args(arguments),
-                timestamp=time.time(),
-                iteration=ctx.iteration,
-                request_id=self._request_id(ctx),
-            )
+        record = _CallRecord(
+            tool_name=tool_name,
+            args_hash=self._hash_args(arguments),
+            timestamp=time.time(),
+            iteration=ctx.iteration,
+            request_id=self._request_id(ctx),
         )
+        if getattr(ctx, "guardrail_scope", None) or ctx.conversation_id:
+            # A call with neither is judged in its own per-call bucket, which no
+            # later call can read — recording it would only leak memory.
+            self._history[self.scope_key(ctx)].append(record)
+        rate_scope = getattr(ctx, "rate_scope", None)
+        if rate_scope:
+            window_start = record.timestamp - 60
+            kept = [r for r in self._rate_history.get(str(rate_scope), []) if r.timestamp >= window_start]
+            kept.append(record)
+            self._rate_history[str(rate_scope)] = kept
 
     @staticmethod
     def _request_id(ctx: ToolContext) -> str | None:
@@ -92,7 +129,7 @@ class GuardrailEngine:
         """
         request_id = self._request_id(ctx)
         return [
-            r for r in self._history.get(ctx.conversation_id, []) if r.request_id == request_id
+            r for r in self._history.get(self.scope_key(ctx), []) if r.request_id == request_id
         ]
 
     def clear_conversation(self, conversation_id: str) -> None:
@@ -161,7 +198,7 @@ class GuardrailEngine:
             return GuardrailResult(blocked=False)
 
         window_start = time.time() - 60
-        records = self._history.get(ctx.conversation_id, [])
+        records = self._rate_records(ctx)
         recent = [r for r in records if r.tool_name == tool_name and r.timestamp >= window_start]
 
         if len(recent) >= tool_def.max_calls_per_minute:
@@ -182,7 +219,7 @@ class GuardrailEngine:
         if tool_def.max_calls_per_conversation is None:
             return GuardrailResult(blocked=False)
 
-        records = self._history.get(ctx.conversation_id, [])
+        records = self._history.get(self.scope_key(ctx), [])
         total = sum(1 for r in records if r.tool_name == tool_name)
 
         if total >= tool_def.max_calls_per_conversation:

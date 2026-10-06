@@ -107,6 +107,7 @@ def _fail(
     is_retryable: bool = False,
     exc: BaseException | None = None,
     traceback_operator_only: bool = False,
+    child_usages: list[Any] | None = None,
 ) -> ToolResult:
     # Pass `exc` whenever this is called from an `except` block — without it the
     # traceback is destroyed and the failure reaches the operator as a bare
@@ -131,6 +132,9 @@ def _fail(
     return ToolResult(
         success=False,
         error=error,
+        # A child that ran and then failed still spent money: its usage reaches
+        # the parent's tool-call log exactly as a successful child's does.
+        child_usages=list(child_usages or []),
         started_at=started_at,
         completed_at=time.time(),
         tool_name="agent_call",
@@ -627,6 +631,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             # The child's stack is for the operator; the calling model gets the
             # child's own plain sentence above, never a provider billing URL.
             traceback_operator_only=True,
+            child_usages=list(result.usage_history or []),
         )
 
     if require_complete_output:
@@ -650,6 +655,7 @@ async def agent_call(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 ),
                 suggested_action="Retry the child agent or use inline mode for partial output.",
                 is_retryable=True,
+                child_usages=list(result.usage_history or []),
             )
 
     # ── Did a budget stop it? Say so, on the result. ────────────────────

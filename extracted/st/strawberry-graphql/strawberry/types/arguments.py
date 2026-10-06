@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+from dataclasses import MISSING
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -224,7 +225,11 @@ def convert_argument(
     names and list indices. It's passed on to input types that build their own
     value, see `StrawberryObjectDefinition.from_input`.
     """
-    from strawberry.relay.types import GlobalID
+    from strawberry.relay.types import (
+        GlobalID,
+        GlobalIDValueError,
+        InvalidGlobalIDError,
+    )
 
     # TODO: move this somewhere else and make it first class
     # Handle StrawberryMaybe first, since it extends StrawberryOptional
@@ -239,10 +244,10 @@ def convert_argument(
             return Some(res)
 
         if value is None:
-            from strawberry.exceptions import StrawberryGraphQLError
+            from strawberry.exceptions import StrawberryInputCoercionError
 
             type_name = getattr(type_.of_type, "__name__", str(type_.of_type))
-            raise StrawberryGraphQLError(
+            raise StrawberryInputCoercionError(
                 f"Expected value of type '{type_name}', found null. "
                 f"Field of type 'Maybe[{type_name}]' cannot be explicitly set to null. "
                 f"Use 'Maybe[{type_name} | None]' if you need to allow null values."
@@ -290,7 +295,13 @@ def convert_argument(
 
     if _is_leaf_type(type_, scalar_registry):
         if type_ is GlobalID:
-            return GlobalID.from_id(value)  # type: ignore
+            try:
+                return GlobalID.from_id(value)  # type: ignore
+            except GlobalIDValueError as error:
+                # like the built-in scalars, instead of the decoding error
+                raise InvalidGlobalIDError(
+                    f'Value cannot represent a GlobalID: "{value}".'
+                ) from error
 
         return value
 
@@ -321,7 +332,18 @@ def convert_argument(
                 ),
             )
 
-        kwargs = {}
+        kwargs: dict[str, object | None] = {}
+        if type_definition.is_input:
+            # Set an implicit default of None for all input fields so that we can construct
+            # input types with nullable fields that don't specify explicit default values.
+            # graphql-core should already have validated that all non-nullable (required)
+            # input fields are present in value, so those None values will be overwritten
+            # by the loop below.
+            kwargs = {
+                field.python_name: None
+                for field in type_definition.fields
+                if field.default_value is MISSING and field.default_factory is MISSING
+            }
 
         for field in type_definition.fields:
             value = cast("Mapping", value)

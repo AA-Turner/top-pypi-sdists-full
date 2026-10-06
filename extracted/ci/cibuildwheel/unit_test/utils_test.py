@@ -1,16 +1,19 @@
 import re
+import shlex
 import textwrap
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 from unittest.mock import Mock, call
 
 import pytest
 
 from cibuildwheel import errors
 from cibuildwheel.ci import fix_ansi_codes_for_github_actions
+from cibuildwheel.util.cmd import format_command_for_display
 from cibuildwheel.util.file import copy_test_sources, remove_on_error
 from cibuildwheel.util.helpers import (
     FlexibleVersion,
     format_safe,
+    parse_arbitrary_key_value_string,
     parse_key_value_string,
     prepare_command,
     unwrap,
@@ -218,20 +221,61 @@ def test_parse_key_value_string_unknown_name() -> None:
     with pytest.raises(ValueError, match=r"Failed to parse 'key: value'. Unknown field name 'key'"):
         parse_key_value_string("key: value")
 
-    # Unknown fields can be enabled by passing "*".
-    assert parse_key_value_string(
-        "key: value",
-        kw_arg_names=["*"],
-    ) == {
-        "key": ["value"],
+
+def test_parse_arbitrary_key_value_string_basic() -> None:
+    assert parse_arbitrary_key_value_string("before-test: append; after-test: prepend") == {
+        "before-test": ["append"],
+        "after-test": ["prepend"],
     }
 
-    assert parse_key_value_string(
-        "key1: value1a value1b; key2: value2",
-        kw_arg_names=["*"],
+
+def test_parse_arbitrary_key_value_string_multiple_values() -> None:
+    assert parse_arbitrary_key_value_string(
+        "package1: some/header.h some/library.a; package2: other/header.h"
     ) == {
-        "key1": ["value1a", "value1b"],
-        "key2": ["value2"],
+        "package1": ["some/header.h", "some/library.a"],
+        "package2": ["other/header.h"],
+    }
+
+
+def test_parse_arbitrary_key_value_string_keys_without_values_default() -> None:
+    assert parse_arbitrary_key_value_string(
+        "before-build; before-test: prepend", default_value="append"
+    ) == {
+        "before-build": ["append"],
+        "before-test": ["prepend"],
+    }
+
+
+def test_parse_arbitrary_key_value_string_keys_without_values_no_default() -> None:
+    with pytest.raises(ValueError, match="No value specified"):
+        parse_arbitrary_key_value_string("before-build")
+
+
+def test_parse_arbitrary_key_value_string_empty() -> None:
+    assert parse_arbitrary_key_value_string("") == {}
+
+
+def test_parse_arbitrary_key_value_string_duplicate_keys() -> None:
+    assert parse_arbitrary_key_value_string("key: val1; key: val2") == {
+        "key": ["val1", "val2"],
+    }
+
+
+def test_parse_arbitrary_key_value_string_key_only_with_colon() -> None:
+    assert parse_arbitrary_key_value_string("key:") == {"key": []}
+
+
+def test_parse_arbitrary_key_value_string_quoted_values() -> None:
+    assert parse_arbitrary_key_value_string('key: "hello world"') == {"key": ["hello world"]}
+
+
+def test_parse_arbitrary_key_value_string_multiple_bare_keys_with_default() -> None:
+    """works, but should remain undocumented"""
+    assert parse_arbitrary_key_value_string("a b c", default_value="yes") == {
+        "a": ["yes"],
+        "b": ["yes"],
+        "c": ["yes"],
     }
 
 
@@ -496,3 +540,70 @@ class TestIsAbi3Wheel:
 
     def test_none_platform_wheel(self) -> None:
         assert is_abi3_wheel("foo-1.0-cp310-none-win_amd64.whl") is False
+
+
+class TestFormatCommandForDisplay:
+    @pytest.mark.parametrize(
+        ("args", "expected"),
+        [
+            # ordinary arguments are left bare
+            (["python", "-m", "pip", "install", "."], "python -m pip install ."),
+            # whitespace still has to be delimited
+            (["echo", "hello world"], "echo 'hello world'"),
+            # single quotes are shown verbatim inside double quotes, rather
+            # than being exploded into '"'"' by shlex.quote
+            (["sh", "-c", "echo 'hi'"], """sh -c "echo 'hi'\""""),
+            # double quotes alone read fine inside shlex.quote's single quotes
+            (["sh", "-c", 'echo "hi"'], "sh -c 'echo \"hi\"'"),
+            # empty arguments must stay visible
+            (["cmd", ""], "cmd ''"),
+            # shell metacharacters are quoted so the line can't be misread
+            (["sh", "-c", "a && b | c > d"], "sh -c 'a && b | c > d'"),
+        ],
+    )
+    def test_quoting(self, args: list[str], expected: str) -> None:
+        assert format_command_for_display(args) == expected
+
+    def test_issue_1055(self) -> None:
+        # https://github.com/pypa/cibuildwheel/issues/1055
+        command = """python -c "import sys; print('hello')\""""
+        displayed = format_command_for_display(["sh", "-c", command])
+        assert displayed == '''sh -c "python -c \\"import sys; print('hello')\\""'''
+        assert """'"'"'""" not in displayed
+
+    def test_expandable_arguments_fall_back_to_shlex(self) -> None:
+        # double quotes would let the shell expand these, so don't use them
+        for arg in ("it's $HOME", "it's `pwd`", "it's a back\\slash"):
+            assert format_command_for_display([arg]) == shlex.quote(arg)
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["python", "-m", "pip", "install", "."],
+            ["cmd", "", "hello world", "\ttab\nnewline"],
+            ["sh", "-c", "a && b | c > d; e & f"],
+            ["sh", "-c", "echo 'hi'"],
+            ["sh", "-c", 'echo "hi"'],
+            ["sh", "-c", """echo "it's" 'a "quote"'"""],
+            ["it's $HOME", "it's `pwd`", "it's a back\\slash", "$'\\n'"],
+            ["'", '"', "''", '""', "'\"'\"'", "\\", "\\\\\"'"],
+            ["!", "!!", "*.whl", "~", "#comment", "a=b", "{a,b}", "(x)", "[y]"],
+            ['"\'" "\\"" \'$\' "`"', "unicode 'ü' \"✓\""],
+            # the command from https://github.com/pypa/cibuildwheel/issues/1055
+            [
+                "sh",
+                "-c",
+                (
+                    """python -c "import sys,glob; open('requirements.txt', 'w').write("""
+                    """glob.glob('wheelhouse/MyApp-*cp'+''.join(map(str, sys.version_info[:2]))"""
+                    """+'-*.whl')[0])\""""
+                ),
+            ],
+        ],
+    )
+    def test_round_trips_through_shlex(self, args: list[str]) -> None:
+        assert shlex.split(format_command_for_display(args)) == args
+
+    def test_accepts_paths(self) -> None:
+        # PurePosixPath, so the expected string doesn't depend on the host OS
+        assert format_command_for_display(["ls", PurePosixPath("/a b/c")]) == "ls '/a b/c'"

@@ -70,6 +70,8 @@ from anyscale.client.openapi_client.models import (
     ServerSessionToken,
     SkillsManifestResponse,
     TermsStatusResponse,
+    UnifiedEvent,
+    UnifiedeventListResponse,
     UpdatePolicyRequest,
     UserGroup,
     UsergroupListResponse,
@@ -138,7 +140,6 @@ from anyscale.sdk.anyscale_client.models.cluster_environment import ClusterEnvir
 from anyscale.sdk.anyscale_client.models.list_response_metadata import (
     ListResponseMetadata as SDKListResponseMetadata,
 )
-from anyscale.shared_anyscale_utils.latest_ray_version import LATEST_RAY_VERSION
 from anyscale.utils.workspace_notification import WorkspaceNotification
 
 
@@ -207,6 +208,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     SCHEDULE_NEXT_TRIGGER_AT_TIME = datetime.utcnow()
 
     def __init__(self) -> None:
+        # Events seeded with `add_event`, keyed by entity id, plus a record of every
+        # `get_unified_events` call and the largest page the fake will hand back.
+        self._events: Dict[str, List[UnifiedEvent]] = {}
+        self.unified_events_calls: List[Dict[str, Any]] = []
+        self.unified_events_page_size: int = 1000
+
         self._builds: Dict[str, ClusterEnvironmentBuild] = {
             self.DEFAULT_CLUSTER_ENV_BUILD_ID: ClusterEnvironmentBuild(
                 id=self.DEFAULT_CLUSTER_ENV_BUILD_ID,
@@ -811,6 +818,100 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
     def get_default_cloud(self) -> Optional[Cloud]:
         return self._clouds.get(self.DEFAULT_CLOUD_ID, None)
 
+    # --- events ------------------------------------------------------------------------
+
+    def add_event(  # noqa: PLR0913
+        self,
+        entity_id: str,
+        *,
+        id: str,  # noqa: A002
+        message: Optional[str],
+        level: Optional[str] = "INFO",
+        origin: str = "CLUSTER",
+        created_at: Optional[datetime] = None,
+        cluster_id: Optional[str] = None,
+    ) -> UnifiedEvent:
+        """Seed one event for `entity_id`, returned later by `get_unified_events`."""
+        event = UnifiedEvent(
+            id=id,
+            created_at=created_at or datetime.now(timezone.utc),
+            message=message,
+            origin=origin,
+            level=level,
+            cluster_id=cluster_id,
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+        self._events.setdefault(entity_id, []).append(event)
+        return event
+
+    def get_unified_events(  # noqa: PLR0913
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        origin: Optional[List[str]] = None,
+        level: Optional[List[str]] = None,
+        message: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        ascending_order: bool = False,
+        include_verbose_events: bool = False,
+        instance_id: Optional[str] = None,
+        instance_node_ip: Optional[str] = None,
+        autoscaler_resource_bundles: Optional[List[str]] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> UnifiedeventListResponse:
+        # Every call is recorded so tests can assert what was sent on the wire.
+        self.unified_events_calls.append(
+            {
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "origin": origin,
+                "level": level,
+                "message": message,
+                "start_time": start_time,
+                "end_time": end_time,
+                "ascending_order": ascending_order,
+                "include_verbose_events": include_verbose_events,
+                "instance_id": instance_id,
+                "instance_node_ip": instance_node_ip,
+                "autoscaler_resource_bundles": autoscaler_resource_bundles,
+                "count": count,
+                "paging_token": paging_token,
+            }
+        )
+
+        events = list(self._events.get(entity_id, []))
+        # Mirror the backend: an explicit empty origin list matches nothing.
+        if origin is not None:
+            events = [e for e in events if e.origin in origin]
+        if level:
+            events = [e for e in events if e.level in level]
+        if message:
+            events = [e for e in events if message in (e.message or "")]
+        if start_time is not None:
+            events = [e for e in events if e.created_at > start_time]
+        if end_time is not None:
+            events = [e for e in events if e.created_at < end_time]
+        events.sort(key=lambda e: e.created_at, reverse=not ascending_order)
+
+        # Offset-based cursor: the token is the index of the next unread event.
+        offset = int(paging_token) if paging_token else 0
+        page_size = min(count or len(events), self.unified_events_page_size)
+        page = events[offset : offset + page_size]
+        next_offset = offset + len(page)
+        next_token = str(next_offset) if next_offset < len(events) else None
+
+        return UnifiedeventListResponse(
+            results=page,
+            metadata=ListResponseMetadata(
+                next_paging_token=next_token,
+                local_vars_configuration=OPENAPI_NO_VALIDATION,
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+
     def list_clouds(
         self, *, paging_token: Optional[str] = None, count: Optional[int] = None
     ) -> DecoratedcloudListResponse:
@@ -1178,7 +1279,7 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             docker_image_name=image_uri.image_uri,
             status=ClusterEnvironmentBuildStatus.SUCCEEDED,
             registry_login_secret=registry_login_secret,
-            ray_version=ray_version if ray_version else LATEST_RAY_VERSION,
+            ray_version=ray_version or None,
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
         self.add_build(build)

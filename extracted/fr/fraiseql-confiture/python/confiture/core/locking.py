@@ -79,7 +79,7 @@ class LockHolder:
         }
 
 
-def _holder_phrase(holder: "LockHolder | None") -> str:
+def _holder_phrase(holder: LockHolder | None) -> str:
     """A short ' Held by ...' clause for the human error message (#147).
 
     Empty when no identity is available (graceful degradation).
@@ -160,7 +160,7 @@ class LockAcquisitionError(Exception):
         self,
         message: str,
         timeout: bool = False,
-        holder: "LockHolder | None" = None,
+        holder: LockHolder | None = None,
     ):
         super().__init__(message)
         self.timeout = timeout
@@ -200,7 +200,7 @@ class MigrationLock:
 
     def __init__(
         self,
-        connection: "psycopg.Connection",
+        connection: psycopg.Connection,
         config: LockConfig | None = None,
     ):
         """Initialize migration lock.
@@ -250,7 +250,7 @@ class MigrationLock:
         return int.from_bytes(hash_bytes[:4], "big") & 0x7FFFFFFF
 
     @contextmanager
-    def acquire(self) -> Generator[None, None, None]:
+    def acquire(self) -> Generator[None]:
         """Context manager for lock acquisition.
 
         Acquires the lock on entry and releases it on exit (even if an
@@ -316,9 +316,8 @@ class MigrationLock:
         timeout_sec = self.config.timeout_ms / 1000
 
         with self.connection.cursor() as cur:
-            # Set statement timeout for lock acquisition
-            # Using string formatting for timeout is safe (integer value)
-            cur.execute(f"SET LOCAL statement_timeout = '{self.config.timeout_ms}ms'")
+            # SET takes no parameters: the timeout is written in, as a literal (ms).
+            cur.execute(t"SET LOCAL statement_timeout = {self.config.timeout_ms:l}")
 
             try:
                 cur.execute(
@@ -419,8 +418,8 @@ class MigrationLock:
         try:
             with self.connection.cursor() as cur:
                 cur.execute(
-                    f"""
-                    CREATE TABLE IF NOT EXISTS {LOCK_HOLDER_TABLE} (
+                    t"""
+                    CREATE TABLE IF NOT EXISTS {LOCK_HOLDER_TABLE:i} (
                         lock_id BIGINT PRIMARY KEY,
                         pid INT,
                         hostname TEXT,
@@ -431,18 +430,18 @@ class MigrationLock:
                     """
                 )
                 cur.execute(
-                    f"""
-                    INSERT INTO {LOCK_HOLDER_TABLE}
+                    t"""
+                    INSERT INTO {LOCK_HOLDER_TABLE:i}
                         (lock_id, pid, hostname, usename, command, acquired_at)
-                    VALUES (%s, %s, %s, current_user, %s, now())
+                    VALUES ({lock_id}, {identity.pid}, {identity.hostname}, current_user,
+                            {identity.command}, now())
                     ON CONFLICT (lock_id) DO UPDATE SET
                         pid = EXCLUDED.pid,
                         hostname = EXCLUDED.hostname,
                         usename = EXCLUDED.usename,
                         command = EXCLUDED.command,
                         acquired_at = now()
-                    """,  # nosec B608 - LOCK_HOLDER_TABLE is a module constant; all values are parameter-bound
-                    (lock_id, identity.pid, identity.hostname, identity.command),
+                    """
                 )
             # Commit so contenders on other connections can see the row. Safe:
             # the lock is acquired before any migration work, so nothing but the
@@ -458,17 +457,14 @@ class MigrationLock:
         """Remove this lock's identity row on release (best-effort)."""
         try:
             with self.connection.cursor() as cur:
-                cur.execute(
-                    f"DELETE FROM {LOCK_HOLDER_TABLE} WHERE lock_id = %s",  # nosec B608 - LOCK_HOLDER_TABLE is a module constant; lock_id is parameter-bound
-                    (lock_id,),
-                )
+                cur.execute(t"DELETE FROM {LOCK_HOLDER_TABLE:i} WHERE lock_id = {lock_id}")
             self.connection.commit()
         except psycopg.Error as e:
             logger.debug(f"Could not clear lock-holder metadata (id={lock_id}): {e}")
             with contextlib.suppress(Exception):
                 self.connection.rollback()
 
-    def _safe_read_lock_holder(self) -> "LockHolder | None":
+    def _safe_read_lock_holder(self) -> LockHolder | None:
         """read_lock_holder() that never raises (used on the error path)."""
         try:
             return self.read_lock_holder()
@@ -478,7 +474,7 @@ class MigrationLock:
                 self.connection.rollback()
             return None
 
-    def read_lock_holder(self) -> "LockHolder | None":
+    def read_lock_holder(self) -> LockHolder | None:
         """Return the current lock holder, merging metadata + live activity.
 
         Reads the ``confiture_lock_holder`` row (exact command/acquired_at) and
@@ -492,8 +488,9 @@ class MigrationLock:
             # held?), not from pid matching: h.pid is the *client* os.getpid(),
             # not a backend pid. A crashed holder auto-releases the advisory
             # lock, so a row whose lock is no longer held is a stale row.
+            namespace = self.DEFAULT_LOCK_NAMESPACE
             cur.execute(
-                f"""
+                t"""
                 SELECT
                     h.pid,
                     h.hostname,
@@ -503,12 +500,11 @@ class MigrationLock:
                     EXTRACT(EPOCH FROM (now() - h.acquired_at))::bigint AS held_for_seconds,
                     EXISTS (
                         SELECT 1 FROM pg_locks
-                        WHERE locktype = 'advisory' AND classid = %s AND objid = %s
+                        WHERE locktype = 'advisory' AND classid = {namespace} AND objid = {lock_id}
                     ) AS live
-                FROM {LOCK_HOLDER_TABLE} h
-                WHERE h.lock_id = %s
-                """,  # nosec B608 - LOCK_HOLDER_TABLE is a module constant; all values are parameter-bound
-                (self.DEFAULT_LOCK_NAMESPACE, lock_id, lock_id),
+                FROM {LOCK_HOLDER_TABLE:i} h
+                WHERE h.lock_id = {lock_id}
+                """
             )
             row = cur.fetchone()
         if row is None:

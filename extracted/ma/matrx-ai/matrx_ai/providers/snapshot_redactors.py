@@ -1,4 +1,8 @@
-"""Snapshot Redactors — single-purpose, self-documenting payload trimmers.
+"""Snapshot Redactors — replace inline FILE DATA (never text) with recoverable markers.
+
+OWNER RULING 2026-10-05: the stored request must let us recreate the exact
+request. Text is NEVER cut at any size. Only base64/data-URI file payloads may
+be replaced, and the marker carries file_id/url when the request names one.
 
 Why this module exists
 ======================
@@ -69,11 +73,13 @@ Design rules (non-negotiable)
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import logging
 import re
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
@@ -151,57 +157,130 @@ class Redactor(Protocol):
     name: str
     reason_code: str
 
-    def applies_to(self, value: Any) -> bool: ...
-    def redact(self, value: Any, path: str) -> Any: ...
+    def applies_to(self, value: Any, path: str = "", siblings: dict[str, Any] | None = None) -> bool: ...
+    def redact(self, value: Any, path: str, siblings: dict[str, Any] | None = None) -> Any: ...
 
 
 # ---------------------------------------------------------------------------
 # LargeBinaryStringRedactor
 # ---------------------------------------------------------------------------
 
+#: Keys at which provider formats put inline file data (Anthropic
+#: ``source.data``, OpenAI ``image_url.url`` / ``input_audio.data`` /
+#: ``file_data``, Google ``inline_data.data`` / ``inlineData.data``, the
+#: unified ``base64_data``).
+_BLOB_KEYS = frozenset(
+    {"data", "base64_data", "base64", "b64_json", "bytes", "file_data", "url", "image_url", "audio", "image"}
+)
+#: Sibling keys that name the same file elsewhere (unified media blocks).
+_REFERENCE_KEYS = ("file_id", "file_uri", "url", "resolved_url")
+_MIME_KEYS = ("mime_type", "media_type", "mime")
+
+_STRICT_BASE64 = re.compile(r"[A-Za-z0-9+/_\-]+={0,2}")
+
+#: Magic prefixes of the file kinds that travel inline, as BASE64 text.
+_BASE64_MAGIC = (
+    "JVBERi",  # %PDF
+    "iVBOR",  # PNG
+    "/9j/",  # JPEG
+    "R0lGOD",  # GIF
+    "UklGR",  # RIFF (WEBP/WAV)
+    "SUQz",  # ID3 (MP3)
+    "T2dnUw",  # Ogg
+    "//uQ", "//sQ", "//tQ", "//vQ",  # MPEG audio frame sync
+    "UEsDB",  # zip (docx/xlsx/pptx)
+    "AAAA",  # mp4/mov ftyp box / ico
+    "GkXfo",  # webm/mkv
+)
+
+
+_MAGIC_MIME = (
+    ("JVBERi", "application/pdf"),
+    ("iVBOR", "image/png"),
+    ("/9j/", "image/jpeg"),
+    ("R0lGOD", "image/gif"),
+    ("UklGR", "application/octet-stream"),
+    ("SUQz", "audio/mpeg"),
+    ("T2dnUw", "audio/ogg"),
+    ("UEsDB", "application/zip"),
+)
+
+
+def _sniff_mime(b64: str) -> str:
+    return next((m for prefix, m in _MAGIC_MIME if b64.startswith(prefix)), "")
+
+
+def _leaf_key(path: str) -> str:
+    return re.sub(r"\[\d+\]$", "", path.rsplit(".", 1)[-1])
+
+
+def _is_strict_base64(text: str) -> bool:
+    """Base64 alphabet only (no whitespace, no prose), valid padding length."""
+    if not text or len(text) % 4 == 1:
+        return False
+    return _STRICT_BASE64.fullmatch(text) is not None
+
+
+def _data_uri_parts(value: str) -> tuple[str, str] | None:
+    """``(mime, base64_payload)`` when ``value`` is a ``data:…;base64,<strict b64>`` URI."""
+    if not value.startswith("data:"):
+        return None
+    comma = value.find(",", 5, 512)
+    if comma < 0 or not value[:comma].endswith(";base64"):
+        return None
+    payload = value[comma + 1 :]
+    if not _is_strict_base64(payload):
+        return None
+    return value[5 : comma - 7].split(";", 1)[0], payload
+
+
+def sibling_file_refs(siblings: dict[str, Any] | None, value: str) -> dict[str, str]:
+    """File references a media block already carries beside its inline data."""
+    siblings = siblings or {}
+    return {
+        k: siblings[k]
+        for k in _REFERENCE_KEYS
+        if isinstance(siblings.get(k), str)
+        and siblings[k]
+        and siblings[k] is not value
+        and not contains_redaction_marker(siblings[k])
+        and not siblings[k].startswith("data:")
+    }
+
+
 @dataclass
 class LargeBinaryStringRedactor:
-    """Shortens strings that are too large to safely persist to jsonb.
+    """Replaces INLINE FILE DATA (base64 images/PDFs/audio) too large to persist.
 
-    WHAT THIS REDACTOR DOES
+    THE RULE (owner ruling 2026-10-05): the stored copy of an AI request must
+    let us recreate the exact request. TEXT IS NEVER CUT, at any size. Only a
+    real file's bytes may be replaced, and only by a marker that lets the file
+    be recovered.
+
+    WHAT IT TOUCHES
+    ---------------
+    A string over ``max_bytes`` that is BOTH
+      * structurally binary — a ``data:…;base64,`` URI whose payload is strict
+        base64, OR a strict-base64 string (alphabet only, no whitespace/prose)
+        — AND
+      * positioned like inline data — its key is one of ``_BLOB_KEYS`` (the
+        keys the provider formats use), or its decoded head carries a known
+        file magic (PDF/PNG/JPEG/GIF/WEBP/audio/zip/…).
+    Prompts, JSON-in-a-string, code and markdown carry spaces/quotes/braces,
+    so they can never match, however large.
+
+    WHAT THE MARKER CARRIES
     -----------------------
-    For any string value whose UTF-8 byte length exceeds ``max_bytes``,
-    replaces the *middle* of the string with a self-describing marker.
-    Keeps the first ``head_chars`` and last ``tail_chars`` characters of the
-    original string verbatim so a reader can visually recognize the data
-    that used to be there (PDF magic bytes, base64 alphabet, JSON opening,
-    HTML tags, etc.).
+    redactor, reason, original_bytes, original_sha256, mime, path, and the
+    reference to recover the file: ``file_id`` / ``file_uri`` / ``url`` /
+    ``resolved_url`` read from the SIBLING keys of the same media block (the
+    unified payload keeps them beside ``base64_data``). When the block names
+    no file (raw base64 pasted by a caller, or the provider-shaped payload,
+    which has no sibling refs), ``reference="none_sha256_only"`` says so —
+    the bytes are then not recoverable from the snapshot.
 
-    WHAT THIS REDACTOR DOES NOT DO
-    ------------------------------
-    - Does not remove keys from dicts.
-    - Does not shorten arrays.
-    - Does not change a value's type (string-in ⇒ string-out, always).
-    - Does not touch strings at or below ``max_bytes``.
-    - Does not touch non-string values (ints, floats, bools, None, dicts,
-      lists are all passed through untouched).
-    - Does not re-encode, normalize, or pretty-print the bytes it keeps.
-    - Does not modify a string that already contains a redaction marker
-      (idempotent — see ``contains_redaction_marker``).
-
-    WHY THIS REDACTOR EXISTS
-    ------------------------
-    Provider payloads legitimately contain multi-MB base64 blobs — inline
-    PDFs in Google's ``contents[].parts[].inline_data.data``, inline images
-    in Anthropic's ``source.data``, data-URL images in OpenAI's
-    ``image_url.url``. Writing those verbatim to a jsonb row during an
-    active stream saturates the DB write pool. This redactor is the
-    narrowest cut that makes the write fit; anything that is NOT a giant
-    leaf string is preserved exactly as the provider received it.
-
-    TUNING
-    ------
-    - ``max_bytes=65536`` (64 KiB): larger than any realistic system prompt
-      or human-authored message part, small enough to stop a 10 MB base64
-      blob cold.
-    - ``head_chars=128`` / ``tail_chars=128``: enough to identify magic
-      bytes and file tails; short enough that the snapshot stays trivially
-      readable.
+    Structure is preserved (string-in, string-out); head/tail 128 chars of the
+    original stay verbatim around the marker.
     """
 
     max_bytes: int = 65536
@@ -209,42 +288,67 @@ class LargeBinaryStringRedactor:
     tail_chars: int = 128
 
     name: str = "LargeBinaryStringRedactor"
-    reason_code: str = "string_over_max_bytes"
+    reason_code: str = "inline_file_data_over_max_bytes"
+    #: path -> (file_id, sha256 of the DECODED bytes) for blobs the host store
+    #: already saved (see ``redactors_with_stored_blobs``).
+    stored_refs: dict[str, tuple[str, str]] = field(default_factory=dict)
 
-    def applies_to(self, value: Any) -> bool:
-        if not isinstance(value, str):
-            return False
-        # Cheap upper-bound first: UTF-8 bytes >= char count, so if the char
-        # count is already <= max_bytes we know bytes is too.
-        if len(value) <= self.max_bytes:
-            return False
+    def _classify(self, value: Any, path: str) -> tuple[str, str] | None:
+        """``(mime, base64_payload)`` when this leaf is inline file data to replace."""
+        if not isinstance(value, str) or len(value) <= self.max_bytes:
+            return None
         if contains_redaction_marker(value):
-            return False
-        # Exact check — confirm the true byte size exceeds the threshold.
-        return len(value.encode("utf-8", errors="replace")) > self.max_bytes
+            return None
+        uri = _data_uri_parts(value)
+        if uri is not None:
+            return uri
+        if _leaf_key(path) in _BLOB_KEYS and _is_strict_base64(value):
+            return "", value
+        if _is_strict_base64(value) and value.startswith(_BASE64_MAGIC):
+            return "", value
+        return None
 
-    def redact(self, value: str, path: str) -> str:
+    def applies_to(self, value: Any, path: str = "", siblings: dict[str, Any] | None = None) -> bool:
+        return self._classify(value, path) is not None
+
+    def redact(self, value: str, path: str, siblings: dict[str, Any] | None = None) -> str:
+        found = self._classify(value, path)
+        uri_mime = found[0] if found else ""
+        siblings = siblings or {}
+        refs = sibling_file_refs(siblings, value)
+        mime = (
+            uri_mime
+            or next((siblings[k] for k in _MIME_KEYS if isinstance(siblings.get(k), str)), "")
+            or _sniff_mime(value)
+        )
         raw_bytes = value.encode("utf-8", errors="replace")
-        total_bytes = len(raw_bytes)
-        sha256_hex = hashlib.sha256(raw_bytes).hexdigest()
-
         head = value[: self.head_chars]
-        tail = value[-self.tail_chars:] if self.tail_chars > 0 else ""
-
-        marker = _fmt_marker(
-            redactor=self.name,
-            reason=self.reason_code,
-            original_bytes=total_bytes,
-            original_sha256=sha256_hex,
+        tail = value[-self.tail_chars :] if self.tail_chars > 0 else ""
+        fields: dict[str, Any] = {
+            "redactor": self.name,
+            "reason": self.reason_code,
+            "original_bytes": len(raw_bytes),
+            "original_sha256": hashlib.sha256(raw_bytes).hexdigest(),
+            "mime": mime or "unknown",
+        }
+        stored = self.stored_refs.get(path)
+        if refs:
+            fields["reference"] = "file_ref"
+            fields.update({f"ref_{k}": v for k, v in refs.items()})
+        elif stored:
+            fields["reference"] = "file_ref"
+            fields["ref_file_id"] = stored[0]
+            fields["file_sha256"] = stored[1]
+            fields["stored_by"] = "snapshot_blob_store"
+        else:
+            fields["reference"] = "none_sha256_only"
+        fields.update(
             head_chars_preserved=len(head),
             tail_chars_preserved=len(tail),
             path=path,
             source="matrx_ai.providers.snapshot_redactors",
         )
-        # Shape: verbatim head + newline + marker + newline + verbatim tail.
-        # The newlines visually isolate the marker in a pretty-printed JSON
-        # viewer; they do not add any semantics.
-        return f"{head}\n{marker}\n{tail}"
+        return f"{head}\n{_fmt_marker(**fields)}\n{tail}"
 
 
 # ---------------------------------------------------------------------------
@@ -293,25 +397,33 @@ def apply_redactors(
         returned by identity.
     """
     if isinstance(value, dict):
-        return {
-            k: apply_redactors(v, redactors, path=f"{path}.{k}")
-            for k, v in value.items()
-        }
+        return {k: _apply_leaf(v, redactors, f"{path}.{k}", value) for k, v in value.items()}
     if isinstance(value, list):
         return [
             apply_redactors(item, redactors, path=f"{path}[{i}]")
             for i, item in enumerate(value)
         ]
+    return _apply_leaf(value, redactors, path, None)
+
+
+def _apply_leaf(
+    value: Any, redactors: list[Redactor], path: str, siblings: dict[str, Any] | None
+) -> Any:
+    """Offer one leaf to each redactor, with the dict it sits in (for references)."""
+    if isinstance(value, (dict, list)):
+        return apply_redactors(value, redactors, path=path)
     out = value
     for r in redactors:
-        if r.applies_to(out):
-            out = r.redact(out, path)
+        if r.applies_to(out, path, siblings):
+            out = r.redact(out, path, siblings)
     return out
 
 
 # ---------------------------------------------------------------------------
 # Default pipeline
 # ---------------------------------------------------------------------------
+# Owner ruling 2026-10-05: text is never cut; only inline file data is replaced,
+# by a marker carrying the file reference (see LargeBinaryStringRedactor).
 # The single source of truth for what the snapshot system is allowed to
 # modify. Changing this list is a deliberate act — not a quiet one-liner
 # tucked into an unrelated PR.
@@ -487,4 +599,110 @@ def apply_response_redactors(
             ]
         else:
             out[key] = apply_redactors(val, redactors, path=key_path)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Blob store seam — every replaced blob stays recoverable
+# ---------------------------------------------------------------------------
+# Arman ruled (2026-10-05): large files are stored BY FILE REFERENCE. A blob the
+# request does not already name by file_id/url (raw base64 a caller pasted, or
+# bytes a tool produced) is saved ONCE through a host-injected store and the
+# redaction marker carries the new file_id. matrx-ai never picks the storage,
+# the owner or the organization — the host does (aidream wires matrx-files in
+# aidream/package_integration.py). A failed save NEVER perturbs the request:
+# it is reported through ``on_error`` and the marker keeps the sha256-only form.
+
+#: ``async (raw_bytes, mime, sha256_hex, *, user_id, organization_id) -> file_id``
+SnapshotBlobStore = Callable[..., Awaitable[str]]
+
+_blob_store: SnapshotBlobStore | None = None
+
+
+def configure_snapshot_blob_store(store: SnapshotBlobStore | None) -> None:
+    """Bind the host's blob saver. ``None`` unbinds it (sha256-only markers)."""
+    global _blob_store
+    _blob_store = store
+
+
+def get_snapshot_blob_store() -> SnapshotBlobStore | None:
+    return _blob_store
+
+
+def _decode_b64(payload: str) -> bytes:
+    pad = "=" * (-len(payload) % 4)
+    try:
+        return base64.b64decode(payload + pad, altchars=b"-_" if ("-" in payload or "_" in payload) else None)
+    except (binascii.Error, ValueError):
+        return b""
+
+
+async def redactors_with_stored_blobs(
+    tree: Any,
+    *,
+    user_id: str | None = None,
+    organization_id: str | None = None,
+    on_error: Callable[[BaseException, dict[str, Any]], Awaitable[None]] | None = None,
+    store: SnapshotBlobStore | None = None,
+) -> list[Redactor]:
+    """The default redactors, with every unreferenced blob in ``tree`` saved first.
+
+    Walks ``tree`` (the same walk ``apply_redactors`` does), and for each inline
+    blob the redactor will replace and that names no file, decodes it and awaits
+    the host store ``(bytes, mime, sha256) -> file_id``. Equal bytes are saved
+    once per call. Never raises; returns the stock list when no store is bound.
+    """
+    store = store or _blob_store
+    if store is None:
+        return DEFAULT_SNAPSHOT_REDACTORS
+    base = next((r for r in DEFAULT_SNAPSHOT_REDACTORS if isinstance(r, LargeBinaryStringRedactor)), None)
+    if base is None:
+        return DEFAULT_SNAPSHOT_REDACTORS
+    refs: dict[str, tuple[str, str]] = {}
+    by_sha: dict[str, str] = {}
+
+    async def _visit(value: Any, path: str, siblings: dict[str, Any] | None) -> None:
+        if isinstance(value, dict):
+            for k, v in value.items():
+                await _visit(v, f"{path}.{k}", value)
+            return
+        if isinstance(value, list):
+            for i, item in enumerate(value):
+                await _visit(item, f"{path}[{i}]", None)
+            return
+        found = base._classify(value, path)
+        if found is None or sibling_file_refs(siblings, value):
+            return
+        mime, payload = found
+        try:
+            raw = _decode_b64(payload)
+            if not raw:
+                return
+            sha = hashlib.sha256(raw).hexdigest()
+            if sha not in by_sha:
+                mime = mime or _sniff_mime(payload) or next(
+                    (siblings[k] for k in _MIME_KEYS if siblings and isinstance(siblings.get(k), str)), ""
+                )
+                by_sha[sha] = await store(
+                    raw, mime or "application/octet-stream", sha,
+                    user_id=user_id, organization_id=organization_id,
+                )
+            refs[path] = (by_sha[sha], sha)
+        except Exception as exc:  # noqa: BLE001 — a failed save never perturbs the request
+            logger.warning("[matrx_ai] snapshot blob store failed at %s: %r", path, exc)
+            if on_error is not None:
+                try:
+                    await on_error(exc, {"path": path, "stage": "snapshot_blob_store"})
+                except Exception:  # noqa: BLE001
+                    pass
+
+    await _visit(tree, "$", None)
+    if not refs:
+        return DEFAULT_SNAPSHOT_REDACTORS
+    out: list[Redactor] = [
+        LargeBinaryStringRedactor(
+            max_bytes=base.max_bytes, head_chars=base.head_chars, tail_chars=base.tail_chars,
+            stored_refs=refs,
+        )
+    ]
     return out

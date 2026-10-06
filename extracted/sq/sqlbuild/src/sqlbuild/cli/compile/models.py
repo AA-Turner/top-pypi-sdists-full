@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sqlbuild.adapter.contract.classes.base_adapter import BaseAdapter
-from sqlbuild.cli.commands.types import CompileLineageMode
 from sqlbuild.cli.output.models import WrittenTarget
 from sqlbuild.compiler.compile.models import (
     CompiledObjectKey,
@@ -20,33 +19,13 @@ from sqlbuild.compiler.planner.models import NativeSqlTestArtifact
 
 
 @dataclass(frozen=True)
-class CompileProfileFlags:
-    """Profiling toggles that skip compile phases for benchmarking."""
+class CompileCommandResult:
+    """Outcome of one full compile that decides whether it can be stored for reuse."""
 
-    skip_discovery_sql_analysis: bool = False
-    skip_column_inference: bool = False
-    skip_contracts: bool = False
-    skip_write: bool = False
-
-
-@dataclass(frozen=True)
-class CompileCommandRequest:
-    """CLI inputs for one `sqb compile` invocation."""
-
-    project_dir: Path | None = None
-    no_sql_validation: bool = False
-    defer_to: str | None = None
-    selected_target: str | None = None
-    json_output: bool = False
-    manifest: bool = False
-    dag_path: str | None = None
-    no_color: bool = False
-    lineage_mode: CompileLineageMode = CompileLineageMode.FAST
-    select: tuple[str, ...] = ()
-    exclude: tuple[str, ...] = ()
-    cli_vars: dict[str, object] | None = None
-    profile_flags: CompileProfileFlags = CompileProfileFlags()
-    no_cache: bool = False
+    exit_code: int
+    compile_cache_enabled: bool
+    artifacts_written: bool
+    dag_artifact_path: Path | None
 
 
 @dataclass(frozen=True)

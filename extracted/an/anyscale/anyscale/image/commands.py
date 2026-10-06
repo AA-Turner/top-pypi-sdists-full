@@ -153,7 +153,7 @@ image_uri: str = anyscale.image.register("docker.io/myuser/myimage:v2", name="my
 _REGISTER_ARG_DOCSTRINGS = {
     "image_uri": "The URI of the BYOD image to register.",
     "name": "Name for the container image. If the name already exists, a new version will be built. Otherwise, a new container image will be created.",
-    "ray_version": "The Ray version (X.Y.Z) specified for this image specified by either an image URI or a containerfile. If you don't specify a Ray version, Anyscale defaults to the latest Ray version available at the time of the Anyscale CLI/SDK release.",
+    "ray_version": "Ray version (X.Y.Z) of the image, from an image URI or a containerfile. Defaults to the version of the containerfile's Anyscale base image, if any. Otherwise, Anyscale doesn't assume a version.",
     "registry_login_secret": "Name or identifier of the secret containing credentials to authenticate to the docker registry hosting the image.",  # pragma: allowlist secret
     "cloud_id": "The ID of the Anyscale Cloud to associate this image with. Required for Azure Control Plane only.",
 }

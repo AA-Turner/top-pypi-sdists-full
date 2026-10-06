@@ -56,6 +56,7 @@ class DecoratedProductionJob(object):
         'archived_at': 'datetime',
         'cloud_id': 'str',
         'is_imported': 'bool',
+        'source_job_id': 'str',
         'project': 'MiniProject',
         'creator': 'MiniUser',
         'last_job_run': 'MiniJobRun',
@@ -91,6 +92,7 @@ class DecoratedProductionJob(object):
         'archived_at': 'archived_at',
         'cloud_id': 'cloud_id',
         'is_imported': 'is_imported',
+        'source_job_id': 'source_job_id',
         'project': 'project',
         'creator': 'creator',
         'last_job_run': 'last_job_run',
@@ -102,7 +104,7 @@ class DecoratedProductionJob(object):
         'secrets_masked': 'secrets_masked'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, source_job_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -131,6 +133,7 @@ class DecoratedProductionJob(object):
         self._archived_at = None
         self._cloud_id = None
         self._is_imported = None
+        self._source_job_id = None
         self._project = None
         self._creator = None
         self._last_job_run = None
@@ -178,6 +181,8 @@ class DecoratedProductionJob(object):
         self.cloud_id = cloud_id
         if is_imported is not None:
             self.is_imported = is_imported
+        if source_job_id is not None:
+            self.source_job_id = source_job_id
         self.project = project
         self.creator = creator
         if last_job_run is not None:
@@ -743,6 +748,29 @@ class DecoratedProductionJob(object):
         """
 
         self._is_imported = is_imported
+
+    @property
+    def source_job_id(self):
+        """Gets the source_job_id of this DecoratedProductionJob.  # noqa: E501
+
+        The id of the job this job was duplicated from, recorded when the job is created through the duplicate action. Empty for jobs created from scratch.  # noqa: E501
+
+        :return: The source_job_id of this DecoratedProductionJob.  # noqa: E501
+        :rtype: str
+        """
+        return self._source_job_id
+
+    @source_job_id.setter
+    def source_job_id(self, source_job_id):
+        """Sets the source_job_id of this DecoratedProductionJob.
+
+        The id of the job this job was duplicated from, recorded when the job is created through the duplicate action. Empty for jobs created from scratch.  # noqa: E501
+
+        :param source_job_id: The source_job_id of this DecoratedProductionJob.  # noqa: E501
+        :type: str
+        """
+
+        self._source_job_id = source_job_id
 
     @property
     def project(self):

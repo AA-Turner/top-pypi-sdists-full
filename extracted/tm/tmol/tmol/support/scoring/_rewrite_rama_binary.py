@@ -80,9 +80,7 @@ def parse_all_tables(rama_wt, r3_rama_dir, paapp_wt, r3_paapp_dir, r3_paa_dir):
         paapp[aa] = energies
 
     for aa, prob in prepro.items():
-        # convert rama to energies
-        # NOTE: this normalization is not properly done in R3 for prepro
-        prob /= numpy.sum(prob)
+        # convert rama to energies; raw probs, matching R3 (prepro is jointly normalized)
         entropy = numpy.sum(prob * numpy.log(prob))
         energies = -numpy.log(prob) + entropy
 
@@ -91,7 +89,6 @@ def parse_all_tables(rama_wt, r3_rama_dir, paapp_wt, r3_paapp_dir, r3_paa_dir):
 
     for aa, prob in general.items():
         # convert rama to energies
-        prob /= numpy.sum(prob)
         entropy = numpy.sum(prob * numpy.log(prob))
         energies = -numpy.log(prob) + entropy
 
@@ -136,10 +133,8 @@ def create_rama_database(rama_wt, r3_rama_dir, paapp_wt, r3_paapp_dir, r3_paa_di
             raw["rama_lookup"], attr.fields(RamaDatabase).rama_lookup.type
         )
 
-    input_uniq_id = hash((rama_wt, r3_rama_dir, paapp_wt, r3_paapp_dir, r3_paa_dir))
-
-    uniq_id = path_lookup + "," + str(input_uniq_id)
-    return RamaDatabase(uniq_id, rama_lookup, rama_tables)
+    db = RamaDatabase("", rama_lookup, rama_tables)
+    return attr.evolve(db, uniq_id=db.content_id())
 
 
 if __name__ == "__main__":

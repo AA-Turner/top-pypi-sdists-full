@@ -14,6 +14,7 @@ from query_cache_common.models.services.explain_service_models import (
     ExplainLine,
     ExplainMarker,
     ExplainMessageEntry,
+    UpstreamDependencyChanges,
 )
 from query_cache_common.models.shared_models import SubmitSQLResultType
 from query_cache_common.utils import format_as_localtime
@@ -32,19 +33,44 @@ from dbt_state.grpc.client import QueryCacheGrpcClient
 
 _EXPLAINER_MAX_BATCH_SIZE = 50
 
+T = t.TypeVar("T")
+TResponse = t.TypeVar("TResponse")
+
+
+def _fetch(
+    input: t.List[T], make_request: t.Callable[[t.List[T]], TResponse]
+) -> t.Iterator[TResponse]:
+    batches = []
+    for i in range(0, len(input), _EXPLAINER_MAX_BATCH_SIZE):
+        batch = input[i : i + _EXPLAINER_MAX_BATCH_SIZE]
+        batches.append(batch)
+
+    # the goal here is to have at least 1 worker but also cap the total amount
+    # to prevent spamming the GRPC service, particularly if this is run inside a container
+    # on a 32-core host
+    available_cpus = max(1, (os.cpu_count() or 4) - 1)
+    max_workers = min(available_cpus, 4)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(make_request, batch): batch for batch in batches}
+
+        for future in as_completed(futures):
+            yield future.result()
+
 
 class Explainer:
     def __init__(
         self,
         query_cache_client: QueryCacheGrpcClient,
         file_path: Path,
-        verbose: bool,
+        verbosity: int,
         node_selector: t.Optional[str] = None,
         console: t.Optional[Console] = None,
     ):
         self._query_cache_client = query_cache_client
         self._file_path = file_path
-        self._verbose = verbose
+        self._verbose = verbosity > 0
+        self._very_verbose = verbosity > 1
         self._node_selector = node_selector
         self._console = console or Console()
 
@@ -54,6 +80,7 @@ class Explainer:
         execution_decision_ids: t.List[str] = []
         node_log_entries: t.List[NodeLogEntry] = []
         no_decision_entries: t.List[NodeLogEntry] = []
+        upstream_dependency_changes_by_execution_id: t.Dict[str, t.List[ExplainLine]] = {}
         run_start_entry: t.Optional[RunStartEntry] = None
 
         matched = False
@@ -83,6 +110,17 @@ class Explainer:
 
         explanations = self._fetch_explanations(execution_decision_ids)
 
+        # only include all upstream changes if very verbose output (-vv) is requested
+        if self._very_verbose:
+            # only the nodes that executed have execution_id populated
+            relevant_execution_ids = [
+                log_entry.execution_id for log_entry in node_log_entries if log_entry.execution_id
+            ]
+
+            upstream_dependency_changes_by_execution_id = self._fetch_upstream_dependency_changes(
+                relevant_execution_ids
+            )
+
         if run_start_entry is None:
             raise click.ClickException(
                 "Log file does not contain a run start entry — the file may be empty, corrupt, or in an older format."
@@ -99,7 +137,14 @@ class Explainer:
             if log_entry.execution_decision_id and not explanation:
                 no_decision_entries.append(log_entry)
             else:
-                self._explain_node(run_start_entry.run_config, log_entry, explanation)
+                upstream_dependency_changes = (
+                    upstream_dependency_changes_by_execution_id.get(log_entry.execution_id)
+                    if log_entry.execution_id
+                    else None
+                )
+                self._explain_node(
+                    run_start_entry.run_config, log_entry, explanation, upstream_dependency_changes
+                )
         for log_entry in no_decision_entries:
             self._explain_no_decision_node(log_entry)
 
@@ -116,25 +161,35 @@ class Explainer:
 
         explanations: t.Dict[str, ExplainMessageEntry] = {}
 
-        batches = [
-            execution_decision_ids[i : i + _EXPLAINER_MAX_BATCH_SIZE]
-            for i in range(0, len(execution_decision_ids), _EXPLAINER_MAX_BATCH_SIZE)
-        ]
-
-        def fetch_batch(batch: t.List[str]) -> t.Dict[str, ExplainMessageEntry]:
+        def make_request(batch: t.List[str]) -> t.Dict[str, ExplainMessageEntry]:
             request = explain_service_models.GetExplainMessagesRequest(execution_decision_ids=batch)
             response = self._query_cache_client.get_explain_messages(request)
             return response.by_id
 
-        available_cpus = max(1, (os.cpu_count() or 4) - 1)
-        max_workers = min(available_cpus, 4)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(fetch_batch, batch): batch for batch in batches}
-            for future in as_completed(futures):
-                result = future.result()
-                explanations.update(result)
+        for result in _fetch(execution_decision_ids, make_request):
+            explanations.update(result)
 
         return explanations
+
+    def _fetch_upstream_dependency_changes(
+        self, execution_ids: t.List[str]
+    ) -> t.Dict[str, t.List[ExplainLine]]:
+        if not execution_ids:
+            return {}
+
+        results: t.Dict[str, t.List[ExplainLine]] = {}
+
+        def make_request(batch: t.List[str]) -> t.List[UpstreamDependencyChanges]:
+            request = explain_service_models.GetUpstreamDependencyChangesRequest(
+                execution_ids=batch
+            )
+            response = self._query_cache_client.get_upstream_dependency_changes(request)
+            return response.dependency_changes
+
+        for result in _fetch(execution_ids, make_request):
+            results.update({c.execution_id: c.lines for c in result})
+
+        return results
 
     def _explain_run_start(self, run_start_entry: RunStartEntry) -> None:
         self._print("Last run: ")
@@ -210,9 +265,12 @@ class Explainer:
         run_config: RunConfigEntry,
         log_entry: NodeLogEntry,
         explanation: t.Optional[ExplainMessageEntry] = None,
+        upstream_dependency_changes: t.Optional[t.List[ExplainLine]] = None,
     ) -> None:
         if self._verbose:
-            self._explain_node_verbose(run_config, log_entry, explanation)
+            self._explain_node_verbose(
+                run_config, log_entry, explanation, upstream_dependency_changes
+            )
         else:
             self._explain_node_simple(log_entry, explanation)
 
@@ -256,6 +314,7 @@ class Explainer:
         run_config: RunConfigEntry,
         log_entry: NodeLogEntry,
         explanation: t.Optional[ExplainMessageEntry] = None,
+        upstream_dependency_changes: t.Optional[t.List[ExplainLine]] = None,
     ) -> None:
         if log_entry.execution_decision_id and explanation:
             tree = Tree(label=f"[bold]{log_entry.node_name}[/bold]")
@@ -267,6 +326,11 @@ class Explainer:
             )
 
             _add_lines_to_tree(tree, explanation.explain_lines)
+
+            if upstream_dependency_changes is not None:
+                upstream_tree = Tree(label="all upstream dependency changes")
+                _add_lines_to_tree(upstream_tree, upstream_dependency_changes)
+                tree.add(upstream_tree)
 
             self._print(tree)
             decision_display = _display_decision(

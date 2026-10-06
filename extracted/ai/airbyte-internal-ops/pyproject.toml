@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "airbyte>=1.0.0rc6,<2.0",
+    "airbyte>=1.0.0rc6,<1.0.0rc18",
     "airbyte-cdk>=7.3.9,<8.0",
     "airbyte-connector-models>=0.1.11,<0.2.0",
     "airbyte-protocol-models-pdv2>=0.13.0",

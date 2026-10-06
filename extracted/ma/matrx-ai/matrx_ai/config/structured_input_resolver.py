@@ -257,6 +257,30 @@ def _active_conversation_id() -> str | None:
     return str(value) if value else None
 
 
+def _mirror_stamps_to_authorship_record(containing: object, remarks: list[object]) -> None:
+    """Copy each remark's server-stamped ``id`` / ``handle`` onto the same remark
+    in ``user_content`` (the authorship record every client renders), matched by
+    position — the two lists are the person's one set of remarks, in order."""
+    from matrx_ai.config.structured_input_config import RemarksInputContent
+
+    authored = getattr(containing, "user_content", None)
+    if not authored:
+        return
+    sent = [item for block in remarks for item in block.items]  # type: ignore[attr-defined]
+    mirror = [
+        item
+        for block in authored
+        if isinstance(block, RemarksInputContent)
+        for item in block.items
+    ]
+    if any(a is b for a in sent for b in mirror):
+        return  # the same dicts — already stamped
+    for src, dst in zip(sent, mirror, strict=False):
+        for key in ("id", "handle"):
+            if src.get(key):
+                dst[key] = src[key]
+
+
 async def _prepare_remarks(
     messages: MessageList,
     containing: object,
@@ -296,6 +320,7 @@ async def _prepare_remarks(
         history, [item for block in remarks for item in block.items], conversation_id
     )
     reply_failures = await drain_reply_failures(conversation_id)
+    _mirror_stamps_to_authorship_record(containing, remarks)
 
     turns_back = turns_back_by_message_id(history, containing)
     authors: dict[str, str] = {}

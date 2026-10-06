@@ -279,6 +279,44 @@ def test_add_missing_columns_with_nullable(ldf_basic, ldf_schema_basic):
     )
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="add_missing_columns parser not implemented in Narwhals backend",
+    strict=True,
+)
+def test_add_missing_columns_with_absent_optional_column(ldf_basic):
+    """Absent optional columns are left out when missing columns are added."""
+    schema = DataFrameSchema(
+        {
+            "string_col": Column(pl.Utf8),
+            "int_col": Column(pl.Int64, default=1),
+            "optional_col": Column(pl.Float64, required=False),
+        },
+        add_missing_columns=True,
+    )
+    modified_data = ldf_basic.drop("int_col")
+    validated_data = modified_data.pipe(schema.validate)
+    assert validated_data.collect().equals(
+        ldf_basic.with_columns(int_col=pl.lit(1)).collect()
+    )
+
+
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="add_missing_columns parser not implemented in Narwhals backend",
+    strict=True,
+)
+def test_add_missing_columns_with_string_default(ldf_basic, ldf_schema_basic):
+    """A string default is added as a literal, not resolved as a column name."""
+    ldf_schema_basic.add_missing_columns = True
+    ldf_schema_basic.columns["string_col"].default = "int_col"
+    modified_data = ldf_basic.drop("string_col")
+    validated_data = modified_data.pipe(ldf_schema_basic.validate)
+    assert validated_data.collect().equals(
+        ldf_basic.with_columns(string_col=pl.lit("int_col")).collect()
+    )
+
+
 def test_required_columns():
     """Test required columns."""
     schema = DataFrameSchema(
@@ -291,6 +329,34 @@ def test_required_columns():
     assert ldf.pipe(schema.validate).collect().equals(ldf.collect())
     with pytest.raises(pa.errors.SchemaError):
         ldf.drop("a").pipe(schema.validate).collect()
+
+
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="user-parser guard not implemented in Narwhals backend (follow-up to #2472)",
+    strict=True,
+)
+def test_polars_user_parsers_raise():
+    """Declared parsers must fail loudly instead of being skipped (#2472)."""
+    from pandera.api.parsers import Parser
+
+    def _upper(obj):
+        return obj
+
+    # column-level declaration
+    schema = DataFrameSchema(
+        {"a": Column(pl.Utf8, parsers=Parser(_upper))},
+    )
+    with pytest.raises(NotImplementedError, match="not supported"):
+        schema.validate(pl.DataFrame({"a": ["x"]}))
+
+    # schema-level declaration
+    schema = DataFrameSchema(
+        {"a": Column(pl.Utf8)},
+        parsers=Parser(_upper),
+    )
+    with pytest.raises(NotImplementedError, match="not supported"):
+        schema.validate(pl.DataFrame({"a": ["x"]}))
 
 
 def test_missing_required_column_when_lazy_is_true():
@@ -705,6 +771,35 @@ def test_lazy_validation_errors():
         schema.validate(invalid_lf, lazy=True)
     except pa.errors.SchemaErrors as exc:
         assert exc.failure_cases.shape[0] == 6
+
+
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason=(
+        "The narwhals backend does not apply coerce=True at all (a "
+        "SchemaWarning fires and the column is left as-is), so "
+        "Category.try_coerce's ParserError path this test targets is never "
+        "reached there; only the plain dtype-mismatch failure case shows up."
+    ),
+    strict=True,
+)
+def test_lazy_validation_errors_category_coerce():
+    """A Category coercion failure reports SchemaErrors, not an AssertionError.
+
+    Category.try_coerce raised ParserError without the parser_output kwarg
+    that failure_cases_metadata asserts is set (#1806).
+    """
+    schema = DataFrameSchema(
+        {"a": Column(pe.Category(categories=["a", "b", "c"]), coerce=True)}
+    )
+    # "x" and "y" fail coercion; the column is then also reported as still
+    # being a String, since the failed coercion left its dtype unchanged.
+    invalid_df = pl.DataFrame({"a": ["a", "x", "y"]})
+
+    try:
+        schema.validate(invalid_df, lazy=True)
+    except pa.errors.SchemaErrors as exc:
+        assert exc.failure_cases.shape[0] == 3
 
 
 def test_dataframe_validation_errors_nullable():

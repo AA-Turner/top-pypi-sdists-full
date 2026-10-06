@@ -59,7 +59,7 @@ class Infosec(_Manager):
 
         Args:
             subject_type: The subject to label -- InfosecLevelObjectType.MODEL,
-                ARTIFACT, SYSTEM or USER.
+                ARTIFACT, SYSTEM, USER or CONNECTEDRESOURCE.
             subject_id: The UUID of the resource.
             level_id: The UUID of the infosec level to assign.
         """

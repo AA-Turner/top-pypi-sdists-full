@@ -142,7 +142,10 @@ class FilterObservation(
 
         # Filters for dictionary space
         if isinstance(env.observation_space, spaces.Dict):
-            assert all(isinstance(key, str) for key in filter_keys)
+            if not all(isinstance(key, str) for key in filter_keys):
+                raise TypeError(
+                    f"All filter keys must be strings for a Dict space, got {filter_keys}"
+                )
 
             if any(
                 key not in env.observation_space.spaces.keys() for key in filter_keys
@@ -160,7 +163,8 @@ class FilterObservation(
                 )
 
             new_observation_space = spaces.Dict(
-                {key: env.observation_space[key] for key in filter_keys}
+                {key: env.observation_space[key] for key in filter_keys},
+                sort_keys=env.observation_space.sort_keys,
             )
             if len(new_observation_space) == 0:
                 raise ValueError(
@@ -175,10 +179,12 @@ class FilterObservation(
             )
             # Filter for tuple observation
         elif isinstance(env.observation_space, spaces.Tuple):
-            assert all(isinstance(key, int) for key in filter_keys)
-            assert len(set(filter_keys)) == len(filter_keys), (
-                f"Duplicate keys exist, filter_keys: {filter_keys}"
-            )
+            if not all(isinstance(key, int) for key in filter_keys):
+                raise TypeError(
+                    f"All filter keys must be integers for a Tuple space, got {filter_keys}"
+                )
+            if len(set(filter_keys)) != len(filter_keys):
+                raise ValueError(f"Duplicate keys exist, filter_keys: {filter_keys}")
 
             if any(
                 0 < key and key >= len(env.observation_space) for key in filter_keys
@@ -291,16 +297,25 @@ class GrayscaleObservation(
             env: The environment to wrap
             keep_dim: If to keep the channel in the observation, if ``True``, ``obs.shape == 3`` else ``obs.shape == 2``
         """
-        assert isinstance(env.observation_space, spaces.Box)
-        assert (
-            len(env.observation_space.shape) == 3
-            and env.observation_space.shape[-1] == 3
-        )
-        assert (
+        if not isinstance(env.observation_space, spaces.Box):
+            raise TypeError(
+                f"GrayscaleObservation requires a Box observation space, got {type(env.observation_space)}"
+            )
+        if (
+            len(env.observation_space.shape) != 3
+            or env.observation_space.shape[-1] != 3
+        ):
+            raise ValueError(
+                f"GrayscaleObservation requires an image with 3 channels, got shape {env.observation_space.shape}"
+            )
+        if not (
             np.all(env.observation_space.low == 0)
             and np.all(env.observation_space.high == 255)
             and env.observation_space.dtype == np.uint8
-        )
+        ):
+            raise ValueError(
+                "GrayscaleObservation requires observation bounds 0 to 255 and dtype uint8"
+            )
         gym.utils.RecordConstructorArgs.__init__(self, keep_dim=keep_dim)
 
         self.keep_dim: Final[bool] = keep_dim
@@ -366,17 +381,40 @@ class ResizeObservation(
             env: The environment to wrap
             shape: The resized observation shape
         """
-        assert isinstance(env.observation_space, spaces.Box)
-        assert len(env.observation_space.shape) in {2, 3}
-        assert np.all(env.observation_space.low == 0) and np.all(
-            env.observation_space.high == 255
-        )
-        assert env.observation_space.dtype == np.uint8
+        if not isinstance(env.observation_space, spaces.Box):
+            raise TypeError(
+                f"ResizeObservation requires a Box observation space, got {type(env.observation_space)}"
+            )
+        if len(env.observation_space.shape) not in {2, 3}:
+            raise ValueError(
+                f"ResizeObservation requires a 2D or 3D image, got shape {env.observation_space.shape}"
+            )
+        if not (
+            np.all(env.observation_space.low == 0)
+            and np.all(env.observation_space.high == 255)
+        ):
+            raise ValueError("ResizeObservation requires observation bounds 0 to 255")
+        if env.observation_space.dtype != np.uint8:
+            raise ValueError(
+                f"ResizeObservation requires observation dtype uint8, got {env.observation_space.dtype}"
+            )
 
-        assert isinstance(shape, tuple)
-        assert len(shape) == 2
-        assert all(np.issubdtype(type(elem), np.integer) for elem in shape)
-        assert all(x > 0 for x in shape)
+        if not isinstance(shape, tuple):
+            raise TypeError(
+                f"ResizeObservation requires shape to be a tuple, got {type(shape)}"
+            )
+        if len(shape) != 2:
+            raise ValueError(
+                f"ResizeObservation requires shape tuple of length 2, got {shape}"
+            )
+        if not all(np.issubdtype(type(elem), np.integer) for elem in shape):
+            raise TypeError(
+                f"ResizeObservation requires shape elements to be integers, got {shape}"
+            )
+        if not all(x > 0 for x in shape):
+            raise ValueError(
+                f"ResizeObservation requires shape elements to be greater than 0, got {shape}"
+            )
 
         try:
             import cv2
@@ -400,9 +438,10 @@ class ResizeObservation(
         TransformObservation.__init__(
             self,
             env=env,
+            # OpenCV drops the channel dimension for single-channel images.
             func=lambda obs: cv2.resize(
                 obs, self.cv2_shape, interpolation=cv2.INTER_AREA
-            ),
+            ).reshape(new_observation_space.shape),
             observation_space=new_observation_space,
         )
 
@@ -436,12 +475,27 @@ class ReshapeObservation(
             env: The environment to wrap
             shape: The reshaped observation space
         """
-        assert isinstance(env.observation_space, spaces.Box)
-        assert np.prod(shape) == np.prod(env.observation_space.shape)
+        if not isinstance(env.observation_space, spaces.Box):
+            raise TypeError(
+                f"ReshapeObservation requires a Box observation space, got {type(env.observation_space)}"
+            )
+        if np.prod(shape) != np.prod(env.observation_space.shape):
+            raise ValueError(
+                "ReshapeObservation requires the product of the new shape to match the original shape"
+            )
 
-        assert isinstance(shape, tuple)
-        assert all(np.issubdtype(type(elem), np.integer) for elem in shape)
-        assert all(x > 0 or x == -1 for x in shape)
+        if not isinstance(shape, tuple):
+            raise TypeError(
+                f"ReshapeObservation requires shape to be a tuple, got {type(shape)}"
+            )
+        if not all(np.issubdtype(type(elem), np.integer) for elem in shape):
+            raise TypeError(
+                f"ReshapeObservation requires shape elements to be integers, got {shape}"
+            )
+        if not all(x > 0 or x == -1 for x in shape):
+            raise ValueError(
+                f"ReshapeObservation requires shape elements to be greater than 0 or -1, got {shape}"
+            )
 
         new_observation_space = spaces.Box(
             low=np.reshape(np.ravel(env.observation_space.low), shape),
@@ -497,7 +551,10 @@ class RescaleObservation(
             min_obs: The new minimum observation bound
             max_obs: The new maximum observation bound
         """
-        assert isinstance(env.observation_space, spaces.Box)
+        if not isinstance(env.observation_space, spaces.Box):
+            raise TypeError(
+                f"RescaleObservation requires a Box observation space, got {type(env.observation_space)}"
+            )
 
         gym.utils.RecordConstructorArgs.__init__(self, min_obs=min_obs, max_obs=max_obs)
 
@@ -530,12 +587,16 @@ class DtypeObservation(
 
         Args:
             env: The environment to wrap
-            dtype: The new dtype of the observation
+            dtype: The new dtype of the observation, as a NumPy scalar type,
+                dtype object, or string
         """
-        assert isinstance(
+        if not isinstance(
             env.observation_space,
             (spaces.Box, spaces.Discrete, spaces.MultiDiscrete, spaces.MultiBinary),
-        )
+        ):
+            raise TypeError(
+                f"DtypeObservation requires a Box, Discrete, MultiDiscrete, or MultiBinary space, got {type(env.observation_space)}"
+            )
 
         self.dtype = dtype
         if isinstance(env.observation_space, spaces.Box):
@@ -548,13 +609,15 @@ class DtypeObservation(
         elif isinstance(env.observation_space, spaces.Discrete):
             new_observation_space = spaces.Box(
                 low=env.observation_space.start,
-                high=env.observation_space.start + env.observation_space.n,
+                high=env.observation_space.start + env.observation_space.n - 1,
                 shape=(),
                 dtype=self.dtype,
             )
         elif isinstance(env.observation_space, spaces.MultiDiscrete):
             new_observation_space = spaces.MultiDiscrete(
-                env.observation_space.nvec, dtype=dtype
+                env.observation_space.nvec,
+                dtype=dtype,
+                start=env.observation_space.start,
             )
         elif isinstance(env.observation_space, spaces.MultiBinary):
             new_observation_space = spaces.Box(
@@ -572,7 +635,7 @@ class DtypeObservation(
         TransformObservation.__init__(
             self,
             env=env,
-            func=lambda obs: dtype(obs),
+            func=lambda obs: new_observation_space.dtype.type(obs),
             observation_space=new_observation_space,
         )
 
@@ -645,15 +708,21 @@ class AddRenderObservation(
         """
         gym.utils.RecordConstructorArgs.__init__(
             self,
-            pixels_only=render_only,
-            pixels_key=render_key,
+            render_only=render_only,
+            render_key=render_key,
             obs_key=obs_key,
         )
 
-        assert env.render_mode is not None and env.render_mode != "human"
+        if env.render_mode is None or env.render_mode == "human":
+            raise ValueError(
+                f"AddRenderObservation requires render_mode to be not None and not 'human', got {env.render_mode}"
+            )
         env.reset()
         pixels = env.render()
-        assert pixels is not None and isinstance(pixels, np.ndarray)
+        if pixels is None or not isinstance(pixels, np.ndarray):
+            raise TypeError(
+                f"AddRenderObservation expects env.render() to return a numpy array, got {type(pixels)}"
+            )
         pixel_space = spaces.Box(low=0, high=255, shape=pixels.shape, dtype=np.uint8)
 
         if render_only:
@@ -662,10 +731,14 @@ class AddRenderObservation(
                 self, env=env, func=lambda _: self.render(), observation_space=obs_space
             )
         elif isinstance(env.observation_space, spaces.Dict):
-            assert render_key not in env.observation_space.spaces.keys()
+            if render_key in env.observation_space.spaces.keys():
+                raise ValueError(
+                    f"AddRenderObservation render_key '{render_key}' already exists in the observation space"
+                )
 
             obs_space = spaces.Dict(
-                {render_key: pixel_space, **env.observation_space.spaces}
+                {render_key: pixel_space, **env.observation_space.spaces},
+                sort_keys=env.observation_space.sort_keys,
             )
             TransformObservation.__init__(
                 self,
@@ -758,9 +831,9 @@ class DiscretizeObservation(
                 "DiscretizeObservation is only compatible with Box continuous observations."
             )
 
-        self.low = env.observation_space.low
-        self.high = env.observation_space.high
-        self.n_dims = self.low.shape[0]
+        self.low = np.ravel(env.observation_space.low)
+        self.high = np.ravel(env.observation_space.high)
+        self.n_dims = int(self.low.size)
 
         if np.any(np.isinf(self.low)) or np.any(np.isinf(self.high)):
             raise ValueError(
@@ -769,15 +842,18 @@ class DiscretizeObservation(
             )
 
         self.multidiscrete = multidiscrete
-        gym.utils.RecordConstructorArgs.__init__(self, bins=bins)
+        gym.utils.RecordConstructorArgs.__init__(
+            self, bins=bins, multidiscrete=multidiscrete
+        )
         gym.ObservationWrapper.__init__(self, env)
 
         if isinstance(bins, int):
             self.bins = np.array([bins] * self.n_dims)
         else:
-            assert len(bins) == self.n_dims, (
-                f"bins must match action dimensions: expected {self.n_dims}, got {len(bins)}"
-            )
+            if len(bins) != self.n_dims:
+                raise ValueError(
+                    f"bins must match action dimensions: expected {self.n_dims}, got {len(bins)}"
+                )
             self.bins = np.array(bins)
 
         self.bin_edges = [
@@ -797,7 +873,7 @@ class DiscretizeObservation(
         # index could be out of range for the number of bins.
         # Solution: clip to ensure 0 <= index < bins[i], and add a small margin
         # to prevent precision issues.
-        clipped = np.clip(observation, self.low, self.high - 1e-8)
+        clipped = np.clip(np.ravel(observation), self.low, self.high - 1e-8)
         indices = [
             int(np.digitize(clipped[i], self.bin_edges[i])) for i in range(self.n_dims)
         ]

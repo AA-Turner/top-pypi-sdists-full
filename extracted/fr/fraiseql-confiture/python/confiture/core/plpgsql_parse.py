@@ -3,9 +3,8 @@
 ``pglast.parse_plpgsql`` is the only thing that reads a PL/pgSQL body, and it
 is the wrong shape twice: the compiler behind it refuses a routine it should
 read, and the serialiser behind *that* writes a body it did read as JSON that
-does not decode. Both are pglast 8's alone — 6.16 and 7.18, which the
-dependency equally accepts, have neither — and both end in the same place, a
-routine ``build_003`` never looks at. So both are answered here, and
+does not decode. Both end in the same place, a routine ``build_003`` never
+looks at. So both are answered here, and
 :func:`parse_body` is the one place either is.
 
 The catalogue, first.
@@ -82,9 +81,9 @@ blanked too eagerly, or a brace deleted on a hunch, hands back a tree that is
 missing something without saying so — and a routine reported as clean because
 it was never read is the failure both repairs exist to prevent.
 
-Both are pglast 8's, both are reported upstream as
+Both are reported upstream as
 https://github.com/pganalyze/libpg_query/issues/337, and neither is repaired
-here for want of a better place: confiture depends on ``pglast>=6.0``
+here for want of a better place: confiture depends on ``pglast>=8.1``
 uncapped and confiture cannot ship libpg_query, so a fix that lands upstream
 lands in a future wheel and never in the one an installed environment already
 has. Both repairs are written to retire themselves rather than to be removed —
@@ -104,6 +103,7 @@ because the next reader deserves to know it was looked at.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import pairwise
 from typing import Any
@@ -146,6 +146,19 @@ _NOT_A_TYPE_NAME_KIND = frozenset({_NO_KEYWORD, "RESERVED_KEYWORD"})
 #: decoder stopped at — the same three characters are how *valid* output
 #: writes an implicit ``RETURN``, and a global replace corrupts those.
 _STRAY = "{}}"
+_SEMICOLON = "ASCII_59"
+_PERCENT = "ASCII_37"
+#: What ends a declared variable's type: an initialiser (``:=``, ``=``,
+#: ``DEFAULT``), a ``NOT NULL``, a ``COLLATE``, or the declaration's end.
+_TYPE_ENDS = frozenset({"COLON_EQUALS", "ASCII_61", "DEFAULT", "NOT", "COLLATE", _SEMICOLON})
+#: Declarations whose second word is not a type: ``c CURSOR FOR …``,
+#: ``c NO SCROLL CURSOR …``, ``a ALIAS FOR $1``.
+_NOT_A_TYPE = frozenset({"cursor", "no", "scroll", "alias"})
+#: What a type substitution writes: a type every compiler reads as a scalar.
+_SUBSTITUTE = "text"
+#: The one type never substituted: a record in a multi-target ``INTO`` is an
+#: error PostgreSQL makes too, and the reader must not hide it.
+_RECORD = "record"
 
 #: A span of the statement text: ``[start, end)``.
 Span = tuple[int, int]
@@ -173,6 +186,13 @@ class Compiled:
             nothing: **a datum index is not a fact this tree holds.**
         body: ``[start, end)`` of the body's own text in :attr:`text`, where the
             tree's ``lineno`` 1 begins; ``None`` when no body was found.
+        substituted: The declared variables' types written as ``text`` instead,
+            as spans of the statement passed in (#558). The compiler has no
+            catalogue, so on pglast 8 any type it does not know is a record,
+            which a multi-target ``INTO`` refuses; blanking cannot help, as the
+            name itself is what it cannot read. A substitution keeps every
+            newline, so :attr:`text`'s lines are the author's; its columns after
+            one are not. Empty wherever blanking sufficed.
     """
 
     tree: Any
@@ -180,6 +200,7 @@ class Compiled:
     neutralised: tuple[Span, ...]
     repaired: int = 0
     body: Span | None = None
+    substituted: tuple[Span, ...] = ()
 
 
 def parse_body(statement: str, *, body_at: int | None = None) -> Compiled:
@@ -214,17 +235,48 @@ def parse_body(statement: str, *, body_at: int | None = None) -> Compiled:
         return Compiled(tree, statement, (), repaired, _body_span(statement, body_at))
 
     candidates = _candidate_spans(statement, body_at)
-    if not candidates:
-        raise refused
-
     blanked = _first_compiling(statement, [_guess(statement, candidates, body_at), candidates])
-    if blanked is None:
-        raise refused
+    if blanked is not None:
+        kept = _minimised(statement, blanked)
+        text = _edited(statement, kept)
+        tree, repaired = _compile(text)
+        return Compiled(tree, text, tuple(kept), repaired, _body_span(text, body_at))
 
-    kept = _minimised(statement, blanked)
-    text = _blank(statement, kept)
+    substituted = _substituting(statement, candidates, _declared_types(statement, body_at))
+    if substituted is None:
+        raise refused
+    blanks, types = substituted
+    text = _edited(statement, blanks, types)
     tree, repaired = _compile(text)
-    return Compiled(tree, text, tuple(kept), repaired, _body_span(text, body_at))
+    return Compiled(tree, text, tuple(blanks), repaired, _body_span(text, body_at), tuple(types))
+
+
+def _substituting(
+    statement: str, candidates: list[Span], types: list[Span]
+) -> tuple[list[Span], list[Span]] | None:
+    """``(blanks, types substituted)`` that compile, each put back where it is not needed.
+
+    Every declared type is substituted first, and every blank outside them kept;
+    then each substitution is put back — its own qualifier and array suffix
+    becoming blank candidates again — and kept out if the body still compiles.
+    The compiler decides; nothing here models which types it can read.
+    """
+    if not types:
+        return None
+
+    def within(span: Span, outer: Span) -> bool:
+        return outer[0] <= span[0] and span[1] <= outer[1]
+
+    blanks = [b for b in candidates if not any(within(b, t) for t in types)]
+    if not _compiles(statement, blanks, types):
+        return None
+    kept = list(types)
+    for substitution in types:
+        without = [t for t in kept if t != substitution]
+        restored = blanks + [b for b in candidates if within(b, substitution)]
+        if _compiles(statement, restored, without):
+            kept, blanks = without, restored
+    return _minimised(statement, blanks, kept), kept
 
 
 def _compile(text: str) -> tuple[Any, int]:
@@ -234,8 +286,7 @@ def _compile(text: str) -> tuple[Any, int]:
     serialisation, and that serialisation is not always valid JSON: a trigger
     function's implicit ``TG_`` datums are written ``{}}``, one closing brace
     too many each, so unrepaired every ``RETURNS TRIGGER`` and
-    ``RETURNS event_trigger`` body fails to decode (issue #272, pglast 8 only —
-    6.16 and 7.18 do not write those datums at all).
+    ``RETURNS event_trigger`` body fails to decode (issue #272).
 
     The decoder is what says where the defect is. It stops at the first
     character it cannot accept, so ``JSONDecodeError.pos`` names a stray brace
@@ -274,7 +325,7 @@ def _first_compiling(statement: str, attempts: list[list[Span]]) -> list[Span] |
     return None
 
 
-def _minimised(statement: str, blanked: list[Span]) -> list[Span]:
+def _minimised(statement: str, blanked: list[Span], types: Sequence[Span] = ()) -> list[Span]:
     """The blanks that are actually needed, tested one by one by putting them back.
 
     Every span dropped here is a qualifier the compiler accepts — a reference,
@@ -284,12 +335,12 @@ def _minimised(statement: str, blanked: list[Span]) -> list[Span]:
     kept = list(blanked)
     for span in blanked:
         without = [other for other in kept if other != span]
-        if _compiles(statement, without):
+        if _compiles(statement, without, types):
             kept = without
     return kept
 
 
-def _compiles(statement: str, spans: list[Span]) -> bool:
+def _compiles(statement: str, spans: list[Span], types: Sequence[Span] = ()) -> bool:
     """Whether blanking *spans* yields a tree — which is the only question here.
 
     Both exceptions mean the same thing to the oracle: no tree came back, so
@@ -299,23 +350,72 @@ def _compiles(statement: str, spans: list[Span]) -> bool:
     compiler's first refusal — the error that describes the real body.
     """
     try:
-        _compile(_blank(statement, spans))
-    except (pglast.parser.ParseError, json.JSONDecodeError):
+        _compile(_edited(statement, spans, types))
+    except pglast.parser.ParseError, json.JSONDecodeError:
         return False
     return True
 
 
-def _blank(statement: str, spans: list[Span]) -> str:
-    """*statement* with each span replaced by as many spaces as it held.
+def _edited(statement: str, spans: list[Span], types: Sequence[Span] = ()) -> str:
+    """*statement* with each span blanked and each type in *types* written ``text``.
 
-    Spaces rather than a deletion: ``parse_plpgsql`` numbers a body from its own
-    first line and the caller turns those numbers into file lines, so a rewrite
-    that moved a single newline would move every finding below it.
+    A blank is as many spaces as the span held, and a substitution keeps every
+    newline the type held: ``parse_plpgsql`` numbers a body from its own first
+    line and the caller turns those numbers into file lines, so a rewrite that
+    moved a single newline would move every finding below it. Applied from the
+    end, so each span is still where the statement passed in has it.
     """
-    text = list(statement)
-    for start, end in spans:
-        text[start:end] = " " * (end - start)
-    return "".join(text)
+    edits = [(start, end, " " * (end - start)) for start, end in spans]
+    edits += [
+        (start, end, _SUBSTITUTE + "\n" * statement.count("\n", start, end)) for start, end in types
+    ]
+    text = statement
+    for start, end, written in sorted(edits, reverse=True):
+        text = text[:start] + written + text[end:]
+    return text
+
+
+def _declared_types(statement: str, body_at: int | None) -> list[Span]:
+    """The type of every variable a declaration section declares, as spans of *statement*.
+
+    Where to look, not what to do: the compiler decides which to substitute. A
+    declaration is ``name [CONSTANT] type [COLLATE …] [NOT NULL] [:= | = |
+    DEFAULT …];``, so its type runs from after the name (and ``CONSTANT``) to the
+    first of those. A ``%TYPE``/``%ROWTYPE`` copy, a cursor, an alias and
+    ``record`` are never candidates.
+    """
+    body = _body_span(statement, body_at)
+    if body is None:
+        return []
+    start, end = body
+    text = statement[start:end]
+    tokens = sql_lexer.tokens(text)
+    spans: list[Span] = []
+    for low, high in _declaration_regions(text, 0):
+        declaration: list[Any] = []
+        for token in (t for t in tokens if low <= t.start < high):
+            if token.name != _SEMICOLON:
+                declaration.append(token)
+                continue
+            spans += [(s + start, e + start) for s, e in _declared_type(text, declaration)]
+            declaration = []
+    return spans
+
+
+def _declared_type(text: str, declaration: list[Any]) -> list[Span]:
+    words = [text[t.start : t.end + 1].lower() for t in declaration]
+    first = 2 if words[1:2] == ["constant"] else 1
+    if len(declaration) <= first or words[first] in _NOT_A_TYPE:
+        return []
+    last = first
+    while last < len(declaration) and declaration[last].name not in _TYPE_ENDS:
+        last += 1
+    written = declaration[first:last]
+    if not written or any(t.name == _PERCENT for t in written):
+        return []
+    if text[written[0].start : written[-1].end + 1].lower() == _RECORD:
+        return []
+    return [(written[0].start, written[-1].end + 1)]
 
 
 def _candidate_spans(statement: str, body_at: int | None) -> list[Span]:

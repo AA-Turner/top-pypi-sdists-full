@@ -31,7 +31,22 @@
 // No floating-point arithmetic is done at all, so the FMA and inlining
 // hazards of the numeric TUs (momwire#1194) do not apply; its own TU anyway,
 // so nothing here can move another kernel's codegen.
+
+// A read prefetch: a hint only. It never faults and changes no value, so a
+// stale one (a slot since filled, a key vector since moved) costs nothing.
+#if defined(__GNUC__) || defined(__clang__)
+#define MW_PREFETCH(p) __builtin_prefetch(static_cast<const void *>(p))
+#elif defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+#include <xmmintrin.h>
+#define MW_PREFETCH(p) _mm_prefetch(reinterpret_cast<const char *>(p), _MM_HINT_T0)
+#else
+#define MW_PREFETCH(p) ((void)(p))
+#endif
+
 namespace factorize {
+
+// Rows hashed, and their home slots prefetched, ahead of a walk.
+static constexpr py::ssize_t kPrefetchBlock = 32;
 
 // One column: element i of a 1-D array of 8-byte values, any stride.
 struct Col {
@@ -70,7 +85,7 @@ static inline uint64_t mix(uint64_t h) {
 // slots as rows. A slot packs the hash's top 32 bits (a cheap reject before
 // the row compare) over the group number plus one (0 = empty).
 static py::tuple group_rows(const std::vector<Col> &cols, py::ssize_t n,
-                            bool floats) {
+                            bool floats, uintptr_t cancel_flag) {
     if (n >= static_cast<py::ssize_t>(std::numeric_limits<int32_t>::max()))
         throw std::runtime_error("factorize: too many rows for 32-bit groups");
     py::array_t<py::ssize_t> inverse(n);
@@ -78,55 +93,71 @@ static py::tuple group_rows(const std::vector<Col> &cols, py::ssize_t n,
     std::vector<int64_t> first;
     {
         py::gil_scoped_release nogil;
+        MW_CANCEL_SERIAL_SETUP(cancel_flag);
         first.reserve(static_cast<size_t>(n / 4 + 16));
         size_t cap = 16;
         while (cap < 2 * static_cast<size_t>(n)) cap <<= 1;
         std::vector<uint64_t> table(cap, 0);
         const size_t mask = cap - 1;
         const size_t K = cols.size();
-        uint64_t key[3];
-        for (py::ssize_t i = 0; i < n; ++i) {
-            bool nan = false;
-            uint64_t h = 0x9e3779b97f4a7c15ULL;
-            for (size_t k = 0; k < K; ++k) {
-                uint64_t b = cols[k].at(i);
-                if (floats) {
-                    nan |= is_nan(b);
-                    b = float_key(b);
+        uint64_t key[3], hs[kPrefetchBlock];
+        // Hashed a block ahead with each home slot prefetched, then walked
+        // row by row exactly as before: `RowGroups::add`'s argument (a
+        // prefetch reads nothing it could change).
+        for (py::ssize_t i0 = 0; i0 < n; i0 += kPrefetchBlock) {
+            MW_CANCEL_SERIAL_POLL();  // per 32-row block
+            const py::ssize_t i1 = std::min(n, i0 + kPrefetchBlock);
+            for (py::ssize_t i = i0; i < i1; ++i) {
+                uint64_t h = 0x9e3779b97f4a7c15ULL;
+                for (size_t k = 0; k < K; ++k) {
+                    const uint64_t b = cols[k].at(i);
+                    h = mix(h ^ (floats ? float_key(b) : b));
                 }
-                key[k] = b;
-                h = mix(h ^ b);
+                hs[i - i0] = h;
+                MW_PREFETCH(table.data() + (static_cast<size_t>(h) & mask));
             }
-            if (nan) {
-                inv[i] = static_cast<py::ssize_t>(first.size());
-                first.push_back(i);
-                continue;
-            }
-            const uint64_t tag = h & 0xffffffff00000000ULL;
-            size_t s = static_cast<size_t>(h) & mask;
-            for (;;) {
-                const uint64_t slot = table[s];
-                if (slot == 0) {
-                    const uint64_t g = first.size();
-                    table[s] = tag | (g + 1);
-                    inv[i] = static_cast<py::ssize_t>(g);
-                    first.push_back(i);
-                    break;
-                }
-                if ((slot & 0xffffffff00000000ULL) == tag) {
-                    const uint64_t g = (slot & 0xffffffffULL) - 1;
-                    const py::ssize_t f = first[g];
-                    bool eq = true;
-                    for (size_t k = 0; k < K && eq; ++k) {
-                        uint64_t b = cols[k].at(f);
-                        eq = (floats ? float_key(b) : b) == key[k];
+            for (py::ssize_t i = i0; i < i1; ++i) {
+                bool nan = false;
+                for (size_t k = 0; k < K; ++k) {
+                    uint64_t b = cols[k].at(i);
+                    if (floats) {
+                        nan |= is_nan(b);
+                        b = float_key(b);
                     }
-                    if (eq) {
+                    key[k] = b;
+                }
+                const uint64_t h = hs[i - i0];
+                if (nan) {
+                    inv[i] = static_cast<py::ssize_t>(first.size());
+                    first.push_back(i);
+                    continue;
+                }
+                const uint64_t tag = h & 0xffffffff00000000ULL;
+                size_t s = static_cast<size_t>(h) & mask;
+                for (;;) {
+                    const uint64_t slot = table[s];
+                    if (slot == 0) {
+                        const uint64_t g = first.size();
+                        table[s] = tag | (g + 1);
                         inv[i] = static_cast<py::ssize_t>(g);
+                        first.push_back(i);
                         break;
                     }
+                    if ((slot & 0xffffffff00000000ULL) == tag) {
+                        const uint64_t g = (slot & 0xffffffffULL) - 1;
+                        const py::ssize_t f = first[g];
+                        bool eq = true;
+                        for (size_t k = 0; k < K && eq; ++k) {
+                            uint64_t b = cols[k].at(f);
+                            eq = (floats ? float_key(b) : b) == key[k];
+                        }
+                        if (eq) {
+                            inv[i] = static_cast<py::ssize_t>(g);
+                            break;
+                        }
+                    }
+                    s = (s + 1) & mask;
                 }
-                s = (s + 1) & mask;
             }
         }
     }
@@ -159,17 +190,19 @@ static std::vector<Col> columns(const std::vector<py::array_t<T>> &arrs,
 // of an (n, 3) array) is read in place rather than copied; `forcecast` only
 // converts a column of another dtype.
 static py::tuple factorize_rows(
-    std::vector<py::array_t<double, py::array::forcecast>> arrs) {
+    std::vector<py::array_t<double, py::array::forcecast>> arrs,
+    uintptr_t cancel_flag = 0) {
     py::ssize_t n = 0;
     auto cols = columns(arrs, &n);
-    return group_rows(cols, n, true);
+    return group_rows(cols, n, true, cancel_flag);
 }
 
 static py::tuple factorize_ints(
-    std::vector<py::array_t<int64_t, py::array::forcecast>> arrs) {
+    std::vector<py::array_t<int64_t, py::array::forcecast>> arrs,
+    uintptr_t cancel_flag = 0) {
     py::ssize_t n = 0;
     auto cols = columns(arrs, &n);
-    return group_rows(cols, n, false);
+    return group_rows(cols, n, false, cancel_flag);
 }
 
 // A persistent exact-equality index over the rows of 1-3 float64 columns:
@@ -217,7 +250,8 @@ class RowIndex {
     }
 
     py::array_t<int64_t> find(
-        std::vector<py::array_t<double, py::array::forcecast>> arrs) const {
+        std::vector<py::array_t<double, py::array::forcecast>> arrs,
+        uintptr_t cancel_flag = 0) const {
         py::ssize_t q = 0;
         auto cols = columns(arrs, &q);
         if (cols.size() != K_)
@@ -226,8 +260,10 @@ class RowIndex {
         int64_t *o = out.mutable_data();
         {
             py::gil_scoped_release nogil;
+            MW_CANCEL_SERIAL_SETUP(cancel_flag);
             uint64_t key[3];
             for (py::ssize_t i = 0; i < q; ++i) {
+                MW_CANCEL_SERIAL_POLL();
                 uint64_t h;
                 o[i] = -1;
                 if (row_key(cols, i, key, &h)) continue;
@@ -477,7 +513,8 @@ class RowGroups {
     }
 
     py::array_t<py::ssize_t> add(
-        std::vector<py::array_t<double, py::array::forcecast>> arrs) {
+        std::vector<py::array_t<double, py::array::forcecast>> arrs,
+        uintptr_t cancel_flag = 0) {
         py::ssize_t n = 0;
         auto cols = columns(arrs, &n);
         if (cols.size() != 3)
@@ -489,35 +526,65 @@ class RowGroups {
         py::ssize_t *out = ids.mutable_data();
         {
             py::gil_scoped_release nogil;
-            uint64_t key[3], raw[3];
-            for (py::ssize_t i = 0; i < n; ++i) {
-                bool nan = false;
-                uint64_t h = 0x9e3779b97f4a7c15ULL;
-                for (int k = 0; k < 3; ++k) {
-                    raw[k] = cols[k].at(i);
-                    nan |= is_nan(raw[k]);
-                    key[k] = float_key(raw[k]);
-                    h = mix(h ^ key[k]);
+            uint64_t key[3], raw[3], hs[kPrefetchBlock];
+            MW_CANCEL_SERIAL_SETUP(cancel_flag);
+            for (py::ssize_t i0 = 0; i0 < n; i0 += kPrefetchBlock) {
+                // Between blocks the grouping is whole; an abort leaves the
+                // rows added so far, and the caller discards the object.
+                MW_CANCEL_SERIAL_POLL();
+                const py::ssize_t i1 = std::min(n, i0 + kPrefetchBlock);
+                // Two prefetch passes over the block, then the rows in order.
+                // Past a few million groups the table and the keys are far
+                // out of cache, and a row probed alone waits on two misses in
+                // turn (its slot, then the group's keys it names): sin's
+                // inverted-L x32 grid, 30 M rows into 10.9 M groups, took
+                // 3.6 s. Issued a block at a time the misses overlap, and with
+                // the rehash below it takes 1.75 s (Skylake, momwire#1224 perf
+                // item 6). The passes only READ (a slot a
+                // later row of the block fills, a mask a rehash replaces or a
+                // key vector a push moves just make a hint useless), and the
+                // third pass is the row-at-a-time walk itself, so the groups
+                // and their numbering are untouched.
+                for (py::ssize_t i = i0; i < i1; ++i) {
+                    uint64_t h = 0x9e3779b97f4a7c15ULL;
+                    for (int k = 0; k < 3; ++k) h = mix(h ^ float_key(cols[k].at(i)));
+                    hs[i - i0] = h;
+                    MW_PREFETCH(table_.data() + (static_cast<size_t>(h) & mask_));
                 }
-                if (nan) {
-                    out[i] = new_group(raw, key, 0, false);
-                    continue;
+                for (py::ssize_t i = i0; i < i1; ++i) {
+                    const uint64_t slot =
+                        table_[static_cast<size_t>(hs[i - i0]) & mask_];
+                    if (slot != 0)
+                        MW_PREFETCH(keys_.data() + 3 * ((slot & 0xffffffffULL) - 1));
                 }
-                if (2 * (n_groups() + 1) > table_.size()) rehash();
-                const uint64_t tag = h & 0xffffffff00000000ULL;
-                size_t s = static_cast<size_t>(h) & mask_;
-                for (;;) {
-                    const uint64_t slot = table_[s];
-                    if (slot == 0) {
-                        out[i] = new_group(raw, key, s, true, tag);
-                        break;
+                for (py::ssize_t i = i0; i < i1; ++i) {
+                    bool nan = false;
+                    for (int k = 0; k < 3; ++k) {
+                        raw[k] = cols[k].at(i);
+                        nan |= is_nan(raw[k]);
+                        key[k] = float_key(raw[k]);
                     }
-                    const uint64_t g = (slot & 0xffffffffULL) - 1;
-                    if ((slot & 0xffffffff00000000ULL) == tag && same(key, g)) {
-                        out[i] = static_cast<py::ssize_t>(g);
-                        break;
+                    const uint64_t h = hs[i - i0];
+                    if (nan) {
+                        out[i] = new_group(raw, key, 0, false);
+                        continue;
                     }
-                    s = (s + 1) & mask_;
+                    if (2 * (n_groups() + 1) > table_.size()) rehash();
+                    const uint64_t tag = h & 0xffffffff00000000ULL;
+                    size_t s = static_cast<size_t>(h) & mask_;
+                    for (;;) {
+                        const uint64_t slot = table_[s];
+                        if (slot == 0) {
+                            out[i] = new_group(raw, key, s, true, tag);
+                            break;
+                        }
+                        const uint64_t g = (slot & 0xffffffffULL) - 1;
+                        if ((slot & 0xffffffff00000000ULL) == tag && same(key, g)) {
+                            out[i] = static_cast<py::ssize_t>(g);
+                            break;
+                        }
+                        s = (s + 1) & mask_;
+                    }
                 }
             }
         }
@@ -550,19 +617,35 @@ class RowGroups {
         return k[0] == key[0] && k[1] == key[1] && k[2] == key[2];
     }
 
+    // Re-enters every group in NUMBER order: the keys are read in order and
+    // only the fresh slot is a miss (prefetched a block ahead, as in `add`),
+    // where walking the old table read each group's keys at random as well. The slots land elsewhere (linear
+    // probing follows entry order), which changes no group or number: a
+    // group's slot only ever holds that group. A row holding a NaN is a group
+    // of its own that was never entered, and is not entered now.
     void rehash() {
         size_t cap = table_.size() * 2;
         std::vector<uint64_t> fresh(cap, 0);
         const size_t mask = cap - 1;
-        for (size_t s = 0; s < table_.size(); ++s) {
-            const uint64_t slot = table_[s];
-            if (slot == 0) continue;
-            const uint64_t g = (slot & 0xffffffffULL) - 1;
-            uint64_t h = 0x9e3779b97f4a7c15ULL;
-            for (int k = 0; k < 3; ++k) h = mix(h ^ keys_[3 * g + k]);
-            size_t t = static_cast<size_t>(h) & mask;
-            while (fresh[t] != 0) t = (t + 1) & mask;
-            fresh[t] = slot;
+        const size_t n_g = keys_.size() / 3;
+        uint64_t hs[kPrefetchBlock];
+        for (size_t g0 = 0; g0 < n_g; g0 += kPrefetchBlock) {
+            const size_t g1 = std::min(n_g, g0 + static_cast<size_t>(kPrefetchBlock));
+            for (size_t g = g0; g < g1; ++g) {
+                const uint64_t *k = &keys_[3 * g];
+                uint64_t h = 0x9e3779b97f4a7c15ULL;
+                for (int c = 0; c < 3; ++c) h = mix(h ^ k[c]);
+                hs[g - g0] = h;
+                MW_PREFETCH(fresh.data() + (static_cast<size_t>(h) & mask));
+            }
+            for (size_t g = g0; g < g1; ++g) {
+                const uint64_t *k = &keys_[3 * g];
+                if (is_nan(k[0]) || is_nan(k[1]) || is_nan(k[2])) continue;
+                const uint64_t h = hs[g - g0];
+                size_t t = static_cast<size_t>(h) & mask;
+                while (fresh[t] != 0) t = (t + 1) & mask;
+                fresh[t] = (h & 0xffffffff00000000ULL) | (static_cast<uint64_t>(g) + 1);
+            }
         }
         table_.swap(fresh);
         mask_ = cap - 1;
@@ -583,7 +666,8 @@ class RowGroups {
 // `kid[g, first]` answer row by row. A stamp per global id (the row that
 // last saw it) replaces the per-row hash table; the integers are the same.
 static py::tuple group_first_ranks(
-    py::array_t<int32_t, py::array::c_style> kid, int64_t n_id) {
+    py::array_t<int32_t, py::array::c_style> kid, int64_t n_id,
+    uintptr_t cancel_flag = 0) {
     if (kid.ndim() != 2) throw std::runtime_error("group_first_ranks: kid must be 2-D");
     const py::ssize_t nG = kid.shape(0), nL = kid.shape(1);
     if (n_id < 0 || n_id >= static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
@@ -600,8 +684,10 @@ static py::tuple group_first_ranks(
     std::vector<int32_t> ids;
     {
         py::gil_scoped_release nogil;
+        MW_CANCEL_SERIAL_SETUP(cancel_flag);
         std::vector<int32_t> stamp(static_cast<size_t>(n_id), -1), local(static_cast<size_t>(n_id), 0);
         for (py::ssize_t g = 0; g < nG; ++g) {
+            MW_CANCEL_SERIAL_POLL();  // per row of nL ids
             const int32_t *row = K + g * nL;
             int32_t *out = R + g * nL;
             int32_t next = 0;
@@ -648,7 +734,7 @@ static py::tuple merge_rows_by_z(
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> start,  // (blocks,)
     py::array_t<int32_t, py::array::c_style> ids,                           // keys, concatenated by group
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> off,    // (groups + 1,)
-    int64_t n_key, int64_t n_z) {
+    int64_t n_key, int64_t n_z, uintptr_t cancel_flag = 0) {
     const py::ssize_t nb = z.size();
     if (grp.size() != nb || start.size() != nb)
         throw std::runtime_error("merge_rows_by_z: one z, group and start per block");
@@ -671,6 +757,7 @@ static py::tuple merge_rows_by_z(
     std::vector<int64_t> first_blk, first_j;
     {
         py::gil_scoped_release nogil;
+        MW_CANCEL_SERIAL_SETUP(cancel_flag);
         // Blocks by z id, each z id's in walk order (a counting sort).
         std::vector<int64_t> cnt(static_cast<size_t>(n_z) + 1, 0);
         for (py::ssize_t b = 0; b < nb; ++b) cnt[Z[b] + 1]++;
@@ -684,6 +771,7 @@ static py::tuple merge_rows_by_z(
         std::vector<int64_t> first(static_cast<size_t>(n_cand));
         std::vector<int64_t> tag(static_cast<size_t>(n_key), -1), pos(static_cast<size_t>(n_key), 0);
         for (int64_t zi = 0; zi < n_z; ++zi) {
+            MW_CANCEL_SERIAL_POLL();
             if (cnt[zi + 1] - cnt[zi] == 1) {
                 // One block under this z id: its keys are distinct (a
                 // group's own), so every code is new where it stands.
@@ -693,6 +781,7 @@ static py::tuple merge_rows_by_z(
                 continue;
             }
             for (int64_t i = cnt[zi]; i < cnt[zi + 1]; ++i) {
+                MW_CANCEL_SERIAL_POLL();  // per block
                 const int64_t b = by_z[i];
                 const int64_t g = G[b];
                 for (int64_t j = 0; j < O[g + 1] - O[g]; ++j) {
@@ -709,6 +798,7 @@ static py::tuple merge_rows_by_z(
         // Rows numbered by first walk position, in walk order.
         int64_t next = 0;
         for (py::ssize_t b = 0; b < nb; ++b) {
+            MW_CANCEL_SERIAL_POLL();
             const int64_t len = O[G[b] + 1] - O[G[b]];
             for (int64_t j = 0; j < len; ++j) {
                 const int64_t e = S[b] + j;
@@ -739,14 +829,15 @@ void register_factorize(py::module_ &m) {
           "columns (-0.0 == 0.0, a NaN row its own group), in first-appearance "
           "order: (first, inverse), first[g] the row where group g first "
           "occurs (ascending), inverse[i] row i's group. momwire#1224.",
-          py::arg("cols"));
+          py::arg("cols"), py::arg("cancel_flag") = 0);
     m.def("factorize_ints", &factorize::factorize_ints,
           "`factorize_rows` for 1-3 int64 columns (equal iff the values are).",
-          py::arg("cols"));
+          py::arg("cols"), py::arg("cancel_flag") = 0);
     py::class_<factorize::RowIndex>(m, "RowIndex")
         .def(py::init<std::vector<py::array_t<double, py::array::forcecast>>>(),
              py::arg("cols"))
-        .def("find", &factorize::RowIndex::find, py::arg("cols"))
+        .def("find", &factorize::RowIndex::find, py::arg("cols"),
+             py::arg("cancel_flag") = 0)
         .def("__len__", &factorize::RowIndex::size);
     py::class_<factorize::TripleTable>(m, "TripleTable")
         .def(py::init<py::ssize_t>(), py::arg("width"))
@@ -759,7 +850,8 @@ void register_factorize(py::module_ &m) {
         .def("__len__", &factorize::TripleTable::size);
     py::class_<factorize::RowGroups>(m, "RowGroups")
         .def(py::init<>())
-        .def("add", &factorize::RowGroups::add, py::arg("cols"))
+        .def("add", &factorize::RowGroups::add, py::arg("cols"),
+             py::arg("cancel_flag") = 0)
         .def("rows", &factorize::RowGroups::rows)
         .def("__len__", &factorize::RowGroups::n_groups);
     m.def("group_first_ranks", &factorize::group_first_ranks,
@@ -767,14 +859,14 @@ void register_factorize(py::module_ &m) {
           "the row in one pass: (rank (groups, line) int32, n (groups,), "
           "first positions and global ids of each row's local ids, "
           "concatenated). momwire#1290.",
-          py::arg("kid"), py::arg("n_id"));
+          py::arg("kid"), py::arg("n_id"), py::arg("cancel_flag") = 0);
     m.attr("group_first_ranks_1290") = true;
     m.def("merge_rows_by_z", &factorize::merge_rows_by_z,
           "The multi-group merge's rows by first walk position, z id by z id "
           "with a stamp per key: (row per candidate in walk order, each row's "
           "first block, its offset there). momwire#1290.",
           py::arg("z"), py::arg("grp"), py::arg("start"), py::arg("ids"),
-          py::arg("off"), py::arg("n_key"), py::arg("n_z"));
+          py::arg("off"), py::arg("n_key"), py::arg("n_z"), py::arg("cancel_flag") = 0);
     m.attr("merge_rows_by_z_1290") = true;
     // The capability flag, beside the bindings it vouches for (#710).
     m.attr("exact_factorize_1224") = true;

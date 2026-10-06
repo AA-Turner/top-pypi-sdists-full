@@ -232,9 +232,9 @@ impl<'a> Iterator for Partitions<'a> {
                 "Filename `{}` is too long ({length} bytes) to fit in command line (remaining {remaining_length} bytes).",
                 filename.display(),
             );
-        } else {
-            Some(&self.filenames[start_index..self.current_index])
         }
+
+        Some(&self.filenames[start_index..self.current_index])
     }
 }
 
@@ -336,21 +336,6 @@ mod tests {
             remaining_arg_length,
             max_per_batch,
         }
-    }
-
-    #[test]
-    fn test_partitions_normal_filenames() {
-        let file1 = PathBuf::from("file1.txt");
-        let file2 = PathBuf::from("file2.txt");
-        let file3 = PathBuf::from("file3.txt");
-        let filenames: Vec<&Path> = vec![&file1, &file2, &file3];
-
-        let partitions = create_test_partitions(&filenames, 4096, 10);
-
-        let total_files: usize = partitions.map(<[&Path]>::len).sum();
-
-        // All files should have been processed (no panic)
-        assert_eq!(total_files, 3);
     }
 
     #[test]

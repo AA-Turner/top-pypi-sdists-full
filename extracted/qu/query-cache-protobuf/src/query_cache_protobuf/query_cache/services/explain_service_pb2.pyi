@@ -154,3 +154,54 @@ class GetExplainMessagesResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["messages", b"messages"]) -> None: ...
 
 global___GetExplainMessagesResponse = GetExplainMessagesResponse
+
+@typing.final
+class GetUpstreamDependencyChangesRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    EXECUTION_IDS_FIELD_NUMBER: builtins.int
+    @property
+    def execution_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        execution_ids: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["execution_ids", b"execution_ids"]) -> None: ...
+
+global___GetUpstreamDependencyChangesRequest = GetUpstreamDependencyChangesRequest
+
+@typing.final
+class GetUpstreamDependencyChangesResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DEPENDENCY_CHANGES_FIELD_NUMBER: builtins.int
+    @property
+    def dependency_changes(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___UpstreamDependencyChanges]: ...
+    def __init__(
+        self,
+        *,
+        dependency_changes: collections.abc.Iterable[global___UpstreamDependencyChanges] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["dependency_changes", b"dependency_changes"]) -> None: ...
+
+global___GetUpstreamDependencyChangesResponse = GetUpstreamDependencyChangesResponse
+
+@typing.final
+class UpstreamDependencyChanges(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    EXECUTION_ID_FIELD_NUMBER: builtins.int
+    LINES_FIELD_NUMBER: builtins.int
+    execution_id: builtins.str
+    @property
+    def lines(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ExplainLine]: ...
+    def __init__(
+        self,
+        *,
+        execution_id: builtins.str = ...,
+        lines: collections.abc.Iterable[global___ExplainLine] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["execution_id", b"execution_id", "lines", b"lines"]) -> None: ...
+
+global___UpstreamDependencyChanges = UpstreamDependencyChanges

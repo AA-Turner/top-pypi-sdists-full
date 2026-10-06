@@ -16,6 +16,8 @@ These projects are covered by the MIT License.
 
 import inspect
 from copy import deepcopy
+from itertools import combinations
+from typing import Any
 
 import numpy as np
 
@@ -24,13 +26,14 @@ from gymnasium import logger, spaces
 from gymnasium.utils.passive_env_checker import (
     check_action_space,
     check_observation_space,
+    data_shares_objects,
     env_render_passive_checker,
     env_reset_passive_checker,
     env_step_passive_checker,
 )
 
 
-def data_equivalence(data_1, data_2, exact: bool = False) -> bool:
+def data_equivalence(data_1: Any, data_2: Any, exact: bool = False) -> bool:
     """Assert equality between data 1 and 2, i.e. observations, actions, info.
 
     Args:
@@ -61,16 +64,19 @@ def data_equivalence(data_1, data_2, exact: bool = False) -> bool:
                 )
             else:
                 if exact:
-                    return np.all(data_1 == data_2)
+                    # `np.all` returns `np.bool_`, which is incompatible with `bool`
+                    return bool(np.all(data_1 == data_2))
                 else:
                     return np.allclose(data_1, data_2, rtol=1e-5, atol=1e-5)
         else:
             return False
     else:
-        return data_1 == data_2
+        # `__eq__` doesn't always return `bool`; e.g. `np.int8() == np.int8()` returns
+        # a `np.bool_`, which is incompatible with `bool`
+        return bool(data_1 == data_2)
 
 
-def check_reset_seed_determinism(env: gym.Env):
+def check_reset_seed_determinism(env: gym.Env) -> None:
     """Check that the environment can be reset with a seed.
 
     Args:
@@ -87,6 +93,9 @@ def check_reset_seed_determinism(env: gym.Env):
     ):
         try:
             obs_1, info = env.reset(seed=123)
+            # Some environments reuse an internal observation buffer.  Keep a
+            # snapshot before the next reset can mutate the object in place.
+            obs_1 = deepcopy(obs_1)
             assert obs_1 in env.observation_space, (
                 "The observation returned by `env.reset(seed=123)` is not within the observation space."
             )
@@ -96,6 +105,7 @@ def check_reset_seed_determinism(env: gym.Env):
             seed_123_rng_1 = deepcopy(env.unwrapped._np_random)
 
             obs_2, info = env.reset()
+            obs_2 = deepcopy(obs_2)
             assert obs_2 in env.observation_space, (
                 "The observation returned by `env.reset()` is not within the observation space."
             )
@@ -163,7 +173,7 @@ def check_reset_seed_determinism(env: gym.Env):
         )
 
 
-def check_reset_options(env: gym.Env):
+def check_reset_options(env: gym.Env) -> None:
     """Check that the environment can be reset with options.
 
     Args:
@@ -191,7 +201,7 @@ def check_reset_options(env: gym.Env):
         )
 
 
-def check_step_determinism(env: gym.Env, seed=123):
+def check_step_determinism(env: gym.Env, seed: int = 123) -> None:
     """Check that the environment steps deterministically after reset.
 
     Note: This check assumes that seeded `reset()` is deterministic (it must have passed `check_reset_seed`) and that `step()` returns valid values (passed `env_step_passive_checker`).
@@ -209,15 +219,23 @@ def check_step_determinism(env: gym.Env, seed=123):
 
     env.reset(seed=seed)
     obs_0, rew_0, term_0, trunc_0, info_0 = env.step(action)
-    seeded_rng: np.random.Generator = deepcopy(env.unwrapped._np_random)
+    # Preserve the first transition before the second reset/step can mutate a
+    # reused observation buffer in place.
+    obs_0 = deepcopy(obs_0)
+
+    orig_rng = env.unwrapped._np_random
+    assert orig_rng is not None, "env.reset() should have initialized env._np_random"
+    seeded_rng: np.random.Generator = deepcopy(orig_rng)
 
     env.reset(seed=seed)
     obs_1, rew_1, term_1, trunc_1, info_1 = env.step(action)
 
-    assert (
-        env.unwrapped._np_random.bit_generator.state  # pyright: ignore [reportOptionalMemberAccess]
-        == seeded_rng.bit_generator.state
-    ), "The `.np_random` is not properly been updated after step."
+    # A seeded reset can replace the environment's random number generator.
+    current_rng = env.unwrapped._np_random
+    assert current_rng is not None, "env.reset() should have initialized env._np_random"
+    assert current_rng.bit_generator.state == seeded_rng.bit_generator.state, (
+        "The `.np_random` is not properly been updated after step."
+    )
 
     assert data_equivalence(obs_0, obs_1), (
         "Deterministic step observations are not equivalent for the same seed and action"
@@ -252,7 +270,44 @@ def check_step_determinism(env: gym.Env, seed=123):
         )
 
 
-def check_reset_return_info_deprecation(env: gym.Env):
+def check_returned_data_not_reused(env: gym.Env, seed: int = 123) -> None:
+    """Check that the environment returns new observation and info data on every call.
+
+    As this compares identity rather than value, an array or dictionary that an environment intends
+    to be constant must also be copied into each observation or info, as neither the user nor this
+    check can know that a later call will not modify it.
+
+    Raises:
+        AssertionError: Two calls returned observations or infos that share an object.
+    """
+    env.action_space.seed(seed)
+
+    calls = [("env.reset() (call 1)", env.reset(seed=seed))]
+    for _ in range(2):
+        obs, _, terminated, truncated, info = env.step(env.action_space.sample())
+        calls.append((f"env.step() (call {len(calls) + 1})", (obs, info)))
+
+        if terminated or truncated:
+            break
+    # `AutoresetMode.SAME_STEP` resets a sub-environment as it terminates or truncates
+    calls.append((f"env.reset() (call {len(calls) + 1})", env.reset(seed=seed)))
+
+    for (source_1, (obs_1, info_1)), (source_2, (obs_2, info_2)) in combinations(
+        calls, 2
+    ):
+        assert not data_shares_objects(obs_1, obs_2), (
+            f"The observations returned by `{source_1}` and `{source_2}` share an object, "
+            "therefore, modifying one will modify the other. Environments must return new "
+            "observation data on every call as users keep the data returned to them."
+        )
+        assert not data_shares_objects(info_1, info_2), (
+            f"The infos returned by `{source_1}` and `{source_2}` share an object, therefore, "
+            "modifying one will modify the other. Environments must return new info data on "
+            "every call as users keep the data returned to them."
+        )
+
+
+def check_reset_return_info_deprecation(env: gym.Env) -> None:
     """Makes sure support for deprecated `return_info` argument is dropped.
 
     Args:
@@ -269,7 +324,7 @@ def check_reset_return_info_deprecation(env: gym.Env):
         )
 
 
-def check_seed_deprecation(env: gym.Env):
+def check_seed_deprecation(env: gym.Env) -> None:
     """Makes sure support for deprecated function `seed` is dropped.
 
     Args:
@@ -285,7 +340,7 @@ def check_seed_deprecation(env: gym.Env):
         )
 
 
-def check_reset_return_type(env: gym.Env):
+def check_reset_return_type(env: gym.Env) -> None:
     """Checks that :meth:`reset` correctly returns a tuple of the form `(obs , info)`.
 
     Args:
@@ -310,7 +365,7 @@ def check_reset_return_type(env: gym.Env):
     )
 
 
-def check_space_limit(space, space_type: str):
+def check_space_limit(space: spaces.Space[object], space_type: str) -> None:
     """Check the space limit for only the Box space as a test that only runs as part of `check_env`."""
     if isinstance(space, spaces.Box):
         if np.any(np.equal(space.low, -np.inf)):
@@ -350,10 +405,10 @@ def check_space_limit(space, space_type: str):
 
 def check_env(
     env: gym.Env,
-    warn: bool = None,
+    warn: bool | None = None,
     skip_render_check: bool = False,
     skip_close_check: bool = False,
-):
+) -> None:
     """Check that an environment follows Gymnasium's API.
 
     .. py:currentmodule:: gymnasium.Env
@@ -424,6 +479,7 @@ def check_env(
 
     # ==== Check the step method ====
     check_step_determinism(env)
+    check_returned_data_not_reused(env)
 
     # ==== Check the render method and the declared render modes ====
     if not skip_render_check:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mocket
-Version: 3.14.4
+Version: 3.14.5
 Summary: Socket Mock Framework - for all kinds of socket animals, web-clients included - with gevent/asyncio/SSL support
 Project-URL: Homepage, https://pypi.org/project/mocket
 Project-URL: Repository, https://github.com/mindflayer/python-mocket
@@ -26,7 +26,7 @@ Requires-Python: >=3.8
 Requires-Dist: decorator>=4.0.0
 Requires-Dist: h11
 Requires-Dist: puremagic
-Requires-Dist: typing-extensions
+Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: urllib3>=1.25.3
 Provides-Extra: pook
 Requires-Dist: pook>=0.2.1; extra == 'pook'

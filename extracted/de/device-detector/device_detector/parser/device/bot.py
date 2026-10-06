@@ -1,5 +1,6 @@
-from .base import BaseDeviceParser
 from device_detector.enums import DeviceType
+
+from .base import BaseDeviceParser
 
 # Extracted from ^(?:chrome|firefox|Abcd|Dark|KvshClient|Node.js|Report Runner|url|Zeus|ZmEu)$
 GENERIC_BOT_UAS = {

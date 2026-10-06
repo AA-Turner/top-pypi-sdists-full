@@ -19,7 +19,7 @@ import json
 
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -34,7 +34,8 @@ class SystemConfiguration(BaseModel):
     name: StrictStr
     sha: StrictStr
     archive_status: StrictStr
-    __properties: ClassVar[List[str]] = ["id", "created", "created_by_id", "system_id", "name", "sha", "archive_status"]
+    empty_folders: Optional[List[StrictStr]] = None
+    __properties: ClassVar[List[str]] = ["id", "created", "created_by_id", "system_id", "name", "sha", "archive_status", "empty_folders"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +94,7 @@ class SystemConfiguration(BaseModel):
             "system_id": obj.get("system_id"),
             "name": obj.get("name"),
             "sha": obj.get("sha"),
-            "archive_status": obj.get("archive_status")
+            "archive_status": obj.get("archive_status"),
+            "empty_folders": obj.get("empty_folders")
         })
         return _obj

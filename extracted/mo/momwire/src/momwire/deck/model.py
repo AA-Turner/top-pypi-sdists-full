@@ -235,12 +235,20 @@ class FarFieldRequest:
 
 @dataclass(frozen=True)
 class NearFieldRequest:
-    """A rectangular grid of near-field samples, X varying fastest."""
+    """A grid of near-field samples, the first axis varying fastest.
+
+    ``coordinates`` is the card's first field: ``0`` reads ``counts``,
+    ``origin`` and ``step`` as ``(X, Y, Z)`` in metres; ``1`` (the nec4
+    dialect only, momwire#1352) as ``(R, θ, φ)`` — R in metres, θ from the
+    zenith and φ from +x in degrees.  The points either spells are
+    :func:`momwire._near_readout.grid_points`.
+    """
 
     magnetic: bool = False
     counts: tuple[int, int, int] = (1, 1, 1)
     origin: Point = (0.0, 0.0, 0.0)
     step: Point = (0.0, 0.0, 0.0)
+    coordinates: int = 0
 
 
 @dataclass(frozen=True)
@@ -287,6 +295,16 @@ class ExecuteGroup:
     # public API: a positional construction written against an earlier
     # release keeps meaning what it meant.
     environment: Environment = field(default_factory=Environment)
+    # The loads IN FORCE at this execute card, as indices into
+    # :attr:`DeckModel.loads` (momwire#1069).  An ``LD`` arms (spec
+    # ``#arming``) and ``LD -1`` clears, so a deck may run its first group
+    # bare and its second loaded, and NEC answers each with its own: the
+    # first group's printout says THIS STRUCTURE IS NOT LOADED and its
+    # impedance is the bare antenna's.  ``None`` means every load in the
+    # model, which is what a model built by hand, without per-group scoping,
+    # has always meant; both dialect readers fill it.  Last for the reason
+    # :attr:`environment` gives.
+    loads: tuple[int, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -372,6 +390,10 @@ class DeckModel:
     node_gaps: tuple[tuple[int, int, complex], ...] = ()
 
     # (wire, arclength, spec) — stamped at the same kind of point a feed is.
+    # The UNION over every execute group, the way :attr:`feeds` is: each one
+    # cuts its gap in every group's matrix, and a group stamps only the loads
+    # its :attr:`ExecuteGroup.loads` names (momwire#1069).  A load in force at
+    # no execute card at all is not here.
     loads: tuple[tuple[int, float, LoadSpec], ...] = ()
 
     # The deck's LAST environment (see :attr:`environment`).  A ground card
@@ -431,6 +453,16 @@ class DeckModel:
     # sources keeping theirs.  Empty for every dialect but ``nec4``.  Last in the
     # field order for the reason :attr:`networks` gives.
     current_feeds: tuple[int, ...] = ()
+
+    # True when the extended kernel in every group is the DIALECT's default
+    # rather than something the deck asked for (momwire#1326): the ``nec4``
+    # dialect, whose engine has one thin-wire model and ignores ``EK``.  A
+    # default the basis or the deck cannot serve falls back to the reduced
+    # kernel with an advisory (`build_solver`), where a request refuses —
+    # the default is ours, not the deck's.  False for ``nec2``, whose ``EK``
+    # card is the deck's own request.  Last for the reason :attr:`networks`
+    # gives.
+    extended_kernel_default: bool = False
 
     @property
     def environment(self) -> Environment:

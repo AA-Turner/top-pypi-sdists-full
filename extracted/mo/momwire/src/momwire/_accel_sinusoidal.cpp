@@ -1,6 +1,9 @@
 #include "_accel_common.h"
 
 #include <cstring>
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 #include "_stable_inline.h"
 #include "_accel_sinusoidal_cplx.h"
 
@@ -1256,6 +1259,38 @@ struct GalerkinFoldBlock {
     double s_re, s_im;
 };
 
+// The real fill's rows, STAGED FOR THE VECTOR UNIT (perf item 9, momwire#1290)
+// — the real-k sibling of `sg_cplx_rows_staged` below, and run by the reduced
+// (EK-off) instantiation unless `reference=True`. Inputs are the reference
+// body's own per-source quantities as SoA rows and its per-call scalars; the
+// body is defined after the complex one, whose helpers it shares.
+// One thread's working memory for the staged rows, grown once per call. The
+// sweep's three tables are separate allocations, as in the reference body,
+// so the sweep loops see the same kind of buffer the reference's do.
+struct SgRealScratch {
+    std::vector<double> rows, ph, cphb, sphb;
+};
+struct SgRealRows {
+    size_t N, nq, n_qp;
+    const double *oc, *ot, *ar;                 // observers, (M*nq, 3) / (M*nq)
+    const double *sx, *sy, *sz, *tx, *ty, *tz;  // source centres, tangents
+    const double *H, *sin_kH, *cos_kH, *cm1, *smarg;
+    const double *glt, *glw, *gl_step;
+    const char *gl_near2;
+    double w_hi, w_lo, k, pref_z_im, pref_rho_const_im;
+    const std::complex<double> *w;
+};
+static void sg_real_rows_staged(const SgRealRows &P, size_t m, size_t e0,
+                                size_t e1, std::complex<double> *bc,
+                                std::complex<double> *bs,
+                                std::complex<double> *bco,
+                                struct SgRealScratch &scratch);
+// (staged, reference) bodies served by the reduced real fill, for the test
+// that production takes the staged one: their bytes are equal, so the output
+// cannot tell them apart.
+static std::atomic<unsigned long long> g_sg_real_staged_calls{0};
+static std::atomic<unsigned long long> g_sg_real_reference_calls{0};
+
 // One implementation, two instantiations. `WITH_EK` is a compile-time
 // constant, so the reduced entry point below compiles with every line of the
 // delta gone — which is what keeps `sinusoidal_galerkin_far_fill` byte-frozen
@@ -1281,7 +1316,8 @@ galerkin_far_fill_impl(
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> starts,
     uintptr_t cancel_flag,
     const GalerkinEkBlock *ekb,
-    const GalerkinFoldBlock *fold
+    const GalerkinFoldBlock *fold,
+    bool staged
 ) {
     auto oc = obs_centers.unchecked<2>();
     auto ot = obs_tangents.unchecked<2>();
@@ -1375,6 +1411,46 @@ galerkin_far_fill_impl(
     const double pref_z_im = eta / four_pi_k;
     const double pref_rho_const_im = -eta / four_pi_k;
 
+    // The staged body's inputs (`sg_real_rows_staged`): the per-source
+    // tables above and the observers/sources as SoA rows. The EK
+    // instantiation never stages — its delta sits inside the per-pair loop.
+    const bool run_staged = staged && !WITH_EK;
+    std::vector<double> soa;
+    SgRealRows rows{};
+    // One scratch block per OpenMP thread for the staged rows, freed with
+    // the call.
+    int sgr_nt = 1;
+#ifdef _OPENMP
+    sgr_nt = omp_get_max_threads();
+#endif
+    std::vector<SgRealScratch> sgr_scratch(run_staged ? sgr_nt : 0);
+    if (run_staged) {
+        soa.resize(6 * N);
+        double *p = soa.data();
+        double *sx = p, *sy = p + N, *sz = p + 2 * N;
+        double *tx = p + 3 * N, *ty = p + 4 * N, *tz = p + 5 * N;
+        for (size_t n = 0; n < N; n++) {
+            sx[n] = sc(n, 0); sy[n] = sc(n, 1); sz[n] = sc(n, 2);
+            tx[n] = st(n, 0); ty[n] = st(n, 1); tz[n] = st(n, 2);
+        }
+        rows.N = N; rows.nq = nq; rows.n_qp = n_qp;
+        rows.oc = obs_centers.data(); rows.ot = obs_tangents.data();
+        rows.ar = obs_radius.data();
+        rows.sx = sx; rows.sy = sy; rows.sz = sz;
+        rows.tx = tx; rows.ty = ty; rows.tz = tz;
+        rows.H = H_n.data(); rows.sin_kH = sin_kH.data();
+        rows.cos_kH = cos_kH.data(); rows.cm1 = cos_kH_m1.data();
+        rows.smarg = smarg_kH.data();
+        rows.glt = glt_v.data(); rows.glw = glw_v.data();
+        rows.gl_step = gl_step.data(); rows.gl_near2 = gl_near2.data();
+        rows.w_hi = w_hi; rows.w_lo = w_lo; rows.k = k;
+        rows.pref_z_im = pref_z_im; rows.pref_rho_const_im = pref_rho_const_im;
+        rows.w = w_p;
+        g_sg_real_staged_calls++;
+    } else if (!WITH_EK) {
+        g_sg_real_reference_calls++;
+    }
+
     // Phase table per source segment. The folded third shape (#205) needs
     // HALF angles the const and sin shapes do not: cos kr − 1 has to be
     // −2sin²(kr/2) rather than a subtraction, and each node's e^{−jkδ_q} − 1
@@ -1442,6 +1518,17 @@ galerkin_far_fill_impl(
             std::fill(bco, bco + nrows * N, std::complex<double>(0.0, 0.0));
         }
 
+        if (run_staged) {
+            int tid = 0;
+#ifdef _OPENMP
+            tid = omp_get_thread_num();
+#endif
+            sg_real_rows_staged(rows, m, e0, e1, bc, bs, bco, sgr_scratch[tid]);
+        } else {
+        // The REFERENCE body (`reference=True`, and every EK fill): the
+        // per-pair scalar assembly the staged rows reproduce to the bit. Left
+        // at its original indentation so its lines stay the ones the history
+        // describes.
         std::vector<double> ph(P), cphb(P), sphb(P);
         std::vector<double> rho_eval_a(N), dz1_a(N), dz2_a(N),
                             r0_1_a(N), r0_2_a(N), td_a(N), rpf_a(N), z_a(N);
@@ -1893,6 +1980,7 @@ galerkin_far_fill_impl(
                 }
             }
         }
+        }  // reference body
 
         // ---- The fold: dst[e0:e1] += scale * band, scale on the LEFT -----
         // Once per test segment, off the finished sums (momwire#356). Rows
@@ -2053,6 +2141,13 @@ static inline std::complex<double> cexp_i(std::complex<double> z) {
 //       by which arms of sin_minus_arg the row's lanes take;
 //   R   the reference body's test reduction, unchanged.
 //
+// Since perf item 9 the observer's sources go by tiles of `SGC_TILE_SRC`, A
+// to C per tile (`sg_cplx_tile`), tile outermost and observers inside it,
+// with R reducing each tile's rows into the band as they are made: whole-row
+// stages held ~2.5 MB of rows and tables per thread at N = 2564, and four
+// threads ran 2.4x one there where they ran 4.4x at N = 1284. Every band
+// entry still takes its nq terms qt ascending from +0.0.
+//
 // Measured on the 82 calls of buried hub16 x16, replayed (same machine,
 // paired): Haswell 14.55 s -> 10.1-10.7 s, Skylake 9.3 s -> 7.5-7.7 s. After
 // it the sweep is the largest stage (~30 %), then the reduction, the node
@@ -2207,6 +2302,9 @@ enum SgcRow {
 
 // Sources per tile of stage C's node sums (see there).
 static constexpr size_t SGC_TILE = 256;
+// Sources per tile of the whole staged pipeline; a multiple of SG_CPLX_LANES.
+static constexpr size_t SGC_TILE_SRC = 128;
+static_assert(SGC_TILE_SRC % SG_CPLX_LANES == 0, "tile must hold whole sweep vectors");
 
 struct SgcScratch {
     size_t Nv;
@@ -2344,38 +2442,36 @@ static void sg_cplx_assemble(const SgCplxRows &P, const SgcScratch &S) {
     }
 }
 
-static void sg_cplx_rows_staged(const SgCplxRows &P, size_t m,
-                                size_t e0, size_t e1,
-                                std::complex<double> *bc,
-                                std::complex<double> *bs,
-                                std::complex<double> *bco) {
-    const size_t N = P.N, nq = P.nq, n_qp = P.n_qp;
-    // Table kinds. NOT the reference's order: H + P and H - P go LAST,
-    // because their four values serve only sin_minus_arg's sin(kd) - u arm,
-    // and a row whose lanes all take the series need not sweep them.
+// One thread's working memory for the staged rows, zeroed once and grown
+// once per call (perf item 9): a fresh zeroed allocation per test segment
+// cost a page walk and a memset per segment. Only stage A writes the table's
+// distances and only at real sources, so the padding entries the sweep reads
+// beyond them keep the zeros they were allocated with.
+struct SgCplxScratch {
+    std::vector<double> tab, rows;
+};
+
+// One observer against one tile of sources (perf item 9): stages A to C of
+// `sg_cplx_rows_staged` on `P` shifted to the tile (P.N = the tile's source
+// count, every per-source pointer advanced to its first source), with
+// per-kind rows `Nv` long, the assembled SGC_PC* rows among them.
+static void sg_cplx_tile(const SgCplxRows &P, double cmx, double cmy,
+                         double cmz, double tmx, double tmy, double tmz,
+                         double a_sq, size_t Nv, double *tab,
+                         double *const *R, double *r0q_inv) {
+    const size_t N = P.N, n_qp = P.n_qp;
     const size_t IX_R2 = 0, IX_R1 = 1, IX_P = 2, IX_DQ = 3;
     const size_t IX_HP = IX_DQ + n_qp, IX_HM = IX_HP + 1;
     const size_t S = n_qp + 5;
-    // Padded per kind, so S * Nv is a multiple of the sweep's width and no
-    // entry takes its scalar tail (the header's contract).
-    const size_t Nv = (N + SG_CPLX_LANES - 1) / SG_CPLX_LANES * SG_CPLX_LANES;
     const size_t Pv = S * Nv;
-    std::vector<double> tab_buf(5 * Pv + 4, 0.0);
-    double *tab = tab_buf.data();
-    tab += ((32 - (reinterpret_cast<uintptr_t>(tab) & 31)) & 31) / sizeof(double);
     double *td_d = tab;
     const double *t_ea = td_d + Pv;
     const double *t_em = t_ea + Pv;
     const double *t_s = t_em + Pv;
     const double *t_h = t_s + Pv;
 
-    // Per-source scratch, one Nv-long row each.
-    std::vector<double> rows_buf((size_t)SGC_N_ROWS * Nv + n_qp * Nv, 0.0);
-    double *R[SGC_N_ROWS];
-    for (int r = 0; r < SGC_N_ROWS; r++) R[r] = rows_buf.data() + (size_t)r * Nv;
-    double *r0q_inv = rows_buf.data() + (size_t)SGC_N_ROWS * Nv;  // [q * Nv + n]
-
     SGC_UNPACK_ROWS(R);
+    (void)pcr; (void)pci; (void)psr; (void)psi; (void)pcor; (void)pcoi;
 
     const double *sx = P.sx, *sy = P.sy, *sz = P.sz;
     const double *tx = P.tx, *ty = P.ty, *tz = P.tz, *Hn = P.H;
@@ -2383,214 +2479,749 @@ static void sg_cplx_rows_staged(const SgCplxRows &P, size_t m,
     const SgCx k = sgcx_of(P.k);
     const double w_hi = P.w_hi, w_lo = P.w_lo;
 
+    // ---- A: geometry and the endpoint entries ----------------------
+    MW_OMP_SIMD()
+    for (size_t n = 0; n < N; n++) {
+        double rvx = cmx - sx[n], rvy = cmy - sy[n], rvz = cmz - sz[n];
+        double tnx = tx[n], tny = ty[n], tnz = tz[n];
+        double z_eval = rvx * tnx + rvy * tny + rvz * tnz;
+        double rho_vx = rvx - z_eval * tnx;
+        double rho_vy = rvy - z_eval * tny;
+        double rho_vz = rvz - z_eval * tnz;
+        double rho_axis =
+            std::sqrt(rho_vx*rho_vx + rho_vy*rho_vy + rho_vz*rho_vz);
+        double rho_eval = std::sqrt(rho_axis*rho_axis + a_sq);
+        double td = tmx*tnx + tmy*tny + tmz*tnz;
+        double rho_proj_factor = (rho_vx*tmx + rho_vy*tmy + rho_vz*tmz)
+                                 / rho_eval;
+        double H = Hn[n];
+        double dz2 = z_eval - H;
+        double dz1 = z_eval + H;
+        double rho2 = rho_eval * rho_eval;
+        double r0_2 = std::sqrt(rho2 + dz2*dz2);
+        double r0_1 = std::sqrt(rho2 + dz1*dz1);
+        rho_a[n] = rho_eval; z_a[n] = z_eval;
+        dz1_a[n] = dz1; dz2_a[n] = dz2;
+        r01_a[n] = r0_1; r02_a[n] = r0_2;
+        ir01_a[n] = 1.0 / r0_1; ir02_a[n] = 1.0 / r0_2;
+        td_a[n] = td; rpf_a[n] = rho_proj_factor; rho2_a[n] = rho2;
+        double Pd = 2.0 * H * z_eval / (r0_1 + r0_2);
+        td_d[IX_R2 * Nv + n] = r0_2;
+        td_d[IX_R1 * Nv + n] = r0_1;
+        td_d[IX_P * Nv + n] = Pd;
+        td_d[IX_HP * Nv + n] = H + Pd;
+        td_d[IX_HM * Nv + n] = H - Pd;
+    }
+    // ---- A: the source nodes, q outermost --------------------------
+    for (size_t q = 0; q < n_qp; q++) {
+        const double gt = P.glt[q], gs = P.gl_step[q];
+        const bool hi = P.gl_near2[q] != 0;
+        const double *dzr = hi ? dz2_a : dz1_a;
+        const double *rr = hi ? r02_a : r01_a;
+        double *inv_q = r0q_inv + q * Nv;
+        double *dq = td_d + (IX_DQ + q) * Nv;
+        MW_OMP_SIMD()
+        for (size_t n = 0; n < N; n++) {
+            double H = Hn[n];
+            double z_q = H * gt;
+            double dz_q = z_a[n] - z_q;
+            double r0_q = std::sqrt(rho2_a[n] + dz_q*dz_q);
+            inv_q[n] = 1.0 / r0_q;
+            dq[n] = H * gs * (dz_q + dzr[n]) / (r0_q + rr[n]);
+        }
+    }
+    // ---- A': the geometry transcendentals ---------------------------
+    // log1p (`stable_asinh_diff`) and asinh(X) stay scalar libm calls;
+    // the arithmetic around them is `stable_asinh_diff`'s and the
+    // reference's, as vector loops with both arms of each `?:` formed
+    // and one picked. Of `asinh_minus_arg_from_t` only the series runs:
+    // it is called where |X| < 1, so |t| = |asinh X| < asinh 1 < 1.
+    MW_SGC_IVDEP
+    for (size_t n = 0; n < N; n++) {
+        double dz1 = dz1_a[n], dz2 = dz2_a[n];
+        double r0_1 = r01_a[n], r0_2 = r02_a[n];
+        double rho2 = rho2_a[n], H = Hn[n];
+        // stable_asinh_diff(u0 = -dz1, u1 = -dz2, rho2, r0 = r0_1,
+        // r1 = r0_2), up to its log1p.
+        double u0 = -dz1, u1 = -dz2;
+        double p0 = sgcx_pick(u0 >= 0.0, u0 + r0_1,
+                              rho2 / (r0_1 + std::fabs(u0)));
+        double p1 = sgcx_pick(u1 >= 0.0, u1 + r0_2,
+                              rho2 / (r0_2 + std::fabs(u1)));
+        double du = u1 - u0;
+        double num = du * (p1 + p0);
+        l1p_a[n] = num / ((r0_2 + r0_1) * p0);
+        x_a[n] = sgcx_pick(dz1 * dz2 >= 0.0,
+                           2.0 * H * (dz1 + dz2) / (dz1 * r0_2 + dz2 * r0_1),
+                           (dz1 * r0_2 - dz2 * r0_1) / rho2);
+    }
+    for (size_t n = 0; n < N; n++) {
+        iir0_a[n] = std::log1p(l1p_a[n]);
+        tasx_a[n] = std::asinh(x_a[n]);
+    }
+    MW_SGC_IVDEP
+    for (size_t n = 0; n < N; n++) {
+        double r0_1 = r01_a[n], r0_2 = r02_a[n];
+        double rho2 = rho2_a[n], H = Hn[n];
+        double X = x_a[n], t = tasx_a[n];
+        double t2 = t * t;
+        double ser = -(t * t2) / 6.0 *
+                     (1.0 + t2 / 20.0 *
+                                (1.0 + t2 / 42.0 *
+                                           (1.0 + t2 / 72.0 *
+                                                      (1.0 + t2 / 110.0 *
+                                                                 (1.0 + t2 / 156.0)))));
+        double near = ser + H * rho2 * X * X / ((r0_1 + r0_2) * r0_1 * r0_2);
+        double far = t - H * (ir01_a[n] + ir02_a[n]);
+        ts_a[n] = sgcx_pick(std::fabs(X) < 1.0, near, far);
+    }
+
+    // sin_minus_arg's two arms by u = k(H +- P), decided per lane by
+    // the reference's own test. Counted before the sweep so a row whose
+    // lanes all take the series skips the H +- P entries, and the
+    // assembly runs without the arm no lane takes (exact either way:
+    // every lane still computes the arm it keeps, from the same
+    // entries, and an entry's value is its distance's alone).
+    size_t n_near = 0;
+    for (size_t n = 0; n < N; n++) {
+        SgCx uA = sgcx_scale(k, td_d[IX_HP * Nv + n]);
+        SgCx uB = sgcx_scale(k, td_d[IX_HM * Nv + n]);
+        n_near += (size_t)(uA.r * uA.r + uA.i * uA.i < 0.01);
+        n_near += (size_t)(uB.r * uB.r + uB.i * uB.i < 0.01);
+    }
+    const bool all_near = n_near == 2 * N;
+    // ---- B: the sweep ----------------------------------------------
+    sg_cplx_phase_sweep(td_d, all_near ? IX_HP * Nv : Pv, k_re, k_im,
+                        const_cast<double *>(t_ea),
+                        const_cast<double *>(t_em),
+                        const_cast<double *>(t_s),
+                        const_cast<double *>(t_h));
+
+    // ---- C: endpoint values and the node sums, by source tile -------
+    // Tiled so the node sums' accumulators and table rows stay in L1/L2
+    // across the q passes (one pass over all N sources streams ~14 rows
+    // of N doubles per q). Each source's sums still run q ascending, so
+    // the tiling moves no bit.
+    for (size_t nb = 0; nb < N; nb += SGC_TILE) {
+        const size_t ne = std::min(N, nb + SGC_TILE);
+        // Endpoint values.
+        MW_SGC_IVDEP
+        for (size_t n = nb; n < ne; n++) {
+            const size_t i2 = IX_R2 * Nv + n, i1 = IX_R1 * Nv + n;
+            double hh2 = t_h[i2], hh1 = t_h[i1];
+            double c2 = 1.0 - 2.0 * hh2 * hh2, c1 = 1.0 - 2.0 * hh1 * hh1;
+            double h22 = 2.0 * hh2 * hh2, h21 = 2.0 * hh1 * hh1;
+            SgCx ef2{t_ea[i2] * c2, -(t_ea[i2] * t_s[i2])};
+            SgCx ef1{t_ea[i1] * c1, -(t_ea[i1] * t_s[i1])};
+            SgCx mf2{t_em[i2] * (1.0 - h22) - h22, -(t_ea[i2] * t_s[i2])};
+            SgCx mf1{t_em[i1] * (1.0 - h21) - h21, -(t_ea[i1] * t_s[i1])};
+            double inv_r0_2 = ir02_a[n], inv_r0_1 = ir01_a[n];
+            SgCx g2 = sgcx_scale(mf2, inv_r0_2);
+            SgCx g1 = sgcx_scale(mf1, inv_r0_1);
+            ef2r[n] = ef2.r; ef2i[n] = ef2.i; ef1r[n] = ef1.r; ef1i[n] = ef1.i;
+            mf2r[n] = mf2.r; mf2i[n] = mf2.i; mf1r[n] = mf1.r; mf1i[n] = mf1.i;
+            g2r[n] = g2.r; g2i[n] = g2.i; g1r[n] = g1.r; g1i[n] = g1.i;
+            // int_reg starts at C(0, 0); m_reg at w_hi*g2 + w_lo*g1.
+            irr[n] = 0.0; iri[n] = 0.0;
+            SgCx m0 = sgcx_add(sgcx_scale(g2, w_hi), sgcx_scale(g1, w_lo));
+            mrr[n] = m0.r; mri[n] = m0.i;
+        }
+        // The node sums, q outermost, q ascending per source.
+        for (size_t q = 0; q < n_qp; q++) {
+            const bool hi = P.gl_near2[q] != 0;
+            const double gw = P.glw[q];
+            const double *er = hi ? ef2r : ef1r, *ei = hi ? ef2i : ef1i;
+            const double *mr_ = hi ? mf2r : mf1r, *mi_ = hi ? mf2i : mf1i;
+            const double *gr_ = hi ? g2r : g1r, *gi_ = hi ? g2i : g1i;
+            const double *inv_q = r0q_inv + q * Nv;
+            const size_t off = (IX_DQ + q) * Nv;
+            MW_SGC_IVDEP
+            for (size_t n = nb; n < ne; n++) {
+                const size_t i = off + n;
+                double hh = t_h[i];
+                double h2 = 2.0 * hh * hh;
+                SgCx em1{t_em[i] * (1.0 - h2) - h2, -(t_ea[i] * t_s[i])};
+                SgCx e_em1 = sgcx_mul(SgCx{er[n], ei[n]}, em1);
+                SgCx em1_q = sgcx_add(e_em1, SgCx{mr_[n], mi_[n]});
+                double inv_r0_q = inv_q[n];
+                SgCx t_int = sgcx_scale(sgcx_scale(em1_q, inv_r0_q), gw);
+                irr[n] = irr[n] + t_int.r;
+                iri[n] = iri[n] + t_int.i;
+                double w = gw * inv_r0_q;
+                SgCx t_m = sgcx_scale(
+                    sgcx_sub(e_em1, sgcx_scale(SgCx{gr_[n], gi_[n]}, td_d[i])),
+                    w);
+                mrr[n] = mrr[n] + t_m.r;
+                mri[n] = mri[n] + t_m.i;
+            }
+        }
+    }
+    // ---- C: the rest of the assembly --------------------------------
+    const SgcScratch sc{Nv, td_d, t_ea, t_em, t_s, t_h, R};
+    if (all_near) {
+        sg_cplx_assemble<true, false>(P, sc);
+    } else if (n_near == 0) {
+        sg_cplx_assemble<false, true>(P, sc);
+    } else {
+        sg_cplx_assemble<true, true>(P, sc);
+    }
+}
+
+static void sg_cplx_rows_staged(const SgCplxRows &P, size_t m,
+                                size_t e0, size_t e1,
+                                std::complex<double> *bc,
+                                std::complex<double> *bs,
+                                std::complex<double> *bco,
+                                SgCplxScratch &scratch) {
+    const size_t N = P.N, nq = P.nq, n_qp = P.n_qp;
+    const size_t S = n_qp + 5;
+    // Per observer, the sources go by tiles of `SGC_TILE_SRC` (perf item
+    // 9): whole-row stages held ~2.5 MB of rows and tables per thread at
+    // N = 2564, four threads outgrew the L3, and four threads ran 2.4x one
+    // where at N = 1284 they ran 4.4x. A tile is a multiple of the sweep's
+    // width, so the padded-table contract holds per tile: every entry takes
+    // the vector body, and its value is its distance's alone.
+    const size_t Nv = SGC_TILE_SRC;
+    const size_t Pv = S * Nv;
+    if (scratch.tab.size() < 5 * Pv + 4) scratch.tab.resize(5 * Pv + 4, 0.0);
+    double *tab = scratch.tab.data();
+    tab += ((32 - (reinterpret_cast<uintptr_t>(tab) & 31)) & 31) / sizeof(double);
+
+    // Per-source scratch, one tile-long row each (the assembled SGC_PC*
+    // rows included).
+    const size_t n_rows = (size_t)SGC_N_ROWS * Nv + n_qp * Nv;
+    if (scratch.rows.size() < n_rows) scratch.rows.resize(n_rows, 0.0);
+    double *R[SGC_N_ROWS];
+    for (int r = 0; r < SGC_N_ROWS; r++) R[r] = scratch.rows.data() + (size_t)r * Nv;
+    double *r0q_inv = scratch.rows.data() + (size_t)SGC_N_ROWS * Nv;  // [q * Nv + i]
+    const double *pcr = R[SGC_PCR], *pci = R[SGC_PCI], *psr = R[SGC_PSR];
+    const double *psi = R[SGC_PSI], *pcor = R[SGC_PCOR], *pcoi = R[SGC_PCOI];
+
+    // Tile outermost, observers inside it: a band tile then stays in L1
+    // across the nq observers' terms, and each band entry still takes its
+    // terms qt ascending from +0.0, the reference's order.
+    for (size_t nb = 0; nb < N; nb += Nv) {
+        const size_t ne = std::min(N, nb + Nv), nt = ne - nb;
+        SgCplxRows Pt = P;
+        Pt.N = nt;
+        Pt.sx += nb; Pt.sy += nb; Pt.sz += nb;
+        Pt.tx += nb; Pt.ty += nb; Pt.tz += nb;
+        Pt.H += nb;
+        Pt.sin_r += nb; Pt.sin_i += nb; Pt.cos_r += nb; Pt.cos_i += nb;
+        Pt.cm1_r += nb; Pt.cm1_i += nb; Pt.smk_r += nb; Pt.smk_i += nb;
+        Pt.ikh_r += nb; Pt.ikh_i += nb;
+        for (size_t qt = 0; qt < nq; qt++) {
+            const size_t o = m * nq + qt;
+            const double cmx = P.oc[3 * o], cmy = P.oc[3 * o + 1], cmz = P.oc[3 * o + 2];
+            const double tmx = P.ot[3 * o], tmy = P.ot[3 * o + 1], tmz = P.ot[3 * o + 2];
+            const double a_sq = P.ar[o] * P.ar[o];
+            sg_cplx_tile(Pt, cmx, cmy, cmz, tmx, tmy, tmz, a_sq, Nv, tab, R,
+                         r0q_inv);
+
+            // ---- R: the reference body's test reduction, this tile -------
+            for (size_t e = e0; e < e1; e++) {
+                double wr = P.w[e * nq + qt].real();
+                double wi = P.w[e * nq + qt].imag();
+                double *rc  = reinterpret_cast<double *>(bc  + (e - e0) * N + nb);
+                double *rs  = reinterpret_cast<double *>(bs  + (e - e0) * N + nb);
+                double *rco = reinterpret_cast<double *>(bco + (e - e0) * N + nb);
+                MW_OMP_SIMD()
+                for (size_t n = 0; n < nt; n++) {
+                    rc[2*n]     += wr * pcr[n]  - wi * pci[n];
+                    rc[2*n + 1] += wr * pci[n]  + wi * pcr[n];
+                    rs[2*n]     += wr * psr[n]  - wi * psi[n];
+                    rs[2*n + 1] += wr * psi[n]  + wi * psr[n];
+                    rco[2*n]    += wr * pcor[n] - wi * pcoi[n];
+                    rco[2*n + 1]+= wr * pcoi[n] + wi * pcor[n];
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The REAL fill's rows, staged (perf item 9, momwire#1290).
+//
+// The reduced real fill was the largest kernel of every grounded SG deck above
+// the plane (13.4 s of above x16's 28 s on Haswell) and the whole far fill in
+// free space. Its reference body walks each observer's sources once, through a
+// per-pair loop the vectoriser cannot take: sqrt and divide in the geometry,
+// two branchy series and three libm calls (log1p, asinh, sin) in the assembly.
+// This is `sg_cplx_rows_staged`'s schedule at a real k, run per observer over
+// tiles of `SGR_TILE` sources so a tile's rows stay in L2 (whole-row stages
+// measured no faster than the reference at N = 2816, where the rows of four
+// threads outgrow the L3):
+//
+//   A   omp-simd over the tile: the geometry and, q outermost, each source
+//       node's 1/r and offset, into per-kind rows;
+//   B   the reference's own sweep over the tile's slice of its (source, kind)
+//       table, rows interleaved back first. libmvec takes the vector lanes and
+//       scalar libm the loop's tail (`_SIMD_TAIL_PERIOD` on the Python side),
+//       so an entry's bits depend on where it falls in that table: a tile
+//       starts at a multiple of 4 entries, so only the last tile has a tail,
+//       and it is the reference's, the table's last N*S mod 4 entries;
+//   A'  log1p, asinh and sin_minus_arg's sin as scalar libm calls in loops of
+//       their own (`sgr_sin` keeps the sin out of any simd clone), the
+//       arithmetic around them as vector loops with both arms of each `?:`
+//       formed and one picked by bits;
+//   C   auto-vectorised loops over the tile: endpoint values, the two node
+//       sums (q outermost, each source summing q ascending), then the rest of
+//       the assembly into the observer's projected-field rows;
+//   R   the test reduction for all nq observers at once, by source tile, each
+//       band entry still accumulating qt ascending from +0.0.
+//
+// Every value is the reference's expression, operation for operation and in
+// its association: the build has -ffp-contract=off, a lane performs the
+// scalar unit's IEEE operation, nothing is reassociated and no reduction
+// crosses lanes. So the bytes equal `reference=True`'s
+// (tests/test_sg_real_far_fill_staged_1290.py), on every toolchain against its
+// own reference.
+
+// sin(x) as a call no vectoriser can replace with a simd clone: the TU
+// declares sin `omp declare simd` (`_accel_common.h`), and the reference's
+// sin_minus_arg reaches the scalar libm sin.
+#if defined(_MSC_VER)
+__declspec(noinline)
+#else
+__attribute__((noinline))
+#endif
+static double sgr_sin(double x) { return std::sin(x); }
+
+// sin_minus_arg(u) from sin(u) when |u| >= 0.1: both arms formed, one picked.
+static inline double sgr_smarg(double u, double s) {
+    double u2 = u * u;
+    double ser = -(u * u2) / 6.0 *
+                 (1.0 - u2 / 20.0 *
+                            (1.0 - u2 / 42.0 *
+                                       (1.0 - u2 / 72.0 * (1.0 - u2 / 110.0))));
+    return sgcx_pick(std::fabs(u) < 0.1, ser, s - u);
+}
+
+// Sources per tile of the staged rows; a multiple of 4.
+static constexpr size_t SGR_TILE = 128;
+
+enum SgrRow {
+    SGR_RHO, SGR_Z, SGR_DZ1, SGR_DZ2, SGR_R01, SGR_R02, SGR_TD, SGR_RPF,
+    SGR_L1P, SGR_X, SGR_IIR0, SGR_TASX, SGR_TSING, SGR_A, SGR_B, SGR_SA,
+    SGR_SB, SGR_CP2, SGR_SP2, SGR_CP1, SGR_SP1, SGR_IR02, SGR_IR01,
+    SGR_G2R, SGR_G2I, SGR_G1R, SGR_G1I, SGR_IRR, SGR_IRI, SGR_MRR, SGR_MRI,
+    SGR_N_ROWS
+};
+
+static void sg_real_rows_staged(const SgRealRows &P, size_t m, size_t e0,
+                                size_t e1, std::complex<double> *bc,
+                                std::complex<double> *bs,
+                                std::complex<double> *bco,
+                                SgRealScratch &scratch) {
+    const size_t N = P.N, nq = P.nq, n_qp = P.n_qp;
+    // The reference's table: per source, S entries in this order.
+    const size_t IX_H2 = 0, IX_H1 = 1, IX_PHI = 2, IX_DQ = 3;
+    const size_t S = n_qp + 3;
+    const double k = P.k;
+    const double pref_z_im = P.pref_z_im;
+    const double pref_rho_const_im = P.pref_rho_const_im;
+    const double w_hi = P.w_hi, w_lo = P.w_lo;
+    const double *Hn = P.H;
+
+    // Sources per tile: a multiple of the sweep's vector width (4), so every
+    // tile but the last sweeps a whole number of vectors and the last one
+    // ends on the table's own tail (see B below).
+    const size_t T = SGR_TILE;
+    // Every buffer below is fully written before it is read, so one block
+    // per thread serves every segment the thread takes: grown once per call,
+    // never re-zeroed.
+    const size_t TS = T * S;
+    const size_t n_rows = (size_t)SGR_N_ROWS * T + 2 * n_qp * T;
+    const size_t need = n_rows + 3 * TS + 6 * nq * N;
+    if (scratch.rows.size() < need) scratch.rows.resize(need);
+    if (scratch.ph.size() < TS) {
+        scratch.ph.resize(TS);
+        scratch.cphb.resize(TS);
+        scratch.sphb.resize(TS);
+    }
+    double *base = scratch.rows.data();
+    double *R[SGR_N_ROWS];
+    for (int r = 0; r < SGR_N_ROWS; r++) R[r] = base + (size_t)r * T;
+    double *r0q_inv = base + (size_t)SGR_N_ROWS * T;  // [q*T + i]
+    double *delta_q = r0q_inv + n_qp * T;              // [q*T + i]
+    double *rho_a = R[SGR_RHO], *z_a = R[SGR_Z];
+    double *dz1_a = R[SGR_DZ1], *dz2_a = R[SGR_DZ2];
+    double *r01_a = R[SGR_R01], *r02_a = R[SGR_R02];
+    double *td_a = R[SGR_TD], *rpf_a = R[SGR_RPF];
+    double *l1p_a = R[SGR_L1P], *x_a = R[SGR_X];
+    double *iir0_a = R[SGR_IIR0], *tasx_a = R[SGR_TASX], *ts_a = R[SGR_TSING];
+    double *A_a = R[SGR_A], *B_a = R[SGR_B], *sA_a = R[SGR_SA], *sB_a = R[SGR_SB];
+    double *cp2_a = R[SGR_CP2], *sp2_a = R[SGR_SP2];
+    double *cp1_a = R[SGR_CP1], *sp1_a = R[SGR_SP1];
+    double *ir02_a = R[SGR_IR02], *ir01_a = R[SGR_IR01];
+    double *g2r = R[SGR_G2R], *g2i = R[SGR_G2I];
+    double *g1r = R[SGR_G1R], *g1i = R[SGR_G1I];
+    double *irr = R[SGR_IRR], *iri = R[SGR_IRI];
+    double *mrr = R[SGR_MRR], *mri = R[SGR_MRI];
+
+    // The sweep's buffers (stage B), one tile of the reference's (source,
+    // kind) table, and the same entries by kind, [j*T + i].
+    double *ph = scratch.ph.data();
+    double *cphb = scratch.cphb.data(), *sphb = scratch.sphb.data();
+    double *phk = base + n_rows;
+    double *cpk = phk + TS, *spk = cpk + TS;
+    // The projected field of the three shapes at every observer of this
+    // segment, [(qt*6 + c)*N + n], c = c_re c_im s_re s_im co_re co_im.
+    double *phi_all = spk + TS;
+
+    const double *sx = P.sx, *sy = P.sy, *sz = P.sz;
+    const double *tx = P.tx, *ty = P.ty, *tz = P.tz;
+
     for (size_t qt = 0; qt < nq; qt++) {
         const size_t o = m * nq + qt;
         const double cmx = P.oc[3 * o], cmy = P.oc[3 * o + 1], cmz = P.oc[3 * o + 2];
         const double tmx = P.ot[3 * o], tmy = P.ot[3 * o + 1], tmz = P.ot[3 * o + 2];
         const double a_sq = P.ar[o] * P.ar[o];
 
-        // ---- A: geometry and the endpoint entries ----------------------
-        MW_OMP_SIMD()
-        for (size_t n = 0; n < N; n++) {
-            double rvx = cmx - sx[n], rvy = cmy - sy[n], rvz = cmz - sz[n];
-            double tnx = tx[n], tny = ty[n], tnz = tz[n];
-            double z_eval = rvx * tnx + rvy * tny + rvz * tnz;
-            double rho_vx = rvx - z_eval * tnx;
-            double rho_vy = rvy - z_eval * tny;
-            double rho_vz = rvz - z_eval * tnz;
-            double rho_axis =
-                std::sqrt(rho_vx*rho_vx + rho_vy*rho_vy + rho_vz*rho_vz);
-            double rho_eval = std::sqrt(rho_axis*rho_axis + a_sq);
-            double td = tmx*tnx + tmy*tny + tmz*tnz;
-            double rho_proj_factor = (rho_vx*tmx + rho_vy*tmy + rho_vz*tmz)
-                                     / rho_eval;
-            double H = Hn[n];
-            double dz2 = z_eval - H;
-            double dz1 = z_eval + H;
-            double rho2 = rho_eval * rho_eval;
-            double r0_2 = std::sqrt(rho2 + dz2*dz2);
-            double r0_1 = std::sqrt(rho2 + dz1*dz1);
-            rho_a[n] = rho_eval; z_a[n] = z_eval;
-            dz1_a[n] = dz1; dz2_a[n] = dz2;
-            r01_a[n] = r0_1; r02_a[n] = r0_2;
-            ir01_a[n] = 1.0 / r0_1; ir02_a[n] = 1.0 / r0_2;
-            td_a[n] = td; rpf_a[n] = rho_proj_factor; rho2_a[n] = rho2;
-            double Pd = 2.0 * H * z_eval / (r0_1 + r0_2);
-            td_d[IX_R2 * Nv + n] = r0_2;
-            td_d[IX_R1 * Nv + n] = r0_1;
-            td_d[IX_P * Nv + n] = Pd;
-            td_d[IX_HP * Nv + n] = H + Pd;
-            td_d[IX_HM * Nv + n] = H - Pd;
-        }
-        // ---- A: the source nodes, q outermost --------------------------
-        for (size_t q = 0; q < n_qp; q++) {
-            const double gt = P.glt[q], gs = P.gl_step[q];
-            const bool hi = P.gl_near2[q] != 0;
-            const double *dzr = hi ? dz2_a : dz1_a;
-            const double *rr = hi ? r02_a : r01_a;
-            double *inv_q = r0q_inv + q * Nv;
-            double *dq = td_d + (IX_DQ + q) * Nv;
+        for (size_t nb = 0; nb < N; nb += T) {
+            const size_t ne = std::min(N, nb + T);
+            const size_t nt = ne - nb;
+            // ---- A: geometry and the endpoint phases ----------------------
             MW_OMP_SIMD()
-            for (size_t n = 0; n < N; n++) {
+            for (size_t n = nb; n < ne; n++) {
+                double cnx = sx[n], cny = sy[n], cnz = sz[n];
+                double tnx = tx[n], tny = ty[n], tnz = tz[n];
+                double rvx = cmx - cnx, rvy = cmy - cny, rvz = cmz - cnz;
+                double z_eval = rvx * tnx + rvy * tny + rvz * tnz;
+                double rho_vx = rvx - z_eval * tnx;
+                double rho_vy = rvy - z_eval * tny;
+                double rho_vz = rvz - z_eval * tnz;
+                double rho_axis =
+                    std::sqrt(rho_vx*rho_vx + rho_vy*rho_vy + rho_vz*rho_vz);
+                double rho_eval = std::sqrt(rho_axis*rho_axis + a_sq);
+                double td = tmx*tnx + tmy*tny + tmz*tnz;
+                double rho_dot_tobs = rho_vx*tmx + rho_vy*tmy + rho_vz*tmz;
                 double H = Hn[n];
-                double z_q = H * gt;
-                double dz_q = z_a[n] - z_q;
-                double r0_q = std::sqrt(rho2_a[n] + dz_q*dz_q);
-                inv_q[n] = 1.0 / r0_q;
-                dq[n] = H * gs * (dz_q + dzr[n]) / (r0_q + rr[n]);
+                double dz2 = z_eval - H;
+                double dz1 = z_eval + H;
+                double r0_2 = std::sqrt(rho_eval*rho_eval + dz2*dz2);
+                double r0_1 = std::sqrt(rho_eval*rho_eval + dz1*dz1);
+                rho_a[n - nb] = rho_eval;
+                z_a[n - nb] = z_eval;
+                dz1_a[n - nb] = dz1; dz2_a[n - nb] = dz2;
+                r01_a[n - nb] = r0_1; r02_a[n - nb] = r0_2;
+                td_a[n - nb] = td; rpf_a[n - nb] = rho_dot_tobs / rho_eval;
+                phk[IX_H2 * T + (n - nb)] = -0.5 * k * r0_2;
+                phk[IX_H1 * T + (n - nb)] = -0.5 * k * r0_1;
+                phk[IX_PHI * T + (n - nb)] = 2.0 * k * H * z_eval / (r0_1 + r0_2);
             }
-        }
-        // ---- A': the geometry transcendentals ---------------------------
-        // log1p (`stable_asinh_diff`) and asinh(X) stay scalar libm calls;
-        // the arithmetic around them is `stable_asinh_diff`'s and the
-        // reference's, as vector loops with both arms of each `?:` formed
-        // and one picked. Of `asinh_minus_arg_from_t` only the series runs:
-        // it is called where |X| < 1, so |t| = |asinh X| < asinh 1 < 1.
-        MW_SGC_IVDEP
-        for (size_t n = 0; n < N; n++) {
-            double dz1 = dz1_a[n], dz2 = dz2_a[n];
-            double r0_1 = r01_a[n], r0_2 = r02_a[n];
-            double rho2 = rho2_a[n], H = Hn[n];
-            // stable_asinh_diff(u0 = -dz1, u1 = -dz2, rho2, r0 = r0_1,
-            // r1 = r0_2), up to its log1p.
-            double u0 = -dz1, u1 = -dz2;
-            double p0 = sgcx_pick(u0 >= 0.0, u0 + r0_1,
-                                  rho2 / (r0_1 + std::fabs(u0)));
-            double p1 = sgcx_pick(u1 >= 0.0, u1 + r0_2,
-                                  rho2 / (r0_2 + std::fabs(u1)));
-            double du = u1 - u0;
-            double num = du * (p1 + p0);
-            l1p_a[n] = num / ((r0_2 + r0_1) * p0);
-            x_a[n] = sgcx_pick(dz1 * dz2 >= 0.0,
-                               2.0 * H * (dz1 + dz2) / (dz1 * r0_2 + dz2 * r0_1),
-                               (dz1 * r0_2 - dz2 * r0_1) / rho2);
-        }
-        for (size_t n = 0; n < N; n++) {
-            iir0_a[n] = std::log1p(l1p_a[n]);
-            tasx_a[n] = std::asinh(x_a[n]);
-        }
-        MW_SGC_IVDEP
-        for (size_t n = 0; n < N; n++) {
-            double r0_1 = r01_a[n], r0_2 = r02_a[n];
-            double rho2 = rho2_a[n], H = Hn[n];
-            double X = x_a[n], t = tasx_a[n];
-            double t2 = t * t;
-            double ser = -(t * t2) / 6.0 *
-                         (1.0 + t2 / 20.0 *
-                                    (1.0 + t2 / 42.0 *
-                                               (1.0 + t2 / 72.0 *
-                                                          (1.0 + t2 / 110.0 *
-                                                                     (1.0 + t2 / 156.0)))));
-            double near = ser + H * rho2 * X * X / ((r0_1 + r0_2) * r0_1 * r0_2);
-            double far = t - H * (ir01_a[n] + ir02_a[n]);
-            ts_a[n] = sgcx_pick(std::fabs(X) < 1.0, near, far);
-        }
+            // ---- A: the source nodes, q outermost --------------------------
+            for (size_t q = 0; q < n_qp; q++) {
+                const double gt = P.glt[q], gs = P.gl_step[q];
+                const bool hi = P.gl_near2[q] != 0;
+                const double *dzr = hi ? dz2_a : dz1_a;
+                const double *rr = hi ? r02_a : r01_a;
+                double *inv_q = r0q_inv + q * T;
+                double *dl_q = delta_q + q * T;
+                double *ph_q = phk + (IX_DQ + q) * T;
+                MW_OMP_SIMD()
+                for (size_t n = nb; n < ne; n++) {
+                    double H = Hn[n];
+                    double rho_eval = rho_a[n - nb];
+                    double z_q = H * gt;
+                    double dz_q = z_a[n - nb] - z_q;
+                    double r0_q = std::sqrt(rho_eval*rho_eval + dz_q*dz_q);
+                    inv_q[n - nb] = 1.0 / r0_q;
+                    double delta = H * gs * (dz_q + dzr[n - nb]) / (r0_q + rr[n - nb]);
+                    dl_q[n - nb] = delta;
+                    ph_q[n - nb] = -0.5 * k * delta;
+                }
+            }
+            // ---- B: the reference's sweep over its own table ---------------
+            // The tile is entries nb*S .. ne*S of the reference's table, in its
+            // order; nb*S is a multiple of 4, so the vector loops below take
+            // whole vectors exactly where the reference's single loop does, and
+            // only the last tile has a tail: the table's last N*S mod 4 entries.
+            const size_t ts = nt * S;
+            for (size_t j = 0; j < S; j++) {
+                const double *src = phk + j * T;
+                for (size_t i = 0; i < nt; i++) ph[i * S + j] = src[i];
+            }
+            MW_OMP_SIMD()
+            for (size_t u = 0; u < ts; u++) cphb[u] = std::cos(ph[u]);
+            MW_OMP_SIMD()
+            for (size_t u = 0; u < ts; u++) sphb[u] = std::sin(ph[u]);
+            for (size_t j = 0; j < S; j++) {
+                double *cd = cpk + j * T, *sd = spk + j * T;
+                for (size_t i = 0; i < nt; i++) {
+                    cd[i] = cphb[i * S + j];
+                    sd[i] = sphb[i * S + j];
+                }
+            }
 
-        // sin_minus_arg's two arms by u = k(H +- P), decided per lane by
-        // the reference's own test. Counted before the sweep so a row whose
-        // lanes all take the series skips the H +- P entries, and the
-        // assembly runs without the arm no lane takes (exact either way:
-        // every lane still computes the arm it keeps, from the same
-        // entries, and an entry's value is its distance's alone).
-        size_t n_near = 0;
-        for (size_t n = 0; n < N; n++) {
-            SgCx uA = sgcx_scale(k, td_d[IX_HP * Nv + n]);
-            SgCx uB = sgcx_scale(k, td_d[IX_HM * Nv + n]);
-            n_near += (size_t)(uA.r * uA.r + uA.i * uA.i < 0.01);
-            n_near += (size_t)(uB.r * uB.r + uB.i * uB.i < 0.01);
-        }
-        const bool all_near = n_near == 2 * N;
-        // ---- B: the sweep ----------------------------------------------
-        sg_cplx_phase_sweep(td_d, all_near ? IX_HP * Nv : Pv, k_re, k_im,
-                            const_cast<double *>(t_ea),
-                            const_cast<double *>(t_em),
-                            const_cast<double *>(t_s),
-                            const_cast<double *>(t_h));
-
-        // ---- C: endpoint values and the node sums, by source tile -------
-        // Tiled so the node sums' accumulators and table rows stay in L1/L2
-        // across the q passes (one pass over all N sources streams ~14 rows
-        // of N doubles per q). Each source's sums still run q ascending, so
-        // the tiling moves no bit.
-        for (size_t nb = 0; nb < N; nb += SGC_TILE) {
-            const size_t ne = std::min(N, nb + SGC_TILE);
-            // Endpoint values.
+            // ---- A': the transcendentals the assembly does not share --------
+            // `stable_asinh_diff(-dz1, -dz2, rho^2, r0_1, r0_2)` up to its log1p,
+            // X, and sin_minus_arg's angles A = kH + phi, B = kH - phi.
             MW_SGC_IVDEP
             for (size_t n = nb; n < ne; n++) {
-                const size_t i2 = IX_R2 * Nv + n, i1 = IX_R1 * Nv + n;
-                double hh2 = t_h[i2], hh1 = t_h[i1];
-                double c2 = 1.0 - 2.0 * hh2 * hh2, c1 = 1.0 - 2.0 * hh1 * hh1;
-                double h22 = 2.0 * hh2 * hh2, h21 = 2.0 * hh1 * hh1;
-                SgCx ef2{t_ea[i2] * c2, -(t_ea[i2] * t_s[i2])};
-                SgCx ef1{t_ea[i1] * c1, -(t_ea[i1] * t_s[i1])};
-                SgCx mf2{t_em[i2] * (1.0 - h22) - h22, -(t_ea[i2] * t_s[i2])};
-                SgCx mf1{t_em[i1] * (1.0 - h21) - h21, -(t_ea[i1] * t_s[i1])};
-                double inv_r0_2 = ir02_a[n], inv_r0_1 = ir01_a[n];
-                SgCx g2 = sgcx_scale(mf2, inv_r0_2);
-                SgCx g1 = sgcx_scale(mf1, inv_r0_1);
-                ef2r[n] = ef2.r; ef2i[n] = ef2.i; ef1r[n] = ef1.r; ef1i[n] = ef1.i;
-                mf2r[n] = mf2.r; mf2i[n] = mf2.i; mf1r[n] = mf1.r; mf1i[n] = mf1.i;
-                g2r[n] = g2.r; g2i[n] = g2.i; g1r[n] = g1.r; g1i[n] = g1.i;
-                // int_reg starts at C(0, 0); m_reg at w_hi*g2 + w_lo*g1.
-                irr[n] = 0.0; iri[n] = 0.0;
-                SgCx m0 = sgcx_add(sgcx_scale(g2, w_hi), sgcx_scale(g1, w_lo));
-                mrr[n] = m0.r; mri[n] = m0.i;
+                double dz1 = dz1_a[n - nb], dz2 = dz2_a[n - nb];
+                double r0_1 = r01_a[n - nb], r0_2 = r02_a[n - nb];
+                double rho_eval = rho_a[n - nb], H = Hn[n];
+                double rho2 = rho_eval * rho_eval;
+                double u0 = -dz1, u1 = -dz2;
+                double p0 = sgcx_pick(u0 >= 0.0, u0 + r0_1,
+                                      rho2 / (r0_1 + std::fabs(u0)));
+                double p1 = sgcx_pick(u1 >= 0.0, u1 + r0_2,
+                                      rho2 / (r0_2 + std::fabs(u1)));
+                double du = u1 - u0;
+                double num = du * (p1 + p0);
+                l1p_a[n - nb] = num / ((r0_2 + r0_1) * p0);
+                x_a[n - nb] = sgcx_pick(dz1 * dz2 >= 0.0,
+                                   2.0 * H * (dz1 + dz2) / (dz1 * r0_2 + dz2 * r0_1),
+                                   (dz1 * r0_2 - dz2 * r0_1) / rho2);
+                double kH = k * H;
+                double phi_ang = phk[IX_PHI * T + (n - nb)];
+                A_a[n - nb] = kH + phi_ang;
+                B_a[n - nb] = kH - phi_ang;
             }
-            // The node sums, q outermost, q ascending per source.
+            for (size_t n = nb; n < ne; n++) {
+                iir0_a[n - nb] = std::log1p(l1p_a[n - nb]);
+                tasx_a[n - nb] = std::asinh(x_a[n - nb]);
+                double a = A_a[n - nb], b = B_a[n - nb];
+                sA_a[n - nb] = std::fabs(a) < 0.1 ? 0.0 : sgr_sin(a);
+                sB_a[n - nb] = std::fabs(b) < 0.1 ? 0.0 : sgr_sin(b);
+            }
+            // t_sing. `asinh_minus_arg_from_t` runs only where |X| < 1, so
+            // |t| < asinh 1 < 1 and only its series is reached.
+            MW_SGC_IVDEP
+            for (size_t n = nb; n < ne; n++) {
+                double r0_1 = r01_a[n - nb], r0_2 = r02_a[n - nb];
+                double rho_eval = rho_a[n - nb], H = Hn[n];
+                double rho2 = rho_eval * rho_eval;
+                double X = x_a[n - nb], t = tasx_a[n - nb];
+                double t2 = t * t;
+                double ser = -(t * t2) / 6.0 *
+                             (1.0 + t2 / 20.0 *
+                                        (1.0 + t2 / 42.0 *
+                                                   (1.0 + t2 / 72.0 *
+                                                              (1.0 + t2 / 110.0 *
+                                                                         (1.0 + t2 / 156.0)))));
+                double near = ser + H * rho2 * X * X / ((r0_1 + r0_2) * r0_1 * r0_2);
+                double far = t - H * (1.0 / r0_1 + 1.0 / r0_2);
+                ts_a[n - nb] = sgcx_pick(std::fabs(X) < 1.0, near, far);
+            }
+
+            // ---- C: the assembly --------------------------------------------
+            double *phi_q = phi_all + qt * 6 * N;
+            double *pcr = phi_q, *pci = phi_q + N, *psr = phi_q + 2 * N;
+            double *psi = phi_q + 3 * N, *pcor = phi_q + 4 * N, *pcoi = phi_q + 5 * N;
+            // Endpoint values: full angles from the halves, 1/r, g.
+            MW_SGC_IVDEP
+            for (size_t n = nb; n < ne; n++) {
+                double ch2 = cpk[IX_H2 * T + (n - nb)], sh2 = spk[IX_H2 * T + (n - nb)];
+                double ch1 = cpk[IX_H1 * T + (n - nb)], sh1 = spk[IX_H1 * T + (n - nb)];
+                double cph_2 = ch2 * ch2 - sh2 * sh2, sph_2 = 2.0 * ch2 * sh2;
+                double cph_1 = ch1 * ch1 - sh1 * sh1, sph_1 = 2.0 * ch1 * sh1;
+                double inv_r0_2 = 1.0 / r02_a[n - nb];
+                double inv_r0_1 = 1.0 / r01_a[n - nb];
+                cp2_a[n - nb] = cph_2; sp2_a[n - nb] = sph_2;
+                cp1_a[n - nb] = cph_1; sp1_a[n - nb] = sph_1;
+                ir02_a[n - nb] = inv_r0_2; ir01_a[n - nb] = inv_r0_1;
+                double g2_re = -2.0 * sh2 * sh2 * inv_r0_2;
+                double g2_im = sph_2 * inv_r0_2;
+                double g1_re = -2.0 * sh1 * sh1 * inv_r0_1;
+                double g1_im = sph_1 * inv_r0_1;
+                g2r[n - nb] = g2_re; g2i[n - nb] = g2_im; g1r[n - nb] = g1_re; g1i[n - nb] = g1_im;
+                irr[n - nb] = 0.0; iri[n - nb] = 0.0;
+                mrr[n - nb] = w_hi * g2_re + w_lo * g1_re;
+                mri[n - nb] = w_hi * g2_im + w_lo * g1_im;
+            }
+            // The two node sums, q outermost, q ascending per source.
             for (size_t q = 0; q < n_qp; q++) {
                 const bool hi = P.gl_near2[q] != 0;
                 const double gw = P.glw[q];
-                const double *er = hi ? ef2r : ef1r, *ei = hi ? ef2i : ef1i;
-                const double *mr_ = hi ? mf2r : mf1r, *mi_ = hi ? mf2i : mf1i;
+                const double *hc = cpk + (hi ? IX_H2 : IX_H1) * T;
+                const double *hs = spk + (hi ? IX_H2 : IX_H1) * T;
+                const double *er = hi ? cp2_a : cp1_a, *ei = hi ? sp2_a : sp1_a;
                 const double *gr_ = hi ? g2r : g1r, *gi_ = hi ? g2i : g1i;
-                const double *inv_q = r0q_inv + q * Nv;
-                const size_t off = (IX_DQ + q) * Nv;
+                const double *cdq = cpk + (IX_DQ + q) * T;
+                const double *sdq = spk + (IX_DQ + q) * T;
+                const double *inv_q = r0q_inv + q * T;
+                const double *dl_q = delta_q + q * T;
                 MW_SGC_IVDEP
                 for (size_t n = nb; n < ne; n++) {
-                    const size_t i = off + n;
-                    double hh = t_h[i];
-                    double h2 = 2.0 * hh * hh;
-                    SgCx em1{t_em[i] * (1.0 - h2) - h2, -(t_ea[i] * t_s[i])};
-                    SgCx e_em1 = sgcx_mul(SgCx{er[n], ei[n]}, em1);
-                    SgCx em1_q = sgcx_add(e_em1, SgCx{mr_[n], mi_[n]});
-                    double inv_r0_q = inv_q[n];
-                    SgCx t_int = sgcx_scale(sgcx_scale(em1_q, inv_r0_q), gw);
-                    irr[n] = irr[n] + t_int.r;
-                    iri[n] = iri[n] + t_int.i;
+                    double cd = cdq[n - nb], sd = sdq[n - nb];
+                    double hcr = hc[n - nb], hsr = hs[n - nb];
+                    double hs_q = hsr * cd + hcr * sd;   // sin(y_q / 2)
+                    double hc_q = hcr * cd - hsr * sd;   // cos(y_q / 2)
+                    double inv_r0_q = inv_q[n - nb];
+                    irr[n - nb] += (-2.0 * hs_q * hs_q) * inv_r0_q * gw;
+                    iri[n - nb] += (2.0 * hs_q * hc_q) * inv_r0_q * gw;
+                    double e_ref_re = er[n - nb], e_ref_im = ei[n - nb];
+                    double em1_re = -2.0 * sd * sd;
+                    double em1_im = 2.0 * sd * cd;
+                    double t_re = e_ref_re * em1_re - e_ref_im * em1_im;
+                    double t_im = e_ref_re * em1_im + e_ref_im * em1_re;
+                    double dl = dl_q[n - nb];
                     double w = gw * inv_r0_q;
-                    SgCx t_m = sgcx_scale(
-                        sgcx_sub(e_em1, sgcx_scale(SgCx{gr_[n], gi_[n]}, td_d[i])),
-                        w);
-                    mrr[n] = mrr[n] + t_m.r;
-                    mri[n] = mri[n] + t_m.i;
+                    mrr[n - nb] += w * (t_re - gr_[n - nb] * dl);
+                    mri[n - nb] += w * (t_im - gi_[n - nb] * dl);
                 }
             }
-        }
-        // ---- C: the rest of the assembly --------------------------------
-        const SgcScratch sc{Nv, td_d, t_ea, t_em, t_s, t_h, R};
-        if (all_near) {
-            sg_cplx_assemble<true, false>(P, sc);
-        } else if (n_near == 0) {
-            sg_cplx_assemble<false, true>(P, sc);
-        } else {
-            sg_cplx_assemble<true, true>(P, sc);
-        }
+            // The rest of the assembly and the plain tangential projection.
+            MW_SGC_IVDEP
+            for (size_t n = nb; n < ne; n++) {
+                double rho_eval = rho_a[n - nb];
+                double dz1 = dz1_a[n - nb], dz2 = dz2_a[n - nb];
+                double r0_1 = r01_a[n - nb], r0_2 = r02_a[n - nb];
+                double td = td_a[n - nb], rho_proj_factor = rpf_a[n - nb];
+                double H = Hn[n];
+                double cph_2 = cp2_a[n - nb], sph_2 = sp2_a[n - nb];
+                double cph_1 = cp1_a[n - nb], sph_1 = sp1_a[n - nb];
+                double inv_r0_2 = ir02_a[n - nb], inv_r0_1 = ir01_a[n - nb];
+                double G0_2_re = cph_2 * inv_r0_2, G0_2_im = sph_2 * inv_r0_2;
+                double G0_1_re = cph_1 * inv_r0_1, G0_1_im = sph_1 * inv_r0_1;
 
-        // ---- R: the reference body's test reduction ---------------------
+                double inv_r0_2_sq = inv_r0_2 * inv_r0_2;
+                double inv_r0_1_sq = inv_r0_1 * inv_r0_1;
+                double one_jkr_2_re = inv_r0_2_sq;
+                double one_jkr_2_im = k * r0_2 * inv_r0_2_sq;
+                double one_jkr_1_re = inv_r0_1_sq;
+                double one_jkr_1_im = k * r0_1 * inv_r0_1_sq;
+
+                // Const source (Eqs 78, 79).
+                double term_const2_re = one_jkr_2_re*G0_2_re - one_jkr_2_im*G0_2_im;
+                double term_const2_im = one_jkr_2_re*G0_2_im + one_jkr_2_im*G0_2_re;
+                double term_const1_re = one_jkr_1_re*G0_1_re - one_jkr_1_im*G0_1_im;
+                double term_const1_im = one_jkr_1_re*G0_1_im + one_jkr_1_im*G0_1_re;
+                double rho_diff_re = rho_eval * (term_const2_re - term_const1_re);
+                double rho_diff_im = rho_eval * (term_const2_im - term_const1_im);
+                double Erho_const_re = -pref_rho_const_im * rho_diff_im;
+                double Erho_const_im =  pref_rho_const_im * rho_diff_re;
+
+                double inv_rho_eval = 1.0 / rho_eval;
+                double int_inv_r0 = iir0_a[n - nb];
+                double int_reg_re = irr[n - nb], int_reg_im = iri[n - nb];
+                int_reg_re *= H;
+                int_reg_im *= H;
+                double int_G0_re = int_inv_r0 + int_reg_re;
+                double int_G0_im = int_reg_im;
+
+                double Ez_boundary_re = dz2 * term_const2_re - dz1 * term_const1_re;
+                double Ez_boundary_im = dz2 * term_const2_im - dz1 * term_const1_im;
+                double k_sq = k * k;
+                double inside_re = Ez_boundary_re + k_sq * int_G0_re;
+                double inside_im = Ez_boundary_im + k_sq * int_G0_im;
+                double Ez_const_re =  pref_z_im * inside_im;
+                double Ez_const_im = -pref_z_im * inside_re;
+
+                // Sine source (Eqs 76, 77).
+                double sin2 = P.sin_kH[n];
+                double cos2 = P.cos_kH[n];
+                double sin1 = -sin2;
+                double cos1 =  cos2;
+
+                double inner_2_re = 1.0 - dz2*dz2 * one_jkr_2_re;
+                double inner_2_im =     - dz2*dz2 * one_jkr_2_im;
+                double bracket_sin_2_re = k*dz2*cos2 + inner_2_re*sin2;
+                double bracket_sin_2_im =              inner_2_im*sin2;
+                double bsin2_re = G0_2_re*bracket_sin_2_re - G0_2_im*bracket_sin_2_im;
+                double bsin2_im = G0_2_re*bracket_sin_2_im + G0_2_im*bracket_sin_2_re;
+
+                double inner_1_re = 1.0 - dz1*dz1 * one_jkr_1_re;
+                double inner_1_im =     - dz1*dz1 * one_jkr_1_im;
+                double bracket_sin_1_re = k*dz1*cos1 + inner_1_re*sin1;
+                double bracket_sin_1_im =              inner_1_im*sin1;
+                double bsin1_re = G0_1_re*bracket_sin_1_re - G0_1_im*bracket_sin_1_im;
+                double bsin1_im = G0_1_re*bracket_sin_1_im + G0_1_im*bracket_sin_1_re;
+                double pref_rho_im = pref_rho_const_im * inv_rho_eval;
+                double Erho_sin_re = -pref_rho_im * (bsin2_im - bsin1_im);
+                double Erho_sin_im =  pref_rho_im * (bsin2_re - bsin1_re);
+
+                double bracket_sin_z_2_re = k*cos2 - dz2*one_jkr_2_re*sin2;
+                double bracket_sin_z_2_im =        - dz2*one_jkr_2_im*sin2;
+                double bszin2_re = G0_2_re*bracket_sin_z_2_re - G0_2_im*bracket_sin_z_2_im;
+                double bszin2_im = G0_2_re*bracket_sin_z_2_im + G0_2_im*bracket_sin_z_2_re;
+                double bracket_sin_z_1_re = k*cos1 - dz1*one_jkr_1_re*sin1;
+                double bracket_sin_z_1_im =        - dz1*one_jkr_1_im*sin1;
+                double bszin1_re = G0_1_re*bracket_sin_z_1_re - G0_1_im*bracket_sin_z_1_im;
+                double bszin1_im = G0_1_re*bracket_sin_z_1_im + G0_1_im*bracket_sin_z_1_re;
+                double Ez_sin_re = -pref_z_im * (bszin2_im - bszin1_im);
+                double Ez_sin_im =  pref_z_im * (bszin2_re - bszin1_re);
+
+                // Folded source (I = cos k(xi) - 1), #205.
+                double rho2 = rho_eval * rho_eval;
+                double cm1 = P.cm1[n];
+                double X = x_a[n - nb];
+                double t_sing = ts_a[n - nb];
+                double m_reg_re = mrr[n - nb], m_reg_im = mri[n - nb];
+                double smarg = P.smarg[n];
+                double d_int_re = t_sing + H * m_reg_re
+                                  - smarg / k * (G0_1_re + G0_2_re);
+                double d_int_im = H * m_reg_im - smarg / k * (G0_1_im + G0_2_im);
+                double inner_cos_re =
+                    k_sq * d_int_re - cm1 * Ez_boundary_re;
+                double inner_cos_im =
+                    k_sq * d_int_im - cm1 * Ez_boundary_im;
+                double Ez_cos_re = -pref_z_im * inner_cos_im;
+                double Ez_cos_im =  pref_z_im * inner_cos_re;
+
+                double cph_p = cpk[IX_PHI * T + (n - nb)], sph_p = spk[IX_PHI * T + (n - nb)];
+                double kH = k * H;
+                double A_ang = A_a[n - nb], B_ang = B_a[n - nb];
+                double d_lin = -8.0 * H * H * H * z_a[n - nb] * rho2
+                               / ((rho2 + dz1 * dz2 + r0_1 * r0_2)
+                                  * (r0_1 + r0_2) * r0_1 * r0_2);
+                double w_even =
+                    (A_ang * sgr_smarg(B_ang, sB_a[n - nb])
+                     - B_ang * sgr_smarg(A_ang, sA_a[n - nb]))
+                        / kH
+                    + (d_lin / H) * sin2 * cph_p;
+                double w_odd = sin2 * (-(rho2 * X) / (r0_1 * r0_2)) * sph_p;
+                double ref_re = cph_2 * cph_p + sph_2 * sph_p;
+                double ref_im = sph_2 * cph_p - cph_2 * sph_p;
+                double W_re = ref_re*w_even - ref_im*w_odd;
+                double W_im = ref_re*w_odd + ref_im*w_even;
+                double b_rho_re = -k * W_re + rho2 * cm1
+                                  * (term_const2_re - term_const1_re);
+                double b_rho_im = -k * W_im + rho2 * cm1
+                                  * (term_const2_im - term_const1_im);
+                double Erho_cos_re = -pref_rho_im * b_rho_im;
+                double Erho_cos_im =  pref_rho_im * b_rho_re;
+
+                pcr[n]  = td * Ez_const_re + rho_proj_factor * Erho_const_re;
+                pci[n]  = td * Ez_const_im + rho_proj_factor * Erho_const_im;
+                psr[n]  = td * Ez_sin_re   + rho_proj_factor * Erho_sin_re;
+                psi[n]  = td * Ez_sin_im   + rho_proj_factor * Erho_sin_im;
+                pcor[n] = td * Ez_cos_re   + rho_proj_factor * Erho_cos_re;
+                pcoi[n] = td * Ez_cos_im   + rho_proj_factor * Erho_cos_im;
+            }
+    
+        }
+}
+
+    // ---- R: the test reduction, every observer at once ------------------
+    // band[e, n] = sum over qt ascending of w[e, qt] * phi_qt[n], from +0.0
+    // — the reference's per-observer axpys, each entry's terms in the same
+    // order. By source tile, so a band tile stays in L1 across the nq terms
+    // instead of the whole band streaming through memory nq times.
+    for (size_t nb = 0; nb < N; nb += SGR_TILE) {
+        const size_t ne = std::min(N, nb + SGR_TILE);
         for (size_t e = e0; e < e1; e++) {
-            double wr = P.w[e * nq + qt].real();
-            double wi = P.w[e * nq + qt].imag();
             double *rc  = reinterpret_cast<double *>(bc  + (e - e0) * N);
             double *rs  = reinterpret_cast<double *>(bs  + (e - e0) * N);
             double *rco = reinterpret_cast<double *>(bco + (e - e0) * N);
-            MW_OMP_SIMD()
-            for (size_t n = 0; n < N; n++) {
-                rc[2*n]     += wr * pcr[n]  - wi * pci[n];
-                rc[2*n + 1] += wr * pci[n]  + wi * pcr[n];
-                rs[2*n]     += wr * psr[n]  - wi * psi[n];
-                rs[2*n + 1] += wr * psi[n]  + wi * psr[n];
-                rco[2*n]    += wr * pcor[n] - wi * pcoi[n];
-                rco[2*n + 1]+= wr * pcoi[n] + wi * pcor[n];
+            for (size_t qt = 0; qt < nq; qt++) {
+                const double wr = P.w[e * nq + qt].real();
+                const double wi = P.w[e * nq + qt].imag();
+                const double *phi_q = phi_all + qt * 6 * N;
+                const double *pcr = phi_q, *pci = phi_q + N, *psr = phi_q + 2 * N;
+                const double *psi = phi_q + 3 * N, *pcor = phi_q + 4 * N;
+                const double *pcoi = phi_q + 5 * N;
+                MW_OMP_SIMD()
+                for (size_t n = nb; n < ne; n++) {
+                    rc[2*n]     += wr * pcr[n]  - wi * pci[n];
+                    rc[2*n + 1] += wr * pci[n]  + wi * pcr[n];
+                    rs[2*n]     += wr * psr[n]  - wi * psi[n];
+                    rs[2*n + 1] += wr * psi[n]  + wi * psr[n];
+                    rco[2*n]    += wr * pcor[n] - wi * pcoi[n];
+                    rco[2*n + 1]+= wr * pcoi[n] + wi * pcor[n];
+                }
             }
         }
     }
@@ -2773,7 +3404,13 @@ galerkin_far_fill_cplx_impl(
         rows.prc = pref_rho_const;
         rows.w = w_p;
         g_sg_cplx_staged_calls++;
-    } else {
+    }
+    int sgc_nt = 1;
+#ifdef _OPENMP
+    sgc_nt = omp_get_max_threads();
+#endif
+    std::vector<SgCplxScratch> sgc_scratch(reference ? 0 : sgc_nt);
+    if (reference) {
         g_sg_cplx_reference_calls++;
     }
 
@@ -2802,7 +3439,11 @@ galerkin_far_fill_cplx_impl(
         }
 
         if (!reference) {
-            sg_cplx_rows_staged(rows, m, e0, e1, bc, bs, bco);
+            int tid = 0;
+#ifdef _OPENMP
+            tid = omp_get_thread_num();
+#endif
+            sg_cplx_rows_staged(rows, m, e0, e1, bc, bs, bco, sgc_scratch[tid]);
         } else {
         // The REFERENCE body (`reference=True`): the per-pair scalar assembly
         // the staged rows reproduce to the bit. Left at its original
@@ -3440,7 +4081,8 @@ sinusoidal_galerkin_far_fill(
     py::array_t<int64_t, py::array::c_style | py::array::forcecast> starts,
     uintptr_t cancel_flag = 0,
     py::object out = py::none(),
-    std::complex<double> scale = std::complex<double>(1.0, 0.0)
+    std::complex<double> scale = std::complex<double>(1.0, 0.0),
+    bool reference = false
 ) {
     GalerkinFoldBlock fold;
     bool folding = galerkin_fold_block(
@@ -3448,7 +4090,7 @@ sinusoidal_galerkin_far_fill(
     return galerkin_far_fill_impl<false>(
         obs_centers, obs_tangents, obs_radius, src_centers, src_tangents,
         src_hh, k, eta, gl_t, gl_w, w_entry, starts, cancel_flag, nullptr,
-        folding ? &fold : nullptr);
+        folding ? &fold : nullptr, !reference);
 }
 
 // The extended-kernel twin (momwire#246 unit C). Same arguments plus the EK
@@ -3517,7 +4159,7 @@ sinusoidal_galerkin_far_fill_ek(
     return galerkin_far_fill_impl<true>(
         obs_centers, obs_tangents, obs_radius, src_centers, src_tangents,
         src_hh, k, eta, gl_t, gl_w, w_entry, starts, cancel_flag, &ekb,
-        folding ? &fold : nullptr);
+        folding ? &fold : nullptr, false);
 }
 
 
@@ -3632,7 +4274,9 @@ void register_sinusoidal(py::module_ &m) {
           "and each entry is folded on as `out += scale * value`, scale on "
           "the LEFT of the complex product; the same three arrays come back. "
           "`out=None` with `scale=1` is the pre-momwire#356 behaviour to the "
-          "bit.",
+          "bit. `reference=True` runs the per-pair scalar assembly instead "
+          "of the staged vector one (perf item 9); the two are "
+          "bit-identical, and the flag exists for the test that says so.",
           py::arg("obs_centers"), py::arg("obs_tangents"),
           py::arg("obs_radius"),
           py::arg("src_centers"), py::arg("src_tangents"), py::arg("src_hh"),
@@ -3641,7 +4285,8 @@ void register_sinusoidal(py::module_ &m) {
           py::arg("w_entry"), py::arg("starts"),
           py::arg("cancel_flag") = 0,
           py::arg("out") = py::none(),
-          py::arg("scale") = std::complex<double>(1.0, 0.0));
+          py::arg("scale") = std::complex<double>(1.0, 0.0),
+          py::arg("reference") = false);
     m.def("sinusoidal_galerkin_far_fill_cplx",
           &sinusoidal_galerkin_far_fill_cplx,
           "Complex-wavenumber twin of sinusoidal_galerkin_far_fill "
@@ -3666,6 +4311,15 @@ void register_sinusoidal(py::module_ &m) {
           py::arg("out") = py::none(),
           py::arg("scale") = std::complex<double>(1.0, 0.0),
           py::arg("reference") = false);
+    m.def("sg_real_far_fill_calls",
+          []() {
+              return std::make_tuple(g_sg_real_staged_calls.load(),
+                                     g_sg_real_reference_calls.load());
+          },
+          "(staged, reference): how many reduced (EK-off) "
+          "sinusoidal_galerkin_far_fill calls each body has served in this "
+          "process (perf item 9). The bodies' outputs are bit-identical, so "
+          "this is the only way to see which one production took.");
     m.def("sg_cplx_far_fill_calls",
           []() {
               return std::make_tuple(g_sg_cplx_staged_calls.load(),

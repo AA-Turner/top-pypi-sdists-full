@@ -31,6 +31,8 @@ MODEL_GOLDENS = REPO_ROOT / "tests" / "fixtures" / "model_goldens" / "model"
 
 #: The model and the change union.
 MODEL = (
+    "Coverage",
+    "OtherObject",
     "SchemaModel",
     "ObjectRef",
     "RelationName",
@@ -57,6 +59,7 @@ CHANGES = (
     "ColumnTypeChanged",
     "ColumnNullabilityChanged",
     "ColumnDefaultChanged",
+    "ColumnOrderChanged",
     "IndexAdded",
     "IndexDropped",
     "ForeignKeyAdded",
@@ -65,6 +68,8 @@ CHANGES = (
     "CheckConstraintDropped",
     "UniqueConstraintAdded",
     "UniqueConstraintDropped",
+    "PrimaryKeyAdded",
+    "PrimaryKeyDropped",
     "ExclusionConstraintAdded",
     "ExclusionConstraintDropped",
     "EnumTypeAdded",
@@ -81,7 +86,15 @@ CHANGES = (
     "tier_of",
 )
 #: Reading a schema, from DDL or from a database.
-READING = ("SchemaSource", "Connection", "parse_schema", "introspect", "diff", "SchemaError")
+READING = (
+    "SchemaSource",
+    "DiffSide",
+    "Connection",
+    "parse_schema",
+    "introspect",
+    "diff",
+    "SchemaError",
+)
 
 #: Ordering tables by their foreign keys.
 ORDERING = ("dependency_order", "DependencyCycleError")
@@ -91,6 +104,7 @@ WRITER = (
     "writable_columns",
     "column_facts",
     "naming_hints",
+    "ValueSource",
     "ColumnFacts",
     "ColumnReference",
     "TableHints",
@@ -129,7 +143,7 @@ SIGNATURES: dict[str, str] = {
         "(database: 'str | Connection', *, schemas: 'Sequence[str] | None' = None) -> 'SchemaModel'"
     ),
     "diff": (
-        "(old: 'SchemaSource | None', new: 'SchemaSource | None', *, env: 'str | None' = None, "
+        "(old: 'DiffSide | None', new: 'DiffSide | None', *, env: 'str | None' = None, "
         "project_dir: 'Path | None' = None) -> 'SchemaDiff'"
     ),
     "dependency_order": (
@@ -192,6 +206,8 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("generated", "str | None"),
         ("generated_kind", "GeneratedKind | None"),
         ("primary_key", "bool"),
+        ("file", "str | None"),
+        ("default_kind", "DefaultKind | None"),
     ),
     "Constraint": (
         ("kind", "ConstraintKind"),
@@ -271,7 +287,17 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("views", "Mapping[ObjectRef, View]"),
         ("triggers", "Mapping[ObjectRef, Trigger]"),
         ("tviews", "Mapping[ObjectRef, TView]"),
+        ("other_objects", "Mapping[ObjectRef, OtherObject]"),
+        ("coverage", "Coverage"),
+        ("source", "Provenance"),
     ),
+    "OtherObject": (
+        ("kind", "str"),
+        ("schema", "str"),
+        ("name", "str"),
+        ("definition", "str | None"),
+    ),
+    "Coverage": (("sections", "tuple[tuple[str, CoverageDepth], ...]"),),
     "SchemaDiff": (("changes", "list[SchemaChange]"), ("warnings", "list[BuildWarning]")),
     "ColumnReference": (("table", "ObjectRef"), ("column", "str | None")),
     "ColumnFacts": (
@@ -352,6 +378,11 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
         ("old", "str | None"),
         ("new", "str | None"),
     ),
+    "ColumnOrderChanged": (
+        ("table", "RelationName"),
+        ("old", "tuple[str, ...]"),
+        ("new", "tuple[str, ...]"),
+    ),
     "IndexAdded": (("table", "RelationName"), ("index", "Index")),
     "IndexDropped": (("table", "RelationName"), ("index", "Index")),
     "ForeignKeyAdded": (("table", "RelationName"), ("constraint", "Constraint")),
@@ -360,6 +391,8 @@ FIELDS: dict[str, tuple[tuple[str, str], ...]] = {
     "CheckConstraintDropped": (("table", "RelationName"), ("constraint", "Constraint")),
     "UniqueConstraintAdded": (("table", "RelationName"), ("constraint", "Constraint")),
     "UniqueConstraintDropped": (("table", "RelationName"), ("constraint", "Constraint")),
+    "PrimaryKeyAdded": (("table", "RelationName"), ("constraint", "Constraint")),
+    "PrimaryKeyDropped": (("table", "RelationName"), ("constraint", "Constraint")),
     "ExclusionConstraintAdded": (("table", "RelationName"), ("constraint", "Constraint")),
     "ExclusionConstraintDropped": (("table", "RelationName"), ("constraint", "Constraint")),
     "EnumTypeAdded": (("enum", "EnumType"),),

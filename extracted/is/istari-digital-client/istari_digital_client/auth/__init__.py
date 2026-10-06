@@ -1,41 +1,79 @@
-"""
-Backward compatibility shim for istari_digital_client.auth.
-
-The canonical auth package lives in istari_digital_client.legacy.auth.
-This module provides backward compatibility for imports like:
-    from istari_digital_client.auth import exchange_pat
-    from istari_digital_client.auth.identity_service import validate_credentials_file
-"""
+"""Deprecated import path. Moved to ``istari_digital_client.identity.auth`` and
+``istari_digital_client.identity.v1``; this shim warns and re-exports."""
 
 import sys
+import warnings
 
-# Import the actual auth package from old location
-from istari_digital_client.legacy import auth as _auth
-
-# Re-export everything from old.auth
-from istari_digital_client.legacy.auth import *
-
-# Set up module aliases so submodule imports work
-# e.g., from istari_digital_client.auth.identity_service import RetryPolicy
-sys.modules["istari_digital_client.auth.identity_service"] = sys.modules[
-    "istari_digital_client.legacy.auth.identity_service"
-]
-sys.modules["istari_digital_client.auth.key_exchange"] = sys.modules[
-    "istari_digital_client.legacy.auth.key_exchange"
-]
-sys.modules["istari_digital_client.auth.key_registration"] = sys.modules[
-    "istari_digital_client.legacy.auth.key_registration"
-]
-sys.modules["istari_digital_client.auth.keys"] = sys.modules[
-    "istari_digital_client.legacy.auth.keys"
-]
-
-# Import submodules to make them accessible as attributes
-from istari_digital_client.legacy.auth import (  # noqa: F401
-    identity_service,
-    key_exchange,
-    key_registration,
-    keys,
+warnings.warn(
+    "istari_digital_client.auth is deprecated; import from "
+    "istari_digital_client.identity.auth (token client, keypairs) or "
+    "istari_digital_client.identity.v1 (frozen /api/v1 operations)",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
-__all__ = list(getattr(_auth, "__all__", []))
+from istari_digital_client.identity.auth import (
+    GeneratedClientCredentials,
+    IdentityServiceClient,
+    IdentityServiceError,
+    RetryPolicy,
+    generate_client_keypair,
+    identity_service,
+    keys,
+    validate_credentials_file,
+    validate_inline_credentials,
+)
+from istari_digital_client.identity.v1 import (
+    ExchangePatError,
+    ExchangePatResult,
+    KeyMetadata,
+    KeyRegistrationError,
+    PrincipalKeys,
+    PrincipalKind,
+    RegisterKeyResult,
+    exchange_pat,
+    generate_keypair_and_exchange,
+    generate_keypair_and_register,
+    get_key,
+    key_exchange,
+    key_registration,
+    list_keys,
+    register_key,
+    revoke_key,
+)
+
+for _name, _module in (
+    ("identity_service", identity_service),
+    ("keys", keys),
+    ("key_exchange", key_exchange),
+    ("key_registration", key_registration),
+):
+    sys.modules[f"{__name__}.{_name}"] = _module
+
+__all__ = [
+    "ExchangePatError",
+    "ExchangePatResult",
+    "GeneratedClientCredentials",
+    "IdentityServiceClient",
+    "IdentityServiceError",
+    "KeyMetadata",
+    "KeyRegistrationError",
+    "PrincipalKeys",
+    "PrincipalKind",
+    "RegisterKeyResult",
+    "RetryPolicy",
+    "exchange_pat",
+    "generate_client_keypair",
+    "generate_keypair_and_exchange",
+    "generate_keypair_and_register",
+    "get_key",
+    "identity_service",
+    "key_exchange",
+    "key_registration",
+    "keys",
+    "list_keys",
+    "register_key",
+    "revoke_key",
+    "validate_credentials_file",
+    "validate_inline_credentials",
+]

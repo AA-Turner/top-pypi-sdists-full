@@ -71,8 +71,17 @@ def _hooks(plugin: str) -> dict:
     return json.loads((_PLUGINS / plugin / "hooks" / "hooks.json").read_text())["hooks"]
 
 
+def _routes(plugin: str) -> dict:
+    """The per-script commands a dispatcher entry runs (routes.json), else hooks.json's."""
+    path = _PLUGINS / plugin / "hooks" / "routes.json"
+    return json.loads(path.read_text())["hooks"] if path.exists() else _hooks(plugin)
+
+
 def _commands(plugin: str) -> list[str]:
-    return [e["command"] for ev in _hooks(plugin).values() for g in ev for e in g["hooks"]]
+    """Every command a harness or the dispatcher runs: each re-resolves on its own."""
+    entries = [e["command"] for ev in _hooks(plugin).values() for g in ev for e in g["hooks"]]
+    routes = [e["command"] for ev in _routes(plugin).values() for g in ev for e in g["hooks"]]
+    return entries + [c for c in routes if c not in entries]
 
 
 def _every_hook() -> list[tuple[str, str]]:
@@ -89,7 +98,7 @@ def _target(command: str) -> str:
 
 def _session_start(plugin: str = "probe-research") -> str:
     """The SessionStart command — the one in the first bug report."""
-    return _hooks(plugin)["SessionStart"][0]["hooks"][0]["command"]
+    return _routes(plugin)["SessionStart"][0]["hooks"][0]["command"]
 
 
 _SH_STUB = (

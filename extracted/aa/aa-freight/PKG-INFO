@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: aa-freight
-Version: 3.0.3
+Version: 3.1.0
 Summary: An Alliance Auth app for running a freight service.
 Author-email: Erik Kalkoken <erik.kalkoken@gmail.com>
 Requires-Python: >=3.10
@@ -22,14 +22,15 @@ License-File: LICENSE
 Requires-Dist: allianceauth>=4,<6
 Requires-Dist: allianceauth-app-utils>=1.33.2
 Requires-Dist: dhooks-lite>=1.1.0
-Requires-Dist: django-esi>=8,<10
+Requires-Dist: django-esi>=8,<11
 Requires-Dist: django-navhelper
 Requires-Dist: typing_extensions
 Requires-Dist: coverage ; extra == "test"
 Requires-Dist: factory_boy ; extra == "test"
-Requires-Dist: pook ; extra == "test"
+Requires-Dist: pookx ; extra == "test"
 Project-URL: Homepage, https://github.com/AllianceAuth-Apps/aa-freight
 Provides-Extra: test
+Import-Name: freight
 
 # Freight for Alliance Auth
 

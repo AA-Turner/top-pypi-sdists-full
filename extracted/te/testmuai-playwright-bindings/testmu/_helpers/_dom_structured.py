@@ -58,6 +58,18 @@ class AxNode:
     roledescription: str | None = None
     haspopup: str | None = None
     keyshortcuts: str | None = None
+    # Actionable annotation (ax_tree/_actionable.py): set from a DOMSnapshot
+    # after capture. ``clickable`` = the DOM says a user can click it though
+    # its AX role doesn't; ``display_name`` = the label a promoted
+    # generic/role-less node renders with; ``dom_hint`` = the id/class/testid
+    # /label attributes that identify it. All inert until annotation runs.
+    clickable: bool = False
+    display_name: str = ""
+    dom_hint: str = ""
+    # CDP ``ignored`` and its ``ignoredReasons`` names (e.g. ``inertElement``
+    # behind a modal); False / empty when the AX tree does not ignore it.
+    ignored: bool = False
+    ignored_reasons: tuple[str, ...] = ()
     children: list["AxNode"] = field(default_factory=list)
 
     def __post_init__(self) -> None:

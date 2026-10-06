@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydocket
-Version: 0.26.0
+Version: 0.26.1
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://docket.lol/
 Project-URL: Documentation, https://docket.lol/en/latest/
@@ -36,7 +36,7 @@ Requires-Dist: opentelemetry-api>=1.33.0
 Requires-Dist: prometheus-client>=0.21.1
 Requires-Dist: py-key-value-aio[memory,redis]>=0.3.0
 Requires-Dist: python-json-logger>=2.0.7
-Requires-Dist: redis>=5
+Requires-Dist: redis>=6
 Requires-Dist: rich>=13.9.4
 Requires-Dist: taskgroup>=0.2.2; python_version < '3.11'
 Requires-Dist: typer>=0.15.1
@@ -130,11 +130,11 @@ With `pip`:
 pip install pydocket
 ```
 
-Docket requires a [Redis](http://redis.io/) server with Streams support (which was
-introduced in Redis 5.0.0). Docket is tested with:
+Docket requires [Redis](https://redis.io/) 6.2 or later, or
+[Valkey](https://valkey.io/) 8.0 or later. Docket is tested with:
 
-- Redis 6.2, 7.4, and 8.6 (standalone and cluster modes)
-- [Valkey](https://valkey.io/) 8.1
+- Redis 6.2 and 8.10, and Redis 8.10 in cluster mode
+- Valkey 8.0 and 9.1
 - In-memory backend via [burner-redis](https://github.com/prefectlabs/burner-redis) for testing
 
 For testing without Redis, use the in-memory backend:
@@ -151,17 +151,14 @@ See [Testing with Docket](https://docket.lol/en/latest/testing/#using-in-memory-
 
 # Hacking on `docket`
 
-We use [`uv`](https://docs.astral.sh/uv/) for project management, so getting set up
-should be as simple as cloning the repo and running:
+We use [`uv`](https://docs.astral.sh/uv/) for project management.  The
+repository is a uv workspace, and the Python package lives in its `python/`
+directory.  From a clone of the repository:
 
 ```bash
 uv sync
-```
-
-The to run the test suite:
-
-```bash
-pytest
+cd python
+uv run pytest
 ```
 
 We aim to maintain 100% test coverage, which is required for all PRs to `docket`. We
@@ -170,7 +167,7 @@ begins with testing all the dusty branches and corners. This will give us the
 confidence to upgrade dependencies quickly and to adapt to new versions of Redis over
 time.
 
-To work on the documentation locally:
+To work on the documentation locally, from the repository root:
 
 ```bash
 uv sync

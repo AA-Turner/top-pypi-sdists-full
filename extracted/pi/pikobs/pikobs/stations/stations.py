@@ -24,15 +24,13 @@ the files and the viewer entries::
         rows = conn.execute(f"SELECT ... WHERE varno = ?{sel.sql()}", (varno,))
 """
 
-import os
 import re
-import sys
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
-from pikobs.obsdb import open_result
 from pikobs.configobs.special_family import (codtyp_label, DICT_CODTYP,
                                              has_codtyp_groups)
+from pikobs.obsdb import query_distinct
 
 
 def _safe_filename(text: Any) -> str:
@@ -64,20 +62,7 @@ def _dedupe(seq):
 def _query_distinct(db_paths: Sequence[str], sql: str,
                     params: Sequence[Any] = ()) -> List[tuple]:
     """Run sql on every database and return the ordered union of the rows."""
-    seen: Dict[tuple, None] = {}
-    for path in db_paths:
-        if not os.path.isfile(path):
-            continue
-        try:
-            with open_result(path) as conn:
-                rows = conn.execute(sql, params).fetchall()
-        except Exception as exc:
-            print(f"[stations] query failed on {os.path.basename(path)}: "
-                  f"{exc}", file=sys.stderr, flush=True)
-            continue
-        for r in rows:
-            seen.setdefault(tuple(r), None)
-    return list(seen)
+    return query_distinct(db_paths, sql, params, "stations")
 
 
 _CODTYP_RE      = re.compile(r'\((\d+)\)\s*$')
@@ -352,3 +337,15 @@ def expand_station_selectors(db_paths: Sequence[str],
         else:
             out.append(_token_to_selector(tok))
     return _dedupe(out)
+
+
+# what scatter, mapobs, timeserie and zone use from here, under public names;
+# safe_filename and split_words are not obsdb's safe_name and split_tokens:
+# they keep the file names scatter has always written, and the repeats
+token_to_selector = _token_to_selector
+codtyp_token_to_selector = _codtyp_token_to_selector
+codtyp_name = _codtyp_name
+dedupe = _dedupe
+safe_filename = _safe_filename
+split_words = _split_tokens
+RESOLUTION_LOGGED = _RESOLUTION_LOGGED          # the same set: shared on purpose

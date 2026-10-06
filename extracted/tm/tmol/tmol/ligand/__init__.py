@@ -10,7 +10,6 @@ from ._atom_typing import (  # noqa: F401
     HYB_SP3,
     RosettaTypingState,
     _assign_missing_hybridization,
-    _bond_is_planar,
     _build_rosetta_typing_state,
     _classify_H,
     _classify_N,
@@ -35,7 +34,6 @@ from ._atom_typing import (  # noqa: F401
 from ._chemistry_tables import (  # noqa: F401
     get_hbond_properties,
     get_polar_classes,
-    get_sp2_atom_types,
 )  # noqa: F401
 from ._chi_topology import MAX_CONFS, build_chi_topology  # noqa: F401
 from ._conformer_generation import (  # noqa: F401
@@ -54,7 +52,6 @@ from ._conformer_generation import (  # noqa: F401
 from ._detect import (  # noqa: F401
     NonStandardResidueInfo,
     SKIP_RESIDUES,
-    _METAL_SYMBOLS,
     _charge_model_is_authoritative,
     _dimorphite_protonate_smiles,
     _infer_res_name_from_mol2,
@@ -65,24 +62,14 @@ from ._detect import (  # noqa: F401
     _strip_metals,
     _residue_names_with_cross_residue_bonds,
     _source_subtype_from_mol2_atom_type,
+    chem_comp_types_from_cif,
     detect_nonstandard_residues,
     get_chem_comp_type,
+    is_polymer_linking_component_type,
+    polymer_entity_residues,
     nonstandard_residue_info_from_mol2,
     nonstandard_residue_info_from_mol2_block,
     nonstandard_residue_info_from_smiles_via_mol2,
-)  # noqa: F401
-from ._dimorphite_dl import (  # noqa: F401
-    ArgParseFuncs,
-    LoadSMIFile,
-    MyParser,
-    ProtSubstructFuncs,
-    ProtectUnprotectFuncs,
-    Protonate,
-    TestFuncs,
-    UtilFuncs,
-    main,
-    print_header,
-    protonate_mol_variants,
 )  # noqa: F401
 from ._fragmentation import (  # noqa: F401
     FRAGMENT_ID_ANNOTATION,
@@ -116,10 +103,7 @@ from ._openbabel_compat import (  # noqa: F401
     _import_openbabel,
     _obmol_to_rdkit_mol,
     normalize_azide,
-    obabel_read_mol2,
     obabel_read_mol2_block,
-    obabel_smiles_to_mol2,
-    obabel_smiles_to_mol2_block,
     strip_nontetrahedral_stereo,
 )  # noqa: F401
 from ._params_file import (  # noqa: F401
@@ -129,8 +113,6 @@ from ._params_file import (  # noqa: F401
     load_params_file,
 )  # noqa: F401
 from ._params_io import (  # noqa: F401
-    _BOND_TOK_TO_TYPE,
-    read_params_file,
     write_params_file,
     write_params_from_mol2,
 )  # noqa: F401
@@ -138,18 +120,17 @@ from ._preparation import (  # noqa: F401
     LigandPreparationError,
     _ligand_info_from_cif,
     _prepare_ligand_via_smiles,
-    _residue_covers_cif_heavy_atoms,
     prepare_ligand_from_cif,
     prepare_ligand_from_mol2,
     prepare_ligand_from_smiles,
     prepare_ligands,
     prepare_ligands_from_smiles,
+    prepare_polymer_residue,
     prepare_single_ligand,
     unused_ligand_name,
 )  # noqa: F401
 from ._rdkit_mol import (  # noqa: F401
     ligand_atom_array_to_rdkit_mol,
-    normalize_cumulated_azide,
     source_carried_kekule,
     source_has_aromatic_annotations,
     source_subtype,
@@ -176,10 +157,13 @@ __all__ = [
     "TMOL_FORMAT_VERSION",
     "apply_fragment_connections",
     "build_split_block_mapping",
+    "chem_comp_types_from_cif",
     "detect_nonstandard_residues",
     "expand_fragmented_ligands",
     "fragment_ids_from_atom_array",
     "get_chem_comp_type",
+    "is_polymer_linking_component_type",
+    "polymer_entity_residues",
     "inject_ligand_preparations",
     "inject_params_file",
     "inject_params_files",
@@ -192,9 +176,9 @@ __all__ = [
     "prepare_ligand_from_mol2",
     "prepare_ligand_from_smiles",
     "prepare_ligands",
+    "prepare_polymer_residue",
     "prepare_ligands_from_smiles",
     "prepare_single_ligand",
-    "read_params_file",
     "recombine_fragmented_ligands",
     "unsplit_pose_stack",
     "write_params_file",

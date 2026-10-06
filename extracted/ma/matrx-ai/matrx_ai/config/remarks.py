@@ -112,6 +112,21 @@ class RemarkThreadEntry(BaseModel):
     created_at: str | None = None
 
 
+class BlockStateRef(BaseModel):
+    """A pointer to the ``platform.block_states`` row a remark was made from (remarks B6).
+
+    The remark keeps its rendered content (``answers`` / ``body``) — that is what the model
+    reads — and this reference rides beside it so the database can advance the row's
+    ``sent_version`` in the SAME transaction that stores the person's message
+    (trigger ``_block_state_mark_sent`` on ``chat.message``). ``state_version`` is the row's
+    ``state_version`` at the moment the chip was sent; a send never moves the marker back."""
+
+    model_config = _STRICT
+
+    id: str = Field(min_length=36, max_length=36)
+    state_version: int = Field(ge=1)
+
+
 class RemarkItem(BaseModel):
     """One staged remark. Structured on the wire and in storage; only the
     model-facing projection (``render_remark``) is text."""
@@ -142,6 +157,9 @@ class RemarkItem(BaseModel):
     #: The thread this remark continues (oldest first) — read by the model as
     #: quoted lines under the marker; the reply still lands in that thread.
     thread: list[RemarkThreadEntry] | None = None
+    #: The block state this remark was made from (``answers`` / ``interaction`` chips).
+    #: Never read by the model; the database marks that row sent when the message is stored.
+    block_state_ref: BlockStateRef | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
@@ -231,6 +249,26 @@ def location_phrase(
     return None
 
 
+FOREIGN_PASSAGE_MARKER = "passage from another conversation"
+
+
+def is_foreign_passage(item: RemarkItem, turns_back: dict[str, int]) -> bool:
+    """A quote the person brought to discuss ("New chat about this"): a comment with
+    a quote, no words of their own, whose target reply is not in the loaded history.
+    It is NOT a comment on anything the model said, so it is read as a passage to
+    engage with and it invites no ``comment_reply`` (nothing to reply into)."""
+    if item.kind != "comment" or not (item.quote and item.quote.strip()):
+        return False
+    if (item.body and item.body.strip()) or item.thread or item.diff or item.answers:
+        return False
+    target = item.target
+    if target is None:
+        return True
+    if target.record_title or target.record_token:
+        return False
+    return not target.message_id or target.message_id not in turns_back
+
+
 def marker_text(item: RemarkItem, location: str | None) -> str:
     """The hidden marker body, e.g. ``comment c3 on your previous reply``.
 
@@ -281,8 +319,11 @@ def render_remark(
     authors: dict[str, str] | None = None,
 ) -> str:
     """One remark as the model reads it: marker, then quote / diff / answers / body."""
-    location = location_phrase(item, turns_back, authors)
-    sections: list[str] = [f"<!-- {marker_text(item, location)} -->"]
+    if is_foreign_passage(item, turns_back):
+        sections: list[str] = [f"<!-- {FOREIGN_PASSAGE_MARKER} -->"]
+    else:
+        location = location_phrase(item, turns_back, authors)
+        sections = [f"<!-- {marker_text(item, location)} -->"]
     body_parts: list[str] = []
     if item.quote and item.quote.strip():
         body_parts.append(_quote_block(item.quote))
@@ -340,7 +381,7 @@ def handle_number(handle: str | None) -> int | None:
     """``"c12"`` → 12; anything that is not a handle → None."""
     if not handle or not _HANDLE_RE.match(handle):
         return None
-    return int(handle[len(REMARK_HANDLE_PREFIX):])
+    return int(handle[len(REMARK_HANDLE_PREFIX) :])
 
 
 def format_handle(number: int) -> str:
@@ -401,6 +442,8 @@ __all__ = [
     "RemarkKind",
     "RemarkTarget",
     "RemarkThreadEntry",
+    "FOREIGN_PASSAGE_MARKER",
+    "is_foreign_passage",
     "UNRESOLVED_BARE",
     "UNRESOLVED_QUOTED",
     "location_phrase",

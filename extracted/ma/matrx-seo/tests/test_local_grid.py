@@ -268,3 +268,71 @@ def test_a_failed_point_names_its_cause_and_the_next_step() -> None:
     err = out[4].error
     assert "already processing" in err and "may still be charged" in err
     assert "call rank_grid again" in err
+
+
+# ── competitors: each point's top N and a grid-level summary ───────────────
+
+from matrx_seo.local_grid import competitor_summary  # noqa: E402
+
+
+def test_a_point_keeps_its_top_n_listings() -> None:
+    rows = [{"rank_absolute": i + 1, "title": f"Biz {i}", "cid": str(100 + i)} for i in range(5)]
+    result, _, _ = point_from_items(
+        GridPoint(0, 0, 1.0, 2.0), rows, cid=None, place_id=None, name=None, top_n=3
+    )
+    assert result.as_dict()["top"] == [
+        {"rank": 1, "name": "Biz 0", "cid": "100"},
+        {"rank": 2, "name": "Biz 1", "cid": "101"},
+        {"rank": 3, "name": "Biz 2", "cid": "102"},
+    ]
+    assert result.top_result == {"name": "Biz 0", "cid": "100"}
+
+
+def test_the_competitor_summary_counts_wins_coverage_and_average_rank() -> None:
+    def point(c, ranks):
+        rows = [{"rank_absolute": r, "title": f"Biz {cid}", "cid": cid} for cid, r in ranks]
+        res, _, _ = point_from_items(
+            GridPoint(0, c, 1.0, 2.0), rows, cid="T", place_id=None, name=None, top_n=1
+        )
+        return res
+
+    pts = [
+        point(0, [("A", 1), ("B", 2), ("T", 3)]),
+        point(1, [("A", 1), ("T", 2)]),
+        point(2, [("B", 1), ("C", 2)]),
+        PointResult(0, 3, 1.0, 2.0, error="failed"),
+    ]
+    summary = competitor_summary(pts, exclude={"T"}, limit=10)
+    a, b, c = summary
+    assert a == {
+        "name": "Biz A",
+        "cid": "A",
+        "points_won": 2,
+        "points_present": 2,
+        "points_searched": 3,
+        "coverage": 0.67,
+        "avg_rank": 1.0,
+        "best_rank": 1,
+    }
+    assert (b["cid"], b["points_won"], b["points_present"], b["avg_rank"]) == ("B", 1, 2, 1.5)
+    assert (c["cid"], c["points_won"], c["coverage"]) == ("C", 0, 0.33)
+    assert all(e["cid"] != "T" for e in summary)
+    # A and B each win a point, so both stay even under a cap of 1; C (no win) goes.
+    assert [e["cid"] for e in competitor_summary(pts, exclude={"T"}, limit=1)] == ["A", "B"]
+
+
+def test_every_number_one_holder_is_summarized_even_beyond_the_cap() -> None:
+    pts = []
+    for c in range(12):  # 12 points, each won by a different business
+        rows = [
+            {"rank_absolute": 1, "title": f"Winner {c}", "cid": f"W{c}"},
+            {"rank_absolute": 2, "title": "Everywhere", "cid": "E"},
+        ]
+        res, _, _ = point_from_items(
+            GridPoint(0, c, 1.0, 2.0), rows, cid=None, place_id=None, name=None
+        )
+        pts.append(res)
+    summary = competitor_summary(pts, exclude=set(), limit=10)
+    assert {f"W{c}" for c in range(12)} <= {e["cid"] for e in summary}
+    assert len(summary) == 12  # the cap applies only to non-winners, and none fit
+    assert competitor_summary(pts, exclude=set(), limit=13)[-1]["cid"] == "E"

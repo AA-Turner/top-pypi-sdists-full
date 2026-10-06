@@ -92,6 +92,8 @@ REQUIRED_MEMBERS: Final[dict[str, tuple[str, ...]]] = {
         "OBJECT_FOREIGN_TABLE",
     ),
     "SetOperation": ("SETOP_NONE",),
+    "BoolExprType": ("AND_EXPR",),
+    "NullTestType": ("IS_NULL",),
     "TableLikeOption": (
         "CREATE_TABLE_LIKE_DEFAULTS",
         "CREATE_TABLE_LIKE_IDENTITY",
@@ -147,6 +149,6 @@ def enums_are_usable() -> bool:
             f"pglast {metadata.version('pglast')} does not expose "
             f"{', '.join(MISSING_MEMBERS)}; confiture cannot walk DDL with it.",
             error_code="CONFIG_011",
-            resolution_hint="Install a pglast release confiture supports (pglast>=6.0, current major).",
+            resolution_hint="Install a pglast release confiture supports (pglast>=8.1).",
         )
     return True

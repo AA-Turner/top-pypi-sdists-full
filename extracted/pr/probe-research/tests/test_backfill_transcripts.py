@@ -612,12 +612,44 @@ def test_selected_histories_bound_discovery_preview_and_upload(lane, monkeypatch
     monkeypatch.setattr(tui, "review", review)
     seen, _lines = lane(interactive=True)
 
-    assert offered == [(bt.CLAUDE, bt.CODEX, bt.PI)]
+    assert offered == [(bt.CLAUDE, bt.CODEX, bt.PI, bt.KIMI)]
     assert credentials == list(selected)
     assert discoveries == [selected]
     assert set(seen["poster"]) == set(selected)
     assert set(seen["device_id"]) == set(selected)
 
+
+
+def test_the_history_step_offers_every_captured_agent(lane, monkeypatch):
+    """The wizard's "Import past coding sessions" step asks about every agent
+    the registry captures, not a hand-kept list: Kimi Code shipped with its
+    history reader and was never offered here."""
+    from probe.harness import get_registry
+
+    asked = []
+    monkeypatch.setattr(
+        bt, "saved_session_sources", lambda sources, **kwargs: asked.append(tuple(sources)) or ()
+    )
+    lane(interactive=True)
+    captured = tuple(h.id for h in get_registry().all() if h.captured)
+    assert asked == [captured]
+    assert bt.KIMI in captured
+
+
+def test_saved_kimi_sessions_are_offered(tmp_path, monkeypatch):
+    """Real Kimi Code 2.1.1 session folders count as saved history; a helper
+    agent's wire alone does not."""
+    import shutil
+
+    home = tmp_path / "kimi"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "kimi_code" / "sessions", home / "sessions")
+    monkeypatch.setenv("KIMI_CODE_HOME", str(home))
+    monkeypatch.delenv("PROBE_KIMI_SESSIONS_DIR", raising=False)
+    assert bt.saved_session_sources((bt.KIMI,), plugin_dirs={}) == (bt.KIMI,)
+
+    for main in home.glob("sessions/*/session_*/agents/main"):
+        shutil.rmtree(main)
+    assert bt.saved_session_sources((bt.KIMI,), plugin_dirs={}) == ()
 
 @pytest.mark.parametrize("action", ["BACK", "SKIP"])
 def test_leaving_history_selection_does_not_scan_or_upload(lane, monkeypatch, action):

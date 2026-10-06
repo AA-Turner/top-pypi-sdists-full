@@ -439,7 +439,6 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # button is the same async machinery as summary/regenerate, and the status
     # route is its spinner. The short form every other surface needs
     # (`metadata.overview.blurb`) already rides on ProjectOut/ExperimentOut.
-    ("GET", "/v1/projects/{}/overview"): "dashboard frame; the blurb is on ProjectOut",
     (
         "POST",
         "/v1/projects/{}/overview/regenerate",
@@ -486,6 +485,38 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # left this list: the MCP's `entity(view="readme")` reads its TEXT, which
     # an agent can use even where the image links cannot resolve.
     ("GET", "/v1/runs/{}/readme"): "dashboard render surface; the SDK reads run.repo",
+    # An experiment's README panel (server X21b): the MCP's readme view is a
+    # PROJECT's; an experiment's repo is on its page document, which the SDK
+    # reads (`document`).
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/readme",
+    ): "dashboard render surface; the SDK reads the experiment's document",
+    # An experiment W&B source's history imports (server X21b twins). The CLI
+    # launches and reads them at the PROJECT's address
+    # (`/v1/projects/{P}/wandb-sources/{id}/backfills...`, the project the
+    # experiment is filed in): a job's target is the project, so both addresses
+    # answer the same job and the client needs only one.
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/wandb-sources/{}/backfills",
+    ): "dashboard twin; the CLI reads an experiment source's history at its project",
+    (
+        "POST",
+        "/v1/projects/{}/experiments/{}/wandb-sources/{}/backfills",
+    ): "dashboard twin; the CLI launches an experiment source's history at its project",
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/wandb-sources/{}/backfills/{}",
+    ): "dashboard twin; the CLI reads an experiment source's history at its project",
+    (
+        "POST",
+        "/v1/projects/{}/experiments/{}/wandb-sources/{}/backfills/{}/cancel",
+    ): "dashboard twin; the CLI cancels an experiment source's history at its project",
+    (
+        "POST",
+        "/v1/projects/{}/experiments/{}/wandb-sources/{}/backfills/{}/retry",
+    ): "dashboard twin; the CLI retries an experiment source's history at its project",
     (
         "GET",
         "/public/v1/projects/{}/readme",
@@ -630,6 +661,35 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
         "POST",
         "/v1/projects/{}/summary/generate",
     ): "0231 alias of summary/regenerate, added so the experiment surface maps by one segment; the client calls neither",
+    # THE LEAF DOOR (light experiments X21). These served an experiment's
+    # children at its project address; the client now calls each one's twin on
+    # the experiment API (`/v1/projects/{P}/experiments/{E}/...`), and R6
+    # removes them once the old dashboard is sunset. A real project answers
+    # them 422 ("this route is for an experiment"), so nothing else calls them.
+    ("GET", "/v1/projects/{}/groups"): "the leaf door; the client calls .../experiments/{}/groups (X21)",
+    ("POST", "/v1/projects/{}/groups"): "the leaf door; the client calls .../experiments/{}/groups (X21)",
+    ("GET", "/v1/projects/{}/edges"): "the leaf door; the client calls .../experiments/{}/edges (X21)",
+    ("GET", "/v1/projects/{}/versions"): "the leaf door; the client calls .../experiments/{}/versions (X21)",
+    ("POST", "/v1/projects/{}/versions"): "the leaf door; the client calls .../experiments/{}/versions (X21)",
+    (
+        "GET",
+        "/v1/projects/{}/versions/{}",
+    ): "the leaf door; the client calls .../experiments/{}/versions/{} (X21)",
+    ("GET", "/v1/projects/{}/reproduce"): "the leaf door; the client calls .../experiments/{}/reproduce (X21)",
+    ("GET", "/v1/projects/{}/code"): "the leaf door; the client calls .../experiments/{}/code (X21)",
+    # The experiment API's twins of the dashboard notes-history routes above.
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/notes/versions",
+    ): "dashboard notes history surface (experiment API twin, X21)",
+    (
+        "POST",
+        "/v1/projects/{}/experiments/{}/notes/versions/{}/restore",
+    ): "dashboard notes history restore surface (experiment API twin, X21)",
+    (
+        "POST",
+        "/v1/projects/{}/experiments/{}/overview/regenerate",
+    ): "async generation machinery; the button on the experiment's Overview tab (X21)",
 }
 
 # --------------------------------------------------------------------------
@@ -926,6 +986,36 @@ PENDING: dict[Op, str] = {
     ("DELETE", "/v1/projects/{}/public"): "share-links publish control; dashboard surface today",
     ("GET", "/v1/projects/{}/public"): "share-links publish control; dashboard surface today",
     ("PUT", "/v1/projects/{}/public"): "share-links publish control; dashboard surface today",
+    # Their experiment-API twins (server X21b): the same dashboard controls,
+    # addressed as an experiment of its project.
+    (
+        "DELETE",
+        "/v1/projects/{}/experiments/{}/public",
+    ): "share-links publish control; dashboard surface today",
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/public",
+    ): "share-links publish control; dashboard surface today",
+    (
+        "PUT",
+        "/v1/projects/{}/experiments/{}/public",
+    ): "share-links publish control; dashboard surface today",
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/public/effective",
+    ): "share-links publish control; dashboard surface today",
+    (
+        "PUT",
+        "/v1/projects/{}/experiments/{}/notes/public",
+    ): "note share control; dashboard surface today",
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/notes/public",
+    ): "note share control; dashboard surface today",
+    (
+        "DELETE",
+        "/v1/projects/{}/experiments/{}/notes/public",
+    ): "note share control; dashboard surface today",
     ("DELETE", "/v1/papers/{}/public"): "share-links publish control; dashboard surface today",
     ("GET", "/v1/papers/{}/public"): "share-links publish control; dashboard surface today",
     ("PUT", "/v1/papers/{}/public"): "share-links publish control; dashboard surface today",
@@ -986,6 +1076,23 @@ PENDING: dict[Op, str] = {
         "/v1/groups/{}",
     ): "a run group's move to the trash (0261 trash doors); no SDK/CLI verb yet",
     ("GET", "/v1/runs/{}/logs"): "reading a run's live console log back; the client only writes it (log-chunks)",
+    # The experiment API's twins of the overview page lane's routes above (X21).
+    (
+        "PUT",
+        "/v1/projects/{}/experiments/{}/overview/page",
+    ): "overview page lane, backend 0218 (experiment API twin, X21)",
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/overview/versions",
+    ): "overview page lane, backend 0217 (experiment API twin, X21)",
+    (
+        "GET",
+        "/v1/projects/{}/experiments/{}/overview/versions/{}",
+    ): "overview page lane, backend 0217 (experiment API twin, X21)",
+    (
+        "POST",
+        "/v1/projects/{}/experiments/{}/overview/versions/{}/restore",
+    ): "overview page lane, backend 0217 (experiment API twin, X21)",
 }
 
 # The REVERSE debt ledger: client call sites that land AHEAD of the backend,

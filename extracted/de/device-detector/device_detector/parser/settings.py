@@ -1,3 +1,10 @@
+from string import punctuation as full_punctuation
+
+STRIP_PUNCTUATION = (
+    full_punctuation.replace('!', '').replace('+', '').replace('$', '').replace('?', '')
+)
+
+
 # Mappings from Browser names we use to known client hint values
 # fmt: off
 APP_TO_CLIENT_HINT_MAPPING = {
@@ -157,6 +164,7 @@ OPERATING_SYSTEMS = {
     'FOS': 'Firefox OS',
     'FIR': 'Fire OS',
     'FOR': 'Foresight Linux',
+    'FRT': 'FortiOS',
     'FRE': 'Freebox',
     'BSD': 'FreeBSD',
     'FRI': 'FRITZ!OS',
@@ -216,6 +224,7 @@ OPERATING_SYSTEMS = {
     'MIN': 'Mint',
     'MLD': 'MildWild',
     'MOR': 'MorphOS',
+    'MYO': 'MyOS',
     'NBS': 'NetBSD',
     'MTK': 'MTK / Nucleus',
     'MRE': 'MRE',
@@ -276,6 +285,7 @@ OPERATING_SYSTEMS = {
     'SMA': 'Smartisan OS',
     'SOS': 'Solaris',
     'SBL': 'Star-Blade OS',
+    'STM': 'SteamOS',
     'SYL': 'Syllable',
     'SYM': 'Symbian',
     'SYS': 'Symbian OS',
@@ -309,6 +319,8 @@ OPERATING_SYSTEMS = {
     'WPO': 'WoPhone',
     'XBX': 'Xbox',
     'XBT': 'Xubuntu',
+    'YAS': 'YaOS',
+    'YOD': 'YodaOS-Master',
     'YNS': 'YunOS',
     'ZEN': 'Zenwalk',
     'ZOR': 'ZorinOS',
@@ -327,7 +339,8 @@ OS_FAMILIES = {
     'Android': [
         'AND', 'CYN', 'FIR', 'REM', 'RZD', 'MLD', 'MCD', 'YNS', 'GRI', 'HAR',
         'ADR', 'CLR', 'BOS', 'REV', 'LEN', 'SIR', 'RRS', 'WER', 'PIC', 'ARM',
-        'HEL', 'BYI', 'RIS', 'PUF', 'LEA', 'MET', 'SMA', 'AGO', 'HYP',
+        'HEL', 'BYI', 'RIS', 'PUF', 'LEA', 'MET', 'SMA', 'AGO', 'HYP', 'MYO',
+        'YOD', 'YAS',
     ],
     'AmigaOS': ('AMG', 'MOR', 'ARO'),
     'BlackBerry': ('BLB', 'QNX'),
@@ -350,7 +363,7 @@ OS_FAMILIES = {
         'UOS', 'PIO', 'FRI', 'LIR', 'WEB', 'SER', 'ASP', 'AOS', 'LOO', 'EUL',
         'SCI', 'ALP', 'CLO', 'ROC', 'OVZ', 'PVE', 'RST', 'EZX', 'GNS', 'JOL',
         'TUR', 'QTP', 'WPO', 'PAN', 'VIZ', 'AZU', 'COL', 'OSS', 'ELM', 'LPU',
-        'KOB',
+        'KOB', 'FRT',
     ),
     'Mac': ('MAC',),
     'Mobile Gaming Console': ('PSP', 'NDS', 'XBX'),
@@ -1265,6 +1278,11 @@ CRUFT_NAMES = {
     'client',
     'client-protocol',
     'configuration',
+    'cpu os',
+    'cpu ios',
+    'cpu ipados',
+    'cpu ipad os',
+    'cpu iphone os',
     'darwin',
     'dalvik',
     'hw',
@@ -1275,6 +1293,9 @@ CRUFT_NAMES = {
     'android mozilla',
     'mobile',
     'ios',
+    'iosapp',
+    'ios app',
+    'ios_app',
     'android',
     'ipad',
     'iphone',
@@ -1318,7 +1339,7 @@ METADATA_NAMES = {
 
 # When parsing UA strings generically, multiple name/version pairs may be found.
 # Ignore the uninteresting ones
-# Mozilla/5.0 (Symbian/3; Series60/5.2 NokiaN8-00/014.002; Profile/MIDP-2.1 Configuration/CLDC-1.1; en-us) AppleWebKit/525 (KHTML, like Gecko) Version/3.0 BrowserNG/7.2.6.4 3gpp-gba  # noqa
+# Mozilla/5.0 (Symbian/3; Series60/5.2 NokiaN8-00/014.002; Profile/MIDP-2.1 Configuration/CLDC-1.1; en-us) AppleWebKit/525 (KHTML, like Gecko) Version/3.0 BrowserNG/7.2.6.4 3gpp-gba
 SKIP_PREFIXES = set(AVAILABLE_ENGINES_LOWER_CASE.keys()) | \
                 CRUFT_NAMES | \
                 set(BROWSER_TO_ABBREV.keys())
@@ -1346,27 +1367,28 @@ def normalized_name(name: str, abbreviations: dict[str, str], names: dict[str, s
 
 
 __all__ = (
+    'ALWAYS_DESKTOP_OS',
     'APPLE_OS_NAMES',
     'APP_TO_CLIENT_HINT_MAPPING',
-    'CHROME_OS_MODELS',
-    'CLIENT_HINT_TO_APP_MAP',
-    'OS_CLIENT_HINT_MAPPING',
-    'ALWAYS_DESKTOP_OS',
-    'DESKTOP_OS',
-    'OPERATING_SYSTEMS',
-    'OS_TO_ABBREV',
-    'OS_FAMILIES',
-    'FAMILY_FROM_OS',
-    'AVAILABLE_ENGINES',
     'AVAILABLE_BROWSERS',
+    'AVAILABLE_ENGINES',
     'BROWSER_FAMILIES',
     'BROWSER_TO_ABBREV',
-    'FAMILY_FROM_ABBREV',
     'CHECK_PAIRS',
+    'CHROME_OS_MODELS',
+    'CLIENT_HINT_TO_APP_MAP',
     'CRUFT_NAMES',
+    'DESKTOP_OS',
+    'FAMILY_FROM_ABBREV',
+    'FAMILY_FROM_OS',
     'METADATA_NAMES',
     'MOBILE_ONLY_BROWSERS',
-    'TV_CLIENTS',
+    'OPERATING_SYSTEMS',
+    'OS_CLIENT_HINT_MAPPING',
+    'OS_FAMILIES',
+    'OS_TO_ABBREV',
     'SKIP_PREFIXES',
+    'STRIP_PUNCTUATION',
+    'TV_CLIENTS',
     'normalized_name',
 )

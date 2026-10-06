@@ -140,7 +140,7 @@ class KubernetesConfig(object):
     def custom_image_registry(self):
         """Gets the custom_image_registry of this KubernetesConfig.  # noqa: E501
 
-        Registry prefix Anyscale data-plane images are pulled from for this resource, for customers who mirror them into their own registry. When set, the registry host in every generated image reference is replaced with this value, preserving the repository path and tag: 'anyscale/vector-public:0.56.0-debian' becomes '<custom_image_registry>/anyscale/vector-public:0.56.0-debian'. Every image the data plane needs must already exist in the target registry at the same repository path, including the Ray image. Empty = Anyscale's own registry (existing resources unchanged). Must be a registry prefix of the form 'host[:port][/path]' with no scheme, no trailing slash, and no image tag, at most 255 characters.  # noqa: E501
+        Registry prefix Anyscale data-plane images are pulled from for this resource, for customers who mirror them into their own registry. When set, the registry host in every generated image reference is replaced with this value, preserving the repository path and tag: 'anyscale/vector_sidecar:<tag>' becomes '<custom_image_registry>/anyscale/vector_sidecar:<tag>'. Every image the data plane needs must already exist in the target registry at the same repository path, including the Ray image. Empty = Anyscale's own registry (existing resources unchanged). Must be a registry prefix of the form 'host[:port][/path]' with no scheme, no trailing slash, and no image tag, at most 255 characters.  # noqa: E501
 
         :return: The custom_image_registry of this KubernetesConfig.  # noqa: E501
         :rtype: str
@@ -151,7 +151,7 @@ class KubernetesConfig(object):
     def custom_image_registry(self, custom_image_registry):
         """Sets the custom_image_registry of this KubernetesConfig.
 
-        Registry prefix Anyscale data-plane images are pulled from for this resource, for customers who mirror them into their own registry. When set, the registry host in every generated image reference is replaced with this value, preserving the repository path and tag: 'anyscale/vector-public:0.56.0-debian' becomes '<custom_image_registry>/anyscale/vector-public:0.56.0-debian'. Every image the data plane needs must already exist in the target registry at the same repository path, including the Ray image. Empty = Anyscale's own registry (existing resources unchanged). Must be a registry prefix of the form 'host[:port][/path]' with no scheme, no trailing slash, and no image tag, at most 255 characters.  # noqa: E501
+        Registry prefix Anyscale data-plane images are pulled from for this resource, for customers who mirror them into their own registry. When set, the registry host in every generated image reference is replaced with this value, preserving the repository path and tag: 'anyscale/vector_sidecar:<tag>' becomes '<custom_image_registry>/anyscale/vector_sidecar:<tag>'. Every image the data plane needs must already exist in the target registry at the same repository path, including the Ray image. Empty = Anyscale's own registry (existing resources unchanged). Must be a registry prefix of the form 'host[:port][/path]' with no scheme, no trailing slash, and no image tag, at most 255 characters.  # noqa: E501
 
         :param custom_image_registry: The custom_image_registry of this KubernetesConfig.  # noqa: E501
         :type: str

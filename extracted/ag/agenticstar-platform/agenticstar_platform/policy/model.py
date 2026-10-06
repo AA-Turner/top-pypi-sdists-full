@@ -4,7 +4,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 Profile = Literal["open", "guarded", "strict"]
@@ -18,6 +18,13 @@ OP_CLASSES: tuple[str, ...] = ("read", "write", "destructive")
 
 #: policy 取得不能 (fail-closed) の理由コード
 REASON_POLICY_UNAVAILABLE = "policy_unavailable"
+#: forbid を決めた規則の層 (Decision.layer)。利用者に「どこを直せば通るか」を伝えるための事実 (3.1req 指示書 29)。
+#: project = プロジェクトの設定 (deny / profile / allowlist / dry_run) で変えられる、tenant = テナント (L1) の profile、
+#: floor = テナントの floor (誰も緩められない)、system = 規則ではなく判定できない (policy 無し・引数を解釈できない 等)
+LAYER_PROJECT = "project"
+LAYER_TENANT = "tenant"
+LAYER_FLOOR = "floor"
+LAYER_SYSTEM = "system"
 REASON_FLOOR = "floor"
 REASON_PROJECT_FORBID = "project_forbid"
 REASON_UNEVALUABLE = "unevaluable_args"
@@ -522,6 +529,7 @@ class Decision:
     policy_version: int
     unregistered: bool = False     # 分類に無い tool を open / guarded で通した（監査に出す）
     matched: str | None = None  # 一致した forbid パターン (tool glob)
+    layer: str | None = None    # forbid を決めた規則の層 (LAYER_*)。allow は None
 
     @property
     def allowed(self) -> bool:
@@ -554,21 +562,31 @@ def _match_forbid(policy: EffectivePolicy, cands: list[str], op_class: str | Non
 
     一致 = その理由で forbid、引数を解釈できない = unevaluable_args で forbid、どれにも掛からない = None。
     """
-    for reason, patterns in ((REASON_FLOOR, policy.floor), (REASON_PROJECT_FORBID, policy.forbid)):
+    for reason, layer, patterns in ((REASON_FLOOR, LAYER_FLOOR, policy.floor),
+                                    (REASON_PROJECT_FORBID, LAYER_PROJECT, policy.forbid)):
         for pattern in patterns:
             hit = pattern.matches(cands, op_class, args, tool_name=tool_name, mcp_server=mcp_server,
                                   connection_id=connection_id, connection_kind=connection_kind)
             if hit is None:
-                return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version, matched=pattern.tool)
+                return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version, matched=pattern.tool, layer=layer)
             if hit:
-                return Decision("forbid", reason, policy.policy_version, matched=pattern.tool)
+                return Decision("forbid", reason, policy.policy_version, matched=pattern.tool, layer=layer)
     return None
 
 
-def _decide_unknown_tool(policy: EffectivePolicy, *, strict_like: bool) -> Decision:
-    """(4) 分類に無い tool。strict 相当（strict / 委譲 / dry_run）は forbid、open / guarded は通す（監査に出す）。"""
-    mode = "forbid" if strict_like else "allow"
-    return Decision(mode, REASON_UNKNOWN_TOOL, policy.policy_version, unregistered=True)
+def _strictness_layer(policy: EffectivePolicy, required: str) -> str:
+    """profile が `required` 以上に厳しいことで決まった forbid の層。テナント (L1) の profile だけでもそうなら tenant、
+    project が L1 より厳しくしたことで決まったなら project (project は L1 を緩められないので、L1 で決まった側は tenant)。"""
+    return LAYER_TENANT if profile_rank(policy.l1_bound) >= profile_rank(required) else LAYER_PROJECT
+
+
+def _decide_unknown_tool(policy: EffectivePolicy, *, strict_like: bool, by_run: bool = False) -> Decision:
+    """(4) 分類に無い tool。strict 相当（strict / 委譲 / dry_run）は forbid、open / guarded は通す（監査に出す）。
+    by_run = 委譲 / dry_run (実行の設定) で strict 相当になった。層はそれなら project、profile なら strict を決めた側。"""
+    if not strict_like:
+        return Decision("allow", REASON_UNKNOWN_TOOL, policy.policy_version, unregistered=True)
+    layer = LAYER_PROJECT if by_run else _strictness_layer(policy, "strict")
+    return Decision("forbid", REASON_UNKNOWN_TOOL, policy.policy_version, unregistered=True, layer=layer)
 
 
 def _decide_strict_allowlist(policy: EffectivePolicy, cands: list[str], op_class: str) -> Decision:
@@ -578,9 +596,11 @@ def _decide_strict_allowlist(policy: EffectivePolicy, cands: list[str], op_class
     (project を重ねた許可集合 ⊆ L1 単独の許可集合。RT-A1)。
     """
     if not any(fnmatch.fnmatchcase(c, a) for c in cands for a in policy.allow):
-        return Decision("forbid", REASON_ALLOWLIST, policy.policy_version)
+        # allowlist は project の設定 (足せば通る)。ただし L1 が禁じる操作クラスは足しても下の段で止まる = tenant
+        layer = LAYER_PROJECT if profile_permits(policy.l1_bound, op_class) else LAYER_TENANT
+        return Decision("forbid", REASON_ALLOWLIST, policy.policy_version, layer=layer)
     if not profile_permits(policy.l1_bound, op_class):
-        return Decision("forbid", REASON_PROFILE, policy.policy_version)
+        return Decision("forbid", REASON_PROFILE, policy.policy_version, layer=LAYER_TENANT)
     return Decision("allow", REASON_ALLOWLIST, policy.policy_version)
 
 
@@ -591,10 +611,15 @@ def _decide_classified(policy: EffectivePolicy, cands: list[str], op_class: str,
     if op_class == "read":
         return Decision("allow", REASON_PROFILE, policy.policy_version)
     if dry_run:
-        return Decision("forbid", REASON_DRY_RUN, policy.policy_version)
+        # dry_run は実行の設定 (project)。ただし L1 が禁じる操作クラスは dry_run を外しても止まる = tenant
+        layer = LAYER_PROJECT if profile_permits(policy.l1_bound, op_class) else LAYER_TENANT
+        return Decision("forbid", REASON_DRY_RUN, policy.policy_version, layer=layer)
     if not delegated and policy.profile in ("open", "guarded"):
         permitted = policy.profile == "open" or op_class == "write"
-        return Decision("allow" if permitted else "forbid", REASON_PROFILE, policy.policy_version)
+        if permitted:
+            return Decision("allow", REASON_PROFILE, policy.policy_version)
+        # guarded の destructive: L1 が guarded 以上ならテナント、project が guarded にしたならプロジェクト
+        return Decision("forbid", REASON_PROFILE, policy.policy_version, layer=_strictness_layer(policy, "guarded"))
     return _decide_strict_allowlist(policy, cands, op_class)
 
 
@@ -648,10 +673,10 @@ def evaluate(
         scope 付き規則 (internal / external) と strict の allowlist (許可) には効かない。
     """
     if policy is None:
-        return Decision("forbid", REASON_POLICY_UNAVAILABLE, 0)
+        return Decision("forbid", REASON_POLICY_UNAVAILABLE, 0, layer=LAYER_SYSTEM)
     kind = (str(connection_kind).strip().lower() or None) if connection_kind is not None else None
     if kind is not None and kind not in CONNECTION_KINDS:
-        return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version)
+        return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version, layer=LAYER_SYSTEM)
     if kind == "a2a":
         # A2A 外部 Agent: 分類しない・profile / dry_run / 委譲を見ない。禁止規則 (a2a の接続 ID、scope 無しの tool 名 glob) だけ
         cid = (str(connection_id).strip() or None) if connection_id is not None else None
@@ -674,18 +699,27 @@ def evaluate(
     forbidden = _match_forbid(policy, _with_aliases(cands, tool_aliases), op_class, args, tool_name=tool, mcp_server=mcp_server,
                               connection_id=connection_id, connection_kind="mcp" if mcp else None)
     if forbidden is not None:
+        if forbidden.layer == LAYER_PROJECT and policy.forbid:
+            # project の禁止規則を外しても下の段 (L1 の profile / 判定できない) で止まるなら、その層を返す
+            # (allowlist / dry_run と同じ: プロジェクトの設定だけでは通らないものを project と言わない)。mode / reason / matched は変えない
+            rest = evaluate(replace(policy, forbid=()), tool, op_class, args=args, args_unparseable=args_unparseable,
+                            dry_run=dry_run, delegated=delegated, mcp_server=mcp_server, connection_id=connection_id,
+                            mcp=mcp, connection_kind=connection_kind, tool_aliases=tool_aliases)
+            if rest.mode == "forbid" and rest.layer in (LAYER_TENANT, LAYER_SYSTEM):
+                return replace(forbidden, layer=rest.layer)
         return forbidden
     # (2') MCP: 禁止規則に当たらなければ allow。profile / dry_run / 委譲 / 未分類の段は通らない
     if mcp:
         return Decision("allow", REASON_MCP_UNRESTRICTED, policy.policy_version)
     # (3) 評価不能
     if op_class is not None and args_unparseable:
-        return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version)
+        return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version, layer=LAYER_SYSTEM)
     # (4) unknown
     if op_class is None:
         strict_like = policy.profile == "strict" or delegated or dry_run
-        return _decide_unknown_tool(policy, strict_like=strict_like)
+        return _decide_unknown_tool(policy, strict_like=strict_like,
+                                    by_run=policy.profile != "strict" and (delegated or dry_run))
     if op_class not in OP_CLASSES:
-        return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version)
+        return Decision("forbid", REASON_UNEVALUABLE, policy.policy_version, layer=LAYER_SYSTEM)
     # (5) 分類あり
     return _decide_classified(policy, cands, op_class, dry_run=dry_run, delegated=delegated)

@@ -170,6 +170,32 @@ def expected_fields_sentence(
     )
 
 
+def flat_required_sentence(arguments: dict[str, Any], args_model: type, exc: Any) -> str | None:
+    """For a plain (non-discriminated) tool whose call is missing required fields, say
+    which fields are required and show one valid call. A model that sent ``{}`` reads
+    "kind: Field required" and has nothing to copy; this gives it the shape.
+
+    A model class may carry ``correction_example`` (a ClassVar dict of a valid call)."""
+    missing = [
+        str(e["loc"][0])
+        for e in _error_list(exc)
+        if e.get("type") == "missing" and e.get("loc")
+    ]
+    if not missing:
+        return None
+    fields = getattr(args_model, "model_fields", {}) or {}
+    required = sorted(n for n, f in fields.items() if f.is_required())
+    sent = sorted(arguments or {})
+    text = (
+        f"You sent {', '.join(sent) if sent else 'no arguments'}; "
+        f"required: {', '.join(required)}."
+    )
+    example = getattr(args_model, "correction_example", None)
+    if isinstance(example, dict) and example:
+        text += f" Valid call: {json.dumps(example, ensure_ascii=False)}."
+    return text
+
+
 def _error_list(exc: Any) -> list[dict[str, Any]]:
     errs = getattr(exc, "errors", None)
     if callable(errs):

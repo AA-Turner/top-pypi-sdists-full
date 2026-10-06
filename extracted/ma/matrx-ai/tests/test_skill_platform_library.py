@@ -316,6 +316,7 @@ SEO_PARENTS = {
     "seo-coach",
     "seo-project-setup",
     "seo-report",
+    "deslop",
 }
 
 # Our users work inside AI Matrx: a native skill never sends them to another

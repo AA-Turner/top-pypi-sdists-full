@@ -7,7 +7,7 @@ on:
   push:
     branches: [master]
   pull_request:
-    branches: [master]
+    # Validate intermediate stack branches as well as changes targeting master.
     types: [opened, synchronize, reopened, closed]
 
 concurrency:
@@ -46,7 +46,9 @@ jobs:
           - platform: linux-x86_64
             runs-on: ubuntu-latest
             build_workers: 4
-            test_workers: 6
+            # a hosted runner gives 16 GB, and each worker holds its own poses:
+            # six of them run out where four finish the suite with room to spare
+            test_workers: 4
           - platform: linux-aarch64
             runs-on: ubuntu-24.04-arm
             build_workers: 4
@@ -134,6 +136,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ github.workspace }}/coverage.cpu.xml
           flags: cpu
+          # Avoid the failing TLS handshake at cli.codecov.io.
+          use_pypi: true
           fail_ci_if_error: true
 
   gpu:
@@ -150,7 +154,7 @@ jobs:
       SLURM_MEM: 128G
       SLURM_TIME: 06:00:00
       # Exclude nodes with known uncorrectable ECC faults until repaired.
-      SLURM_EXCLUDE: g2547,g2548
+      SLURM_EXCLUDE: g2543,g2547,g2548
       SRUN_GPU_MAX_ATTEMPTS: 5
       SRUN_GPU_RETRY_SLEEP: 10
       # PR tests need only the architecture of the allocated DIGS GPU.
@@ -192,6 +196,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ github.workspace }}/coverage.cuda.xml
           flags: cuda
+          use_pypi: true
           fail_ci_if_error: true
 
   # Preserve the historical required-check name while the work executes in
@@ -199,7 +204,7 @@ jobs:
   ci:
     name: ci
     runs-on: ubuntu-latest
-    if: always() && github.event.action != 'closed'
+    if: always() && !cancelled() && github.event.action != 'closed'
     needs: [lint, cpu, gpu]
     steps:
       - name: require every CI lane

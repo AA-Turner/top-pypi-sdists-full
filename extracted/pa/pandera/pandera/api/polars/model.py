@@ -38,6 +38,13 @@ class DataFrameModel(_DataFrameModel[pl.LazyFrame, DataFrameSchema]):
 
     @classmethod
     def build_schema_(cls, **kwargs) -> DataFrameSchema:
+        # User-defined parsers are not supported by the polars backend yet
+        # (see issue #2472): fail loudly instead of silently dropping them.
+        if cls.__parsers__ or cls.__root_parsers__:
+            raise SchemaInitError(
+                "user-defined parsers are not supported by the polars "
+                "backend (see issue #2472)"
+            )
         return DataFrameSchema(
             cls._build_columns(cls.__fields__, cls.__checks__),
             checks=cls.__root_checks__,
@@ -62,6 +69,19 @@ class DataFrameModel(_DataFrameModel[pl.LazyFrame, DataFrameSchema]):
                 ) and issubclass(annotation.raw_annotation, pe.DataType)
             except TypeError:
                 is_polars_dtype = False
+            if (
+                annotation.origin is list
+                and inspect.isclass(annotation.arg)
+                and issubclass(annotation.arg, DataFrameModel)
+            ):
+                raise SchemaInitError(
+                    f"Error while parsing field '{field_name}': nesting a "
+                    f"DataFrameModel inside a list (`{annotation.raw_annotation}`) "
+                    "is not yet supported. Only a single nested "
+                    "DataFrameModel/DataFrameSchema per struct column is "
+                    "currently supported, e.g. `foo: Foo` instead of "
+                    "`foos: List[Foo]`."
+                )
 
             try:
                 engine_dtype = pe.Engine.dtype(annotation.raw_annotation)
@@ -69,6 +89,12 @@ class DataFrameModel(_DataFrameModel[pl.LazyFrame, DataFrameSchema]):
                     # use the raw annotation as the dtype if it's a native
                     # pandera polars datatype
                     dtype = annotation.raw_annotation
+                elif isinstance(engine_dtype, pe.PanderaSchema):
+                    # nested DataFrameModel/DataFrameSchema field: keep the
+                    # resolved engine dtype object (not just its raw
+                    # pl.Struct .type) so the nested schema is preserved for
+                    # validation, instead of collapsing to a plain struct.
+                    dtype = engine_dtype  # type: ignore[assignment]
                 else:
                     dtype = engine_dtype.type
             except (TypeError, ValueError) as exc:

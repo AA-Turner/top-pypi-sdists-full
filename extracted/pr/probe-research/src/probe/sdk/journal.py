@@ -2188,6 +2188,12 @@ class Journal:
         """
         from . import unstorable
 
+        # An experiment's child write is journaled by its EXPERIMENT, never the
+        # project it sat in when queued: the drain places it (`_placed`), so a
+        # move between the two cannot dead-letter it, and its correlation
+        # digest is the same whichever project answered.
+        path = unplaced_experiment_path(path)
+
         if not _prepared:
             body = unstorable.normalize_json(body)
             # The same door as `Client.write` (review of #2053): the hardware
@@ -2213,7 +2219,9 @@ class Journal:
                 method.upper() != "POST"
                 or not body
                 or body.get("is_reference") is not True
-                or not re.fullmatch(r"/v1/(runs|experiments|projects)/[^/]+/artifacts", path)
+                or not re.fullmatch(
+                    r"/v1/(runs|experiments|projects)/[^/]+(/experiments/[^/]+)?/artifacts", path
+                )
             ):
                 raise ValueError("correlated HTTP operations must create an artifact reference")
             self._receipt_dirs()
@@ -4181,6 +4189,56 @@ def _settings_for_op(
 CLOSE_HOLD_MAX_SECONDS = 600.0
 
 _RUN_CLOSE_PATH = re.compile(r"/v1/runs/[^/]+")
+
+#: The project segment of an experiment child path journaled before its project
+#: is known: `/v1/projects/~/experiments/{E}/...` (light experiments X21). An
+#: experiment's children are addressed under the project it is filed in, which
+#: a move changes; the queue names the experiment alone and the drain asks
+#: where it is (`_placed`). `~` is a legal path character no project slug or id
+#: can be, so a drainer older than this sends it to a 404 and dead-letters it.
+UNPLACED_PROJECT = "~"
+_UUID_SEGMENT = r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+_PLACED_EXPERIMENT_PATH = re.compile(
+    rf"/v1/projects/{_UUID_SEGMENT}/experiments/({_UUID_SEGMENT})((?:/[^?#]*)?)"
+)
+_UNPLACED_EXPERIMENT_PATH = re.compile(r"/v1/projects/~/experiments/([^/?#]+)((?:/[^?#]*)?)")
+
+
+def unplaced_experiment_path(path: str) -> str:
+    """``path`` with an experiment child route's project replaced by
+    :data:`UNPLACED_PROJECT`; any other path unchanged."""
+    match = _PLACED_EXPERIMENT_PATH.fullmatch(path or "")
+    if match is None:
+        return path
+    return f"/v1/projects/{UNPLACED_PROJECT}/experiments/{match.group(1)}{match.group(2)}"
+
+
+def _placed(client, op: dict) -> dict | None:
+    """Deliver a journaled experiment child write at the project its experiment
+    is filed in NOW (``client._on_experiment``: placed once per client, placed
+    again on a 404 at a remembered project). None for any other op.
+
+    A route-absent server (older than X21) is answered as its own 404, which
+    dead-letters like any refusal, rather than as a capability error the drain
+    would not classify."""
+    match = _UNPLACED_EXPERIMENT_PATH.fullmatch(op.get("path") or "")
+    if match is None:
+        return None
+    rest = match.group(2)
+
+    def send(project: str, experiment: str):
+        return client.transport.request(
+            op["method"],
+            f"/v1/projects/{project}/experiments/{experiment}{rest}",
+            json_body=op.get("body"),
+        )
+
+    try:
+        return {"response": client._on_experiment(send, match.group(1))}
+    except errors.CapabilityUnavailable as exc:
+        if isinstance(exc.__cause__, errors.RosError):
+            raise exc.__cause__ from None
+        raise
 _RUN_RELEASE_PATH = re.compile(r"/v1/runs/[^/]+/writers/[^/]+/release")
 _TERMINAL_RUN_STATUSES = frozenset({"completed", "failed", "crashed", "canceled", "untracked"})
 
@@ -5792,6 +5850,9 @@ def _execute(
             raise errors.ValidationError(
                 f"op {op.get('op_id')} is missing method/path", status=422
             )
+        placed = _placed(client, op)
+        if placed is not None:
+            return placed["response"]
         try:
             return client.transport.request(op["method"], op["path"], json_body=op.get("body"))
         except errors.ValidationError:

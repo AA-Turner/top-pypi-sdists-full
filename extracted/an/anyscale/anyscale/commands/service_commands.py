@@ -12,7 +12,7 @@ import yaml
 
 from anyscale._private.models.image_uri import ImageURI
 from anyscale.cli_logger import BlockLogger
-from anyscale.commands import command_examples
+from anyscale.commands import command_examples, events_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
     CommandExample,
@@ -154,7 +154,7 @@ def _read_name_from_config_file(path: str):
     required=False,
     default=None,
     type=str,
-    help="The Ray version (X.Y.Z) to the image specified by --image-uri. This is only used when --image-uri is provided. If you don't specify a Ray version, Anyscale defaults to the latest Ray version available at the time of the Anyscale CLI/SDK release.",
+    help="Ray version (X.Y.Z) of the image from --image-uri. Only used with --image-uri. If not set, Anyscale doesn't assume a version.",
 )
 @click.option(
     "--compute-config",
@@ -1738,3 +1738,8 @@ def token_delete(
         log.info(f"Secondary token: {secondary_auth_token}")
     else:
         log.info("No secondary token is set.")
+
+
+# `anyscale service events` is implemented once for every resource in
+# events_commands.py; only the registration lives here.
+service_cli.add_command(events_commands.service_events)

@@ -335,6 +335,7 @@ class MainLoop:
 
             If the callback returns ``False`` then the watch will be removed from :attr:`event_loop`
             and the read end of the pipe will be closed.
+            The same happens once every write end is closed: the callback then receives ``b""`` one last time.
             You are responsible for closing the write end of the pipe with ``os.close(fd)``.
 
             .. note::
@@ -345,26 +346,39 @@ class MainLoop:
 
             pipe_rd, pipe_wr = os.pipe()
             fcntl.fcntl(pipe_rd, fcntl.F_SETFL, os.O_NONBLOCK)
-            watch_handle = None
+            entry: tuple[typing.Any, int] | None = None
 
+            # A callback acts only while its own entry is registered: once remove_watch_pipe() closed the read end,
+            # its descriptor number may already belong to another file.
             if inspect.iscoroutinefunction(callback):
 
                 async def cb() -> None:
-                    data = os.read(pipe_rd, PIPE_BUFFER_READ_SIZE)
-                    if await callback(data) is False:
-                        self.event_loop.remove_watch_file(watch_handle)
-                        os.close(pipe_rd)
+                    if self._watch_pipes.get(pipe_wr) is not entry:
+                        return
+                    try:
+                        data = os.read(pipe_rd, PIPE_BUFFER_READ_SIZE)
+                    except BlockingIOError:
+                        return  # a task started by an earlier wake-up already read the data
+                    if not data:
+                        # Removed before awaiting: the pipe stays readable at its end, starting a task per pass.
+                        self.remove_watch_pipe(pipe_wr)
+                        await callback(data)
+                    elif await callback(data) is False and self._watch_pipes.get(pipe_wr) is entry:
+                        self.remove_watch_pipe(pipe_wr)
 
             else:
 
                 def cb() -> None:  # type: ignore[misc]  # intentionally the sync variant of the branch above
+                    if self._watch_pipes.get(pipe_wr) is not entry:
+                        return
                     data = os.read(pipe_rd, PIPE_BUFFER_READ_SIZE)
-                    if callback(data) is False:
-                        self.event_loop.remove_watch_file(watch_handle)
-                        os.close(pipe_rd)
+                    if (callback(data) is False or not data) and self._watch_pipes.get(pipe_wr) is entry:
+                        self.remove_watch_pipe(pipe_wr)
 
-            watch_handle = self.event_loop.watch_file(pipe_rd, cb)
-            self._watch_pipes[pipe_wr] = (watch_handle, pipe_rd)
+            # An entry left under this number belongs to a write end the caller has closed since.
+            self.remove_watch_pipe(pipe_wr)
+            entry = (self.event_loop.watch_file(pipe_rd, cb), pipe_rd)
+            self._watch_pipes[pipe_wr] = entry
             return pipe_wr
 
         def remove_watch_pipe(self, write_fd: int) -> bool:
@@ -380,8 +394,7 @@ class MainLoop:
             except KeyError:
                 return False
 
-            if not self.event_loop.remove_watch_file(watch_handle):
-                return False
+            self.event_loop.remove_watch_file(watch_handle)
             os.close(pipe_rd)
             return True
 
@@ -514,13 +527,15 @@ class MainLoop:
                 return
             finally:
                 self.screen.stop()
+        except BaseException:
+            # start() may have failed after starting the screen or hooking the event loop.
+            self.stop()
+            raise
 
         try:
             self.event_loop.run()
-        except:
-            self.screen.stop()  # clean up screen control
-            raise
-        self.stop()
+        finally:
+            self.stop()
 
     def _update(self, keys: list[str | tuple[str, int, int, int]], raw: list[int]) -> None:
         """Filter *keys* and pass them to :meth:`process_input`, resetting :attr:`screen_size` on a window resize.
@@ -739,10 +754,13 @@ class MainLoop:
         and after an alarm callback fires. So screen updates made from
         input handlers or alarm callbacks are redrawn automatically.
 
-        If you modify the widgets displayed from somewhere else, such as
-        another thread or a callback that does not go through the event
-        loop's idle handling, you will need to call this method yourself
-        to repaint the screen.
+        If you modify the widgets displayed from a callback that does not go through the event loop's idle handling,
+        you will need to call this method yourself to repaint the screen.
+
+        .. important::
+            Call it only from the thread running the event loop, like every other widget and screen change.
+            Another thread hands the work over instead: it writes to a :meth:`watch_pipe` descriptor,
+            or uses the event loop's own thread-safe scheduling, such as ``loop.call_soon_threadsafe()`` in asyncio.
         """
         if not self.screen_size:
             self.screen_size = self.screen.get_cols_rows()

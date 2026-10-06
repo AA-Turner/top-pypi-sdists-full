@@ -1,9 +1,43 @@
-__all__ = ['to_numpy', 'counts_by_id', 'maybe_compute_sort_indices', 'assign_columns', 'drop_columns', 'take_rows',
-           'filter_with_mask', 'is_nan', 'is_none', 'is_nan_or_none', 'match_if_categorical', 'vertical_concat',
-           'horizontal_concat', 'copy_if_pandas', 'join', 'drop_index_if_pandas', 'rename', 'sort', 'offset_times',
-           'offset_dates', 'time_ranges', 'repeat', 'cv_times', 'group_by', 'group_by_agg', 'is_in', 'between',
-           'fill_null', 'cast', 'value_cols_to_numpy', 'make_future_dataframe', 'anti_join', 'ensure_sorted',
-           'ProcessedDF', 'process_df', 'DataFrameProcessor', 'backtest_splits', 'add_insample_levels']
+__all__ = [
+    "to_numpy",
+    "counts_by_id",
+    "maybe_compute_sort_indices",
+    "assign_columns",
+    "drop_columns",
+    "take_rows",
+    "filter_with_mask",
+    "is_nan",
+    "is_none",
+    "is_nan_or_none",
+    "match_if_categorical",
+    "vertical_concat",
+    "horizontal_concat",
+    "copy_if_pandas",
+    "join",
+    "drop_index_if_pandas",
+    "rename",
+    "sort",
+    "offset_times",
+    "offset_dates",
+    "time_ranges",
+    "repeat",
+    "cv_times",
+    "group_by",
+    "group_by_agg",
+    "is_in",
+    "between",
+    "fill_null",
+    "cast",
+    "value_cols_to_numpy",
+    "make_future_dataframe",
+    "anti_join",
+    "ensure_sorted",
+    "ProcessedDF",
+    "process_df",
+    "DataFrameProcessor",
+    "backtest_splits",
+    "add_insample_levels",
+]
 
 
 import re
@@ -93,13 +127,15 @@ def maybe_compute_sort_indices(
     ids_are_sorted = (ids[:-1] <= ids[1:]).all()
     if ids_are_sorted:
         times_are_sorted = (
-            (times[:-1] < times[1:])  # times are ascending
-            | (ids[:-1] != ids[1:])  # except when the id changes
-        ).all()
+            (
+                (times[:-1] < times[1:])  # times are ascending
+                | (ids[:-1] != ids[1:])  # except when the id changes
+            ).all()
+        )
         if times_are_sorted:
             return None
     if isinstance(df, pd.DataFrame):
-        if pd.api.types.is_object_dtype(df.dtypes[id_col]):
+        if pd.api.types.is_string_dtype(df.dtypes[id_col]):
             # MultiIndex.argsort is faster than lexsort for strings
             sort_idxs = pd.MultiIndex.from_frame(df[[id_col, time_col]]).argsort()
         else:
@@ -130,10 +166,7 @@ def _is_sorted(df: DataFrame, id_col: str, time_col: str) -> bool:
     if not ids_are_sorted:
         return False
     try:
-        times_are_sorted = (
-            (times[:-1] < times[1:])
-            | (ids[:-1] != ids[1:])
-        ).all()
+        times_are_sorted = ((times[:-1] < times[1:]) | (ids[:-1] != ids[1:])).all()
     except TypeError:
         return False
     return bool(times_are_sorted)
@@ -396,6 +429,63 @@ def _ensure_month_ends(
     return times
 
 
+_NANOS_PER_UNIT = {"s": 1_000_000_000, "ms": 1_000_000, "us": 1_000, "ns": 1}
+
+
+def _dt_unit(times: Union[Series, pd.Index]) -> str:
+    dtype = times.dtype
+    if isinstance(dtype, np.dtype):
+        return np.datetime_data(dtype)[0]
+    # DatetimeTZDtype holds the unit, pyarrow timestamps keep it in the arrow type
+    return getattr(dtype, "unit", None) or dtype.pyarrow_dtype.unit
+
+
+def _offset_times_array_n(
+    times: Union[pd.Series, pd.Index], freq: BaseOffset, n: np.ndarray
+) -> Union[pd.Series, pd.Index]:
+    n = np.asarray(n)
+    if n.shape != (len(times),):
+        raise ValueError(f"Expected n to have shape ({len(times)},), got {n.shape}.")
+    if not np.issubdtype(n.dtype, np.integer):
+        raise TypeError(f"Expected n to have an integer dtype, got {n.dtype}.")
+    # a python int multiplier keeps n's dtype, so narrower ints would overflow
+    n = n.astype(np.int64, copy=False)
+    if isinstance(freq, pd.offsets.Tick):
+        # the coarsest resolution that can hold both the times and the offset,
+        # which is the one pandas uses with a scalar n
+        times_nanos = _NANOS_PER_UNIT[_dt_unit(times)]
+        unit, unit_nanos = next(
+            (u, k)
+            for u, k in _NANOS_PER_UNIT.items()
+            if k <= times_nanos and freq.nanos % k == 0
+        )
+        deltas = (n * (freq.nanos // unit_nanos)).astype(f"timedelta64[{unit}]")
+        return times + deltas
+    # pandas only vectorizes non-fixed offsets for a scalar n, so we apply each
+    # distinct n to its own run of times and then restore the original order
+    order = np.argsort(n, kind="stable")
+    ks, starts = np.unique(n[order], return_index=True)
+    ends = np.append(starts[1:], n.size)
+    dt_index = pd.DatetimeIndex(times)
+    with warnings.catch_warnings():
+        # offsets without a vectorized implementation still fall back elementwise
+        warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+        runs = [
+            dt_index[order[s:e]] + int(k) * freq for k, s, e in zip(ks, starts, ends)
+        ]
+    inv_order = np.empty_like(order)
+    inv_order[order] = np.arange(order.size)
+    # the empty slice preserves the dtype in case there are no times
+    out = dt_index[:0].append(runs).take(inv_order)
+    if isinstance(times, pd.Series):
+        out = pd.Series(out, index=times.index, name=times.name)
+    else:
+        out = out.rename(times.name)
+    if out.dtype != times.dtype:
+        out = out.astype(times.dtype)
+    return out
+
+
 def offset_times(
     times: Union[Series, pd.Index],
     freq: Union[int, str, BaseOffset],
@@ -411,9 +501,12 @@ def offset_times(
                 f"Cannot offset times with data type: '{times.dtype}' "
                 f"using a frequency of type: '{type(freq)}'."
             )
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
-            out = times + n * freq
+        if dts and np.ndim(n) > 0:
+            out = _offset_times_array_n(times, freq, n)
+        else:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
+                out = times + n * freq
     elif isinstance(times, pl_Series) and isinstance(freq, int):
         out = times + n * freq
     elif isinstance(times, pl_Series) and isinstance(freq, str):
@@ -449,14 +542,8 @@ def time_ranges(
     if isinstance(starts, pd.Index):
         if _is_int_dtype(starts):
             starts_np = starts.to_numpy(copy=False)  # may be pyarrow
-            out = np.hstack(
-                [
-                    np.arange(
-                        start, start + freq * periods, freq, dtype=starts_np.dtype
-                    )
-                    for start in starts_np
-                ]
-            )
+            steps = (np.arange(periods) * freq).astype(starts_np.dtype)
+            out = np.repeat(starts_np, periods) + np.tile(steps, starts_np.size)
         elif _is_dt_dtype(starts):
             if isinstance(freq, str):
                 freq = pd.tseries.frequencies.to_offset(freq)

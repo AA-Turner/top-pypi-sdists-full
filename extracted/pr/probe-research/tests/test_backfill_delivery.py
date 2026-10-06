@@ -493,22 +493,32 @@ def test_worker_retries_recovery_marker_before_empty_exit(queue, monkeypatch):
     assert len(calls) == 2
 
 
+_EXP = "0b8f6c2e-8f0e-4f7a-9d5c-1d2e3f4a5b6c"
+_PROJ = "1c9f7d3f-9f1f-4a8b-8e6d-2e3f4a5b6c7d"
+
+
 @pytest.mark.parametrize(
-    ("anchor", "expected"),
+    ("anchor", "anchor_id", "expected"),
     [
-        ("run", "/v1/runs/a1/artifacts"),
-        # An experiment IS a project: `/v1/experiments/*` answers 410 since the
-        # 5b cut, so a reference journaled there dead-letters on drain.
-        ("experiment", "/v1/projects/a1/artifacts"),
-        ("project", "/v1/projects/a1/artifacts"),
+        ("run", "a1", "/v1/runs/a1/artifacts"),
+        # `/v1/experiments/*` answers 410 since the 5b cut, and the leaf door
+        # (`/v1/projects/{E}/artifacts`) goes at R6: an experiment's reference is
+        # journaled at the experiment API's address, under its project (X21).
+        ("experiment", _EXP, f"/v1/projects/{_PROJ}/experiments/{_EXP}/artifacts"),
+        ("project", "a1", "/v1/projects/a1/artifacts"),
     ],
 )
 def test_a_reference_is_delivered_at_the_address_that_survives_the_cut(
-    tmp_path, anchor, expected
+    tmp_path, anchor, anchor_id, expected
 ):
     seen = []
 
     def handle(request):
+        if request.method == "GET" and request.url.path == f"/v1/scopes/{_EXP}":
+            # Placing the experiment, once, when the reference is journaled.
+            return httpx.Response(200, json={
+                "id": _EXP, "kind": "experiment", "project_id": _PROJ,
+                "experiment_id": _EXP, "run_id": None})
         seen.append(request.url.path)
         body = json.loads(request.content)
         return httpx.Response(200, json={**body, "id": "artifact-1", "status": "complete"})
@@ -524,7 +534,7 @@ def test_a_reference_is_delivered_at_the_address_that_survives_the_cut(
 
     producer = client(tmp_path / "outbox")
     producer.enqueue_artifact_reference(
-        correlation=f"ref:{anchor}", anchor=anchor, anchor_id="a1", name="x.pt", uri="file:///x.pt"
+        correlation=f"ref:{anchor}", anchor=anchor, anchor_id=anchor_id, name="x.pt", uri="file:///x.pt"
     )
     drainer = client(tmp_path / "other")
     assert drain(Journal(tmp_path / "outbox"), client_factory=lambda _: drainer).delivered == 1

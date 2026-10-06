@@ -33,6 +33,7 @@ from probe.daemon import folders, lease, tools  # noqa: E402
 from probe.daemon import store as store_mod  # noqa: E402
 from probe.daemon import worker as worker_mod  # noqa: E402
 from probe.daemon.events import Event, Kind  # noqa: E402
+from probe.sdk import session_marker  # noqa: E402
 from probe.sdk.session_marker import WIZARD_HINT  # noqa: E402
 
 SID = "11111111-2222-3333-4444-555555555555"
@@ -1609,3 +1610,227 @@ def test_what_read_only_left_unread_is_marked_by_its_stamps(tmp_path):
     texts = _bites_by_text(later)
     assert texts["SECRET while read only"] == store_mod.UNRECORDED_BITE
     assert texts["back on"] is None, "after the switch moved back: the writer's"
+
+
+# ---------------------------------------------------------------------------
+# `on (inline)` (Richard 2026-10-05): the agent took Probe over. The events
+# stamped inside the stretch it held are its own, by the switch's own times; the
+# writer keeps its lease (taken over from `on (daemon)`) to finish what came
+# before, and is told once which turns it skipped.
+# ---------------------------------------------------------------------------
+
+
+def _iso(at: float) -> str:
+    """Milliseconds kept: a stamp rounded to the second can fall before the
+    takeover it was written after (review: testing, a 49% flake)."""
+    return time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(at)) + f".{int(round(at % 1 * 1000)) % 1000:03d}Z"
+
+
+def _say(w, text: str, at: float) -> None:
+    with w.session.transcript.open("a") as handle:
+        handle.write(_line({"type": "user", "timestamp": _iso(at), "message": {"content": text},
+                            "cwd": str(w.session.cwd)}))
+
+
+def _count(w, prefix: str) -> int:
+    """Rows, not texts: repeated notices share a text."""
+    return w.store.db.execute("SELECT COUNT(*) AS n FROM events WHERE text LIKE ?", (prefix + "%",)).fetchone()["n"]
+
+
+def _t0() -> float:
+    return float(int(time.time()) - 60)
+
+
+def test_inline_from_daemon_keeps_the_writer_and_leaves_the_agents_turns_to_it(tmp_path):
+    _daemon_profile()
+    model, _ = _scripted([])
+    w = _worker(tmp_path, model=model)
+    w.reader = object()
+    assert w._renew()
+    t0 = _t0()
+    _say(w, "before the takeover", t0 - 1)
+    w.read_new()  # turn T, before the takeover: the writer's
+    assert session_marker.enter_inline(SID, now=t0) is None
+    assert lease.records(SID) and lease.may_write(SID) is None, "a bite in flight keeps writing"
+    assert lease.worker_wanted(SID)
+    _say(w, "SECRET while the agent held Probe", t0 + 10)
+    assert asyncio.run(w.tick()) is None
+    texts = _bites_by_text(w)
+    assert texts["SECRET while the agent held Probe"] == store_mod.UNRECORDED_BITE
+    assert texts["before the takeover"] != store_mod.UNRECORDED_BITE, "stamped before `since`: the writer's"
+    assert lease.held(SID), "the writer kept its lease"
+
+    assert session_marker.leave_inline(SID, now=t0 + 20) == (session_marker.STATE_DAEMON, None)
+    _say(w, "after the hand-back", t0 + 30)
+    assert asyncio.run(w.tick()) is None
+    assert _bites_by_text(w)["after the hand-back"] != store_mod.UNRECORDED_BITE
+    assert _count(w, "the daemon skipped") == 1
+    notice = next(t for t in _bites_by_text(w) if (t or "").startswith("the daemon skipped"))
+    assert "the agent took Probe over (inline)" in notice
+    asyncio.run(w.tick())
+    assert _count(w, "the daemon skipped") == 1, "told once"
+
+
+def test_events_are_marked_as_they_are_read_not_at_the_next_tick(tmp_path):
+    """The reader's tick and the writer's between-rounds reading take input too:
+    an event never sits unmarked where a bite or its session tools could see it
+    (review: Codex P1, Claude adversarial)."""
+    _daemon_profile()
+    w = _worker(tmp_path)
+    t0 = _t0()
+    assert session_marker.enter_inline(SID, now=t0) is None
+    _say(w, "SECRET read by another lane", t0 + 5)
+    w.read_new()
+    assert _bites_by_text(w)["SECRET read by another lane"] == store_mod.UNRECORDED_BITE
+
+
+def test_a_takeover_between_two_polls_is_still_the_agents(tmp_path):
+    """Taken over and handed back before any tick saw it open: the log still
+    names the stretch."""
+    _daemon_profile()
+    model, _ = _scripted([])
+    w = _worker(tmp_path, model=model)
+    w.reader = object()
+    t0 = _t0()
+    assert session_marker.enter_inline(SID, now=t0) is None
+    assert session_marker.leave_inline(SID, now=t0 + 1) == (session_marker.STATE_DAEMON, None)
+    _say(w, "SECRET inside the stretch", t0 + 0.5)
+    _say(w, "right after", t0 + 2)
+    assert asyncio.run(w.tick()) is None
+    texts = _bites_by_text(w)
+    assert texts["SECRET inside the stretch"] == store_mod.UNRECORDED_BITE
+    assert texts["right after"] != store_mod.UNRECORDED_BITE
+
+
+def test_an_sdk_message_while_the_agent_held_probe_is_the_agents(tmp_path):
+    """SDK run messages carry the supervisor's `received_at`: a run the agent
+    launched while inline is not filed by the writer (review: Codex, red team)."""
+    _daemon_profile()
+    w = _worker(tmp_path)
+    t0 = _t0()
+    assert session_marker.enter_inline(SID, now=t0) is None
+    _inbox([{"event": "run_start", "run_id": "inline-run", "received_at": t0 + 3},
+            {"event": "run_start", "run_id": "earlier-run", "received_at": t0 - 3}])
+    w.read_new()
+    rows = {r["text"]: r["bite"] for r in w.store.db.execute("SELECT text, bite FROM events WHERE stream = 'sdk'")}
+    assert [b for t, b in rows.items() if "inline-run" in t] == [store_mod.UNRECORDED_BITE]
+    assert [b for t, b in rows.items() if "earlier-run" in t] != [store_mod.UNRECORDED_BITE]
+
+
+def test_a_file_the_agent_changed_while_it_held_probe_is_its_own(tmp_path):
+    """Folder changes carry the file's mtime and are placed per change: one made
+    while the agent held Probe -- even a takeover no tick saw -- never reaches
+    the writer, one made before it does (review: Codex, Claude adversarial, red
+    team; the edge catch-ups they replaced missed both)."""
+    _daemon_profile()
+    w = _worker(tmp_path)
+    t0 = _t0()
+    before = w.session.cwd / "before.txt"
+    during = w.session.cwd / "during.txt"
+    asyncio.run(w._check_folders([w.session.cwd], force=True))  # the first look sets the snapshot
+    before.write_text("written before the takeover")
+    os.utime(before, (t0 - 5, t0 - 5))
+    during.write_text("written while the agent held Probe")
+    os.utime(during, (t0 + 5, t0 + 5))
+    assert session_marker.enter_inline(SID, now=t0) is None
+    assert session_marker.leave_inline(SID, now=t0 + 10) == (session_marker.STATE_DAEMON, None)
+    asyncio.run(w._check_folders([w.session.cwd], force=True))
+    rows = {r["text"].split(" (")[0]: r["bite"] for r in
+            w.store.db.execute("SELECT text, bite FROM events WHERE stream = 'folders'")}
+    assert rows[f"new file {during}"] == store_mod.UNRECORDED_BITE
+    assert rows[f"new file {before}"] != store_mod.UNRECORDED_BITE
+
+
+def test_the_folders_are_looked_at_while_the_agent_holds_probe(tmp_path, monkeypatch):
+    """Not only when a bite is due: with the agent's turns left to it no bite
+    may come for the whole takeover, and an inline edit would then share one
+    diff with the next edit after the hand-back (review of the fixes)."""
+    _daemon_profile()
+    w = _worker(tmp_path)
+    looked = []
+
+    async def check(workdirs, *, emit=True, force=False):
+        looked.append(emit)
+
+    monkeypatch.setattr(w, "_check_folders", check)
+    asyncio.run(w._inline_tick())
+    assert looked == []
+    assert session_marker.enter_inline(SID) is None
+    asyncio.run(w._inline_tick())
+    assert looked == [True], "emitting: each change is placed by its mtime"
+
+
+def test_a_late_event_from_an_announced_takeover_is_not_announced_again(tmp_path):
+    """A delayed line (a subagent's log read late) from a takeover the writer was
+    already told about is still the agent's, without a second notice (review of
+    the fixes)."""
+    _daemon_profile()
+    model, _ = _scripted([])
+    w = _worker(tmp_path, model=model)
+    w.reader = object()
+    t0 = _t0()
+    assert session_marker.enter_inline(SID, now=t0) is None
+    _say(w, "inside", t0 + 1)
+    assert session_marker.leave_inline(SID, now=t0 + 2) == (session_marker.STATE_DAEMON, None)
+    asyncio.run(w.tick())
+    assert _count(w, "the daemon skipped") == 1
+    _say(w, "a late line from inside", t0 + 1.5)
+    asyncio.run(w.tick())
+    assert _bites_by_text(w)["a late line from inside"] == store_mod.UNRECORDED_BITE
+    assert _count(w, "the daemon skipped") == 1
+
+
+def test_a_store_from_an_earlier_build_reads_its_skipped_turns_as_none(tmp_path):
+    _daemon_profile()
+    w = _worker(tmp_path)
+    with w.store.tx():
+        w.store.set_fact(worker_mod.INLINE_SKIPPED, [3, 5])
+    asyncio.run(w._inline_tick())
+    assert _count(w, "the daemon skipped") == 0
+
+
+def test_a_takeover_from_read_only_is_told_once_the_writer_records_again(tmp_path):
+    """Taken over from read only, handed back, then the researcher's `/probe on`:
+    the writer hears about the read-only stretch AND the agent's turns in it
+    (review: red team)."""
+    _daemon_profile()
+    model, _ = _scripted([])
+    w = _worker(tmp_path, model=model)
+    w.reader = object()
+    _set_state("read-only")
+    asyncio.run(w.tick())
+    t0 = _t0()
+    assert session_marker.enter_inline(SID, now=t0) is None
+    _say(w, "the agent records this itself", t0 + 1)
+    asyncio.run(w.tick())
+    assert session_marker.leave_inline(SID, now=t0 + 2) == (session_marker.STATE_READ_ONLY, None)
+    asyncio.run(w.tick())
+    assert _count(w, "the daemon skipped") == 0, "the writer does not record yet"
+    assert session_marker.set_session_state(SID, session_marker.STATE_DAEMON)
+    asyncio.run(w.tick())
+    assert _count(w, "the daemon skipped") == 1
+    assert _count(w, "the researcher set Probe to read only") == 1
+
+
+def test_inline_from_read_only_records_nothing_and_goes_back_to_read_only(tmp_path):
+    _daemon_profile()
+    w = _worker(tmp_path)
+    w.reader = object()
+    _set_state("read-only")
+    asyncio.run(w.tick())
+    assert session_marker.enter_inline(SID) is None
+    assert lease.writer_paused(SID) and not lease.records(SID) and lease.worker_wanted(SID)
+    assert asyncio.run(w.tick()) is None, "the worker stays for its reader"
+    assert not lease.held(SID), "the writer holds no lease"
+    assert session_marker.leave_inline(SID) == (session_marker.STATE_READ_ONLY, None)
+    assert lease.reads_only(SID)
+
+
+def test_a_stray_full_in_the_daemon_profile_still_ends_the_worker(tmp_path):
+    """`full` without the marker is not inline (an older CLI wrote it)."""
+    _daemon_profile()
+    w = _worker(tmp_path)
+    w.reader = object()
+    _set_state("full")
+    assert not lease.worker_wanted(SID)
+    assert asyncio.run(w.tick()) == 0

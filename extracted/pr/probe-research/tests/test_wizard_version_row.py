@@ -18,7 +18,7 @@ THE PROPERTIES THAT MATTER, and that this file pins:
   * one unreadable component does NOT outrank three graded ones (a Codex-only box
     has no Claude plugin ledger, and would otherwise read as unchecked forever);
   * a verdict graded against a stale manifest says so, and stops being green;
-  * every row fits the frame. The block is aligned on a 28-column label, and a
+  * every row fits the frame. The block is aligned on a 20-column label, and a
     value that wraps renders as a phantom row with a blank label;
   * a Claude Code tap is graded by the ledger entry `probe update` reads once
     that is ahead of the stamp, so the menu never says "Update needed" under

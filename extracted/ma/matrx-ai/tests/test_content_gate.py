@@ -267,7 +267,7 @@ async def test_nothing_states_the_need_so_relevance_is_not_even_asked():
     )
     assert called == []
     assert truncated is True
-    assert "by POSITION" in out["content"]
+    assert "not chosen by relevance" in out["content"]  # JSON: cut structurally, said so
 
 
 # ---------------------------------------------------------------------------
@@ -439,7 +439,7 @@ async def test_an_unreadable_probability_keeps_the_section():
     )
     # Nothing was withheld, so the gate falls back rather than claim a saving.
     assert truncated is True
-    assert "by POSITION" in out["content"]
+    assert "not chosen by relevance" in out["content"]  # JSON: cut structurally, said so
     assert sections[0].text[:200] in out["content"]
 
 
@@ -459,7 +459,7 @@ async def test_a_verdict_that_would_empty_the_result_falls_back():
     )
     assert truncated is True
     assert out["content"].startswith(text[:1_000])
-    assert "by POSITION" in out["content"]
+    assert "not chosen by relevance" in out["content"]  # JSON: cut structurally, said so
 
 
 @pytest.mark.asyncio
@@ -508,7 +508,7 @@ async def test_the_verdict_is_recorded_for_both_kinds_of_cut():
     )
     call_id, conversation_id, verdict = recorded[-1]
     assert (call_id, conversation_id) == ("call-pos", "conv-1")
-    assert verdict["decided_by"] == "position"
+    assert verdict["decided_by"] == "structure"  # a JSON result is cut structurally
     assert verdict["reason"] == "no_holder_bound"
     assert verdict["mandate_key"] == rg.SECTION_RELEVANCE_MANDATE_KEY
 

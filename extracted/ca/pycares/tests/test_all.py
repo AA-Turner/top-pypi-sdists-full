@@ -159,7 +159,6 @@ class DNSTest(unittest.TestCase):
         self.assertEqual(self.result.service, "http")
 
     @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
-    @unittest.expectedFailure  # c-ares is broken (does not return numeric service if asked) and unconditionally adds zero scope
     def test_getnameinfo_ipv6(self):
         self.result, self.errorno = None, None
 
@@ -168,17 +167,26 @@ class DNSTest(unittest.TestCase):
 
         self.channel.getnameinfo(
             ("fd01:dec0:0:1::2020", 80, 0, 0),
-            pycares.ARES_NI_NUMERICHOST | pycares.ARES_NI_NUMERICSERV,
+            pycares.ARES_NI_LOOKUPHOST
+            | pycares.ARES_NI_LOOKUPSERVICE
+            | pycares.ARES_NI_NUMERICHOST
+            | pycares.ARES_NI_NUMERICSERV,
             callback=cb,
         )
         self.wait()
         self.assertNoError(self.errorno)
         self.assertEqual(type(self.result), pycares.NameInfoResult)
-        self.assertEqual(self.result.node, "fd01:dec0:0:1::2020")
+        # c-ares unconditionally appends the numeric scope id for AF_INET6,
+        # even when the address is global and the scope id is zero. This
+        # diverges from glibc but is a long-standing c-ares choice; accept
+        # either form.
+        self.assertIn(
+            self.result.node,
+            ("fd01:dec0:0:1::2020", "fd01:dec0:0:1::2020%0"),
+        )
         self.assertEqual(self.result.service, "80")
 
     @unittest.skipIf(sys.platform == "win32", "skipped on Windows")
-    @unittest.expectedFailure  # c-ares is broken (does not return numeric service if asked)
     def test_getnameinfo_ipv6_ll(self):
         self.result, self.errorno = None, None
 
@@ -187,7 +195,9 @@ class DNSTest(unittest.TestCase):
 
         self.channel.getnameinfo(
             ("fe80::5abd:fee7:4177:60c0", 80, 0, 666),
-            pycares.ARES_NI_NUMERICHOST
+            pycares.ARES_NI_LOOKUPHOST
+            | pycares.ARES_NI_LOOKUPSERVICE
+            | pycares.ARES_NI_NUMERICHOST
             | pycares.ARES_NI_NUMERICSERV
             | pycares.ARES_NI_NUMERICSCOPE,
             callback=cb,
@@ -275,6 +285,10 @@ class DNSTest(unittest.TestCase):
         self.assertGreater(len(self.result.answer), 0)
         for record in self.result.answer:
             self.assertEqual(type(record.data), pycares.CAARecordData)
+            self.assertEqual(type(record.data.tag), str)
+            self.assertEqual(type(record.data.value), str)
+            self.assertNotEqual(record.data.tag, '')
+            self.assertNotEqual(record.data.value, '')
 
     def test_query_cname(self):
         self.result, self.errorno = None, None
@@ -629,6 +643,25 @@ class DNSTest(unittest.TestCase):
             # Error raised immediately - this is also valid
             self.assertEqual(e.args[0], pycares.errno.ARES_ENOTFOUND)
 
+    def test_search_onion(self):
+        # Regression test: ares_search_dnsrec() rejects ".onion" names
+        # synchronously (RFC 7686) and invokes the callback before
+        # returning its status. search() must not double-free the
+        # internal ares_dns_record_t in that case.
+        self.result, self.errorno = None, None
+
+        def cb(result, errorno):
+            self.result, self.errorno = result, errorno
+
+        try:
+            self.channel.search("foo.onion", pycares.QUERY_TYPE_A, callback=cb)
+            self.wait()
+            self.assertEqual(self.result, None)
+            self.assertEqual(self.errorno, pycares.errno.ARES_ENOTFOUND)
+        except pycares.AresError as e:
+            # Error raised immediately - this is also valid
+            self.assertEqual(e.args[0], pycares.errno.ARES_ENOTFOUND)
+
     def test_channel_nameservers(self):
         self.result, self.errorno = None, None
 
@@ -709,6 +742,12 @@ class DNSTest(unittest.TestCase):
             )
         self.assertRaises(ValueError, self.channel.set_local_ip, "an invalid ip")
 
+    def test_channel_local_ipv6(self):
+        self.channel.set_local_ip("::1")
+
+    def test_channel_local_dev(self):
+        self.channel.set_local_dev("lo")
+
     def test_channel_timeout(self):
         self.result, self.errorno = None, None
 
@@ -728,6 +767,15 @@ class DNSTest(unittest.TestCase):
         self.wait()
         self.assertEqual(self.result, None)
         self.assertEqual(self.errorno, pycares.errno.ARES_ECANCELLED)
+
+    def test_channel_timeout_no_pending_queries(self):
+        # Regression test: ares_timeout() only fills in its tv buffer when a
+        # query is actually pending; with none pending it returns maxtv
+        # unchanged. timeout(t) must honor that and return t, not 0.0 (which
+        # event loops interpret as "timeout immediately" and busy-loop on).
+        self.channel = pycares.Channel()
+        self.assertEqual(self.channel.timeout(1.0), 1.0)
+        self.assertEqual(self.channel.timeout(), 0.0)
 
     def test_import_errno(self):
         from pycares.errno import ARES_SUCCESS

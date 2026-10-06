@@ -31,7 +31,7 @@ class Sheet(UniversalBaseModel):
     hidden: typing.Optional[bool] = None
     index: int = pydantic.Field()
     """
-    The order of the new sheet
+    0-based tab position of the new sheet (0 = first tab)
     """
 
     merges: typing.Optional[typing.List[GridRange]] = pydantic.Field(default=None)

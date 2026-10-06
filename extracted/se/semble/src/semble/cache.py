@@ -117,7 +117,10 @@ def _load_matching_metadata(
     persistence_path = PersistencePath.from_path(find_index_from_cache_folder(path, content))
     if persistence_path.non_existing():
         return None
-    metadata = json.loads(persistence_path.metadata.read_text(encoding="utf-8"))
+    try:
+        metadata = json.loads(persistence_path.metadata.read_text(encoding="utf-8"))
+    except ValueError:  # Truncated by a process killed mid-save; treat as a miss so the index is rebuilt.
+        return None
     if model_path is None:
         model_path = resolve_model_name()
     if not _metadata_matches(metadata, model_path, content):
@@ -136,19 +139,23 @@ def get_validated_cache(path: str, model_path: str | None, content: Sequence[Con
     if is_git_url(str(path)):
         return index_path
 
-    write_time = metadata["time"]
     extensions = get_extensions(content)
 
     path_as_path = Path(path).resolve()
     stored_files = metadata.get("files", {})
     current_files = []
     for file_path in walk_files(path_as_path, extensions=extensions):
-        file_status = get_file_status(file_path, write_time)
-        if file_status == FileStatus.NEWER:
+        try:
+            stat = file_path.stat()
+            if get_file_status(file_path, stat) != FileStatus.VALID:
+                continue
+        except FileNotFoundError:
+            continue  # deleted mid-walk
+        indexed_path = str(file_path.relative_to(path_as_path))
+        stored = stored_files.get(indexed_path)
+        if stored is not None and stored.get("mtime_ns") != stat.st_mtime_ns:
             return None
-        if file_status != FileStatus.VALID:
-            continue
-        current_files.append(str(file_path.relative_to(path_as_path)))
+        current_files.append(indexed_path)
 
     if set(current_files) != set(stored_files):
         return None

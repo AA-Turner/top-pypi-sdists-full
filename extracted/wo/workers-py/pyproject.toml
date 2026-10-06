@@ -4,9 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "workers-py"
-version = "1.17.6"
+version = "1.17.7"
 description = "A set of libraries and tools for Python Workers"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",

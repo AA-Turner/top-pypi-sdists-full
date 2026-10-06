@@ -31,7 +31,7 @@ from typing import Any, Literal
 from matrx_utils import vcprint
 from pydantic import BaseModel
 
-from matrx_ai.tools.output_caps import truncate_with_notice
+from matrx_ai.tools.output_caps import STRUCTURAL_NOTICE_HEAD, truncate_with_notice
 from matrx_ai.tools.output_overflow import stash_overflow
 from matrx_ai.tools.result_gate_limits import ResultGateLimits, load_result_gate_limits
 from matrx_ai.tools.sections import ResultSection, section_result
@@ -500,12 +500,22 @@ def _withheld_note(
     )
 
 
-def _unjudged_note(*, mandate_key: str) -> str:
+def _unjudged_note(*, mandate_key: str, structural: bool = False) -> str:
     """Appended to today's positional cut when nothing could judge relevance.
 
     Nothing fails silently: the agent is told that the cut it is looking at was
-    made by POSITION, and which mandate would have made it by relevance.
+    made by POSITION, and which mandate would have made it by relevance. A
+    structural cut (whole trailing items dropped, JSON kept valid) is described
+    as what it is, never as "the first characters were kept".
     """
+    if structural:
+        return (
+            f"\n\n[NOTE: the items shown were kept in the result's own order, the "
+            f"earliest first — not chosen by relevance, so the ones you need may be "
+            f"among those not shown. Deciding by relevance is the job of the "
+            f"`{mandate_key}` mandate, which has no Holder bound, so nobody could "
+            f"answer for this result.]"
+        )
     return (
         f"\n\n[NOTE: this cut was made by POSITION, not by relevance — the first "
         f"characters were kept and the rest held back, so the part you need may be "
@@ -598,15 +608,16 @@ async def apply_size_gate_async(
         limits=limits,
     )
     if truncated and isinstance(gated.get("content"), str):
+        _structural = STRUCTURAL_NOTICE_HEAD in gated["content"]
         gated["content"] = gated["content"] + _unjudged_note(
-            mandate_key=SECTION_RELEVANCE_MANDATE_KEY
+            mandate_key=SECTION_RELEVANCE_MANDATE_KEY, structural=_structural
         )
         gated["output_chars"] = len(gated["content"])
         _record_verdict(
             call_id=str(content_dict.get("call_id") or ""),
             conversation_id=conversation_id,
             verdict={
-                "decided_by": "position",
+                "decided_by": "structure" if _structural else "position",
                 "reason": "no_holder_bound",
                 "mandate_key": SECTION_RELEVANCE_MANDATE_KEY,
                 "soft_cap_chars": limits.soft_cap_chars,

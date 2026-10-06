@@ -99,6 +99,18 @@ EXAMPLES: dict[type, tuple[Callable[[], object], platform.ObjectRef]] = {
         lambda: platform.UniqueConstraintDropped(RelationName("app", "item"), FK),
         ITEM,
     ),
+    platform.ColumnOrderChanged: (
+        lambda: platform.ColumnOrderChanged(RelationName("app", "item"), ("a", "b"), ("b", "a")),
+        ITEM,
+    ),
+    platform.PrimaryKeyAdded: (
+        lambda: platform.PrimaryKeyAdded(RelationName("app", "item"), FK),
+        ITEM,
+    ),
+    platform.PrimaryKeyDropped: (
+        lambda: platform.PrimaryKeyDropped(RelationName("app", "item"), FK),
+        ITEM,
+    ),
     platform.ExclusionConstraintAdded: (
         lambda: platform.ExclusionConstraintAdded(RelationName("app", "item"), FK),
         ITEM,

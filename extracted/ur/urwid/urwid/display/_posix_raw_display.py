@@ -26,13 +26,14 @@ import contextlib
 import fcntl
 import functools
 import os
-import select
 import signal
 import struct
+import subprocess
 import sys
 import termios
 import tty
 import typing
+import warnings
 from subprocess import PIPE, Popen
 
 from urwid import signals
@@ -83,6 +84,12 @@ _GPM_MOD_ALTGR = 2
 _GPM_MOD_CTRL = 4
 _GPM_MOD_ALT = 8
 
+# most bytes of terminal input read per wake-up
+_INPUT_READ_LIMIT = 65536
+
+# seconds the gpm helper is given to exit on SIGINT before it is killed
+_GPM_STOP_TIMEOUT = 1.0
+
 
 class Screen(_raw_display_base.Screen):
     """Raw screen backend that drives a real POSIX terminal."""
@@ -110,11 +117,13 @@ class Screen(_raw_display_base.Screen):
             and delivers them to this process (urwid/urwid#1268).
             ``SIGINT`` is left for the application or its event loop to handle as it sees fit.
             ``SIGTSTP`` is handled by this class:
-            `signal_init()` installs a handler that restores the terminal before actually suspending the process,
-            and the paired `SIGCONT` handler puts the terminal back into cbreak/alternate-buffer mode
-            and forces a redraw on resume, so a stray Ctrl+Z does not leave a stale,
-            unresponsive frame painted on screen.
-            Applications that install their own ``SIGTSTP``/``SIGCONT`` handlers on top of this one
+            `signal_init()` installs a handler that wakes the input loop,
+            which restores the terminal before actually suspending the process,
+            then puts the terminal back into cbreak/alternate-buffer mode and forces a redraw on resume,
+            so a stray Ctrl+Z does not leave a stale, unresponsive frame painted on screen.
+            The suspend therefore waits until the application next reads input,
+            through `get_input()` or the callback `hook_event_loop()` registers.
+            Applications that install their own ``SIGTSTP`` handler on top of this one
             should chain to the previous handler (as this class does) rather than replacing it outright,
             and multithreaded applications must call `signal_init()` and `signal_restore()` from the main thread,
             since only the main thread can receive process signals.
@@ -125,9 +134,10 @@ class Screen(_raw_display_base.Screen):
         self._old_termios_settings: list[typing.Any] | None = None
 
         # These store the previous signal handlers after setting ours
-        self._prev_sigcont_handler: SignalHandler = None
         self._prev_sigtstp_handler: SignalHandler = None
         self._prev_sigwinch_handler: SignalHandler = None
+        # Set by the SIGTSTP handler, carried out by get_available_raw_input().
+        self._suspend_requested = False
 
     def __repr__(self) -> str:
         return (
@@ -146,41 +156,32 @@ class Screen(_raw_display_base.Screen):
             self._prev_sigwinch_handler(signum, frame)
 
     def _sigtstp_handler(self, signum: int, frame: FrameType | None = None) -> None:
-        """Tear the screen down, then re-raise ``SIGTSTP`` with its default disposition so the process actually stops.
+        """Request a suspend, carried out by :meth:`get_available_raw_input` in the thread reading input.
 
-        ``SIGCONT`` is blocked for the duration of this handler.
-        Without that guard, a ``fg`` issued by an enclosing shell (for example a wrapper script)
-        while this handler is still restoring the terminal can interrupt it
-        and run :meth:`_sigcont_handler` before the process has actually stopped:
-        CPython checks for pending signals
-        -- and will invoke a newly-arrived handler -- at the next bytecode boundary,
-        even while another handler is already executing.
-        That leaves the redraw logic believing it has resumed while the trailing `os.kill()` call below
-        still suspends the process a moment later,
-        so the first ``fg`` appears to do nothing and a second ``^Z``/``fg`` cycle
-        is needed to actually resume (see urwid/urwid#889).
-        Blocking ``SIGCONT`` here defers its delivery until we unblock it immediately after the process has genuinely
-        stopped and resumed, which removes the race.
+        Restoring the terminal writes to it, changes the termios settings and re-hooks the event loop.
+        None of that is safe at the arbitrary point of the program a signal interrupts,
+        so the handler only sets a flag and wakes the input loop.
         """
-        previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGCONT})
-        try:
-            self.stop()  # Restores the previous signal handlers
-            self._prev_sigcont_handler = self.signal_handler_setter(signal.SIGCONT, self._sigcont_handler)
-            # Handled by the previous handler.
-            # If non-default, it may set its own SIGCONT handler which should hopefully call our own.
-            os.kill(os.getpid(), signal.SIGTSTP)
-        finally:
-            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+        self._suspend_requested = True
+        self._wake_input_loop()
 
     def _sigcont_handler(self, signum: int, frame: FrameType | None = None) -> None:
-        """:param frame: will always be None when the GLib event loop is being used."""
+        """Restore the signal handlers and restart the screen after a suspend.
+
+        .. deprecated:: 4.2.5
+            No longer installed: :meth:`get_available_raw_input` restarts the screen after a suspend.
+            It does not chain to a previous ``SIGCONT`` handler, since none is recorded any more.
+            This API will be removed in version 5.0.
+
+        :param frame: will always be None when the GLib event loop is being used.
+        """
+        warnings.warn(
+            "_sigcont_handler is no longer installed, the screen is restarted after a suspend by "
+            "get_available_raw_input. API will be removed in version 5.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.signal_restore()
-
-        if callable(self._prev_sigcont_handler):
-            # May set its own SIGTSTP handler which would be stored and replaced in
-            # `signal_init()` (via `start()`).
-            self._prev_sigcont_handler(signum, frame)
-
         self.start()
         self._sigwinch_handler(signal.SIGWINCH, None)
 
@@ -194,13 +195,12 @@ class Screen(_raw_display_base.Screen):
         self._prev_sigtstp_handler = self.signal_handler_setter(signal.SIGTSTP, self._sigtstp_handler)
 
     def signal_restore(self) -> None:
-        """Restore the SIGTSTP, SIGCONT and SIGWINCH signal handlers, called in the finally block of run wrapper.
+        """Restore the SIGTSTP and SIGWINCH signal handlers, called in the finally block of run wrapper.
 
         Override this function to call from main thread in threaded
         applications.
         """
         self.signal_handler_setter(signal.SIGTSTP, self._prev_sigtstp_handler or signal.SIG_DFL)
-        self.signal_handler_setter(signal.SIGCONT, self._prev_sigcont_handler or signal.SIG_DFL)
         self.signal_handler_setter(signal.SIGWINCH, self._prev_sigwinch_handler or signal.SIG_DFL)
 
     def _mouse_tracking(self, enable: bool) -> None:
@@ -221,7 +221,7 @@ class Screen(_raw_display_base.Screen):
         if not os.environ.get("TERM", "").lower().startswith("linux"):
             return
 
-        m = Popen(  # pylint: disable=consider-using-with
+        m = Popen(
             ["/usr/bin/mev", "-e", "158"],
             stdin=PIPE,
             stdout=PIPE,
@@ -229,18 +229,27 @@ class Screen(_raw_display_base.Screen):
             encoding="ascii",
         )
         if m.stdout is None:
-            m.kill()
-            m.wait(1)
+            with m:  # closes the pipes and reaps the process on the way out
+                m.kill()
             raise RuntimeError("gpm mouse tracking stdout was not created")
-        fcntl.fcntl(m.stdout.fileno(), fcntl.F_SETFL, os.O_NONBLOCK)
+        os.set_blocking(m.stdout.fileno(), False)
         self.gpm_mev = m
+        signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
 
     def _stop_gpm_tracking(self) -> None:
-        if not self.gpm_mev:
+        """Stop the gpm helper, close its pipes and stop watching its output."""
+        gpm_mev, self.gpm_mev = self.gpm_mev, None
+        if gpm_mev is None:
             return
-        os.kill(self.gpm_mev.pid, signal.SIGINT)
-        os.waitpid(self.gpm_mev.pid, 0)
-        self.gpm_mev = None
+        try:
+            with gpm_mev:  # closes both pipes and reaps the process on the way out
+                gpm_mev.send_signal(signal.SIGINT)
+                try:
+                    gpm_mev.wait(_GPM_STOP_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    gpm_mev.kill()
+        finally:
+            signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
 
     def _start(  # pylint: disable=keyword-arg-before-vararg
         self,
@@ -315,6 +324,9 @@ class Screen(_raw_display_base.Screen):
         if self._old_signal_keys:
             self.tty_signal_keys(*self._old_signal_keys, fd)
 
+        # A suspend requested while the screen ran must not stop the process after a later restart.
+        self._suspend_requested = False
+
         super()._stop()  # type: ignore[safe-super]
 
     def get_input_descriptors(self) -> list[_raw_display_base.SupportsFileno | int]:
@@ -366,6 +378,21 @@ class Screen(_raw_display_base.Screen):
         handles = [event_loop.watch_file(fd if isinstance(fd, int) else fd.fileno(), wrapper) for fd in fds]
         self._current_event_loop_handles = handles
 
+    def get_available_raw_input(self) -> list[int]:
+        """Return any currently available input, then carry out a suspend requested by ``SIGTSTP``.
+
+        The screen is stopped before the process suspends itself, and restarted and fully redrawn on resume.
+        The flag is checked after the wake-up socket is drained, so a later request keeps its wake-up pending.
+        """
+        codes = super().get_available_raw_input()
+        if self._suspend_requested and self._started:
+            self._suspend_requested = False
+            self.stop()  # restores the previous SIGTSTP disposition, which the kill below runs
+            os.kill(os.getpid(), signal.SIGTSTP)
+            self.start()
+            self._resized = True
+        return codes
+
     def _get_input_codes(self) -> list[int]:
         return super()._get_input_codes() + self._get_gpm_codes()
 
@@ -384,7 +411,7 @@ class Screen(_raw_display_base.Screen):
 
     def _read_raw_input(self, timeout: float) -> bytearray:
         """
-        Read whatever raw input is available, waiting at most *timeout* seconds.
+        Read at most `_INPUT_READ_LIMIT` bytes of the raw input available, waiting at most *timeout* seconds.
 
         :raises RuntimeError: the input file has been closed.
         """
@@ -398,22 +425,11 @@ class Screen(_raw_display_base.Screen):
         if fd is None or fd not in ready:
             return chars
 
-        # `fd` was just reported ready by the select() call above, so the first read is known to
-        # be non-blocking; only the trailing drain reads need a fresh (zero-timeout) readiness
-        # check. A plain select() call is used instead of building a selectors.DefaultSelector
-        # for a single fd, since that would pay for an epoll fd's creation and teardown on every
-        # call just to poll one descriptor a handful of times.
-        chunk = os.read(fd, 1024)
+        # `fd` was just reported ready, so this read does not block. Input beyond the limit is read on the next pass.
+        chunk = os.read(fd, _INPUT_READ_LIMIT)
         if not chunk:
             raise RuntimeError("stdin has been closed")
         chars.extend(chunk)
-
-        while select.select([fd], [], [], 0)[0]:
-            chunk = os.read(fd, 1024)
-            if not chunk:
-                raise RuntimeError("stdin has been closed")
-            chars.extend(chunk)
-
         return chars
 
     def _encode_gpm_event(self) -> list[int]:
@@ -426,7 +442,6 @@ class Screen(_raw_display_base.Screen):
         if len(event_result) != 6:
             # unexpected output, stop tracking
             self._stop_gpm_tracking()
-            signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
             return []
 
         ev_, x_, y_, _ign, b_, m_ = event_result

@@ -42,8 +42,8 @@ def test_session_review_back_reopens_selected_sources_before_leaving(lane, monke
     monkeypatch.setattr(tui, "review", lambda *a: tui.BACK)
     _, result = lane(interactive=True, back_to_selection=True)
     assert result is tui.BACK
-    assert choices == [((bt.CLAUDE, bt.CODEX, bt.PI), None),
-                       ((bt.CLAUDE, bt.CODEX, bt.PI), (bt.CODEX,))]
+    assert choices == [((bt.CLAUDE, bt.CODEX, bt.PI, bt.KIMI), None),
+                       ((bt.CLAUDE, bt.CODEX, bt.PI, bt.KIMI), (bt.CODEX,))]
     assert len(scans) == 1
 
 

@@ -24,12 +24,11 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from string.templatelib import Template
 from urllib.parse import unquote, urlparse
 
 import psycopg
 import psycopg.errors
-import psycopg.sql
-from psycopg.sql import SQL, Identifier, Literal
 
 from confiture.core.psql_applier import apply_sql_via_psql
 from confiture.core.restorer import DatabaseRestorer, RestoreOptions
@@ -110,14 +109,12 @@ class TemplateStatus:
         }
 
 
-#: How ``CREATE DATABASE`` copies the template (PostgreSQL 15+): ``wal_log`` writes
+#: How ``CREATE DATABASE`` copies the template: ``wal_log`` writes
 #: it through WAL, block by block — PostgreSQL's default; ``file_copy`` copies the
 #: files and forces a checkpoint before and after — far faster for a large
 #: template, not crash-safe, and unsuited to a replicated cluster (#438).
 CloneStrategy = typing.Literal["wal_log", "file_copy"]
-_STRATEGY_SQL: dict[str, SQL] = {"wal_log": SQL("WAL_LOG"), "file_copy": SQL("FILE_COPY")}
-#: ``server_version_num`` of the first release with ``CREATE DATABASE … STRATEGY``.
-_STRATEGY_SINCE = 150000
+_STRATEGY_SQL: dict[str, Template] = {"wal_log": t"WAL_LOG", "file_copy": t"FILE_COPY"}
 
 
 @dataclass
@@ -229,14 +226,12 @@ def _clone_sql(
     template: str,
     tablespace: str | None = None,
     strategy: CloneStrategy | None = None,
-) -> psycopg.sql.Composed:
-    sql = SQL("CREATE DATABASE {} WITH TEMPLATE {}").format(
-        Identifier(target), Identifier(template)
-    )
+) -> Template:
+    sql = t"CREATE DATABASE {target:i} WITH TEMPLATE {template:i}"
     if tablespace is not None:
-        sql += SQL(" TABLESPACE {}").format(Identifier(tablespace))
+        sql += t" TABLESPACE {tablespace:i}"
     if strategy is not None:
-        sql += SQL(" STRATEGY ") + _STRATEGY_SQL[strategy]
+        sql += t" STRATEGY {_STRATEGY_SQL[strategy]:q}"
     return sql
 
 
@@ -258,32 +253,30 @@ def validate_clone_strategy(value: str | None, *, source: str = "strategy") -> C
     return typing.cast(CloneStrategy, folded)
 
 
-def _create_db_sql(name: str) -> psycopg.sql.Composed:
-    return SQL("CREATE DATABASE {}").format(Identifier(name))
+def _create_db_sql(name: str) -> Template:
+    return t"CREATE DATABASE {name:i}"
 
 
-def _alter_db_set_sql(name: str, guc: str, value: str) -> psycopg.sql.Composed:
+def _alter_db_set_sql(name: str, guc: str, value: str) -> Template:
     """Build ``ALTER DATABASE <name> SET <guc> TO <value>`` (a per-database GUC default).
 
     The value is rendered as a quoted SQL literal (``'off'``), never interpolated —
     same injection-safe discipline as the other ``_*_sql`` builders. PostgreSQL
     accepts a quoted string for enum GUCs such as ``synchronous_commit``.
     """
-    return SQL("ALTER DATABASE {} SET {} TO {}").format(
-        Identifier(name), Identifier(guc), Literal(value)
-    )
+    return t"ALTER DATABASE {name:i} SET {guc:i} TO {value:l}"
 
 
-def _comment_sql(name: str, value: str) -> psycopg.sql.Composed:
-    return SQL("COMMENT ON DATABASE {} IS {}").format(Identifier(name), Literal(value))
+def _comment_sql(name: str, value: str) -> Template:
+    return t"COMMENT ON DATABASE {name:i} IS {value:l}"
 
 
-def _create_tablespace_sql(name: str, location: str) -> psycopg.sql.Composed:
-    return SQL("CREATE TABLESPACE {} LOCATION {}").format(Identifier(name), Literal(location))
+def _create_tablespace_sql(name: str, location: str) -> Template:
+    return t"CREATE TABLESPACE {name:i} LOCATION {location:l}"
 
 
-def _drop_tablespace_sql(name: str) -> psycopg.sql.Composed:
-    return SQL("DROP TABLESPACE {}").format(Identifier(name))
+def _drop_tablespace_sql(name: str) -> Template:
+    return t"DROP TABLESPACE {name:i}"
 
 
 def _dbs_in_tablespace_sql() -> str:
@@ -817,7 +810,7 @@ class TestDbProvisioner:
                 thrashing WAL/checkpoint on an ``fsync=on`` cluster. ``None`` (the
                 default) or < 1 → unbounded, behaviour byte-for-byte unchanged.
             strategy: ``"file_copy"`` or ``"wal_log"`` — ``CREATE DATABASE …
-                STRATEGY`` (PostgreSQL 15+). ``file_copy`` copies the template's files
+                STRATEGY``. ``file_copy`` copies the template's files
                 instead of writing them through WAL: on a large template and an
                 ``fsync=on`` cluster, seconds instead of tens of seconds (#438). It
                 forces a checkpoint before and after, is not crash-safe, and must not
@@ -830,8 +823,7 @@ class TestDbProvisioner:
             clone actually landed in (``None`` for on-disk, including a fallback).
 
         Raises:
-            ConfigurationError: On invalid identifiers, an unknown strategy, or a
-                strategy asked of a server older than PostgreSQL 15.
+            ConfigurationError: On invalid identifiers or an unknown strategy.
             SchemaError: If cloning fails after all retries.
         """
         _validate_identifier(template)
@@ -841,8 +833,6 @@ class TestDbProvisioner:
         strategy = validate_clone_strategy(strategy)
 
         self._require_template_exists(template)
-        if strategy is not None:
-            self._require_strategy_support()
 
         with self._clone_concurrency_slot(template, max_concurrency):
             try:
@@ -878,19 +868,6 @@ class TestDbProvisioner:
                     sync_commit_off=sync_commit_off,
                     strategy=strategy,
                 )
-
-    def _require_strategy_support(self) -> None:
-        """Refuse a clone strategy on a server whose ``CREATE DATABASE`` has none."""
-        with self._maintenance_conn() as conn:
-            row = conn.execute("SHOW server_version_num").fetchone()
-        version = int(row[0]) if row else 0
-        if version < _STRATEGY_SINCE:
-            raise ConfigurationError(
-                f"CREATE DATABASE … STRATEGY needs PostgreSQL 15 or later; this server "
-                f"is {version // 10000}.",
-                error_code="CONFIG_010",
-                resolution_hint="Drop the strategy: the server copies the template its only way.",
-            )
 
     def _clone_with_retries(
         self,

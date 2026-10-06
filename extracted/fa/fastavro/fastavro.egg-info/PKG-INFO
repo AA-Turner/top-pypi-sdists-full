@@ -1,10 +1,12 @@
 Metadata-Version: 2.4
 Name: fastavro
-Version: 1.12.2
+Version: 1.13.0
 Summary: Fast read/write of AVRO files
 Home-page: https://github.com/fastavro/fastavro
 Author: Miki Tebeka
 Author-email: miki.tebeka@gmail.com
+Maintainer: Scott Belden
+Maintainer-email: scottabelden@gmail.com
 License: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -12,19 +14,18 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.txt
@@ -46,6 +47,8 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
 Dynamic: provides-extra
 Dynamic: requires-python
 Dynamic: summary
@@ -55,6 +58,10 @@ Dynamic: summary
 [![Documentation Status](https://readthedocs.org/projects/fastavro/badge/?version=latest)](http://fastavro.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/fastavro/fastavro/branch/master/graph/badge.svg)](https://codecov.io/gh/fastavro/fastavro)
 
+> [!IMPORTANT]
+> Fastavro is currently in maintenance mode. Efforts will be made to try to
+> update to the latest versions of Python, fix security issues, and merge
+> simple bug fixes or features, but even those might be significantly delayed.
 
 Because the Apache Python `avro` package is written in pure Python, it is
 relatively slow. In one test case, it takes about 14 seconds to iterate through
@@ -69,12 +76,12 @@ encoding/decoding).
 
 `fastavro` supports the following Python versions:
 
-* Python 3.9
 * Python 3.10
 * Python 3.11
 * Python 3.12
 * Python 3.13
 * Python 3.14
+* Python 3.15
 * PyPy3
 
 ## Supported Features
@@ -159,3 +166,5 @@ See the [ChangeLog]
 # Contact
 
 [Project Home](https://github.com/fastavro/fastavro)
+[Maintainer: Scott Belden](mailto:scottabelden@gmail.com)
+For security related issues, please see the [security policy](https://github.com/fastavro/fastavro/security/policy)

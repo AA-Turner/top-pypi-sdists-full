@@ -25,30 +25,30 @@ Visual conventions are deliberately consistent:
 
 import gc
 import os
-import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as _replace
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import matplotlib as mpl
 import matplotlib.patches
 import matplotlib.ticker
+
 mpl.use("Agg")
 
 import matplotlib.gridspec as gridspec
 import matplotlib.path as mpath
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch
 import numpy as np
 import pandas as pd
 
-from pikobs.figures import save_figure
+from pikobs.figures import fit_texts, save_figure, write_hover, write_hover_rects
 
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
+
     _HAS_CARTOPY = True
-except ImportError:                                      # pragma: no cover
+except ImportError:  # pragma: no cover
     _HAS_CARTOPY = False
 
 
@@ -59,14 +59,27 @@ except ImportError:                                      # pragma: no cover
 DPI_HIGH = 150
 DPI_LOW = 110
 
+def _text_factor() -> float:
+    """Every text of a mapobs figure, and its header, grow by this: the title
+    (15.5 pt) at the shared size and 30 % more, as profile, histogram and
+    scatter -- read on a slide."""
+    try:
+        from pikobs.configobs.style import font_size
+        return font_size("title") / 15.5 * 1.3
+    except Exception:
+        return 1.0
+
+
+FS = _text_factor()
+
 FONTS: Dict[str, float] = {
-    "title": 15.5,
-    "subtitle": 10.5,
-    "meta": 8.5,
-    "panel": 11.5,
-    "label": 11,
-    "tick": 9.5,
-    "small": 8,
+    "title": 15.5 * FS,
+    "subtitle": 10.5 * FS,
+    "meta": 8.5 * FS,
+    "panel": 11.5 * FS,
+    "label": 11 * FS,
+    "tick": 9.5 * FS,
+    "small": 8 * FS,
 }
 
 N_BINS_LON = 120
@@ -83,10 +96,10 @@ ANNOT_MIN_FRAC = 0.01
 
 N_TICKS = 5
 
-INCH_PER_LEVEL = 0.16
+INCH_PER_LEVEL = 0.224   # the levels apart enough to read, with the big text
 MIN_PANEL_HEIGHT = 5.0
 MAX_PANEL_HEIGHT = 240.0
-TICK_FONT_MAX = 8.0
+TICK_FONT_MAX = 8.0 * FS
 TICK_FONT_MIN = 3.5
 MAX_LEVELS_WITH_LABELS = 600
 MAX_DISCRETE_LEVELS = 150
@@ -104,27 +117,35 @@ MAX_VALUE_LABELS = 80
 # height.  This is important for very tall interferometer/channel figures:
 # a 10% top margin on a 100-inch figure would create a huge blank area.
 # the header of the other modules, in inches from the top
-HEADER_HEIGHT_IN = 1.30
-HEADER_TITLE_OFFSET_IN = 0.10
-HEADER_META_OFFSET_IN = 0.46      # the grey line
-HEADER_EXP_OFFSET_IN = 0.74       # the run, in its colour
-HEADER_RULE_OFFSET_IN = 1.05
-HEADER_DETAILS_OFFSET_IN = 0.46
+HEADER_HEIGHT_IN = 1.66 * FS
+HEADER_TITLE_OFFSET_IN = 0.10 * FS
+HEADER_DATE_OFFSET_IN = 0.46 * FS  # the dates, on their own line: they change
+                                   # at every step of the play, and are read there
+HEADER_META_OFFSET_IN = 0.80 * FS  # the grey line
+HEADER_EXP_OFFSET_IN = 1.08 * FS  # the run, in its colour
+HEADER_RULE_OFFSET_IN = 1.41 * FS
+HEADER_DETAILS_OFFSET_IN = 0.46 * FS
+#: what the header grew with the text: every figure is that much taller, so
+#: its maps and panels keep the room they had
+HEADER_GROWTH = HEADER_HEIGHT_IN - 1.30
 
 # Kept as a compatibility alias for callers that inspect the old constant.
 PLOT_TOP = 0.875
 
 _ROUND_PROJECTIONS = ("npolar", "spolar", "orthon", "orthos")
-_SQUARE_PROJECTIONS = _ROUND_PROJECTIONS + (
-    "canada", "europe", "ameriquenord", "hrdps", "reg"
-)
+_SQUARE_PROJECTIONS = _ROUND_PROJECTIONS + ("canada", "europe", "ameriquenord", "hrdps", "reg")
 
-_PRESSURE_KEYWORDS = (
-    "pres", "pressure", "hpa", "mbar", "millibar", "pascal"
-)
+_PRESSURE_KEYWORDS = ("pres", "pressure", "hpa", "mbar", "millibar", "pascal")
 _HEIGHT_KEYWORDS = (
-    "height", "altitude", "metre", "meter", " m]", "(m)",
-    "agl", "asl", "geopotential"
+    "height",
+    "altitude",
+    "metre",
+    "meter",
+    " m]",
+    "(m)",
+    "agl",
+    "asl",
+    "geopotential",
 )
 
 _DOT_STEPS = (
@@ -149,9 +170,6 @@ _FEATURES_OK: Optional[bool] = None
 # -----------------------------------------------------------------------------
 # Generic helpers
 # -----------------------------------------------------------------------------
-
-def _safe(text: Any) -> str:
-    return re.sub(r"[^A-Za-z0-9._+-]", "_", str(text))
 
 
 def fmt_count(n: int) -> str:
@@ -192,15 +210,46 @@ def stable_color_for_stn(stn_name: str) -> Tuple[float, float, float, float]:
     from the table of pikobs/configobs/station_colours.py, any other
     station one of twenty colours far apart, by a hash of its name."""
     from pikobs.configobs.station_colours import station_colour
+
     return mpl.colors.to_rgba(station_colour(stn_name))
 
 
+def _colour_gap(a, b) -> float:
+    """How far two colours look apart ("redmean" distance, 0-765)."""
+    r1, g1, b1 = (255 * x for x in a[:3])
+    r2, g2, b2 = (255 * x for x in b[:3])
+    rm = (r1 + r2) / 2.0
+    return ((2 + rm / 256) * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + (2 + (255 - rm) / 256) * (b1 - b2) ** 2) ** 0.5
+
+
+#: two stations of one figure closer than this look the same colour
+MIN_COLOUR_GAP = 260.0
+
+
 def build_global_color_map(stations: Iterable[str]) -> Dict[str, tuple]:
-    """Build a deterministic colour map for every station."""
-    return {
-        stn: stable_color_for_stn(stn)
-        for stn in sorted(set(str(s) for s in stations))
-    }
+    """The colour of every station of the period, fixed for the whole play.
+
+    Each station keeps its usual colour (the satellite table, else its hashed
+    one) unless another station of the figure already has it or one too close
+    -- METAR and SWOB-NONAUTO shared one blue, BUOYS and DRIFTER were two
+    more. Then it takes the colour of the palette farthest from those in use.
+    Past the legend's 20 the hashed colours stay: the others go grey anyway."""
+    from pikobs.configobs.station_colours import PALETTE, SATELLITES, _norm
+
+    names = sorted(set(str(s) for s in stations))
+    usual = {n: stable_color_for_stn(n) for n in names}
+    if len(names) > MAX_LEGEND_STATIONS:
+        return usual
+    palette = [mpl.colors.to_rgba(c) for c in PALETTE]
+    out: Dict[str, tuple] = {}
+    # the satellites of the table first: their colour is theirs everywhere
+    for n in sorted(names, key=lambda n: (_norm(n) not in SATELLITES, n)):
+        want = usual[n]
+        if out and min(_colour_gap(want, c) for c in out.values()) < MIN_COLOUR_GAP:
+            free = [c for c in palette if c not in out.values()] or palette
+            want = max(free, key=lambda c: min(_colour_gap(c, u) for u in out.values()))
+        out[n] = want
+    return out
 
 
 def dot_style(n_obs: int) -> Tuple[float, float]:
@@ -211,9 +260,7 @@ def dot_style(n_obs: int) -> Tuple[float, float]:
     return _DOT_STEPS[-1][1], _DOT_STEPS[-1][2]
 
 
-def vertical_axis_orientation(
-    vcotyp: str, is_channel: bool = False
-) -> str:
+def vertical_axis_orientation(vcotyp: str, is_channel: bool = False) -> str:
     """Return the semantic orientation of the vertical coordinate."""
     lab = str(vcotyp).strip().lower()
 
@@ -255,41 +302,19 @@ def map_projection(proj_name: str):
     square = any(k in name for k in _SQUARE_PROJECTIONS)
 
     if "npolar" in name:
-        return (
-            ccrs.NorthPolarStereo(central_longitude=-90.5),
-            [-180, 180, 50, 90],
-            square,
-        )
+        return (ccrs.NorthPolarStereo(central_longitude=-90.5), [-180, 180, 50, 90], square)
     if "spolar" in name:
-        return (
-            ccrs.SouthPolarStereo(central_longitude=-86),
-            [-180, 180, -90, -50],
-            square,
-        )
+        return (ccrs.SouthPolarStereo(central_longitude=-86), [-180, 180, -90, -50], square)
     if "orthon" in name:
-        return (
-            ccrs.Orthographic(90.0, -80.0),
-            [-180, 180, 0, 90],
-            square,
-        )
+        # as scatter (configobs/type_projection): the positional order is
+        # (longitude, latitude) -- Orthographic(90, -80) looked at the south
+        return (ccrs.Orthographic(central_latitude=90.0, central_longitude=-80.0), [-180, 180, 0, 90], square)
     if "orthos" in name:
-        return (
-            ccrs.Orthographic(-90.0, -80.0),
-            [-180, 180, -90, 0],
-            square,
-        )
+        return (ccrs.Orthographic(central_latitude=-90.0, central_longitude=-80.0), [-180, 180, -90, 0], square)
     if "canada" in name:
-        return (
-            ccrs.NorthPolarStereo(central_longitude=-105.0),
-            [-150, -53, 42, 90],
-            square,
-        )
+        return (ccrs.NorthPolarStereo(central_longitude=-105.0), [-150, -53, 42, 90], square)
     if "ameriquenord" in name:
-        return (
-            ccrs.NorthPolarStereo(central_longitude=-105.0),
-            [-170, -40, 20, 90],
-            square,
-        )
+        return (ccrs.NorthPolarStereo(central_longitude=-105.0), [-170, -40, 20, 90], square)
     if "europe" in name:
         return ccrs.NorthPolarStereo(), [-25, 45, 30, 75], square
     if "robinson" in name:
@@ -306,6 +331,7 @@ def is_round(proj_name: str) -> bool:
 # -----------------------------------------------------------------------------
 # Figure context
 # -----------------------------------------------------------------------------
+
 
 @dataclass
 class PlotContext:
@@ -338,6 +364,7 @@ class PlotContext:
 # -----------------------------------------------------------------------------
 # Vertical-axis helpers
 # -----------------------------------------------------------------------------
+
 
 def _levels_of(df: pd.DataFrame, ctx: PlotContext) -> List[float]:
     """Return the discrete vertical rows used by cross/vertical panels."""
@@ -373,12 +400,8 @@ def _level_label(value: Any) -> str:
 
 def _level_height(n_levels: int) -> float:
     return float(
-        np.clip(
-            2.5 + INCH_PER_LEVEL * max(n_levels, 1),
-            MIN_PANEL_HEIGHT,
-            MAX_PANEL_HEIGHT,
-        )
-    )
+        np.clip(2.5 + INCH_PER_LEVEL * max(n_levels, 1), MIN_PANEL_HEIGHT, MAX_PANEL_HEIGHT)
+    ) + HEADER_GROWTH
 
 
 def _tick_font(n_levels: int, height: float) -> float:
@@ -398,25 +421,50 @@ def _vlabel(ctx) -> str:
     return str(ctx.vcoord_label).replace("[Pa]", "[hPa]")
 
 
-def _set_vertical_axis(
-    ax, levels: Sequence[float], ctx: PlotContext, tick_fs: float
-) -> None:
+def _hover_level(ctx, value) -> str:
+    """A level as the mouse names it: 850 hPa, 12 km, or a channel number."""
+    if getattr(ctx, "is_channel", False):
+        return f"{value:g}"
+    if _in_hpa(ctx):
+        return f"{_level_label(value / 100.0)} hPa"
+    return _level_label(value)
+
+
+def _write_level_hover(fig, out_png, ctx, dpi) -> None:
+    """Beside a figure with level axes, the viewer's map of what is under the
+    mouse: the level (or channel) of each row, and its count when known."""
+    for a in fig.axes:
+        rows = getattr(a, "_pikobs_hover", None)
+        if rows:
+            write_hover(fig, out_png, a, rows, word="channel" if getattr(ctx, "is_channel", False) else "level", dpi=dpi)
+            return
+
+
+def _set_vertical_axis(ax, levels: Sequence[float], ctx: PlotContext, tick_fs: float) -> None:
     """Set a stable vertical coordinate without double inversion."""
     if levels:
         idx = np.arange(len(levels))
         step = max(1, int(np.ceil(len(levels) / MAX_LEVELS_WITH_LABELS)))
+        readable = 0.75 * FONTS["tick"]
+        if tick_fs < readable:
+            # rows too thin for every name at a size one can read: one in k
+            step = max(step, int(np.ceil(readable / max(tick_fs, 1e-6))))
+            tick_fs = readable
 
         shown_idx = idx[::step]
         shown_levels = levels[::step]
 
         ax.set_yticks(shown_idx)
         ax.set_yticklabels(
-            [_level_label(v / 100.0 if _in_hpa(ctx) else v)
-             for v in shown_levels],
+            [_level_label(v / 100.0 if _in_hpa(ctx) else v) for v in shown_levels],
             fontsize=tick_fs,
         )
+        ax._pikobs_level_names = (idx, [_level_label(v / 100.0 if _in_hpa(ctx) else v) for v in levels],
+                                  max(tick_fs, readable))
         ax.set_ylim(-0.5, len(levels) - 0.5)
         ax.tick_params(axis="y", pad=3, length=2)
+        if not hasattr(ax, "_pikobs_hover"):
+            ax._pikobs_hover = [(int(i), _hover_level(ctx, v)) for i, v in zip(idx, levels)]
 
         if ctx.v_orient == "pressure":
             ax.invert_yaxis()
@@ -433,8 +481,7 @@ def _set_vertical_axis(
     ax.set_ylim(vmin, vmax)
     ax.tick_params(axis="y", labelsize=FONTS["tick"])
     if _in_hpa(ctx):
-        ax.yaxis.set_major_formatter(
-            mpl.ticker.FuncFormatter(lambda v, _: f"{v / 100:g}"))
+        ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda v, _: f"{v / 100:g}"))
 
     if ctx.v_orient == "pressure":
         ax.invert_yaxis()
@@ -443,6 +490,7 @@ def _set_vertical_axis(
 # -----------------------------------------------------------------------------
 # Header and annotation helpers
 # -----------------------------------------------------------------------------
+
 
 def _legend_layout(fig, ctx) -> Tuple[int, int, float]:
     """(columns, rows, height in inches) of the station legend on top: as
@@ -453,7 +501,8 @@ def _legend_layout(fig, ctx) -> Tuple[int, int, float]:
     if n == 0:
         return 1, 0, 0.0
     width = max(len(str(s)) for s in names)
-    entry_in = (width + 22) * FONTS["small"] * 0.62 / 72 + 0.40
+    # a name, its count and its share, in the legend's monospaced font
+    entry_in = (width + 17) * FONTS["small"] * 0.62 / 72 + 0.40
     ncol = max(1, min(n, int(fig.get_figwidth() * 0.93 // entry_in)))
     rows = -(-n // ncol)
     return ncol, rows, 0.42 + rows * FONTS["small"] * 1.65 / 72
@@ -463,8 +512,35 @@ def _legend_place(fig, ctx) -> Dict[str, Any]:
     """Where the legend goes: under the rule of the header, from the left."""
     height = max(float(fig.get_figheight()), 1.0)
     ncol = _legend_layout(fig, ctx)[0]
-    return dict(loc="upper left", ncol=ncol,
-                bbox_to_anchor=(0.03, 1.0 - (HEADER_RULE_OFFSET_IN + 0.05) / height))
+    return dict(
+        loc="upper left",
+        ncol=ncol,
+        bbox_to_anchor=(0.03, 1.0 - (HEADER_RULE_OFFSET_IN + 0.05) / height),
+    )
+
+
+def _grow_for_legend(fig, ctx) -> None:
+    """The figure grows by the height of its station legend, so the plots
+    keep theirs -- the legend used to be taken from them, and with a dozen
+    stations it came over the plot."""
+    band = _legend_layout(fig, ctx)[2] if ctx is not None else 0.0
+    if band > 0:
+        w, h = fig.get_size_inches()
+        fig.set_size_inches(w, h + band)
+
+
+def _thin_level_names(fig) -> None:
+    """Once the plots have their size: as many level names as the rows hold
+    at a size one can read, one in k -- every level stays under the mouse."""
+    for ax in fig.axes:
+        info = getattr(ax, "_pikobs_level_names", None)
+        if not info:
+            continue
+        idx, labels, fs = info
+        row_pt = ax.get_position().height * fig.get_figheight() * 72.0 / max(len(idx), 1)
+        step = max(1, int(np.ceil(1.35 * fs / max(row_pt, 1e-6))))
+        ax.set_yticks(list(idx)[::step])
+        ax.set_yticklabels(list(labels)[::step], fontsize=fs)
 
 
 def _plot_top(fig, ctx=None) -> float:
@@ -472,55 +548,106 @@ def _plot_top(fig, ctx=None) -> float:
     when the figure has one."""
     height = max(float(fig.get_figheight()), 1.0)
     band = _legend_layout(fig, ctx)[2] if ctx is not None else 0.0
-    return float(np.clip(1.0 - (HEADER_HEIGHT_IN + band) / height, 0.40, 0.985))
+    # no floor: the figure grows by its legend (_grow_for_legend), so the plots
+    # start under it -- a floor at 40 % pushed them up over a tall legend
+    return float(np.clip(1.0 - (HEADER_HEIGHT_IN + band) / height, 0.05, 0.985))
 
 
-def _header(
-    fig,
-    ctx: PlotContext,
-    dt_start,
-    dt_end,
-    n_obs: int,
-    panel: str,
-) -> None:
+def _header(fig, ctx: PlotContext, dt_start, dt_end, n_obs: int, panel: str) -> None:
     """The header of the other modules, in inches from the top: the variable
     and the panel, the dates, a grey line with where and how, the run in its
     colour, a light rule."""
     from pikobs.configobs.style import EXP_COLOUR
+
     height = max(float(fig.get_figheight()), 1.0)
 
     def at(inch):
         return 1.0 - inch / height
 
-    what = {"map": "observations on the map",
-            "cross-sections": "cross-sections",
-            "vertical distribution": "observations per level",
-            "contributions": "observations per station"}.get(panel, panel)
+    what = {
+        "map": "observations on the map",
+        "cross-sections": "cross-sections",
+        "vertical distribution": "observations per level",
+        "contributions": "observations per station",
+    }.get(panel, panel)
     variable = f"{ctx.var_name} {ctx.var_units}".strip()
-    fig.text(0.035, at(HEADER_TITLE_OFFSET_IN), f"{variable}  \u00b7  {what}",
-             ha="left", va="top", fontsize=FONTS["title"], fontweight="bold",
-             color="#1F2933")
+    fig.text(
+        0.035,
+        at(HEADER_TITLE_OFFSET_IN),
+        f"{variable}  \u00b7  {what}",
+        ha="left",
+        va="top",
+        fontsize=FONTS["title"],
+        fontweight="bold",
+        color="#1F2933",
+    )
     same_day = f"{dt_start:%Y%m%d}" == f"{dt_end:%Y%m%d}"
-    when = (f"{dt_start:%Y-%m-%d %H:%M} to {dt_end:%H:%M} UTC" if same_day
-            else f"{dt_start:%Y-%m-%d %H:%M} to {dt_end:%Y-%m-%d %H:%M} UTC")
-    fig.text(0.965, at(HEADER_TITLE_OFFSET_IN + 0.02), when, ha="right",
-             va="top", fontsize=FONTS["subtitle"], color="#52606D")
-    fig.text(0.035, at(HEADER_META_OFFSET_IN),
-             "  \u00b7  ".join([str(ctx.family), str(ctx.region),
-                                f"flags {ctx.flag_label}",
-                                f"{fmt_count(n_obs)} observations"]),
-             ha="left", va="top", fontsize=FONTS["subtitle"], color="#52606D")
-    fig.text(0.035, at(HEADER_EXP_OFFSET_IN), f"Exp  {ctx.exp_name}",
-             ha="left", va="top", fontsize=FONTS["subtitle"] + 2,
-             fontweight="bold", color=EXP_COLOUR)
-    fig.lines.append(mpl.lines.Line2D(
-        [0.035, 0.965], [at(HEADER_RULE_OFFSET_IN)] * 2,
-        transform=fig.transFigure, lw=0.8, color="#D9DDE2"))
+    when = (
+        f"{dt_start:%Y-%m-%d %H:%M} to {dt_end:%H:%M} UTC"
+        if same_day
+        else f"{dt_start:%Y-%m-%d %H:%M} to {dt_end:%Y-%m-%d %H:%M} UTC"
+    )
+    fig.text(
+        0.035,
+        at(HEADER_DATE_OFFSET_IN),
+        when,
+        ha="left",
+        va="top",
+        fontsize=FONTS["subtitle"] + 2,
+        fontweight="bold",
+        color="#1F2933",
+    )
+    fig.text(
+        0.035,
+        at(HEADER_META_OFFSET_IN),
+        "  \u00b7  ".join(
+            [
+                str(ctx.family),
+                str(ctx.region),
+                f"flags {ctx.flag_label}",
+                f"{fmt_count(n_obs)} observations",
+                *([f"{fig._pikobs_stations} station" + ("" if fig._pikobs_stations == 1 else "s")]
+                  if getattr(fig, "_pikobs_stations", None) is not None else []),
+            ]
+        ),
+        ha="left",
+        va="top",
+        fontsize=FONTS["subtitle"],
+        color="#52606D",
+    )
+    fig.text(
+        0.035,
+        at(HEADER_EXP_OFFSET_IN),
+        f"Exp  {ctx.exp_name}",
+        ha="left",
+        va="top",
+        fontsize=FONTS["subtitle"] + 2,
+        fontweight="bold",
+        color=EXP_COLOUR,
+    )
+    fig.lines.append(
+        mpl.lines.Line2D(
+            [0.035, 0.965],
+            [at(HEADER_RULE_OFFSET_IN)] * 2,
+            transform=fig.transFigure,
+            lw=0.8,
+            color="#D9DDE2",
+        )
+    )
     # an invisible rectangle over the whole figure: the crop of the saving
     # always takes all of it, and every image of a group has one size
-    fig.patches.append(mpl.patches.Rectangle(
-        (0, 0), 1, 1, transform=fig.transFigure, fill=False,
-        linewidth=0, zorder=-10))
+    fig.patches.append(
+        mpl.patches.Rectangle(
+            (0, 0), 1, 1, transform=fig.transFigure, fill=False, linewidth=0, zorder=-10
+        )
+    )
+    # the big title may be wider than the figure: shrink it, just enough --
+    # and the run's line never bigger than the title
+    fit_texts(fig, None, right=0.985, floor=0.5)
+    title = next((t for t in fig.texts if t.get_text().startswith(variable)), None)
+    for t in fig.texts:
+        if title is not None and t.get_text().startswith("Exp  "):
+            t.set_fontsize(min(t.get_fontsize(), 0.85 * title.get_fontsize()))
 
 
 def _panel_title(ax, title: str, subtitle: Optional[str] = None) -> None:
@@ -529,10 +656,7 @@ def _panel_title(ax, title: str, subtitle: Optional[str] = None) -> None:
     return None
 
 
-def _station_counts(
-    df: pd.DataFrame,
-    color_map: Dict[str, tuple],
-) -> pd.Series:
+def _station_counts(df: pd.DataFrame, color_map: Dict[str, tuple]) -> pd.Series:
     if df.empty or "id_stn" not in df:
         return pd.Series(dtype=int)
 
@@ -541,13 +665,10 @@ def _station_counts(
 
 
 def _vertical_offsets(
-    stations: Sequence[str],
-    is_discrete: bool,
-    v_min: float,
-    v_max: float,
+    stations: Sequence[str], is_discrete: bool, v_min: float, v_max: float
 ) -> Dict[str, float]:
     """Small vertical offsets that reveal overlapping station samples within a level.
-    
+
     The offset creates parallel 'lanes' within the same level/channel
     so that different stations do not completely hide each other vertically.
     Latitudes and Longitudes (X-axis) remain at their exact values.
@@ -570,47 +691,21 @@ def _vertical_offsets(
 
     positions = np.linspace(-0.5 * total_band, 0.5 * total_band, len(stations))
 
-    return {
-        station: float(offset)
-        for station, offset in zip(stations, positions)
-    }
+    return {station: float(offset) for station, offset in zip(stations, positions)}
 
 
-def _station_badge(ax, counts: pd.Series, loc=(0.985, 0.985)) -> None:
-    """Compact station/observation summary that replaces unnecessary legends."""
-    total = int(counts.sum())
-    n_stations = int(len(counts))
-
-    text = f"{fmt_count(total)} obs  •  {n_stations} station"
-    if n_stations != 1:
-        text += "s"
-
-    ax.text(
-        loc[0],
-        loc[1],
-        text,
-        transform=ax.transAxes,
-        ha="right",
-        va="top",
-        fontsize=FONTS["small"],
-        color="#444444",
-        bbox=dict(
-            boxstyle="round,pad=0.30",
-            fc="white",
-            ec="#C7CCD1",
-            lw=0.7,
-            alpha=0.92,
-        ),
-        zorder=20,
-    )
+def _station_badge(ax, counts: pd.Series, loc=(0.985, 0.985), ctx=None) -> None:
+    """The number of stations, for the header's grey line: nothing drawn on
+    the panel any more -- a box there hid the observations under it."""
+    # the grey group counts as the stations it holds, not as one
+    n = int(len(counts))
+    if OTHERS in getattr(counts, "index", []):
+        n += int(getattr(ctx, "_pikobs_others", 1)) - 1
+    ax.figure._pikobs_stations = n
 
 
 def _station_legend(
-    fig,
-    ctx: PlotContext,
-    counts: pd.Series,
-    x: float = 0.98,
-    y: float = 0.50,
+    fig, ctx: PlotContext, counts: pd.Series, x: float = 0.98, y: float = 0.50
 ) -> None:
     """Draw the station legend. Every station of the period, in one order
     and with its count here, in its colour even at 0, every line of the
@@ -626,49 +721,62 @@ def _station_legend(
             n = int(counts.get(station, 0)) if not counts.empty else 0
             share = 100.0 * n / total if total else 0.0
             label = f"{str(station):<{width}s} {n:>9,d} {share:5.1f}%"
-            handles.append(plt.Line2D(
-                [], [], marker="o", linestyle="none", markersize=6.5,
-                color=ctx.color_map.get(station, "gray"),
-                label=label))
+            handles.append(
+                plt.Line2D(
+                    [],
+                    [],
+                    marker="o",
+                    linestyle="none",
+                    markersize=6.5 * FS,
+                    color=ctx.color_map.get(station, "gray"),
+                    label=label,
+                )
+            )
         fig.legend(
-            handles=handles, **_legend_place(fig, ctx),
+            handles=handles,
+            **_legend_place(fig, ctx),
             frameon=False,
             prop={"family": "monospace", "size": FONTS["small"]},
             title="Station / instrument",
             title_fontsize=FONTS["small"],
-            borderpad=0.7, handletextpad=0.7, labelspacing=0.55)
+            borderpad=0.7,
+            handletextpad=0.7,
+            labelspacing=0.55,
+        )
         return
     if counts.empty:
         return
 
     ranked = counts.sort_values(ascending=False)
+    others = ranked.pop(OTHERS) if OTHERS in ranked.index else None
+    total = float(ranked.sum() + (others or 0))
     shown = ranked.iloc[:MAX_LEGEND_STATIONS]
 
     handles = []
     for station, count in shown.items():
-        share = 100.0 * float(count) / float(ranked.sum())
+        share = 100.0 * float(count) / total
         handles.append(
             plt.Line2D(
                 [],
                 [],
                 marker="o",
                 linestyle="none",
-                markersize=6.5,
+                markersize=6.5 * FS,
                 color=ctx.color_map.get(station, "gray"),
                 label=f"{station}  {fmt_count(int(count))} ({share:.1f}%)",
             )
         )
 
     extra = len(ranked) - len(shown)
-    if extra > 0:
+    if others is not None:              # the grey group, under the coloured stations
+        n_other = int(getattr(ctx, "_pikobs_others", 0)) or extra
         handles.append(
-            plt.Line2D(
-                [],
-                [],
-                marker="",
-                linestyle="none",
-                label=f"+ {extra} other stations",
-            )
+            plt.Line2D([], [], marker="o", linestyle="none", markersize=6.5 * FS, color=OTHERS_COLOUR,
+                       label=f"{n_other} other stations  {fmt_count(int(others))} ({100.0 * others / total:.1f}%)")
+        )
+    elif extra > 0:
+        handles.append(
+            plt.Line2D([], [], marker="", linestyle="none", label=f"+ {extra} other stations")
         )
 
     fig.legend(
@@ -692,7 +800,7 @@ def _no_data_message(ax, text: str = "No observations") -> None:
         transform=ax.transAxes,
         ha="center",
         va="center",
-        fontsize=16,
+        fontsize=16 * FS,
         color="#888888",
         fontweight="bold",
     )
@@ -701,6 +809,7 @@ def _no_data_message(ax, text: str = "No observations") -> None:
 # -----------------------------------------------------------------------------
 # Cartopy helpers
 # -----------------------------------------------------------------------------
+
 
 def _features_available() -> bool:
     """Check coastline availability once, without triggering network access."""
@@ -726,31 +835,11 @@ def _add_map_features(ax) -> None:
     if not _features_available():
         return
 
-    ax.add_feature(
-        cfeature.LAND,
-        facecolor="#F6F7F8",
-        edgecolor="none",
-        zorder=0,
-    )
-    ax.add_feature(
-        cfeature.OCEAN,
-        facecolor="#EAF2F7",
-        edgecolor="none",
-        zorder=0,
-    )
-    ax.add_feature(
-        cfeature.COASTLINE,
-        lw=0.55,
-        color="#90979D",
-        zorder=1,
-    )
+    ax.add_feature(cfeature.LAND, facecolor="#F6F7F8", edgecolor="none", zorder=0)
+    ax.add_feature(cfeature.OCEAN, facecolor="#EAF2F7", edgecolor="none", zorder=0)
+    ax.add_feature(cfeature.COASTLINE, lw=0.55, color="#90979D", zorder=1)
     try:
-        ax.add_feature(
-            cfeature.BORDERS,
-            lw=0.35,
-            edgecolor="#B3B8BC",
-            zorder=1,
-        )
+        ax.add_feature(cfeature.BORDERS, lw=0.35, edgecolor="#B3B8BC", zorder=1)
     except Exception:
         pass
 
@@ -759,14 +848,56 @@ def _add_map_features(ax) -> None:
 # Panel: map
 # -----------------------------------------------------------------------------
 
-def _profiles(
-    ax_hx,
-    ax_hy,
-    df,
-    ctx: PlotContext,
-    stations,
-    pinned: bool,
-):
+
+def _set_extent(ax, extent) -> None:
+    """The region on the map. An orthographic view down to the equator
+    (orthon, orthos) puts the edge of the region on the rim of the disc,
+    where the projection has no value at some longitudes and cartopy cannot
+    set the limits: that region is the whole visible hemisphere, which is
+    what set_global draws."""
+    if isinstance(getattr(ax, "projection", None), ccrs.Orthographic):
+        ax.set_global()                 # the disc: the hemisphere, pole to equator
+        return
+    try:
+        ax.set_extent(extent, crs=ccrs.PlateCarree())
+    except ValueError:
+        ax.set_global()
+
+
+#: the stations past the legend, drawn together in one light grey
+OTHERS = "other stations"
+OTHERS_COLOUR = (0.72, 0.75, 0.78, 1.0)
+
+
+def _others_grey(df: pd.DataFrame, ctx: "PlotContext"):
+    """More stations than the legend holds (thousands for sf): the ones of
+    the legend keep their colour, every other one goes into a single grey
+    group under them -- thousands of colours were all alike, and one scatter
+    per station was slow. The legend says how many stations the group holds."""
+    if df is None or df.empty or "id_stn" not in df:
+        return df, ctx
+    counts = df["id_stn"].value_counts()
+    if len(counts) <= MAX_LEGEND_STATIONS:
+        return df, ctx
+    keep = set(counts.index[:MAX_LEGEND_STATIONS])
+    out = df.copy()
+    out["id_stn"] = out["id_stn"].where(out["id_stn"].isin(keep), OTHERS)
+    cmap = {s: ctx.color_map.get(s, OTHERS_COLOUR) for s in keep}
+    cmap[OTHERS] = OTHERS_COLOUR
+    grouped = _replace(ctx, color_map=cmap)
+    grouped._pikobs_others = int(len(counts) - len(keep))     # for the legend
+    return out, grouped
+
+
+def _three(ticks) -> list:
+    """0, half the top and the top, evenly spaced: enough to read a count,
+    never piled up."""
+    top = list(ticks)[-1]
+    half = top / 2.0
+    return [0, int(half) if float(half).is_integer() else half, top]
+
+
+def _profiles(ax_hx, ax_hy, df, ctx: PlotContext, stations, pinned: bool):
     """Draw the longitude and latitude marginal profiles."""
     max_c_lon = max(int(ctx.max_counts[0]), 1)
     max_c_lat = max(int(ctx.max_counts[1]), 1)
@@ -779,14 +910,8 @@ def _profiles(
     ticks_lat = nice_ticks(max_c_lat)
 
     if not df.empty and stations:
-        lon_values = [
-            df.loc[df["id_stn"] == station, "lon"].dropna()
-            for station in stations
-        ]
-        lat_values = [
-            df.loc[df["id_stn"] == station, "lat"].dropna()
-            for station in stations
-        ]
+        lon_values = [df.loc[df["id_stn"] == station, "lon"].dropna() for station in stations]
+        lat_values = [df.loc[df["id_stn"] == station, "lat"].dropna() for station in stations]
 
         ax_hx.hist(
             lon_values,
@@ -822,11 +947,12 @@ def _profiles(
 
     ax_hx.set_xlim(ctx.lon_ext)
     ax_hx.set_ylim(0, ticks_lon[-1])
-    ax_hx.set_yticks(ticks_lon)
-    ax_hx.set_yticklabels(
-        [fmt_count(t) for t in ticks_lon],
-        fontsize=FONTS["tick"],
-    )
+    # the counts: the maximum only on the thin strips beside a cyl map; on
+    # the panels under a polar or square map, the same three numbers on both
+    # histograms (0, the middle one, the maximum)
+    lon_counts = [ticks_lon[-1]] if pinned else _three(ticks_lon)
+    ax_hx.set_yticks(lon_counts)
+    ax_hx.set_yticklabels([fmt_count(t) for t in lon_counts], fontsize=FONTS["tick"])
     _panel_title(ax_hx, "Longitude profile")
     ax_hx.grid(axis="y", ls="--", alpha=0.28)
     ax_hx.tick_params(axis="x", labelsize=FONTS["tick"])
@@ -837,51 +963,115 @@ def _profiles(
         ax_hy.set_ylim(ctx.lat_ext)
         ax_hy.set_xlim(0, ticks_lat[-1])
         ax_hy.set_xticks([ticks_lat[-1]])
-        ax_hy.set_xticklabels(
-            [fmt_count(ticks_lat[-1])],
-            fontsize=FONTS["tick"],
-        )
+        ax_hy.set_xticklabels([fmt_count(ticks_lat[-1])], fontsize=FONTS["tick"])
         ax_hy.tick_params(labelleft=False)
         ax_hy.grid(axis="x", ls="--", alpha=0.28)
     else:
-        ax_hx.set_xlabel(
-            "Longitude",
-            fontsize=FONTS["label"],
-            fontweight="bold",
-        )
+        ax_hx.set_xlabel("Longitude", fontsize=FONTS["label"], fontweight="bold")
 
         ax_hy.set_xlim(ctx.lat_ext)
         ax_hy.set_ylim(0, ticks_lat[-1])
-        ax_hy.set_yticks(ticks_lat)
-        ax_hy.set_yticklabels(
-            [fmt_count(t) for t in ticks_lat],
-            fontsize=FONTS["tick"],
-        )
-        ax_hy.set_xlabel(
-            "Latitude",
-            fontsize=FONTS["label"],
-            fontweight="bold",
-        )
+        ax_hy.set_yticks(_three(ticks_lat))
+        ax_hy.set_yticklabels([fmt_count(t) for t in _three(ticks_lat)], fontsize=FONTS["tick"])
+        ax_hy.set_xlabel("Latitude", fontsize=FONTS["label"], fontweight="bold")
         ax_hy.tick_params(axis="x", labelsize=FONTS["tick"])
         ax_hy.grid(axis="y", ls="--", alpha=0.28)
 
     _panel_title(ax_hy, "Latitude profile")
 
 
-def _panel_map(
-    df,
-    ctx: PlotContext,
-    dt_start,
-    dt_end,
-    out_png: str,
-    dpi: int,
-) -> str:
+def _fit_map_height(fig, gs, ax_map) -> None:
+    """The figure as tall as the map needs to keep its true shape: the
+    width of the map (from the grid) times the height/width of the region
+    in its projection (2:1 for the world in cyl). The header and the legend
+    above, and the margin below, keep their inches; the histograms share
+    the map's row and column, so they stay aligned with it."""
+    x0, x1 = ax_map.get_xlim()
+    y0, y1 = ax_map.get_ylim()
+    ratio = abs(y1 - y0) / max(abs(x1 - x0), 1e-9)
+    W, H = fig.get_size_inches()
+    wr = list(gs.get_width_ratios() or [1] * gs.ncols)
+    hr = list(gs.get_height_ratios() or [1] * gs.nrows)
+    # as matplotlib lays a grid out: cells, then the spaces between them
+    cell_w = (gs.right - gs.left) * W / (gs.ncols + gs.wspace * (gs.ncols - 1))
+    map_w = wr[0] * cell_w * gs.ncols / sum(wr)
+    map_h = map_w * ratio
+    cell_h = map_h * sum(hr) / (hr[-1] * gs.nrows)
+    plots_h = cell_h * (gs.nrows + gs.hspace * (gs.nrows - 1))
+    top_in, bottom_in = (1.0 - gs.top) * H, gs.bottom * H
+    new_h = top_in + plots_h + bottom_in
+    fig.set_size_inches(W, new_h)
+    gs.update(top=1.0 - top_in / new_h, bottom=bottom_in / new_h)
+
+
+def _deg(v: float, pos: str, neg: str) -> str:
+    return f"{abs(v):g}\u00b0{pos if v >= 0 else neg}"
+
+
+def _map_hover(fig, out_png, df, ctx, ax_sc, ax_hx, ax_hy, dpi) -> None:
+    """What the mouse shows on a map figure: the observations of every box
+    of the map (5 degrees, 2.5 or 1 on a small region), and of every bar of
+    the two histograms -- written after the PNG, as the viewer reads it."""
+    if df is None or df.empty:
+        return
+    rects = []
+    lon, lat = df["lon"].to_numpy(float), df["lat"].to_numpy(float)
+    ok = np.isfinite(lon) & np.isfinite(lat)
+    lon, lat = lon[ok], lat[ok]
+    renderer = fig.canvas.get_renderer()
+    # the boxes of the map
+    lon0, lon1 = float(ctx.lon_ext[0]), float(ctx.lon_ext[1])
+    lat0, lat1 = float(ctx.lat_ext[0]), float(ctx.lat_ext[1])
+    span = max(lon1 - lon0, lat1 - lat0)
+    box = 5.0 if span > 60 else 2.5 if span > 20 else 1.0
+    e_lon = np.arange(np.floor(lon0 / box) * box, lon1 + box, box)
+    e_lat = np.arange(np.floor(lat0 / box) * box, lat1 + box, box)
+    counts, _, _ = np.histogram2d(lon, lat, bins=[e_lon, e_lat])
+    plate = ccrs.PlateCarree()
+    for i, j in zip(*np.nonzero(counts)):
+        a, b, c, d = e_lon[i], e_lon[i + 1], e_lat[j], e_lat[j + 1]
+        xs = np.array([a, b, a, b, (a + b) / 2, (a + b) / 2, a, b])
+        ys = np.array([c, c, d, d, c, d, (c + d) / 2, (c + d) / 2])
+        pts = ax_sc.projection.transform_points(plate, xs, ys)[:, :2]
+        if not np.isfinite(pts).all():
+            continue
+        disp = ax_sc.transData.transform(pts)
+        rects.append((disp[:, 0].min(), disp[:, 1].min(), disp[:, 0].max(), disp[:, 1].max(),
+                      f"{_deg(c, 'N', 'S')} to {_deg(d, 'N', 'S')}  \u00b7  {_deg(a, 'E', 'W')} to "
+                      f"{_deg(b, 'E', 'W')}  \u00b7  {int(counts[i, j]):,} obs"))
+    # the bars of the two histograms, as _profiles draws them
+    b_lon = np.linspace(ctx.lon_ext[0], ctx.lon_ext[1], N_BINS_LON)
+    b_lat = np.linspace(ctx.lat_ext[0], ctx.lat_ext[1], N_BINS_LAT)
+    for ax, edges, values, along_x in ((ax_hx, b_lon, lon, True), (ax_hy, b_lat, lat, False)):
+        if ax is None:
+            continue
+        n, _ = np.histogram(values, bins=edges)
+        e = ax.get_window_extent(renderer)
+        for k in np.nonzero(n)[0]:
+            a, b = edges[k], edges[k + 1]
+            if along_x:
+                x0 = ax.transData.transform((a, 0))[0]
+                x1 = ax.transData.transform((b, 0))[0]
+                rects.append((x0, e.y0, x1, e.y1,
+                              f"longitude {_deg(a, 'E', 'W')} to {_deg(b, 'E', 'W')}  \u00b7  {int(n[k]):,} obs"))
+            else:
+                y0 = ax.transData.transform((0, a))[1]
+                y1 = ax.transData.transform((0, b))[1]
+                rects.append((e.x0, y0, e.x1, y1,
+                              f"latitude {_deg(a, 'N', 'S')} to {_deg(b, 'N', 'S')}  \u00b7  {int(n[k]):,} obs"))
+    if rects:
+        write_hover_rects(fig, out_png, rects, dpi=dpi)
+
+
+def _panel_map(df, ctx: PlotContext, dt_start, dt_end, out_png: str, dpi: int) -> str:
     """Draw the geographic map with marginal longitude/latitude profiles."""
+    df, ctx = _others_grey(df, ctx)
     counts = _station_counts(df, ctx.color_map)
     stations = counts.index.tolist()
 
     if ctx.square_map:
-        fig = plt.figure(figsize=(12.8, 14.4), facecolor="white")
+        fig = plt.figure(figsize=(12.8, 14.4 + HEADER_GROWTH), facecolor="white")
+        _grow_for_legend(fig, ctx)
 
         gs = gridspec.GridSpec(
             2,
@@ -901,7 +1091,8 @@ def _panel_map(
         ax_hy = fig.add_subplot(gs[1, 1])
         pinned = False
     else:
-        fig = plt.figure(figsize=(17.5, 9.6), facecolor="white")
+        fig = plt.figure(figsize=(17.5, 9.6 + HEADER_GROWTH), facecolor="white")
+        _grow_for_legend(fig, ctx)
 
         gs = gridspec.GridSpec(
             2,
@@ -922,20 +1113,15 @@ def _panel_map(
         ax_hy = fig.add_subplot(gs[1, 1])
         pinned = True
 
-    ax_sc.set_extent(ctx.extent, crs=ccrs.PlateCarree())
+    _set_extent(ax_sc, ctx.extent)
+    if not ctx.square_map:
+        # the map in its true shape, not stretched to the room left
+        _fit_map_height(fig, gs, ax_sc)
 
     if ctx.round_map:
         theta = np.linspace(0, 2 * np.pi, 240)
-        boundary = np.column_stack(
-            [
-                0.5 + 0.5 * np.sin(theta),
-                0.5 + 0.5 * np.cos(theta),
-            ]
-        )
-        ax_sc.set_boundary(
-            mpath.Path(boundary),
-            transform=ax_sc.transAxes,
-        )
+        boundary = np.column_stack([0.5 + 0.5 * np.sin(theta), 0.5 + 0.5 * np.cos(theta)])
+        ax_sc.set_boundary(mpath.Path(boundary), transform=ax_sc.transAxes)
 
     ax_sc.set_aspect("equal" if ctx.square_map else "auto")
     _add_map_features(ax_sc)
@@ -955,7 +1141,7 @@ def _panel_map(
         gl.right_labels = False
         gl.xlabel_style = {"size": FONTS["tick"]}
         gl.ylabel_style = {"size": FONTS["tick"]}
-    except Exception:                                  # pragma: no cover
+    except Exception:  # pragma: no cover
         pass
 
     if df.empty:
@@ -978,7 +1164,7 @@ def _panel_map(
                 zorder=3,
             )
 
-    _station_badge(ax_sc, counts)
+    _station_badge(ax_sc, counts, ctx=ctx)
     _profiles(ax_hx, ax_hy, df, ctx, stations, pinned)
 
     # For one station the colour key is obvious and a full legend adds noise.
@@ -993,13 +1179,8 @@ def _panel_map(
 
     _header(fig, ctx, dt_start, dt_end, len(df), "map")
 
-    save_figure(
-        fig,
-        out_png,
-        svg=ctx.svg,
-        dpi=dpi,
-        facecolor="white",
-    )
+    save_figure(fig, out_png, svg=ctx.svg, dpi=dpi, facecolor="white")
+    _map_hover(fig, out_png, df, ctx, ax_sc, ax_hx, ax_hy, dpi)
     plt.close(fig)
     return out_png
 
@@ -1008,17 +1189,12 @@ def _panel_map(
 # Panel: cross-sections
 # -----------------------------------------------------------------------------
 
-def _panel_cross(
-    df,
-    ctx: PlotContext,
-    dt_start,
-    dt_end,
-    out_png: str,
-    dpi: int,
-) -> str:
+
+def _panel_cross(df, ctx: PlotContext, dt_start, dt_end, out_png: str, dpi: int) -> str:
     """Draw zonal and meridional cross-sections."""
+    df, ctx = _others_grey(df, ctx)
     levels = _levels_of(df, ctx)
-    height = _level_height(len(levels)) if levels else 7.5
+    height = _level_height(len(levels)) if levels else 7.5 + HEADER_GROWTH
     tick_fs = _tick_font(len(levels), height)
 
     stations = _station_counts(df, ctx.color_map).index.tolist()
@@ -1031,12 +1207,8 @@ def _panel_cross(
     is_discrete = bool(levels)
     y_offsets = _vertical_offsets(stations, is_discrete, ctx.v_min, ctx.v_max)
 
-    fig, (ax_z, ax_m) = plt.subplots(
-        1,
-        2,
-        figsize=(16.5, height),
-        facecolor="white",
-    )
+    fig, (ax_z, ax_m) = plt.subplots(1, 2, figsize=(16.5, height), facecolor="white")
+    _grow_for_legend(fig, ctx)
 
     if df.empty:
         _no_data_message(ax_z)
@@ -1048,11 +1220,7 @@ def _panel_cross(
             if not levels:
                 return sub["vcoord"]
 
-            key = (
-                sub["vcoord"].astype(int)
-                if ctx.is_channel
-                else sub["vcoord"]
-            )
+            key = sub["vcoord"].astype(int) if ctx.is_channel else sub["vcoord"]
             return key.map(row_of)
 
         for ax, coord, title, xlim in (
@@ -1085,16 +1253,12 @@ def _panel_cross(
                 fontsize=FONTS["label"],
                 fontweight="bold",
             )
-            ax.set_ylabel(
-                _vlabel(ctx),
-                fontsize=FONTS["label"],
-                fontweight="bold",
-            )
+            ax.set_ylabel(_vlabel(ctx), fontsize=FONTS["label"], fontweight="bold")
             _panel_title(ax, title)
             ax.tick_params(axis="x", labelsize=FONTS["tick"])
             ax.grid(True, ls="--", alpha=0.30)
 
-    _station_badge(ax_z, _station_counts(df, ctx.color_map))
+    _station_badge(ax_z, _station_counts(df, ctx.color_map), ctx=ctx)
 
     if len(stations) > 1:
         _station_legend(fig, ctx, _station_counts(df, ctx.color_map))
@@ -1106,21 +1270,11 @@ def _panel_cross(
     top = _plot_top(fig, ctx)
     bottom = min(0.075, 0.9 / height)
 
-    fig.subplots_adjust(
-        left=0.065,
-        right=0.97,
-        top=top,
-        bottom=bottom,
-        wspace=0.25,
-    )
+    fig.subplots_adjust(left=0.065, right=0.97, top=top, bottom=bottom, wspace=0.25)
+    _thin_level_names(fig)
 
-    save_figure(
-        fig,
-        out_png,
-        svg=ctx.svg,
-        dpi=dpi,
-        facecolor="white",
-    )
+    save_figure(fig, out_png, svg=ctx.svg, dpi=dpi, facecolor="white")
+    _write_level_hover(fig, out_png, ctx, dpi)
     plt.close(fig)
     return out_png
 
@@ -1129,44 +1283,16 @@ def _panel_cross(
 # Panel: vertical distribution
 # -----------------------------------------------------------------------------
 
-def _panel_vertical(
-    df,
-    ctx: PlotContext,
-    dt_start,
-    dt_end,
-    out_png: str,
-    dpi: int,
-) -> str:
-    """Draw observation count per level or channel."""
-    levels = _levels_of(df, ctx)
-    height = _level_height(len(levels)) if levels else 7.5
-    tick_fs = _tick_font(len(levels), height)
 
-    max_c_v = max(int(ctx.max_counts[2]), 1)
-
-    stations = _station_counts(df, ctx.color_map).index.tolist()
-
-    fig, ax = plt.subplots(
-        figsize=(13.5, height),
-        facecolor="white",
-    )
+def _draw_vertical_counts(df, ax, levels, ctx, stations, max_c_v, tick_fs):
+    """The counts per level or channel, stacked by station (or a histogram of the values)."""
 
     if df.empty:
         _no_data_message(ax)
     elif levels:
-        key = (
-            df["vcoord"].astype(int)
-            if ctx.is_channel
-            else df["vcoord"]
-        )
+        key = df["vcoord"].astype(int) if ctx.is_channel else df["vcoord"]
 
-        pivot = pd.crosstab(
-            key,
-            df["id_stn"],
-        ).reindex(
-            index=levels,
-            fill_value=0,
-        )
+        pivot = pd.crosstab(key, df["id_stn"]).reindex(index=levels, fill_value=0)
 
         rows = np.arange(len(levels))
         left = np.zeros(len(levels))
@@ -1175,13 +1301,7 @@ def _panel_vertical(
 
         for i, (row, total) in enumerate(zip(rows, totals)):
             if i % 2 == 0:
-                ax.axhspan(
-                    row - 0.5,
-                    row + 0.5,
-                    facecolor="#F5F6F7",
-                    edgecolor="none",
-                    zorder=0,
-                )
+                ax.axhspan(row - 0.5, row + 0.5, facecolor="#F5F6F7", edgecolor="none", zorder=0)
 
         for station in stations:
             if station not in pivot.columns:
@@ -1201,43 +1321,17 @@ def _panel_vertical(
             )
             left += values
 
-        if len(levels) <= MAX_VALUE_LABELS:
-            label_step = 1
-        else:
-            label_step = max(
-                1,
-                int(np.ceil(len(levels) / MAX_VALUE_LABELS)),
-            )
-
-        annotation_limit = max(max_c_v, int(np.nanmax(totals)))
-        for row, total in zip(rows[::label_step], totals[::label_step]):
-            total = int(total)
-            if total <= 0:
-                continue
-
-            # Add labels outside the bar only when there is enough visual
-            # headroom; otherwise the x-axis carries the exact value.
-            ax.text(
-                total + annotation_limit * 0.012,
-                row,
-                fmt_count(total),
-                va="center",
-                fontsize=max(tick_fs, 6.0),
-                color="#333333",
-                clip_on=False,
-            )
+        # nothing written on the bars: the count of each level is under the
+        # mouse in the viewer, with the level
+        ax._pikobs_hover = [
+            (int(row), f"{_hover_level(ctx, lev)}  \u00b7  {fmt_count(int(total))} obs")
+            for row, lev, total in zip(rows, levels, totals)
+        ]
 
     else:
-        bins = np.linspace(
-            float(ctx.v_min),
-            float(ctx.v_max),
-            N_BINS_VCONT,
-        )
+        bins = np.linspace(float(ctx.v_min), float(ctx.v_max), N_BINS_VCONT)
 
-        values = [
-            df.loc[df["id_stn"] == station, "vcoord"].dropna()
-            for station in stations
-        ]
+        values = [df.loc[df["id_stn"] == station, "vcoord"].dropna() for station in stations]
 
         ax.hist(
             values,
@@ -1249,169 +1343,108 @@ def _panel_vertical(
             alpha=0.90,
         )
 
+
+def _vertical_axes(max_c_v, df, ax, levels, ctx, tick_fs, stations, fig):
+    """Ticks, labels, title, grid, the station badge and legend."""
+
     actual_max = max_c_v
     if not df.empty:
-        actual_max = max(
-            actual_max,
-            int(df.shape[0]),
-            1,
-        )
+        actual_max = max(actual_max, int(df.shape[0]), 1)
 
     ticks = nice_ticks(actual_max)
     ax.set_xlim(0, ticks[-1])
     ax.set_xticks(ticks)
-    ax.set_xticklabels(
-        [fmt_count(t) for t in ticks],
-        fontsize=FONTS["tick"],
-    )
+    ax.set_xticklabels([fmt_count(t) for t in ticks], fontsize=FONTS["tick"])
 
     _set_vertical_axis(ax, levels, ctx, tick_fs)
 
-    ax.set_xlabel(
-        "Observation count",
-        fontsize=FONTS["label"],
-        fontweight="bold",
-    )
-    ax.set_ylabel(
-        _vlabel(ctx),
-        fontsize=FONTS["label"],
-        fontweight="bold",
-    )
+    ax.set_xlabel("Observation count", fontsize=FONTS["label"], fontweight="bold")
+    ax.set_ylabel(_vlabel(ctx), fontsize=FONTS["label"], fontweight="bold")
 
-    _panel_title(
-        ax,
-        "Observation count by level" if levels else "Vertical distribution",
-    )
+    _panel_title(ax, "Observation count by level" if levels else "Vertical distribution")
 
-    ax.grid(
-        True,
-        axis="x",
-        ls="--",
-        alpha=0.30,
-        zorder=1,
-    )
+    ax.grid(True, axis="x", ls="--", alpha=0.30, zorder=1)
 
     counts = _station_counts(df, ctx.color_map)
-    _station_badge(ax, counts)
+    _station_badge(ax, counts, ctx=ctx)
 
     if len(stations) > 1:
         _station_legend(fig, ctx, counts)
+
+
+def _finish_vertical_panel(fig, ctx, dt_start, dt_end, df, height, out_png, dpi):
+    """Header, margins, and the figure written; returns its path."""
 
     _header(fig, ctx, dt_start, dt_end, len(df), "vertical distribution")
 
     top = _plot_top(fig, ctx)
     bottom = min(0.075, 0.9 / height)
 
-    fig.subplots_adjust(
-        left=0.10,
-        right=0.97,
-        top=top,
-        bottom=bottom,
-    )
+    fig.subplots_adjust(left=0.10, right=0.97, top=top, bottom=bottom)
+    _thin_level_names(fig)
 
-    save_figure(
-        fig,
-        out_png,
-        svg=ctx.svg,
-        dpi=dpi,
-        facecolor="white",
-    )
+    save_figure(fig, out_png, svg=ctx.svg, dpi=dpi, facecolor="white")
+    _write_level_hover(fig, out_png, ctx, dpi)
     plt.close(fig)
     return out_png
+
+
+def _panel_vertical(df, ctx: PlotContext, dt_start, dt_end, out_png: str, dpi: int) -> str:
+    """Draw observation count per level or channel."""
+    df, ctx = _others_grey(df, ctx)
+    levels = _levels_of(df, ctx)
+    height = _level_height(len(levels)) if levels else 7.5 + HEADER_GROWTH
+    tick_fs = _tick_font(len(levels), height)
+
+    max_c_v = max(int(ctx.max_counts[2]), 1)
+
+    stations = _station_counts(df, ctx.color_map).index.tolist()
+
+    fig, ax = plt.subplots(figsize=(13.5, height), facecolor="white")
+    _grow_for_legend(fig, ctx)
+
+    _draw_vertical_counts(df, ax, levels, ctx, stations, max_c_v, tick_fs)
+    _vertical_axes(max_c_v, df, ax, levels, ctx, tick_fs, stations, fig)
+    return _finish_vertical_panel(fig, ctx, dt_start, dt_end, df, height, out_png, dpi)
 
 
 # -----------------------------------------------------------------------------
 # Panel: station contributions
 # -----------------------------------------------------------------------------
 
-def _panel_stations(
-    df,
-    ctx: PlotContext,
-    dt_start,
-    dt_end,
-    out_png: str,
-    dpi: int,
-) -> str:
-    """Draw station/instrument observation contributions."""
-    counts = _station_counts(df, ctx.color_map)
-    # every station of the period, in one order (by name, the first on top),
-    # a bar of 0 when it has nothing here: in the play the panel holds still,
-    # its bars in place and its height the same
-    names = sorted(ctx.color_map, reverse=True) or ["No observations"]
-    values = [int(counts.get(n, 0)) if not counts.empty else 0 for n in names]
 
-    height = float(
-        np.clip(
-            2.8 + 0.48 * len(names),
-            4.3,
-            40.0,
-        )
-    )
+def _draw_station_bars(ax, names, values, colors, ctx):
+    """One bar per station of the period, in a fixed order, and its axis."""
 
-    fig, ax = plt.subplots(
-        figsize=(13.0, height),
-        facecolor="white",
-    )
+    ax.barh(names, values, color=colors, edgecolor="none", height=0.70, alpha=0.92)
 
-    colors = [
-        ctx.color_map.get(name, "#B5BBC0")
-        for name in names
-    ]
-
-    ax.barh(
-        names,
-        values,
-        color=colors,
-        edgecolor="none",
-        height=0.70,
-        alpha=0.92,
-    )
-
-    max_value = max(
-        max(values) if values else 1,
-        int(ctx.max_counts[3]),
-        1,
-    )
+    max_value = max(max(values) if values else 1, int(ctx.max_counts[3]), 1)
 
     ticks = nice_ticks(max_value)
     x_upper = ticks[-1]
 
     if max(values, default=0) > 0:
         # Leave enough room for the annotation after the final bar.
-        annotation_target = int(
-            np.ceil(max(values) * 1.14)
-        )
+        annotation_target = int(np.ceil(max(values) * 1.14))
         x_upper = max(x_upper, nice_ticks(annotation_target)[-1])
 
     ax.set_xlim(0, x_upper)
     ax.set_xticks(nice_ticks(x_upper)[::1])
-    ax.set_xticklabels(
-        [fmt_count(t) for t in ax.get_xticks()],
-        fontsize=FONTS["tick"],
-    )
+    ax.set_xticklabels([fmt_count(t) for t in ax.get_xticks()], fontsize=FONTS["tick"])
 
-    ax.tick_params(
-        axis="y",
-        labelsize=FONTS["tick"],
-    )
+    ax.tick_params(axis="y", labelsize=FONTS["tick"])
 
-    ax.set_xlabel(
-        "Total observations",
-        fontsize=FONTS["label"],
-        fontweight="bold",
-    )
+    ax.set_xlabel("Total observations", fontsize=FONTS["label"], fontweight="bold")
 
-    _panel_title(
-        ax,
-        "Observation contribution by station / instrument",
-    )
+    _panel_title(ax, "Observation contribution by station / instrument")
 
-    ax.grid(
-        True,
-        axis="x",
-        ls="--",
-        alpha=0.30,
-    )
+    ax.grid(True, axis="x", ls="--", alpha=0.30)
+
+    return x_upper
+
+
+def _label_station_bars(values, x_upper, ax):
+    """Each bar's count and share, and the total."""
 
     total = sum(values)
 
@@ -1421,9 +1454,7 @@ def _panel_stations(
 
         percentage = 100.0 * value / total
 
-        label = (
-            f"{fmt_count(value)}  ({percentage:.1f}%)"
-        )
+        label = f"{fmt_count(value)}  ({percentage:.1f}%)"
 
         # Place large-bar labels inside the bar.  This avoids a very long
         # empty right-hand margin when one station dominates.
@@ -1460,43 +1491,50 @@ def _panel_stations(
         color="#666666",
     )
 
+
+def _finish_station_panel(fig, ctx, dt_start, dt_end, df, out_png, dpi):
+    """Header, margins, and the figure written; returns its path."""
+
     _header(fig, ctx, dt_start, dt_end, len(df), "contributions")
 
-    fig.subplots_adjust(
-        left=0.17,
-        right=0.93,
-        top=_plot_top(fig),
-        bottom=0.10,
-    )
+    fig.subplots_adjust(left=0.17, right=0.93, top=_plot_top(fig), bottom=0.10)
 
-    save_figure(
-        fig,
-        out_png,
-        svg=ctx.svg,
-        dpi=dpi,
-        facecolor="white",
-    )
+    save_figure(fig, out_png, svg=ctx.svg, dpi=dpi, facecolor="white")
     plt.close(fig)
     return out_png
+
+
+def _panel_stations(df, ctx: PlotContext, dt_start, dt_end, out_png: str, dpi: int) -> str:
+    """Draw station/instrument observation contributions."""
+    counts = _station_counts(df, ctx.color_map)
+    # every station of the period, in one order (by name, the first on top),
+    # a bar of 0 when it has nothing here: in the play the panel holds still,
+    # its bars in place and its height the same
+    names = sorted(ctx.color_map, reverse=True) or ["No observations"]
+    values = [int(counts.get(n, 0)) if not counts.empty else 0 for n in names]
+
+    height = float(np.clip(2.8 + 0.48 * len(names), 4.3, 40.0)) + HEADER_GROWTH
+
+    fig, ax = plt.subplots(figsize=(13.0, height), facecolor="white")
+
+    colors = [ctx.color_map.get(name, "#B5BBC0") for name in names]
+
+    x_upper = _draw_station_bars(ax, names, values, colors, ctx)
+    _label_station_bars(values, x_upper, ax)
+    return _finish_station_panel(fig, ctx, dt_start, dt_end, df, out_png, dpi)
 
 
 # -----------------------------------------------------------------------------
 # Combined output
 # -----------------------------------------------------------------------------
 
-def _combine_panels(
-    paths: Sequence[str],
-    out_png: str,
-) -> Optional[str]:
+
+def _combine_panels(paths: Sequence[str], out_png: str) -> Optional[str]:
     """Stack panels while preserving their natural aspect ratios."""
     try:
         from PIL import Image
-    except ImportError:                                  # pragma: no cover
-        print(
-            "[mapobs] the combined panel needs pillow; skipped",
-            file=sys.stderr,
-            flush=True,
-        )
+    except ImportError:  # pragma: no cover
+        print("[mapobs] the combined panel needs pillow; skipped", file=sys.stderr, flush=True)
         return None
 
     images = []
@@ -1509,13 +1547,8 @@ def _combine_panels(
             im = Image.open(path).convert("RGB")
 
             if im.width != COMBINED_MAX_WIDTH:
-                height = round(
-                    im.height * COMBINED_MAX_WIDTH / im.width
-                )
-                im = im.resize(
-                    (COMBINED_MAX_WIDTH, height),
-                    resample=Image.Resampling.LANCZOS,
-                )
+                height = round(im.height * COMBINED_MAX_WIDTH / im.width)
+                im = im.resize((COMBINED_MAX_WIDTH, height), resample=Image.Resampling.LANCZOS)
 
             images.append(im)
 
@@ -1524,11 +1557,7 @@ def _combine_panels(
 
         total_height = sum(im.height for im in images)
 
-        sheet = Image.new(
-            "RGB",
-            (COMBINED_MAX_WIDTH, total_height),
-            "white",
-        )
+        sheet = Image.new("RGB", (COMBINED_MAX_WIDTH, total_height), "white")
 
         y = 0
         for im in images:
@@ -1536,20 +1565,13 @@ def _combine_panels(
             y += im.height
             im.close()
 
-        sheet.save(
-            out_png,
-            optimize=True,
-        )
+        sheet.save(out_png, optimize=True)
         sheet.close()
 
         return out_png
 
     except Exception as exc:
-        print(
-            f"[mapobs] could not combine the panels: {exc}",
-            file=sys.stderr,
-            flush=True,
-        )
+        print(f"[mapobs] could not combine the panels: {exc}", file=sys.stderr, flush=True)
         return None
 
 
@@ -1583,45 +1605,28 @@ def plot_panels(
 
     os.makedirs(out_dir, exist_ok=True)
 
-    wanted = [
-        panel
-        for panel in panels
-        if panel in PANELS
-    ]
+    wanted = [panel for panel in panels if panel in PANELS]
 
     combine = COMBINED in panels
 
     if combine and not wanted:
         wanted = list(PANELS)
+    if ctx.v_orient == "surface":
+        # a surface family has one level: its cross-sections and its counts
+        # per level are a single line at a made-up height -- not drawn
+        wanted = [panel for panel in wanted if panel not in ("cross", "vertical")]
 
     out: Dict[str, str] = {}
 
     for panel in wanted:
-        path = os.path.join(
-            out_dir,
-            f"{panel}_{stem}.png",
-        )
+        path = os.path.join(out_dir, f"{panel}_{stem}.png")
 
-        out[panel] = _PANEL_FUNCS[panel](
-            df,
-            ctx,
-            dt_start,
-            dt_end,
-            path,
-            dpi,
-        )
+        out[panel] = _PANEL_FUNCS[panel](df, ctx, dt_start, dt_end, path, dpi)
 
     if combine:
         sheet = _combine_panels(
-            [
-                out[panel]
-                for panel in PANELS
-                if panel in out
-            ],
-            os.path.join(
-                out_dir,
-                f"{COMBINED}_{stem}.png",
-            ),
+            [out[panel] for panel in PANELS if panel in out],
+            os.path.join(out_dir, f"{COMBINED}_{stem}.png"),
         )
 
         if sheet:
@@ -1640,24 +1645,31 @@ def plot_panels(
     return out
 
 
-def plot_empty_map(ctx: PlotContext, path: str, dt_start, dt_end,
-                   message: str) -> str:
+def plot_empty_map(ctx: PlotContext, path: str, dt_start, dt_end, message: str) -> str:
     """The map of a projection with nothing on it: a region that has no
     observation there. The header of the other figures, the coasts, and the
     message in the middle."""
-    fig = plt.figure(figsize=(16, 9))
+    fig = plt.figure(figsize=(16, 9 + HEADER_GROWTH))
     top = _plot_top(fig)
     if _HAS_CARTOPY and ctx.proj is not None:
         ax = fig.add_axes([0.05, 0.05, 0.90, top - 0.08], projection=ctx.proj)
-        ax.set_extent(ctx.extent, crs=ccrs.PlateCarree())
+        _set_extent(ax, ctx.extent)
         _add_map_features(ax)
     else:
         ax = fig.add_axes([0.05, 0.05, 0.90, top - 0.08])
         ax.set_xticks([])
         ax.set_yticks([])
-    ax.text(0.5, 0.5, message, transform=ax.transAxes, ha="center",
-            va="center", fontsize=14, color="#52606D",
-            bbox=dict(boxstyle="round,pad=0.7", fc="white", ec="#D9DDE2"))
+    ax.text(
+        0.5,
+        0.5,
+        message,
+        transform=ax.transAxes,
+        ha="center",
+        va="center",
+        fontsize=14,
+        color="#52606D",
+        bbox=dict(boxstyle="round,pad=0.7", fc="white", ec="#D9DDE2"),
+    )
     _header(fig, ctx, dt_start, dt_end, 0, "map")
     fig.savefig(path, dpi=DPI_LOW)
     plt.close(fig)

@@ -7,21 +7,23 @@ can ingest. The result is an ``rdkit.Chem.Mol`` indistinguishable from
 one produced by a successful RDKit parse, so downstream code (atom
 typing, residue building, scoring) needs no further changes.
 
-OpenBabel is a *soft* dependency. Import happens inside each helper, so
-the rest of ``tmol.ligand`` loads cleanly on systems without
-``openbabel-wheel``. The helpers raise a single descriptive error if a
-caller invokes them without OB installed.
+OpenBabel is installed with TMol. Its native bindings are loaded lazily
+when a helper needs them.
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+import math
+from threading import Lock
 from typing import Optional
 
 from rdkit import Chem
 
 logger = logging.getLogger(__name__)
+
+# Charge assignment and minimization share OpenBabel's mutable force fields.
+_OPENBABEL_FORCEFIELD_LOCK = Lock()
 
 
 class OpenBabelUnavailableError(RuntimeError):
@@ -101,8 +103,7 @@ def source_atom_order_from_mapped_smiles(smiles: str) -> Optional[tuple[int, ...
 def _import_openbabel() -> tuple:
     """Return ``(openbabel, pybel)`` modules, or raise a clear error.
 
-    Imported lazily so that ``tmol.ligand`` can be loaded without the
-    optional ``openbabel-wheel`` dependency.
+    Defer loading the native bindings until ligand conversion needs them.
     """
     try:
         from openbabel import openbabel, pybel  # type: ignore[import-not-found]
@@ -140,34 +141,19 @@ def _obmol_to_rdkit_mol(obmol, *, sanitize: bool = False) -> Optional[Chem.Mol]:
     return Chem.MolFromMolBlock(sdf, sanitize=sanitize, removeHs=False)
 
 
-def obabel_read_mol2(path: str | Path) -> Optional[Chem.Mol]:
-    """Read a TRIPOS mol2 file via OpenBabel and return an RDKit ``Chem.Mol``.
-
-    Use as a fallback when ``Chem.MolFromMol2File`` returns ``None`` on
-    valid mol2 files that RDKit's parser rejects.
-
-    Returns ``None`` if OB could not parse the file. Raises
-    :class:`OpenBabelUnavailableError` if OpenBabel is not installed.
-    """
-    openbabel, pybel = _import_openbabel()
-    path = Path(path)
-    try:
-        pymol = next(pybel.readfile("mol2", str(path)))
-    except StopIteration:
-        logger.warning("OpenBabel could not read any molecule from %s", path)
-        return None
-    except Exception:
-        logger.warning("OpenBabel failed to parse mol2 file %s", path, exc_info=True)
-        return None
-    return _obmol_to_rdkit_mol(pymol.OBMol)
-
-
-def obabel_read_mol2_block(mol2_block: str) -> Optional[Chem.Mol]:
+def obabel_read_mol2_block(
+    mol2_block: str,
+    *,
+    net_charge: int | None = None,
+    atom_charges: dict[int, int] | None = None,
+) -> Optional[Chem.Mol]:
     """Read a TRIPOS mol2 *string* via OpenBabel and return an RDKit ``Chem.Mol``.
 
-    In-memory analogue of :func:`obabel_read_mol2` — use as a fallback when
-    ``Chem.MolFromMol2Block`` returns ``None``. Returns ``None`` if OB could not
+    Use as a fallback when ``Chem.MolFromMol2Block`` returns ``None``. Returns ``None`` if OB could not
     parse the block. Raises :class:`OpenBabelUnavailableError` if OB is missing.
+    When supplied, ``net_charge`` constrains missing formal-charge assignment;
+    ``atom_charges`` restores known charges by zero-based atom index first.
+    The caller must validate the resulting valences and charge constraints.
     """
     _, pybel = _import_openbabel()
     try:
@@ -175,6 +161,10 @@ def obabel_read_mol2_block(mol2_block: str) -> Optional[Chem.Mol]:
     except Exception:
         logger.warning("OpenBabel failed to parse in-memory mol2 block", exc_info=True)
         return None
+    for index, charge in (atom_charges or {}).items():
+        pymol.OBMol.GetAtom(index + 1).SetFormalCharge(charge)
+    if net_charge is not None:
+        pymol.OBMol.AssignTotalChargeToAtoms(net_charge)
     return _obmol_to_rdkit_mol(pymol.OBMol)
 
 
@@ -182,54 +172,112 @@ def obabel_read_mol2_block(mol2_block: str) -> Optional[Chem.Mol]:
 # fallback to eem in these cases
 _CHARGE_MODEL_FALLBACKS = ("eem",)
 
+# Partial charges partition the molecule's formal charge, so their sum has to
+# reproduce it. Allow only for floating-point accumulation.
+_NET_CHARGE_TOLERANCE = 1e-3
+
+
+def _model_partial_charges(openbabel, pymol, name: str, smiles: str):
+    """Return this model's complete, finite charges, or None if unusable."""
+    with _OPENBABEL_FORCEFIELD_LOCK:
+        model = openbabel.OBChargeModel.FindType(name)
+        pymol.OBMol.DeleteData("PartialCharges")
+        if model is None or not model.ComputeCharges(pymol.OBMol):
+            return None
+        charges = [
+            atom.GetPartialCharge() for atom in openbabel.OBMolAtomIter(pymol.OBMol)
+        ]
+    if len(charges) != pymol.OBMol.NumAtoms() or not all(
+        math.isfinite(q) for q in charges
+    ):
+        logger.warning(
+            "Rejecting incomplete or non-finite %s partial charges for %r",
+            name,
+            smiles,
+        )
+        return None
+    return charges
+
 
 def _compute_charges_with_fallback(openbabel, pymol, forcefield: str, smiles: str):
-    """Compute charges for molecule, falling back on failure.
+    """Compute complete finite charges that reproduce the formal charge.
+
+    A model whose charges do not sum to ``OBMol.GetTotalCharge()`` has mistyped
+    the molecule -- MMFF94 leaves a bare iodide at zero and types phosphate as
+    the monoanion -- so it is rejected in favour of one that does. If no model
+    reproduces the formal charge the closest is kept and the discrepancy is
+    reported, since approximate charges remain more useful than none.
 
     Returns the name of the model actually used.
 
     Raises:
         ValueError: If neither the primary model nor any fallback succeeds.
     """
-    primary = openbabel.OBChargeModel.FindType(forcefield)
-    if primary is not None and primary.ComputeCharges(pymol.OBMol):
-        return forcefield
-
-    for name in _CHARGE_MODEL_FALLBACKS:
-        model = openbabel.OBChargeModel.FindType(name)
-        if model is None or not model.ComputeCharges(pymol.OBMol):
+    formal_charge = pymol.OBMol.GetTotalCharge()
+    chosen = None
+    unbalanced = None
+    for name in (forcefield, *_CHARGE_MODEL_FALLBACKS):
+        charges = _model_partial_charges(openbabel, pymol, name, smiles)
+        if charges is None:
             continue
+        if abs(sum(charges) - formal_charge) <= _NET_CHARGE_TOLERANCE:
+            chosen = name
+            break
+        logger.warning(
+            "%s partial charges for SMILES %r sum to %+.4f, not the molecule's "
+            "formal charge of %+d; trying another model.",
+            name,
+            smiles,
+            sum(charges),
+            formal_charge,
+        )
+        if unbalanced is None:
+            unbalanced = (name, sum(charges))
+
+    if chosen is None and unbalanced is not None:
+        chosen, charge_sum = unbalanced
+        # The loop left a later model's charges on the molecule; restore these.
+        _model_partial_charges(openbabel, pymol, chosen, smiles)
+        logger.warning(
+            "No charge model reproduced the formal charge %+d of SMILES %r; "
+            "keeping %s charges, which sum to %+.4f.",
+            formal_charge,
+            smiles,
+            chosen,
+            charge_sum,
+        )
+
+    if chosen is None:
+        raise ValueError(
+            f"OpenBabel could not compute {forcefield} partial charges for "
+            f"SMILES {smiles!r}, and no fallback model "
+            f"({', '.join(_CHARGE_MODEL_FALLBACKS)}) could parameterize it either"
+        )
+
+    if chosen != forcefield:
         logger.warning(
             "%s partial charges are unavailable for SMILES %r; falling back to "
             "%r. These charges come from a different model and are not directly "
             "comparable to %s charges.",
             forcefield,
             smiles,
-            name,
+            chosen,
             forcefield,
         )
-        return name
+    # Some models (including EEM) omit this tag, making the mol2 writer
+    # incorrectly label their computed charges as Gasteiger.
+    provenance = openbabel.OBPairData()
+    provenance.SetAttribute("PartialCharges")
+    provenance.SetValue(chosen)
+    pymol.OBMol.CloneData(provenance)
+    return chosen
 
-    raise ValueError(
-        f"OpenBabel could not compute {forcefield} partial charges for "
-        f"SMILES {smiles!r}, and no fallback model "
-        f"({', '.join(_CHARGE_MODEL_FALLBACKS)}) could parameterize it either"
-    )
 
-
-def _build_charged_3d_mol2_mol(
-    smiles: str,
-    *,
-    forcefield: str = "mmff94",
-    minimize_steps: int = 50,
-    seed: Optional[int] = None,
-):
+def _build_charged_3d_mol2_mol(smiles: str, *, seed: Optional[int] = None):
     """Parse a SMILES, 3D-embed, charge, and rename atoms; return the pybel mol.
 
-    Shared core of :func:`obabel_smiles_to_mol2` (file) and
-    :func:`obabel_smiles_to_mol2_block` (string). Coordinates come from the
-    distance-geometry builder (:func:`tmol.ligand._conformer_generation.
-    generate_conformer`); this then computes MMFF94 partial charges (so the mol2
+    Coordinates come from the distance-geometry builder
+    (:func:`tmol.ligand._conformer_generation.generate_conformer`); this then computes MMFF94 partial charges (so the mol2
     ``charge_type`` is normally ``MMFF94_CHARGES``) and assigns generic atom
     names. MMFF94 charges are topological, so the conformer does not affect them.
 
@@ -238,7 +286,6 @@ def _build_charged_3d_mol2_mol(
     :func:`_compute_charges_with_fallback`, which warns loudly.
 
     Args:
-        minimize_steps: OpenBabel conjugate-gradient cleanup steps.
         seed: Fixed RNG seed for reproducible coordinates; ``None`` is random.
 
     Raises:
@@ -251,59 +298,14 @@ def _build_charged_3d_mol2_mol(
     openbabel, _ = _import_openbabel()
     smiles = normalize_azide(strip_nontetrahedral_stereo(smiles))
     try:
-        pymol = generate_conformer(smiles, minimize_steps=minimize_steps, seed=seed)
+        pymol = generate_conformer(smiles, seed=seed)
     except Exception as exc:
         raise ValueError(
             f"failed to generate 3D coordinates for SMILES {smiles!r}"
         ) from exc
-    _compute_charges_with_fallback(openbabel, pymol, forcefield, smiles)
+    _compute_charges_with_fallback(openbabel, pymol, "mmff94", smiles)
     _assign_generic_atom_names(openbabel, pymol.OBMol)
     return pymol
-
-
-def obabel_smiles_to_mol2_block(
-    smiles: str,
-    *,
-    forcefield: str = "mmff94",
-    minimize_steps: int = 50,
-    seed: Optional[int] = None,
-) -> str:
-    """Return a 3D MMFF94 mol2 as an in-memory TRIPOS string (no disk I/O).
-
-    Preferred over :func:`obabel_smiles_to_mol2` for high-throughput batches
-    (e.g. millions of SMILES): the mol2 is handed downstream as a string rather
-    than written to and re-read from a temp file. See
-    :func:`_build_charged_3d_mol2_mol` for the protocol and raised errors.
-    """
-    pymol = _build_charged_3d_mol2_mol(
-        smiles, forcefield=forcefield, minimize_steps=minimize_steps, seed=seed
-    )
-    return pymol.write("mol2")
-
-
-def obabel_smiles_to_mol2(
-    smiles: str,
-    out_path: str | Path,
-    *,
-    forcefield: str = "mmff94",
-    minimize_steps: int = 50,
-    seed: Optional[int] = None,
-) -> Path:
-    """Generate a 3D MMFF94 mol2 from a SMILES and write it to ``out_path``.
-
-    File-writing wrapper around :func:`obabel_smiles_to_mol2_block`; prefer the
-    block form when no on-disk mol2 is required. See
-    :func:`_build_charged_3d_mol2_mol` for the protocol and raised errors.
-
-    Returns:
-        The ``out_path`` written.
-    """
-    pymol = _build_charged_3d_mol2_mol(
-        smiles, forcefield=forcefield, minimize_steps=minimize_steps, seed=seed
-    )
-    out_path = Path(out_path)
-    pymol.write("mol2", str(out_path), overwrite=True)
-    return out_path
 
 
 def _assign_generic_atom_names(openbabel, obmol) -> None:

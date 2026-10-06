@@ -139,6 +139,9 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     "Kafka Schema Handshake (OMN-3411)",  # schema-handshake
     "Writer-Migration Coupling Check",  # migration-required-check
     "Node Migration Declaration Check",  # node-migration-declaration-check (OMN-15717)
+    # OMN-14975: vendor drift used to report in a separate workflow run. Calling
+    # it from ci.yml makes it observable here; absent/red/skipped cannot pass.
+    "node-migration-sync / node-migration-sync",
     "no-noncanonical-lifecycle-classes",  # OMN-14350 non-canonical lifecycle-class ratchet
     "Canonical Handler-Shape Gate (OMN-20298)",  # canonical-handler-shape-gate — detector with no preflight dependency
     "No Plugin Daemon Classes Gate (OMN-20298)",  # no-plugin-daemon-classes-gate — detector with no preflight dependency
@@ -335,8 +338,11 @@ STRICT_GATE_JOBS: tuple[str, ...] = (
     "Noncanonical Class Allowlist One-way (OMN-19677) / anti-growth-baseline",
     "Topic Naming Baseline One-way (OMN-19677) / anti-growth-baseline",
     "Validator Requirements Baseline One-way (OMN-19677) / anti-growth-baseline",
-    "Runtime Profiles Allowlist One-way (OMN-19677) / anti-growth-baseline",
     "Skip Count Baseline One-way (OMN-19677) / anti-growth-baseline",
+    # OMN-20562: the runtime_profiles validator, a plain blocking check since its
+    # allowlist was emptied and deleted. The job is unconditional in ci.yml (no
+    # needs/if), so a skip or absence fails closed here instead of reading green.
+    "Runtime Profiles / validate",  # runtime-profiles-validator
     # OMN-20304: canonical-file-shape ratchet (no new scripts, plugins or
     # exceptions). The job is unconditional in ci.yml (no needs/if), so a skip
     # or absence fails closed here instead of reading green.

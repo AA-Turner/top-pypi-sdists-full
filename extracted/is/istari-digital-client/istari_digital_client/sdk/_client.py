@@ -15,6 +15,7 @@ from istari_digital_client.sdk._configuration import Configuration
 
 from istari_digital_client.sdk._engine import _Engine
 from istari_digital_client.sdk._admin import (
+    Identity,
     Infosec,
     Keys,
     Scs,
@@ -188,7 +189,11 @@ class IstariAdmin(_ClosableClient):
 
     @cached_property
     def keys(self) -> Keys:
-        """Principal keypair registration with the Identity Service."""
+        """Deprecated: principal key registration over identity-service's v2 or v1 key routes.
+
+        Each call uses v2 where it can be expressed there and v1 otherwise, warning
+        once per process when it reaches v1. Use ``identity.keys``.
+        """
         return Keys(self._engine)
 
     @cached_property
@@ -200,3 +205,17 @@ class IstariAdmin(_ClosableClient):
     def usage(self) -> Usage:
         """Customer usage metrics."""
         return Usage(self._engine)
+
+    @cached_property
+    def identity(self) -> Identity:
+        """Identity-service tenants, memberships, principals, keys, roles and OAuth (v2 API).
+
+        Requires identity-service's v2 API: ``identity_api_version`` ``"v2"``, or the
+        default ``"auto"`` against an identity-service that serves ``/api/v2``,
+        and identity-service auth (``identity_service_enabled`` with credentials and
+        a gateway or ``identity_url``). The attribute itself always resolves; the
+        first operation on any of its managers raises :class:`ConfigurationError`
+        when either requirement is missing, before any identity request; settling
+        ``"auto"`` fetches a token.
+        """
+        return Identity(self._engine)

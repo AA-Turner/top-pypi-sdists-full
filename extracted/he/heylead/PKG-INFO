@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: heylead
-Version: 0.10.425
+Version: 0.10.429
 Summary: AI agent for LinkedIn outreach: finds the right people, writes in your voice, follows up and handles replies. From Claude Code, Cursor, any MCP client or a web dashboard.
 Project-URL: Homepage, https://heylead.dev
 Project-URL: Repository, https://github.com/D4umak/linkedin-outreach-mcp
@@ -33,7 +33,7 @@ Requires-Dist: browser-use>=0.12.0; extra == 'all'
 Requires-Dist: firecrawl-py>=0.0.1; extra == 'all'
 Requires-Dist: numpy>=1.24.0; extra == 'all'
 Requires-Dist: playwright>=1.40.0; extra == 'all'
-Requires-Dist: sentence-transformers>=2.2.0; extra == 'all'
+Requires-Dist: sentence-transformers>=5.6.0; extra == 'all'
 Provides-Extra: browser
 Requires-Dist: browser-use>=0.12.0; extra == 'browser'
 Requires-Dist: playwright>=1.40.0; extra == 'browser'
@@ -41,7 +41,7 @@ Provides-Extra: crawl
 Requires-Dist: firecrawl-py>=0.0.1; extra == 'crawl'
 Provides-Extra: icp
 Requires-Dist: numpy>=1.24.0; extra == 'icp'
-Requires-Dist: sentence-transformers>=2.2.0; extra == 'icp'
+Requires-Dist: sentence-transformers>=5.6.0; extra == 'icp'
 Description-Content-Type: text/markdown
 
 <!-- mcp-name: io.github.D4umak/heylead -->

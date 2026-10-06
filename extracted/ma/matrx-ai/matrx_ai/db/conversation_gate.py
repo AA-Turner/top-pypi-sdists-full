@@ -537,6 +537,10 @@ def has_auto_title_prefix(title: str | None) -> bool:
 
 
 CONVERSATION_STEP_LABEL_KEY = "conversation_step_label"
+#: Context-metadata key naming the request an INDEPENDENT child run ran under
+#: (``run_agent(independent_request=True)``). The child's own user_request row
+#: carries it as ``metadata.parent_request_id`` — its lineage link.
+PARENT_REQUEST_ID_KEY = "parent_request_id"
 
 
 def resolve_step_label_for_title(label: str, agent_display_name: str | None = None) -> str:
@@ -1796,7 +1800,7 @@ async def create_pending_user_request(
         "total_tokens": 0,
         "total_cost": 0,
         "total_tool_calls": 0,
-        "metadata": {},
+        "metadata": _lineage_metadata(ctx),
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
     }
@@ -1884,6 +1888,46 @@ def _coord_scope_key() -> object:
     return _ENSURED_DURABLE if coord is None else id(coord)
 
 
+#: Request ids a HOST declared to have a durable record of their own (a spine
+#: ``runtime.global_request`` the context was bound to — e.g. a factory build). With
+#: the ensured memo above, the only requests a lineage link may name (review 6 N4-7:
+#: 99 of 112 ``parent_request_id`` links named an ambient synthetic id no row carries).
+_durable_request_ids: OrderedDict[str, None] = OrderedDict()
+
+
+def canonical_request_id(request_id: object) -> str:
+    """A request id in the one text form rows carry (``8-4-4-4-12``) — a hex-form id
+    (``uuid.hex``) written into a link never joins (live round 8: spine ids arrived
+    without dashes). A non-UUID id is returned as given."""
+    import uuid as _uuid
+
+    try:
+        return str(_uuid.UUID(str(request_id)))
+    except (ValueError, TypeError, AttributeError):
+        return str(request_id or "")
+
+
+def mark_request_durable(request_id: str | None) -> None:
+    """Host: ``request_id`` has a durable record (a spine request, a user_request row)."""
+    if not request_id:
+        return
+    rid = canonical_request_id(request_id)
+    _durable_request_ids[rid] = None
+    _durable_request_ids.move_to_end(rid)
+    while len(_durable_request_ids) > _ENSURED_MEMO_MAX:
+        _durable_request_ids.popitem(last=False)
+
+
+def request_has_record(request_id: str | None) -> bool:
+    """Whether a lineage link to ``request_id`` would point at a real row — known in this
+    process: its user_request was ensured here, or a host marked it durable. Unknown is
+    never assumed real (an ambient synthetic id has no row)."""
+    if not request_id:
+        return False
+    rid = canonical_request_id(request_id)
+    return rid in _durable_request_ids or rid in _ensured_request_ids or str(request_id) in _ensured_request_ids
+
+
 def _remember_ensured(request_id: str, scope: object) -> None:
     _ensured_request_ids[request_id] = scope
     _ensured_request_ids.move_to_end(request_id)
@@ -1940,6 +1984,14 @@ async def _get_user_request_lock(request_id: str) -> asyncio.Lock:
         return lock
 
 
+def _lineage_metadata(ctx: Any) -> dict[str, Any]:
+    """The request this one ran under, when it is an independent child run."""
+    parent = (getattr(ctx, "metadata", None) or {}).get(PARENT_REQUEST_ID_KEY) if ctx is not None else None
+    if parent and str(parent) != str(getattr(ctx, "request_id", "") or ""):
+        return {PARENT_REQUEST_ID_KEY: str(parent)}
+    return {}
+
+
 async def _create_user_request(
     *,
     request_id: str,
@@ -1982,7 +2034,7 @@ async def _create_user_request(
         "total_tokens": 0,
         "total_cost": 0,
         "total_tool_calls": 0,
-        "metadata": {},
+        "metadata": _lineage_metadata(ctx),
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
     }

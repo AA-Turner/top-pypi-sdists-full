@@ -110,6 +110,52 @@ titles never conflate a macOS-only finding with a Linux one. A listed
 platform with no capable machine is reported as an :class:`UnavailableLane`
 rather than silently omitted (see :func:`discover_lanes`). A route that
 doesn't set ``platforms`` is completely unaffected.
+
+**#3615: the briefing/dry-run name the matching route's real setup and
+launch command, not a ``'<app launch command>'`` placeholder.** Before
+this, every lane's ``coord app-drive open``/``run-spec`` usage line in both
+:func:`build_exploration_briefing` and ``coord bugbash --dry-run``
+(:mod:`coord.commands.bugbash`) carried the literal placeholder text
+regardless of what ``coordinator.yml`` actually declared for that route —
+a lane worker had to guess the build/launch recipe from repo docs, which
+once led a worker to trust a stale doc claiming a backend had been removed
+and give up rather than build it. :func:`discover_lanes` now copies each
+resolved route's own ``setup``/``run`` strings onto the
+:class:`BugbashLane` it returns (:attr:`BugbashLane.setup`/
+:attr:`BugbashLane.launch_command`), and :func:`driver_command_for_lane` /
+:func:`build_exploration_briefing` substitute them into the ``--launch``
+value and an explicit "build/provision this lane once" step. A route's own
+``label`` (:attr:`coord.config.AcceptanceDriverConfig.label`) also now
+disambiguates two sibling routes that share one ``kind`` (e.g. vimcode's
+``win-gui``/``win-terminal`` routes, both ``kind: win-native``) into
+distinct lane labels (``"win-native:gui"`` / ``"win-native:terminal"``)
+the same way #3581 disambiguates ``platforms`` — so ``--lane`` can select
+one without the other.
+
+**#3620: one worker per lane per round covered about 20% of a catalogue**
+(vimcode's ~167-journey ``tui-pty`` lane: 32 passed + 2 found out of 167
+attempted in round 1, and round 2 re-walked from the top instead of
+picking up where round 1 left off — two rounds together barely covered
+more than one). :func:`plan_lane_chunks`/:func:`chunk_journeys` split a
+lane's (optionally ``--max-priority``-filtered, see
+:func:`journeys_for_lane`) journey list into chunks of
+``--journeys-per-worker`` (:data:`DEFAULT_JOURNEYS_PER_WORKER`, ~25),
+dispatching one worker per chunk — serially for a GUI lane (one desktop,
+one focus: :func:`max_concurrent_chunks_for_lane` always returns ``1`` for
+:data:`GUI_LANE_DRIVER_KINDS`), or concurrently up to the host's own
+``max_workers`` for ``tui-pty`` (each worker gets its own pty, nothing to
+contend over). :class:`JourneyScheduler` is the coverage-aware part: one
+instance per lane, kept for the whole run, that hands back each round's
+chunk list ordered skipped-or-not-yet-reached FIRST, then already-passed
+journeys — so round N+1 picks up where round N left off instead of
+re-walking from the top — and never auto-requeues a journey that already
+produced a finding. :func:`explore_lane_sharded` is the ONE function that
+ties chunking, the scheduler, and a run-wide chunk-level cost accumulator
+(:class:`_ShardCostState` — #3620 requirement 4: a cap must stop a NEW
+chunk from starting mid-round, not just between rounds) together into a
+single aggregate :class:`ExploreOutcome` per lane per round — a drop-in
+:data:`Explorer`, so :func:`run_bugbash`'s own round loop needed zero
+changes to support sharding at all.
 """
 
 from __future__ import annotations
@@ -155,18 +201,38 @@ LANE_DRIVER_KINDS: tuple[str, ...] = (
 #: preview (:func:`driver_command_for_lane`, :mod:`coord.commands.bugbash`)
 #: both call these, so the two surfaces can never name two different
 #: commands for the same lane (#2096 "one question, one answer").
-def app_drive_open_usage(driver_kind: str) -> str:
+#:
+#: **#3615: `--launch` is the matching route's own `run:` command, not a
+#: literal placeholder.** *launch_command*, when given, is the exact
+#: ``run:`` shell command declared for this lane's route in
+#: ``coordinator.yml`` (threaded through via :attr:`BugbashLane.
+#: launch_command`, set by :func:`discover_lanes`) — the same string
+#: :func:`coord.acceptance_drivers.run_driver` passes as ``launch_command``/
+#: ``run_command`` when `coord acceptance run` drives this kind, so a
+#: bugbash worker and the acceptance driver are told to launch the
+#: identical command. Left empty (no lane context, or an older caller),
+#: this falls back to the ``'<app launch command>'`` placeholder it always
+#: used — never a hard requirement, since a worker could in principle be
+#: pointed at a lane this module doesn't know the route config for.
+#: ``--cwd`` stays a placeholder either way: it is the worker's own
+#: checkout path, which only the dispatched worker (not this module) knows.
+def app_drive_open_usage(driver_kind: str, launch_command: str = "") -> str:
     """The exact, runnable ``coord app-drive open KIND ...`` invocation for
-    *driver_kind*."""
-    return f"coord app-drive open {driver_kind} --launch '<app launch command>' --cwd '<repo checkout dir>'"
+    *driver_kind*, with ``--launch`` filled in from *launch_command* when
+    given (#3615) rather than left as the ``'<app launch command>'``
+    placeholder."""
+    launch = launch_command or "<app launch command>"
+    return f"coord app-drive open {driver_kind} --launch '{launch}' --cwd '<repo checkout dir>'"
 
 
-def app_drive_run_spec_usage(driver_kind: str) -> str:
+def app_drive_run_spec_usage(driver_kind: str, launch_command: str = "") -> str:
     """The exact, runnable ``coord app-drive run-spec KIND SPEC ...``
-    invocation for *driver_kind*."""
+    invocation for *driver_kind*, with ``--launch`` filled in from
+    *launch_command* when given (#3615)."""
+    launch = launch_command or "<app launch command>"
     return (
         f"coord app-drive run-spec {driver_kind} <spec-file> "
-        "--launch '<app launch command>' --cwd '<repo checkout dir>'"
+        f"--launch '{launch}' --cwd '<repo checkout dir>'"
     )
 
 
@@ -177,9 +243,17 @@ def app_drive_run_spec_usage(driver_kind: str) -> str:
 #: lane kind; it is not a per-kind table. `--screen`/`--probe`/`--close`
 #: are NOT options of `send` (they are the separate subcommands named in
 #: the trailing comment) — advertising them as `send` flags was the other
-#: half of #3590's unrunnable-command bug.
+#: half of #3590's unrunnable-command bug. #3639: `--key` accepts the ONE
+#: grammar shared by all four drivers (:mod:`coord.key_spec`) — one example
+#: each of a modifier combo, a punctuation character, and a chord sequence,
+#: so a worker never has to guess whether `Alt-M`/`:`/`ctrl+k ctrl+w` are
+#: even expressible.
 _APP_DRIVE_SEND_USAGE_LINE = (
     "coord app-drive send --session <id> --key Enter   # or --text/--click; "
+    "--key also takes a modifier combo (--key 'ctrl+shift+p'), punctuation "
+    "(--key ':'), or a chord sequence (--key 'ctrl+k ctrl+w'); "
+    "dash spellings like 'M-m'/'a-m' no longer parse and 'meta' now means "
+    "Cmd (not Alt) — always write 'alt+m'/'ctrl+m' etc.; "
     "see also: screen/probe/close --session <id>"
 )
 
@@ -188,23 +262,27 @@ def driver_command_for_lane(lane: "BugbashLane") -> str:
     """The exact, runnable `coord app-drive` command this lane's worker
     opens a session with — e.g. ``"coord app-drive open tui-pty --launch "
     "'<app launch command>' --cwd '<repo checkout dir>'"`` for a
-    ``driver_kind="tui-pty"`` lane (#3590). The ONE function both
-    :func:`build_exploration_briefing`'s HARD RULE and ``coord bugbash REPO
-    --dry-run``'s per-lane preview (:mod:`coord.commands.bugbash`) call, so
-    the two surfaces can never drift apart (#2096 "one question, one
-    answer") — fixing the bug this issue reports: a briefing that named a
-    DIFFERENT lane's driver module, reversed `open`/`kind` argument order,
-    or named no runnable command at all.
+    ``driver_kind="tui-pty"`` lane (#3590), with ``--launch`` filled in from
+    :attr:`BugbashLane.launch_command` (#3615) when the lane carries one.
+    The ONE function both :func:`build_exploration_briefing`'s HARD RULE and
+    ``coord bugbash REPO --dry-run``'s per-lane preview (:mod:`coord.
+    commands.bugbash`) call, so the two surfaces can never drift apart
+    (#2096 "one question, one answer") — fixing the bug this issue reports:
+    a briefing that named a DIFFERENT lane's driver module, reversed
+    `open`/`kind` argument order, named no runnable command at all, or (#3615)
+    handed the worker an unresolved ``'<app launch command>'`` placeholder
+    to guess at.
     """
-    return app_drive_open_usage(lane.driver_kind)
+    return app_drive_open_usage(lane.driver_kind, lane.launch_command)
 
 
-def _app_drive_usage_lines(driver_kind: str) -> tuple[str, str]:
+def _app_drive_usage_lines(driver_kind: str, launch_command: str = "") -> tuple[str, str]:
     """The 2-line usage example for *driver_kind*: open the lane's own
     kind, then send one input event to the resulting session. Built
     directly from `driver_kind` (see the helpers above) — never a by-hand
-    per-kind table, so there is nothing to fall out of sync."""
-    return app_drive_open_usage(driver_kind), _APP_DRIVE_SEND_USAGE_LINE
+    per-kind table, so there is nothing to fall out of sync. *launch_command*
+    (#3615) threads through to :func:`app_drive_open_usage`."""
+    return app_drive_open_usage(driver_kind, launch_command), _APP_DRIVE_SEND_USAGE_LINE
 
 
 #: The exploration checklist every lane walks on top of the repo's Tier-2
@@ -251,6 +329,16 @@ COVERAGE_FENCE = "bugbash-coverage"
 #: report its findings — mirrors how :mod:`coord.acceptance_drivers` forces
 #: each framework's own structured report format rather than parsing prose.
 FINDINGS_FENCE = "bugbash-findings"
+
+#: Shared with :func:`parse_unavailable_report` (#3628): the ONE regex both
+#: :func:`parse_findings_block` and the unavailable-signature guard use to
+#: detect a well-formed ```` ```bugbash-findings ```` fence — so "does this
+#: text carry a findings fence" is answered identically everywhere (#2096
+#: "one question, one answer"), rather than two independently-drifting
+#: `re.compile` calls.
+_FINDINGS_FENCE_RE = re.compile(
+    rf"```{re.escape(FINDINGS_FENCE)}\s*\n(.*?)```", re.DOTALL,
+)
 
 #: Mandatory acceptance line stamped onto every filed finding's issue body
 #: (#3487 requirement 5): a bugbash finding must not be closeable by a fix
@@ -468,10 +556,7 @@ def parse_findings_block(text: str, *, platform: str, repo: str) -> FindingsPars
     still parsed as a valid JSON list, so this is not elevated to a protocol
     error).
     """
-    pattern = re.compile(
-        rf"```{re.escape(FINDINGS_FENCE)}\s*\n(.*?)```", re.DOTALL,
-    )
-    match = pattern.search(text)
+    match = _FINDINGS_FENCE_RE.search(text)
     if match is None:
         if _is_explicit_clean_statement(text):
             return FindingsParseResult()
@@ -545,17 +630,34 @@ _UNAVAILABLE_SIGNATURES: tuple[str, ...] = (
 )
 
 
-def parse_unavailable_report(text: str) -> str:
+def parse_unavailable_report(text: str, *, final_message: str = "") -> str:
     """The lane-unavailable reason from *text* (a lane worker's full
     transcript), or ``""`` if none is present (#3566).
 
     First checks for the authoritative fenced
     ```` ```bugbash-unavailable ```` block the briefing instructs a worker
     to write when it hits a missing permission or absent session rather
-    than improvising a workaround (ask #4's hard rule). Falls back to
-    :data:`_UNAVAILABLE_SIGNATURES` — a driver-level session/permission
-    failure surfacing directly in a tool result even without the worker's
-    own cooperation.
+    than improvising a workaround (ask #4's hard rule), searched over the
+    full *text* so it is still caught even if reported mid-session before a
+    crash. Falls back to :data:`_UNAVAILABLE_SIGNATURES` — a driver-level
+    session/permission failure surfacing directly in a tool result even
+    without the worker's own cooperation.
+
+    *final_message* — the lane worker's own LAST assistant message, as
+    opposed to the full transcript in *text* — decides whether that
+    signature fallback is even reachable (#3628). A driver call that
+    returned ``"status": "unavailable"`` mid-session and was then worked
+    around still leaves that literal string somewhere in *text*; if the
+    worker's final message goes on to carry a well-formed
+    ```` ```bugbash-findings ```` fence, that fence is the worker's own
+    authoritative report and must decide the outcome, so the stale
+    mid-session signature is never allowed to override it. Only when
+    *final_message* carries NEITHER a findings fence NOR an unavailable
+    fence does the transcript-wide signature scan run. Passing
+    ``final_message=""`` (the default) disables this guard — callers that
+    cannot distinguish the final message from the full transcript keep the
+    pre-#3628 behavior, which only ever makes the fallback MORE eager, never
+    less.
 
     Never raises. The caller
     (:func:`coord.commands.bugbash._dispatch_and_await_lane`) treats a
@@ -568,6 +670,11 @@ def parse_unavailable_report(text: str) -> str:
         reason = match.group(1).strip()
         if reason:
             return reason
+    if final_message and (
+        _FINDINGS_FENCE_RE.search(final_message)
+        or _UNAVAILABLE_FENCE_RE.search(final_message)
+    ):
+        return ""
     for signature in _UNAVAILABLE_SIGNATURES:
         if signature in text:
             return f"driver/session signal found in transcript: {signature!r}"
@@ -901,13 +1008,215 @@ def parse_catalogue(yaml_text: str | None) -> CatalogueResult:
     return CatalogueResult(journeys=tuple(journeys), warning=warning, source=CATALOGUE_PATH)
 
 
-def journeys_for_lane(journeys: Sequence[Journey], driver_kind: str) -> list[Journey]:
+def journeys_for_lane(
+    journeys: Sequence[Journey], driver_kind: str, *, max_priority: int | None = None,
+) -> list[Journey]:
     """Journeys from *journeys* applicable to *driver_kind*, in priority
     order (1 first), ties broken by ``id`` for a deterministic walk order
     (#3580 requirement 1: "a worker that runs out of budget has covered
-    priority 1 first")."""
+    priority 1 first").
+
+    *max_priority* (#3620 requirement 2) drops any journey whose own
+    ``priority`` is numerically GREATER than it — e.g. ``max_priority=1``
+    keeps only priority-1 journeys — applied BEFORE the priority/id sort,
+    so a lower cap never changes the relative order of what's left.
+    ``None`` (the default, and every pre-#3620 caller) applies no filter
+    at all, so this stays fully backward compatible."""
     matching = [j for j in journeys if driver_kind in j.lanes]
+    if max_priority is not None:
+        matching = [j for j in matching if j.priority <= max_priority]
     return sorted(matching, key=lambda j: (j.priority, j.id))
+
+
+#: #3620 requirement 1: the default chunk size `coord bugbash run
+#: --journeys-per-worker` splits a lane's (post `--max-priority`) journey
+#: list into — one worker dispatched per chunk, instead of the whole lane's
+#: catalogue slice handed to a single time-boxed session (which measured
+#: ~20% coverage per round on vimcode's ~60/80/18 priority tiers, #3620).
+DEFAULT_JOURNEYS_PER_WORKER = 25
+
+#: The GUI driver kinds among :data:`LANE_DRIVER_KINDS` — derived, never a
+#: hand-maintained parallel list, so a future `LANE_DRIVER_KINDS` entry is
+#: automatically classified as GUI (one desktop, one focus, chunks must
+#: serialize) unless it's `tui-pty` (own pty per worker, chunks may
+#: overlap) — see :func:`max_concurrent_chunks_for_lane`.
+GUI_LANE_DRIVER_KINDS: frozenset[str] = frozenset(LANE_DRIVER_KINDS) - {"tui-pty"}
+
+
+def chunk_journeys(journeys: Sequence[Journey], size: int) -> list[tuple[Journey, ...]]:
+    """Split *journeys* (already ordered by the caller — see
+    :func:`journeys_for_lane`/:class:`JourneyScheduler`) into chunks of at
+    most *size* each, in order (#3620 requirement 1) — e.g. 60 journeys at
+    ``size=25`` yields 3 chunks (25/25/10). ``size <= 0`` is treated
+    defensively as "everything in one chunk" (the CLI's own
+    ``--journeys-per-worker`` is validated to be a positive int, but this
+    function must never divide by zero or infinite-loop for a caller that
+    skips that check). Empty *journeys* yields ``[]`` — zero chunks, the
+    signal a lane has nothing (left) to shard, handled by
+    :func:`explore_lane_sharded`'s checklist fallback."""
+    if not journeys:
+        return []
+    if size <= 0:
+        size = len(journeys)
+    return [tuple(journeys[i:i + size]) for i in range(0, len(journeys), size)]
+
+
+@dataclass(frozen=True)
+class LaneChunkPlan:
+    """What ``--dry-run`` and the live sharded dispatcher both compute for
+    ONE lane's chunking (#3620 requirements 1/2): the journeys left after
+    ``--max-priority`` filtering, and the resulting ordered chunk list.
+    :func:`plan_lane_chunks` is the ONE function both
+    :mod:`coord.commands.bugbash`'s ``--dry-run`` preview and (via
+    :class:`JourneyScheduler`, which is seeded from this same journeys
+    list) the live dispatcher consult, so the two can never report a
+    different chunk count for the same lane (#2096 "one question, one
+    answer")."""
+
+    platform: str
+    journeys: tuple[Journey, ...]
+    chunks: tuple[tuple[Journey, ...], ...]
+
+    @property
+    def chunk_count(self) -> int:
+        return len(self.chunks)
+
+
+def plan_lane_chunks(
+    lane: BugbashLane,
+    catalogue_journeys: Sequence[Journey],
+    *,
+    journeys_per_worker: int = DEFAULT_JOURNEYS_PER_WORKER,
+    max_priority: int | None = None,
+) -> LaneChunkPlan:
+    """*lane*'s journeys (from the repo's full *catalogue_journeys* list,
+    filtered to this lane's ``driver_kind`` and *max_priority* via
+    :func:`journeys_for_lane`), split into chunks of *journeys_per_worker*
+    (#3620 requirements 1/2)."""
+    lane_journeys = journeys_for_lane(catalogue_journeys, lane.driver_kind, max_priority=max_priority)
+    chunks = chunk_journeys(lane_journeys, journeys_per_worker)
+    return LaneChunkPlan(platform=lane.platform, journeys=tuple(lane_journeys), chunks=tuple(chunks))
+
+
+def max_concurrent_chunks_for_lane(lane: BugbashLane, host_max_workers: int) -> int:
+    """How many of *lane*'s chunks may be dispatched to its host at once
+    this round (#3620 requirement 1).
+
+    GUI lanes (:data:`GUI_LANE_DRIVER_KINDS` — ``win-native``/
+    ``mac-native``/``gtk-native``) always return ``1``: they share one
+    desktop and one input focus, so two chunks running concurrently would
+    fight over it exactly the way two concurrent GUI *lanes* already would
+    (#3602's own per-host lane serialization) — *host_max_workers* is
+    irrelevant for these. A ``tui-pty`` lane returns
+    ``max(1, host_max_workers)``: each worker gets its own pty, so there is
+    nothing to contend over, and the host's own configured capacity
+    (``machines[].max_workers`` / ``concurrency.max_workers``) is the only
+    real ceiling."""
+    if lane.driver_kind in GUI_LANE_DRIVER_KINDS:
+        return 1
+    return max(1, host_max_workers)
+
+
+#: Per-journey cumulative status :class:`JourneyScheduler` tracks across
+#: every round/chunk dispatched so far this run (#3620 requirement 3) —
+#: distinct from :class:`JourneyOutcome.status`, which is what ONE chunk's
+#: worker reported for ONE round; this is the latest-known value, carried
+#: forward whenever a journey isn't re-walked in a later round.
+_JOURNEY_NOT_RUN = "not_run"
+
+
+@dataclass
+class JourneyScheduler:
+    """Coverage-aware per-lane journey scheduler (#3620 requirement 3):
+    decides which of *journeys* the lane's NEXT round should walk, and
+    tracks the cumulative, latest-known status of every one of them across
+    every round/chunk dispatched so far this run — the data
+    :func:`explore_lane_sharded` consults every time it's asked for this
+    lane's next round, and the source a run's final cumulative-coverage
+    summary is built from (never re-derived by summing each round's own
+    :class:`CoverageSummary`, which would double-count a journey re-walked
+    in a later round).
+
+    :meth:`chunks_for_round` orders *journeys* skipped-or-not-yet-run
+    FIRST (in their original priority order), then already-passed ones —
+    so a lane with chunk budget left after clearing its backlog
+    re-verifies past journeys rather than sitting idle. A journey that
+    produced a FINDING is never automatically re-queued by this scheduler
+    (#3620: "re-run only to confirm a fix, if at all" — there is no
+    automatic "a fix landed" signal this engine can observe; a deliberate
+    re-walk of a `found` journey, if it ever happens, is a separate,
+    explicit invocation, not something this scheduler does on its own).
+
+    One instance is created per lane for the whole run (not per round) and
+    threaded into every round's :func:`explore_lane_sharded` call for that
+    lane — it is the ONLY place "what has this lane covered so far"
+    lives, across however many chunks/rounds that took.
+    """
+
+    journeys: tuple[Journey, ...]
+    journeys_per_worker: int = DEFAULT_JOURNEYS_PER_WORKER
+    _status: dict[str, str] = field(default_factory=dict, repr=False, init=False)
+
+    def __post_init__(self) -> None:
+        for j in self.journeys:
+            self._status.setdefault(j.id, _JOURNEY_NOT_RUN)
+
+    def _ordered_for_round(self) -> list[Journey]:
+        rank = {_JOURNEY_NOT_RUN: 0, "skipped": 0, "passed": 1}
+        pending = [
+            j for j in self.journeys if self._status.get(j.id, _JOURNEY_NOT_RUN) != "found"
+        ]
+        return sorted(
+            pending,
+            key=lambda j: (rank.get(self._status.get(j.id, _JOURNEY_NOT_RUN), 0), j.priority, j.id),
+        )
+
+    def chunks_for_round(self) -> list[tuple[Journey, ...]]:
+        """This round's ordered chunk list (#3620 requirements 1 + 3) —
+        empty when every journey already produced a finding (nothing left
+        this scheduler will auto re-queue) or *journeys* is empty (no
+        catalogue journeys for this lane at all)."""
+        return chunk_journeys(self._ordered_for_round(), self.journeys_per_worker)
+
+    def record(self, outcomes: Sequence["JourneyOutcome"]) -> None:
+        """Update the cumulative status for every journey *outcomes*
+        reports on — called once per CHUNK's coverage report (never once
+        per round, since #3620 lets a round dispatch several chunks). An
+        outcome naming a journey id this scheduler doesn't track (e.g. a
+        checklist item's own text, when this lane fell back to the
+        checklist) is silently ignored — only catalogue journeys are
+        scheduled/tracked here.
+
+        **Caller contract (#3620 review finding 1):** only call this with
+        outcomes from a chunk the caller has already classified as
+        trustworthy (``outcome.ok and not outcome.protocol_error`` — see
+        :func:`explore_lane_sharded`). A ``found``/``passed`` status
+        recorded here is PERMANENT — :meth:`_ordered_for_round` never
+        re-queues a ``found`` journey, and :meth:`cumulative_summary`
+        counts a ``passed`` one as covered — so recording from a chunk
+        whose findings fence was unparseable (#3517) would both silently
+        drop the finding and permanently stop re-walking the journey that
+        produced it."""
+        for outcome in outcomes:
+            if outcome.journey_id in self._status:
+                self._status[outcome.journey_id] = outcome.status
+
+    def cumulative_summary(self) -> "CoverageSummary":
+        """"N journeys passed" across EVERY round/chunk dispatched so far
+        this run (#3620 requirement 3) — not just the terminating round's
+        own report, which is all :attr:`RoundReport.lane_coverage` ever
+        showed before this. ``attempted`` counts only journeys that have
+        actually been given to a chunk worker at least once (i.e. not
+        :data:`_JOURNEY_NOT_RUN`) — a journey never yet reached is not
+        "attempted" any more than it would be mid-round; ``len(journeys) -
+        attempted`` is how many are still not yet reached."""
+        statuses = list(self._status.values())
+        return CoverageSummary(
+            attempted=sum(1 for s in statuses if s != _JOURNEY_NOT_RUN),
+            passed=sum(1 for s in statuses if s == "passed"),
+            found=sum(1 for s in statuses if s == "found"),
+            skipped=sum(1 for s in statuses if s == "skipped"),
+        )
 
 
 @dataclass(frozen=True)
@@ -1004,11 +1313,26 @@ class BugbashLane:
     specific capable machine to run it on.
 
     ``platform`` is the lane's display/dedupe label — ``driver_kind`` for a
-    single-platform driver (today's behaviour, unchanged), or
+    single-platform driver (today's behaviour, unchanged),
     ``f"{driver_kind}:{os_name}"`` (e.g. ``"tui-pty:macos"``) for one lane
     of a :attr:`coord.config.AcceptanceDriverConfig.platforms`-bearing
     route (#3581) — so a macOS-only finding from a route that also runs on
-    Linux is never deduped/titled as if it were the same lane.
+    Linux is never deduped/titled as if it were the same lane — or
+    ``f"{driver_kind}:{label}"`` (e.g. ``"win-native:gui"``) for a route
+    that sets :attr:`coord.config.AcceptanceDriverConfig.label` (#3615)
+    because a sibling route shares the same ``kind`` (e.g. vimcode's
+    ``win-gui``/``win-terminal`` routes, both ``kind: win-native``) — see
+    :func:`discover_lanes`.
+
+    ``setup``/``launch_command`` (#3615) carry the matching route's own
+    ``setup:``/``run:`` strings from ``coordinator.yml`` verbatim — the
+    SAME strings :func:`coord.acceptance_drivers.run_driver` runs/launches
+    for ``coord acceptance run`` — so :func:`driver_command_for_lane` and
+    :func:`build_exploration_briefing` can hand a lane worker the real
+    build-and-launch recipe instead of a ``'<app launch command>'``
+    placeholder it would otherwise have to guess at (the bug this issue
+    reports). Both default to ``""`` — unchanged behaviour (the placeholder
+    fallback) for a lane built without route context.
     """
 
     platform: str
@@ -1016,6 +1340,8 @@ class BugbashLane:
     machine: str
     capability: str
     reference: bool = False
+    setup: str = ""
+    launch_command: str = ""
 
 
 @dataclass(frozen=True)
@@ -1079,6 +1405,21 @@ def discover_lanes(
     from "one platform silently never got picked." A route with an empty
     (the default) ``platforms`` behaves exactly as before #3581 — one lane,
     ``platform == driver_kind``.
+
+    **#3615: a route's own ``label`` (:attr:`coord.config.
+    AcceptanceDriverConfig.label`) disambiguates sibling routes that share
+    one ``kind``** — e.g. vimcode's ``win-gui``/``win-terminal`` routes are
+    BOTH ``kind: win-native``, so without this every such route produced a
+    lane whose ``platform`` was just ``"win-native"`` for both, making
+    ``--lane win-native`` (and dedupe/titling) unable to tell them apart.
+    When a route sets ``label``, its lane's ``platform`` becomes
+    ``f"{kind}:{label}"`` (e.g. ``"win-native:gui"``) the same way #3581's
+    ``platforms`` already appends ``:{os_name}`` — a route with no
+    ``label`` (the default) is completely unaffected. Every resolved lane
+    also carries the route's own ``setup``/``run`` strings verbatim (see
+    :attr:`BugbashLane.setup`/:attr:`BugbashLane.launch_command`) so a
+    briefing/dry-run can hand the worker the real build-and-launch command
+    instead of a placeholder.
     """
     entry = config.acceptance.drivers.get(repo_name)
     if entry is None:
@@ -1089,6 +1430,8 @@ def discover_lanes(
     for cfg in candidates:
         if cfg.kind not in LANE_DRIVER_KINDS:
             continue
+        route_label = getattr(cfg, "label", "") or ""
+        base_platform = f"{cfg.kind}:{route_label}" if route_label else cfg.kind
         platforms = getattr(cfg, "platforms", None) or ()
         if not platforms:
             machine = _pick_lane_machine(
@@ -1098,11 +1441,13 @@ def discover_lanes(
                 continue
             lanes.append(
                 BugbashLane(
-                    platform=cfg.kind,
+                    platform=base_platform,
                     driver_kind=cfg.kind,
                     machine=machine,
                     capability=cfg.capability,
-                    reference=(cfg.kind == reference_backend),
+                    reference=(base_platform == reference_backend),
+                    setup=cfg.setup,
+                    launch_command=cfg.run,
                 )
             )
             continue
@@ -1111,7 +1456,7 @@ def discover_lanes(
                 config, repo_name, cfg.capability,
                 os_name=os_name, http_client=http_client,
             )
-            label = f"{cfg.kind}:{os_name}"
+            label = f"{base_platform}:{os_name}"
             if machine is None:
                 if unavailable_out is not None:
                     unavailable_out.append(
@@ -1127,6 +1472,8 @@ def discover_lanes(
                     machine=machine,
                     capability=cfg.capability,
                     reference=(label == reference_backend),
+                    setup=cfg.setup,
+                    launch_command=cfg.run,
                 )
             )
     return lanes
@@ -1174,12 +1521,42 @@ def _pick_lane_machine(
     return None
 
 
+def catalogue_warning_for_lane(
+    catalogue: CatalogueResult, driver_kind: str, lane_journeys: Sequence[Journey],
+) -> str:
+    """The #3580-required ``NOTE:`` text for ONE lane: *catalogue*'s own
+    ``warning`` (missing/invalid catalogue, dropped entries, ...) combined
+    with the lane-specific reason when *lane_journeys* (this lane's own
+    post-filter slice, already computed by the caller — e.g.
+    :func:`journeys_for_lane` or :func:`plan_lane_chunks`) comes back empty
+    despite *catalogue* having parsed at least one journey overall.
+    ``""`` when there's nothing to warn about for this lane.
+
+    The ONE place this reasoning lives, so it produces the identical text
+    whether called from :func:`build_exploration_briefing`'s own
+    unsharded (``journeys_override=None``) path or precomputed once per
+    lane by :mod:`coord.commands.bugbash` and threaded through
+    *catalogue_warning* for the sharded path (#3620 review finding 4) —
+    the latter must never go silently warning-less just because a chunk's
+    journeys were resolved up front instead of re-derived here."""
+    warning = catalogue.warning
+    if catalogue.journeys and not lane_journeys:
+        no_lane_note = (
+            f"{CATALOGUE_PATH} has no journey declaring lane "
+            f"{driver_kind!r} — falling back to the generic checklist"
+        )
+        warning = f"{warning}; {no_lane_note}" if warning else no_lane_note
+    return warning
+
+
 def build_exploration_briefing(
     lane: BugbashLane,
     *,
     reference_backend: str,
     checklist: Sequence[str] = EXPLORATION_CHECKLIST,
     catalogue_text: str | None = None,
+    journeys_override: Sequence[Journey] | None = None,
+    catalogue_warning: str = "",
 ) -> str:
     """Compose the seed briefing for a lane's headless exploration worker.
 
@@ -1206,26 +1583,39 @@ def build_exploration_briefing(
     warning. It must never fail silently or crash the run."): a ``NOTE:``
     line naming the reason is always included in that case, never a quiet
     substitution.
+
+    *journeys_override* (#3620), when given (not ``None``), is used
+    VERBATIM as this worker's journey list instead of re-deriving one from
+    *catalogue_text* — the sharded dispatcher
+    (:func:`explore_lane_sharded`) has already resolved exactly which
+    journeys this CHUNK owns via :class:`JourneyScheduler`, and re-parsing
+    *catalogue_text* here could in principle disagree with that (#2096
+    "one question, one answer"). An empty tuple is a valid override
+    (falls through to the *checklist* branch below, exactly like "no
+    catalogue journeys for this lane" always has) — only ``None`` means
+    "no override, derive it from *catalogue_text* the old way."
+
+    *catalogue_warning* (#3620 review finding 4) is the ``NOTE:`` text to
+    show when *journeys_override* is given — since the override already
+    resolved which journeys this chunk owns, this function can't re-derive
+    the warning from *catalogue_text* itself (that's exactly what
+    *journeys_override* exists to avoid, #2096), so the caller (normally
+    :mod:`coord.commands.bugbash`, via :func:`catalogue_warning_for_lane`)
+    must compute and pass it. Ignored when *journeys_override* is
+    ``None`` — that path still derives its own warning from
+    *catalogue_text* below, unchanged from before #3620.
     """
-    catalogue_warning = ""
     lane_journeys: list[Journey] = []
-    if catalogue_text is not None:
+    if journeys_override is not None:
+        lane_journeys = list(journeys_override)
+    elif catalogue_text is not None:
         catalogue = parse_catalogue(catalogue_text)
-        catalogue_warning = catalogue.warning
         if catalogue.journeys:
             lane_journeys = journeys_for_lane(catalogue.journeys, lane.driver_kind)
-            if not lane_journeys:
-                no_lane_note = (
-                    f"{CATALOGUE_PATH} has no journey declaring lane "
-                    f"{lane.driver_kind!r} — falling back to the generic checklist"
-                )
-                catalogue_warning = (
-                    f"{catalogue_warning}; {no_lane_note}" if catalogue_warning
-                    else no_lane_note
-                )
+        catalogue_warning = catalogue_warning_for_lane(catalogue, lane.driver_kind, lane_journeys)
 
-    usage_line_1, usage_line_2 = _app_drive_usage_lines(lane.driver_kind)
-    run_spec_usage = app_drive_run_spec_usage(lane.driver_kind)
+    usage_line_1, usage_line_2 = _app_drive_usage_lines(lane.driver_kind, lane.launch_command)
+    run_spec_usage = app_drive_run_spec_usage(lane.driver_kind, lane.launch_command)
     lines = [
         f"=== coord bugbash: {lane.platform} lane ===",
         "",
@@ -1244,6 +1634,16 @@ def build_exploration_briefing(
         "unavailable (see below) — do NOT improvise a workaround, and do "
         "NOT send any key or click to recover (#3566).",
         "",
+    ]
+    if lane.setup:
+        lines += [
+            f"0. Build/provision this lane ONCE before opening any session "
+            f"(run from the repo checkout root — this is the route's own "
+            f"`setup:`, not something to infer from repo docs): "
+            f"`{lane.setup}`",
+            "",
+        ]
+    lines += [
         f"1. Run this repo's Tier-2 smoke spec for this driver to completion "
         f"(`{run_spec_usage}` runs it end to end in one command).",
     ]
@@ -1419,6 +1819,260 @@ Explorer = Callable[[BugbashLane, int], ExploreOutcome]
 #: ``(argv) -> stdout`` — "run this `coord` subcommand." Used only for
 #: ``coord issue create`` / ``coord drive-queue add`` (:func:`file_finding`).
 CoordRunner = Callable[[Sequence[str]], str]
+
+
+# ── journey sharding: one worker per chunk (#3620) ──────────────────────────
+
+#: ``(lane, round_num, journeys) -> ExploreOutcome`` — "go run ONE chunk of
+#: a lane's sharded exploration and hand back what it found." *journeys* is
+#: the exact (possibly empty — meaning "fall back to the checklist")
+#: ordered slice this chunk owns, as computed by
+#: :meth:`JourneyScheduler.chunks_for_round`. The production implementation
+#: (:mod:`coord.commands.bugbash`) wraps :func:`coord.commands.bugbash
+#: ._dispatch_and_await_lane` with ``journeys_override=journeys``; tests
+#: inject a fake.
+ChunkExplorer = Callable[[BugbashLane, int, "tuple[Journey, ...]"], ExploreOutcome]
+
+
+@dataclass
+class _ShardCostState:
+    """Run-wide (never reset per round) cost accumulator a sharded lane
+    dispatch consults BEFORE starting each new chunk (#3620 requirement 4:
+    "no new chunk dispatched after cap trips"). ONE instance is shared
+    across every lane's sharded dispatch for the whole ``coord bugbash
+    run`` invocation — mirrors :class:`_RoundExploreState`'s own
+    lock-guarded accumulator, but at CHUNK granularity: a single lane-round
+    can now spend several chunks' worth of cost before
+    :func:`run_bugbash`'s own per-round cap check (which only sees the
+    AGGREGATE cost :func:`explore_lane_sharded` hands back once the whole
+    round's chunks are done) ever gets a look — this is the layer that
+    actually stops a NEW chunk from starting mid-round once a cap trips,
+    not just between rounds."""
+
+    lane_cost: dict[str, float] = field(default_factory=dict)
+    total_cost: float = 0.0
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def try_reserve(self, platform: str, cap_per_lane: float, cap_total: float) -> str:
+        """``""`` when a new chunk for *platform* may start; otherwise the
+        human-readable reason it may not (a cap already tripped) — checked
+        under the lock, with the chunk's own dispatch (and its eventual
+        :meth:`record` call) left to the caller to run OUTSIDE the lock, the
+        same check-then-run-outside-the-lock split
+        :func:`_explore_round_lanes` already uses for lane-level caps.
+
+        **Not a true reserve-then-commit (#3620 review non-blocking
+        note):** this only READS the cost booked so far — nothing is
+        booked for a chunk until it finishes and calls :meth:`record`.
+        A chunk's cost is unknown until it completes, so there is no
+        value to pre-book. Consequence: in the concurrent (``tui-pty``)
+        path, every one of ``max_concurrent_chunks`` threads can pass
+        this check before any of them finishes and records, so "no new
+        chunk starts once a cap trips" can overshoot by up to
+        ``max_concurrent_chunks - 1`` chunks already in flight at the
+        moment the cap tripped — those always finish and have their cost
+        recorded (never abandoned), only a chunk that has NOT yet called
+        this is ever held back."""
+        with self.lock:
+            spent = self.lane_cost.get(platform, 0.0)
+            if spent >= cap_per_lane:
+                return f"cumulative cost {spent:.2f} already >= per-lane cap {cap_per_lane:.2f}"
+            if self.total_cost >= cap_total:
+                return f"total cost {self.total_cost:.2f} already >= total cap {cap_total:.2f}"
+            return ""
+
+    def record(self, platform: str, cost: float) -> None:
+        with self.lock:
+            self.lane_cost[platform] = self.lane_cost.get(platform, 0.0) + cost
+            self.total_cost += cost
+
+
+def explore_lane_sharded(
+    lane: BugbashLane,
+    round_num: int,
+    *,
+    chunk_explorer: ChunkExplorer,
+    scheduler: JourneyScheduler,
+    cost_state: _ShardCostState,
+    cost_cap_per_lane: float,
+    cost_cap_total: float,
+    max_concurrent_chunks: int = 1,
+) -> ExploreOutcome:
+    """The sharded :data:`Explorer` (#3620): walks *lane*'s next round of
+    journeys (via *scheduler*) split into chunks of at most
+    ``scheduler.journeys_per_worker``, dispatching one *chunk_explorer*
+    call per chunk — serially when ``max_concurrent_chunks <= 1`` (every
+    GUI lane: one desktop, one focus — see
+    :func:`max_concurrent_chunks_for_lane`), or up to
+    ``max_concurrent_chunks`` concurrently (a ``tui-pty`` lane, bounded by
+    its host's own ``max_workers`` — each worker gets its own pty, nothing
+    to contend over). Returns ONE aggregate :class:`ExploreOutcome` —
+    :func:`run_bugbash`'s own round loop is completely unaware chunking
+    happened at all, so its cap/termination logic (#2096, #3510, #3517)
+    needs no changes: this is a drop-in :data:`Explorer` exactly like the
+    unsharded production one.
+
+    Stops starting new chunks the moment *cost_state* reports either cap
+    already tripped (#3620 requirement 4, checked per chunk, not just once
+    per round) — a chunk already in flight always finishes and has its
+    cost recorded, but no further chunk for ANY lane sharing *cost_state*
+    starts once a cap trips.
+
+    The first chunk reporting ``unavailable=True`` stops every remaining
+    chunk this round from starting (the lane's own session/permission
+    problem applies identically to every chunk, so there is nothing to
+    gain by burning further chunks against it) — the aggregate outcome is
+    ``unavailable=True`` with that chunk's notes.
+
+    When *scheduler* has nothing to shard this round (no catalogue
+    journeys for this lane at all, or every journey already produced a
+    finding), this dispatches exactly ONE chunk with an empty journeys
+    tuple — the production chunk explorer asks
+    :func:`build_exploration_briefing` to fall back to the checklist
+    exactly like it always has, so a repo with no catalogue sees no
+    behaviour change from this feature existing.
+
+    Three trust-preserving rules (#3620 review round 1), each a direct
+    consequence of chunking introducing a NEW aggregation step the
+    unsharded path never needed:
+
+    - A chunk's ``journey_outcomes`` are only handed to
+      ``scheduler.record()`` — the PERMANENT, cross-round record of what
+      this lane has covered — when that chunk is itself trustworthy
+      (``outcome.ok and not outcome.protocol_error``). A chunk whose
+      findings fence was unparseable must never get to silently mark a
+      journey ``found``/``passed`` forever.
+    - If every chunk this round was skipped before it ever ran (a cap
+      already tripped at the very first reservation check — see
+      :class:`_ShardCostState`), the aggregate comes back ``ok=False``,
+      never the default ``ok=True, findings=()`` ("we looked, there
+      weren't any") — a round that explored NOTHING must be
+      distinguishable from a round that explored everything and found
+      nothing clean, so :func:`run_bugbash`'s termination-reason logic
+      (#3546) doesn't fall through to ``"zero_findings"``.
+    - If a LATER chunk reports ``unavailable=True`` after an EARLIER
+      chunk already produced real findings/coverage this round, those
+      earlier results are never discarded: the aggregate reports
+      ``ok=False`` (not ``unavailable=True``) with the findings intact
+      and the unavailability folded into ``notes`` — only when NO chunk
+      produced anything usable does this report ``unavailable=True``.
+    """
+    chunks = scheduler.chunks_for_round()
+    if not chunks:
+        chunks = [()]
+
+    outcomes: list[ExploreOutcome | None] = [None] * len(chunks)
+    stopped = threading.Event()
+
+    def attempt(index: int) -> None:
+        if stopped.is_set():
+            return
+        reason = cost_state.try_reserve(lane.platform, cost_cap_per_lane, cost_cap_total)
+        if reason:
+            return
+        outcome = chunk_explorer(lane, round_num, chunks[index])
+        cost_state.record(lane.platform, outcome.cost)
+        outcomes[index] = outcome
+        if outcome.unavailable:
+            stopped.set()
+
+    if max_concurrent_chunks <= 1:
+        for i in range(len(chunks)):
+            attempt(i)
+    else:
+        with ThreadPoolExecutor(max_workers=max_concurrent_chunks) as pool:
+            futures = [pool.submit(attempt, i) for i in range(len(chunks))]
+            for f in futures:
+                f.result()  # re-raise any exception from a chunk's thread
+
+    findings: list[Finding] = []
+    journey_outcomes: list[JourneyOutcome] = []
+    total_cost = 0.0
+    ok = True
+    unavailable = False
+    unavailable_notes = ""
+    protocol_errors: list[str] = []
+    notes_parts: list[str] = []
+    skipped_count = 0
+
+    for outcome in outcomes:
+        if outcome is None:
+            skipped_count += 1
+            continue
+        total_cost += outcome.cost
+        if outcome.unavailable:
+            unavailable = True
+            unavailable_notes = unavailable_notes or outcome.notes
+            continue
+        findings.extend(outcome.findings)
+        journey_outcomes.extend(outcome.journey_outcomes)
+        if outcome.ok and not outcome.protocol_error:
+            # #3620 review finding 1: never let the scheduler's PERMANENT
+            # cross-round record treat a chunk the trust layer has just
+            # classified as failed/unparseable as a verified
+            # "found"/"passed" journey — that would both drop the
+            # finding silently (a `found` journey is never auto-requeued)
+            # and permanently stop re-walking it.
+            scheduler.record(outcome.journey_outcomes)
+        if not outcome.ok:
+            ok = False
+            notes_parts.append(outcome.notes or "chunk explorer reported failure")
+        elif outcome.protocol_error:
+            protocol_errors.append(outcome.protocol_error)
+
+    if skipped_count:
+        notes_parts.append(
+            f"{skipped_count}/{len(chunks)} chunk(s) not dispatched this round "
+            "(cost cap already tripped, or a sibling chunk reported the lane unavailable)"
+        )
+
+    if skipped_count == len(chunks):
+        # #3620 review finding 2: every chunk was dropped before it ever
+        # ran (a cap already tripped at the very first reservation
+        # check) — nothing was exercised this round at all, which must
+        # never come back as `ExploreOutcome()`'s default `ok=True,
+        # findings=()` ("we looked, there weren't any"): that would let
+        # `all_explored_lanes_failed`/`all_explored_lanes_unavailable_or_
+        # failed` stay False for a round that explored nothing, and
+        # `run_bugbash` would fall through to `reason="zero_findings"`
+        # exactly like the #3546 bug this module was already fixed for.
+        return ExploreOutcome(
+            ok=False,
+            cost=total_cost,
+            notes="; ".join(notes_parts)
+            or "every chunk skipped this round (cost cap already tripped)",
+        )
+
+    if unavailable:
+        if findings or journey_outcomes:
+            # #3620 review finding 3: a LATER chunk reporting the lane
+            # unavailable must never discard real findings/coverage an
+            # EARLIER chunk already verified this round — report
+            # `ok=False` (never `unavailable=True`, which
+            # `_apply_outcome_to_round` treats as "never contributes
+            # findings this round, even defensively") with the
+            # unavailability folded into `notes` instead.
+            notes_parts.insert(
+                0, f"lane became unavailable partway through this round: {unavailable_notes}"
+            )
+            return ExploreOutcome(
+                findings=tuple(findings),
+                cost=total_cost,
+                ok=False,
+                protocol_error="; ".join(protocol_errors),
+                journey_outcomes=tuple(journey_outcomes),
+                notes="; ".join(notes_parts),
+            )
+        return ExploreOutcome(unavailable=True, cost=total_cost, notes=unavailable_notes)
+
+    return ExploreOutcome(
+        findings=tuple(findings),
+        cost=total_cost,
+        ok=ok,
+        protocol_error="; ".join(protocol_errors),
+        journey_outcomes=tuple(journey_outcomes),
+        notes="; ".join(notes_parts) or "status=completed",
+    )
 
 
 def subprocess_coord_runner(args: Sequence[str]) -> str:

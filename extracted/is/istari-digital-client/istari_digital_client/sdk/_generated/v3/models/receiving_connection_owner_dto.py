@@ -18,7 +18,8 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
+from istari_digital_client.sdk._generated.v3.models.received_access_level import ReceivedAccessLevel
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -27,7 +28,8 @@ class ReceivingConnectionOwnerDto(BaseModel):
     A single owner of a receiving connection.
     """ # noqa: E501
     user_id: StrictStr = Field(description="The user ID of the receiving connection owner.")
-    __properties: ClassVar[List[str]] = ["user_id"]
+    access_level: Optional[ReceivedAccessLevel] = Field(default=None, description="EDITOR owners may edit received resources individually approved for editing and may reshare both view and edit access; VIEWER owners receive everything view-only and may reshare only view.")
+    __properties: ClassVar[List[str]] = ["user_id", "access_level"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,6 +82,7 @@ class ReceivingConnectionOwnerDto(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "user_id": obj.get("user_id")
+            "user_id": obj.get("user_id"),
+            "access_level": obj.get("access_level")
         })
         return _obj

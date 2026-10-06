@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: meshioplusplus
-Version: 16.30.0
+Version: 16.31.0
 Summary: meshio++: I/O for many mesh formats (C++20 core + Python bindings)
 Keywords: mesh,file formats,scientific,engineering,fem,finite elements
 Author: Vicente Mataix Ferrándiz
@@ -211,7 +211,7 @@ Files only their vendor's software can read — Abaqus `.odb`, MSC Marc `.t16`, 
 
 One C++ core, six language surfaces, and the tools built on them; the [architecture page](https://loumalouomega.github.io/meshioplusplus/architecture) is the map, with every box linked to the page that owns it.
 
-Release v16.30.0 adds [benchmark history](doc/benchmarks.md) and [OSS-Fuzz/library-backed campaigns](doc/fuzzing.md), hardens mesh readers against malformed inputs, and fixes [Ansys results](doc/formats/ansys_rst.md) record-pointer validation. C++ ABI 22 is unchanged; see the [changelog](CHANGELOG.md) for details.
+Release v16.31.0 is a performance release: Python releases the GIL for native reads, writes and operations, the libraries that are not thread-safe are serialised on one core lock, dozens of readers and writers read through typed views and shared cursors instead of per-element dtype switches and string copies, and the operations reuse per-thread scratch (measured on the [benchmark harness](doc/benchmarks.md)). The [roadmap](doc/roadmap.md) is reorganised around reader/writer parity, octree meshes from a skin and an optional MMG backend. C++ ABI 22 is unchanged; see the [changelog](CHANGELOG.md) for details.
 
 meshio++ ships a **C++20 core** (built with pybind11 + scikit-build-core) that reads and writes most formats with zero-copy numpy at the I/O boundary, plus optional HDF5/netCDF acceleration and a **selectable parallel backend** (`AUTO` by default — prefers OpenMP, then STL+TBB, then sequential; override with `-DMESHIOPLUSPLUS_PARALLEL_BACKEND=...`, including a bring-your-own [Kokkos](https://kokkos.org) host backend). Every format has a pure-Python fallback, so behaviour and file compatibility are identical whether or not the native libraries are present. For a standalone C++ build use `build/configure.sh` (Linux/macOS) or `build/configure.bat` (Windows). Full docs (install, data model, per-format options, CLI) live at [the documentation site](https://loumalouomega.github.io/meshioplusplus/) (sources under [`doc/`](https://github.com/loumalouomega/meshioplusplus/tree/master/doc)).
 
@@ -1135,6 +1135,20 @@ Full methodology and a reproducible notebook are on the [Benchmarks](https://lou
 <details>
 <summary><b>Reading only what you need</b> — selective reads, time steps, memory mapping, codecs (click to expand)</summary>
 
+Contributors can audit the native core with `tools/performance-tidy.sh --jobs 4`: it runs Clang-Tidy's built-in `performance-*` checks separately from the include-hygiene gate, records deduplicated findings and actual build capabilities, and fails on incomplete scans without applying fixes. See the [performance-audit workflow](doc/benchmarks.md#clang-tidy-performance-audit) for ABI review and before/after validation.
+
+The I/O sweep includes the single-type MFM tetrahedral input: `python benchmark/bench.py --sizes M,L --formats mfm --repeats 7`. Its native reader now uses bounded token views, with matching before/after file and mesh digests and substantially fewer allocation requests; see the [measured comparison](doc/benchmarks.md#mfm-bounded-token-views). MFM's mixed-cell conformance rejection and writer bytes are unchanged.
+
+The [measured text-I/O batches](doc/benchmarks.md#off-medit-xyz-and-unv-second-reader-batch) extend bounded token/source-line views across point clouds, scientific mesh formats and solver decks, preserving writer bytes and parsed data across SEQ/OpenMP/TBB. Evidence includes separate timing/allocation measurements, both SEQ measurement orders and retained unfavorable observations. Ownership tests cover source replacement, nested Marc includes and mapped/buffered paths. DEX's sweep input supplies its required scalar nodal field without mutating the shared input; Tecplot's removed unused helper has no runtime-speedup claim.
+
+The [shared-card pass](doc/benchmarks.md#shared-card-views-and-bounded-fortran-numbers) retains the installed owning API while native readers use private views and bounded Fortran-number parsing. Fixed/free-record scope and neutral results are documented alongside the improvements; C++ ABI 22 is unchanged.
+
+Eight format-private adapters also [share bounded byte/record cursors](doc/benchmarks.md#shared-byte-and-record-cursors), preserving grammar and binary positioning. Evidence explicitly exercises native MDPA (whose public Python reader remains the reference) and Gmsh 4.1's tested single-type input, without changing mixed-cell conformance.
+
+The [remaining deck-token pass](doc/benchmarks.md#remaining-deck-token-views) extends views to Abaqus comma/data rows, Nastran logical cards, Netgen whitespace fields and FLAC3D ASCII tokens, with stable ownership for noncontiguous joins and include/gzip sources. Both SEQ orders confirm reader gains; writer bytes and ABI 22 are unchanged.
+
+[DEX normalization and source-copy removal](doc/benchmarks.md#source-copy-removal-and-temporary-ownership-guards) preserve temporary-string ownership and add sanitizer-tested cursor guards. The evidence distinguishes measured text paths from PLY's binary timing input and retains unfavorable writer observations rather than claiming universal speedups.
+
 ### Reading only what you need
 
 ```python
@@ -1151,6 +1165,20 @@ meta["time_values"]                                       # how many steps there
 VTU, VTP, XDMF and Gmsh skip the unwanted array bodies outright; other formats are read in full and filtered, and `meta["fell_back_to_full_read"]` says which happened. `time_step` picks one step of a multi-step file (`0` = the first, negative counts from the end); out of range is an error naming the available count rather than a silent fallback to step 0. Currently honoured by Exodus. A `lenient` option downgrades "this reader cannot represent construct X" errors to a warning plus a skip (currently MDPA's `Table`/`Geometries`/`Mesh`/`Constraints` blocks) — not "ignore all errors": a malformed file still fails. Large files can also be memory-mapped (automatic above 16 MiB), which roughly halves peak memory during a read. See [selective reads](doc/selective_read.md) and [memory-mapped reading](doc/mmap.md).
 
 VTK XML output can additionally use **lz4** (ParaView-readable) or **zstd** (a meshio++ extension) instead of zlib, when built with `-DMESHIOPLUSPLUS_WITH_LZ4=ON` / `-DMESHIOPLUSPLUS_WITH_ZSTD=ON`. zlib remains the default. See [compression codecs](doc/codecs.md).
+
+The native reads, writes and operations release the GIL, so a batch of files converts in a thread pool, even on the sequential Linux wheels:
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+def convert(path):
+    meshioplusplus.write(path.replace(".msh", ".vtu"), meshioplusplus.read(path))
+
+with ThreadPoolExecutor() as pool:
+    list(pool.map(convert, paths))  # list() re-raises any worker's exception
+```
+
+The HDF5, netCDF, ADIOS2, TecIO and gidpost formats release it too, but those libraries are not thread-safe, so the core serialises them on one lock: their threads queue instead of running in parallel. See [threads and the GIL](doc/architecture.md#threads-and-the-gil).
 
 </details>
 
@@ -1204,7 +1232,7 @@ cmake --build build && cmake --install build --prefix /opt/meshioplusplus
 ```
 
 ```cmake
-find_package(meshioplusplus 16.30.0 EXACT CONFIG REQUIRED COMPONENTS CXX)
+find_package(meshioplusplus 16.31.0 EXACT CONFIG REQUIRED COMPONENTS CXX)
 target_link_libraries(my_solver PRIVATE meshioplusplus::core)
 ```
 

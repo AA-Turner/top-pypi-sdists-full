@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: splitio_client
-Version: 10.6.0
+Version: 10.7.0
 Summary: Split.io Python Client
 Home-page: https://github.com/splitio/python-client
-Download-URL: https://github.com/splitio/python-client/tarball/10.6.0
+Download-URL: https://github.com/splitio/python-client/tarball/10.7.0
 Author: Patricio Echague, Sebastian Arrubia
 Author-email: pato@split.io, sebastian@split.io
 License: Apache License 2.0
@@ -20,8 +20,8 @@ Provides-Extra: uwsgi
 Provides-Extra: cpphash
 Provides-Extra: asyncio
 Provides-Extra: kerberos
-License-File: LICENSE.txt
-License-File: NOTICE.txt
+License-File: LICENSE
+License-File: NOTICE
 
 # Split Python SDK
 ![Build Status](https://github.com/splitio/python-client/actions/workflows/ci.yml/badge.svg?branch=master)

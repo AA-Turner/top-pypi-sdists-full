@@ -9,6 +9,17 @@
 // (momwire#696) should rebuild one TU, not five.
 #include "_contour_engine_inline.h"
 
+// The AVX2 build's vector lanes (momwire#1290): the below/below replay's
+// stages and the field-form Galerkin assembly's first stage. GCC/clang AVX2
+// only; the baseline, arm64 and MSVC builds run the scalar loops the lanes
+// are gated against.
+#if defined(__AVX2__) && defined(__FMA__) && !defined(_MSC_VER)
+#include <immintrin.h>
+#define MW568_LANES 1
+#else
+#define MW568_LANES 0
+#endif
+
 // mw568 section of the former _accelerators.cpp monolith (momwire#687).
 // Code below is byte-identical to the monolith's lines 6273-7497.
 
@@ -562,6 +573,222 @@ static inline cd proj_one_below(const somm_proj::GridView &G, double th_min,
 // threads), 37.5 -> 30.4 ns per pair, flat from 16 to 256 (64 here: ~14 kB
 // of per-thread scratch, inside L1+L2).
 constexpr int BELOW_BLOCK = 64;
+
+#if MW568_LANES
+// The blocked loop's stencil, read and projection stages, four pairs to a
+// vector (momwire#1290). The blocked loop spent most of a pair's ~120 ns in
+// scalar arithmetic: six divisions in the stencil weights, sixteen complex
+// fused sums per surface read, and the projection's products, around three
+// transcendentals (hypot, atan2, exp) that stay scalar libm calls here as
+// they are there.
+//
+// Every lane does a stage function's own operations on its own pair, in that
+// function's order: the same comparisons in the same nesting, the same
+// divisions (correctly rounded in any lane), and each `mw_fma` helper's fused
+// op as `_mm256_fmadd_pd`, which is per lane exactly `std::fma`. A negated
+// product is `fnmadd`: fma(-a, b, c) and -(a b) + c are one exact product and
+// one rounding. Nothing is reassociated and no reduction crosses lanes, so a
+// lane's floats are the scalar stage's floats (gated as uint64 against
+// `lanes=False` and against the per-pair composition,
+// tests/test_below_lanes_1290.py). Only this AVX2 build has the lanes: the
+// baseline, arm64 and MSVC builds keep the scalar blocked loop.
+
+// `below_stencil` for pairs b .. b+3: the region, the clamped first stencil
+// node (i0, j0) and the two Lagrange weight vectors, into SoA arrays.
+// nR32/nTh32 are G.nR/G.nTh as int32, for the gathers (a table is a few
+// hundred nodes a side, far inside int32).
+static inline void below_stencil_lanes(const somm_proj::GridView &G,
+                                       const int *nR32, const int *nTh32,
+                                       double th_min, double th_band_floor_hi,
+                                       double th_band_lo_hi, double th_band_hi,
+                                       const double *r1, const double *th,
+                                       int *reg_o, int *i0_o, int *j0_o,
+                                       double (*wr)[BELOW_BLOCK],
+                                       double (*wt)[BELOW_BLOCK], int b) {
+    const __m256d c_thmin = _mm256_set1_pd(th_min);
+    const __m256d c_hpi = _mm256_set1_pd(G.half_pi);
+    const __m256d c_r1max = _mm256_set1_pd(G.r1_max);
+    __m256d t = _mm256_loadu_pd(th + b);
+    // if (theta < th_min) theta = th_min; else if (theta > half_pi) ...
+    const __m256d t_lo = _mm256_cmp_pd(t, c_thmin, _CMP_LT_OQ);
+    const __m256d t_hi = _mm256_cmp_pd(t, c_hpi, _CMP_GT_OQ);
+    t = _mm256_blendv_pd(_mm256_blendv_pd(t, c_hpi, t_hi), c_thmin, t_lo);
+    __m256d rc = _mm256_loadu_pd(r1 + b);
+    rc = _mm256_blendv_pd(rc, c_r1max, _mm256_cmp_pd(rc, c_r1max, _CMP_GT_OQ));
+    // The band and zone selects, innermost alternative first so that each
+    // outer test overrides it as the scalar ternaries nest. Small integers in
+    // double lanes: exact, and the sum converts exactly.
+    __m256d band = _mm256_blendv_pd(
+        _mm256_set1_pd(4.0), _mm256_set1_pd(3.0),
+        _mm256_cmp_pd(t, _mm256_set1_pd(G.th_split), _CMP_LE_OQ));
+    band = _mm256_blendv_pd(
+        band, _mm256_set1_pd(2.0),
+        _mm256_cmp_pd(t, _mm256_set1_pd(th_band_hi), _CMP_LT_OQ));
+    band = _mm256_blendv_pd(
+        band, _mm256_set1_pd(1.0),
+        _mm256_cmp_pd(t, _mm256_set1_pd(th_band_lo_hi), _CMP_LT_OQ));
+    band = _mm256_blendv_pd(
+        band, _mm256_setzero_pd(),
+        _mm256_cmp_pd(t, _mm256_set1_pd(th_band_floor_hi), _CMP_LT_OQ));
+    __m256d zone = _mm256_blendv_pd(
+        _mm256_set1_pd(10.0), _mm256_set1_pd(5.0),
+        _mm256_cmp_pd(rc, _mm256_set1_pd(G.r_near), _CMP_LE_OQ));
+    zone = _mm256_blendv_pd(
+        zone, _mm256_setzero_pd(),
+        _mm256_cmp_pd(rc, _mm256_set1_pd(G.r_break), _CMP_LE_OQ));
+    const __m128i reg = _mm256_cvttpd_epi32(_mm256_add_pd(zone, band));
+    const __m256d fr =
+        _mm256_div_pd(_mm256_sub_pd(rc, _mm256_i32gather_pd(G.rr0, reg, 8)),
+                      _mm256_i32gather_pd(G.rdr, reg, 8));
+    const __m256d ft =
+        _mm256_div_pd(_mm256_sub_pd(t, _mm256_i32gather_pd(G.rth0, reg, 8)),
+                      _mm256_i32gather_pd(G.rdth, reg, 8));
+    // i0 = (int)floor(fr) - 1, then `if (i0 < 0) i0 = 0; else if (i0 > nR - 4)
+    // i0 = nR - 4`, in int32 lanes.
+    const __m128i one = _mm_set1_epi32(1), four = _mm_set1_epi32(4);
+    const __m128i zero = _mm_setzero_si128();
+    auto clamp = [&](__m256d f, const int *n32) {
+        __m128i i = _mm_sub_epi32(_mm256_cvttpd_epi32(_mm256_floor_pd(f)), one);
+        const __m128i nm4 = _mm_sub_epi32(_mm_i32gather_epi32(n32, reg, 4), four);
+        const __m128i neg = _mm_cmpgt_epi32(zero, i);
+        const __m128i big = _mm_cmpgt_epi32(i, nm4);
+        return _mm_blendv_epi8(_mm_blendv_epi8(i, nm4, big), zero, neg);
+    };
+    const __m128i i0 = clamp(fr, nR32);
+    const __m128i j0 = clamp(ft, nTh32);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(reg_o + b), reg);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(i0_o + b), i0);
+    _mm_storeu_si128(reinterpret_cast<__m128i *>(j0_o + b), j0);
+    // somm_proj::lagrange4 at fr - i0 and ft - j0.
+    const __m256d sgn = _mm256_set1_pd(-0.0);
+    const __m256d c1 = _mm256_set1_pd(1.0), c2 = _mm256_set1_pd(2.0),
+                  c3 = _mm256_set1_pd(3.0), c6 = _mm256_set1_pd(6.0);
+    auto lagrange = [&](__m256d u, double (*w)[BELOW_BLOCK]) {
+        const __m256d u0 = u, u1 = _mm256_sub_pd(u, c1),
+                      u2 = _mm256_sub_pd(u, c2), u3 = _mm256_sub_pd(u, c3);
+        _mm256_storeu_pd(
+            w[0] + b,
+            _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(_mm256_xor_pd(u1, sgn), u2), u3), c6));
+        _mm256_storeu_pd(
+            w[1] + b, _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(u0, u2), u3), c2));
+        _mm256_storeu_pd(
+            w[2] + b,
+            _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(_mm256_xor_pd(u0, sgn), u1), u3), c2));
+        _mm256_storeu_pd(
+            w[3] + b, _mm256_div_pd(_mm256_mul_pd(_mm256_mul_pd(u0, u1), u2), c6));
+    };
+    lagrange(_mm256_sub_pd(fr, _mm256_cvtepi32_pd(i0)), wr);
+    lagrange(_mm256_sub_pd(ft, _mm256_cvtepi32_pd(j0)), wt);
+}
+
+// `below_surfaces` for one pair, two surfaces to a vector: lanes (re, im) of
+// surface s and of surface s + 1, so each step is the scalar step on all four
+// parts at once. Written SoA, surface s's part into sre/sim[s][b].
+static inline void below_surfaces_lanes(const somm_proj::GridView &G,
+                                        int reg, int i0, int j0,
+                                        const double (*wr)[BELOW_BLOCK],
+                                        const double (*wt)[BELOW_BLOCK],
+                                        double (*sre)[BELOW_BLOCK],
+                                        double (*sim)[BELOW_BLOCK], int b) {
+    const py::ssize_t nth = G.nTh[reg];
+    const py::ssize_t plane = G.nR[reg] * nth;
+    const cd *base = G.vptr[reg] + (py::ssize_t)i0 * nth + j0;
+    const __m256d w0 = _mm256_set1_pd(wt[0][b]), w1 = _mm256_set1_pd(wt[1][b]),
+                  w2 = _mm256_set1_pd(wt[2][b]), w3 = _mm256_set1_pd(wt[3][b]);
+    for (int s = 0; s < 4; s += 2) {
+        const double *pa = reinterpret_cast<const double *>(base + s * plane);
+        const double *pb = reinterpret_cast<const double *>(base + (s + 1) * plane);
+        __m256d acc = _mm256_setzero_pd();
+        for (int i = 0; i < 4; ++i) {
+            const double *ra = pa + 2 * i * nth, *rb = pb + 2 * i * nth;
+            auto ld = [&](int j) {
+                return _mm256_insertf128_pd(
+                    _mm256_castpd128_pd256(_mm_loadu_pd(ra + 2 * j)),
+                    _mm_loadu_pd(rb + 2 * j), 1);
+            };
+            // (((row0 w0 + row1 w1) + row2 w2) + row3 w3), the first product
+            // unfused, then `acc = fma(rs, wr[i], acc)` from +0.0.
+            __m256d rs = _mm256_mul_pd(ld(0), w0);
+            rs = _mm256_fmadd_pd(ld(1), w1, rs);
+            rs = _mm256_fmadd_pd(ld(2), w2, rs);
+            rs = _mm256_fmadd_pd(ld(3), w3, rs);
+            acc = _mm256_fmadd_pd(rs, _mm256_set1_pd(wr[i][b]), acc);
+        }
+        alignas(32) double v[4];
+        _mm256_store_pd(v, acc);
+        sre[s][b] = v[0];
+        sim[s][b] = v[1];
+        sre[s + 1][b] = v[2];
+        sim[s + 1][b] = v[3];
+    }
+}
+
+// `below_project` for pairs b .. b+3, every complex helper spelled out per
+// part exactly as `_fma_inline.h` defines it; writes the four entries.
+static inline void below_project_lanes(
+    const somm_proj::GridView &G, const double (*sre)[BELOW_BLOCK],
+    const double (*sim)[BELOW_BLOCK], const double *gre, const double *gim,
+    const double *rho_, const double *dx_, const double *dy_, double tox,
+    double toy, double toz, const double *ux, const double *uy,
+    const double *thsrc, const double *tzsrc, int b, cd *out) {
+    const __m256d sgn = _mm256_set1_pd(-0.0);
+    auto neg = [&](__m256d x) { return _mm256_xor_pd(x, sgn); };
+    auto L = [&](const double *p) { return _mm256_loadu_pd(p + b); };
+    const __m256d rho = L(rho_), dx = L(dx_), dy = L(dy_);
+    const __m256d sux = _mm256_loadu_pd(ux), suy = _mm256_loadu_pd(uy);
+    const __m256d sth = _mm256_loadu_pd(thsrc), stz = _mm256_loadu_pd(tzsrc);
+    const __m256d gr = L(gre), gi = L(gim);
+    const __m256d safe = _mm256_cmp_pd(rho, _mm256_set1_pd(G.tiny), _CMP_GT_OQ);
+    const __m256d inv = _mm256_blendv_pd(
+        _mm256_setzero_pd(), _mm256_div_pd(_mm256_set1_pd(1.0), rho), safe);
+    const __m256d dhx = _mm256_blendv_pd(sux, _mm256_mul_pd(dx, inv), safe);
+    const __m256d dhy = _mm256_blendv_pd(suy, _mm256_mul_pd(dy, inv), safe);
+    const __m256d cphi = _mm256_fmadd_pd(sux, dhx, _mm256_mul_pd(suy, dhy));
+    const __m256d sphi = _mm256_fmadd_pd(sux, dhy, neg(_mm256_mul_pd(suy, dhx)));
+    const __m256d sc = _mm256_mul_pd(sth, cphi);
+    const __m256d s0r = L(sre[0]), s0i = L(sim[0]), s1r = L(sre[1]),
+                  s1i = L(sim[1]), s2r = L(sre[2]), s2i = L(sim[2]),
+                  s3r = L(sre[3]), s3i = L(sim[3]);
+    // mw_fma::mul(x, y): (fma(xr, yr, -(xi yi)), fma(xr, yi, xi yr)).
+    auto cmul_re = [&](__m256d xr, __m256d xi, __m256d yr, __m256d yi) {
+        return _mm256_fmadd_pd(xr, yr, neg(_mm256_mul_pd(xi, yi)));
+    };
+    auto cmul_im = [&](__m256d xr, __m256d xi, __m256d yr, __m256d yi) {
+        return _mm256_fmadd_pd(xr, yi, _mm256_mul_pd(xi, yr));
+    };
+    // e_rho = mul(mul_add(IrhoH, sc, stzsrc * IrhoV), g)
+    const __m256d ar = _mm256_fmadd_pd(s2r, sc, _mm256_mul_pd(stz, s0r));
+    const __m256d ai = _mm256_fmadd_pd(s2i, sc, _mm256_mul_pd(stz, s0i));
+    const __m256d er = cmul_re(ar, ai, gr, gi), ei = cmul_im(ar, ai, gr, gi);
+    // e_phi = mul(g, sthsrc * sphi * IphiH)
+    const __m256d f = _mm256_mul_pd(sth, sphi);
+    const __m256d br = _mm256_mul_pd(f, s3r), bi = _mm256_mul_pd(f, s3i);
+    const __m256d pr = cmul_re(gr, gi, br, bi), pi = cmul_im(gr, gi, br, bi);
+    // e_z = mul(sub_scaled(stzsrc * IzV, IrhoV, sc), g)
+    const __m256d cr = _mm256_fnmadd_pd(s0r, sc, _mm256_mul_pd(stz, s1r));
+    const __m256d ci = _mm256_fnmadd_pd(s0i, sc, _mm256_mul_pd(stz, s1i));
+    const __m256d zr = cmul_re(cr, ci, gr, gi), zi = cmul_im(cr, ci, gr, gi);
+    // r = mul_add(mul_add(e_phi, dhx, dhy * e_rho), toy,
+    //             tox * sub_scaled(dhx * e_rho, e_phi, dhy))
+    const __m256d vtox = _mm256_set1_pd(tox), vtoy = _mm256_set1_pd(toy),
+                  vtoz = _mm256_set1_pd(toz);
+    const __m256d i1r = _mm256_fmadd_pd(pr, dhx, _mm256_mul_pd(dhy, er));
+    const __m256d i1i = _mm256_fmadd_pd(pi, dhx, _mm256_mul_pd(dhy, ei));
+    const __m256d i2r = _mm256_fnmadd_pd(pr, dhy, _mm256_mul_pd(dhx, er));
+    const __m256d i2i = _mm256_fnmadd_pd(pi, dhy, _mm256_mul_pd(dhx, ei));
+    const __m256d rr = _mm256_fmadd_pd(i1r, vtoy, _mm256_mul_pd(vtox, i2r));
+    const __m256d ri = _mm256_fmadd_pd(i1i, vtoy, _mm256_mul_pd(vtox, i2i));
+    // mul_add(e_z, toz, r)
+    const __m256d o_r = _mm256_fmadd_pd(zr, vtoz, rr);
+    const __m256d o_i = _mm256_fmadd_pd(zi, vtoz, ri);
+    // (re0 re1 re2 re3), (im0 ...) -> (re0 im0 re1 im1), (re2 im2 re3 im3)
+    const __m256d lo = _mm256_unpacklo_pd(o_r, o_i);  // re0 im0 re2 im2
+    const __m256d hi = _mm256_unpackhi_pd(o_r, o_i);  // re1 im1 re3 im3
+    double *op = reinterpret_cast<double *>(out);
+    _mm256_storeu_pd(op, _mm256_permute2f128_pd(lo, hi, 0x20));
+    _mm256_storeu_pd(op + 4, _mm256_permute2f128_pd(lo, hi, 0x31));
+}
+#endif  // MW568_LANES
 }  // namespace mw568_below
 
 // `_six_integrals_below` over parallel (rho, h) arrays: the (n, 6) table plus
@@ -586,7 +813,7 @@ static py::tuple below_six_integrals_batch(
     bool selfconv, double rtol_coarse, int depth_coarse, double detour_coarse,
     py::array_t<double, py::array::c_style | py::array::forcecast> gxc,
     py::array_t<double, py::array::c_style | py::array::forcecast> gwc,
-    int max_panels) {
+    int max_panels, uintptr_t cancel_flag = 0) {
     auto rb = rho.unchecked<1>();
     auto hb = h.unchecked<1>();
     const py::ssize_t n = rb.shape(0);
@@ -611,12 +838,17 @@ static py::tuple below_six_integrals_batch(
 
     {
         py::gil_scoped_release release;
+        // momwire#1348: polled per node. A grid fill is one call per region
+        // and a region is up to thousands of nodes, so a poll at the call
+        // boundary alone would hold a cancel for a whole region.
+        MW_CANCEL_SETUP(cancel_flag);
         // `dynamic`: a grazing node (theta ~ 1 deg) costs an order of
         // magnitude more tail panels than a steep one, and a grid fill's
         // nodes arrive sorted by region -- static scheduling would hand one
         // thread the whole grazing band.
         #pragma omp parallel for schedule(dynamic)
         for (py::ssize_t i = 0; i < n; ++i) {
+            MW_CANCEL_POLL();
             mw568_below::SixResult r;
             mw568_below::six_below_one(
                 rb(i), hb(i), k_p, km, rtol_fine, depth, detour, gxp, gwp, ng,
@@ -629,6 +861,7 @@ static py::tuple below_six_integrals_batch(
             ap[i] = r.accel;
             sp[i] = r.selfconv;
         }
+        MW_THROW_IF_ABORTED();
     }
     return py::make_tuple(vals, tail, head, conv, accel, sconv);
 }
@@ -669,7 +902,7 @@ static py::tuple remainder_field_proj_batch_below(
     py::array_t<double, py::array::c_style | py::array::forcecast> reg_dth,
     std::vector<py::array_t<std::complex<double>,
                             py::array::c_style | py::array::forcecast>> reg_vals,
-    bool blocked) {
+    bool blocked, bool lanes) {
     using somm_proj::cd;
     auto ob = obs.unchecked<2>();
     auto tob = t_obs.unchecked<2>();
@@ -704,13 +937,36 @@ static py::tuple remainder_field_proj_batch_below(
     py::array_t<std::complex<double>> out({M, S});
     auto out_m = out.mutable_unchecked<2>();
     const cd km(k_m);
+#if MW568_LANES
+    int nR32[somm_proj::MAX_REGIONS], nTh32[somm_proj::MAX_REGIONS];
+    for (size_t g = 0; g < reg_vals.size(); ++g) {
+        nR32[g] = static_cast<int>(G.nR[g]);
+        nTh32[g] = static_cast<int>(G.nTh[g]);
+    }
+    const bool use_lanes = blocked && lanes;
+#else
+    (void)lanes;
+#endif
 
-    // Per-observer-row extremes, reduced serially afterwards: a `reduction`
-    // clause on min/max is OpenMP 3.1 and this file stays portable to MSVC's
-    // classic /openmp.
-    std::vector<double> row_r1(M > 0 ? M : 1, 0.0);
-    std::vector<double> row_thlo(M > 0 ? M : 1, 0.5 * M_PI);
-    std::vector<double> row_thhi(M > 0 ? M : 1, 0.0);
+    // Per-item extremes, reduced serially afterwards: a `reduction` clause on
+    // min/max is OpenMP 3.1 and this file stays portable to MSVC's classic
+    // /openmp.
+    //
+    // The work items are (observer row, span of sources), spans fastest,
+    // handed out dynamically (momwire#1290). Over rows alone, the bs2
+    // remainder's chunks (30 observer rows of up to 15k sources) split
+    // 8/8/7/7 over four threads, a fixed 7 % idle. A span is a whole number
+    // of blocks starting on a block boundary, and every entry is still one
+    // pair's own arithmetic, so where an item runs moves no bit. The
+    // extremes are kept per item and reduced in item order below: a max or
+    // min with the comparisons the rows used, so the same value whatever the
+    // partition (theta is atan2 of a positive depth sum, never a signed zero).
+    const py::ssize_t span = 16 * mw568_below::BELOW_BLOCK;
+    const py::ssize_t n_span = S > 0 ? (S + span - 1) / span : 1;
+    const py::ssize_t n_item = M * n_span;
+    std::vector<double> row_r1(n_item > 0 ? n_item : 1, 0.0);
+    std::vector<double> row_thlo(n_item > 0 ? n_item : 1, 0.5 * M_PI);
+    std::vector<double> row_thhi(n_item > 0 ? n_item : 1, 0.0);
 
     {
         py::gil_scoped_release release;
@@ -723,15 +979,18 @@ static py::tuple remainder_field_proj_batch_below(
                                       uy[nn], thsrc[nn], tzsrc[nn]);
         }
 
-        #pragma omp parallel for schedule(static)
-        for (py::ssize_t m = 0; m < M; ++m) {
+        #pragma omp parallel for schedule(dynamic)
+        for (py::ssize_t item = 0; item < n_item; ++item) {
+            const py::ssize_t m = item / n_span;
+            const py::ssize_t s_lo = (item % n_span) * span;
+            const py::ssize_t s_hi = std::min<py::ssize_t>(S, s_lo + span);
             const double ox = ob(m, 0), oy = ob(m, 1), oz = ob(m, 2);
             const double tox = tob(m, 0), toy = tob(m, 1), toz = tob(m, 2);
             double rmax = 0.0, tlo = 0.5 * M_PI, thi = 0.0;
             if (!blocked) {
                 // The per-pair composition: the reference the blocked loop is
                 // gated against bit for bit.
-                for (py::ssize_t nn = 0; nn < S; ++nn) {
+                for (py::ssize_t nn = s_lo; nn < s_hi; ++nn) {
                     double r1q, thq;
                     out_m(m, nn) = mw568_below::proj_one_below(
                         G, th_min, th_band_floor_hi, th_band_lo_hi, th_band_hi,
@@ -751,8 +1010,14 @@ static py::tuple remainder_field_proj_batch_below(
                 mw568_below::BelowStencil st[B];
                 cd surf[B][4];
                 cd g[B];
-                for (py::ssize_t n0 = 0; n0 < S; n0 += B) {
-                    const int nb = (int)std::min<py::ssize_t>(B, S - n0);
+#if MW568_LANES
+                int l_reg[B], l_i0[B], l_j0[B];
+                double l_wr[4][B], l_wt[4][B], l_sre[4][B], l_sim[4][B];
+                double l_gre[B], l_gim[B];
+#endif
+                for (py::ssize_t n0 = s_lo; n0 < s_hi; n0 += B) {
+                    const int nb = (int)std::min<py::ssize_t>(B, s_hi - n0);
+                    int b_lo = 0;
                     for (int b = 0; b < nb; ++b)
                         mw568_below::below_pair_geometry(
                             ground_z, ox, oy, oz, sx[n0 + b], sy[n0 + b],
@@ -764,16 +1029,46 @@ static py::tuple remainder_field_proj_batch_below(
                         if (th[b] < tlo) tlo = th[b];
                         if (th[b] > thi) thi = th[b];
                     }
-                    for (int b = 0; b < nb; ++b)
+#if MW568_LANES
+                    if (use_lanes) {
+                        // Whole quads through the lanes, the last nb % 4
+                        // pairs through the scalar stages below.
+                        const int nq = nb & ~3;
+                        for (int b = 0; b < nq; b += 4)
+                            mw568_below::below_stencil_lanes(
+                                G, nR32, nTh32, th_min, th_band_floor_hi,
+                                th_band_lo_hi, th_band_hi, r1, th, l_reg, l_i0,
+                                l_j0, l_wr, l_wt, b);
+                        for (int b = 0; b < nq; ++b)
+                            mw568_below::below_surfaces_lanes(
+                                G, l_reg[b], l_i0[b], l_j0[b], l_wr, l_wt,
+                                l_sre, l_sim, b);
+                        for (int b = 0; b < nq; ++b) {
+                            const cd gb = mw568_below::below_divide_out(
+                                k_p, km, rho[b], hh[b], r1[b]);
+                            l_gre[b] = gb.real();
+                            l_gim[b] = gb.imag();
+                        }
+                        for (int b = 0; b < nq; b += 4) {
+                            const py::ssize_t nn = n0 + b;
+                            mw568_below::below_project_lanes(
+                                G, l_sre, l_sim, l_gre, l_gim, rho, dx, dy,
+                                tox, toy, toz, &ux[nn], &uy[nn], &thsrc[nn],
+                                &tzsrc[nn], b, &out_m(m, nn));
+                        }
+                        b_lo = nq;
+                    }
+#endif
+                    for (int b = b_lo; b < nb; ++b)
                         mw568_below::below_stencil(G, th_min, th_band_floor_hi,
                                                    th_band_lo_hi, th_band_hi,
                                                    r1[b], th[b], st[b]);
-                    for (int b = 0; b < nb; ++b)
+                    for (int b = b_lo; b < nb; ++b)
                         mw568_below::below_surfaces(st[b], surf[b]);
-                    for (int b = 0; b < nb; ++b)
+                    for (int b = b_lo; b < nb; ++b)
                         g[b] = mw568_below::below_divide_out(k_p, km, rho[b],
                                                              hh[b], r1[b]);
-                    for (int b = 0; b < nb; ++b) {
+                    for (int b = b_lo; b < nb; ++b) {
                         const py::ssize_t nn = n0 + b;
                         out_m(m, nn) = mw568_below::below_project(
                             G, surf[b], g[b], rho[b], dx[b], dy[b], tox, toy,
@@ -781,19 +1076,74 @@ static py::tuple remainder_field_proj_batch_below(
                     }
                 }
             }
-            row_r1[m] = rmax;
-            row_thlo[m] = tlo;
-            row_thhi[m] = thi;
+            row_r1[item] = rmax;
+            row_thlo[item] = tlo;
+            row_thhi[item] = thi;
         }
     }
 
     double mx_r1 = 0.0, mn_th = 0.5 * M_PI, mx_th = 0.0;
-    for (py::ssize_t m = 0; m < M; ++m) {
-        if (row_r1[m] > mx_r1) mx_r1 = row_r1[m];
-        if (row_thlo[m] < mn_th) mn_th = row_thlo[m];
-        if (row_thhi[m] > mx_th) mx_th = row_thhi[m];
+    for (py::ssize_t it = 0; it < n_item; ++it) {
+        if (row_r1[it] > mx_r1) mx_r1 = row_r1[it];
+        if (row_thlo[it] < mn_th) mn_th = row_thlo[it];
+        if (row_thhi[it] > mx_th) mx_th = row_thhi[it];
     }
     return py::make_tuple(out, mx_r1, mn_th, mx_th);
+}
+
+// The projected remainder's arc moments (momwire#1290):
+//
+//     mom[o, j, p] = sum_k proj[o, j*q + k] * W[p, j, k]
+//
+// i.e. `np.einsum("ojq,pjq->ojp", proj.reshape(m, N, q), W)` with W REAL,
+// which `field_windows` spent 0.2 s of buried x16 and 0.8 s of invl x32 on,
+// single-threaded. einsum casts W to complex, so each term is numpy's
+// unfused complex product against (w + 0j): (pr*w - pi*0, pr*0 + pi*w),
+// added k in order to an accumulator that starts at +0.0 -- the arithmetic
+// `remainder_shape_reduce` below derives and measures, with the zero
+// imaginary part spelled out so a signed zero rounds as einsum's does. Each
+// entry is its own sum, so it does not depend on which rows or thread
+// compute it.
+static py::array_t<std::complex<double>> remainder_moment_reduce(
+    py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast>
+        proj,
+    py::array_t<double, py::array::c_style | py::array::forcecast> W) {
+    typedef std::complex<double> cd;
+    if (W.ndim() != 3 || proj.ndim() != 2)
+        throw std::invalid_argument("W must be (n_moment, N, q), proj (m, N*q)");
+    const py::ssize_t P = W.shape(0), N = W.shape(1), q = W.shape(2);
+    const py::ssize_t M = proj.shape(0);
+    if (proj.shape(1) != N * q)
+        throw std::invalid_argument("proj's second axis must be N*q of W");
+    py::array_t<cd> out({M, N, P});
+    cd *op = out.mutable_data();
+    const double *wp = W.data();
+    const cd *pp = proj.data();
+    {
+        py::gil_scoped_release release;
+        #pragma omp parallel for schedule(static)
+        for (py::ssize_t o = 0; o < M; ++o) {
+            const cd *row = pp + o * N * q;
+            cd *orow = op + o * N * P;
+            for (py::ssize_t j = 0; j < N; ++j) {
+                const cd *pn = row + j * q;
+                for (py::ssize_t m = 0; m < P; ++m) {
+                    const double *wn = wp + (m * N + j) * q;
+                    double are = 0.0, aim = 0.0;
+                    for (py::ssize_t k = 0; k < q; ++k) {
+                        const double pr = pn[k].real(), pi = pn[k].imag();
+                        const double w = wn[k], z = 0.0;
+                        const double re = pr * w - pi * z;
+                        const double im = pr * z + pi * w;
+                        are = re + are;
+                        aim = im + aim;
+                    }
+                    orow[j * P + m] = cd(are, aim);
+                }
+            }
+        }
+    }
+    return out;
 }
 
 // The sinusoidal replay's source-node reduction (momwire#1224):
@@ -1328,7 +1678,7 @@ static py::tuple transmitted_six_integrals_batch(
     bool selfconv, double rtol_coarse, int depth_coarse, double detour_coarse,
     py::array_t<double, py::array::c_style | py::array::forcecast> gxc,
     py::array_t<double, py::array::c_style | py::array::forcecast> gwc,
-    int max_panels) {
+    int max_panels, uintptr_t cancel_flag = 0) {
     auto rb = rho.unchecked<1>();
     auto zb = z.unchecked<1>();
     auto pb = zp.unchecked<1>();
@@ -1354,6 +1704,10 @@ static py::tuple transmitted_six_integrals_batch(
 
     {
         py::gil_scoped_release release;
+        // momwire#1348: polled per node. A grid fill is one call per region
+        // and a region is up to thousands of nodes, so a poll at the call
+        // boundary alone would hold a cancel for a whole region.
+        MW_CANCEL_SETUP(cancel_flag);
         // `dynamic`, and on this family it matters more than it did on U2's.
         // The tail cost runs as cot(theta_true), so the bottom row of a
         // (ln R, theta) fill costs THOUSANDS of panels per node where the top
@@ -1362,6 +1716,7 @@ static py::tuple transmitted_six_integrals_batch(
         // grazing band and the fill would take as long as its slowest chunk.
         #pragma omp parallel for schedule(dynamic)
         for (py::ssize_t i = 0; i < n; ++i) {
+            MW_CANCEL_POLL();
             mw568_trans::SixResultT r;
             mw568_trans::six_transmitted_one(
                 rb(i), zb(i), pb(i), k_p, km, swap, rtol_fine, depth, detour,
@@ -1374,6 +1729,7 @@ static py::tuple transmitted_six_integrals_batch(
             ap[i] = r.accel;
             sp[i] = r.selfconv;
         }
+        MW_THROW_IF_ABORTED();
     }
     return py::make_tuple(vals, tail, head, conv, accel, sconv);
 }
@@ -1559,12 +1915,26 @@ static py::tuple transmitted_field_proj_batch(
 // numpy" on the assumption that numpy propagated — it did not, and that
 // assumption was the only thing making the physical cases disagree.
 
+// LANES (perf item 9). In the AVX2 build the row's columns go four to a
+// vector: each lane forms the scalar loop's dx, dy, rho2, hh, r1sq and
+// quotient with the same operations in the same order (separate multiplies
+// and adds, a correctly rounded division), and keeps a running max and min.
+// A max or a min is a selection, not an arithmetic result, so the order the
+// lanes and the scalar tail are combined in moves nothing: the values are
+// non-negative and never -0 (squares and their quotient), and
+// `_mm256_min_pd(q, acc)` returns `acc` when q is NaN, which drops the 0/0
+// pair exactly as the scalar compare does. The division was the loop's cost
+// (one divsd a pair, ~1 s of SG buried x16 and ~4 s of invl x32 on Haswell).
+// `lanes=false` is the scalar loop, the reference the lanes are gated
+// against (tests/test_pair_extents_lanes_1290.py); the baseline, arm64 and
+// MSVC builds have only it.
 static py::tuple pair_extents_below(py::array_t<double, py::array::c_style |
                                                         py::array::forcecast> x,
                                     py::array_t<double, py::array::c_style |
                                                         py::array::forcecast> y,
                                     py::array_t<double, py::array::c_style |
-                                                        py::array::forcecast> d_b) {
+                                                        py::array::forcecast> d_b,
+                                    bool lanes) {
     auto xb = x.unchecked<1>();
     auto yb = y.unchecked<1>();
     auto db = d_b.unchecked<1>();
@@ -1591,8 +1961,37 @@ static py::tuple pair_extents_below(py::array_t<double, py::array::c_style |
             const double xi = xp[i], yi = yp[i], di = dp[i];
             double r1_row = 0.0;
             double q_row = std::numeric_limits<double>::infinity();
-            // j >= i: the upper triangle, diagonal included.
-            for (py::ssize_t j = i; j < n; ++j) {
+            py::ssize_t j0 = i;
+#if MW568_LANES
+            if (lanes && n - i >= 4) {
+                const __m256d vx = _mm256_set1_pd(xi), vy = _mm256_set1_pd(yi);
+                const __m256d vd = _mm256_set1_pd(di);
+                __m256d vr = _mm256_setzero_pd();
+                __m256d vq = _mm256_set1_pd(std::numeric_limits<double>::infinity());
+                for (; j0 + 4 <= n; j0 += 4) {
+                    const __m256d dx = _mm256_sub_pd(vx, _mm256_loadu_pd(xp + j0));
+                    const __m256d dy = _mm256_sub_pd(vy, _mm256_loadu_pd(yp + j0));
+                    const __m256d rho2 = _mm256_add_pd(_mm256_mul_pd(dx, dx),
+                                                       _mm256_mul_pd(dy, dy));
+                    const __m256d hh = _mm256_add_pd(vd, _mm256_loadu_pd(dp + j0));
+                    const __m256d hh2 = _mm256_mul_pd(hh, hh);
+                    vr = _mm256_max_pd(_mm256_add_pd(rho2, hh2), vr);
+                    vq = _mm256_min_pd(_mm256_div_pd(hh2, rho2), vq);
+                }
+                alignas(32) double lr[4], lq[4];
+                _mm256_store_pd(lr, vr);
+                _mm256_store_pd(lq, vq);
+                for (int l = 0; l < 4; ++l) {
+                    if (lr[l] > r1_row) r1_row = lr[l];
+                    if (lq[l] < q_row) q_row = lq[l];
+                }
+            }
+#else
+            (void)lanes;
+#endif
+            // j >= i: the upper triangle, diagonal included (the lanes'
+            // columns above, the rest here).
+            for (py::ssize_t j = j0; j < n; ++j) {
                 const double dx = xi - xp[j];
                 const double dy = yi - yp[j];
                 const double rho2 = dx * dx + dy * dy;
@@ -1660,11 +2059,87 @@ static py::tuple pair_extents_below(py::array_t<double, py::array::c_style |
 
 namespace {
 
+typedef std::complex<double> cd_fg;
 constexpr py::ssize_t FG_BATCH = 4;
 // h is built on the stack per column; q is a quadrature order (6 here), not
 // a mesh dimension, so a fixed bound is honest rather than a limit anyone
 // meets. Checked below.
 constexpr py::ssize_t FG_MAX_Q = 64;
+
+// One accumulation target of the assembly: Q itself, or (momwire#1290) the
+// symmetric route's mirror, Q.T with its own source positions. `cols` are the
+// basis columns stage 2 visits.
+struct FgTarget {
+    cd_fg *Qp;
+    py::ssize_t sr, sc;
+    const std::int64_t *ps;
+    std::vector<std::int64_t> js_of;
+    std::vector<double> hcol;
+    std::vector<py::ssize_t> cols;
+};
+
+// One batch of row-wings sharing an observer index: their basis rows, the Q
+// rows they land in, and (in `fg_g`) their g q-vectors.
+struct FgBatch {
+    py::ssize_t ic, nk;
+    py::ssize_t mb[FG_BATCH], mr[FG_BATCH];
+};
+
+// Stage 2 for one batch into one target: one basis column per thread, so
+// every Q entry a thread writes is its own.
+static void fg_stage2(FgTarget &T, const FgBatch &bt, const cd_fg *F,
+                      py::ssize_t nsq, py::ssize_t q, py::ssize_t A,
+                      double scale) {
+    const py::ssize_t ncol = static_cast<py::ssize_t>(T.cols.size());
+    const py::ssize_t nk = bt.nk;
+    #pragma omp parallel for schedule(static)
+    for (py::ssize_t c = 0; c < ncol; ++c) {
+        const py::ssize_t n = T.cols[c];
+        cd_fg s[FG_BATCH];
+        for (py::ssize_t k = 0; k < nk; ++k) s[k] = cd_fg(0.0, 0.0);
+        for (py::ssize_t b = 0; b < A; ++b) {
+            const std::int64_t js = T.js_of[n * A + b];
+            if (js < 0) continue;
+            const double *h = &T.hcol[(n * A + b) * q];
+            for (py::ssize_t k = 0; k < nk; ++k) {
+                const cd_fg *fp = &F[k * nsq + js * q];
+                cd_fg t(0.0, 0.0);
+                for (py::ssize_t r = 0; r < q; ++r) t += fp[r] * h[r];
+                s[k] += t;
+            }
+        }
+        // `scale` multiplies each CONTRIBUTION as it lands, never Q and
+        // never a factor. Never Q: this is one chunk of an observer loop,
+        // and scaling the target would re-scale every chunk already in it.
+        // Never a factor (g, h or the projected table): that would move the
+        // rounding, and scale = 1.0 has to reproduce the unscaled numbers bit
+        // for bit.
+        for (py::ssize_t k = 0; k < nk; ++k)
+            T.Qp[bt.mr[k] * T.sr + n * T.sc] += scale * s[k];
+    }
+}
+
+#if MW568_LANES
+// Stage 1 for two adjacent (j, r) entries, NK row-wings: each lane is the
+// scalar step `acc += g * v` -- the real product of each part, then the add,
+// q in order from +0.0 -- on its own part.
+template <int NK>
+static inline void fg_stage1_two(const cd_fg *col, py::ssize_t nsq,
+                                 py::ssize_t q, const double *g, cd_fg *F,
+                                 py::ssize_t jr) {
+    __m256d acc[NK];
+    for (int k = 0; k < NK; ++k) acc[k] = _mm256_setzero_pd();
+    for (py::ssize_t iq = 0; iq < q; ++iq) {
+        const __m256d v = _mm256_loadu_pd(
+            reinterpret_cast<const double *>(col + iq * nsq + jr));
+        for (int k = 0; k < NK; ++k)
+            acc[k] = _mm256_add_pd(
+                acc[k], _mm256_mul_pd(_mm256_set1_pd(g[k * q + iq]), v));
+    }
+    for (int k = 0; k < NK; ++k)
+        _mm256_storeu_pd(reinterpret_cast<double *>(F + k * nsq + jr), acc[k]);
+}
+#endif
 
 }  // namespace
 
@@ -1681,7 +2156,10 @@ static void assemble_field_galerkin(
     py::array Q,
     bool fused,
     double scale,
-    py::object row_of) {
+    py::object row_of,
+    py::object mirror_pos_s,
+    py::object mirror_Q,
+    bool lanes) {
     typedef std::complex<double> cd;
 
     // Q is the ACCUMULATION TARGET, which is why it arrives as a bare
@@ -1786,11 +2264,59 @@ static void assemble_field_galerkin(
         if (ss[e] < 0 || ss[e] >= n_seg)
             throw std::invalid_argument("supp_seg holds a segment id outside pos_o");
 
-    // The column wings, once per call: their source index and their h-vector.
-    // js < 0 is a wing belonging to the other medium, which drops out of the
-    // block rather than being clamped into it.
-    std::vector<std::int64_t> js_of(static_cast<size_t>(nb) * A);
-    std::vector<double> hcol(static_cast<size_t>(nb) * A * q);
+    // momwire#1290: the symmetric route's MIRROR in the same call. The route
+    // assembles each projected chunk twice from one table, into Q and,
+    // through other source positions, into Q.T; stage 1 depends on neither,
+    // so it ran twice for the same F. Given `mirror_pos_s` and `mirror_Q`,
+    // F is formed once and stage 2 runs into both targets -- every batch
+    // into Q first, then every batch into the mirror, which is the order of
+    // the two calls this replaces, so each entry takes its adds in the same
+    // order and they are the same floats.
+    const bool has_mirror = !mirror_Q.is_none();
+    if (has_mirror == mirror_pos_s.is_none())
+        throw std::invalid_argument("mirror_pos_s and mirror_Q come together");
+    if (has_mirror && (!row_of.is_none() || !fused))
+        throw std::invalid_argument(
+            "a mirror target is the fused route's, on a square Q");
+    py::array Q2;
+    py::array_t<std::int64_t, py::array::c_style | py::array::forcecast> ps2a;
+    if (has_mirror) {
+        if (!py::isinstance<py::array_t<cd>>(mirror_Q))
+            throw std::invalid_argument("mirror_Q must be a complex128 array");
+        Q2 = mirror_Q.cast<py::array>();
+        if (!Q2.writeable() || Q2.ndim() != 2 || Q2.shape(0) != nb ||
+            Q2.shape(1) != nb)
+            throw std::invalid_argument(
+                "mirror_Q must be a writeable (n_basis, n_basis) array");
+        if (Q2.strides(0) % static_cast<py::ssize_t>(sizeof(cd)) != 0 ||
+            Q2.strides(1) % static_cast<py::ssize_t>(sizeof(cd)) != 0)
+            throw std::invalid_argument(
+                "mirror_Q's strides must be whole complex128 elements");
+        ps2a = mirror_pos_s.cast<
+            py::array_t<std::int64_t, py::array::c_style | py::array::forcecast>>();
+        if (ps2a.ndim() != 1 || ps2a.shape(0) != n_seg)
+            throw std::invalid_argument(
+                "mirror_pos_s must have one entry per segment");
+    }
+
+    // The column wings, once per target: their source index and their
+    // h-vector. js < 0 is a wing belonging to the other medium, which drops
+    // out of the block rather than being clamped into it.
+    std::vector<FgTarget> tg(has_mirror ? 2 : 1);
+    tg[0].Qp = Qp;
+    tg[0].sr = sr;
+    tg[0].sc = sc;
+    tg[0].ps = ps;
+    if (has_mirror) {
+        tg[1].Qp = static_cast<cd *>(Q2.mutable_data());
+        tg[1].sr = Q2.strides(0) / static_cast<py::ssize_t>(sizeof(cd));
+        tg[1].sc = Q2.strides(1) / static_cast<py::ssize_t>(sizeof(cd));
+        tg[1].ps = ps2a.data();
+    }
+    for (auto &t : tg) {
+        t.js_of.assign(static_cast<size_t>(nb) * A, 0);
+        t.hcol.assign(static_cast<size_t>(nb) * A * q, 0.0);
+    }
     // Row-wings whose observer segment is in this chunk, bucketed by local
     // observer index so one pass over `proj` serves every one of them.
     std::vector<std::vector<std::pair<py::ssize_t, py::ssize_t>>> at(nc);
@@ -1821,106 +2347,154 @@ static void assemble_field_galerkin(
         }
 
     std::vector<cd> F, T, Jc;
-    std::vector<double> g;
-    if (fused) {
-        F.assign(static_cast<size_t>(FG_BATCH) * nsq, cd(0.0, 0.0));
-        g.assign(static_cast<size_t>(FG_BATCH) * q, 0.0);
-    } else {
+    if (!fused) {
         T.assign(static_cast<size_t>(P) * nc * nsq, cd(0.0, 0.0));
         Jc.assign(static_cast<size_t>(P) * P * nc * ns, cd(0.0, 0.0));
     }
-    py::ssize_t mb[FG_BATCH];
-    // The Q row each batch slot lands in: mb itself on the square target.
-    py::ssize_t mr[FG_BATCH];
-    const std::int64_t *rp = rof.empty() ? nullptr : rof.data();
+    // The fused route's batches, formed up front (they read only the
+    // inputs): row-wings of one observer index, at most FG_BATCH of them and
+    // never one basis row twice, each with its g q-vectors in `gb`.
+    std::vector<FgBatch> batches;
+    std::vector<double> gb;
+    if (fused) {
+        for (py::ssize_t ic = 0; ic < nc; ++ic) {
+            const auto &bucket = at[ic];
+            py::ssize_t taken = 0;
+            while (taken < static_cast<py::ssize_t>(bucket.size())) {
+                FgBatch bt;
+                bt.ic = ic;
+                py::ssize_t nk = 0;
+                const size_t g0 = gb.size();
+                gb.resize(g0 + static_cast<size_t>(FG_BATCH) * q, 0.0);
+                while (taken < static_cast<py::ssize_t>(bucket.size()) &&
+                       nk < FG_BATCH) {
+                    const py::ssize_t m = bucket[taken].first;
+                    const py::ssize_t a = bucket[taken].second;
+                    bool dup = false;
+                    for (py::ssize_t u = 0; u < nk; ++u)
+                        if (bt.mb[u] == m) dup = true;
+                    if (dup) break;
+                    bt.mb[nk] = m;
+                    bt.mr[nk] = rof.empty() ? m : static_cast<py::ssize_t>(rof[m]);
+                    for (py::ssize_t iq = 0; iq < q; ++iq) {
+                        double acc = 0.0;
+                        for (py::ssize_t p = 0; p < P; ++p)
+                            acc += pl[(m * A + a) * P + p] * wo[(p * nc + ic) * q + iq];
+                        gb[g0 + nk * q + iq] = acc;
+                    }
+                    ++nk;
+                    ++taken;
+                }
+                bt.nk = nk;
+                batches.push_back(bt);
+            }
+        }
+        // One F per batch when a mirror will read it again, else one reused.
+        const size_t n_f = has_mirror ? batches.size() : 1;
+        F.assign(n_f * static_cast<size_t>(FG_BATCH) * nsq, cd(0.0, 0.0));
+    }
+    // momwire#1290: stage 2 visits only the columns with a live wing, when
+    // that is exact. A column whose every wing drops out contributes
+    // `scale * (+0, +0)`, and for a scale whose sign bit is set that is
+    // (-0, -0), which adds to any double as the identity -- so skipping the
+    // add moves no bit, and saves a strided write per dead column (half the
+    // columns, on average, of the symmetric route's chunks). For a positive
+    // scale the add of +0 would turn a -0 entry into +0, so every column is
+    // still visited.
+    const bool skip_dead = lanes && std::signbit(scale);
+#if MW568_LANES
+    const bool use_lanes = lanes;
+#endif
 
     {
         py::gil_scoped_release release;
 
-        #pragma omp parallel for schedule(static)
-        for (py::ssize_t e = 0; e < nb * A; ++e) {
-            const std::int64_t js = ps[ss[e]];
-            js_of[e] = js;
-            if (js < 0) continue;
-            for (py::ssize_t r = 0; r < q; ++r) {
-                double acc = 0.0;
-                for (py::ssize_t p = 0; p < P; ++p)
-                    acc += pl[e * P + p] * ws[(p * ns + js) * q + r];
-                hcol[e * q + r] = acc;
+        for (auto &t : tg) {
+            std::int64_t *js_of = t.js_of.data();
+            double *hcol = t.hcol.data();
+            const std::int64_t *pss = t.ps;
+            #pragma omp parallel for schedule(static)
+            for (py::ssize_t e = 0; e < nb * A; ++e) {
+                const std::int64_t js = pss[ss[e]];
+                js_of[e] = js;
+                if (js < 0) continue;
+                for (py::ssize_t r = 0; r < q; ++r) {
+                    double acc = 0.0;
+                    for (py::ssize_t p = 0; p < P; ++p)
+                        acc += pl[e * P + p] * ws[(p * ns + js) * q + r];
+                    hcol[e * q + r] = acc;
+                }
+            }
+            t.cols.reserve(nb);
+            for (py::ssize_t n = 0; n < nb; ++n) {
+                bool live = !skip_dead;
+                for (py::ssize_t b = 0; b < A && !live; ++b)
+                    live = js_of[n * A + b] >= 0;
+                if (live) t.cols.push_back(n);
             }
         }
 
         if (fused) {
-            for (py::ssize_t ic = 0; ic < nc; ++ic) {
-                const auto &bucket = at[ic];
-                py::ssize_t taken = 0;
-                while (taken < static_cast<py::ssize_t>(bucket.size())) {
-                    py::ssize_t nk = 0;
-                    while (taken < static_cast<py::ssize_t>(bucket.size()) &&
-                           nk < FG_BATCH) {
-                        const py::ssize_t m = bucket[taken].first;
-                        const py::ssize_t a = bucket[taken].second;
-                        bool dup = false;
-                        for (py::ssize_t u = 0; u < nk; ++u)
-                            if (mb[u] == m) dup = true;
-                        if (dup) break;
-                        mb[nk] = m;
-                        mr[nk] = rp ? static_cast<py::ssize_t>(rp[m]) : m;
-                        for (py::ssize_t iq = 0; iq < q; ++iq) {
-                            double acc = 0.0;
-                            for (py::ssize_t p = 0; p < P; ++p)
-                                acc += pl[(m * A + a) * P + p] * wo[(p * nc + ic) * q + iq];
-                            g[nk * q + iq] = acc;
+            const py::ssize_t nbt = static_cast<py::ssize_t>(batches.size());
+            for (py::ssize_t bi = 0; bi < nbt; ++bi) {
+                const FgBatch &bt = batches[bi];
+                const py::ssize_t ic = bt.ic, nk = bt.nk;
+                const double *g = &gb[static_cast<size_t>(bi) * FG_BATCH * q];
+                cd *Fb = &F[(has_mirror ? static_cast<size_t>(bi) : 0) *
+                            FG_BATCH * nsq];
+                const cd *col = pj + ic * q * nsq;
+                // Stage 1: F[k, j, r] = sum_q g[k,q] * proj[ic*q+q, j*q+r]
+#if MW568_LANES
+                if (use_lanes) {
+                    const py::ssize_t npair = nsq / 2;
+                    #pragma omp parallel for schedule(static)
+                    for (py::ssize_t jp = 0; jp < npair; ++jp) {
+                        const py::ssize_t jr = 2 * jp;
+                        switch (nk) {
+                            case 1: fg_stage1_two<1>(col, nsq, q, g, Fb, jr); break;
+                            case 2: fg_stage1_two<2>(col, nsq, q, g, Fb, jr); break;
+                            case 3: fg_stage1_two<3>(col, nsq, q, g, Fb, jr); break;
+                            default: fg_stage1_two<4>(col, nsq, q, g, Fb, jr); break;
                         }
-                        ++nk;
-                        ++taken;
                     }
-
-                    // Stage 1: F[k, j, r] = sum_q g[k,q] * proj[ic*q+q, j*q+r]
+                    if (nsq % 2) {
+                        const py::ssize_t jr = nsq - 1;
+                        cd acc[FG_BATCH];
+                        for (py::ssize_t k = 0; k < nk; ++k) acc[k] = cd(0.0, 0.0);
+                        for (py::ssize_t iq = 0; iq < q; ++iq) {
+                            const cd v = col[iq * nsq + jr];
+                            for (py::ssize_t k = 0; k < nk; ++k)
+                                acc[k] += g[k * q + iq] * v;
+                        }
+                        for (py::ssize_t k = 0; k < nk; ++k) Fb[k * nsq + jr] = acc[k];
+                    }
+                } else
+#endif
+                {
                     #pragma omp parallel for schedule(static)
                     for (py::ssize_t jr = 0; jr < nsq; ++jr) {
                         cd acc[FG_BATCH];
                         for (py::ssize_t k = 0; k < nk; ++k) acc[k] = cd(0.0, 0.0);
                         for (py::ssize_t iq = 0; iq < q; ++iq) {
-                            const cd v = pj[(ic * q + iq) * nsq + jr];
+                            const cd v = col[iq * nsq + jr];
                             for (py::ssize_t k = 0; k < nk; ++k)
                                 acc[k] += g[k * q + iq] * v;
                         }
-                        for (py::ssize_t k = 0; k < nk; ++k) F[k * nsq + jr] = acc[k];
-                    }
-
-                    // Stage 2: one basis column per thread, so every Q entry a
-                    // thread writes is its own.
-                    #pragma omp parallel for schedule(static)
-                    for (py::ssize_t n = 0; n < nb; ++n) {
-                        cd s[FG_BATCH];
-                        for (py::ssize_t k = 0; k < nk; ++k) s[k] = cd(0.0, 0.0);
-                        for (py::ssize_t b = 0; b < A; ++b) {
-                            const std::int64_t js = js_of[n * A + b];
-                            if (js < 0) continue;
-                            const double *h = &hcol[(n * A + b) * q];
-                            for (py::ssize_t k = 0; k < nk; ++k) {
-                                const cd *fp = &F[k * nsq + js * q];
-                                cd t(0.0, 0.0);
-                                for (py::ssize_t r = 0; r < q; ++r) t += fp[r] * h[r];
-                                s[k] += t;
-                            }
-                        }
-                        // `scale` multiplies each CONTRIBUTION as it lands,
-                        // never Q and never a factor. Never Q: this is one
-                        // chunk of an observer loop, and scaling the target
-                        // would re-scale every chunk already in it. Never a
-                        // factor (g, h or the projected table): that would
-                        // move the rounding, and scale = 1.0 has to reproduce
-                        // the unscaled numbers bit for bit.
-                        for (py::ssize_t k = 0; k < nk; ++k)
-                            Qp[mr[k] * sr + n * sc] += scale * s[k];
+                        for (py::ssize_t k = 0; k < nk; ++k) Fb[k * nsq + jr] = acc[k];
                     }
                 }
+                fg_stage2(tg[0], bt, Fb, nsq, q, A, scale);
             }
+            if (has_mirror)
+                for (py::ssize_t bi = 0; bi < nbt; ++bi)
+                    fg_stage2(tg[1], batches[bi],
+                              &F[static_cast<size_t>(bi) * FG_BATCH * nsq], nsq,
+                              q, A, scale);
         } else {
             // The literal transcription, Jc materialised: the alternative the
             // fused route above was measured against.
+            const std::int64_t *js_of = tg[0].js_of.data();
+            const std::int64_t *rp = rof.empty() ? nullptr : rof.data();
             #pragma omp parallel for collapse(2) schedule(static)
             for (py::ssize_t p = 0; p < P; ++p)
                 for (py::ssize_t ic = 0; ic < nc; ++ic) {
@@ -2031,8 +2605,9 @@ void register_mw568(py::module_ &m) {
           "and leaves one sqrt and one atan for the whole cloud. Returns "
           "A pair with rho == hh == 0 yields 0/0; it is dropped from the "
           "minimum, which is what the numpy reference's Python-level min does "
-          "with the same NaN.",
-          py::arg("x"), py::arg("y"), py::arg("d_b"));
+          "with the same NaN. `lanes=False` is the scalar loop the AVX2 "
+          "lanes are gated against (perf item 9); the two are bit-identical.",
+          py::arg("x"), py::arg("y"), py::arg("d_b"), py::arg("lanes") = true);
     m.def("assemble_field_galerkin", &assemble_field_galerkin,
           "Accumulate one observer chunk of bspline._field_galerkin_block's "
           "assembly into Q, in place. Fuses the two moment sums into a "
@@ -2055,7 +2630,13 @@ void register_mw568(py::module_ &m) {
           py::arg("supp_seg"), py::arg("polys"), py::arg("pos_o"),
           py::arg("pos_s"), py::arg("i0"), py::arg("Q"),
           py::arg("fused") = true, py::arg("scale") = 1.0,
-          py::arg("row_of") = py::none());
+          py::arg("row_of") = py::none(), py::arg("mirror_pos_s") = py::none(),
+          py::arg("mirror_Q") = py::none(), py::arg("lanes") = true);
+    // momwire#1290: `mirror_pos_s`/`mirror_Q` (the symmetric route's two
+    // targets from one stage 1), and `lanes` -- the AVX2 stage 1 and the
+    // dead-column skip; `lanes=False` is the scalar route they are gated
+    // against.
+    m.attr("field_galerkin_mirror_1290") = true;
     m.def("bessel_j0_j1x_complex", &bessel_j0_j1x_complex,
           "(J0(x), J1(x)/x) at COMPLEX x -- the C++ twin of "
           "_sommerfeld._bessel_j0_j1x, with the same |x| < 1e-6 series switch. "
@@ -2101,7 +2682,7 @@ void register_mw568(py::module_ &m) {
           py::arg("gx"), py::arg("gw"), py::arg("selfconv"),
           py::arg("rtol_coarse"), py::arg("depth_coarse"),
           py::arg("detour_coarse"), py::arg("gxc"), py::arg("gwc"),
-          py::arg("max_panels"));
+          py::arg("max_panels"), py::arg("cancel_flag") = 0);
     m.def("remainder_field_proj_batch_below", &remainder_field_proj_batch_below,
           "Interpolated + projected below/below remainder table — the complex-"
           "wavenumber TWIN of remainder_field_proj_batch (which carries a "
@@ -2118,10 +2699,20 @@ void register_mw568(py::module_ &m) {
           py::arg("r1_max"), py::arg("r_break"), py::arg("th_split"),
           py::arg("r_near"), py::arg("reg_r0"), py::arg("reg_dr"),
           py::arg("reg_th0"), py::arg("reg_dth"), py::arg("reg_vals"),
-          py::arg("blocked") = true);
+          py::arg("blocked") = true, py::arg("lanes") = true);
     // momwire#1224: `blocked=False` reaches the per-pair composition, the
     // reference the blocked loop is gated against as uint64.
     m.attr("below_replay_blocked_1224") = true;
+    // momwire#1290: whether this build runs the blocked loop's stages four
+    // pairs to a vector (the AVX2 variant does). Either way `lanes=False`
+    // reaches the scalar blocked loop they are gated against.
+    m.attr("below_lanes_1290") = bool(MW568_LANES);
+    m.def("remainder_moment_reduce", &remainder_moment_reduce,
+          "The projected remainder's arc moments, mom[o, j, p] = sum_k "
+          "proj[o, j*q + k] * W[p, j, k] with W real -- the einsum "
+          "'ojq,pjq->ojp' in numpy's own unfused, k-ordered arithmetic "
+          "(momwire#1290) -- OpenMP over observer rows with the GIL released.",
+          py::arg("proj"), py::arg("W"));
     m.def("remainder_shape_reduce", &remainder_shape_reduce,
           "The sinusoidal replay's source-node reduction, block[s, i, n] = "
           "sum_k shp_w[s, n, k] * proj[i, n*q + k] -- the einsum "
@@ -2157,7 +2748,7 @@ void register_mw568(py::module_ &m) {
           py::arg("detour"), py::arg("gx"), py::arg("gw"), py::arg("selfconv"),
           py::arg("rtol_coarse"), py::arg("depth_coarse"),
           py::arg("detour_coarse"), py::arg("gxc"), py::arg("gwc"),
-          py::arg("max_panels"));
+          py::arg("max_panels"), py::arg("cancel_flag") = 0);
     m.def("transmitted_field_proj_batch", &transmitted_field_proj_batch,
           "Interpolated + projected transmitted pair table — the C++ twin of "
           "_sommerfeld_transmitted's two projection entry points, ONE kernel "

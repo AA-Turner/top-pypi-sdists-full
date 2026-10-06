@@ -1442,12 +1442,12 @@ def compute_Z_operator_buried(
         )
 
     grid_below = _sommerfeld_below.get_grid_below(
-        eps_t, k_p, plan["r1_below"], omega, mu=mu
+        eps_t, k_p, plan["r1_below"], omega, mu=mu, cancel_flag=cancel_flag
     )
 
     def proj_bb(o, to, s, ts):
         return _sommerfeld_below.remainder_field_proj_below(
-            o, to, s, ts, gz, k_p, k_m, grid_below
+            o, to, s, ts, gz, k_p, k_m, grid_below, cancel_flag
         )
 
     o_b, ot_b, oW_b = _narrow(b_idx, obs_b_idx, obs_b, t_b, W_b)
@@ -1529,14 +1529,20 @@ def compute_Z_operator_buried(
             t_ab = _crossing_fill.cross_complete_block_split(
                 ctx, a_idx, b_idx, ax_a, ax_b, rows=cross_rows
             )
+            # Dense whole-Z passes, a tenth of a second each at x32: polled
+            # between (momwire#1348 scope).
             if cross_rows is None:
                 Z -= t_ab
+                f.checkpoint()
                 Z -= t_ab.T
+                f.checkpoint()
                 _crossing_fill.self_completions(ctx, ax_b, ax_a, out=Z)
             else:
                 t_r, t_c = t_ab
                 Z[z_rows, :] -= t_r
+                f.checkpoint()
                 Z[z_rows, :] -= t_c.T
+                f.checkpoint()
                 Z[z_rows, :] += _crossing_fill.self_completions(
                     ctx, ax_b, ax_a, rows=cross_rows
                 )
@@ -1550,6 +1556,7 @@ def compute_Z_operator_buried(
             omega,
             mu=mu,
             r_min=plan["r_cross_min"],
+            cancel_flag=cancel_flag,
         )
 
         def proj_ab(o, to, s, ts):

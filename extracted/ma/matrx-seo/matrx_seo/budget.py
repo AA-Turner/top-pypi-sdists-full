@@ -233,6 +233,28 @@ class SpendApprovalResolver:
         ceiling (and the approval becomes exhausted)."""
         raise NotImplementedError
 
+    async def reserve(self, approval_id: str, amount_usd: Decimal) -> bool:
+        """Atomically hold ``amount_usd`` of the approval for one run in flight.
+        False = refused: spent + every run in flight + this would pass the
+        ceiling, or the approval is not open. Concurrent runs under one approval
+        can therefore never jointly pass it.
+
+        Default (a host whose store has no holds): True — the caller's own
+        headroom check is then the only guard, as before reservations existed."""
+        return True
+
+    async def settle(
+        self, approval_id: str, reserved_usd: Decimal, actual_usd: Decimal, *, run_id: str
+    ) -> None:
+        """End one run's hold: release ``reserved_usd`` and draw ``actual_usd``
+        (0 for a run that ended before spending). Records even past the ceiling:
+        the money is already spent.
+
+        Default (a host whose store has no holds): record the actual through
+        :meth:`charge`."""
+        if actual_usd > 0:
+            await self.charge(approval_id, actual_usd, run_id=run_id)
+
 
 _spend_approval_resolver: SpendApprovalResolver | None = None
 
@@ -436,6 +458,65 @@ async def charge_spend_approval(
     await _spend_approval_resolver.charge(
         str(request.spend_approval_id), max(amount_usd, Decimal(0)), run_id=run_id
     )
+
+
+class ApprovalHold:
+    """One run's reservation on its spend approval, from reserve to settle.
+
+    ``reserve`` replaces the old in-Python headroom re-check with the database's
+    atomic hold; ``settle`` is called exactly once when the run ends — with the
+    actual cost after a provider response, or by ``release`` with 0 when the run
+    ended any other way (failure, cancellation, refusal downstream)."""
+
+    def __init__(self, request: CollectionRequest) -> None:
+        self.request = request
+        self.reserved_usd = Decimal(0)
+        self.settled = False
+
+    @property
+    def active(self) -> bool:
+        return self.request.spend_approval_id is not None and _spend_approval_resolver is not None
+
+    async def reserve(self, estimate_usd: Decimal) -> None:
+        """Validate the approval (job, site, person, expiry) and hold the estimate.
+        Raises :class:`SpendApprovalExceededError` when either refuses."""
+        state = await check_spend_approval(self.request, estimate_usd)
+        if state is None or _spend_approval_resolver is None:
+            return
+        amount = max(Decimal(str(estimate_usd)), Decimal(0))
+        if not await _spend_approval_resolver.reserve(str(self.request.spend_approval_id), amount):
+            raise SpendApprovalExceededError(
+                approval_id=str(self.request.spend_approval_id),
+                reason="the estimate is larger than what remains once runs in flight are counted",
+                limit_usd=state.ceiling_usd,
+                spent_usd=state.spent_usd,
+                projected_usd=state.spent_usd + amount,
+                new_estimate_usd=amount,
+                scope={
+                    "organization_id": self.request.organization_id,
+                    "operation": self.request.operation,
+                },
+                usable_approval=True,
+            )
+        self.reserved_usd = amount
+
+    async def settle(self, actual_usd: Decimal, *, run_id: str) -> None:
+        if self.settled or not self.active:
+            return
+        self.settled = True
+        assert _spend_approval_resolver is not None
+        await _spend_approval_resolver.settle(
+            str(self.request.spend_approval_id),
+            self.reserved_usd,
+            max(Decimal(str(actual_usd)), Decimal(0)),
+            run_id=run_id,
+        )
+
+    async def release(self, *, run_id: str) -> None:
+        """Settle with nothing spent — a no-op once settled or when nothing was held."""
+        if self.settled or self.reserved_usd == 0:
+            return
+        await self.settle(Decimal(0), run_id=run_id)
 
 
 def current_month_bounds(now: datetime | None = None) -> tuple[datetime, datetime]:
@@ -680,6 +761,7 @@ __all__ = [
     "billable_usd",
     "SpendApprovalResolver",
     "SpendApprovalState",
+    "ApprovalHold",
     "charge_spend_approval",
     "check_spend_approval",
     "get_spend_approval_resolver",

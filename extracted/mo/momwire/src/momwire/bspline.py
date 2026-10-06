@@ -97,7 +97,12 @@ from . import _surface_height
 from ._cancel import _Cancelable
 from ._capabilities import Capabilities
 from ._element_currents import _ElementCurrents
-from ._port_solution import PortSolution, _SweptPortSolutions
+from ._port_solution import (
+    PortSolution,
+    _SweptPortSolutions,
+    port_impedances,
+    refuse_undriven,
+)
 
 # Cross-edge quadrature defaults, resolved per deck by `BSplineSolver.n_qp_pair`.
 # Two constants because there are two fills; see that property for the
@@ -220,6 +225,26 @@ _FIELD_GALERKIN_FUSED = True
 # full rectangle, which is the reference the halved route is gated against;
 # tests flip it, nothing else should.
 _FIELD_GALERKIN_SYMMETRIC = True
+# momwire#1290: the symmetric route's two targets from ONE call, so stage 1
+# (the chunk's table against the row-wings' g vectors) is formed once rather
+# than once per target; and `lanes`, the AVX2 stage 1 and the dead-column
+# skip. Both are the same floats as the two scalar calls they replace
+# (tests/test_field_galerkin_lanes_1290.py). False takes those two calls on
+# the scalar route, the reference; tests flip them, nothing else should.
+_HAVE_FIELD_GALERKIN_MIRROR = _HAVE_FIELD_GALERKIN_STRIDED and getattr(
+    _acc, "field_galerkin_mirror_1290", False
+)
+_FIELD_GALERKIN_MIRROR = True
+_FIELD_GALERKIN_LANES = True
+
+
+def _fg_lanes_kw():
+    """`lanes=False` for the kernel when the reference is asked for."""
+    if _FIELD_GALERKIN_LANES or not _HAVE_FIELD_GALERKIN_MIRROR:
+        return {}
+    return {"lanes": False}
+
+
 _HAVE_BSPLINE_SWEPT_ASSEMBLE_ACCEL = _acc is not None and hasattr(
     _acc, "assemble_Z_bspline_swept"
 )
@@ -833,6 +858,11 @@ def _pair_extents_below(x, y, d_b, rows=256, *, r1_cap=None, floor=None):
     return r1_max, _pair_extents_below_numpy(x, y, d_b, rows, r1_cap)[1]
 
 
+# The AVX2 lanes of the accelerated walk (perf item 9): bit-identical to its
+# scalar loop, which `False` selects (tests/test_pair_extents_lanes_1290.py).
+_PAIR_EXTENTS_LANES = True
+
+
 def _pair_extents_below_all(x, y, d_b, rows):
     """`_pair_extents_below` over every pair: the accelerated walk when there
     is one, else the numpy one."""
@@ -843,7 +873,7 @@ def _pair_extents_below_all(x, y, d_b, rows):
         # 2.31 s -> 0.062 s over the 246 M pairs of a 48-radial screen.
         # The numpy form below stays the reference and the fallback, and is
         # what G-914-1 gates against.
-        r1_max, th_min = _acc.pair_extents_below(x, y, d_b)
+        r1_max, th_min = _acc.pair_extents_below(x, y, d_b, lanes=_PAIR_EXTENTS_LANES)
         return float(r1_max), float(th_min)
     return _pair_extents_below_numpy(x, y, d_b, rows)
 
@@ -1422,6 +1452,44 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         rotational_symmetry=False,
         cancel=None,
     ):
+        # momwire#1042: a wire listed twice is solved once. Dropped here,
+        # before anything reads a wire index, and every wire-indexed argument
+        # remapped; the per-wire readouts re-expand through `_wire_dedup`.
+        (
+            wires,
+            n_per_edge_per_wire,
+            _per_wire,
+            _sites,
+            junctions,
+            self._wire_dedup,
+        ) = _wire_spec.drop_duplicated_wires(
+            type(self).__name__,
+            list(wires) if wires is not None else [],
+            n_per_edge_per_wire,
+            per_wire={
+                "wire_radius": wire_radius,
+                "wire_conductivity": wire_conductivity,
+                "insulation_radius": insulation_radius,
+                "insulation_eps_r": insulation_eps_r,
+                "distributed_rlc": distributed_rlc,
+            },
+            sites={
+                "feeds": feeds,
+                "feed_wire_index": [(feed_wire_index,)] if feeds is None else [],
+                "node_gaps": node_gaps,
+            },
+            junctions=junctions,
+            junction_refs=tuple(junction_ports or ()),
+        )
+        wire_radius = _per_wire["wire_radius"]
+        wire_conductivity = _per_wire["wire_conductivity"]
+        insulation_radius = _per_wire["insulation_radius"]
+        insulation_eps_r = _per_wire["insulation_eps_r"]
+        distributed_rlc = _per_wire["distributed_rlc"]
+        feeds = _sites["feeds"]
+        if feeds is None:
+            feed_wire_index = _sites["feed_wire_index"][0][0]
+        node_gaps = _sites["node_gaps"]
         self._cancel = cancel
         if degree < 1:
             raise ValueError(f"degree must be >= 1, got {degree}")
@@ -1847,6 +1915,17 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         self.rotational_symmetry = bool(rotational_symmetry)
         if self.rotational_symmetry:
             self._rotational_map = self._rotational_check()
+        # momwire#959 (a stopgap until #1330): segments below the radius AT A
+        # GAP leave the delta-gap model unreliable. Advisory, once per solver.
+        _wire_spec.advise_gap_mesh_floor(
+            type(self).__name__,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            self._radius_per_wire,
+            self.extended_kernel,
+            _wire_spec.solver_gaps(self),
+            gap_model="point",
+        )
 
     def _rotational_ground_kind(self):
         """The ground's name for the rotational-symmetry rule (momwire#1029
@@ -2489,6 +2568,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             eps=self.eps,
             a_above=None if two is None else two[0],
             a_below=None if two is None else two[1],
+            cancel=self._cancel,
         )
 
     def _grounded_junctions(self):
@@ -5094,6 +5174,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         L = self._loading_csr_cache[1]
         return L[I][:, J].toarray()
 
+    @_wire_spec.reads_input_wires("loss")
     def wire_loss_power(self, coeffs, omega=None):
         """Ohmic power dissipated in the wire metal, from a solve's coeffs.
 
@@ -5433,7 +5514,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         saved = self.use_singular_enrichment
         self.use_singular_enrichment = False
         try:
-            I_per_wire = self.currents_at_knots(coeffs_poly)
+            I_per_wire = self.currents_at_knots(coeffs_poly, _solved=True)
         finally:
             self.use_singular_enrichment = saved
 
@@ -6236,6 +6317,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                     _FIELD_GALERKIN_FUSED,
                     scale,
                     **({} if row_of is None else {"row_of": row_of}),
+                    **_fg_lanes_kw(),
                 )
                 continue
             fq = proj.reshape(i1 - i0, q, n_src, q)
@@ -6304,8 +6386,11 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         i0 -- the diagonal block in both orders, and the upper rectangle once.
         That table is assembled twice: as itself into Q, and, with the
         chunk's own columns masked out, into Q.T, which writes the lower
-        rectangle (n, m) for n past i1. Each ordered segment pair lands
-        exactly once. The kernel projects sum_c c·(n - i0) pairs instead of
+        rectangle (n, m) for n past i1 -- both from one kernel call since
+        momwire#1290, which contracts the table against the chunk's rows
+        once and accumulates into Q and then Q.T, the order of the two calls
+        it replaced. Each ordered segment pair lands exactly once. The
+        kernel projects sum_c c·(n - i0) pairs instead of
         n², i.e. 1/2 + chunk/(2n) of them.
 
         Not bit-identical to the rectangle, and not meant to be: a lower
@@ -6328,6 +6413,18 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             # Source positions relative to the table's first column; a
             # segment before i0 (or off this axis) drops out as -1.
             pos_from_i0 = np.where(pos >= i0, pos - i0, -1)
+            mirror = {}
+            if (
+                i1 < n_axis
+                and _FIELD_GALERKIN_MIRROR
+                and _FIELD_GALERKIN_FUSED
+                and _HAVE_FIELD_GALERKIN_MIRROR
+            ):
+                # momwire#1290: the mirror below, in the same call.
+                mirror = {
+                    "mirror_pos_s": np.where(pos >= i1, pos - i0, -1),
+                    "mirror_Q": QT,
+                }
             _acc.assemble_field_galerkin(
                 proj,
                 W_rows,
@@ -6340,8 +6437,10 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 Q,
                 _FIELD_GALERKIN_FUSED,
                 scale,
+                **mirror,
+                **_fg_lanes_kw(),
             )
-            if i1 < n_axis:
+            if i1 < n_axis and not mirror:
                 # The mirror: the same table with the chunk's own columns
                 # masked (the diagonal block is already in, in both orders),
                 # written through the transposed target.
@@ -6358,6 +6457,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                     QT,
                     _FIELD_GALERKIN_FUSED,
                     scale,
+                    **_fg_lanes_kw(),
                 )
             del proj
 
@@ -7075,6 +7175,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             volts[p] = v_i
         return cols, volts
 
+    @_wire_spec.reads_input_wires("placements")
     def feed_placements(self):
         """Where each entry of ``feeds`` lands, as one
         :class:`~momwire.FeedPlacement` per feed, in order (momwire#1059).
@@ -7233,10 +7334,21 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             [u_i @ coeffs_full[: u_i.shape[0]] for u_i in port_vectors],
             dtype=np.complex128,
         )
-        z_per = all_voltages / currents
+        z_per = port_impedances(all_voltages, currents)
         return z_per[0] if len(port_vectors) == 1 else z_per
 
+    def _configured_port_voltages(self):
+        """Every port's configured drive, [gap feeds, junction ports, node
+        gaps] — the `all_voltages` of `_feed_drive_and_readout`, read without
+        a geometry so `refuse_undriven` can run ahead of the fill."""
+        return (
+            [v for _, _, v in self.feeds]
+            + [v for _j, v in self.junction_ports]
+            + [v for _w, _e, v in self.node_gaps]
+        )
+
     def compute_impedance(self, same_edge_prep=None):
+        refuse_undriven(self._configured_port_voltages())  # momwire#1164
         if self._rotational_map is not None:
             return self._compute_impedance_rotational()
         geom = self._build_geometry()
@@ -7835,7 +7947,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         for c0, ks, Z in self._swept_batched_z_chunks(k_array, geom, supp_seg, polys):
             coeffs = self._solve_with_kcl_batch(Z, v, kcl_con)
             currents = coeffs @ vpf_T  # (chunk, n_total)
-            z_per = all_voltages[None, :] / currents
+            z_per = port_impedances(all_voltages[None, :], currents)
             z_out[c0 : c0 + ks.shape[0]] = z_per[:, 0] if n_total == 1 else z_per
 
         return z_out
@@ -7865,6 +7977,8 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         it.
         """
         _refuse_complex_k(k_array, "BSplineSolver.compute_impedance_swept")
+        # Up front, so an undriven deck refuses even at an empty sweep.
+        refuse_undriven(self._configured_port_voltages())  # momwire#1164
         k_array = np.asarray(k_array, dtype=float)
         n_total = len(self.feeds) + len(self.junction_ports)
         if n_total == 1:
@@ -7900,6 +8014,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 z_out[i] = z
         return z_out
 
+    @_wire_spec.reads_input_wires("per_wire")
     def current_slopes(self, coeffs, s_array=None):
         """Per-wire ``dI/ds`` — the solved current's arc-length derivative.
 
@@ -7963,6 +8078,7 @@ class BSplineSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             out.append(np.asarray(spline.derivative(1)(s_eval), dtype=np.complex128))
         return out
 
+    @_wire_spec.reads_input_wires("per_wire")
     def currents_at_knots(self, coeffs, s_array=None):
         """Per-wire complex current at every mesh knot.
 

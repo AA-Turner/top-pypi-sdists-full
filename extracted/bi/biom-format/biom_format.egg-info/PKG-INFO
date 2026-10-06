@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: biom_format
-Version: 2.1.17
+Version: 2.1.18
 Summary: Biological Observation Matrix (BIOM) format
 Author: Greg Caporaso, Jai Ram Rideout, Jose Clemente, Jorge Cañardo Alastuey, Michael Hall, Justin Kuczynski, Jesse Stombaugh, Doug Wendel, Andreas Wilke, Susan Huse, John Hufnagle, Folker Meyer, Rob Knight
 Author-email: Daniel McDonald <damcdonald@ucsd.edu>
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Operating System :: OS Independent
 Classifier: Operating System :: POSIX :: Linux

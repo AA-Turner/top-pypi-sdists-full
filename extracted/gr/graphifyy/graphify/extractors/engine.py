@@ -1400,7 +1400,7 @@ def _python_collect_assignment_targets(node, source: bytes, out: set[str]) -> No
 # Languages whose `self`/`this` member calls bind through _self_call_target.
 _SELF_CALL_LANGUAGES = frozenset({
     "tree_sitter_python", "tree_sitter_javascript", "tree_sitter_typescript",
-    "tree_sitter_swift", "tree_sitter_ruby",
+    "tree_sitter_swift", "tree_sitter_ruby", "tree_sitter_php",
 })
 
 def _self_call_target(
@@ -1413,9 +1413,9 @@ def _self_call_target(
     methods_by_owner: dict[tuple[str, str], str],
     class_bases: dict[str, list[str]],
     walk_bases: bool = True,
+    require_method_owner: bool = False,
 ) -> str | None:
-    """In-file target of `self.m()` / `cls.m()` / `super().m()` in Python and
-    `this.m()` / `super.m()` in JS/TS, else None.
+    """In-file target of a known current-instance or base-instance method call.
 
     ``walk_bases=False`` stops after the caller's own class and otherwise keeps
     the plain lookup: JS/TS `extends` edges come from the later symbol pass, so
@@ -1436,7 +1436,7 @@ def _self_call_target(
         scope = scope_parents.get(scope)
     fallback = label_to_nid.get(callee)
     if not scope:
-        return fallback
+        return None if require_method_owner else fallback
     level = [method_owner[scope]]
     seen: set[str] = set()
     skip_own = receiver == "super"
@@ -2753,6 +2753,75 @@ def _js_scan_member_assignments(
             function_bodies.append((m_nid, m_body))
 
 
+def _js_find_exported_objects(program_node, source: bytes) -> set[str]:
+    """Find names of identifiers exported from a JS module (CJS or ESM)."""
+    if program_node is None or program_node.type != "program":
+        return set()
+    exported = set()
+    for child in program_node.children:
+        if child.type == "export_statement":
+            for c in child.children:
+                if c.type == "identifier":
+                    exported.add(_read_text(c, source))
+                elif c.type == "export_clause":
+                    for sc in c.children:
+                        if sc.type == "export_specifier":
+                            name_node = sc.child_by_field_name("name")
+                            if name_node:
+                                exported.add(_read_text(name_node, source))
+                elif c.type in ("variable_declaration", "lexical_declaration"):
+                    for decl in c.children:
+                        if decl.type == "variable_declarator":
+                            name_node = decl.child_by_field_name("name")
+                            if name_node and name_node.type == "identifier":
+                                exported.add(_read_text(name_node, source))
+        elif child.type in ("variable_declaration", "lexical_declaration"):
+            for decl in child.children:
+                if decl.type != "variable_declarator":
+                    continue
+                name_node = decl.child_by_field_name("name")
+                val_node = decl.child_by_field_name("value")
+                if name_node and name_node.type == "identifier" and val_node:
+                    name_str = _read_text(name_node, source)
+                    curr = val_node
+                    while curr and curr.type == "assignment_expression":
+                        left = curr.child_by_field_name("left")
+                        if left:
+                            left_str = _read_text(left, source)
+                            if left_str in ("module.exports", "exports") or left_str.startswith(("module.exports.", "exports.")):
+                                exported.add(name_str)
+                                break
+                        curr = curr.child_by_field_name("right")
+                    if curr:
+                        val_str = _read_text(curr, source)
+                        if val_str in ("module.exports", "exports"):
+                            exported.add(name_str)
+        elif child.type == "expression_statement":
+            assign = next((c for c in child.children if c.type == "assignment_expression"), None)
+            if assign:
+                left = assign.child_by_field_name("left")
+                right = assign.child_by_field_name("right")
+                if left:
+                    left_str = _read_text(left, source)
+                    if left_str in ("module.exports", "exports") or left_str.startswith(("module.exports.", "exports.")):
+                        curr = right
+                        while curr and curr.type == "assignment_expression":
+                            l = curr.child_by_field_name("left")
+                            if l and l.type == "identifier":
+                                exported.add(_read_text(l, source))
+                            curr = curr.child_by_field_name("right")
+                        if curr and curr.type == "identifier":
+                            exported.add(_read_text(curr, source))
+                        elif curr and curr.type == "object":
+                            for prop in curr.children:
+                                if prop.type == "shorthand_property_identifier":
+                                    exported.add(_read_text(prop, source))
+                                elif prop.type == "pair":
+                                    v = prop.child_by_field_name("value")
+                                    if v and v.type == "identifier":
+                                        exported.add(_read_text(v, source))
+    return exported
+
 def _js_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
                    nodes: list, edges: list, seen_ids: set, function_bodies: list,
                    parent_class_nid: str | None, add_node_fn, add_edge_fn,
@@ -2828,6 +2897,20 @@ def _js_extra_walk(node, source: bytes, file_nid: str, stem: str, str_path: str,
                             add_node_fn(nid, f".{member_name}()", line)
                             add_edge_fn(owner_nid, nid, "method", line)
                             handled = True
+                        elif kind == "object":
+                            is_exported = False
+                            if node.parent is not None and node.parent.type == "program":
+                                exported_names = _js_find_exported_objects(node.parent, source)
+                                is_exported = owner_name in exported_names
+                            if is_exported:
+                                owner_nid = _make_id(stem, owner_name)
+                                nid = _make_id(owner_nid, member_name)
+                                if owner_nid not in seen_ids:
+                                    add_node_fn(owner_nid, owner_name, line)
+                                    add_edge_fn(file_nid, owner_nid, "contains", line)
+                                add_node_fn(nid, f".{member_name}()", line)
+                                add_edge_fn(owner_nid, nid, "method", line)
+                                handled = True
                         if handled:
                             if callable_def_nids is not None:
                                 callable_def_nids.add(nid)  # CJS/prototype fn is callable
@@ -4364,6 +4447,10 @@ def _extract_generic(
 
     file_nid = _make_id(str(path))
     add_node(file_nid, path.name, 1)
+    if not source:
+        # #4041: a zero-byte file has no line 1. Keep the node (an empty
+        # __init__.py is still a module others import) but leave it unanchored.
+        next(n for n in nodes if n["id"] == file_nid)["source_location"] = None
     if config.ts_module == "tree_sitter_ruby":
         file_node = next(n for n in nodes if n["id"] == file_nid)
         file_metadata = {"ruby_resolution_schema": 1}
@@ -5056,6 +5143,22 @@ def _extract_generic(
                             if target_nid != class_nid:
                                 add_edge(class_nid, target_nid, "references",
                                          cp_line, context=ctx)
+                # Class-level context bounds (`class Foo[A: Ordering]`, also on
+                # traits and enums) are the same typeclass dependency as the
+                # method-level case (#2046), so they get the same `type_bound`
+                # context, attributed to the class (#4080).
+                for c in node.children:
+                    if c.type != "type_parameters":
+                        continue
+                    bound_refs: list[tuple[str, str]] = []
+                    _scala_collect_context_bounds(c, source, bound_refs)
+                    for ref_name, role in bound_refs:
+                        ctx = ("generic_arg" if role == "generic_arg"
+                               else "type_bound")
+                        target_nid = ensure_named_node(ref_name, line)
+                        if target_nid != class_nid:
+                            add_edge(class_nid, target_nid, "references",
+                                     line, context=ctx)
 
             # C#: a primary constructor (`class Foo(IBar bar)`, C# 12+) declares
             # its dependencies on the type declaration itself rather than in a
@@ -6532,6 +6635,8 @@ def _extract_generic(
             if e["relation"] == "method":
                 method_owner[e["target"]] = e["source"]
                 name = label_by_nid.get(e["target"], "").strip("()").lstrip(".")
+                if config.ts_module == "tree_sitter_php":
+                    name = name.casefold()
                 methods_by_owner.setdefault((e["source"], name), e["target"])
 
     def _fields_up_chain(tables: dict, class_nid) -> dict:
@@ -7099,6 +7204,12 @@ def _extract_generic(
                     name_node = node.child_by_field_name("name")
                     if name_node:
                         callee_name = _read_text(name_node, source)
+                    receiver = node.child_by_field_name("object")
+                    if (receiver is not None
+                            and _read_text(receiver, source) == "$this"
+                            and callee_name
+                            and callee_name.casefold() in _LANGUAGE_BUILTIN_GLOBALS):
+                        self_receiver = "this"
             elif config.ts_module == "tree_sitter_cpp":
                 # C++: function field, then field_expression/qualified_identifier
                 func_node = node.child_by_field_name(config.call_function_field) if config.call_function_field else None
@@ -7288,7 +7399,9 @@ def _extract_generic(
             # receiver-typed defers just past this comment) means it can only ever
             # reach an edge through a guarded, receiver-typed resolver, never the
             # unguarded bare-name path a real god node would need.
+            # A known PHP $this receiver resolves against its owning class's methods.
             _builtin_member_call = is_member_call and callee_name in _LANGUAGE_BUILTIN_GLOBALS
+            php_builtin_self_call = config.ts_module == "tree_sitter_php" and self_receiver == "this"
             if callee_name and (
                 callee_name not in _LANGUAGE_BUILTIN_GLOBALS or _builtin_member_call
             ):
@@ -7329,7 +7442,7 @@ def _extract_generic(
                     and is_member_call
                     and not lua_self_qualified
                 )
-                if _python_defer or _java_defer or _builtin_member_call or _lua_member_defer or (
+                if _python_defer or _java_defer or (_builtin_member_call and not php_builtin_self_call) or _lua_member_defer or (
                     is_member_call
                     and member_receiver
                     and (
@@ -7356,13 +7469,17 @@ def _extract_generic(
                         and member_receiver in ("self", "cls", "super")
                     ):
                         tgt_nid = _self_call_target(
-                            caller_nid, callee_name, self_receiver or member_receiver or "",
+                            caller_nid, callee_name.casefold() if php_builtin_self_call else callee_name,
+                            self_receiver or member_receiver or "",
                             label_to_nid, scope_parents, method_owner, methods_by_owner,
                             _local_bases,
                             walk_bases=config.ts_module not in (
                                 "tree_sitter_javascript", "tree_sitter_typescript",
                             ),
+                            require_method_owner=php_builtin_self_call,
                         )
+                        if php_builtin_self_call and tgt_nid not in method_owner:
+                            tgt_nid = None
                     else:
                         tgt_nid = label_to_nid.get(callee_name)
                     # A qualified `new A.B.Foo()` whose bare name matches only a

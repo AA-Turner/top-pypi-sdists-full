@@ -31,6 +31,17 @@ template <
     typename Real,
     typename Int>
 struct LJLKPoseScoreDispatch {
+  static auto build_compact_block_neighbors(
+      ContextManager& mgr,
+      TView<Vec<Real, 3>, 1, D> rot_coords,
+      TView<Int, 1, D> rot_coord_offset,
+      TView<Int, 2, D> first_rot_for_block,
+      TView<Int, 1, D> block_ind_for_rot,
+      TView<Int, 1, D> pose_ind_for_rot,
+      TView<Int, 1, D> block_type_ind_for_rot,
+      TView<Int, 1, D> block_type_n_atoms,
+      Real reach) -> TPack<Int, 1, D>;
+
   static auto forward(
       ContextManager& mgr,
       // common params
@@ -48,18 +59,10 @@ struct LJLKPoseScoreDispatch {
       TView<Int, 2, D> rot_offset_for_block,
       Int max_n_rots_per_pose,
 
-      // dims: n-systems x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, D> pose_stack_min_bond_separation,
-
-      // dims: n-systems x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, D> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, D> pose_stack_near_blocks,
+      TView<int8_t, 5, D> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -85,7 +88,7 @@ struct LJLKPoseScoreDispatch {
       // what is the path distance between pairs of atoms in the block
       // Dimsize: n_block_types x max_n_atoms x max_n_atoms
       TView<Int, 3, D> block_type_path_distance,
-      TView<Int, 1, D> block_type_is_ligand_fragment,
+      TView<Int, 1, D> block_type_all_atoms_ligand_typed,
       //////////////////////
 
       // LJ parameters
@@ -94,6 +97,10 @@ struct LJLKPoseScoreDispatch {
 
       // host-side copy of LJGlobalParams::max_dis
       Real max_dis,
+
+      // Optional shared compact superset. An empty tensor requests local
+      // construction, preserving standalone and block-pair scoring APIs.
+      TView<Int, 1, D> shared_compact_block_neighbors,
 
       // should the output be per-pose (npose x nterms x 1 x 1)
       //   or per block-pair (npose x nterms x len x len)
@@ -120,18 +127,10 @@ struct LJLKPoseScoreDispatch {
       TView<Int, 2, D> rot_offset_for_block,
       Int max_n_rots_per_pose,
 
-      // dims: n-systems x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, D> pose_stack_min_bond_separation,
-
-      // dims: n-systems x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, D> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, D> pose_stack_near_blocks,
+      TView<int8_t, 5, D> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -157,7 +156,7 @@ struct LJLKPoseScoreDispatch {
       // what is the path distance between pairs of atoms in the block
       // Dimsize: n_block_types x max_n_atoms x max_n_atoms
       TView<Int, 3, D> block_type_path_distance,
-      TView<Int, 1, D> block_type_is_ligand_fragment,
+      TView<Int, 1, D> block_type_all_atoms_ligand_typed,
       //////////////////////
 
       // LJ parameters
@@ -190,20 +189,15 @@ struct LJLKRotamerScoreDispatch {
       TView<Int, 1, D> rot_offset_for_pose,
       TView<Int, 2, D> n_rots_for_block,
       TView<Int, 2, D> rot_offset_for_block,
+      // [n_poses, max_n_blocks]; blocks sharing an id >= 0 move in
+      // lockstep, so only matching rotamer indices ever coexist
+      TView<Int, 2, D> lockstep_group_for_block,
       Int max_n_rots_per_pose,
 
-      // dims: n-systems x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, D> pose_stack_min_bond_separation,
-
-      // dims: n-systems x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, D> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, D> pose_stack_near_blocks,
+      TView<int8_t, 5, D> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -229,7 +223,7 @@ struct LJLKRotamerScoreDispatch {
       // what is the path distance between pairs of atoms in the block
       // Dimsize: n_block_types x max_n_atoms x max_n_atoms
       TView<Int, 3, D> block_type_path_distance,
-      TView<Int, 1, D> block_type_is_ligand_fragment,
+      TView<Int, 1, D> block_type_all_atoms_ligand_typed,
       //////////////////////
 
       // LJ parameters
@@ -264,18 +258,10 @@ struct LJLKRotamerScoreDispatch {
       TView<Int, 2, D> rot_offset_for_block,
       Int max_n_rots_per_pose,
 
-      // dims: n-systems x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, D> pose_stack_min_bond_separation,
-
-      // dims: n-systems x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, D> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, D> pose_stack_near_blocks,
+      TView<int8_t, 5, D> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -301,7 +287,7 @@ struct LJLKRotamerScoreDispatch {
       // what is the path distance between pairs of atoms in the block
       // Dimsize: n_block_types x max_n_atoms x max_n_atoms
       TView<Int, 3, D> block_type_path_distance,
-      TView<Int, 1, D> block_type_is_ligand_fragment,
+      TView<Int, 1, D> block_type_all_atoms_ligand_typed,
       //////////////////////
 
       // LJ parameters

@@ -1,14 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pikobs
-Version: 3.0.476
+Version: 3.0.483
 Summary: Observation diagnostics for data assimilation: maps, sections, profiles and time series of the departures, and their tests
 Home-page: https://gitlab.science.gc.ca/dlo001/Pikobs
 Author: David Lobon
 Author-email: dhlobon@gmail.com
 License: GPL-3.0-or-later
-Platform: UNKNOWN
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+Requires-Dist: numpy<2,>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: pandas>=2.0
+Requires-Dist: matplotlib>=3.8
+Requires-Dist: pillow
+Requires-Dist: cartopy>=0.22
+Requires-Dist: shapely>=2.0
+Requires-Dist: pyshp
+Requires-Dist: dask[distributed]>=2024.1
+Requires-Dist: rich
+Requires-Dist: global-land-mask
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ## Package Pikobs ##
 
@@ -38,5 +57,3 @@ This Python package Pikobs provides the following capabilities:
 
 
 `pip install pikobs`
-
-

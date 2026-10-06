@@ -17,7 +17,7 @@ from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/aggregate/v1/timeseries.proto\x12\x12\x63halk.aggregate.v1\x1a\x1egoogle/protobuf/duration.proto"\x92\x02\n\x17\x41ggregateTimeSeriesRule\x12 \n\x0b\x61ggregation\x18\x01 \x01(\tR\x0b\x61ggregation\x12\x42\n\x0f\x62ucket_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0e\x62ucketDuration\x12-\n\x12\x64\x65pendent_features\x18\x03 \x03(\tR\x11\x64\x65pendentFeatures\x12\x37\n\tretention\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\tretention\x12)\n\x10\x64\x61tetime_feature\x18\x05 \x01(\tR\x0f\x64\x61tetimeFeature"\xc4\x02\n\x13\x41ggregateTimeSeries\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12%\n\x0c\x61ggregate_on\x18\x02 \x01(\tB\x02\x18\x01R\x0b\x61ggregateOn\x12\x19\n\x08group_by\x18\x03 \x03(\tR\x07groupBy\x12\x41\n\x05rules\x18\x05 \x03(\x0b\x32+.chalk.aggregate.v1.AggregateTimeSeriesRuleR\x05rules\x12/\n\x13\x66ilters_description\x18\x06 \x01(\tR\x12\x66iltersDescription\x12%\n\x0e\x62ucket_feature\x18\x07 \x01(\tR\rbucketFeature\x12\x32\n\x15\x61ggregate_on_features\x18\x08 \x03(\tR\x13\x61ggregateOnFeaturesB\xad\x01\n\x16\x63om.chalk.aggregate.v1B\x0fTimeseriesProtoP\x01Z\x18\x61ggregate/v1;aggregatev1\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Aggregate.V1\xca\x02\x12\x43halk\\Aggregate\\V1\xe2\x02\x1e\x43halk\\Aggregate\\V1\\GPBMetadata\xea\x02\x14\x43halk::Aggregate::V1b\x06proto3'
+    b'\n#chalk/aggregate/v1/timeseries.proto\x12\x12\x63halk.aggregate.v1\x1a\x1egoogle/protobuf/duration.proto"\xcc\x02\n\x17\x41ggregateTimeSeriesRule\x12 \n\x0b\x61ggregation\x18\x01 \x01(\tR\x0b\x61ggregation\x12\x42\n\x0f\x62ucket_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationR\x0e\x62ucketDuration\x12-\n\x12\x64\x65pendent_features\x18\x03 \x03(\tR\x11\x64\x65pendentFeatures\x12\x37\n\tretention\x18\x04 \x01(\x0b\x32\x19.google.protobuf.DurationR\tretention\x12)\n\x10\x64\x61tetime_feature\x18\x05 \x01(\tR\x0f\x64\x61tetimeFeature\x12\x38\n\x18materialization_key_hash\x18\x06 \x01(\tR\x16materializationKeyHash"\x9e\x03\n\x13\x41ggregateTimeSeries\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12%\n\x0c\x61ggregate_on\x18\x02 \x01(\tB\x02\x18\x01R\x0b\x61ggregateOn\x12\x19\n\x08group_by\x18\x03 \x03(\tR\x07groupBy\x12\x41\n\x05rules\x18\x05 \x03(\x0b\x32+.chalk.aggregate.v1.AggregateTimeSeriesRuleR\x05rules\x12/\n\x13\x66ilters_description\x18\x06 \x01(\tR\x12\x66iltersDescription\x12%\n\x0e\x62ucket_feature\x18\x07 \x01(\tR\rbucketFeature\x12\x32\n\x15\x61ggregate_on_features\x18\x08 \x03(\tR\x13\x61ggregateOnFeatures\x12\'\n\x0f\x66ilter_features\x18\t \x03(\tR\x0e\x66ilterFeatures\x12/\n\x13projection_features\x18\n \x03(\tR\x12projectionFeaturesB\xad\x01\n\x16\x63om.chalk.aggregate.v1B\x0fTimeseriesProtoP\x01Z\x18\x61ggregate/v1;aggregatev1\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Aggregate.V1\xca\x02\x12\x43halk\\Aggregate\\V1\xe2\x02\x1e\x43halk\\Aggregate\\V1\\GPBMetadata\xea\x02\x14\x43halk::Aggregate::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -31,7 +31,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_AGGREGATETIMESERIES"].fields_by_name["aggregate_on"]._options = None
     _globals["_AGGREGATETIMESERIES"].fields_by_name["aggregate_on"]._serialized_options = b"\030\001"
     _globals["_AGGREGATETIMESERIESRULE"]._serialized_start = 92
-    _globals["_AGGREGATETIMESERIESRULE"]._serialized_end = 366
-    _globals["_AGGREGATETIMESERIES"]._serialized_start = 369
-    _globals["_AGGREGATETIMESERIES"]._serialized_end = 693
+    _globals["_AGGREGATETIMESERIESRULE"]._serialized_end = 424
+    _globals["_AGGREGATETIMESERIES"]._serialized_start = 427
+    _globals["_AGGREGATETIMESERIES"]._serialized_end = 841
 # @@protoc_insertion_point(module_scope)

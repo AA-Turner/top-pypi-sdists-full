@@ -17,11 +17,11 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from istari_digital_client.sdk._generated.v3.models.received_access_level import ReceivedAccessLevel
-from istari_digital_client.sdk._generated.v3.models.remote_transformation_create_dto import RemoteTransformationCreateDto
+from istari_digital_client.sdk._generated.v3.models.tag_rule_set_create_dto import TagRuleSetCreateDto
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,19 +31,21 @@ class SendingConnectionCreateDto(BaseModel):
     """ # noqa: E501
     label: StrictStr = Field(description="Human-readable label for the connection.")
     description: StrictStr = Field(description="Description of the connection.")
-    shared_id: Annotated[str, Field(min_length=1, strict=True, max_length=255)] = Field(description="The shared identifier used to pair the connection.")
+    shared_id: Annotated[str, Field(min_length=1, strict=True, max_length=255)] = Field(description="The shared identifier used to pair the connection. Slashes nest the share under subfolders in the share bucket; dot-only segments such as `.` and `..` are rejected.")
     shared_secret: Annotated[str, Field(min_length=8, strict=True)] = Field(description="The shared secret used to authenticate the connection.")
     object_store_id: StrictStr = Field(description="The object store to use for this connection.")
-    transformations: Optional[List[RemoteTransformationCreateDto]] = Field(default=None, description="The set of control tag transformations.")
+    tag_rules: Optional[TagRuleSetCreateDto] = None
     infosec_level_id: Optional[StrictStr] = None
     received_access_level: Optional[ReceivedAccessLevel] = Field(default=None, description="Access level the receiver should grant to owners of resources received over this connection.")
-    __properties: ClassVar[List[str]] = ["label", "description", "shared_id", "shared_secret", "object_store_id", "transformations", "infosec_level_id", "received_access_level"]
+    allow_all_senders: Optional[StrictBool] = Field(default=False, description="When true, anyone with share permission on a file may share it over this connection; when false, only the connection's permitted senders may.")
+    allow_reshare: Optional[StrictBool] = Field(default=False, description="When true, the receiving organization may share files received over this connection onward over its own sending connections (daisy chaining). When false, received files cannot leave the receiving instance over a secure connection.")
+    __properties: ClassVar[List[str]] = ["label", "description", "shared_id", "shared_secret", "object_store_id", "tag_rules", "infosec_level_id", "received_access_level", "allow_all_senders", "allow_reshare"]
 
     @field_validator('shared_id')
     def shared_id_validate_regular_expression(cls, value):
         """Validates the regular expression"""
-        if not re.match(r"^[a-zA-Z0-9._-]+$", value):
-            raise ValueError(r"must validate the regular expression /^[a-zA-Z0-9._-]+$/")
+        if not re.match(r"^\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*(\/\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)*$", value):
+            raise ValueError(r"must validate the regular expression /^\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*(\/\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)*$/")
         return value
 
     model_config = ConfigDict(
@@ -85,13 +87,14 @@ class SendingConnectionCreateDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in transformations (list)
-        _items = []
-        if self.transformations:
-            for _item_transformations in self.transformations:
-                if _item_transformations:
-                    _items.append(_item_transformations.to_dict())
-            _dict['transformations'] = _items
+        # override the default output from pydantic by calling `to_dict()` of tag_rules
+        if self.tag_rules:
+            _dict['tag_rules'] = self.tag_rules.to_dict()
+        # set to None if tag_rules (nullable) is None
+        # and model_fields_set contains the field
+        if self.tag_rules is None and "tag_rules" in self.model_fields_set:
+            _dict['tag_rules'] = None
+
         # set to None if infosec_level_id (nullable) is None
         # and model_fields_set contains the field
         if self.infosec_level_id is None and "infosec_level_id" in self.model_fields_set:
@@ -114,8 +117,10 @@ class SendingConnectionCreateDto(BaseModel):
             "shared_id": obj.get("shared_id"),
             "shared_secret": obj.get("shared_secret"),
             "object_store_id": obj.get("object_store_id"),
-            "transformations": [RemoteTransformationCreateDto.from_dict(_item) for _item in obj["transformations"]] if obj.get("transformations") is not None else None,
+            "tag_rules": TagRuleSetCreateDto.from_dict(obj["tag_rules"]) if obj.get("tag_rules") is not None else None,
             "infosec_level_id": obj.get("infosec_level_id"),
-            "received_access_level": obj.get("received_access_level")
+            "received_access_level": obj.get("received_access_level"),
+            "allow_all_senders": obj.get("allow_all_senders") if obj.get("allow_all_senders") is not None else False,
+            "allow_reshare": obj.get("allow_reshare") if obj.get("allow_reshare") is not None else False
         })
         return _obj

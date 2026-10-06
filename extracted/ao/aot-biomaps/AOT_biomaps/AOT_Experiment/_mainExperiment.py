@@ -789,60 +789,60 @@ class Experiment(ABC):
 
         print(f"[AOT-biomaps] Files .cdf, .cdh and info.txt saved in {save_directory}")
 
-    def show_AOsignal(self, withTumor=True, save_dir=None, wave_name=None, figsize=(12, 5)):
-        if withTumor and self.AOsignal_withTumor is None:
-            raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
-        if not withTumor and self.AOsignal_withoutTumor is None:
-            raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
+        def show_AOsignal(self, withTumor=True, save_dir=None, wave_name=None, figsize=(12, 5)):
+            if withTumor and self.AOsignal_withTumor is None:
+                raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
+            if not withTumor and self.AOsignal_withoutTumor is None:
+                raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
 
-        if withTumor:
-            AOsignal = self.AOsignal_withTumor
-        else:
-            AOsignal = self.AOsignal_withoutTumor
+            if withTumor:
+                AOsignal = self.AOsignal_withTumor
+            else:
+                AOsignal = self.AOsignal_withoutTumor
 
-        time_axis = np.arange(AOsignal.shape[0]) / float(self.params.general['ft']) * 1e6
+            time_axis = np.arange(AOsignal.shape[0]) / float(self.params.general['ft']) * 1e6
 
-        num_plots = AOsignal.shape[1]
-        if num_plots <= 5:
-            nrows, ncols = 1, num_plots
-        else:
-            ncols = 5
-            nrows = (num_plots + ncols - 1) // ncols
+            num_plots = AOsignal.shape[1]
+            if num_plots <= 5:
+                nrows, ncols = 1, num_plots
+            else:
+                ncols = 5
+                nrows = (num_plots + ncols - 1) // ncols
 
-        fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
-        if isinstance(axes, plt.Axes):
-            axes = np.array([axes])
-        axes = axes.flatten()
+            fig, axes = plt.subplots(nrows, ncols, figsize=figsize)
+            if isinstance(axes, plt.Axes):
+                axes = np.array([axes])
+            axes = axes.flatten()
 
-        if wave_name is None:
-            title = "AO Signal -- all plots"
-        else:
-            title = f"AO Signal -- {wave_name}"
+            if wave_name is None:
+                title = "AO Signal -- all plots"
+            else:
+                title = f"AO Signal -- {wave_name}"
 
-        fig.suptitle(title, y=0.98)
+            fig.suptitle(title, y=0.98)
 
-        for idx in range(num_plots):
-            ax = axes[idx]
-            ax.plot(time_axis, AOsignal[:, idx])
-            ax.set_xlabel("Time (µs)")
-            ax.set_ylabel("Value")
+            for idx in range(num_plots):
+                ax = axes[idx]
+                ax.plot(time_axis, AOsignal[:, idx])
+                ax.set_xlabel("Time (µs)")
+                ax.set_ylabel("Value")
 
-        for j in range(num_plots, len(axes)):
-            fig.delaxes(axes[j])
+            for j in range(num_plots, len(axes)):
+                fig.delaxes(axes[j])
 
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+            plt.tight_layout(rect=[0, 0, 1, 0.95])
 
-        if save_dir is not None:
-            now = datetime.now()
-            date_str = now.strftime("%Y_%d_%m_%y")
-            os.makedirs(save_dir, exist_ok=True)
-            save_filename = f"Static_y_Plot{wave_name}_{date_str}.png"
-            save_path = os.path.join(save_dir, save_filename)
-            plt.savefig(save_path, dpi=200)
-            print(f"[AOT-biomaps] Saved: {save_path}")
+            if save_dir is not None:
+                now = datetime.now()
+                date_str = now.strftime("%Y_%d_%m_%y")
+                os.makedirs(save_dir, exist_ok=True)
+                save_filename = f"Static_y_Plot{wave_name}_{date_str}.png"
+                save_path = os.path.join(save_dir, save_filename)
+                plt.savefig(save_path, dpi=200)
+                print(f"[AOT-biomaps] Saved: {save_path}")
 
-        plt.show()
-        plt.close(fig)
+            plt.show()
+            plt.close(fig)
 
     def show_experiment_static(self, fileOfAcousticField=None, N_file=None, save_dir=None, withTumor=True, t=None, figsize=(8, 4), wave_name=None):
         if fileOfAcousticField is None and N_file is None:

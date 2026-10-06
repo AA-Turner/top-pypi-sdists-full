@@ -500,7 +500,7 @@ def test_only_the_sessionend_registration_asks_for_a_reconcile() -> None:
     from pathlib import Path
 
     manifest = json.loads(
-        (Path(__file__).resolve().parents[1] / "plugins/probe-research/hooks/hooks.json").read_text()
+        (Path(__file__).resolve().parents[1] / "plugins/probe-research/hooks/routes.json").read_text()
     )
     marked = {}
     for event in ("Stop", "SessionEnd"):

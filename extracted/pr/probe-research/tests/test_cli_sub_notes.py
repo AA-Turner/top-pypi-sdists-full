@@ -159,12 +159,19 @@ def test_delete_reverifies_the_title_after_the_prompt(wired, capsys, monkeypatch
 
 
 def test_a_pre_0146_server_gets_the_upgrade_message(wired, capsys):
+    cli.main(["run", "start", "--experiment", "e", "--name", "r1"])
+    run_id = capsys.readouterr().out.strip()
     wired.sub_notes_route_absent = True
-    rc = cli.main(["notes", "list", "--experiment", "e"])
+    rc = cli.main(["notes", "list", "--run", run_id])
     assert rc == 1
     err = capsys.readouterr().err
     assert "0.231.0.0" in err  # the version that shipped the routes
     assert "bare 404" in err
+    # An experiment's sub-notes are on the experiment API since X21, so a
+    # server without them predates THAT, and says so.
+    rc = cli.main(["notes", "list", "--experiment", "e"])
+    assert rc == 1
+    assert "#2282" in capsys.readouterr().err
 
 
 def test_an_entity_miss_is_not_mislabeled_as_an_old_server(wired, capsys):

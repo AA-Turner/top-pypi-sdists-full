@@ -217,3 +217,13 @@ def test_status_does_not_print_the_secret(wired, capsys):
     capsys.readouterr()
     cli.main(["mcp", "status"])
     assert "probe_pat_SECRET" not in capsys.readouterr().out
+
+
+def test_setting_the_token_re_points_kimi_code_too(wired, monkeypatch):
+    """`probe mcp token set` re-synced Codex only, so Kimi kept answering 401."""
+    from probe.cli import setup as wizard
+
+    calls = []
+    monkeypatch.setattr(wizard, "sync_mcp_token", lambda: calls.append("all") or ["synced"])
+    assert cli.main(["mcp", "token", "set", "--token", "probe_pat_KIMI"]) == 0
+    assert calls == ["all"]

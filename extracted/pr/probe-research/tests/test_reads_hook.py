@@ -474,7 +474,7 @@ def _reads_commands(path: Path, event: str) -> list[tuple[dict, dict]]:
 
 
 def test_the_hooks_are_wired_where_claude_code_reads_them():
-    shared = PLUGIN / "hooks" / "hooks.json"
+    shared = PLUGIN / "hooks" / "routes.json"
     for event in ("UserPromptSubmit", "PostToolUse"):
         [(group, hook)] = _reads_commands(shared, event)
         assert hook["timeout"] == 5
@@ -515,7 +515,7 @@ def _command(name: str, event: str) -> str:
 @pytest.mark.parametrize("event", ["UserPromptSubmit", "PostToolUse"])
 def test_the_fast_path_starts_no_python_while_nothing_waits(fake_python, event):
     bin_dir, marker = fake_python
-    command = _command("hooks.json", event)
+    command = _command("routes.json", event)
 
     assert _bash(command, bin_dir).returncode == 0  # no session id at all
     assert _bash(command, bin_dir, CLAUDE_CODE_SESSION_ID=SID).returncode == 0  # no folder
@@ -537,7 +537,7 @@ def test_a_prompt_with_nothing_waiting_still_starts_a_new_turn_in_the_shell(fake
     with nothing waiting left the old token in place -- a Stop waiter kept
     waiting through the new turn, and the last turn's unasked slot stayed taken."""
     bin_dir, marker = fake_python
-    prompt = _command("hooks.json", "UserPromptSubmit")
+    prompt = _command("routes.json", "UserPromptSubmit")
     assert _bash(prompt, bin_dir, CLAUDE_CODE_SESSION_ID=SID).returncode == 0
     assert not mailbox.turn_path(SID).parent.exists(), "no state for a session the reader never served"
 
@@ -562,7 +562,7 @@ def test_a_prompt_with_nothing_waiting_ends_the_waiter(fake_python):
     waiter = _start("Stop", env=ATTENDED)
     time.sleep(1.0)
     assert waiter.poll() is None
-    assert _bash(_command("hooks.json", "UserPromptSubmit"), bin_dir, CLAUDE_CODE_SESSION_ID=SID).returncode == 0
+    assert _bash(_command("routes.json", "UserPromptSubmit"), bin_dir, CLAUDE_CODE_SESSION_ID=SID).returncode == 0
     stdout, stderr = waiter.communicate(timeout=10)
     assert (waiter.returncode, stdout, stderr) == (0, "", "")
     assert mailbox.open_asks(SID) != []  # still open: its answer goes out at the next hook
@@ -587,7 +587,7 @@ def test_the_stop_fast_path_starts_no_python_without_an_ask_or_in_a_headless_ses
 
 
 def test_the_wrapper_runs_the_real_hook_with_the_payload(tmp_path):
-    [(_, hook)] = _reads_commands(PLUGIN / "hooks" / "hooks.json", "PostToolUse")
+    [(_, hook)] = _reads_commands(PLUGIN / "hooks" / "routes.json", "PostToolUse")
     answer = _answer()
     mailbox.publish(answer)
     result = subprocess.run(["/bin/bash", "-c", hook["command"]], input=_payload("PostToolUse"), capture_output=True,
@@ -665,8 +665,8 @@ def test_a_daemon_that_stopped_is_shown_and_a_quiet_release_is_not():
 
 def test_the_fast_path_starts_python_for_a_new_status_only(fake_python):
     bin_dir, marker = fake_python
-    tool = _command("hooks.json", "PostToolUse")
-    prompt = _command("hooks.json", "UserPromptSubmit")
+    tool = _command("routes.json", "PostToolUse")
+    prompt = _command("routes.json", "UserPromptSubmit")
     _status("ok")
     shown = mailbox.status_path(SID).with_suffix(".shown")
     assert _notice(_run("PostToolUse")) is None
@@ -735,7 +735,7 @@ def test_codex_without_its_thread_id_in_the_hook_env_still_gets_its_messages(fak
     key on the session: it starts Python whenever any message waits, and the
     hook reads the session from the payload."""
     bin_dir, marker = fake_python
-    command = _command("hooks.json", "PostToolUse")
+    command = _command("routes.json", "PostToolUse")
     assert _bash(command, bin_dir, PLUGIN_ROOT=str(PLUGIN)).returncode == 0
     assert not marker.exists(), "nothing waits anywhere: no python"
     mailbox.publish(_answer())
@@ -752,7 +752,7 @@ def test_a_codex_prompt_starts_a_new_turn_though_codex_passes_no_session_id(fake
     no session id in env now starts Python whenever a reader has served a
     session here; the tool-call path is unchanged."""
     bin_dir, marker = fake_python
-    prompt, tool = _command("hooks.json", "UserPromptSubmit"), _command("hooks.json", "PostToolUse")
+    prompt, tool = _command("routes.json", "UserPromptSubmit"), _command("routes.json", "PostToolUse")
     codex = {"PLUGIN_ROOT": str(PLUGIN)}
     assert _bash(prompt, bin_dir, **codex).returncode == 0
     assert not marker.exists(), "no reader ever ran here: no python"

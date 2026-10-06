@@ -748,13 +748,21 @@ async def _wrapped_completion_measured(
         # Restore only fields this wrapper owns. The executor may have resolved
         # conversation identity or persistence policy while the call ran.
         current = try_get_app_context() or ctx
-        set_app_context(
-            current.with_overrides(
-                emitter=ctx.emitter,
-                api_keys=dict(ctx.api_keys or {}),
-                system_run=ctx.system_run,
+        restored: dict[str, Any] = {
+            "emitter": ctx.emitter,
+            "api_keys": dict(ctx.api_keys or {}),
+            "system_run": ctx.system_run,
+        }
+        if system_run and not ctx.system_run:
+            # This wrapper turned the call into a system run, which gave it its
+            # OWN conversation and request — hand the caller back its own.
+            restored.update(
+                conversation_id=ctx.conversation_id,
+                request_id=ctx.request_id,
+                parent_conversation_id=ctx.parent_conversation_id,
+                parent_request_id=ctx.parent_request_id,
             )
-        )
+        set_app_context(current.with_overrides(**restored))
 
 
 async def llm_stream_messages(

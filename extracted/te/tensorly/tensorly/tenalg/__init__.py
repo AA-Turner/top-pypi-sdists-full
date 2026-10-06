@@ -1,5 +1,5 @@
-""" 
-The :mod:`tensorly.tenalg` module contains utilities for Tensor Algebra 
+"""
+The :mod:`tensorly.tenalg` module contains utilities for Tensor Algebra
 operations such as khatri-rao or kronecker product, n-mode product, etc.
 """
 
@@ -13,6 +13,7 @@ from .svd import SVD_FUNS, svd_interface, truncated_svd
 
 
 class TenalgBackendManager(BackendManager):
+    _backend_base_class = TenalgBackend
     _functions = [
         "mode_dot",
         "multi_mode_dot",

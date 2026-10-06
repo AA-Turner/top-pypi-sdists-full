@@ -169,18 +169,18 @@ def test_svd_time():
 
     SVD shouldn't be slow for tall and skinny matrices
     if n_eigenvec == min(matrix.shape)
-    """
-    M = tl.tensor(np.random.random_sample((4, 10000)))
-    t = time()
-    _ = tl.truncated_svd(M, 4)
-    t = time() - t
-    assert_(t <= 0.1, f"Partial_SVD took too long, maybe full_matrices set wrongly")
 
-    M = tl.tensor(np.random.random_sample((10000, 4)))
-    t = time()
-    _ = tl.truncated_svd(M, 4)
-    t = time() - t
-    assert_(t <= 0.1, f"Partial_SVD took too long, maybe full_matrices set wrongly")
+    The time limit is loose because shared CI runners are noisy; computing
+    the full 10000 x 10000 factor by mistake takes many seconds.
+    """
+    for shape in [(4, 10000), (10000, 4)]:
+        M = tl.tensor(np.random.random_sample(shape))
+        # Warm-up call so backend compilation/dispatch overhead is not timed
+        _ = tl.truncated_svd(M, 4)
+        t = time()
+        _ = tl.truncated_svd(M, 4)
+        t = time() - t
+        assert_(t <= 1.0, f"Partial_SVD took too long, maybe full_matrices set wrongly")
 
 
 def test_svd():
@@ -189,6 +189,7 @@ def test_svd():
     tol_orthogonality = 0.01
 
     for svd in SVD_FUNS:
+        rng = tl.check_random_state(1234)
         if svd == "randomized_svd":
             decimal = 2
         else:
@@ -199,7 +200,9 @@ def test_svd():
         for s, n in zip(sizes, n_eigenvecs):
             matrix = np.random.random(s)
             matrix_backend = T.tensor(matrix)
-            fU, fS, fV = svd_interface(matrix_backend, n_eigenvecs=n, method=svd)
+            fU, fS, fV = svd_interface(
+                matrix_backend, n_eigenvecs=n, method=svd, random_state=rng
+            )
             U, S, V = np.linalg.svd(matrix, full_matrices=True)
             U, S, V = U[:, :n], S[:n], V[:n, :]
 
@@ -237,7 +240,7 @@ def test_svd():
         # Should fail on non-matrices
         with assert_raises(ValueError):
             tensor = T.tensor(np.random.random((3, 3, 3)))
-            svd_interface(tensor, n_eigenvecs=n, method=svd)
+            svd_interface(tensor, n_eigenvecs=n, method=svd, random_state=rng)
 
         # Test for singular matrices (some eigenvals will be zero)
         # Rank at most 5
@@ -303,6 +306,32 @@ def test_ndim():
     shape2 = (3, 4, 5)
     A2 = T.reshape(A, shape2)
     assert_equal(T.ndim(A2), 3)
+
+
+def test_arange():
+    # Integer arguments give an integer range, as in NumPy
+    A = T.arange(5)
+    assert_array_equal(A, T.tensor([0, 1, 2, 3, 4]))
+    assert not np.issubdtype(T.to_numpy(A).dtype, np.floating)
+
+    assert_array_equal(T.arange(2, 8, 2), T.tensor([2, 4, 6]))
+
+    A = T.arange(0.0, 1.0, 0.25)
+    assert np.issubdtype(T.to_numpy(A).dtype, np.floating)
+    assert_array_almost_equal(A, T.tensor([0.0, 0.25, 0.5, 0.75]))
+
+
+def test_gamma():
+    samples = T.gamma(2.0, scale=1.5, size=(4, 5), seed=0)
+    assert T.is_tensor(samples)
+    assert_equal(T.shape(samples), (4, 5))
+    assert np.all(T.to_numpy(samples) > 0)
+
+    # The same seed gives the same samples
+    assert_array_equal(samples, T.gamma(2.0, scale=1.5, size=(4, 5), seed=0))
+
+    samples = T.gamma(2.0, size=(3,), seed=0, dtype=T.float32)
+    assert T.to_numpy(samples).dtype == np.float32
 
 
 def test_norm():

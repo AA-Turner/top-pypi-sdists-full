@@ -47,8 +47,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import stat
+import time
 from pathlib import Path
 
 from ..sdk import session_marker
@@ -133,7 +135,7 @@ def _within(entry: str, root: str | None) -> bool:
         return False
 
 
-def discover_plugin_root() -> Path | None:
+def discover_plugin_root(source: str | None = None) -> Path | None:
     """Where the probe-research plugin's files are, or None.
 
     Three places, in the order that keeps a developer's checkout from being
@@ -157,6 +159,19 @@ def discover_plugin_root() -> Path | None:
         if (candidate / "hooks" / "statusline.py").is_file():
             return candidate
 
+    from probe.harness import get_registry
+    from probe.harness import registry as reg
+
+    if source is not None and get_registry().get(source).statusline == reg.STATUSLINE_KIMI_TUI_TOML:
+        # Kimi Code's own installed copy (the recorded root it loads).
+        from probe.cli import kimi_config
+
+        for plugin_id in ("probe-research", "probe-research-daemon"):
+            root = kimi_config._record_root(plugin_id)
+            if root is not None and (root / "hooks" / "statusline.py").is_file():
+                return root
+        return None
+
     def _version_key(path: Path) -> tuple:
         parts = []
         for chunk in path.parent.name.split("."):
@@ -175,7 +190,7 @@ def discover_plugin_root() -> Path | None:
     return None
 
 
-def sync(plugin_root: Path | str) -> list[str]:
+def sync(plugin_root: Path | str, *, target: Path | None = None) -> list[str]:
     """Refresh the installed renderer copies from the plugin. Returns what changed.
 
     Content-compared rather than timestamped: a plugin update rewrites mtimes on
@@ -183,7 +198,7 @@ def sync(plugin_root: Path | str) -> list[str]:
     churn the directory for nothing.
     """
     source = Path(plugin_root) / "hooks"
-    target = install_dir()
+    target = target if target is not None else install_dir()
     changed: list[str] = []
     try:
         target.mkdir(parents=True, exist_ok=True)
@@ -407,3 +422,306 @@ def disable_notice() -> bool:
 
 def notice_enabled() -> bool:
     return session_marker.notify_enabled()
+
+
+# --- Kimi Code: `$KIMI_CODE_HOME/tui.toml` `[status_line] command` -----------
+#
+# Kimi runs that command through `sh -c` with a JSON snapshot on stdin
+# (`model, cwd, gitBranch, ..., sessionId`) and `KIMI_CODE_STATUS_LINE=1` in
+# its environment, and uses its FIRST stdout line as footer line 1, REPLACING
+# Kimi's own; it re-runs at most once a second and kills it after 300 ms. So
+# the renderer prints the whole line (`statusline.kimi_line`), and a
+# researcher's own command is chained by handing its first line over in
+# `PROBE_SL_PREFIX` rather than by printing two lines (only the first counts).
+
+#: The chain parks the researcher's first line here. Prefixed like `VAR`.
+KIMI_PREFIX_VAR = "_probe_sl_theirs"
+_KIMI_OPEN = f"{KIMI_PREFIX_VAR}=$(" + _PIPE + "{"
+_KIMI_CLOSE = "} 2>/dev/null | head -n 1)"
+
+
+def kimi_tui_path() -> Path:
+    from probe.cli import kimi_config
+
+    return kimi_config.kimi_home() / "tui.toml"
+
+
+def kimi_install_dir() -> Path:
+    from probe.cli import kimi_config
+
+    return kimi_config.kimi_home() / INSTALL_DIRNAME
+
+
+def kimi_renderer_command(python: str | None = None) -> str:
+    script = kimi_install_dir() / "statusline.py"
+    return f"{_quote(python or python_bin())} {_quote(str(script))} {MARKER}"
+
+
+def kimi_chain(previous: str, ours: str) -> str:
+    """Kimi's command: ours alone, or theirs first with its first line handed
+    to ours, both fed the same snapshot (see `_HEADER`)."""
+    if not previous:
+        return "\n".join([_HEADER, _PIPE + ours])
+    return "\n".join([_HEADER, _KIMI_OPEN, previous, _KIMI_CLOSE,
+                      f'{_PIPE}PROBE_SL_PREFIX="${KIMI_PREFIX_VAR}" {ours}'])
+
+
+def kimi_split_existing(command: str) -> str:
+    """What was in Kimi's slot before us (the `split_existing` contract)."""
+    if MARKER not in command:
+        return command.strip()
+    lines = command.splitlines()
+    try:
+        start = lines.index(_KIMI_OPEN)
+        end = lines.index(_KIMI_CLOSE, start + 1)
+    except ValueError:
+        return ""
+    return "\n".join(lines[start + 1 : end]).strip()
+
+
+def _toml_basic(value: str) -> str:
+    """A TOML basic string, as Kimi's own `escapeTomlBasicString` writes it."""
+    out = []
+    for ch in value:
+        if ch == "\\":
+            out.append("\\\\")
+        elif ch == '"':
+            out.append('\\"')
+        elif ch == "\n":
+            out.append("\\n")
+        elif ch == "\t":
+            out.append("\\t")
+        elif ord(ch) < 0x20 or ord(ch) == 0x7F:
+            out.append(f"\\u{ord(ch):04x}")
+        else:
+            out.append(ch)
+    return '"' + "".join(out) + '"'
+
+
+def _kimi_command(text: str) -> str | None:
+    """The current `[status_line] command`. Raises ValueError on a file that is
+    not TOML: it is the researcher's, and an unparseable one is left alone."""
+    from probe._compat import tomllib
+
+    try:
+        doc = tomllib.loads(text) if text.strip() else {}
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"{kimi_tui_path()} is not valid TOML ({exc}); left as it is") from exc
+    table = doc.get("status_line")
+    command = table.get("command") if isinstance(table, dict) else None
+    return command if isinstance(command, str) else None
+
+
+#: A TOML table header (`[name]`, `[[name]]`), as opposed to an array value
+#: line such as `  ["model"],` that also starts with a bracket.
+_TOML_HEADER = re.compile(r"""^\s*\[\[?\s*[A-Za-z0-9_.\-"' ]+\s*\]\]?\s*(#.*)?$""")
+_TOML_COMMAND = re.compile(r"^\s*command\s*=")
+_MULTILINE_QUOTES = ('"' * 3, "'" * 3)
+
+
+def _value_end(lines: list[str], start: int) -> int:
+    """The last line of the value that begins on `lines[start]`: a multi-line
+    string spans to its closing delimiter."""
+    rest = lines[start].split("=", 1)[1].lstrip()
+    for quote in _MULTILINE_QUOTES:
+        if rest.startswith(quote):
+            if rest.count(quote) >= 2:
+                return start
+            for i in range(start + 1, len(lines)):
+                if quote in lines[i]:
+                    return i
+            return len(lines) - 1
+    return start
+
+
+def _with_kimi_command(text: str, command: str | None) -> str:
+    """`text` with ONLY the `[status_line]` table's `command` set (or, for None,
+    removed); every other byte kept. Callers re-parse the result
+    (`_kimi_command`) before writing, so a shape this cannot edit is refused,
+    never written."""
+    lines = text.split("\n")
+    header = next((i for i, line in enumerate(lines) if _TOML_HEADER.match(line)
+                   and line.split("#", 1)[0].strip() == "[status_line]"), None)
+    if header is None:
+        if command is None:
+            return text
+        tail = "" if not text or text.endswith("\n") else "\n"
+        return f"{text}{tail}\n[status_line]\ncommand = {_toml_basic(command)}\n"
+    end = next((i for i in range(header + 1, len(lines)) if _TOML_HEADER.match(lines[i])), len(lines))
+    existing = next((i for i in range(header + 1, end) if _TOML_COMMAND.match(lines[i])), None)
+    new_line = None if command is None else f"command = {_toml_basic(command)}"
+    if existing is not None:
+        last = _value_end(lines, existing)
+        lines[existing:last + 1] = [] if new_line is None else [new_line]
+        end -= last + 1 - existing - (0 if new_line is None else 1)
+    elif new_line is not None:
+        lines.insert(header + 1, new_line)
+    if new_line is None and not any(line.strip() for line in lines[header + 1:end]):
+        # The table held only our command (install added it): take it out whole.
+        start = header - 1 if header > 0 and not lines[header - 1].strip() else header
+        del lines[start:header + 1]
+    return "\n".join(lines)
+
+
+def _save_text(path: Path, text: str) -> None:
+    """Write `text` to `path`, THROUGH a symlink (a dotfiles-managed tui.toml
+    stays a link to the researcher's file), keeping the file's mode."""
+    target = path.resolve() if path.is_symlink() else path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_name(target.name + f".{os.getpid()}.tmp")
+    tmp.write_text(text, encoding="utf-8")
+    try:
+        os.chmod(tmp, stat.S_IMODE(target.stat().st_mode))
+    except FileNotFoundError:
+        pass
+    os.replace(tmp, target)
+
+
+def install_kimi(plugin_root: Path | str, *, python: str | None = None) -> dict:
+    """Add (or refresh) our segment in Kimi Code's footer, chaining what was there."""
+    copied = sync(plugin_root, target=kimi_install_dir())
+    path = kimi_tui_path()
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    current = _kimi_command(text)
+    previous = kimi_split_existing(current) if current else ""
+    command = kimi_chain(previous, kimi_renderer_command(python))
+    updated = _with_kimi_command(text, command)
+    if _kimi_command(updated) != command:  # never write a file Kimi would read differently
+        raise ValueError(f"Probe could not place its status line in {path} (an unusual layout there); "
+                         "the file was left as it is")
+    backup = _backup(path)
+    _save_text(path, updated)
+    mark_caught_up(_kimi_slot())
+    return {
+        "settings": str(path),
+        "backup": str(backup) if backup else None,
+        "renderer": str(kimi_install_dir() / "statusline.py"),
+        "copied": copied,
+        "chained_after": previous or None,
+        "command": command,
+    }
+
+
+def uninstall_kimi() -> dict:
+    """Remove our segment from Kimi's footer, restoring exactly what we wrapped."""
+    path = kimi_tui_path()
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    try:
+        current = _kimi_command(text)
+    except ValueError:
+        return {"settings": str(path), "removed": False, "restored": None}
+    if not current or MARKER not in current:
+        return {"settings": str(path), "removed": False, "restored": None}
+    previous = kimi_split_existing(current)
+    updated = _with_kimi_command(text, previous or None)
+    if _kimi_command(updated) != (previous or None):  # the same guard as install
+        raise ValueError(f"Probe could not take its status line out of {path} (an unusual layout there); "
+                         "the file was left as it is")
+    _save_text(path, updated)
+    mark_caught_up(_kimi_slot())
+    return {"settings": str(path), "removed": True, "restored": previous or None}
+
+
+def kimi_installed() -> bool:
+    try:
+        path = kimi_tui_path()
+        current = _kimi_command(path.read_text(encoding="utf-8")) if path.is_file() else None
+    except (OSError, ValueError):
+        return False
+    return bool(current) and MARKER in current
+
+
+def install_for(source: str, plugin_root: Path | str, *, python: str | None = None) -> dict:
+    """Install into the status-line slot the registry names for `source`."""
+    from probe.harness import get_registry
+    from probe.harness import registry as reg
+
+    slot = get_registry().get(source).statusline
+    if slot == reg.STATUSLINE_KIMI_TUI_TOML:
+        return install_kimi(plugin_root, python=python)
+    if slot == reg.STATUSLINE_CLAUDE_SETTINGS:
+        return install(plugin_root, python=python)
+    raise ValueError(f"{source} has no status line Probe installs into")
+
+
+def installed_for(source: str) -> bool:
+    """`source`'s status-line slot carries Probe's segment."""
+    from probe.harness import get_registry
+    from probe.harness import registry as reg
+
+    harness = get_registry().find(source)
+    slot = harness.statusline if harness is not None else None
+    if slot == reg.STATUSLINE_KIMI_TUI_TOML:
+        return kimi_installed()
+    if slot == reg.STATUSLINE_CLAUDE_SETTINGS:
+        return bool(status().get("installed"))
+    return False
+
+
+def _kimi_slot() -> str:
+    from probe.harness import registry as reg
+
+    return reg.STATUSLINE_KIMI_TUI_TOML
+
+
+def _later_slots() -> tuple[str, ...]:
+    """Slots that shipped AFTER Probe's rules were already on machines (Kimi
+    Code's footer, 0.214.0). The status line is written only by the rules step,
+    which a machine whose rules are current never runs again, so those machines
+    get one catch-up (`setup.catch_up_statusline`). Claude Code's slot has ridden
+    with the rules since it shipped: a missing one there was removed on purpose."""
+    from probe.harness import registry as reg
+
+    return (reg.STATUSLINE_KIMI_TUI_TOML,)
+
+
+def _catch_up_path(slot: str) -> Path:
+    return session_marker.state_dir() / "statusline-catch-up" / slot
+
+
+def _slot_of(source: str) -> "str | None":
+    from probe.harness import get_registry
+
+    harness = get_registry().find(source)
+    return harness.statusline if harness is not None else None
+
+
+def catch_up_owed(source: str) -> bool:
+    """`source` has a later slot that has never been installed into or removed
+    from on this machine (any install or uninstall of the slot marks it)."""
+    slot = _slot_of(source)
+    return slot in _later_slots() and not _catch_up_path(slot).exists()
+
+
+def mark_caught_up(source_or_slot: str) -> None:
+    """Never catch this slot up again: a later `probe statusline uninstall`
+    stays. Takes an agent id or the slot name itself."""
+    slot = _slot_of(source_or_slot) or source_or_slot
+    path = _catch_up_path(slot)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) + "\n", encoding="utf-8")
+    except OSError:
+        return
+
+
+def uninstall_for(source: str) -> dict:
+    from probe.harness import get_registry
+    from probe.harness import registry as reg
+
+    slot = get_registry().get(source).statusline
+    if slot == reg.STATUSLINE_KIMI_TUI_TOML:
+        return uninstall_kimi()
+    if slot == reg.STATUSLINE_CLAUDE_SETTINGS:
+        return uninstall()
+    return {"settings": None, "removed": False, "restored": None}
+
+
+def slot_path(source: str) -> Path:
+    """The file holding `source`'s status-line slot."""
+    from probe.harness import get_registry
+    from probe.harness import registry as reg
+
+    if get_registry().get(source).statusline == reg.STATUSLINE_KIMI_TUI_TOML:
+        return kimi_tui_path()
+    return settings_path()

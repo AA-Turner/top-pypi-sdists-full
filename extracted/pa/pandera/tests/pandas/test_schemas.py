@@ -120,6 +120,24 @@ def test_dataframe_schema() -> None:
         schema.validate(df.assign(a=[1.7, 2.3, 3.1]))
 
 
+@pytest.mark.parametrize(
+    "invalid_input",
+    [1, 1.0, "foo", ["a", "b"], {"a": 1}, (1, 2), None, int],
+)
+def test_dataframe_schema_validate_non_dataframe_raises_typeerror(
+    invalid_input,
+) -> None:
+    """Passing a non-dataframe object to ``validate`` should raise an
+    informative ``TypeError`` rather than an opaque ``BackendNotFoundError``.
+
+    See https://github.com/unionai-oss/pandera/issues/467. This mirrors the
+    ``is_field`` guard already present in ``SeriesSchema.validate``.
+    """
+    schema = DataFrameSchema({"a": Column(float)})
+    with pytest.raises(TypeError, match="expected pd.DataFrame"):
+        schema.validate(invalid_input)
+
+
 def test_dataframe_single_element_coerce() -> None:
     """Test that coercing a single element dataframe works correctly."""
     schema = DataFrameSchema({"x": Column(int, coerce=True)})
@@ -3045,6 +3063,25 @@ def test_drop_invalid_for_column(col, obj, expected_obj):
 
     with pytest.raises(errors.SchemaDefinitionError):
         col.validate(obj, lazy=False)
+
+
+def test_drop_invalid_for_column_within_dataframe_schema():
+    """A column's own drop_invalid_rows must take effect when the column is
+    validated as part of a DataFrameSchema, even if the DataFrameSchema
+    itself does not set drop_invalid_rows."""
+    schema = DataFrameSchema(
+        {"numbers": Column(int, checks=Check.ge(3), drop_invalid_rows=True)}
+    )
+    df = pd.DataFrame({"numbers": [1, 2, 3, 4, 5, 6]})
+
+    actual_obj = schema.validate(df, lazy=True)
+    expected_obj = pd.DataFrame({"numbers": [3, 4, 5, 6]})
+    pd.testing.assert_frame_equal(
+        expected_obj, actual_obj.reset_index(drop=True)
+    )
+
+    with pytest.raises(errors.SchemaDefinitionError):
+        schema.validate(df, lazy=False)
 
 
 def test_drop_invalid_for_model_schema():

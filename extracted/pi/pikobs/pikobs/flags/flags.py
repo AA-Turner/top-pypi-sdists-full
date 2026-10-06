@@ -64,7 +64,7 @@ A run prints its phases and ends with the address of the viewer:
              ln -s /home/dlo001/sites8/pikobs_flags /home/dlo001/public_html/
            then: https://goc-dx-u3.science.gc.ca/~dlo001/pikobs_flags/pikobs_flags_viewer.html
 
-`A live reference instance <https://goc-dx-u3.science.gc.ca/~dlo001/sites8/pikobs_doc_flags/pikobs_flags_viewer.html>`__.
+:live:`A live reference instance <pikobs_doc_flags/pikobs_flags_viewer.html>`.
 
 How long a run takes, and how big a node to ask for: :doc:`runtime`.
 
@@ -276,16 +276,11 @@ Bugs and feature requests:
 import json
 import os
 import re
-import shutil
 import sys
-import tempfile
 import time
 import traceback
-import uuid
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence
 
-import dask
-from dask.distributed import Client
 
 # a region is a box or a polygon; the module does not need to know
 from pikobs.configobs import regionsobs
@@ -294,8 +289,7 @@ from pikobs.configobs.special_family import (special_key_label,
                                              special_label, special_select)
 import pikobs
 from pikobs.figures import svg_enabled
-from pikobs.flags.flags_plot import (flags_plot_task, flags_viewer_items,
-                                     figure_name)
+from pikobs.flags.flags_plot import (flags_plot_task, flags_viewer_items)
 from pikobs.obsdb import (check_input_files,
                           combine as _combine_rows,
                           open_result, table_columns, work_db)
@@ -306,6 +300,9 @@ from pikobs.stations.stations import (expand_station_selectors,
                                       parse_station_tokens)
 from pikobs.web.viewer import generate_web
 from pikobs.web.runs import runs_block
+from pikobs.obsdb import fmt_bytes as _fmt_bytes
+from pikobs.parallel import start_workers, stop_workers
+from pikobs.obsdb import run_db_path
 
 CYCLE_HOURS = 6
 
@@ -333,22 +330,9 @@ _DDL = """
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _safe(text: Any) -> str:
-    return re.sub(r'[^A-Za-z0-9._+-]', '_', str(text))
-
-
-def _fmt_bytes(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < 1024 or unit == "TB":
-            return f"{n:.1f} {unit}"
-        n /= 1024.0
-
-
 def db_path(work_path, family, name, date_start, date_end) -> str:
     """One database per run and family; the region is a column."""
-    return os.path.join(work_path, family,
-                        f"flags_{_safe(name)}_{date_start}_{date_end}_"
-                        f"{family}.db")
+    return run_db_path("flags", work_path, family, name, date_start, date_end)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -660,18 +644,7 @@ def make_flags(runs, pathwork, datestart, dateend, regions, families,
     tasks = create_data_list(datestart, dateend, families, runs, pathwork,
                              regions, varnos, land_oceans, special_on)
 
-    client = None
-    dask_dir = None
-    if n_cpu > 1:
-        os.environ["DASK_LOGGING__DISTRIBUTED"] = "error"
-        base = os.environ.get("TMPDIR") or None
-        dask_dir = tempfile.mkdtemp(prefix="pikobs_flags_dask_", dir=base)
-        os.environ["DASK_TEMPORARY_DIRECTORY"] = dask_dir
-        os.environ["SQLITE_TMPDIR"] = dask_dir
-        dask.config.set({"temporary-directory": dask_dir,
-                         "logging.distributed": "error"})
-        client = Client(processes=True, threads_per_worker=1, n_workers=n_cpu,
-                        silence_logs=50, dashboard_address=None)
+    client, dask_dir = start_workers(n_cpu, "flags")
     plot_tasks: List[Dict[str, Any]] = []
     results: List[Any] = []
     try:
@@ -707,17 +680,7 @@ def make_flags(runs, pathwork, datestart, dateend, regions, families,
               f"({sum(r is not None for r in results)}/{len(plot_tasks)})",
               flush=True)
     finally:
-        if client is not None:
-            try:
-                client.close(timeout=30)
-            except Exception:
-                pass
-            try:
-                client.shutdown()
-            except Exception:
-                pass
-        if dask_dir:
-            shutil.rmtree(dask_dir, ignore_errors=True)
+        stop_workers(client, dask_dir)
 
     items = flags_viewer_items(plot_tasks, results)
     if not items:

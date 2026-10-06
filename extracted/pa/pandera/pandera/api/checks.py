@@ -221,6 +221,22 @@ class Check(BaseCheck):
         self.strategy = strategy
         self.constraint = constraint
 
+    @property
+    def registry_name(self) -> str | None:
+        """Name this check can be looked up under in the ``Check`` registry.
+
+        ``name`` may have been replaced by a user-supplied ``name=``, which hides
+        the check from every registry lookup. The check function keeps the
+        dispatcher name, so fall back to it -- the same rule
+        :meth:`Check.__call__` applies for the backend reload (see #2042).
+        """
+        if self in Check:
+            return self.name
+        check_fn_name = getattr(self._check_fn, "__name__", None)
+        if check_fn_name is not None and hasattr(Check, check_fn_name):
+            return check_fn_name
+        return None
+
     def __call__(
         self,
         check_obj: Any,
@@ -716,6 +732,19 @@ class Check(BaseCheck):
             raise ValueError(
                 "At least a minimum or a maximum need to be specified. Got "
                 "None."
+            )
+        # Both bounds are inclusive here, so only max < min is empty. Without
+        # this the check builds and then fails every string, which reads as a
+        # data problem rather than a transposed pair of arguments. in_range
+        # refuses the same mistake.
+        if (
+            min_value is not None
+            and max_value is not None
+            and max_value < min_value
+        ):
+            raise ValueError(
+                f"The combination of min_value = {min_value} and "
+                f"max_value = {max_value} defines an empty interval!"
             )
         return cls.from_builtin_check_name(
             "str_length",

@@ -35,11 +35,11 @@ class UserReceivedResourceUpdatedNotificationEvent(BaseModel):
     receiving_connection_label: StrictStr
     resource_id: StrictStr
     resource_type: ResourceTypeDto
-    file_name: Optional[StrictStr]
+    occurred_at: datetime
+    display_name: Optional[StrictStr] = None
     file_extension: Optional[StrictStr]
     file_size: Optional[StrictInt]
-    occurred_at: datetime
-    __properties: ClassVar[List[str]] = ["event_id", "event_type", "created_at", "receiving_connection_id", "receiving_connection_label", "resource_id", "resource_type", "file_name", "file_extension", "file_size", "occurred_at"]
+    __properties: ClassVar[List[str]] = ["event_id", "event_type", "created_at", "receiving_connection_id", "receiving_connection_label", "resource_id", "resource_type", "occurred_at", "display_name", "file_extension", "file_size"]
 
     @field_validator('event_type')
     def event_type_validate_enum(cls, value):
@@ -90,10 +90,10 @@ class UserReceivedResourceUpdatedNotificationEvent(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if file_name (nullable) is None
+        # set to None if display_name (nullable) is None
         # and model_fields_set contains the field
-        if self.file_name is None and "file_name" in self.model_fields_set:
-            _dict['file_name'] = None
+        if self.display_name is None and "display_name" in self.model_fields_set:
+            _dict['display_name'] = None
 
         # set to None if file_extension (nullable) is None
         # and model_fields_set contains the field
@@ -124,9 +124,9 @@ class UserReceivedResourceUpdatedNotificationEvent(BaseModel):
             "receiving_connection_label": obj.get("receiving_connection_label"),
             "resource_id": obj.get("resource_id"),
             "resource_type": obj.get("resource_type"),
-            "file_name": obj.get("file_name"),
+            "occurred_at": obj.get("occurred_at"),
+            "display_name": obj.get("display_name"),
             "file_extension": obj.get("file_extension"),
-            "file_size": obj.get("file_size"),
-            "occurred_at": obj.get("occurred_at")
+            "file_size": obj.get("file_size")
         })
         return _obj

@@ -11,6 +11,8 @@ Core follow-up loop:
 
 from __future__ import annotations
 
+from ..services.campaign_naming import cut_at_word
+
 import json
 import logging
 import time
@@ -279,6 +281,19 @@ async def run_send_followup(
         and outreach_channel != "email"
         and not await run_db(has_real_sdr_message, outreach_id)
     ):
+        # The opener waits one working day after an accepted note, as
+        # executors._execute_send_dm does (api #2171): this is the other
+        # road to the same first DM.
+        from ..db.queries import first_dm_not_before
+        due = await run_db(first_dm_not_before, outreach_id)
+        if due:
+            await client.close()
+            hours = max(int(due - time.time()), 0) / 3600
+            return (
+                f"⏭️ Too soon to message {candidate.get('name', 'this person')}: they "
+                f"accepted an invitation with a note, and the first DM waits one "
+                f"working day ({hours:.0f}h left)."
+            )
         logger.info(
             "Outreach %s has no in-thread DM — writing an opener, not a follow-up",
             outreach_id[:8],
@@ -458,7 +473,7 @@ async def run_send_followup(
     # pile automated follow-ups on top of their messages.
     prospect_msgs = [m for m in messages if m.get("role") == "prospect"]
     if prospect_msgs:
-        last_prospect_text = prospect_msgs[-1].get("text", "")[:100]
+        last_prospect_text = cut_at_word(prospect_msgs[-1].get("text", ""), 100)
         await client.close()
         await db.log_action(
             "followup_skipped_prospect_replied",
@@ -650,6 +665,7 @@ async def run_send_followup(
             max_chars=max_chars,
             intent=campaign_intent,
             brief=message_brief,
+            conversation_history=conversation_history,
         )
     except Exception as e:
         logger.warning(f"Improve stage failed, using raw message: {e}")
@@ -693,6 +709,7 @@ async def run_send_followup(
                 max_chars=max_chars,
                 intent=campaign_intent,
                 brief=message_brief,
+                conversation_history=conversation_history,
             )
             validation = validate_followup(
                 message,
@@ -732,6 +749,7 @@ async def run_send_followup(
                 max_chars=max_chars,
                 intent=campaign_intent,
                 brief=message_brief,
+                conversation_history=conversation_history,
             )
             validation = validate_followup(
                 message,
@@ -1192,7 +1210,7 @@ async def _send_email_followup(
         return (
             f"📧 Email follow-up #{new_count} sent to {prospect_name} ({role_str})\n"
             f"   Subject: {subject}\n"
-            f'   Body: "{body[:120]}..."\n\n'
+            f'   Body: "{cut_at_word(body, 120)}"\n\n'
             f"Follow-ups remaining: {remaining}/{max_followups}"
         )
 

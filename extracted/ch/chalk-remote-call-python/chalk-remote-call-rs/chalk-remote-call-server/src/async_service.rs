@@ -10,7 +10,7 @@ use chalk_remote_call_proto::chalk::runtime::v1::{
     PollRemoteCallResponse, PurgeQueueRequest, PurgeQueueResponse, RemoteCallStatus,
 };
 use tonic::{Request, Response, Status};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 use crate::python_bridge::{ChunkBuffer, PythonHandler};
 use crate::service::extract_metadata;
@@ -112,6 +112,23 @@ impl AsyncRemoteCallServiceImpl {
 
 #[tonic::async_trait]
 impl AsyncRemoteCallService for AsyncRemoteCallServiceImpl {
+    type StreamRemoteCallBatchStream = tokio_stream::Empty<
+        Result<chalk_remote_call_proto::chalk::runtime::v1::StreamRemoteCallBatchResponse, Status>,
+    >;
+
+    async fn stream_remote_call_batch(
+        &self,
+        _: Request<
+            tonic::Streaming<
+                chalk_remote_call_proto::chalk::runtime::v1::StreamRemoteCallBatchRequest,
+            >,
+        >,
+    ) -> Result<Response<Self::StreamRemoteCallBatchStream>, Status> {
+        Err(Status::unimplemented(
+            "queue-backed batch submission is hosted in DP API",
+        ))
+    }
+
     #[instrument(skip_all)]
     async fn enqueue_remote_call(
         &self,
@@ -163,7 +180,7 @@ impl AsyncRemoteCallService for AsyncRemoteCallServiceImpl {
             .expect("registry mutex poisoned")
             .insert(call_id.clone(), state);
 
-        info!(call_id = %call_id, function_name = %function_name, "enqueued async call");
+        debug!(call_id = %call_id, function_name = %function_name, "enqueued async call");
 
         let handler = self.python_handler.clone();
         let registry = self.registry.clone();
@@ -185,7 +202,7 @@ impl AsyncRemoteCallService for AsyncRemoteCallServiceImpl {
                     Ok(()) => {
                         s.status = RemoteCallStatus::Completed;
                         let n = s.chunks.lock().map(|b| b.len()).unwrap_or(0);
-                        info!(call_id = %id, chunks = n, "async call completed");
+                        debug!(call_id = %id, chunks = n, "async call completed");
                     }
                     Err(e) => {
                         s.status = RemoteCallStatus::Failed;

@@ -33,7 +33,11 @@ is the proof that the MCP keys no decision on the stored address.
 FROM R4 (X15) the MCP reads the experiment ITSELF through the experiment API:
 `GET /v1/scopes/{E}` says which project it is filed under, then
 `GET /v1/projects/{P}/experiments[/{E}]` answers it as an experiment (its run
-count through the same R1 scope seam). The fake serves those too.
+count through the same R1 scope seam). The fake serves those too. FROM X21 its
+children -- files, groups, edges, lineage, sub-notes -- come from the experiment
+API's child routes (`/v1/projects/{P}/experiments/{E}/...`), the same bodies as
+the leaf door's, with a file naming the project in `project_id` (the new shape)
+in both stores.
 
 The fake answers these routes by rules the server's R1 image must honour. On
 main today they read the leaf address only, and X3/X4/X6 make them dual-shape:
@@ -377,7 +381,14 @@ class ShapedServer:
         if leaf is None:
             return _not_found("experiment not found")
         if rest[1:]:
-            raise AssertionError(f"the fake does not serve experiments/{'/'.join(rest)}")
+            # An experiment's CHILD routes (server X21): the leaf door's own
+            # body for E, answered in the new shape -- a file names the project
+            # in `project_id` beside its experiment, a group gains `project_id`.
+            answered = self._project_route(leaf, rest[1:], q)
+            if answered.status_code == 200 and rest[1:] in (["artifacts"], ["groups"]):
+                rows = [{**row, "project_id": pid} for row in answered.json()]
+                return httpx.Response(200, json=rows)
+            return answered
         return httpx.Response(
             200,
             json={
@@ -385,6 +396,8 @@ class ShapedServer:
                 "notes": leaf["notes"],
                 "notes_version": leaf["notes_version"],
                 "notes_updated_at": None,
+                # The page's authored block (X21), as the leaf door served it.
+                "document": leaf.get("document"),
                 "summary": {"content": "absent", "job": "idle", "blurb": None, "version": 0},
             },
         )
@@ -564,14 +577,14 @@ def test_every_read_answers_the_same_in_both_shapes(label, read) -> None:
 
 @pytest.mark.parametrize("shape", SHAPES)
 def test_an_experiment_s_files_name_it_in_both_shapes(shape) -> None:
-    """`experiment_id` names E1 on every one of its file rows, in the leaf
-    shape (`project_id` = E1 too), and the parent's own file names the project
-    and no experiment -- in either store."""
+    """`experiment_id` names E1 on every one of its file rows, in the NEW
+    shape the experiment API answers (`project_id` = P, X21), and the parent's
+    own file names the project and no experiment -- in either store."""
     service, _ = _service(shape)
     files = service.get_entity(f"experiment:{E1}", view="artifacts")["data"]["artifacts"]
     assert {f["name"] for f in files} == {"results.json", "plots/loss.png"}
     assert {f["experiment_id"] for f in files} == {E1}
-    assert {f["project_id"] for f in files} == {E1}
+    assert {f["project_id"] for f in files} == {P}
     own = service.get_entity(f"project:{P}", view="artifacts")["data"]["artifacts"]
     assert [f["name"] for f in own] == ["readme.md"]
     assert all(f.get("experiment_id") is None for f in own)

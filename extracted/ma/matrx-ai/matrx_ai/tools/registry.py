@@ -1257,6 +1257,7 @@ class ToolRegistry:
             # literal nobody could turn (matrx_ai.tools.knobs).
             timeout_seconds=guardrail_config.get("timeout_seconds"),
             must_complete=bool(guardrail_config.get("must_complete", False)),
+            screen_callable=guardrail_config.get("screen_callable") is True,
             max_client_wait_seconds=row.get("max_client_wait_seconds"),
         )
 

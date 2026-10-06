@@ -29,6 +29,7 @@ except ModuleNotFoundError:  # pragma: no cover - used on Python < 3.11
         from pip._vendor import tomli as tomllib  # type: ignore[no-redef]
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT = "splunk-otel-python-metadata.yaml"
 
 OTEL_PYTHON_SOURCE = "https://github.com/open-telemetry/opentelemetry-python"
 OTEL_PYTHON_CONTRIB_SOURCE = "https://github.com/open-telemetry/opentelemetry-python-contrib"
@@ -288,14 +289,6 @@ SETTINGS: list[dict[str, str]] = [
         "default": "true",
         "type": TYPE_BOOLEAN,
         "category": SETTING_TRACE_PROPAGATION,
-    },
-    {
-        "property": "splunk.otel.system.metrics.enabled",
-        "env": "SPLUNK_OTEL_SYSTEM_METRICS_ENABLED",
-        "description": "Activates system metrics instrumentation when set to true.",
-        "default": "false",
-        "type": TYPE_BOOLEAN,
-        "category": SETTING_INSTRUMENTATION,
     },
     {
         "property": "otel.python.disabled.instrumentations",
@@ -813,7 +806,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--output",
-        default="metadata.yaml",
+        default=DEFAULT_OUTPUT,
         help="Output file path, or '-' for stdout.",
     )
     return parser.parse_args(argv)

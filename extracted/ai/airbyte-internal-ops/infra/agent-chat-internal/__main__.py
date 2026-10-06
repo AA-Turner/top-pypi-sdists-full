@@ -25,10 +25,18 @@ Each service has a preview twin (`agui-server-preview`,
 `agui-playground-preview`) reached only via `preview.ops.internal.airbyte.ai`
 through the ops-webapp URL map — they are not attached to the standalone LB
 below.
+
+A third Cloud Run service (`agui-playground-mtx`, plus the
+`agui-playground-mtx-preview` twin) runs the thin mtx playground image and
+gets its own IAP-enabled backend (`agui-playground-mtx-backend`), which the
+ops-webapp URL map mounts at `/mtx`. Pulumi owns both mtx images: redeploy by
+bumping `mtx-playground-image` (or `mtx-playground-preview-image` for the
+twin) and applying — deploy-agui does not manage them.
 """
 
 from __future__ import annotations
 
+import json
 from urllib.parse import urlsplit
 
 import pulumi
@@ -65,11 +73,20 @@ PLAYGROUND_PREVIEW_SERVICE_NAME = "agui-playground-preview"
 AR_REPO_ID = "airbyte-agui-internal"
 SERVER_IMAGE_TAG = config.require("server-image-tag")
 PLAYGROUND_IMAGE_TAG = config.require("playground-image-tag")
+PLAYGROUND_AGENTS = config.require("playground-agents")
 SERVER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{AR_REPO_ID}"
     f"/airbyte-agui-server:{SERVER_IMAGE_TAG}"
 )
 PLAYGROUND_IMAGE = f"ghcr.io/airbytehq/airbyte-agui-playground:{PLAYGROUND_IMAGE_TAG}"
+
+# Thin mtx playground image (a full image ref).
+MTX_PLAYGROUND_IMAGE = config.require("mtx-playground-image")
+MTX_PLAYGROUND_SERVICE_NAME = "agui-playground-mtx"
+MTX_PLAYGROUND_PREVIEW_SERVICE_NAME = "agui-playground-mtx-preview"
+MTX_PLAYGROUND_PREVIEW_IMAGE = (
+    config.get("mtx-playground-preview-image") or MTX_PLAYGROUND_IMAGE
+)
 
 MCP_URL = config.get("mcp-url") or "https://mcp.internal.airbyte.ai/ops-mcp"
 AGENT_MODEL = config.get("agent-model") or ""
@@ -105,6 +122,24 @@ for _config_name, _base_url in (
                 f"{_config_name} must be an https URL with a hostname and no "
                 f"credentials, query, or fragment, got {_base_url!r}"
             )
+
+_playground_agents_raw = json.loads(PLAYGROUND_AGENTS)
+if not isinstance(_playground_agents_raw, list) or not _playground_agents_raw:
+    raise ValueError(
+        "playground-agents must be a JSON array of agent entries, got "
+        f"{PLAYGROUND_AGENTS!r}"
+    )
+for _index, _entry in enumerate(_playground_agents_raw):
+    if (
+        not isinstance(_entry, dict)
+        or not isinstance(_entry.get("id"), str)
+        or not isinstance(_entry.get("persona"), str)
+    ):
+        raise ValueError(
+            "playground-agents entries must be objects with string 'id' and "
+            f"'persona' fields, got entry {_index}: {_entry!r}"
+        )
+PLAYGROUND_AGENTS_JSON = json.dumps(_playground_agents_raw, separators=(",", ":"))
 
 if PREVIEW_ANTHROPIC_BASE_URL != ANTHROPIC_BASE_URL and not config.get(
     "preview-anthropic-secret-id"
@@ -207,6 +242,7 @@ def _define_cloud_run_service(
     service_account: gcp.serviceaccount.Account | None,
     iap_identity: gcp.projects.ServiceIdentity,
     depends_on: list[pulumi.Resource] | None = None,
+    pulumi_owns_image: bool = False,
 ) -> gcp.cloudrunv2.Service:
     """Define one internal-LB Cloud Run service behind IAP."""
     service = gcp.cloudrunv2.Service(
@@ -242,11 +278,14 @@ def _define_cloud_run_service(
             delete_before_replace=False,
             depends_on=[*api_services, *(depends_on or [])],
             # Cloud Run auto-populates top-level `scaling` from template
-            # settings; ignoring it avoids perpetual refresh drift. Image is
-            # ignored too: the deploy-agui workflow owns it via
-            # `gcloud run services update --image=<tag>`; the config tag only
-            # seeds the first create.
-            ignore_changes=["scaling", "template.containers[*].image"],
+            # settings; ignoring it avoids perpetual refresh drift. The image
+            # is ignored too unless Pulumi owns it: for the chat services the
+            # deploy-agui workflow owns it via
+            # `gcloud run services update --image=<tag>` and the config tag
+            # only seeds the first create.
+            ignore_changes=["scaling"]
+            if pulumi_owns_image
+            else ["scaling", "template.containers[*].image"],
         ),
     )
     gcp.cloudrunv2.ServiceIamMember(
@@ -505,7 +544,10 @@ def main() -> None:
         PLAYGROUND_SERVICE_NAME,
         PLAYGROUND_IMAGE,
         "512Mi",
-        [_env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else "")],
+        [
+            _env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else ""),
+            _env("AGUI_AGENTS", PLAYGROUND_AGENTS_JSON),
+        ],
         api_services,
         service_account=None,
         iap_identity=iap_identity,
@@ -531,10 +573,39 @@ def main() -> None:
         PLAYGROUND_PREVIEW_SERVICE_NAME,
         PLAYGROUND_IMAGE,
         "512Mi",
+        [
+            _env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else ""),
+            _env("AGUI_AGENTS", PLAYGROUND_AGENTS_JSON),
+        ],
+        api_services,
+        service_account=None,
+        iap_identity=iap_identity,
+    )
+
+    # Thin mtx playgrounds (prod + preview twin). Do NOT set AGUI_AGENTS
+    # here: the image bakes in AGUI_AGENTS_FILE, and the playground's
+    # 40-agui-config.sh fails container start when both are set.
+    mtx_playground_service = _define_cloud_run_service(
+        MTX_PLAYGROUND_SERVICE_NAME,
+        MTX_PLAYGROUND_IMAGE,
+        "512Mi",
         [_env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else "")],
         api_services,
         service_account=None,
         iap_identity=iap_identity,
+        # deploy-agui does not manage this service, so Pulumi owns its
+        # image: bump `mtx-playground-image` and apply to redeploy.
+        pulumi_owns_image=True,
+    )
+    mtx_playground_preview_service = _define_cloud_run_service(
+        MTX_PLAYGROUND_PREVIEW_SERVICE_NAME,
+        MTX_PLAYGROUND_PREVIEW_IMAGE,
+        "512Mi",
+        [_env("AGUI_BASE_URL", f"/{PATH_PREFIX}" if PATH_PREFIX else "")],
+        api_services,
+        service_account=None,
+        iap_identity=iap_identity,
+        pulumi_owns_image=True,
     )
 
     server_backend = _define_neg_and_backend(SERVER_SERVICE_NAME, server_service)
@@ -543,6 +614,10 @@ def main() -> None:
         SERVER_PREVIEW_SERVICE_NAME, server_preview_service
     )
     _define_neg_and_backend(PLAYGROUND_PREVIEW_SERVICE_NAME, playground_preview_service)
+    _define_neg_and_backend(MTX_PLAYGROUND_SERVICE_NAME, mtx_playground_service)
+    _define_neg_and_backend(
+        MTX_PLAYGROUND_PREVIEW_SERVICE_NAME, mtx_playground_preview_service
+    )
     lb_ip = define_load_balancer(api_services)
     dns_record, preview_dns_record = define_dns(lb_ip)
 
@@ -574,6 +649,10 @@ def main() -> None:
         "preview_url": f"https://{PREVIEW_DOMAIN}",
         "preview_dns_record": preview_dns_record.name,
     }
+    outputs["mtx_playground_service"] = mtx_playground_service.name
+    outputs["mtx_playground_image"] = MTX_PLAYGROUND_IMAGE
+    outputs["mtx_playground_preview_service"] = mtx_playground_preview_service.name
+    outputs["mtx_playground_preview_image"] = MTX_PLAYGROUND_PREVIEW_IMAGE
     for name, value in outputs.items():
         pulumi.export(name, value)
 

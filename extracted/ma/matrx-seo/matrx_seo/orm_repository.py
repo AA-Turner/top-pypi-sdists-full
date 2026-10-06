@@ -59,6 +59,7 @@ from .contracts import (
     RankObservation,
     RawPayloadEnvelope,
     RawPayloadReceipt,
+    ReuseVerdict,
     SearchPerformanceObservation,
     SeoCapability,
     SeoObservation,
@@ -73,6 +74,7 @@ from .db import models_seo as m
 from .identity import collection_identity, stable_hash
 from .market_math import compute_market_stats, merge_monthly
 from .repository import RUN_LEASE_SECONDS, SeoRepository
+from .reuse import narrowed
 
 # seo.search_performance_daily write shape (see _persist_search_performance_batch):
 # rows per INSERT / dedup-key reload, and total attempts per statement on a
@@ -382,10 +384,23 @@ class OrmSeoRepository(SeoRepository):
         provider: str,
         request: CollectionRequest,
         freshness_ttl_seconds: int,
+        *,
+        require_fresh_within_seconds: int | None = None,
     ) -> CollectionReceipt | None:
+        window = narrowed(freshness_ttl_seconds, require_fresh_within_seconds)
+        if window <= 0:
+            return None
         settings_hash = stable_hash(request.settings)
+        # A SCHEDULED request is a time-series reading for its own period: it
+        # never reuses another period's run (its own period is start_run's identity).
+        period_filter = (
+            {"observation_period": request.observation_period}
+            if request.trigger == CollectionTrigger.SCHEDULED
+            else {}
+        )
         rows = (
             await m.CollectionRun.filter(
+                **period_filter,
                 organization_id=request.organization_id,
                 provider=provider,
                 capability=request.capability.value,
@@ -405,7 +420,7 @@ class OrmSeoRepository(SeoRepository):
         if not rows or rows[0].completed_at is None:
             return None
         completed_at = rows[0].completed_at
-        if completed_at < _now() - timedelta(seconds=freshness_ttl_seconds):
+        if completed_at < _now() - timedelta(seconds=window):
             return None
         run = CollectionRun(
             id=str(rows[0].id),
@@ -420,16 +435,24 @@ class OrmSeoRepository(SeoRepository):
             attempt_count=rows[0].attempt_count,
         )
         receipt = await self.receipt_for_run(run)
-        age = max(int((_now() - completed_at).total_seconds()), 0)
+        now = _now()
+        age = max(int((now - completed_at).total_seconds()), 0)
         return receipt.model_copy(
             update={
                 "from_cache": True,
                 "cache_age_seconds": age,
-                "freshness_ttl_seconds": freshness_ttl_seconds,
+                "freshness_ttl_seconds": window,
+                "reuse": ReuseVerdict.reused(run.id, completed_at, window, now=now),
             }
         )
 
-    async def start_run(self, provider: str, request: CollectionRequest) -> CollectionRun:
+    async def start_run(
+        self,
+        provider: str,
+        request: CollectionRequest,
+        *,
+        identity_salt: str | None = None,
+    ) -> CollectionRun:
         settings_hash = stable_hash(request.settings)
         key = collection_identity(
             request.organization_id,
@@ -445,6 +468,11 @@ class OrmSeoRepository(SeoRepository):
         )
         if request.force_refresh:
             key = stable_hash([key, "force_refresh", request.request_id or str(uuid4())])
+        if identity_salt is not None:
+            # A fresh purchase the reuse window demanded (see
+            # SeoCollectionService.collect): a window bucket — so identical
+            # concurrent requests collapse onto one run — or a purchase nonce.
+            key = stable_hash([key, "fresh", identity_salt])
         now = _now()
         lease_owner = str(uuid4())
         lease_expires_at = now + timedelta(seconds=RUN_LEASE_SECONDS)

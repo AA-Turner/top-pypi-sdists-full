@@ -156,7 +156,7 @@ class Recon(ABC):
 
             self.CRC = crc_list
 
-    def calculate_MSE(self, withTumor=True):
+    def calculate_MSE(self, withTumor=True, ground_truth=None):
         """
         Calculate the Mean Squared Error (MSE) of the reconstruction,
         against the ground truth cropped to the effective geometry.
@@ -164,19 +164,22 @@ class Recon(ABC):
         if self.reconPhantom is None or self.reconPhantom == []:
             raise ValueError("[AOT-biomaps] Reconstructed phantom is empty. Run reconstruction first.")
 
-        gt = self._gt(withTumor=withTumor)
+        if ground_truth is not None:
+            gt = ground_truth
+        else:
+            gt = self._gt(withTumor=withTumor)
 
         if self.reconType in (ReconType.Analytic, ReconType.DeepLearning):
             self.MSE = mse(None, gt, self.reconPhantom)
 
-        elif self.reconType in (ReconType.Algebraic, ReconType.Bayesian, ReconType.Convex):
+        elif self.reconType == ReconType.Algebraic:
             self.MSE = []
             if withTumor:
                 for theta in self.reconPhantom:
-                    self.MSE.append(mse(None, gt, theta))
+                    self.MSE.append(mse(self.SMatrix, gt, theta))
             else:
                 for theta in self.reconLaser:
-                    self.MSE.append(mse(None, gt, theta))
+                    self.MSE.append(mse(self.SMatrix, gt, theta))
 
     def calculate_SSIM(self, withTumor=True, show_log=False):
         """

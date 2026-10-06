@@ -11,12 +11,19 @@ from taktile_auth.entities import (
 from taktile_auth.entities.permission import PermissionArgs
 from taktile_auth.parser.utils import parse_body
 
+_YamlLoader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 def parse_role(
     role_signature: str,
     role_yaml: t.Dict[str, t.Any],
     resources: t.Dict[str, ResourceDefinition],
+    role_cache: t.Optional[t.Dict[str, RoleDefinition]] = None,
 ) -> RoleDefinition:
+    if role_cache is None:
+        role_cache = {}
+    if role_signature in role_cache:
+        return role_cache[role_signature]
     perm_definitions = []
     sub_role_definitions = []
 
@@ -54,19 +61,20 @@ def parse_role(
             if not matching_signatures:
                 raise KeyError(f"Sub-role {sub_role_name} not found in role definitions")
 
-            sub_role_definitions.append(parse_role(matching_signatures[0], role_yaml, resources))
+            sub_role_definitions.append(parse_role(matching_signatures[0], role_yaml, resources, role_cache))
 
-    return RoleDefinition(
+    role_cache[role_signature] = RoleDefinition(
         name=role_name,
         permission_definitions=perm_definitions,
         args=role_args,
         sub_role_definitions=sub_role_definitions,
     )
+    return role_cache[role_signature]
 
 
 def parse_resource_yaml(path: pathlib.Path) -> t.Dict[str, ResourceDefinition]:
     with open(path, "r") as f:
-        resources_yaml = yaml.safe_load(f)
+        resources_yaml = yaml.load(f, Loader=_YamlLoader)
     resources: t.Dict[str, ResourceDefinition] = {}
     for resource_name, body in resources_yaml.items():
         args = dict(filter(lambda entry: entry[0] != "additional_actions", body.items()))
@@ -78,10 +86,9 @@ def parse_resource_yaml(path: pathlib.Path) -> t.Dict[str, ResourceDefinition]:
     return resources
 
 
-def parse_role_yaml(role_path: pathlib.Path, resource_path: pathlib.Path) -> t.Dict[str, RoleDefinition]:
-    resources = parse_resource_yaml(resource_path)
+def parse_role_yaml(role_path: pathlib.Path, resources: t.Dict[str, ResourceDefinition]) -> t.Dict[str, RoleDefinition]:
     with open(role_path, "r") as f:
-        roles_raw: t.Dict[str, t.Any] = yaml.safe_load(f)
+        roles_raw: t.Dict[str, t.Any] = yaml.load(f, Loader=_YamlLoader)
 
     role_yaml = {}
     for role_signature, role_body in roles_raw.items():
@@ -93,7 +100,8 @@ def parse_role_yaml(role_path: pathlib.Path, resource_path: pathlib.Path) -> t.D
                 "role_body": role_body,
             }
 
+    role_cache: t.Dict[str, RoleDefinition] = {}
     return {
-        role_signature.split("/")[0]: parse_role(role_signature, role_yaml, resources)
+        role_signature.split("/")[0]: parse_role(role_signature, role_yaml, resources, role_cache)
         for role_signature in role_yaml.keys()
     }

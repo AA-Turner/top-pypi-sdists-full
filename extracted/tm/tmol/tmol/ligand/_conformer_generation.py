@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import math
+from functools import lru_cache
 from typing import Optional
 
 import numpy as np
@@ -25,6 +26,9 @@ from rdkit import (
     RDLogger,
 )
 from rdkit.Chem import AllChem
+
+from tmol.ligand._atom_typing import assign_tmol_atom_types
+from tmol.ligand._openbabel_compat import _OPENBABEL_FORCEFIELD_LOCK
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -109,12 +113,25 @@ def generate_conformer(
     Raises:
         ValueError: Failures in parsing or final min.
     """
+    if seed is None:
+        return _generate_conformer(smiles, minimize_steps, seed)
+    ob, pybel = _import_openbabel()
+    # Seeded results are reusable, but callers own their coordinates and charges.
+    return pybel.Molecule(ob.OBMol(_seeded_conformer(smiles, minimize_steps, seed)))
+
+
+@lru_cache(maxsize=128)
+def _seeded_conformer(smiles: str, minimize_steps: int, seed: int):
+    return _generate_conformer(smiles, minimize_steps, seed).OBMol
+
+
+def _generate_conformer(smiles: str, minimize_steps: int, seed: Optional[int]):
     _, pybel = _import_openbabel()
     obmol = _smiles_to_obmol(smiles)
     rd = _obmol_to_rdkit(obmol)
     if rd is None:
         raise ValueError(f"could not parse ligand chemistry for SMILES {smiles!r}")
-    targets = _geometry_targets(rd)
+    targets = _geometry_targets(rd, _double_bond_stereo(smiles, rd))
     with _flush_denormals():
         _set_coords(obmol, _embed_coordinates(targets, seed=seed))
     _forcefield_minimize(obmol, steps=minimize_steps, frozen=targets["frozen_atoms"])
@@ -158,28 +175,30 @@ def _forcefield_minimize(obmol, *, steps: int, frozen=()) -> None:
     uff fallback (for chemistries mmff94 cannot type)
     'frozen' atoms are held fixed"""
     openbabel, _ = _import_openbabel()
-    for name in ("mmff94", "uff"):
-        ff = openbabel.OBForceField.FindForceField(name)
-        if ff is None:
-            continue
-        constraints = openbabel.OBFFConstraints()
-        for i in frozen:
-            constraints.AddAtomConstraint(int(i) + 1)  # OB is 1-indexed
-        # ff is an obabel global
-        # if called consecutively on _isomers_, connectivity of 1st is used
-        #    for both in minimization
-        # setting up an empty molecule invalidates and forces recomputation
-        ff.Setup(openbabel.OBMol())
-        if not ff.IsSetupNeeded(obmol):
-            raise ValueError(
-                f"{name} setup cache was not invalidated; the ligand would be "
-                "minimized against another molecule's connectivity"
-            )
-        if ff.Setup(obmol, constraints):
-            ff.ConjugateGradients(steps)
-            ff.GetCoordinates(obmol)
-            return
-    raise ValueError("no force field could minimize the ligand")
+    # OpenBabel shares one mutable force-field instance per model across threads.
+    with _OPENBABEL_FORCEFIELD_LOCK:
+        for name in ("mmff94", "uff"):
+            ff = openbabel.OBForceField.FindForceField(name)
+            if ff is None:
+                continue
+            constraints = openbabel.OBFFConstraints()
+            for i in frozen:
+                constraints.AddAtomConstraint(int(i) + 1)  # OB is 1-indexed
+            # ff is an obabel global
+            # if called consecutively on _isomers_, connectivity of 1st is used
+            #    for both in minimization
+            # setting up an empty molecule invalidates and forces recomputation
+            ff.Setup(openbabel.OBMol())
+            if not ff.IsSetupNeeded(obmol):
+                raise ValueError(
+                    f"{name} setup cache was not invalidated; the ligand would be "
+                    "minimized against another molecule's connectivity"
+                )
+            if ff.Setup(obmol, constraints):
+                ff.ConjugateGradients(steps)
+                ff.GetCoordinates(obmol)
+                return
+        raise ValueError("no force field could minimize the ligand")
 
 
 # Geometry targets (ideal distances / angles / chirality)
@@ -318,7 +337,100 @@ def _planar_systems(rd: Chem.Mol, bonds):  # noqa: C901
     return components, sets
 
 
-def _geometry_targets(rd: Chem.Mol) -> dict:
+def _double_bond_stereo(smiles: str, rd: Chem.Mol) -> dict:
+    """Cis/trans the SMILES declares, which ``rd`` (same atom order) lost (4XXJ retinal):
+    {(i, j): (a, d, is_cis)}, a on i and d on j."""
+    source = Chem.MolFromSmiles(smiles, sanitize=False)
+    if source is None:
+        return {}
+    Chem.SetBondStereoFromDirections(source)
+    out = {}
+    for bond in source.GetBonds():
+        stereo = bond.GetStereo()
+        if stereo not in (Chem.BondStereo.STEREOCIS, Chem.BondStereo.STEREOTRANS):
+            continue
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        a, d = bond.GetStereoAtoms()
+        if max(i, j, a, d) >= rd.GetNumAtoms() or any(
+            source.GetAtomWithIdx(x).GetAtomicNum()
+            != rd.GetAtomWithIdx(x).GetAtomicNum()
+            for x in (i, j, a, d)
+        ):
+            return {}
+        out[(i, j)] = (a, d, stereo == Chem.BondStereo.STEREOCIS)
+    return out
+
+
+def _double_bond_torsions(rd: Chem.Mol, stereo: dict):
+    """(a, i, j, d, is_cis) per substituent pair across a double bond outside rings of
+    up to 7 atoms; unspecified bonds put each side's bulkiest substituent trans."""
+    ring_info = rd.GetRingInfo()
+
+    def bulk(x, center):
+        atom = rd.GetAtomWithIdx(x)
+        heavy = sum(
+            1
+            for n in atom.GetNeighbors()
+            if n.GetIdx() != center and n.GetAtomicNum() > 1
+        )
+        return (atom.GetAtomicNum() > 1, heavy, atom.GetAtomicNum(), -x)
+
+    out = []
+    for bond in rd.GetBonds():
+        if bond.GetBondType() != Chem.BondType.DOUBLE or bond.GetIsAromatic():
+            continue
+        if any(len(r) <= 7 for r in ring_info.BondRings() if bond.GetIdx() in r):
+            continue
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        left = [
+            n.GetIdx() for n in rd.GetAtomWithIdx(i).GetNeighbors() if n.GetIdx() != j
+        ]
+        right = [
+            n.GetIdx() for n in rd.GetAtomWithIdx(j).GetNeighbors() if n.GetIdx() != i
+        ]
+        if not left or not right or len(left) > 2 or len(right) > 2:
+            continue
+        if (i, j) in stereo:
+            ref_a, ref_d, ref_cis = stereo[(i, j)]
+        elif (j, i) in stereo:
+            ref_d, ref_a, ref_cis = stereo[(j, i)]
+        else:
+            ref_a = max(left, key=lambda x: bulk(x, i))
+            ref_d = max(right, key=lambda x: bulk(x, j))
+            ref_cis = False
+        if ref_a not in left or ref_d not in right:
+            continue
+        for a in left:
+            for d in right:
+                out.append((a, i, j, d, ref_cis ^ (a != ref_a) ^ (d != ref_d)))
+    return out
+
+
+def _conjugated_single_bonds(rd: Chem.Mol):
+    """(i, j) for the single bonds ligand typing promotes to double (conjugated, amide)."""
+    mol = Chem.Mol(rd)
+    try:
+        assign_tmol_atom_types(mol)
+    except ValueError:
+        return []
+    return [
+        (b.GetBeginAtomIdx(), b.GetEndAtomIdx())
+        for b in rd.GetBonds()
+        if b.GetBondType() == Chem.BondType.SINGLE
+        and mol.GetBondWithIdx(b.GetIdx()).GetBondType() == Chem.BondType.DOUBLE
+    ]
+
+
+def _planar_14_distance(r_ai, r_ij, r_jd, theta_aij, theta_ijd, is_cis):
+    """Distance a-d across the bond i-j at dihedral 0 (cis) or 180 (trans), degrees."""
+    t1, t2 = math.radians(theta_aij), math.radians(theta_ijd)
+    ax, ay = r_ai * math.cos(t1), r_ai * math.sin(t1)
+    dx = r_ij - r_jd * math.cos(t2)
+    dy = r_jd * math.sin(t2) * (1.0 if is_cis else -1.0)
+    return math.hypot(dx - ax, dy - ay)
+
+
+def _geometry_targets(rd: Chem.Mol, double_bond_stereo: Optional[dict] = None) -> dict:
     elements = [a.GetAtomicNum() for a in rd.GetAtoms()]
     props = AllChem.MMFFGetMoleculeProperties(rd)
     if props is not None:
@@ -326,6 +438,17 @@ def _geometry_targets(rd: Chem.Mol) -> dict:
     else:
         bonds, angles, frozen = _fallback_bonds_angles(rd, elements)
     components, sets = _planar_systems(rd, bonds)
+    double_bonds = _double_bond_torsions(rd, double_bond_stereo or {})
+    # each double bond, and each single bond typing marks conjugated, is flat with
+    # its substituents
+    flat: dict[tuple, set] = {}
+    for a, i, j, d, _ in double_bonds:
+        flat.setdefault((i, j), {i, j}).update((a, d))
+    for i, j in _conjugated_single_bonds(rd):
+        flat.setdefault((i, j), {i, j}).update(
+            n.GetIdx() for x in (i, j) for n in rd.GetAtomWithIdx(x).GetNeighbors()
+        )
+    sets = sets + [tuple(sorted(x)) for x in flat.values()]
     pt = Chem.GetPeriodicTable()
     return dict(
         n=rd.GetNumAtoms(),
@@ -336,8 +459,25 @@ def _geometry_targets(rd: Chem.Mol) -> dict:
         planar_components=components,
         planar_sets=sets,
         chirals=_chiral_volume_targets(rd),
+        double_bonds=double_bonds,
         frozen_atoms=frozen,
     )
+
+
+def _atom_distances(coords, i, j):
+    # index_select gives deterministic CPU gradients for repeated atom indices.
+    delta = coords.index_select(0, i) - coords.index_select(0, j)
+    return (delta**2).sum(1).clamp_min(1e-12).sqrt()
+
+
+def _chiral_volumes(coords, c0, c1, c2, c3):
+    origin = coords.index_select(0, c0)
+    return (
+        (coords.index_select(0, c1) - origin)
+        * torch.linalg.cross(
+            coords.index_select(0, c2) - origin, coords.index_select(0, c3) - origin
+        )
+    ).sum(1)
 
 
 # Distance-bounds matrix + smoothing + embedding
@@ -383,7 +523,7 @@ def _planar_component_distances(atoms, r0, ang, max_iters: int = 150):
 
     def closure():
         Y.grad = None
-        d = ((Y[pair_i] - Y[pair_j]) ** 2).sum(1).clamp_min(1e-12).sqrt()
+        d = _atom_distances(Y, pair_i, pair_j)
         loss = ((d - target_distance) ** 2).sum()
         loss.backward()
         return loss
@@ -401,6 +541,7 @@ def _bounds_matrix(targets: dict):
     """Build the distance bounds matrix:
     * 1-2 and 1-3 atom distances exact given ideal geometry
     * planar pairs in same ring system exact given 2D embedding
+    * 1-4 pairs across an acyclic double bond exact, planar at its cis/trans
     * lower bounded given VDW radii for all others"""
     n = targets["n"]
     vdw = np.array(targets["vdw"], float)
@@ -430,6 +571,17 @@ def _bounds_matrix(targets: dict):
         if dists:
             for (i, j), d in dists.items():
                 fix(i, j, d)
+    for a, i, j, d, is_cis in targets.get("double_bonds", ()):
+        key_a, key_d = (min(a, j), i, max(a, j)), (min(i, d), j, max(i, d))
+        if exact[a, d] or key_a not in ang or key_d not in ang:
+            continue
+        fix(
+            a,
+            d,
+            _planar_14_distance(
+                r0[(a, i)], r0[(i, j)], r0[(j, d)], ang[key_a], ang[key_d], is_cis
+            ),
+        )
     L = np.minimum(L, U)
     return L, U
 
@@ -468,7 +620,8 @@ def _metric_embed(L, U, seed: int) -> np.ndarray:
     G = -0.5 * (J @ (D**2) @ J)
     w, V = np.linalg.eigh(G)
     order = np.argsort(w)[::-1]
-    return V[:, order[:3]] * np.sqrt(np.clip(w[order[:3]], 0.0, None))
+    coords = V[:, order[:3]] * np.sqrt(np.clip(w[order[:3]], 0.0, None))
+    return np.pad(coords, ((0, 0), (0, 3 - n))) if n < 3 else coords
 
 
 def _pair_masks(L0, U0, L, U):
@@ -529,11 +682,10 @@ def _chiral_anneal(X0, L0, U0, L, U, components, chirals, rng_seed: int) -> np.n
     )
 
     def pd(i, j):
-        return ((X[i] - X[j]) ** 2).sum(1).clamp_min(1e-12).sqrt()
+        return _atom_distances(X, i, j)
 
     def chiral_penalty():
-        P = X[:, :3]
-        v = ((P[c1] - P[c0]) * torch.linalg.cross(P[c2] - P[c0], P[c3] - P[c0])).sum(1)
+        v = _chiral_volumes(X[:, :3], c0, c1, c2, c3)
         return (torch.relu(CHIRAL_MARGIN - csgn * v) ** 2).sum()
 
     def run(iters, w_dim4):
@@ -550,7 +702,8 @@ def _chiral_anneal(X0, L0, U0, L, U, components, chirals, rng_seed: int) -> np.n
             loss = loss + W_BOUND * (torch.relu(lo - pd(ni, nj)) ** 2).sum()
             loss = loss + W_BOUND * (torch.relu(pd(fi, fj) - hi) ** 2).sum()
             for c in comps:
-                P = X[c][:, :3] - X[c][:, :3].mean(0)
+                P = X.index_select(0, c)[:, :3]
+                P = P - P.mean(0)
                 loss = loss + W_PLANE * torch.linalg.eigvalsh(P.t() @ P)[0]
             loss = loss + W_CHIRAL * chiral_penalty()
             if w_dim4 > 0:
@@ -583,12 +736,12 @@ def _stress_refine(X0, L0, U0, L, U, components, chirals) -> np.ndarray:
     csgn = torch.as_tensor(ch[:, 4], dtype=TORCH_DTYPE)
 
     def pair_distances():
-        return ((X[pair_i] - X[pair_j]) ** 2).sum(1).clamp_min(1e-12).sqrt()
+        return _atom_distances(X, pair_i, pair_j)
 
     def chiral_penalty():
         if len(csgn) == 0:
             return X.sum() * 0.0
-        v = ((X[c1] - X[c0]) * torch.linalg.cross(X[c2] - X[c0], X[c3] - X[c0])).sum(1)
+        v = _chiral_volumes(X, c0, c1, c2, c3)
         return (torch.relu(CHIRAL_MARGIN - csgn * v) ** 2).sum()
 
     opt = _LigandLBFGS(
@@ -606,7 +759,8 @@ def _stress_refine(X0, L0, U0, L, U, components, chirals) -> np.ndarray:
         loss = loss + W_BOUND * (torch.relu(lo - lower) ** 2).sum()
         loss = loss + W_BOUND * (torch.relu(upper - hi) ** 2).sum()
         for c in comps:
-            P = X[c] - X[c].mean(0)
+            P = X.index_select(0, c)
+            P = P - P.mean(0)
             loss = loss + W_PLANE * torch.linalg.eigvalsh(P.t() @ P)[0]
         loss = loss + W_CHIRAL * chiral_penalty()
         loss.backward()

@@ -1040,7 +1040,9 @@ def _home_path(client: Client, create: dict, key: str) -> str:
                 )
             else:
                 exp = client.resolve_or_raise("experiment", experiment, project_id=project_id)
-            return f"/v1/projects/{exp['id']}/runs"
+            # The experiment API's run create: under the project it is filed
+            # in (an experiment row always names it).
+            return f"/v1/projects/{exp['project_id']}/experiments/{exp['id']}/runs"
         if project_id:
             return f"/v1/projects/{project_id}/runs"
         return "/v1/runs"

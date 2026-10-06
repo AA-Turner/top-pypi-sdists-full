@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from istari_digital_client.sdk._generated.v2.models.worker_mode import WorkerMode
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -30,7 +31,8 @@ class NewAgent(BaseModel):
     host_os: StrictStr
     api_hashes: Optional[StrictStr] = None
     capabilities: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["agent_version", "host_os", "api_hashes", "capabilities"]
+    worker_mode: Optional[WorkerMode] = None
+    __properties: ClassVar[List[str]] = ["agent_version", "host_os", "api_hashes", "capabilities", "worker_mode"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -76,6 +78,11 @@ class NewAgent(BaseModel):
         if self.api_hashes is None and "api_hashes" in self.model_fields_set:
             _dict['api_hashes'] = None
 
+        # set to None if worker_mode (nullable) is None
+        # and model_fields_set contains the field
+        if self.worker_mode is None and "worker_mode" in self.model_fields_set:
+            _dict['worker_mode'] = None
+
         return _dict
 
     @classmethod
@@ -91,6 +98,7 @@ class NewAgent(BaseModel):
             "agent_version": obj.get("agent_version"),
             "host_os": obj.get("host_os"),
             "api_hashes": obj.get("api_hashes"),
-            "capabilities": obj.get("capabilities")
+            "capabilities": obj.get("capabilities"),
+            "worker_mode": obj.get("worker_mode")
         })
         return _obj

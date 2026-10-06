@@ -20,14 +20,18 @@ import pytest
 from coord.win_native_bridge import (
     DEFAULT_PACKAGE_SPEC,
     POWERSHELL_EXE,
+    TASKKILL_EXE,
+    TASKLIST_EXE,
     WINDOWS_PYTHON_OVERRIDE_ENV,
     WinNativeBridgeError,
     ensure_windows_win_native_venv,
     find_windows_python,
     is_wsl_host,
+    kill_windows_pid,
     run_native_spec_via_bridge,
     translate_to_windows_path,
     windows_path_to_wsl_path,
+    windows_pid_alive,
     windows_venv_python,
     _main,
 )
@@ -245,6 +249,124 @@ def test_windows_venv_python_path() -> None:
     )
 
 
+# ── windows_pid_alive / kill_windows_pid (#3611) ─────────────────────────────
+
+
+class TestWindowsPidAlive:
+    def test_true_when_tasklist_reports_a_matching_row(self) -> None:
+        run = _FakeRun({
+            (TASKLIST_EXE,): lambda argv, **kw: _proc(stdout='"vimcode.exe","4242","Console","1","12,345 K"\n'),
+        })
+        assert windows_pid_alive(4242, run=run) is True
+
+    def test_false_when_tasklist_reports_no_rows(self) -> None:
+        run = _FakeRun({
+            (TASKLIST_EXE,): lambda argv, **kw: _proc(stdout=""),
+        })
+        assert windows_pid_alive(4242, run=run) is False
+
+    def test_false_does_not_substring_match_an_unrelated_digit_run(self) -> None:
+        """#2096: a gate that can never fail is not a gate — this asserts
+        the match is against *pid* as its own quoted CSV field, not a
+        substring of some other column (e.g. a memory/session value that
+        happens to contain the same digits) that would make this read
+        "alive" for a process that was never actually found."""
+        run = _FakeRun({
+            (TASKLIST_EXE,): lambda argv, **kw: _proc(stdout='"other.exe","99","Console","1","424,200 K"\n'),
+        })
+        assert windows_pid_alive(4242, run=run) is False
+
+    def test_none_on_nonzero_exit(self) -> None:
+        """#3611 review: a non-zero `tasklist.exe` exit is a failure to GET
+        an answer (a bad filter, an environment error), not "confirmed
+        gone" — folding it into `False` would let one flaky call read as a
+        teardown that was never actually observed."""
+        run = _FakeRun({
+            (TASKLIST_EXE,): lambda argv, **kw: _proc(returncode=1, stderr="not found"),
+        })
+        assert windows_pid_alive(4242, run=run) is None
+
+    def test_none_when_tasklist_missing_never_raises(self) -> None:
+        """#3611 review: `tasklist.exe` being unreachable is "could not ask",
+        tri-stated as `None` — distinct from the `False` ("confirmed
+        gone") a caller like `coord.app_drive.close_session` must never
+        receive from an environment-wide probe failure (it would read as a
+        confirmed teardown for a pid that's still genuinely alive)."""
+
+        def _run(argv, **kw):
+            raise FileNotFoundError("no tasklist.exe")
+
+        assert windows_pid_alive(4242, run=_run) is None
+
+    def test_none_on_timeout_never_raises(self) -> None:
+        def _run(argv, **kw):
+            raise subprocess.TimeoutExpired(cmd=argv, timeout=15.0)
+
+        assert windows_pid_alive(4242, run=_run) is None
+
+
+class TestKillWindowsPid:
+    def test_graceful_kill_confirmed_by_a_second_tasklist_probe(self) -> None:
+        calls = []
+
+        def _run(argv, **kw):
+            calls.append(tuple(argv))
+            if argv[0] == TASKKILL_EXE:
+                return _proc(returncode=0)
+            return _proc(stdout="")  # tasklist: gone
+
+        assert kill_windows_pid(4242, run=_run) is True
+        assert calls[0] == (TASKKILL_EXE, "/PID", "4242")
+
+    def test_force_kill_passes_the_f_flag(self) -> None:
+        calls = []
+
+        def _run(argv, **kw):
+            calls.append(tuple(argv))
+            if argv[0] == TASKKILL_EXE:
+                return _proc(returncode=0)
+            return _proc(stdout="")
+
+        assert kill_windows_pid(4242, force=True, run=_run) is True
+        assert calls[0] == (TASKKILL_EXE, "/PID", "4242", "/F")
+
+    def test_returns_false_when_still_alive_after_taskkill(self) -> None:
+        """#2096: the verdict comes from a FRESH `tasklist` observation
+        taken after the kill, never from `taskkill`'s own exit code (which
+        is 0 for "signalled", even against a process that ignores it)."""
+
+        def _run(argv, **kw):
+            if argv[0] == TASKKILL_EXE:
+                return _proc(returncode=0)
+            return _proc(stdout='"stubborn.exe","4242","Console","1","1 K"\n')
+
+        assert kill_windows_pid(4242, run=_run) is False
+
+    def test_taskkill_exec_failure_still_confirms_via_tasklist(self) -> None:
+        """An unreachable `taskkill.exe` must not raise — a FRESH `tasklist`
+        probe that genuinely reports no rows still confirms the pid gone,
+        same as any other path."""
+
+        def _run(argv, **kw):
+            if argv[0] == TASKKILL_EXE:
+                raise FileNotFoundError("no taskkill.exe")
+            return _proc(stdout="")
+
+        assert kill_windows_pid(4242, run=_run) is True
+
+    def test_returns_false_when_both_taskkill_and_tasklist_are_unreachable(self) -> None:
+        """#3611 review: the old `not windows_pid_alive(...)` shape
+        returned `True` ("confirmed killed") whenever BOTH `taskkill.exe`
+        and the confirming `tasklist.exe` were unreachable — "could not
+        ask either one" is not evidence of anything, and must never read
+        as a confirmed kill (#2096)."""
+
+        def _run(argv, **kw):
+            raise FileNotFoundError("no such file")
+
+        assert kill_windows_pid(4242, run=_run) is False
+
+
 # ── ensure_windows_win_native_venv ───────────────────────────────────────────
 
 
@@ -264,6 +386,32 @@ class TestEnsureWindowsWinNativeVenv:
         # argv[0] handed to `run` for the actual exec is WSL-form...
         assert run.calls[-1][0][0] == wsl_venv_python
         assert len(run.calls) == 2  # the wslpath translate + the probe itself, no venv/pip calls
+
+    def test_probe_checks_app_drive_daemon_not_just_comtypes(self, monkeypatch) -> None:
+        """#3611 review: a venv bootstrapped under #3515 (before #3590 added
+        app-drive) has `comtypes` importable but NOT
+        `coord.app_drive_daemon` — the old `import comtypes`-only probe
+        read that as already-current and skipped the upgrade, so the
+        first bridge-spawned `coord app-drive open win-native` on such a
+        host failed opaquely instead of this function paying the
+        `pip install --upgrade` it exists to make automatic."""
+        venv_python = windows_venv_python("C:\\coord-win-native-venv")
+        wsl_venv_python = _to_wsl(venv_python)
+        probe_calls = []
+
+        def _probe(argv, **kw):
+            probe_calls.append(argv)
+            return _proc(returncode=0)
+
+        run = _FakeRun({
+            ("wslpath", "-u"): _wslpath_u_handler,
+            (wsl_venv_python, "-c"): _probe,
+        })
+        ensure_windows_win_native_venv(run=run, venv_dir="C:\\coord-win-native-venv")
+        assert len(probe_calls) == 1
+        probe_script = probe_calls[0][2]
+        assert "comtypes" in probe_script
+        assert "coord.app_drive_daemon" in probe_script
 
     def test_bootstraps_from_scratch_when_missing(self) -> None:
         venv_python = windows_venv_python("C:\\coord-win-native-venv")

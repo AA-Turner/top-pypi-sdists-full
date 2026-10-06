@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.8.246"
+version = "0.8.256"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -124,6 +124,13 @@ addopts = [
     "tests.httpx2_alias_plugin",
 ]
 markers = ["toolkit: big smoke tests"]
+
+[tool.ty.src]
+include = ["cognite_toolkit"]
+exclude = [
+    "tests",
+    "cognite_toolkit/_cdf_tk/",
+]
 
 [tool.mypy]
 check_untyped_defs = true

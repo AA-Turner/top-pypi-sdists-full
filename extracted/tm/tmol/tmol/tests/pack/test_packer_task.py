@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from tmol.pack import PackerPalette, PackerTask, SetPackerTask
@@ -8,6 +9,24 @@ from tmol.io import pose_stack_from_pdb
 def test_packer_palette_smoke():
     pp = PackerPalette()
     assert pp
+
+
+def test_terminal_palette_keeps_glycine_and_proline_design_choices(
+    fresh_default_packed_block_types, torch_device
+):
+    """Terminal chemistry agrees despite Gly/Pro's different backbone H counts."""
+    pbt = fresh_default_packed_block_types
+    names = [bt.name for bt in pbt.active_block_types]
+    palette = PackerPalette()
+    for suffix in ("", ":nterm", ":cterm"):
+        expected = {f"{base}{suffix}" for base in ("ALA", "GLY", "PRO")}
+        for original in expected:
+            counts, choices, _ = palette.block_types_from_original(
+                pbt,
+                torch.tensor([[names.index(original)]], device=torch_device),
+            )
+            offered = {names[i] for i in choices[0, 0, : counts[0, 0]].tolist()}
+            assert expected <= offered
 
 
 def test_packer_palette_design_to_canonical_aas(
@@ -228,3 +247,72 @@ def test_set_packer_task_ctor(ubq_pdb, torch_device):
     assert set_task.allowed_bt_block_type.shape == (n_allowed,)
     assert set_task.is_cons_bt_allowed.shape == (12 * 21,)
     assert set_task.allowed_cons_bt.shape == (n_allowed,)
+
+
+def test_types_only_metal_detection_selects_keep_their_own_palette(
+    fresh_default_packed_block_types, torch_device
+):
+    # metals are never packed, and a deprotonated form belongs to the residue
+    # detection assigned it to; neither trades places with anything else
+    pp = PackerPalette()
+    pbt = fresh_default_packed_block_types
+    names = [bt.name for bt in pbt.active_block_types]
+    for name in ("ZN_tetrahedral", "CYS_DEP", "TYR_DEP"):
+        i = names.index(name)
+        n_allowed, allowed_bts, _ = pp.block_types_from_original(
+            pbt, torch.tensor([[i]], dtype=torch.int64, device=torch_device)
+        )
+        assert n_allowed[0, 0] == 1
+        assert allowed_bts[0, 0, 0] == i
+
+    # and no other type's palette offers them
+    hoh = names.index("HOH")
+    n_allowed, allowed_bts, _ = pp.block_types_from_original(
+        pbt, torch.tensor([[hoh]], dtype=torch.int64, device=torch_device)
+    )
+    offered = {names[j] for j in allowed_bts[0, 0, : n_allowed[0, 0]].tolist()}
+    assert not any(pbt.active_block_types[names.index(n)].metal_sites for n in offered)
+
+
+def test_masked_name3_restriction_that_empties_a_block_raises(ubq_pdb, torch_device):
+    """Restricting a selected block to name3s none of its choices has is an error.
+
+    Guards PackerTask.restrict_absent_name3s in pack/_packer_task.py, which left
+    such a block with no allowed block type and no error.
+    """
+    poses = pose_stack_from_pdb(ubq_pdb, torch_device, residue_end=5)
+    task = PackerTask(poses, PackerPalette())
+    mask = torch.zeros(
+        task.per_block_n_considered_block_types.shape,
+        dtype=torch.bool,
+        device=torch_device,
+    )
+    mask[0, 2] = True
+    before = task.per_block_is_block_type_allowed.clone()
+    with pytest.raises(ValueError, match="pose 0 block 2"):
+        task.restrict_absent_name3s({"DA"}, mask)
+    torch.testing.assert_close(task.per_block_is_block_type_allowed, before)
+
+    task.restrict_absent_name3s({"ALA"}, mask)
+    allowed = task.per_block_is_block_type_allowed
+    torch.testing.assert_close(allowed[~mask], before[~mask])
+    choices = task.per_block_considered_block_types[0, 2, allowed[0, 2]]
+    assert len(choices) > 0
+    assert {task.pbt.active_block_types[i].name3 for i in choices.tolist()} == {"ALA"}
+
+
+def test_masked_name3_restriction_of_a_fixed_block_does_not_raise(
+    ubq_pdb, torch_device
+):
+    """A block that already had no allowed block type is not reported."""
+    poses = pose_stack_from_pdb(ubq_pdb, torch_device, residue_end=5)
+    task = PackerTask(poses, PackerPalette())
+    mask = torch.zeros(
+        task.per_block_n_considered_block_types.shape,
+        dtype=torch.bool,
+        device=torch_device,
+    )
+    mask[0, 2] = True
+    task.disable_packing_by_block_mask(mask)
+    task.restrict_absent_name3s({"DA"}, mask)
+    assert not bool(task.per_block_is_block_type_allowed[0, 2].any())

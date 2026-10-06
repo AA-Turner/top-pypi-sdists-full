@@ -12,12 +12,16 @@ escape codes, and so all of it stays out of `probe log`'s import path.
 
 from __future__ import annotations
 
+import base64
+import os
 import shutil
 import sys
 from collections.abc import Callable, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import NamedTuple
+
+from probe._compat import StrEnum
 
 #: Returned by a prompt when the user pressed Escape. Distinct from None, which
 #: questionary already uses for Ctrl-C -- "go back one step" and "abandon the
@@ -28,12 +32,124 @@ SKIP = object()
 
 
 class StyledLine(str):
-    """Plain text with a shared TUI style, including after wrapping."""
+    """Plain text with a shared TUI style, including after wrapping.
 
-    def __new__(cls, text: str, *, style: str = ""):
+    `clip` keeps the line on ONE row: past the width it is cut with "…" instead
+    of wrapped, for a table row whose wrapped tail would read as a row of its
+    own. `escapes` are `(column, sequence)` pairs written raw before that
+    column, taking no room (an agent's logo, `image_escape`), and `hover` is
+    what the menu shows at the row's end while the mouse is over it. Only a
+    clipped line honours either: wrapping moves the columns they count.
+    """
+
+    def __new__(cls, text: str, *, style: str = "", clip: bool = False,
+                escapes: tuple[tuple[int, str], ...] = (), hover: str | None = None):
         line = super().__new__(cls, text)
         line.style = style
+        line.clip = clip
+        line.escapes = escapes
+        line.hover = hover
         return line
+
+
+#: prompt_toolkit writes a fragment carrying this style raw and gives it no
+#: width: the only way to hand a terminal an image inside a drawn screen.
+ZERO_WIDTH_ESCAPE = "[ZeroWidthEscape]"
+
+
+def line_rows(line: str, width: int, default: str = "") -> list[list[tuple[str, str]]]:
+    """The `(style, text)` fragments of each row a status line draws on."""
+    style = line.style if isinstance(line, StyledLine) and line.style else default
+    if not getattr(line, "clip", False):
+        return [[(style, part)] for part in wrap(line, width=width)]
+    text = str(line) if len(line) <= width else str(line)[: max(0, width - 1)] + "…"
+    fragments: list[tuple[str, str]] = []
+    at = 0
+    for column, sequence in sorted(line.escapes):
+        if column > len(text):
+            break
+        if column > at:
+            fragments.append((style, text[at:column]))
+            at = column
+        fragments.append((ZERO_WIDTH_ESCAPE, sequence))
+    if at < len(text) or not fragments:
+        fragments.append((style, text[at:]))
+    return [fragments]
+
+
+class ImageProtocol(StrEnum):
+    """How this terminal draws an image into its cells, when it can at all."""
+
+    KITTY = "kitty"  # kitty, Ghostty, WezTerm, Warp
+    ITERM = "iterm"  # iTerm2's OSC 1337 inline images
+
+
+#: `off` draws the agents' names instead of their logos; `kitty` or `iterm`
+#: forces that protocol on a terminal this module does not recognise.
+ICONS_ENV = "PROBE_WIZARD_ICONS"
+
+#: Kitty image ids are per terminal window, so ours sit far from the small
+#: numbers another program in the same window would pick.
+IMAGE_ID_BASE = 0x50524200
+
+
+def image_protocol() -> ImageProtocol | None:
+    """The protocol this terminal draws images with, or None for names.
+
+    Read from the environment, never asked of the terminal: an answer arrives
+    on stdin, where the menu would read it as keystrokes. A multiplexer (tmux,
+    screen) swallows the escapes unless configured to pass them through, so
+    it gets names too.
+    """
+    choice = os.environ.get(ICONS_ENV, "").strip().lower()
+    if choice in {"0", "off", "false", "no"}:
+        return None
+    if choice in {protocol.value for protocol in ImageProtocol}:
+        return ImageProtocol(choice)
+    if not sys.stdout.isatty():
+        return None
+    term = os.environ.get("TERM", "")
+    program = os.environ.get("TERM_PROGRAM", "")
+    if os.environ.get("TMUX") or os.environ.get("STY") or term.startswith(("screen", "tmux")):
+        return None
+    if (term in {"xterm-kitty", "xterm-ghostty"} or os.environ.get("KITTY_WINDOW_ID")
+            or program in {"ghostty", "WezTerm", "WarpTerminal"}):
+        return ImageProtocol.KITTY
+    if program == "iTerm.app":
+        return ImageProtocol.ITERM
+    return None
+
+
+def image_escape(png: bytes, protocol: ImageProtocol, *, cells: int, image_id: int) -> str:
+    """Draw `png` over the `cells` cells LEFT of the cursor; the cursor stays put.
+
+    Saved and restored around the drawing (DECSC/DECRC) rather than trusting
+    each terminal's cursor rule for images: prompt_toolkit moves the cursor
+    relative to where it believes it is, and one cell of drift shifts every
+    character after it on the row.
+    """
+    data = base64.standard_b64encode(png).decode()
+    if protocol is ImageProtocol.KITTY:
+        # q=2: no reply, which would reach stdin as keystrokes. C=1: no cursor move.
+        keys = f"a=T,f=100,t=d,i={image_id},p=1,c={cells},r=1,C=1,q=2,"
+        chunks = [data[at:at + 4096] for at in range(0, len(data), 4096)] or [""]
+        body = "".join(
+            f"\x1b_G{keys if not index else ''}m={int(index < len(chunks) - 1)};{chunk}\x1b\\"
+            for index, chunk in enumerate(chunks)
+        )
+    else:
+        body = (f"\x1b]1337;File=inline=1;size={len(png)};width={cells};height=1;"
+                f"preserveAspectRatio=1;doNotMoveCursor=1:{data}\x07")
+    return f"\x1b7\x1b[{cells}D{body}\x1b8"
+
+
+def forget_images(protocol: ImageProtocol | None, count: int) -> str:
+    """Delete the menu's logos. Kitty keeps an image on its own layer until told
+    to drop it, so without this they would sit on top of the next screen; an
+    iTerm2 image is cell content and goes with the text drawn over it."""
+    if protocol is not ImageProtocol.KITTY:
+        return ""
+    return "".join(f"\x1b_Ga=d,d=I,i={IMAGE_ID_BASE + index},q=2\x1b\\" for index in range(count))
 
 #: Wide enough for the longest description, narrow enough to stay readable on a
 #: full-screen terminal. Centering a block wider than this gains nothing.
@@ -963,17 +1079,16 @@ def sectioned(
         width = max(1, min(CONTENT_WIDTH, app.output.get_size().columns - left_pad() - 1))
         current = lines() if callable(lines) else lines
         rendered = [
-            (part, line.style if isinstance(line, StyledLine) else "")
-            for line in current for part in wrap(line, width=width)
+            [fragment for fragment in row if fragment[0] != ZERO_WIDTH_ESCAPE]
+            for line in current for row in line_rows(line, width)
         ]
-        line_styles[:] = [style for _, style in rendered]
-        return "\n".join(part for part, _ in rendered)
+        line_styles[:] = rendered
+        return "\n".join("".join(text for _, text in row) for row in rendered)
 
     class LineLexer(Lexer):
         def lex_document(self, document):
             def get_line(index):
-                style = line_styles[index] if index < len(line_styles) else ""
-                return [(style, document.lines[index])]
+                return line_styles[index] if index < len(line_styles) else [("", document.lines[index])]
             return get_line
 
     initial_text = document_text()
@@ -1475,12 +1590,29 @@ def menu(
             # title as given), bold while the cursor is on it like any row.
             choice.title = [(f"{style} bold" if choice is pointed else style, text)] if style else text
         text_width = max(1, min(CONTENT_WIDTH, width() - left_pad() - 1))
-        body = [
-            (line.style if isinstance(line, StyledLine) else "class:text", indent(part) + "\n")
-            for line in content["lines"] for part in wrap(line, text_width)
-        ]
+        pad = " " * left_pad()
+        title = indent(content["title"]) + "\n\n"
+        line_no = title.count("\n")
+        hover_rows.clear()
+        body = []
+        for line in content["lines"]:
+            for row in line_rows(line, text_width, default="class:text"):
+                text = "".join(cell for style, cell in row if style != ZERO_WIDTH_ESCAPE)
+                if text.strip():
+                    body.append((row[0][0], pad))
+                body.extend(row)
+                name = getattr(line, "hover", None)
+                if name:
+                    hover_rows[line_no] = name
+                    room = text_width - len(text) - 3
+                    if hovered["line"] == line_no and room > 0:
+                        # A tooltip: the name the logo stands for, at the row's end.
+                        body.append(("class:text", "  "))
+                        body.append(("class:text reverse", f" {name} "[:room]))
+                body.append((row[-1][0], "\n"))
+                line_no += 1
         return [
-            ("class:question", indent(content["title"]) + "\n\n"),
+            ("class:question", title),
             *body,
             *([("class:text", "\n")] if body else []),
             ("class:question", indent(content["prompt"]) + "\n"),
@@ -1505,6 +1637,32 @@ def menu(
 
     control.text = tokens
     control.focusable = to_filter(True)
+
+    # Hover (Richard 2026-10-06: "make it so that you can somehow see the
+    # name if you maybe hover over it"). Only a menu whose rows carry a name to
+    # reveal takes the mouse: while it does, selecting text needs Option/Shift.
+    # `hover_rows` maps a content line to its name and is rebuilt every paint.
+    hover_rows: dict[int, str] = {}
+    hovered: dict[str, int | None] = {"line": None}
+    if any(getattr(line, "hover", None) for line in content["lines"]):
+        from prompt_toolkit.mouse_events import MouseEventType
+
+        click = control.mouse_handler
+
+        def mouse_handler(event):
+            if event.event_type == MouseEventType.MOUSE_MOVE:
+                line = event.position.y if event.position.y in hover_rows else None
+                if line != hovered["line"]:
+                    hovered["line"] = line
+                    app.invalidate()
+                return None
+            if event.event_type in (MouseEventType.SCROLL_UP, MouseEventType.SCROLL_DOWN):
+                return None  # the keys move the menu; a wheel scrolling it fights them
+            return click(event)
+
+        control.mouse_handler = mouse_handler
+        # Both: the renderer copies the flag when the application is built.
+        app.mouse_support = app.renderer.mouse_support = to_filter(True)
 
     def text_height(text):
         # Each density candidate needs fresh fragments: the live control caches

@@ -1545,7 +1545,7 @@ class WorkflowJob:
         *,
         identifier: builtins.str,
         context: typing.Optional[typing.Sequence[builtins.str]] = None,
-        filters: typing.Optional[typing.Union["Filter", typing.Dict[builtins.str, typing.Any]]] = None,
+        filters: typing.Optional[typing.Union[builtins.str, typing.Union["Filter", typing.Dict[builtins.str, typing.Any]]]] = None,
         matrix: typing.Optional[typing.Union["Matrix", typing.Dict[builtins.str, typing.Any]]] = None,
         name: typing.Optional[builtins.str] = None,
         orb_parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool]]] = None,
@@ -1558,7 +1558,7 @@ class WorkflowJob:
 
         :param identifier: (experimental) name of dynamic key *.
         :param context: (experimental) The name of the context(s). The initial default name is org-global. Each context name must be unique.
-        :param filters: (experimental) Job Filters can have the key branches or tags.
+        :param filters: (experimental) Branch/tag filters or an expression string that determines whether this job runs.
         :param matrix: 
         :param name: (experimental) A replacement for the job name. Useful when calling a job multiple times
         :param orb_parameters: (experimental) Parameters passed to job when referencing a job from orb.
@@ -1568,8 +1568,6 @@ class WorkflowJob:
         :see: https://circleci.com/docs/2.0/configuration-reference/#jobs-in-workflow
         :stability: experimental
         '''
-        if isinstance(filters, dict):
-            filters = Filter(**filters)
         if isinstance(matrix, dict):
             matrix = Matrix(**matrix)
         if __debug__:
@@ -1622,13 +1620,14 @@ class WorkflowJob:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def filters(self) -> typing.Optional["Filter"]:
-        '''(experimental) Job Filters can have the key branches or tags.
+    def filters(self) -> typing.Optional[typing.Union[builtins.str, "Filter"]]:
+        '''(experimental) Branch/tag filters or an expression string that determines whether this job runs.
 
+        :see: https://circleci.com/docs/reference/configuration-reference/#expression-based-job-filters
         :stability: experimental
         '''
         result = self._values.get("filters")
-        return typing.cast(typing.Optional["Filter"], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "Filter"]], result)
 
     @builtins.property
     def matrix(self) -> typing.Optional["Matrix"]:
@@ -1875,7 +1874,7 @@ def _typecheckingstub__c171cfd438ea2ad47145a9a03f2eb8778481bbc92f3764eb6e7f7f614
     *,
     identifier: builtins.str,
     context: typing.Optional[typing.Sequence[builtins.str]] = None,
-    filters: typing.Optional[typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]] = None,
+    filters: typing.Optional[typing.Union[builtins.str, typing.Union[Filter, typing.Dict[builtins.str, typing.Any]]]] = None,
     matrix: typing.Optional[typing.Union[Matrix, typing.Dict[builtins.str, typing.Any]]] = None,
     name: typing.Optional[builtins.str] = None,
     orb_parameters: typing.Optional[typing.Mapping[builtins.str, typing.Union[builtins.str, jsii.Number, builtins.bool]]] = None,

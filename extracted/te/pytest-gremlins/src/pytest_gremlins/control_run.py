@@ -10,6 +10,8 @@ once, with no active gremlin, in ``--collect-only`` mode, and explains the resul
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
+import re
 import subprocess
 import time
 from typing import TYPE_CHECKING
@@ -20,6 +22,8 @@ if TYPE_CHECKING:
         Sequence,
     )
     from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 UNATTRIBUTABLE_MARKER = 'load_failures_unattributable'
 """File written next to ``sources.json`` when the control run failed; the bootstrap then stops
@@ -40,6 +44,11 @@ SELECTION_FAILS_TO_LOAD_PREFIX = (
 )
 """Start of the ``error_output`` of a collection kill that was downgraded to ERROR."""
 
+TIMEOUT_CONFIRMATION_LAUNCH_ERROR_PREFIX = (
+    "timeout not counted as a kill: the gremlin's tests could not be launched without the mutant to confirm it; error:"
+)
+"""Start of the ``error_output`` of a timeout that cannot be confirmed due to a launch failure."""
+
 CONTROL_RUN_TIMEOUT_SECONDS = 300
 """Seconds one control command may run before the suite counts as unable to load."""
 
@@ -48,19 +57,16 @@ _DIAGNOSTIC_INTRO = (
     "can't be attributed to mutants; they're reported as errors. Cause:"
 )
 
+_ANSI_SGR_SEQUENCE = re.compile(r'\x1b\[[0-9;]*m')
+
 _HINTS = (
     (
-        '__file__',
-        'Hint: a module reads __file__ at import time, but instrumented modules have no __file__ '
-        '(see https://github.com/mikelane/pytest-gremlins/issues/525).',
-    ),
-    (
-        'import file mismatch',
+        r'import file mismatch',
         'Hint: an option such as --import-mode was given only on the command line; put it in addopts '
         'so the gremlin subprocess receives it.',
     ),
     (
-        'not found:',
+        r'^ERROR: not found:',
         'Hint: a test id differs between processes (for example a parametrize id built from uuid, '
         'random or faker); make the ids deterministic.',
     ),
@@ -74,6 +80,58 @@ class ControlRunOutcome:
     loads_cleanly: bool
     output: str
     seconds: float
+
+
+@dataclass(frozen=True)
+class UnmutatedRunOutcome:
+    """Result of running a gremlin's selection of tests without a mutant."""
+
+    timed_out: bool
+    seconds: float
+    launch_error: str | None = None
+
+
+def run_unmutated(
+    command: Sequence[str],
+    node_ids: Sequence[str],
+    cwd: Path,
+    env: Mapping[str, str],
+    *,
+    timeout: int,
+) -> UnmutatedRunOutcome:
+    """Run the given node ids with the gremlin bootstrap and no active gremlin, under a timeout.
+
+    Only the time matters: a gremlin that timed out is a real kill only if the same selection
+    finishes in time without the mutant, whatever its exit code.
+
+    Args:
+        command: The base gremlin test command (bootstrap script plus options).
+        node_ids: Node ids the gremlin was asked to run, in command order.
+        cwd: Directory to run in (the project root).
+        env: Environment for the subprocess, without an active gremlin.
+        timeout: Seconds the run may take, the same limit the gremlin ran under.
+
+    Returns:
+        Whether the run outlasted ``timeout``, and how long it took. If the run cannot be launched,
+        a launch_error is set; this does not count as timing out, and the timeout confirmation
+        becomes an ERROR result instead.
+    """
+    started = time.monotonic()
+    try:
+        subprocess.run(  # Intentional: runs the pytest bootstrap
+            [*command, *node_ids],
+            cwd=str(cwd),
+            env=dict(env),
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return UnmutatedRunOutcome(timed_out=True, seconds=time.monotonic() - started)
+    except OSError as launch_error:
+        logger.warning('Could not run the unmutated selection to confirm a timeout: %s', launch_error)
+        return UnmutatedRunOutcome(timed_out=False, seconds=time.monotonic() - started, launch_error=str(launch_error))
+    return UnmutatedRunOutcome(timed_out=False, seconds=time.monotonic() - started)
 
 
 def chunk_node_ids(node_ids: Sequence[str], max_chars: int) -> list[list[str]]:
@@ -102,7 +160,8 @@ def chunk_node_ids(node_ids: Sequence[str], max_chars: int) -> list[list[str]]:
 def build_diagnostic(output: str) -> str:
     """Build the stderr message for a failed control run, with hints for the common causes."""
     tail = '\n'.join(output.strip().splitlines()[-DIAGNOSTIC_TAIL_LINES:])
-    hints = [hint for needle, hint in _HINTS if needle in output]
+    uncolored = _ANSI_SGR_SEQUENCE.sub('', output)
+    hints = [hint for pattern, hint in _HINTS if re.search(pattern, uncolored, re.MULTILINE)]
     return '\n'.join([_DIAGNOSTIC_INTRO, tail, *hints])
 
 
@@ -132,7 +191,7 @@ def run_control(
     for chunk in chunk_node_ids(node_ids, max_chars_per_command):
         try:
             completed = subprocess.run(  # Intentional: runs the pytest bootstrap
-                [*command, '--collect-only', *chunk],
+                [*command, '--collect-only', '--tb=short', *chunk],
                 cwd=str(cwd),
                 env=dict(env),
                 capture_output=True,

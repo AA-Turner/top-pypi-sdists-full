@@ -170,9 +170,11 @@ def _advance(client, coverage, state, item, *, admit):
         _save(coverage, state)
         if not item.get("attachment_id"):
             if item.get("experiment_id"):
+                # The experiment API's address (server X21b): the reviewed
+                # project names where the experiment is filed.
                 row = client.attach_experiment_wandb_source(
                     item["experiment_id"], connection_id=item["connection_id"],
-                    external_id=item["external_id"],
+                    external_id=item["external_id"], project_id=item["project_id"],
                 )
             else:
                 row = client.attach_project_wandb_source(

@@ -27,7 +27,7 @@ pytest_plugins = ["pytester"]
 
 
 @pytest.fixture
-def temp_project_dir() -> Generator[Path, None, None]:
+def temp_project_dir() -> Generator[Path]:
     """Create a temporary project directory with db/ structure
 
     Yields:
@@ -280,7 +280,7 @@ def maintenance_url(test_db_url: str) -> str:
 
 
 @pytest.fixture
-def maintenance_connection(maintenance_url: str) -> Generator[psycopg.Connection, None, None]:
+def maintenance_connection(maintenance_url: str) -> Generator[psycopg.Connection]:
     """An autocommit connection to the maintenance database."""
     conn = psycopg.connect(maintenance_url, autocommit=True)
     try:
@@ -298,7 +298,7 @@ def database_url_for(test_db_url: str, db_name: str) -> str:
 @pytest.fixture
 def fresh_database_factory(
     test_db_url: str, maintenance_connection: psycopg.Connection
-) -> Generator[Callable[[str], str], None, None]:
+) -> Generator[Callable[[str], str]]:
     """``make(prefix) -> url``: a throwaway database per call, all dropped at teardown."""
     created: list[str] = []
 
@@ -366,7 +366,7 @@ def superuser_db_url(test_db_url: str) -> str:
 
 
 @pytest.fixture
-def test_db_connection(test_db_url: str) -> Generator[psycopg.Connection, None, None]:
+def test_db_connection(test_db_url: str) -> Generator[psycopg.Connection]:
     """Create a test database connection.
 
     The ``confiture`` helper schema is dropped first. ``migrate up`` installs
@@ -469,7 +469,7 @@ def target_db_url() -> str:
 
 
 @pytest.fixture
-def source_db(source_db_url: str) -> Generator[psycopg.Connection, None, None]:
+def source_db(source_db_url: str) -> Generator[psycopg.Connection]:
     """Create source database connection.
 
     Yields:
@@ -485,7 +485,7 @@ def source_db(source_db_url: str) -> Generator[psycopg.Connection, None, None]:
 
 
 @pytest.fixture
-def target_db(target_db_url: str) -> Generator[psycopg.Connection, None, None]:
+def target_db(target_db_url: str) -> Generator[psycopg.Connection]:
     """Create target database connection.
 
     Yields:
@@ -587,7 +587,7 @@ _LAYER_MARKERS = frozenset({"unit", "integration", "e2e", "performance", "contra
 def _layer_for(path: Path) -> str | None:
     try:
         top = path.resolve().relative_to(_TESTS_ROOT).parts[0]
-    except (ValueError, IndexError):
+    except ValueError, IndexError:
         return None
     return top if top in _LAYER_MARKERS else None
 
@@ -612,3 +612,24 @@ def quoted_names_allowed(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setattr("confiture.core.differ.refuse_quoted_names", lambda *_: None)
     monkeypatch.setattr("confiture.core.drift.refuse_quoted_names", lambda *_: None)
+
+
+#: The repository's own schema history, which `migrate generate` writes into when a
+#: test runs it against the repository's default environment.
+_REPOSITORY_HISTORY = _TESTS_ROOT.parent / "db" / "schema_history"
+
+
+@pytest.fixture(autouse=True)
+def _the_repository_history_is_left_alone() -> Iterator[None]:
+    """Fail a test that writes a snapshot into the repository's `db/schema_history`.
+
+    The directory is ignored by git, so such a write is never seen: 6,079 snapshots
+    had built up there before a test noticed, each one a schema read the next
+    baseline detection would compare against. Pass `--no-snapshot`, or a config of
+    the test's own project.
+    """
+    before = set(_REPOSITORY_HISTORY.iterdir()) if _REPOSITORY_HISTORY.is_dir() else set()
+    yield
+    after = set(_REPOSITORY_HISTORY.iterdir()) if _REPOSITORY_HISTORY.is_dir() else set()
+    written = sorted(path.name for path in after - before)
+    assert not written, f"the test wrote into the repository's db/schema_history: {written}"

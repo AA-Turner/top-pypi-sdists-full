@@ -36,6 +36,7 @@ from ..contracts import (
 )
 from ..identity import stable_hash
 from ..rank_matching import RankMatchTarget, canonicalize_domain, match_rank_url
+from ..web_search import BRAVE_WEB_SEARCH_OPERATION, WebSearchSettings
 
 BRAVE_SEARCH_COST_PER_REQUEST = Decimal("0.005")
 
@@ -134,13 +135,15 @@ class BraveSeoRankSettings(BaseModel):
 
 class BraveSeoRankAdapter(SeoProviderAdapter):
     provider = "brave"
-    capabilities = (SeoCapability.SERP_RANK,)
+    capabilities = (SeoCapability.SERP_RANK, SeoCapability.RAW_PROVIDER)
     operations = (
         SeoProviderOperation(
             name="brave.web.rank",
             capabilities=(SeoCapability.SERP_RANK,),
             credential_keys=("BRAVE_SEARCH_API_KEY",),
+            reuse_family="serp",
         ),
+        BRAVE_WEB_SEARCH_OPERATION,
     )
 
     def __init__(
@@ -216,8 +219,56 @@ class BraveSeoRankAdapter(SeoProviderAdapter):
         self, request: CollectionRequest, execution: ProviderExecutionContext
     ) -> ProviderResponse:
         del execution
+        if request.operation == BRAVE_WEB_SEARCH_OPERATION.name:
+            return await self._collect_search_response(
+                WebSearchSettings.model_validate(request.settings)
+            )
         settings = BraveSeoRankSettings.model_validate(request.settings)
         return await self._collect_rank_response(settings)
+
+    async def _collect_search_response(self, settings: WebSearchSettings) -> ProviderResponse:
+        """One page of a query-shaped search (matrx_seo.web_search). The raw
+        Brave answer is stored as-is so callers parse what they asked for."""
+        if self._api_key.get() is None:
+            raise RuntimeError("Brave SEO adapter is not authenticated")
+        params = BraveSearchParams(
+            query=settings.query,
+            country=settings.country.upper(),
+            search_lang=settings.language.lower(),
+            count=settings.count,
+            offset=0,
+            extra_snippets=False,
+        )
+        started = datetime.now(UTC)
+        async with self._client_factory() as client:
+            response = await self._request_page(client, params)
+        return ProviderResponse(
+            raw=response.payload,
+            fetched_at=datetime.now(UTC),
+            provider_schema_version="brave-web-search-v1",
+            request_count=1,
+            estimated_cost=BRAVE_SEARCH_COST_PER_REQUEST,
+            currency="USD",
+            call_records=[
+                ProviderCallRecord(
+                    provider_call_key=stable_hash(["brave.web.search", settings.query, started]),
+                    request_count=1,
+                    estimated_cost=BRAVE_SEARCH_COST_PER_REQUEST,
+                    fetched_at=started,
+                    metadata={
+                        "quota": response.quota,
+                        "cost_is_estimated": True,
+                        "attempts": response.attempts,
+                        "request": {
+                            "method": "GET",
+                            "url": response.url,
+                            "params": response.request_params,
+                        },
+                        "response_status": response.status_code,
+                    },
+                )
+            ],
+        )
 
     async def _collect_rank_response(
         self,
@@ -321,6 +372,8 @@ class BraveSeoRankAdapter(SeoProviderAdapter):
     async def normalize(
         self, response: ProviderResponse, context: NormalizationContext
     ) -> list[SeoObservation]:
+        if context.request.operation == BRAVE_WEB_SEARCH_OPERATION.name:
+            return []  # raw evidence only; the caller reads the stored payload back
         settings = BraveSeoRankSettings.model_validate(context.request.settings)
         target, target_page_id = await self._resolve_match_target(settings, context)
         identity = await context.resolve_identity(

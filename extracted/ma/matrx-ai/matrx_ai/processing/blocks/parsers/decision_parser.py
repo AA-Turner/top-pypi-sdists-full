@@ -47,6 +47,7 @@ def parse_decision(
         DecisionBlockData if at least one option was found, else None.
     """
     options: list[DecisionOption] = []
+    seen: set[str] = set()
     for match in _OPTION_RE.finditer(inner_content):
         opt_attrs = _parse_xml_attributes(match.group(1))
         text = match.group(2).strip()
@@ -55,7 +56,10 @@ def parse_decision(
             label = text.split("\n")[0].strip()
         if not label:
             continue
-        options.append(DecisionOption(id=f"opt-{len(options)}", label=label, text=text))
+        own = (opt_attrs.get("id") or "").strip()
+        opt_id = own if own and own not in seen else f"opt-{len(options)}"
+        seen.add(opt_id)
+        options.append(DecisionOption(id=opt_id, label=label, text=text))
 
     if not options:
         return None

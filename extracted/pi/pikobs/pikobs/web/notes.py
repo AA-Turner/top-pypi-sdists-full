@@ -13,10 +13,14 @@ code; the default below is the address of today.
 """
 import os
 
-#: where the documentation lives today; $PIKOBS_DOC_URL moves it, and Pikobs
-#: Web takes it from here too
-DEFAULT_DOC_URL = "https://goc-dx-u3.science.gc.ca/~dlo001/Pikobs/docs/build/html"
-DOC_URL = os.environ.get("PIKOBS_DOC_URL", DEFAULT_DOC_URL).rstrip("/")
+#: where the documentation lives: PIKOBS_DOC_URL of configobs/site.cfg (an
+#: environment variable of that name still wins); Pikobs Web takes it from here
+try:
+    from pikobs.configobs.site import setting as _setting
+    DOC_URL = (_setting("PIKOBS_DOC_URL") or "").rstrip("/")
+except Exception:                       # site.cfg missing: the address of today
+    DOC_URL = os.environ.get(
+        "PIKOBS_DOC_URL", "https://goc-dx-u3.science.gc.ca/~dlo001/Pikobs/docs/build/html").rstrip("/")
 
 #: key -> value -> HTML note, the same in every module
 COMMON_NOTES = {}

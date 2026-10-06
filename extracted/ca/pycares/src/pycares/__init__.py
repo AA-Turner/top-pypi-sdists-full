@@ -12,6 +12,7 @@ from . import errno
 from .utils import ascii_bytes, maybe_str, parse_name
 from ._version import __version__
 
+import contextlib
 import math
 import socket
 import threading
@@ -101,77 +102,78 @@ def _sock_state_cb(data, socket_fd, readable, writable):
 
 @_ffi.def_extern()
 def _host_cb(arg, status, timeouts, hostent):
-    # Get callback data without removing the reference yet
     if arg not in _handle_to_channel:
         return
 
     callback = _ffi.from_handle(arg)
 
-    if status != _lib.ARES_SUCCESS:
-        result = None
-    else:
-        result = parse_hostent(hostent)
-        status = None
-
-    callback(result, status)
-    _handle_to_channel.pop(arg, None)
+    try:
+        if status != _lib.ARES_SUCCESS:
+            result = None
+        else:
+            result = parse_hostent(hostent)
+            status = None
+        callback(result, status)
+    finally:
+        _handle_to_channel.pop(arg, None)
 
 @_ffi.def_extern()
 def _nameinfo_cb(arg, status, timeouts, node, service):
-    # Get callback data without removing the reference yet
     if arg not in _handle_to_channel:
         return
 
     callback = _ffi.from_handle(arg)
 
-    if status != _lib.ARES_SUCCESS:
-        result = None
-    else:
-        result = parse_nameinfo(node, service)
-        status = None
-
-    callback(result, status)
-    _handle_to_channel.pop(arg, None)
+    try:
+        if status != _lib.ARES_SUCCESS:
+            result = None
+        else:
+            result = parse_nameinfo(node, service)
+            status = None
+        callback(result, status)
+    finally:
+        _handle_to_channel.pop(arg, None)
 
 @_ffi.def_extern()
 def _query_dnsrec_cb(arg, status, timeouts, dnsrec):
     """Callback for new DNS record API queries"""
-    # Get callback data without removing the reference yet
+
     if arg not in _handle_to_channel:
         return
 
     callback = _ffi.from_handle(arg)
 
-    if status != _lib.ARES_SUCCESS:
-        result = None
-    else:
-        result, parse_status = parse_dnsrec(dnsrec)
-        if parse_status is not None:
-            status = parse_status
+    try:
+        if status != _lib.ARES_SUCCESS:
+            result = None
         else:
-            # Success - set status to None
-            status = None
-
-    callback(result, status)
-    _handle_to_channel.pop(arg, None)
+            result, parse_status = parse_dnsrec(dnsrec)
+            if parse_status is not None:
+                status = parse_status
+            else:
+                # Success - set status to None
+                status = None
+        callback(result, status)
+    finally:
+        _handle_to_channel.pop(arg, None)
 
 
 @_ffi.def_extern()
 def _addrinfo_cb(arg, status, timeouts, res):
-    # Get callback data without removing the reference yet
     if arg not in _handle_to_channel:
         return
 
     callback = _ffi.from_handle(arg)
 
-    if status != _lib.ARES_SUCCESS:
-        result = None
-    else:
-        result = parse_addrinfo(res)
-        status = None
-
-    callback(result, status)
-    _handle_to_channel.pop(arg, None)
+    try:
+        if status != _lib.ARES_SUCCESS:
+            result = None
+        else:
+            result = parse_addrinfo(res)
+            status = None
+        callback(result, status)
+    finally:
+        _handle_to_channel.pop(arg, None)
 
 
 def _extract_opt_params(rr, key):
@@ -192,6 +194,23 @@ def _extract_opt_params(rr, key):
         params.append((opt_key, val))
     return params
 
+def _extract_str_data(rr, key):
+    """Retrieves a string"""
+    value = _lib.ares_dns_rr_get_str(rr, key)
+    return maybe_str(_ffi.string(value)) if value != _ffi.NULL else ""
+
+def _extract_bin_data_as_str(rr, key):
+    """Retrieves binary data as a string"""
+    length = _ffi.new("size_t *")
+    value = _lib.ares_dns_rr_get_bin(rr, key, length)
+    return maybe_str(_ffi.string(value)) if value != _ffi.NULL else ""
+
+def _extract_bin_data_as_bytes(rr, key):
+    """Retrieves binary data as bytes"""
+    length = _ffi.new("size_t *")
+    value = _lib.ares_dns_rr_get_bin(rr, key, length)
+    return bytes(_ffi.buffer(value, length[0])) if value != _ffi.NULL else b''
+
 
 def extract_record_data(rr, record_type):
     """Extract type-specific data from a DNS resource record and return appropriate dataclass"""
@@ -209,8 +228,8 @@ def extract_record_data(rr, record_type):
 
     elif record_type == _lib.ARES_REC_TYPE_MX:
         priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_MX_PREFERENCE)
-        exchange = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_MX_EXCHANGE)
-        return MXRecordData(priority=priority, exchange=maybe_str(_ffi.string(exchange)))
+        exchange = _extract_str_data(rr, _lib.ARES_RR_MX_EXCHANGE)
+        return MXRecordData(priority=priority, exchange=exchange)
 
     elif record_type == _lib.ARES_REC_TYPE_TXT:
         # TXT records use ABIN (array of binary) for chunks
@@ -225,51 +244,49 @@ def extract_record_data(rr, record_type):
 
     elif record_type == _lib.ARES_REC_TYPE_CAA:
         critical = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_CAA_CRITICAL)
-        tag = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_CAA_TAG)
-        length = _ffi.new("size_t *")
-        value = _lib.ares_dns_rr_get_bin(rr, _lib.ARES_RR_CAA_VALUE, length)
-        value_str = maybe_str(_ffi.buffer(value, length[0])[:])
-        return CAARecordData(critical=critical, tag=maybe_str(_ffi.string(tag)), value=value_str)
+        tag = _extract_str_data(rr, _lib.ARES_RR_CAA_TAG)
+        value_str = _extract_bin_data_as_str(rr, _lib.ARES_RR_CAA_VALUE)
+        return CAARecordData(critical=critical, tag=tag, value=value_str)
 
     elif record_type == _lib.ARES_REC_TYPE_CNAME:
-        cname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_CNAME_CNAME)
-        return CNAMERecordData(cname=maybe_str(_ffi.string(cname)))
+        cname = _extract_str_data(rr, _lib.ARES_RR_CNAME_CNAME)
+        return CNAMERecordData(cname=cname)
 
     elif record_type == _lib.ARES_REC_TYPE_NAPTR:
         order = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_NAPTR_ORDER)
         preference = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_NAPTR_PREFERENCE)
-        flags = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_FLAGS)
-        service = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_SERVICES)
-        regexp = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_REGEXP)
-        replacement = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NAPTR_REPLACEMENT)
+        flags = _extract_str_data(rr, _lib.ARES_RR_NAPTR_FLAGS)
+        service = _extract_str_data(rr, _lib.ARES_RR_NAPTR_SERVICES)
+        regexp = _extract_str_data(rr, _lib.ARES_RR_NAPTR_REGEXP)
+        replacement = _extract_str_data(rr, _lib.ARES_RR_NAPTR_REPLACEMENT)
         return NAPTRRecordData(
             order=order,
             preference=preference,
-            flags=maybe_str(_ffi.string(flags)),
-            service=maybe_str(_ffi.string(service)),
-            regexp=maybe_str(_ffi.string(regexp)),
-            replacement=maybe_str(_ffi.string(replacement))
+            flags=flags,
+            service=service,
+            regexp=regexp,
+            replacement=replacement
         )
 
     elif record_type == _lib.ARES_REC_TYPE_NS:
-        nsdname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_NS_NSDNAME)
-        return NSRecordData(nsdname=maybe_str(_ffi.string(nsdname)))
+        nsdname = _extract_str_data(rr, _lib.ARES_RR_NS_NSDNAME)
+        return NSRecordData(nsdname=nsdname)
 
     elif record_type == _lib.ARES_REC_TYPE_PTR:
-        dname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_PTR_DNAME)
-        return PTRRecordData(dname=maybe_str(_ffi.string(dname)))
+        dname = _extract_str_data(rr, _lib.ARES_RR_PTR_DNAME)
+        return PTRRecordData(dname=dname)
 
     elif record_type == _lib.ARES_REC_TYPE_SOA:
-        mname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_SOA_MNAME)
-        rname = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_SOA_RNAME)
+        mname = _extract_str_data(rr, _lib.ARES_RR_SOA_MNAME)
+        rname = _extract_str_data(rr, _lib.ARES_RR_SOA_RNAME)
         serial = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_SERIAL)
         refresh = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_REFRESH)
         retry = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_RETRY)
         expire = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_EXPIRE)
         minimum = _lib.ares_dns_rr_get_u32(rr, _lib.ARES_RR_SOA_MINIMUM)
         return SOARecordData(
-            mname=maybe_str(_ffi.string(mname)),
-            rname=maybe_str(_ffi.string(rname)),
+            mname=mname,
+            rname=rname,
             serial=serial,
             refresh=refresh,
             retry=retry,
@@ -281,21 +298,19 @@ def extract_record_data(rr, record_type):
         priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_SRV_PRIORITY)
         weight = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_SRV_WEIGHT)
         port = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_SRV_PORT)
-        target = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_SRV_TARGET)
+        target = _extract_str_data(rr, _lib.ARES_RR_SRV_TARGET)
         return SRVRecordData(
             priority=priority,
             weight=weight,
             port=port,
-            target=maybe_str(_ffi.string(target))
+            target=target
         )
 
     elif record_type == _lib.ARES_REC_TYPE_TLSA:
         cert_usage = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_TLSA_CERT_USAGE)
         selector = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_TLSA_SELECTOR)
         matching_type = _lib.ares_dns_rr_get_u8(rr, _lib.ARES_RR_TLSA_MATCH)
-        data_len = _ffi.new("size_t *")
-        data_ptr = _lib.ares_dns_rr_get_bin(rr, _lib.ARES_RR_TLSA_DATA, data_len)
-        cert_data = bytes(_ffi.buffer(data_ptr, data_len[0])) if data_ptr != _ffi.NULL else b''
+        cert_data = _extract_bin_data_as_bytes(rr, _lib.ARES_RR_TLSA_DATA)
         return TLSARecordData(
             cert_usage=cert_usage,
             selector=selector,
@@ -305,22 +320,22 @@ def extract_record_data(rr, record_type):
 
     elif record_type == _lib.ARES_REC_TYPE_HTTPS:
         priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_HTTPS_PRIORITY)
-        target = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_HTTPS_TARGET)
+        target = _extract_str_data(rr, _lib.ARES_RR_HTTPS_TARGET)
         params = _extract_opt_params(rr, _lib.ARES_RR_HTTPS_PARAMS)
         return HTTPSRecordData(
             priority=priority,
-            target=maybe_str(_ffi.string(target)),
+            target=target,
             params=params
         )
 
     elif record_type == _lib.ARES_REC_TYPE_URI:
         priority = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_URI_PRIORITY)
         weight = _lib.ares_dns_rr_get_u16(rr, _lib.ARES_RR_URI_WEIGHT)
-        target = _lib.ares_dns_rr_get_str(rr, _lib.ARES_RR_URI_TARGET)
+        target = _extract_str_data(rr, _lib.ARES_RR_URI_TARGET)
         return URIRecordData(
             priority=priority,
             weight=weight,
-            target=maybe_str(_ffi.string(target))
+            target=target
         )
 
     else:
@@ -427,17 +442,17 @@ class _ChannelShutdownManager:
         """Process channel destruction requests from the queue."""
         while True:
             # Block forever until we get a channel to destroy
-            channel, _ = self._queue.get()
+            ch, _ = self._queue.get()
+            channel = ch[0]
 
             # Cancel all pending queries - this will trigger callbacks with ARES_ECANCELLED
-            _lib.ares_cancel(channel[0])
+            _lib.ares_cancel(channel)
 
             # Wait for all queries to finish
-            _lib.ares_queue_wait_empty(channel[0], -1)
+            _lib.ares_queue_wait_empty(channel, -1)
 
             # Destroy the channel
-            if channel is not None:
-                _lib.ares_destroy(channel[0])
+            _lib.ares_destroy(channel)
 
     def start(self) -> None:
         """Start the background thread if not already started."""
@@ -494,6 +509,7 @@ class Channel:
 
         # Initialize _channel to None first to ensure __del__ doesn't fail
         self._channel = None
+        self._lock = threading.RLock()
 
         # Store flags for later use (default is 0 if not specified)
         self._flags = flags if flags is not None else 0
@@ -590,45 +606,50 @@ class Channel:
         _shutdown_manager.start()
 
     def __del__(self) -> None:
-        """Ensure the channel is destroyed when the object is deleted."""
-        self.close()
+        # Deliberately lock-free: when __del__ runs, no submitter holds
+        # self and no callback is pending, so the read-and-null in
+        # _destroy_channel is uncontested.
+        self._destroy_channel()
 
-    def _create_callback_handle(self, callback_data):
+    @contextlib.contextmanager
+    def _capture_channel(self):
         """
-        Create a callback handle and register it for tracking.
+        Yield the c-ares channel pointer while holding self._lock so that
+        a concurrent close() cannot destroy the channel mid-call.
 
-        This ensures that:
-        1. The callback data is wrapped in a CFFI handle
-        2. The handle is mapped to this channel to keep it alive
-
-        Args:
-            callback_data: The data to pass to the callback (usually a callable or tuple)
-
-        Returns:
-            The CFFI handle that can be passed to C functions
-
-        Raises:
-            RuntimeError: If the channel is destroyed
-
+        Raises RuntimeError if the channel has been closed.
         """
-        if self._channel is None:
-            raise RuntimeError("Channel is destroyed, no new queries allowed")
+        with self._lock:
+            channel = self._channel
+            if channel is None:
+                raise RuntimeError("Channel is destroyed, no new queries allowed")
+            yield channel[0]
 
+    def _register_callback_handle(self, callback_data):
+        """
+        Wrap callback_data in a cffi handle and register it so that it (and
+        the Channel) stay alive until the c-ares callback fires. Callers
+        MUST pop the handle from _handle_to_channel on any exception path
+        before the c-ares callback could ever observe it.
+        """
         userdata = _ffi.new_handle(callback_data)
         _handle_to_channel[userdata] = self
         return userdata
 
     def cancel(self) -> None:
-        _lib.ares_cancel(self._channel[0])
+        with self._capture_channel() as channel:
+            _lib.ares_cancel(channel)
 
     def reinit(self) -> None:
-        r = _lib.ares_reinit(self._channel[0])
+        with self._capture_channel() as channel:
+            r = _lib.ares_reinit(channel)
         if r != _lib.ARES_SUCCESS:
             raise AresError(r, errno.strerror(r))
 
     @property
     def servers(self) -> list[str]:
-        csv_str = _lib.ares_get_servers_csv(self._channel[0])
+        with self._capture_channel() as channel:
+            csv_str = _lib.ares_get_servers_csv(channel)
 
         if csv_str == _ffi.NULL:
             raise AresError(_lib.ARES_ENOMEM, errno.strerror(_lib.ARES_ENOMEM))
@@ -645,18 +666,22 @@ class Channel:
         server_list = [ascii_bytes(s).decode('ascii') if isinstance(s, bytes) else s for s in servers]
         csv_str = ','.join(server_list)
 
-        r = _lib.ares_set_servers_csv(self._channel[0], csv_str.encode('ascii'))
+        with self._capture_channel() as channel:
+            r = _lib.ares_set_servers_csv(channel, csv_str.encode('ascii'))
         if r != _lib.ARES_SUCCESS:
             raise AresError(r, errno.strerror(r))
 
     def process_fd(self, read_fd: int, write_fd: int) -> None:
-        _lib.ares_process_fd(self._channel[0], _ffi.cast("ares_socket_t", read_fd), _ffi.cast("ares_socket_t", write_fd))
+        with self._capture_channel() as channel:
+            _lib.ares_process_fd(channel, _ffi.cast("ares_socket_t", read_fd), _ffi.cast("ares_socket_t", write_fd))
 
     def process_read_fd(self, read_fd:int) -> None:
-        _lib.ares_process_fd(self._channel[0], _ffi.cast("ares_socket_t", read_fd), _ffi.cast("ares_socket_t", ARES_SOCKET_BAD))
+        with self._capture_channel() as channel:
+            _lib.ares_process_fd(channel, _ffi.cast("ares_socket_t", read_fd), _ffi.cast("ares_socket_t", ARES_SOCKET_BAD))
 
     def process_write_fd(self, write_fd:int) -> None:
-        _lib.ares_process_fd(self._channel[0], _ffi.cast("ares_socket_t", ARES_SOCKET_BAD), _ffi.cast("ares_socket_t", write_fd))
+        with self._capture_channel() as channel:
+            _lib.ares_process_fd(channel, _ffi.cast("ares_socket_t", ARES_SOCKET_BAD), _ffi.cast("ares_socket_t", write_fd))
 
     def timeout(self, t = None):
         maxtv = _ffi.NULL
@@ -670,12 +695,13 @@ class Channel:
             else:
                 raise ValueError("timeout needs to be a positive number or None")
 
-        _lib.ares_timeout(self._channel[0], maxtv, tv)
+        with self._capture_channel() as channel:
+            result = _lib.ares_timeout(channel, maxtv, tv)
 
-        if tv == _ffi.NULL:
+        if result == _ffi.NULL:
             return 0.0
 
-        return (tv.tv_sec + tv.tv_usec / 1000000.0)
+        return (result.tv_sec + result.tv_usec / 1000000.0)
 
     def gethostbyaddr(self, addr: str, *, callback: Callable[[Any, int], None]) -> None:
         if not callable(callback):
@@ -692,8 +718,13 @@ class Channel:
         else:
             raise ValueError("invalid IP address")
 
-        userdata = self._create_callback_handle(callback)
-        _lib.ares_gethostbyaddr(self._channel[0], address, _ffi.sizeof(address[0]), family, _lib._host_cb, userdata)
+        with self._capture_channel() as channel:
+            userdata = self._register_callback_handle(callback)
+            try:
+                _lib.ares_gethostbyaddr(channel, address, _ffi.sizeof(address[0]), family, _lib._host_cb, userdata)
+            except BaseException:
+                _handle_to_channel.pop(userdata, None)
+                raise
 
     def getaddrinfo(
         self,
@@ -716,14 +747,18 @@ class Channel:
         else:
             service = ascii_bytes(port)
 
-        userdata = self._create_callback_handle(callback)
-
-        hints = _ffi.new('struct ares_addrinfo_hints*')
-        hints.ai_flags = flags
-        hints.ai_family = family
-        hints.ai_socktype = type
-        hints.ai_protocol = proto
-        _lib.ares_getaddrinfo(self._channel[0], parse_name(host), service, hints, _lib._addrinfo_cb, userdata)
+        with self._capture_channel() as channel:
+            userdata = self._register_callback_handle(callback)
+            try:
+                hints = _ffi.new('struct ares_addrinfo_hints*')
+                hints.ai_flags = flags
+                hints.ai_family = family
+                hints.ai_socktype = type
+                hints.ai_protocol = proto
+                _lib.ares_getaddrinfo(channel, parse_name(host), service, hints, _lib._addrinfo_cb, userdata)
+            except BaseException:
+                _handle_to_channel.pop(userdata, None)
+                raise
 
     def query(self, name: str, query_type: int, *, query_class: int = QUERY_CLASS_IN, callback: Callable[[Any, int], None]) -> None:
         """
@@ -746,17 +781,22 @@ class Channel:
         if query_class not in self.__qclasses__:
             raise ValueError('invalid query class specified')
 
-        userdata = self._create_callback_handle(callback)
-        qid = _ffi.new("unsigned short *")
-        status = _lib.ares_query_dnsrec(
-            self._channel[0],
-            parse_name(name),
-            query_class,
-            query_type,
-            _lib._query_dnsrec_cb,
-            userdata,
-            qid
-        )
+        with self._capture_channel() as channel:
+            userdata = self._register_callback_handle(callback)
+            try:
+                qid = _ffi.new("unsigned short *")
+                status = _lib.ares_query_dnsrec(
+                    channel,
+                    parse_name(name),
+                    query_class,
+                    query_type,
+                    _lib._query_dnsrec_cb,
+                    userdata,
+                    qid
+                )
+            except BaseException:
+                _handle_to_channel.pop(userdata, None)
+                raise
         if status != _lib.ARES_SUCCESS:
             _handle_to_channel.pop(userdata, None)
             raise AresError(status, errno.strerror(status))
@@ -810,37 +850,40 @@ class Channel:
             _lib.ares_dns_record_destroy(dnsrec)
             raise AresError(status, errno.strerror(status))
 
-        # Wrap callback to destroy DNS record after it's called
-        original_callback = callback
-        def cleanup_callback(result, error):
-            try:
-                original_callback(result, error)
-            finally:
-                # Clean up the DNS record after the callback completes
-                _lib.ares_dns_record_destroy(dnsrec)
-
-        # Perform the search with the created DNS record
-        userdata = self._create_callback_handle(cleanup_callback)
-        status = _lib.ares_search_dnsrec(
-            self._channel[0],
-            dnsrec,
-            _lib._query_dnsrec_cb,
-            userdata
-        )
-        if status != _lib.ARES_SUCCESS:
-            _handle_to_channel.pop(userdata, None)
+        # dnsrec is only needed for this call (it's a const parameter); free
+        # it once ares_search_dnsrec() returns, regardless of outcome.
+        try:
+            with self._capture_channel() as channel:
+                userdata = self._register_callback_handle(callback)
+                try:
+                    status = _lib.ares_search_dnsrec(
+                        channel,
+                        dnsrec,
+                        _lib._query_dnsrec_cb,
+                        userdata
+                    )
+                except BaseException:
+                    _handle_to_channel.pop(userdata, None)
+                    raise
+            if status != _lib.ARES_SUCCESS:
+                raise AresError(status, errno.strerror(status))
+        finally:
             _lib.ares_dns_record_destroy(dnsrec)
-            raise AresError(status, errno.strerror(status))
 
     def set_local_ip(self, ip):
         addr4 = _ffi.new("struct in_addr*")
         addr6 = _ffi.new("struct ares_in6_addr*")
-        if _lib.ares_inet_pton(socket.AF_INET, ascii_bytes(ip), addr4) == 1:
-            _lib.ares_set_local_ip4(self._channel[0], socket.ntohl(addr4.s_addr))
-        elif _lib.ares_inet_pton(socket.AF_INET6, ascii_bytes(ip), addr6) == 1:
-            _lib.ares_set_local_ip6(self._channel[0], addr6)
-        else:
-            raise ValueError("invalid IP address")
+
+        with self._capture_channel() as channel:
+            if _lib.ares_inet_pton(socket.AF_INET, ascii_bytes(ip), addr4) == 1:
+                _lib.ares_set_local_ip4(channel, socket.ntohl(addr4.s_addr))
+            elif _lib.ares_inet_pton(socket.AF_INET6, ascii_bytes(ip), addr6) == 1:
+                _lib.ares_set_local_ip6(
+                    channel,
+                    _ffi.cast("unsigned char *", addr6),
+                )
+            else:
+                raise ValueError("invalid IP address")
 
     def getnameinfo(self, address: Union[IP4, IP6], flags: int, *, callback: Callable[[Any, int], None]) -> None:
         if not callable(callback):
@@ -867,25 +910,36 @@ class Channel:
         else:
             raise ValueError("Invalid address argument")
 
-        userdata = self._create_callback_handle(callback)
-        _lib.ares_getnameinfo(self._channel[0], _ffi.cast("struct sockaddr*", sa), _ffi.sizeof(sa[0]), flags, _lib._nameinfo_cb, userdata)
+        with self._capture_channel() as channel:
+            userdata = self._register_callback_handle(callback)
+            try:
+                _lib.ares_getnameinfo(channel, _ffi.cast("struct sockaddr*", sa), _ffi.sizeof(sa[0]), flags, _lib._nameinfo_cb, userdata)
+            except BaseException:
+                _handle_to_channel.pop(userdata, None)
+                raise
 
     def set_local_dev(self, dev):
-        _lib.ares_set_local_dev(self._channel[0], dev)
+        with self._capture_channel() as channel:
+            _lib.ares_set_local_dev(channel, ascii_bytes(dev))
 
     def close(self) -> None:
         """
         Close the channel as soon as it's safe to do so.
 
         This method can be called from any thread. The channel will be destroyed
-        safely using a background thread with a 1-second delay to ensure c-ares
-        has completed its cleanup.
+        safely using a background thread, after any in-flight submission has
+        returned, to ensure c-ares has completed its cleanup.
 
         Note: Once close() is called, no new queries can be started. Any pending
         queries will be cancelled and their callbacks will receive ARES_ECANCELLED.
 
         """
-        if self._channel is None:
+        with self._lock:
+            self._destroy_channel()
+
+    def _destroy_channel(self) -> None:
+        channel, self._channel = self._channel, None
+        if channel is None:
             # Already destroyed
             return
 
@@ -893,7 +947,6 @@ class Channel:
         # query callback.
 
         # Schedule channel destruction
-        channel, self._channel = self._channel, None
         _shutdown_manager.destroy_channel(channel, self._sock_state_cb_handle)
 
     def wait(self, timeout: float=None) -> bool:
@@ -903,7 +956,8 @@ class Channel:
         Args:
             timeout: Maximum time to wait in seconds. Use -1 for infinite wait.
         """
-        r = _lib.ares_queue_wait_empty(self._channel[0],  int(timeout * 1000) if timeout is not None and timeout >= 0 else -1)
+        with self._capture_channel() as channel:
+            r = _lib.ares_queue_wait_empty(channel,  int(timeout * 1000) if timeout is not None and timeout >= 0 else -1)
         if r == _lib.ARES_SUCCESS:
             return True
         elif r == _lib.ARES_ETIMEOUT:

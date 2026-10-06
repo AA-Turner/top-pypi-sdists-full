@@ -132,6 +132,12 @@ def _gemini_opaque_wrapped() -> Exception:
     return ClientError(400, {"message": inner, "status": "Bad Request"})
 
 
+def _gemini_400(message: str) -> Exception:
+    from google.genai.errors import ClientError
+
+    return ClientError(400, {"error": {"code": 400, "message": message, "status": "INVALID_ARGUMENT"}})
+
+
 def _xai_grpc(code_name: str, details: str) -> Exception:
     # xai_sdk speaks gRPC: a refused request is a grpc.aio.AioRpcError, never an
     # HTTP SDK error. Real text, captured live 2026-10-03 (grok-4.5, effort "none").
@@ -259,6 +265,39 @@ SETTING_CASES += [
         lambda: _anthropic("stop_sequences: each stop sequence must contain non-whitespace"),
         "stop_sequences",
         "invalid_item",
+        None,
+    ),
+    # Live 2026-10-04 (settings-rejection routine, 2026-10-05): each reached the
+    # safety net as an unrecognised refusal before these rows existed.
+    (
+        "together.stop_unavailable_without_tokenizer",
+        "together",
+        lambda: _openai_compat(
+            "Failed to start generation: stop=['zz0', 'zz1', 'zz2', 'zz3'] is unavailable when "
+            "skip_tokenizer_init=True (requires tokenizer to decode tokens to text for matching)."
+        ),
+        "stop",
+        "unsupported",
+        None,
+    ),
+    (
+        "together.stop_empty",
+        "together",
+        lambda: _openai_compat(
+            'stop: Validation error: stop sequences cannot be empty [{"value": Array [String("")]}]'
+        ),
+        "stop",
+        "invalid_item",
+        None,
+    ),
+    (
+        "google.max_output_tokens_not_positive",
+        "google",
+        lambda: _gemini_400(
+            "* GenerateContentRequest.generation_config.max_output_tokens: max_output_tokens must be positive.\n"
+        ),
+        "generation_config.max_output_tokens",
+        "invalid_value",
         None,
     ),
 ]

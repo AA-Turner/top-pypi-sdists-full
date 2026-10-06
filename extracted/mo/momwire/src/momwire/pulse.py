@@ -189,7 +189,12 @@ from . import _feed_snap, _ground_spec, _potential_ground, _wire_spec
 from ._cancel import _Cancelable
 from ._capabilities import Capabilities
 from ._element_currents import _ElementCurrents
-from ._port_solution import PortSolution, _SweptPortSolutions
+from ._port_solution import (
+    PortSolution,
+    _SweptPortSolutions,
+    port_impedances,
+    refuse_undriven,
+)
 from ._quadrature import leggauss
 
 # The reduced-kernel segment moment ∫ g dl' has no shared home in momwire —
@@ -514,6 +519,32 @@ class PulseSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         cancel=None,
         **unsupported,
     ):
+        # momwire#1042: a wire listed twice is solved once. Dropped here,
+        # before anything reads a wire index, and every wire-indexed argument
+        # remapped; the per-wire readouts re-expand through `_wire_dedup`.
+        (
+            wires,
+            n_per_edge_per_wire,
+            _per_wire,
+            _sites,
+            _junctions,
+            self._wire_dedup,
+        ) = _wire_spec.drop_duplicated_wires(
+            type(self).__name__,
+            list(wires) if wires is not None else [],
+            n_per_edge_per_wire,
+            per_wire={"wire_radius": wire_radius},
+            sites={
+                "feeds": feeds,
+                "feed_wire_index": [(feed_wire_index,)] if feeds is None else [],
+            },
+            junctions=None,
+            junction_refs=(),
+        )
+        wire_radius = _per_wire["wire_radius"]
+        feeds = _sites["feeds"]
+        if feeds is None:
+            feed_wire_index = _sites["feed_wire_index"][0][0]
         cls = type(self).__name__
         for name in unsupported:
             if name in _OUT_OF_SCOPE:
@@ -632,6 +663,17 @@ class PulseSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
         self.z = None
         self._cached_geometry = None
+        # momwire#959 (a stopgap until #1330): segments below the radius AT A
+        # GAP leave the delta-gap model unreliable. Advisory, once per solver.
+        _wire_spec.advise_gap_mesh_floor(
+            type(self).__name__,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            [self.wire_radius] * len(self.wires_polylines),
+            False,
+            _wire_spec.solver_gaps(self),
+            gap_model="segment",
+        )
 
     # ------------------------------------------------------------------
     # geometry
@@ -752,6 +794,7 @@ class PulseSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 family=type(self).__name__,
                 wire=w,
                 tap=tap,
+                mirror=lambda a, b, w=w: _feed_snap.mirror_images(self, w, a, b),
             )
             sites.append(
                 (
@@ -763,6 +806,7 @@ class PulseSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             )
         return sites
 
+    @_wire_spec.reads_input_wires("placements")
     def feed_placements(self):
         """Where each entry of ``feeds`` lands: the nearest segment centroid,
         as one :class:`~momwire.FeedPlacement` per feed, in order
@@ -950,6 +994,7 @@ class PulseSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         solved coefficient vector, which on a pulse basis IS the segment
         current in amperes, in segment order (per wire, arc order).
         """
+        refuse_undriven([v for _, _, v in self.feeds])  # momwire#1164
         geom = self._build_geometry()
         self._checkpoint()
         Z = self._assemble_Z(geom, self.k)
@@ -965,7 +1010,7 @@ class PulseSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
         self._checkpoint()
         coeffs = scipy.linalg.solve(Z, rhs)
-        z_per_feed = voltages / np.array([coeffs[m] for m in idx])
+        z_per_feed = port_impedances(voltages, np.array([coeffs[m] for m in idx]))
         return (z_per_feed[0] if len(self.feeds) == 1 else z_per_feed), coeffs
 
     def compute_y_matrix(self):
@@ -1069,6 +1114,7 @@ class PulseSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
     # ------------------------------------------------------------------
     # field readout
 
+    @_wire_spec.reads_input_wires("per_wire")
     def currents_at_knots(self, coeffs, s_array=None):
         """Per-wire complex current at every mesh KNOT, for `_ElementCurrents`.
 

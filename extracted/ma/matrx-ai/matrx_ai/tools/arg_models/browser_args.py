@@ -222,6 +222,21 @@ class BrowserRenderClipArgs(BaseModel):
     profile_id: str = _PROFILE_FIELD_DEFAULT
 
 
+class BrowserSavePageArgs(BaseModel):
+    """Save a full-page capture of the page the session is on: the whole scrollable article as one
+    PNG, filed in the organization's file store beside the press clips. Needs the ``session_id`` from
+    ``navigate``. Works only where the cloud browser runs (inside AI Matrx's AWS network); elsewhere
+    it refuses with a sentence that says so and saves nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["save_page"]
+    session_id: str
+    client_name: str = Field(default="", max_length=200)
+    coverage_mention_id: str = Field(default="", max_length=64)
+    profile_id: str = _PROFILE_FIELD_DEFAULT
+
+
 CloudBrowserVariant = Annotated[
     BrowserNavigateArgs
     | BrowserClickArgs
@@ -236,7 +251,8 @@ CloudBrowserVariant = Annotated[
     | BrowserListProfilesArgs
     | BrowserListLocalDevicesArgs
     | BrowserStartLocalArgs
-    | BrowserRenderClipArgs,
+    | BrowserRenderClipArgs
+    | BrowserSavePageArgs,
     Field(discriminator="action"),
 ]
 

@@ -93,6 +93,7 @@ it hands the fill a `CrossingContext` (below) rather than itself (momwire#801).
 
 from __future__ import annotations
 
+import functools
 import os
 import sys
 import warnings
@@ -102,7 +103,7 @@ import numpy as np
 import scipy.sparse as _sp
 from numpy.polynomial.legendre import leggauss
 
-from . import _accel, _aca, _ground_refl, _near_interface, _sommerfeld_below
+from . import _accel, _aca, _cancel, _ground_refl, _near_interface, _sommerfeld_below
 from ._sommerfeld_transmitted import _c1_moment
 
 
@@ -305,6 +306,10 @@ class CrossingContext(NamedTuple):
     eps: float
     a_above: float | None = None
     a_below: float | None = None
+    # The solver's `CancelToken` (or None), installed as the ambient token by
+    # every public entry below (`_cancelable`) so the fill's seams and the
+    # near-interface tables can poll it without a token argument.
+    cancel: object | None = None
 
 
 # WHAT IS GATED, and why it is not the node-adjacent segment.
@@ -433,6 +438,18 @@ _WARN_TARGET = (
 # "~6 mm" in the message text until momwire#926 needed to COMPARE it with
 # something.
 NODE_TARGET_PANEL = 0.006
+
+
+def _cancelable(fn):
+    """Run a public fill entry with its context's token installed
+    (`_cancel.scope`). Every entry takes the `CrossingContext` first."""
+
+    @functools.wraps(fn)
+    def run(ctx, *args, **kwargs):
+        with _cancel.scope(ctx.cancel):
+            return fn(ctx, *args, **kwargs)
+
+    return run
 
 
 def node_panel_floor(h_floor_m, slope):
@@ -682,6 +699,7 @@ def _graded_u(h, toward_end, a, growth=2.0, gx=_GX8, gw=_GW8):
     return u, w
 
 
+@_cancelable  # its polls read the ambient token; solvers call it directly
 def axis_data(
     ctx,
     seg_idx,
@@ -764,7 +782,9 @@ def axis_data(
     n_basis = basis.n_basis
 
     nodes_l, t_l, w_l, u_l, segpos = [], [], [], [], []
-    for g in seg_idx:
+    for i_g, g in enumerate(seg_idx):
+        if not i_g & 255:
+            _cancel.poll()
         sl, sr = geom.seg_l[g], geom.seg_r[g]
         h = geom.h[g]
         tang = geom.tangents[g]
@@ -1127,6 +1147,7 @@ def _on_plane_side(zrel, side, what):
     return z
 
 
+@_cancelable  # razor's crossing-node charges call it outside any fill entry
 def _tables(ctx, eps_t, k_p, rho, z, zp, rtol, memo=None, group_labels=None):
     """Designed tables with the deck's wire radius folded in, z relative
     to the interface. `memo` extends the exact-triple dedup across calls
@@ -1490,6 +1511,7 @@ def _classify_batch(fast, a_wire, pts, rho, end, args, *, n=None, by_nodes=False
     `by_nodes` (`_args_on_plan_nodes` held for this loop): no ρ row is
     handed in, and the ρ tests hold by that check rather than by a compare
     per end."""
+    _cancel.poll()
     E = pts.shape[0]
     n = rho.shape[1] if n is None else n
     lz = args.line_z()
@@ -1536,7 +1558,9 @@ def _classify_batch(fast, a_wire, pts, rho, end, args, *, n=None, by_nodes=False
             # the z alone. The rest search the keys from their ρ, formed for
             # them only.
             off_node = []
-            for e in idx.tolist():
+            for i_e, e in enumerate(idx.tolist()):
+                if not i_e & 255:
+                    _cancel.poll()
                 lv0 = lz[0] if end_in_gv else end[e]
                 l0 = float(lv0)
                 for nn in fast.line_xy.get(xy[e], ()):
@@ -1797,6 +1821,7 @@ def _chunked_tables(ctx, eps_t, k_p, rho, zA, zB, cols, memo):
     idx_t = _index_dtype(rho.size)
     parts, firsts, inverses = [], [], []
     for sl in cols:
+        _cancel.poll()
         r = fold(rho[:, sl], a_wire)
         u, inv = _near_interface._unique_rows(
             r,
@@ -1834,6 +1859,7 @@ def _chunked_tables(ctx, eps_t, k_p, rho, zA, zB, cols, memo):
     off = 0
     nA = rho.shape[0]
     for sl, (inv, m) in zip(cols, inverses):
+        _cancel.poll()
         idx = gid[off : off + m][inv].reshape(nA, sl.stop - sl.start)
         off += m
         yield sl, {key: v[idx] for key, v in vals.items()}
@@ -2287,6 +2313,7 @@ def _merge_groups_z(zids, kids, zfirst, kfirst, nz, nk, n_key, nB):
             koff,
             int(n_key),
             int(zcat.max()) + 1,
+            cancel_flag=_cancel.ptr(),
         )
         n_rows = int(blk.size)
     else:
@@ -2302,10 +2329,14 @@ def _merge_groups_z(zids, kids, zfirst, kfirst, nz, nk, n_key, nB):
         j_first = first - bstart[blk]
     rowflat = np.empty(n_cand, dtype=_index_dtype(n_rows))
     for i, (g, zl) in enumerate(zip(g_s.tolist(), zl_s.tolist())):
+        if not i & 1023:
+            _cancel.poll()
         d0, b0 = off[g] + zl * nk[g], bstart[i]
         rowflat[d0 : d0 + nk[g]] = inv[b0 : b0 + nk[g]]
     del inv
+    _cancel.poll()
     b = np.concatenate(kfirst)[koff[g_s[blk]] + j_first]
+    _cancel.poll()
     kept_pos = (a_s[blk].astype(np.int64) * nB + b).astype(
         _index_dtype(int(a_s.max(initial=0)) * nB + nB), copy=False
     )
@@ -2392,18 +2423,32 @@ def _product_plan(ctx, eps_t, k_p, A, B, gz):
     zB = pb[:, 2] - gz
     gzv, lzv = (zA, zB) if slot == "z" else (zB, zA)
     x0, y0 = G[gfirst, 0], G[gfirst, 1]
-    # The grid's operand order is (above − below).
-    if slot == "z":
-        raw = np.hypot(x0[:, None] - L[None, :, 0], y0[:, None] - L[None, :, 1])
-    else:
-        raw = np.hypot(L[None, :, 0] - x0[:, None], L[None, :, 1] - y0[:, None])
+    # The grid's operand order is (above − below). Formed a span of groups
+    # at a time with a poll between (momwire#1348): elementwise, so the same
+    # floats as the one-shot expression, and at x32 the block is a quarter of
+    # a second of numpy no cancel could otherwise interrupt.
+    raw = np.empty((nG, nL))
+    spans = _group_spans(nG, nL)
+    for g0, g1 in spans:
+        _cancel.poll()
+        if slot == "z":
+            raw[g0:g1] = np.hypot(
+                x0[g0:g1, None] - L[None, :, 0], y0[g0:g1, None] - L[None, :, 1]
+            )
+        else:
+            raw[g0:g1] = np.hypot(
+                L[None, :, 0] - x0[g0:g1, None], L[None, :, 1] - y0[g0:g1, None]
+            )
     keep_raw = nG <= _PRODUCT_FAST_RAW_GROUPS
     if keep_raw:
         line = _near_interface.radius_fold(raw, float(ctx.a_wire))
     else:
         # `radius_fold` in place: the same ufunc on the same floats, and the
         # (groups, line) raw block is not kept past it (`_raw_row`).
-        line = np.hypot(raw, float(ctx.a_wire), out=raw)
+        line = raw
+        for g0, g1 in spans:
+            _cancel.poll()
+            np.hypot(raw[g0:g1], float(ctx.a_wire), out=raw[g0:g1])
         raw = None
     zf, zid = _first_groups(gzv)
     kf, kid = _first_groups(line.ravel(), np.broadcast_to(lzv, line.shape).ravel())
@@ -2433,13 +2478,16 @@ def _product_plan(ctx, eps_t, k_p, A, B, gz):
     if by_rows:
         # Every group's `_first_ints(kid[g])` in one pass
         # (`group_first_ranks`): the same ranks, first positions and ids.
-        kl_rank, nk_g, f_cat, k_cat = _accel.acc.group_first_ranks(kid, int(kf.size))
+        kl_rank, nk_g, f_cat, k_cat = _accel.acc.group_first_ranks(
+            kid, int(kf.size), cancel_flag=_cancel.ptr()
+        )
         koff = np.concatenate(([0], np.cumsum(nk_g))).astype(np.int64)
         # Line positions in the line's own index width (the plan's
         # O(groups x keys) lists).
         f_line = f_cat.astype(_index_dtype(nL), copy=False)
         del f_cat
     for g in range(nG):
+        _cancel.poll()
         m_g = members[bounds[g] : bounds[g + 1]]
         if m_g.size == 1:
             f_z = r_z = np.zeros(1, dtype=np.intp)  # `_first_ints` of one id
@@ -2652,6 +2700,7 @@ def _column_tiles(plan, key_cls, cls_rows):
     pos[order] = np.arange(n_line)
     first = np.full(cls_rows.size, n_line, dtype=np.int64)
     for g0, g1 in _group_spans(n_groups, n_line):
+        _cancel.poll()
         c = key_cls[kid[g0:g1]]
         np.minimum.at(first, c.ravel(), np.broadcast_to(pos, c.shape).ravel())
         del c
@@ -2752,6 +2801,8 @@ class _ProductTiles:
         del got
         rows_per_key = np.zeros(n_key, dtype=np.int64)
         for g, kj in enumerate(plan.kids):
+            if not g & 255:
+                _cancel.poll()
             rows_per_key[kj] += plan.nz[g]  # a candidate count: an upper bound
         cls_rows = np.bincount(key_cls, weights=rows_per_key, minlength=n_cls)
         col_ready = None
@@ -2773,17 +2824,22 @@ class _ProductTiles:
         self._by_tile = None
         if len(plan.rowtab) > 1 and self.n_tiles < 2**15 and _TILE_ROW_ORDER:
             t_row = np.empty(U, dtype=np.int16)
-            for tab, kj in zip(plan.rowtab, plan.kids):
+            for g, (tab, kj) in enumerate(zip(plan.rowtab, plan.kids)):
+                if not g & 255:
+                    _cancel.poll()
                 t_row[tab] = self.tile_of_key[kj][None, :]
             # A row's tile is its key's, the same in every group holding it.
             # Stable on 16-bit keys is numpy's radix sort: O(rows).
             o = np.argsort(t_row, kind="stable")
+            _cancel.poll()
             b = np.searchsorted(t_row[o], np.arange(self.n_tiles + 1))
             del t_row
             self._by_tile = (o.astype(_index_dtype(U)), b)
             del o
         else:
-            for kj in plan.kids:
+            for g, kj in enumerate(plan.kids):
+                if not g & 255:
+                    _cancel.poll()
                 tl = self.tile_of_key[kj]
                 o = np.argsort(tl, kind="stable")
                 b = np.searchsorted(tl[o], np.arange(self.n_tiles + 1))
@@ -2794,6 +2850,7 @@ class _ProductTiles:
             # needs, no row of the column in a later tile.
             ready, may_hold = col_ready, False
             for g0, g1 in _group_spans(*plan.kid.shape):
+                _cancel.poll()
                 tk = self.tile_of_key[plan.kid[g0:g1]]
                 if np.any(tk > ready[None, :]):
                     raise AssertionError("a column is served before its rows")
@@ -2881,6 +2938,7 @@ class _ProductTiles:
             late_row = np.zeros(U, dtype=bool)
             ready = self._node_ready
             for g0, g1 in _group_spans(*plan.kid.shape):
+                _cancel.poll()
                 late = self.tile_of_key[plan.kid[g0:g1]] < ready[None, :]
                 for g in np.flatnonzero(late.any(axis=1)).tolist():
                     kl = np.unique(plan.kl_rank[g0 + g][late[g]])
@@ -3023,6 +3081,7 @@ class _ProductTiles:
         held = np.empty((self.n_held, len(tb_keys)), dtype=np.complex128, order="F")
         o_ready, b_ready = self._ready
         for t in range(self.n_tiles):
+            _cancel.poll()
             ids = self._tile_rows(t)
             if done[ids].any():
                 raise AssertionError("a product row was asked to evaluate twice")
@@ -3055,6 +3114,7 @@ class _ProductTiles:
                 self.listener.tile(t, loc, tb, held, self.hpos)
             J = o_ready[b_ready[t] : b_ready[t + 1]]
             for i0 in range(0, J.size, step):
+                _cancel.poll()
                 cols = J[i0 : i0 + step]
                 # Yielded unbound: the consumer drops the tables once it has
                 # formed their left products, and a name held here across the
@@ -3427,6 +3487,7 @@ def _chunked_point_tables(
     for t in range(sched.n_tiles):
         batches = sched.take(t)
         for b, sel in enumerate(batches):
+            _cancel.poll()
             batches[b] = None
             _ROUTES["point_tile_rows"] += sel.size
             sub = uniq[sel]
@@ -3447,6 +3508,7 @@ def _chunked_point_tables(
             for key, v in six_vals.items():
                 v[dst] = blk[:, _near_interface.KEYS.index(key)]
             del blk
+            _cancel.poll()
             pv = _near_interface.point_designed_rows(eps_t, k_p, sub, plan=plan)
             for key, v in point_vals.items():
                 v[dst] = pv[key]
@@ -3464,6 +3526,7 @@ def _chunked_point_tables(
         if t == 0 and on_ready is not None:
             on_ready()
         for c in range(c0, sched.chunk_end[t]):
+            _cancel.poll()
             sl = rows[c]
             idx, chunk_ids[c] = chunk_ids[c], None
             if sched.slot is not None:
@@ -3582,6 +3645,7 @@ class _PointTileSchedule:
             n_col = int(_u.size)
             del _u
         del fz
+        _cancel.poll()
         if pin is not None:
             self.is_key = pin[0].contains(pin[1])
             first[self.is_key] = 0
@@ -3605,8 +3669,10 @@ class _PointTileSchedule:
         self.pool = int(live.max()) if m else 0
         # Rows by evaluation tile, ids ascending within each (a stable sort
         # of small ints: numpy's radix sort).
+        _cancel.poll()
         self._order, self._eval_bounds = self._by_tile(first)
         del first
+        _cancel.poll()
         self._free, ends = self._by_tile(last)
         self._free = [self._free[a:b] for a, b in zip(ends[:-1], ends[1:])]
         del last, ends
@@ -3615,6 +3681,7 @@ class _PointTileSchedule:
         # `_POINT_EVAL_ROWS` rows of their running size; a row's batch is
         # its column's.
         self._col = col
+        _cancel.poll()
         size = np.bincount(col, minlength=n_col)
         by = np.argsort(col_tile, kind="stable")
         run = np.cumsum(size[by])
@@ -3699,7 +3766,8 @@ def _point_grid_rows(rows, P, nodes, gz, observers_above, a_wire, idx_t):
                     r.ravel(),
                     np.broadcast_to(z, r.shape).ravel(),
                     np.broadcast_to(zp, r.shape).ravel(),
-                ]
+                ],
+                cancel_flag=_cancel.ptr(),
             )
             chunk_ids.append(ids.astype(idx_t, copy=False))
             del r, z, zp, ids
@@ -3745,6 +3813,7 @@ def _point_grid_rows(rows, P, nodes, gz, observers_above, a_wire, idx_t):
     return uniq, chunk_ids
 
 
+@_cancelable
 def point_observer_block(
     ctx, obs_pts, obs_t, src, *, observers_above, into=None, into_rows=None
 ):
@@ -3985,6 +4054,7 @@ def _point_observer_block_chunked(
         keep,
         on_ready=ends_loop,
     ):
+        _cancel.poll()
         n_chunks += 1
         axc, ayc, azc = ax_full[sl], ay_full[sl], az_full[sl]
         dx, dy, rho, _z, _zp = _point_pair_grid(P[sl], nodes, gz, observers_above)
@@ -4037,6 +4107,7 @@ def _point_observer_block_chunked(
     return t
 
 
+@_cancelable
 def cross_complete_block(ctx, A, B, *, corner=True, support=None, into=None):
     """t_ab = M + SW + SQ + BT + CORNER over (above axis A × below axis B),
     on designed kernels. Returns the full (n_basis, n_basis) block in the
@@ -4333,6 +4404,7 @@ def _end_vectors(ctx, eps_t, k_p, ends, ax, w, w_tz, memo, args):
         for _pt, sign, fv, te in _end_tables(
             ctx, eps_t, k_p, ends, n_nodes, memo, args
         ):
+            _cancel.poll()
             yield (
                 sign,
                 fv,
@@ -4347,6 +4419,7 @@ def _end_vectors(ctx, eps_t, k_p, ends, ax, w, w_tz, memo, args):
     pending = []
 
     def flush():
+        _cancel.poll()
         R = _fast_desc_rows_batch(fast, [classes[i] for i, _s, _f in pending])
         vVs = _store_matvecs(Fd, w, R, product.vals, 0)
         vWs = _store_matvecs(F, w_tz, R, product.vals, 1)
@@ -4366,6 +4439,7 @@ def _end_vectors(ctx, eps_t, k_p, ends, ax, w, w_tz, memo, args):
         fast_te=lambda _i: _FAST_TE,
     )
     for i, (_pt, sign, fv, te) in enumerate(spans):
+        _cancel.poll()
         if te is _FAST_TE:
             pending.append((i, sign, fv))
             if len(pending) >= per:
@@ -4381,6 +4455,17 @@ def _end_vectors(ctx, eps_t, k_p, ends, ax, w, w_tz, memo, args):
         )
     if pending:
         yield from flush()
+
+
+def _polled_nonzeros(ends):
+    """`[np.flatnonzero(fv) for _p, _s, fv in ends]`, polling every 256 ends:
+    at x32 the whole list is ~0.15 s."""
+    out = []
+    for i, (_p, _s, fv) in enumerate(ends):
+        if not i & 255:
+            _cancel.poll()
+        out.append(np.flatnonzero(fv))
+    return out
 
 
 def _vec_batches(items, n):
@@ -5227,8 +5312,8 @@ class _FusedEnds:
         row = (R["ends"], self.row_cls, C, self.wC, self.wC_tz)
         col = (C["ends"], self.col_cls, R, self.wR, self.wR_tz)
         self.vec_loop, self.loc_loop = (row, col) if fwd else (col, row)
-        self.nz_vec = [np.flatnonzero(fv) for _p, _s, fv in self.vec_loop[0]]
-        self.nz_loc = [np.flatnonzero(fv) for _p, _s, fv in self.loc_loop[0]]
+        self.nz_vec = _polled_nonzeros(self.vec_loop[0])
+        self.nz_loc = _polled_nonzeros(self.loc_loop[0])
         n_line = plan.kid.shape[1]
         tile_line = tiles.tile_of_key[plan.kid[0]]
         self._tile_line = tile_line
@@ -5947,6 +6032,7 @@ def _ends_and_corner_reversed(
     )
 
 
+@_cancelable
 def cross_complete_block_reversed(
     ctx, P, Q, *, corner=True, sw_end=SW_BY_PARTS, support=None, into=None
 ):
@@ -6068,6 +6154,7 @@ def _nodes_of(ax, segs):
     every node (momwire#912)."""
     runs = ax["seg_runs"]
     parts = []
+    _cancel.poll()
     for g in segs:
         rc = runs.get(int(g))
         if rc is not None:
@@ -6315,6 +6402,7 @@ def _streamed_sandwich(
         held_slot = np.zeros(0, dtype=np.int64)
         n_used = 0
     for cols, Kc in K:
+        _cancel.poll()
         c_cols = (
             np.arange(cols.start, cols.stop)
             if isinstance(cols, slice)
@@ -6564,7 +6652,9 @@ def _axis_segment_tree(geom, seg_idx, leaf):
     idx = np.asarray(seg_idx, dtype=np.int64)
     lo = np.minimum(geom.seg_l[idx], geom.seg_r[idx])
     hi = np.maximum(geom.seg_l[idx], geom.seg_r[idx])
+    _cancel.poll()
     tree = _aca.build_cluster_tree(np.arange(idx.size), lo, hi, leaf)
+    _cancel.poll()
     return tree, idx
 
 
@@ -6592,6 +6682,7 @@ def _refuse_path_tested(*axes):
             )
 
 
+@_cancelable
 def cross_complete_block_split(ctx, a_idx, b_idx, A, B, *, corner=True, rows=None):
     """`cross_complete_block` through the #688 admissibility split.
 
@@ -6639,6 +6730,7 @@ def cross_complete_block_split(ctx, a_idx, b_idx, A, B, *, corner=True, rows=Non
     return main
 
 
+@_cancelable
 def cross_complete_blocks_two_radius(ctx, a_idx, b_idx, A, B, *, rows=None):
     """The cross pair at a TWO-RADIUS crossing node: `(t_above, t_below)`,
     composed by the caller as `Z -= t_above; Z -= t_below.T`.
@@ -6899,6 +6991,7 @@ def _main_split(ctx, a_idx, b_idx, A, B, eps_t, k_p, c1, gz, memo, rows=None):
         # `_tables` costs ~212 bytes of peak per pair at 150 radials, so the
         # budget is what bounds this phase, not the deck size.
         for g0, g1 in _pair_groups([iA.size * iB.size for _A, _B, iA, iB in direct]):
+            _cancel.poll()
             _direct_group(
                 ctx,
                 eps_t,
@@ -6916,6 +7009,7 @@ def _main_split(ctx, a_idx, b_idx, A, B, eps_t, k_p, c1, gz, memo, rows=None):
     # row/column samples ride the SAME memo — identical matrices in
     # mirrored blocks pick identical pivots, so their samples dedup.
     for iA, iB in far_aca:
+        _cancel.poll()
         pa, pb = Ac["nodes"][iA], Bc["nodes"][iB]
         zA, zB = pa[:, 2] - gz, pb[:, 2] - gz
         rho = np.hypot(
@@ -7024,6 +7118,7 @@ def _main_split(ctx, a_idx, b_idx, A, B, eps_t, k_p, c1, gz, memo, rows=None):
     return c1 * t_main, c1 * t_cols
 
 
+@_cancelable
 def cross_complete_block_reversed_split(
     ctx, p_idx, q_idx, P, Q, *, corner=True, sw_end=SW_BY_PARTS
 ):
@@ -7302,6 +7397,7 @@ class _CompletionScatter:
         return self.dest
 
 
+@_cancelable
 def self_completions(ctx, ax_b, ax_a, *, rows=None, out=None):
     """The self families' missing bnd + corner content, both media, on
     graded axes. Returned as the ADDITIVE Z correction (the fill's
@@ -7345,6 +7441,7 @@ def self_completions(ctx, ax_b, ax_a, *, rows=None, out=None):
     return acc.flush()
 
 
+@_cancelable
 def self_completions_two_radius(ctx, ax_b, ax_a, *, rows=None, out=None):
     """`self_completions` at a TWO-RADIUS crossing node.
 

@@ -19,7 +19,7 @@ import time
 import logging
 import requests
 from typing import Dict, Any, Optional, BinaryIO
-from requests.exceptions import HTTPError, ConnectionError, Timeout
+from requests.exceptions import HTTPError, ConnectionError, ReadTimeout, Timeout
 from .exceptions import FeatrixAuthenticationError, FeatrixPredictionError
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,18 @@ def customer_metadata_headers(customer_metadata: Optional[Dict[str, Any]]) -> Di
 
 _NODE_UPGRADE_MAX_WAIT_SECONDS = 20 * 60
 _NODE_UPGRADE_RETRY_DELAY_SECONDS = 15.0
+
+# A predict that read-timed-out already reached the server, which is still
+# working on it and records a prediction row per record. Re-sending runs the
+# whole batch again (duplicate rows; for generate=True, a duplicate LLM batch
+# per attempt) -- the same rule sphere-api-router's _proxy_to_compute follows
+# ("a read timeout is never re-sent"). Connect errors are still retried: those
+# requests never arrived.
+_PREDICT_ENDPOINT_SUFFIXES = ("/predict", "/predict_table", "/light_predict", "/es_predict")
+# How long sphere-api-router waits on a compute node's predict
+# (prediction_router PRODUCTION_AI_TIMEOUT). A generate=True call waits this
+# long so the client doesn't give up while the router is still waiting.
+PREDICT_ROUTER_TIMEOUT_SECONDS = 300
 
 # sphere-api-router's org job-queue-limit (quota_exceeded) is a depth cap, not
 # a timed window — it clears only when one of the org's own pending jobs gets
@@ -355,6 +367,13 @@ class HTTPClientMixin:
 
             except (ConnectionError, Timeout) as e:
                 last_error = e
+
+                if isinstance(e, ReadTimeout) and endpoint.endswith(_PREDICT_ENDPOINT_SUFFIXES):
+                    logger.warning(
+                        f"Read timeout on {method} {endpoint} after {kwargs.get('timeout')}s -- "
+                        f"not re-sent (the server already has this prediction request)"
+                    )
+                    raise
 
                 # If we're already in a known node-upgrade window, the node may close
                 # the TLS connection mid-request as it cycles. Treat connection errors

@@ -666,6 +666,10 @@ class HeldCall:
     #: another model (an explicit request model) never carries it — use
     #: :meth:`pin_for` / :meth:`pick_offering`, never read it raw.
     offering_id: str | None = None
+    #: THE RUN RECORD (AF-R): the ids of the conversation + request this call
+    #: ran as, filled by ``execute_ai_request`` (:func:`note_held_run`) and
+    #: handed to the host's completion by :meth:`finish`. Empty until it runs.
+    run_ids: dict[str, Any] = field(default_factory=dict)
 
     # ── THE ONE PRECEDENCE RULE for every held call (2026-09-25) ───────────
     # The Holder's settings apply. A caller's value wins ONLY when it was
@@ -843,7 +847,7 @@ class HeldCall:
             error=error,
             error_kind="execution" if not success else None,
             usage=usage,
-            metadata=facts,
+            metadata={**_finished_run_ids(self), **facts},
         )
         try:
             await self.complete(result, dict(self.variables), self.spilled_text)
@@ -859,6 +863,94 @@ class HeldCall:
                 f"{type(exc).__name__}: {exc}",
                 color="red",
             )
+
+
+# ---------------------------------------------------------------------------
+# THE RUN RECORD for held code calls (AF-R)
+# ---------------------------------------------------------------------------
+#
+# A held call reaches a provider through the ONE funnel (``execute_ai_request``)
+# by whatever site-specific path it takes (``run_held_*`` or a site's own
+# funnel call). The funnel finds the call by the ``held_call_id`` on its Holder
+# stamp, runs it as its OWN conversation (linked to the one it ran inside) and
+# notes the ids here; :meth:`HeldCall.finish` hands them to the host, which
+# writes the run record on that conversation.
+
+#: Live held calls' id sinks, by ``held_call_id`` (bounded: a call that never
+#: finishes is forgotten after ``_HELD_RUNS_MAX`` newer ones).
+_HELD_RUNS: dict[str, dict[str, Any]] = {}
+_HELD_RUNS_MAX = 4096
+
+
+def _register_held_run(held_call_id: str, sink: dict[str, Any]) -> None:
+    _HELD_RUNS[held_call_id] = sink
+    while len(_HELD_RUNS) > _HELD_RUNS_MAX:
+        _HELD_RUNS.pop(next(iter(_HELD_RUNS)))
+
+
+def held_call_id_of(metadata: dict[str, Any] | None) -> str | None:
+    """The ``held_call_id`` an AGENT-held call's request metadata carries."""
+    if not isinstance(metadata, dict):
+        return None
+    from matrx_ai.mandate_workflow_holder import HELD_CALL_ID_KEY
+    from matrx_ai.orchestrator.mandate_carrier import MANDATE_HOLDER_METADATA_KEY
+
+    stamp = metadata.get(MANDATE_HOLDER_METADATA_KEY)
+    if not isinstance(stamp, dict) or stamp.get("holder_type") != "agent":
+        return None
+    held_id = stamp.get(HELD_CALL_ID_KEY)
+    return str(held_id) if held_id else None
+
+
+def note_held_run(
+    metadata: dict[str, Any] | None,
+    *,
+    conversation_id: str | None,
+    request_id: str | None,
+    stored: bool,
+) -> None:
+    """Called by the funnel: the held call ran as ``conversation_id``."""
+    held_id = held_call_id_of(metadata)
+    sink = _HELD_RUNS.get(held_id) if held_id else None
+    if sink is None:
+        return
+    sink.clear()
+    sink.update(
+        {
+            "conversation_id": str(conversation_id) if conversation_id else None,
+            "request_id": str(request_id) if request_id else None,
+            "stored": bool(stored),
+        }
+    )
+
+
+_UNRECORDED_ANNOUNCED: set[str] = set()
+
+
+def _finished_run_ids(held: HeldCall) -> dict[str, Any]:
+    """The ids :meth:`HeldCall.finish` reports — only for a stored own run.
+
+    A call that never reached the funnel, or ran under a person's own
+    do-not-save request, has no conversation to record on: said once per
+    mandate key, never per call."""
+    held_id = str((held.metadata.get("mandate_holder") or {}).get("held_call_id") or "")
+    _HELD_RUNS.pop(held_id, None)
+    ids = held.run_ids
+    if ids.get("stored") and ids.get("conversation_id"):
+        return {k: ids[k] for k in ("conversation_id", "request_id") if ids.get(k)}
+    if held.holder_type == "agent" and held.mandate_key not in _UNRECORDED_ANNOUNCED:
+        _UNRECORDED_ANNOUNCED.add(held.mandate_key)
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "[mandates] held code call %s keeps NO run record: %s (said once per key)",
+            held.mandate_key,
+            "it ran under a non-persisting request (store=False from a person)"
+            if ids
+            else "its funnel call never reached execute_ai_request (or carried a copy of "
+            "the metadata without the Holder stamp)",
+        )
+    return {}
 
 
 class UncarriableHeldPart(ValueError):
@@ -1078,6 +1170,11 @@ async def hold_code_call(
         else:
             text = str(content or "")
         turns.append({"role": role, "content": text})
+    from uuid import uuid4
+
+    from matrx_ai.mandate_workflow_holder import HELD_CALL_ID_KEY
+
+    held_call_id = uuid4().hex
     carried: dict[str, Any] = dict(metadata or {})
     carried[MANDATE_KEY_METADATA_KEY] = mandate_key
     if resolution.run_stamp:
@@ -1089,8 +1186,9 @@ async def hold_code_call(
         "is_version": bool(getattr(resolution.source, "is_version", False)),
         "name": getattr(agent, "name", None),
         "consumer": consumer,
+        HELD_CALL_ID_KEY: held_call_id,
     }
-    return HeldCall(
+    held = HeldCall(
         mandate_key=mandate_key,
         model=model,
         system=system,
@@ -1105,6 +1203,8 @@ async def hold_code_call(
         holder_values=holder_values,
         offering_id=str(getattr(config, "offering_id", None) or "") or None,
     )
+    _register_held_run(held_call_id, held.run_ids)
+    return held
 
 
 async def _hold_by_workflow(
@@ -1251,7 +1351,7 @@ async def run_held_call(
     *,
     extra_turns: list[dict[str, Any]] | None = None,
     max_output_tokens: int | None = None,
-    store: bool = False,
+    store: bool = True,
 ) -> Any:
     """Run one held call to completion and return the normalized result.
 
@@ -1282,6 +1382,18 @@ async def run_held_call(
             parent.with_overrides(
                 emitter=ConsoleEmitter(label=f"held:{held.mandate_key}", debug=False),
                 store=store,
+                # A code call is not a turn in the person's chat: keep the cost
+                # spine (it IS recorded) but write no transcript into the
+                # surrounding conversation.
+                system_run=True,
+                # Nor is it a run of the person's agent: inheriting these
+                # stamped the labeler's side conversation with the parent's
+                # agent id and variables, so it surfaced as a "recent run" of
+                # that agent (a test case whose input was the labeler prompt).
+                agent_id=None,
+                agent_version_id=None,
+                initial_variables={},
+                initial_overrides={},
             )
         )
     try:

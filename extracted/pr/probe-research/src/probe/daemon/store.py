@@ -577,6 +577,30 @@ class Store:
             self.db.execute("UPDATE events SET bite = ? WHERE seq = ?", (UNRECORDED_BITE, seq))
         return len(seqs)
 
+    def leave_unrecorded_in(self, intervals: list[tuple[float, float | None]], *,
+                            after_seq: int = 0) -> list[tuple[float, int]]:
+        """Mark every uncovered event after `after_seq` stamped inside one of
+        `intervals` (`(since, until)` epoch seconds, `until` None while still open)
+        as never to be recorded: the agent held Probe then (`probe session
+        inline`). Returns `(since, turn)` for each event marked, `since` naming its
+        interval. An event with no readable stamp stays the writer's. One
+        transaction, opened only when there is something to mark."""
+        rows = self.db.execute("SELECT seq, ts, turn FROM events WHERE bite IS NULL AND seq > ?",
+                               (after_seq,)).fetchall()
+        hits: list[tuple[int, float, int]] = []
+        for row in rows:
+            at = _epoch(row["ts"])
+            if at is None:
+                continue
+            since = next((s for s, u in intervals if s <= at and (u is None or at < u)), None)
+            if since is not None:
+                hits.append((row["seq"], since, int(row["turn"] or 0)))
+        if hits:
+            with self.tx():
+                self.db.executemany("UPDATE events SET bite = ? WHERE seq = ? AND bite IS NULL",
+                                    [(UNRECORDED_BITE, seq) for seq, _since, _turn in hits])
+        return [(since, turn) for _seq, since, turn in hits]
+
     def next_offset(self) -> int:
         """A fresh offset for the daemon's own events (notices, folder changes, SDK
         messages): a per-store counter, never the clock -- a clock that jumps back

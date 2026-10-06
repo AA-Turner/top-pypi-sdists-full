@@ -32,6 +32,7 @@
 #include <vector>
 
 // Project includes
+#include "../detail/library_lock.hpp"
 #include "meshioplusplus/formats/vtkhdf.hpp"
 #include "meshioplusplus/formats/vtkhdf_time_series.hpp"
 #include "meshioplusplus/detail/hdf5_util.hpp"
@@ -46,6 +47,7 @@
 #include "meshioplusplus/region.hpp"
 #include "meshioplusplus/types.hpp"
 #include "meshioplusplus/vtk_common.hpp"
+#include "../detail/typed_view.hpp"
 #include "library_preflight.hpp"
 
 namespace meshioplusplus {
@@ -240,12 +242,20 @@ NDArray vtkhdf_concat_rows(const std::vector<const NDArray*>& rParts, const std:
             std::memcpy(out.Data() + at, p->Data(), p->Nbytes());
             at += p->Nbytes();
         } else {
-            for (std::size_t i = 0; i < p->Size(); ++i) {
-                if (dt == DType::Float64)
-                    reinterpret_cast<double*>(out.Data() + at)[i] = read_double(*p, i);
-                else
-                    reinterpret_cast<I64*>(out.Data() + at)[i] = read_int(*p, i);
-            }
+            // One dtype switch per piece: each element converts as read_double /
+            // read_int convert it, straight into `out`.
+            detail::dispatch_dtype(p->Dtype(), [&]<class T>() {
+                const T* src = p->As<T>();
+                if (dt == DType::Float64) {
+                    double* dst = reinterpret_cast<double*>(out.Data() + at);
+                    for (std::size_t i = 0; i < p->Size(); ++i)
+                        dst[i] = static_cast<double>(src[i]);
+                } else {
+                    I64* dst = reinterpret_cast<I64*>(out.Data() + at);
+                    for (std::size_t i = 0; i < p->Size(); ++i)
+                        dst[i] = detail::typed_view_int<T>(src[i]);
+                }
+            });
             at += p->Size() * dtype_size(dt);
         }
     }
@@ -688,8 +698,11 @@ std::size_t vtkhdf_polyhedron_run(Mesh& rMesh, const VtkhdfLeaf& rLeaf, std::siz
         throw ReadError(
             "meshio++: vtkhdf: a cell has VTK type 42 (polyhedron) but the file carries no "
             "FaceConnectivity/FaceOffsets/PolyhedronToFaces/PolyhedronOffsets datasets");
-    std::vector<std::vector<I64Vec>> cells;
+    // Cell c's faces are mToFaces[ps[c] .. pe[c]); every index is checked here,
+    // so the group builders below read mFaceConn without re-validating.
+    std::vector<I64> ps_of, pe_of;
     std::vector<std::size_t> counts;
+    I64Vec uniq;
     for (std::size_t c = Lo; c < Hi; ++c) {
         if (c >= rLeaf.mPolyEnd.size())
             throw ReadError("meshio++: vtkhdf: PolyhedronOffsets is shorter than the cell count");
@@ -697,8 +710,7 @@ std::size_t vtkhdf_polyhedron_run(Mesh& rMesh, const VtkhdfLeaf& rLeaf, std::siz
         const I64 pe = rLeaf.mPolyEnd[c];
         if (ps < 0 || pe < ps || static_cast<std::size_t>(pe) > rLeaf.mToFaces.size())
             throw ReadError("meshio++: vtkhdf: PolyhedronOffsets entry out of range");
-        std::vector<I64Vec> faces;
-        I64Vec uniq;
+        uniq.clear();
         for (I64 i = ps; i < pe; ++i) {
             const I64 f = rLeaf.mToFaces[static_cast<std::size_t>(i)];
             if (f < 0 || static_cast<std::size_t>(f) >= rLeaf.mFaceEnd.size())
@@ -707,32 +719,41 @@ std::size_t vtkhdf_polyhedron_run(Mesh& rMesh, const VtkhdfLeaf& rLeaf, std::siz
             const I64 fe = rLeaf.mFaceEnd[static_cast<std::size_t>(f)];
             if (fs < 0 || fe < fs || static_cast<std::size_t>(fe) > rLeaf.mFaceConn.size())
                 throw ReadError("meshio++: vtkhdf: FaceOffsets entry out of range");
-            faces.emplace_back(rLeaf.mFaceConn.begin() + fs, rLeaf.mFaceConn.begin() + fe);
-            uniq.insert(uniq.end(), faces.back().begin(), faces.back().end());
+            uniq.insert(uniq.end(), rLeaf.mFaceConn.begin() + fs, rLeaf.mFaceConn.begin() + fe);
         }
         std::sort(uniq.begin(), uniq.end());
-        uniq.erase(std::unique(uniq.begin(), uniq.end()), uniq.end());
-        counts.push_back(uniq.size());
-        cells.push_back(std::move(faces));
+        counts.push_back(
+            static_cast<std::size_t>(std::unique(uniq.begin(), uniq.end()) - uniq.begin()));
+        ps_of.push_back(ps);
+        pe_of.push_back(pe);
     }
     std::vector<std::size_t> order;
     std::map<std::size_t, std::vector<std::size_t>> groups;
-    for (std::size_t i = 0; i < cells.size(); ++i) {
+    for (std::size_t i = 0; i < counts.size(); ++i) {
         if (groups.find(counts[i]) == groups.end())
             order.push_back(counts[i]);
         groups[counts[i]].push_back(i);
     }
     for (std::size_t n : order) {
         const auto& idx = groups[n];
-        std::vector<std::vector<I64Vec>> group;
+        I64Vec flat, face_rows{0}, cell_faces{0};
         std::vector<std::size_t> rows;
-        group.reserve(idx.size());
+        rows.reserve(idx.size());
         for (std::size_t i : idx) {
-            group.push_back(std::move(cells[i]));
+            for (I64 k = ps_of[i]; k < pe_of[i]; ++k) {
+                const auto f =
+                    static_cast<std::size_t>(rLeaf.mToFaces[static_cast<std::size_t>(k)]);
+                const I64 fs = f > 0 ? rLeaf.mFaceEnd[f - 1] : 0;
+                const I64 fe = rLeaf.mFaceEnd[f];
+                flat.insert(flat.end(), rLeaf.mFaceConn.begin() + fs, rLeaf.mFaceConn.begin() + fe);
+                face_rows.push_back(static_cast<I64>(flat.size()));
+            }
+            cell_faces.push_back(static_cast<I64>(face_rows.size() - 1));
             rows.push_back(Lo + i);
             rPerm[Lo + i] = static_cast<I64>(At++);
         }
-        rMesh.AddPolyhedronBlock("polyhedron" + std::to_string(n), std::move(group));
+        rMesh.AddPolyhedronBlock("polyhedron" + std::to_string(n), std::move(flat),
+                                 std::move(face_rows), std::move(cell_faces));
         vtkhdf_append_cell_data_rows(rMesh, rLeaf, rows);
     }
     return At;
@@ -1177,15 +1198,21 @@ NDArray vtkhdf_points3(const NDArray& rPts, std::size_t NumPoints, std::size_t D
                          : DType::Float64;
     const std::size_t n = pUsed ? pUsed->size() : NumPoints;
     NDArray out(dt, {n, 3});  // zero-filled: the padded columns stay 0
-    for (std::size_t r = 0; r < n; ++r) {
-        const std::size_t src = pUsed ? (*pUsed)[r] : r;
-        for (std::size_t c = 0; c < Dim; ++c) {
-            if (dt == DType::Float32)
-                out.As<float>()[r * 3 + c] = static_cast<float>(read_double(rPts, src * Dim + c));
-            else
-                out.As<double>()[r * 3 + c] = read_double(rPts, src * Dim + c);
+    // One dtype switch for the points; an integer or float32 input is converted
+    // element by element, as read_double converts it, with no copy beside `out`.
+    detail::dispatch_dtype(rPts.Dtype(), [&]<class T>() {
+        const T* points = rPts.As<T>();
+        for (std::size_t r = 0; r < n; ++r) {
+            const std::size_t src = pUsed ? (*pUsed)[r] : r;
+            for (std::size_t c = 0; c < Dim; ++c) {
+                const double v = static_cast<double>(points[src * Dim + c]);
+                if (dt == DType::Float32)
+                    out.As<float>()[r * 3 + c] = static_cast<float>(v);
+                else
+                    out.As<double>()[r * 3 + c] = v;
+            }
         }
-    }
+    });
     return out;
 }
 
@@ -1249,15 +1276,16 @@ VtkhdfCells vtkhdf_collect(const Mesh& rMesh, const std::vector<std::size_t>& rB
         auto it = polygon ? tmap.find("polygon") : tmap.find(type);
         if (it == tmap.end())
             throw WriteError("meshio++: vtkhdf: cell type '" + type + "' has no VTK cell type id");
-        const NDArray& conn = cb.Conn();
-        const std::size_t k = cols(conn);
+        const NDArray& conn_array = cb.Conn();
+        const std::size_t k = cols(conn_array);
+        const detail::Int64View conn(conn_array);
         const std::vector<int> order = polygon ? std::vector<int>{} : meshio_to_vtk_order(type);
         for (std::size_t r = 0; r < nc; ++r) {
             if (!wanted(r))
                 continue;
             for (std::size_t j = 0; j < k; ++j) {
                 const std::size_t col = order.empty() ? j : static_cast<std::size_t>(order[j]);
-                out.mConn.push_back(read_int(conn, r * k + col));
+                out.mConn.push_back(conn[r * k + col]);
             }
             out.mSizes.push_back(static_cast<I64>(k));
             out.mTypes.push_back(it->second);
@@ -1460,6 +1488,9 @@ void vtkhdf_write_polydata_group(hid_t Grp, const Mesh& rMesh, int Gzip,
     for (std::size_t bi : order) {
         const auto cb = rMesh.Cells(bi);
         const int cat = kinds[bi];
+        std::optional<detail::Int64View> block_conn;
+        if (!cb.IsRagged())
+            block_conn.emplace(cb.Conn());
         for (std::size_t r = 0; r < cb.NumCells(); ++r) {
             std::size_t k;
             if (cb.IsRagged()) {
@@ -1467,10 +1498,9 @@ void vtkhdf_write_polydata_group(hid_t Grp, const Mesh& rMesh, int Gzip,
                 for (std::size_t j = 0; j < k; ++j)
                     conn[cat].push_back(cb.Row(r)[j]);
             } else {
-                const NDArray& c = cb.Conn();
-                k = cols(c);
+                k = cols(cb.Conn());
                 for (std::size_t j = 0; j < k; ++j)
-                    conn[cat].push_back(read_int(c, r * k + j));
+                    conn[cat].push_back((*block_conn)[r * k + j]);
             }
             if (cat == 0 && k != 1)
                 throw WriteError("meshio++: vtkhdf: vertex cells must have one node");
@@ -1539,6 +1569,7 @@ std::pair<int, int> vtkhdf_resolve_version(VtkhdfVersion Requested, VtkhdfType T
 // ---------------------------------------------------------------------------
 void write_vtkhdf(const std::string& rPath, const Mesh& rMesh, int GzipLevel, VtkhdfType Type,
                   VtkhdfVersion Version) {
+    detail::LibraryLock lock;
     if (GzipLevel > 9)
         throw WriteError("meshio++: vtkhdf: gzip level must be 0-9");
     bool has_poly = false;
@@ -1589,6 +1620,7 @@ Mesh read_vtkhdf(const std::string& rPath) {
 }
 
 Mesh read_vtkhdf(const std::string& rPath, const ReadOptions& rOpts) {
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     Hid root;
     std::string kind;
@@ -1615,6 +1647,7 @@ Mesh read_vtkhdf(const std::string& rPath, const ReadOptions& rOpts) {
 }
 
 MeshMetadata read_vtkhdf_metadata(const std::string& rPath, const ReadOptions& rOpts) {
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     Hid root;
     std::string kind;
@@ -2002,20 +2035,27 @@ struct VtkhdfTimeSeriesWriter::Impl {
 };
 
 VtkhdfTimeSeriesWriter::VtkhdfTimeSeriesWriter(const std::string& rPath, int GzipLevel,
-                                               VtkhdfSeriesMode Mode)
-    : mImpl(std::make_unique<Impl>()) {
-    if (GzipLevel > 9)
-        throw WriteError("meshio++: vtkhdf: gzip level must be 0-9");
-    h5::SilenceErrors silence;
-    mImpl->mPath = rPath;
-    mImpl->mGzip = GzipLevel;
-    if (Mode == VtkhdfSeriesMode::Append && std::filesystem::exists(rPath))
-        mImpl->OpenExisting();
-    else
-        mImpl->mFile = h5::create_file(rPath);
+                                               VtkhdfSeriesMode Mode) {
+    detail::LibraryLock lock;
+    mImpl = std::make_unique<Impl>();
+    try {
+        if (GzipLevel > 9)
+            throw WriteError("meshio++: vtkhdf: gzip level must be 0-9");
+        h5::SilenceErrors silence;
+        mImpl->mPath = rPath;
+        mImpl->mGzip = GzipLevel;
+        if (Mode == VtkhdfSeriesMode::Append && std::filesystem::exists(rPath))
+            mImpl->OpenExisting();
+        else
+            mImpl->mFile = h5::create_file(rPath);
+    } catch (...) {
+        mImpl.reset();
+        throw;
+    }
 }
 
 VtkhdfTimeSeriesWriter::~VtkhdfTimeSeriesWriter() {
+    detail::LibraryLock lock;
     if (!mImpl)
         return;
     try {
@@ -2024,11 +2064,13 @@ VtkhdfTimeSeriesWriter::~VtkhdfTimeSeriesWriter() {
     } catch (...) {
         // an exception must not leave a destructor; Finalize() is how a caller sees it
     }
+    mImpl.reset();
 }
 
 VtkhdfTimeSeriesWriter::VtkhdfTimeSeriesWriter(VtkhdfTimeSeriesWriter&&) noexcept = default;
 VtkhdfTimeSeriesWriter& VtkhdfTimeSeriesWriter::operator=(
     VtkhdfTimeSeriesWriter&& rOther) noexcept {
+    detail::LibraryLock lock;
     if (this != &rOther) {
         try {
             if (mImpl)
@@ -2041,6 +2083,7 @@ VtkhdfTimeSeriesWriter& VtkhdfTimeSeriesWriter::operator=(
 }
 
 void VtkhdfTimeSeriesWriter::WritePointsCells(const Mesh& rMesh) {
+    detail::LibraryLock lock;
     if (!mImpl)
         throw WriteError("meshio++: vtkhdf: this writer was moved from");
     h5::SilenceErrors silence;
@@ -2048,6 +2091,7 @@ void VtkhdfTimeSeriesWriter::WritePointsCells(const Mesh& rMesh) {
 }
 
 void VtkhdfTimeSeriesWriter::WriteData(double Time, const Mesh& rMesh) {
+    detail::LibraryLock lock;
     if (!mImpl)
         throw WriteError("meshio++: vtkhdf: this writer was moved from");
     h5::SilenceErrors silence;
@@ -2079,6 +2123,7 @@ void VtkhdfTimeSeriesWriter::WriteData(double Time, const Mesh& rMesh) {
 
 void VtkhdfTimeSeriesWriter::WriteData(double Time, const std::vector<NamedArray>& rPointData,
                                        const std::vector<NamedArray>& rCellData) {
+    detail::LibraryLock lock;
     if (!mImpl)
         throw WriteError("meshio++: vtkhdf: this writer was moved from");
     h5::SilenceErrors silence;
@@ -2095,6 +2140,7 @@ void VtkhdfTimeSeriesWriter::WriteData(double Time, const std::vector<NamedArray
 }
 
 void VtkhdfTimeSeriesWriter::Flush() {
+    detail::LibraryLock lock;
     if (mImpl && !mImpl->mFinalized) {
         h5::SilenceErrors silence;
         mImpl->Flush();
@@ -2111,6 +2157,7 @@ bool VtkhdfTimeSeriesWriter::AutoFlush() const {
 }
 
 void VtkhdfTimeSeriesWriter::Finalize() {
+    detail::LibraryLock lock;
     if (mImpl) {
         h5::SilenceErrors silence;
         mImpl->Finalize();

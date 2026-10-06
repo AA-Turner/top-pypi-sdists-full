@@ -17,7 +17,8 @@ def _body(name: str) -> str:
 
 def test_the_daemon_blurb_is_the_approved_text():
     assert agent_rules.DAEMON_POINTER_BODY == _body("agent-facing/managed-block.PROPOSED.md")
-    assert len(agent_rules.DAEMON_POINTER_BODY) < 1200
+    # 1,131 approved 09-27; + the `probe session inline` line 10-05 (Richard).
+    assert len(agent_rules.DAEMON_POINTER_BODY) < 1400
 
 
 def test_the_daemon_block_carries_its_profile_and_a_refresh_keeps_it(tmp_path):

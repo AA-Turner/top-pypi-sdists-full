@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydantic-monty
-Version: 1.0.0
+Version: 1.1.0
 Summary: Monty, the Python sandbox: bindings plus the worker binary
 Project-URL: Homepage, https://github.com/pydantic/monty
 Project-URL: Source, https://github.com/pydantic/monty
@@ -21,12 +21,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-monty-client==1.0.0
-Requires-Dist: pydantic-monty-runtime==1.0.0
+Requires-Dist: pydantic-monty-client==1.1.0
+Requires-Dist: pydantic-monty-runtime==1.1.0
 Provides-Extra: opentelemetry
 Requires-Dist: pydantic-monty-client[opentelemetry]; extra == 'opentelemetry'
 Description-Content-Type: text/markdown

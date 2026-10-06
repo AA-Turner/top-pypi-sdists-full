@@ -147,8 +147,8 @@ async def test_base64_inside_assistant_content_is_still_redacted(monkeypatch) ->
 
 
 @pytest.mark.asyncio
-async def test_large_strings_outside_assistant_text_are_still_redacted(monkeypatch) -> None:
-    big = "x " * 40_000  # not base64, but not an assistant text block either
+async def test_large_text_outside_assistant_text_is_also_kept_whole(monkeypatch) -> None:
+    big = "x " * 40_000  # plain text, not an assistant text block
     stored = await _queued_response_payload(
         monkeypatch,
         {
@@ -159,9 +159,10 @@ async def test_large_strings_outside_assistant_text_are_still_redacted(monkeypat
             "raw_response": {"candidates": [{"blob": big}]},
         },
     )
-    assert MARKER_OPEN in stored["messages"][0]["content"][0]["text"]
-    assert MARKER_OPEN in stored["messages"][1]["content"][0]["arguments"]["q"]
-    assert MARKER_OPEN in stored["raw_response"]["candidates"][0]["blob"]
+    # Owner ruling 2026-10-05: text is never cut anywhere, at any size.
+    assert stored["messages"][0]["content"][0]["text"] == big
+    assert stored["messages"][1]["content"][0]["arguments"]["q"] == big
+    assert stored["raw_response"]["candidates"][0]["blob"] == big
 
 
 @pytest.mark.asyncio

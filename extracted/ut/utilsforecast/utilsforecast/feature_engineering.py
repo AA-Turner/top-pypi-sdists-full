@@ -1,6 +1,6 @@
 """Create exogenous regressors for your models"""
 
-__all__ = ['fourier', 'trend', 'time_features', 'future_exog_to_historic', 'pipeline']
+__all__ = ["fourier", "trend", "time_features", "future_exog_to_historic", "pipeline"]
 
 
 from functools import partial
@@ -95,7 +95,7 @@ def _fourier(
     t = np.arange(1, sizes.max() + 1 + h, dtype=np.float32)
     x = x * t[:, None]
     terms = np.hstack([np.sin(x), np.cos(x)])
-    cols = [f"{op}{i+1}_{season_length}" for op in ("sin", "cos") for i in range(k)]
+    cols = [f"{op}{i + 1}_{season_length}" for op in ("sin", "cos") for i in range(k)]
     vals, future_vals = _assign_slices(sizes=sizes, feats=terms, h=h)
     return cols, vals, future_vals
 
@@ -369,6 +369,10 @@ def pipeline(
         if transformed is None:
             transformed = f_transformed
             future = f_future
+        elif h == 0:
+            # the future dataframe is empty, so the features are the new columns
+            feat_cols = [c for c in f_transformed.columns if c not in df.columns]
+            transformed = ufp.horizontal_concat([transformed, f_transformed[feat_cols]])
         else:
             feat_cols = [c for c in f_future.columns if c not in (id_col, time_col)]
             transformed = ufp.horizontal_concat([transformed, f_transformed[feat_cols]])

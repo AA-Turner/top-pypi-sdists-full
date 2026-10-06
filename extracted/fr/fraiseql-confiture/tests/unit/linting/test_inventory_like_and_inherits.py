@@ -16,10 +16,9 @@ from __future__ import annotations
 from confiture.core.drift import parse_expected_schema
 from confiture.core.linting.inventory import (
     SchemaObject,
-    build_inventory,
-    build_model,
     inherit_columns,
 )
+from confiture.core.schema_read import read_text
 
 _SOURCE = (
     "CREATE TABLE app.src (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,\n"
@@ -29,7 +28,7 @@ _SOURCE = (
 
 
 def _table(sql: str, name: str) -> SchemaObject:
-    found = build_inventory(sql).find("app", name)
+    found = read_text(sql).inventory.find("app", name)
     assert found is not None
     return found
 
@@ -101,7 +100,7 @@ def test_like_of_a_table_the_tree_does_not_declare_copies_nothing() -> None:
 
 
 def test_the_model_carries_the_copied_columns() -> None:
-    model = build_model(_SOURCE + "CREATE TABLE app.cp (LIKE app.src);\n")
+    model = read_text(_SOURCE + "CREATE TABLE app.cp (LIKE app.src);\n").model
 
     (copy,) = [t for t in model.tables.values() if t.name == "cp"]
     assert [c.folded for c in copy.columns] == ["id", "code", "fk", "total"]
@@ -111,7 +110,7 @@ def test_the_model_carries_the_copied_columns() -> None:
 
 
 def _inherited(sql: str, name: str) -> SchemaObject:
-    found = inherit_columns(build_inventory(sql)).find("app", name)
+    found = inherit_columns(read_text(sql).inventory).find("app", name)
     assert found is not None
     return found
 
@@ -206,9 +205,9 @@ def test_an_inheritance_cycle_ends() -> None:
 
 
 def test_the_inventory_it_was_given_is_left_as_it_was() -> None:
-    inventory = build_inventory(
+    inventory = read_text(
         "CREATE TABLE app.p (a int);\nCREATE TABLE app.c (b int) INHERITS (app.p);\n"
-    )
+    ).inventory
     inherit_columns(inventory)
 
     child = inventory.find("app", "c")

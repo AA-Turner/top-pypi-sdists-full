@@ -154,12 +154,7 @@ SQLDATETIMEOFFSET = SYBMSDATETIMEOFFSET # 43
 ## TDS_ENCRYPTION_LEVEL ##
 ####################
 
-cdef dict TDS_ENCRYPTION_LEVEL = {
-    'default': 0,  # TDS_ENCRYPTION_DEFAULT,
-    'off':     1,  # TDS_ENCRYPTION_OFF,
-    'request': 2,  # TDS_ENCRYPTION_REQUEST,
-    'require': 3   # TDS_ENCRYPTION_REQUIRE
-}
+cdef tuple TDS_ENCRYPTION_OPTIONS = ('default', 'off', 'request', 'require')
 
 ###################
 ## Type mappings ##
@@ -648,8 +643,14 @@ cdef class MSSQLConnection:
 
         cdef LOGINREC *login
         cdef RETCODE rtc
+        cdef bytes encryption_bytes
 
         self.use_datetime2 = use_datetime2
+
+        if encryption is not None:
+            if encryption not in TDS_ENCRYPTION_OPTIONS:
+                raise ValueError(f"'encryption' option should be one of {TDS_ENCRYPTION_OPTIONS} or None.")
+            encryption_bytes = encryption.encode('ascii')
 
         # support MS methods of connecting locally
         instance = ""
@@ -696,10 +697,11 @@ cdef class MSSQLConnection:
             DBSETLVERSION(login, _tds_ver_str_to_constant(tds_version))
 
         if encryption is not None:
-            if encryption in TDS_ENCRYPTION_LEVEL:
-                DBSETLENCRYPT(login, TDS_ENCRYPTION_LEVEL[encryption])
-            else:
-                raise ValueError(f"'encryption' option should be {TDS_ENCRYPTION_LEVEL.keys()} or None.")
+            log("[FIX] applying requested FreeTDS encryption level\n")
+            if DBSETLENCRYPTION(login, encryption_bytes) != SUCCEED:
+                log("[FIX] failed to apply FreeTDS encryption level\n")
+                dbloginfree(login)
+                raise MSSQLDriverException("DBSETLENCRYPTION() failed")
 
         cdef bytes charset_bytes
         cdef char *_charset
@@ -2082,6 +2084,29 @@ cdef int _tds_ver_str_to_constant(verstr) except -1:
 #######################
 ## Quoting Functions ##
 #######################
+# SQL Server's maximum DECIMAL precision; a longer literal fails with error 1007.
+_MAX_DECIMAL_LITERAL_DIGITS = 38
+
+cdef str _quote_decimal(value):
+    """
+    Render a Decimal as a SQL Server decimal literal.
+
+    str() uses scientific notation for small and large exponents, for example
+    Decimal('-0.000000000000000001') -> '-1E-18'. SQL Server types such a literal
+    as float, which is approximate: in a multi-row VALUES list the float type is
+    applied to the whole column and silently rounds exact neighbouring values.
+    Use plain fixed-point notation whenever SQL Server can hold the literal.
+    """
+    s = str(value)
+    if 'E' not in s or not value.is_finite():
+        return s
+    fixed = format(value, 'f')
+    integer, _, fraction = fixed.lstrip('-').partition('.')
+    if len(integer.lstrip('0')) + len(fraction) > _MAX_DECIMAL_LITERAL_DIGITS:
+        # No decimal literal can represent it; keep the float spelling.
+        return s
+    return fixed
+
 cdef _quote_simple_value(value, use_datetime2=False, charset='utf8'):
 
     if value == None:
@@ -2093,8 +2118,11 @@ cdef _quote_simple_value(value, use_datetime2=False, charset='utf8'):
     if isinstance(value, float):
         return repr(value).encode(charset)
 
-    if isinstance(value, (int, decimal.Decimal)):
+    if isinstance(value, int):
         return str(value).encode(charset)
+
+    if isinstance(value, decimal.Decimal):
+        return _quote_decimal(value).encode(charset)
 
     if isinstance(value, uuid.UUID):
         return (f"N'{value}'").encode(charset)

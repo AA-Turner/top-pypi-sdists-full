@@ -17,26 +17,35 @@ N_LATENT = 8
 TEST_MODES = [2, 3, 4, 5]
 TEST_RESPONSE = [1, 2, 4]
 
-RANDOM_STATE = np.random.RandomState(215)
+RANDOM_SEED = 215
 
 
 # Supporting Functions
 
 
 def _get_pls_dataset(tensor_dimensions, n_latent, n_response):
-    """Creates PLS dataset"""
+    """Creates PLS dataset
+
+    Uses a fresh RandomState seeded from RANDOM_SEED on every call, rather
+    than a shared module-level RandomState: reusing one mutable RandomState
+    across tests made the generated data (and therefore the tests' pass/fail
+    outcome) depend on what order tests happened to run in, which varies
+    under parallel execution (e.g. pytest-xdist) and caused intermittent,
+    order-dependent failures.
+    """
+    random_state = np.random.RandomState(RANDOM_SEED)
     x_tensor = random_cp(
         tensor_dimensions,
         n_latent,
         orthogonal=True,
         normalise_factors=True,
-        random_state=RANDOM_STATE,
+        random_state=random_state,
         dtype=tl.float64,
     )
     y_tensor = random_cp(
         (tensor_dimensions[0], n_response),
         n_latent,
-        random_state=RANDOM_STATE,
+        random_state=random_state,
         dtype=tl.float64,
     )
 
@@ -213,8 +222,12 @@ def test_increasing_variance_random():
     X = tl.tensor(np.random.rand(20, 8, 6, 4))
     Y = tl.tensor(np.random.rand(20, 7))
     R2s = []
+    # CP_PLSR's default tol=1e-9 may never trigger early stopping on backends
+    # with lower numerical precision (e.g. jax/tensorflow), letting each of
+    # the 11 fits below run to the default n_iter_max=100. 40 already
+    # reproduces the same increasing R2s (verified across many random seeds).
     for r in range(1, 12):
-        tpls = CP_PLSR(r)
+        tpls = CP_PLSR(r, n_iter_max=40)
         tpls.fit(X, Y)
         R2s.append(tpls.score(X, Y))
 
@@ -227,7 +240,7 @@ def test_increasing_variance_synthetic():
     X, Y, _, _ = _get_pls_dataset((20, 18, 14, 13), 8, 17)
     R2s = []
     for r in range(1, 12):
-        tpls = CP_PLSR(r)
+        tpls = CP_PLSR(r, n_iter_max=40)
         tpls.fit(X, Y)
         R2s.append(tpls.score(X, Y))
 

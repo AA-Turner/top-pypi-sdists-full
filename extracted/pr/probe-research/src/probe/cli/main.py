@@ -1576,6 +1576,12 @@ def logout() -> None:
     name = current_context_name()
     clear_context(name)
     print(f"local config cleared (context: {name})")
+    # Kimi Code's installed manifests carry the read token as a bearer header:
+    # with the config cleared there is none to hold, so they go back to OAuth.
+    from probe.cli import kimi_config
+
+    for line in kimi_config.sync_mcp_bearer():
+        print(line)
 
 
 @app.command()
@@ -1789,7 +1795,11 @@ def doctor() -> None:
     # this module, and `probe log` runs inside training loops.
     from probe.cli import doctor as doctor_impl
 
-    print(doctor_impl.render(doctor_impl.collect()))
+    from probe.cli.capabilities import refresh_mcp_token_verdict
+
+    refresh_mcp_token_verdict()  # one /v1/me: a refused read token reads "login needed"
+    caps = doctor_impl.collect()
+    print(doctor_impl.render(caps, codex_hooks=doctor_impl.codex_hook_rows(caps)))
 
 
 @app.command(name="install")
@@ -2236,12 +2246,17 @@ def _wizard_session(
     # main menu, then collect only the chosen agents after the user picks what
     # they want to do. This keeps the first screen about intent, not plumbing.
     state_sources = explicit_agent_sources or available_sources or agent_defaults
+    from probe.cli.capabilities import refresh_mcp_token_verdict
+
     #
     # The Versions row is graded against the cached manifest, which the one
     # call refreshes (nothing else refreshes it when auto-update is off, so
     # without it the box nothing keeps current could never be told so). An
     # older server that lacks the route gets `warm_manifest()`, as before.
     with tui.working("Checking what's installed on this device"):
+        # One /v1/me for the read token, under the spinner: a refused one reads
+        # "login needed" and makes the install re-authorize `mcp`.
+        refresh_mcp_token_verdict()
         state_caps_by_source = {source: _collect_agent(source) for source in state_sources}
     explicit_flags = any(f is not None for f in (tracking, capture, auto_update, agent_rules))
 
@@ -3530,7 +3545,7 @@ def _run_wizard_action(
         return None
 
     if chosen_action is actions_mod.Action.DIAGNOSE:
-        lines = doctor_impl.render(caps).splitlines()
+        lines = doctor_impl.render(caps, codex_hooks=doctor_impl.codex_hook_rows(caps)).splitlines()
         notes = actions_mod.troubleshooting(caps)
         if notes:
             lines += ["", "If something is not working:"]
@@ -3565,6 +3580,9 @@ def _run_wizard_action(
         # it is not instant.
         if caps.agent_rules_stale:
             lines += wizard.apply_agent_rules(True, stale=True)
+        elif caps.agent_rules_installed:
+            # Kimi Code's footer shipped after its rules: one catch-up.
+            lines += wizard.catch_up_statusline(caps.agent_source)
         lines += _register_local_capabilities(
             doctor_impl.collect(),
             settings=resolve(base_url=base_now),
@@ -3688,7 +3706,7 @@ def _run_wizard_action(
     # through to /probe-mcp-login's interactive OAuth -- the "Known limitation"
     # the README documents. The limitation WAS this branch.
     steps = wizard.plan(caps, selection)
-    mcp_token_drifted = selection.tracking and wizard.codex_mcp_token_drifted()
+    mcp_token_drifted = selection.tracking and wizard.mcp_token_drifted()
     if (
         not steps
         and not authorization_needs
@@ -3815,7 +3833,12 @@ def _run_wizard_action(
         else:
             work.append(("skip the CLI + MCP plugin", _skip_plugin("the CLI + MCP plugin"), None))
     elif not selection.tracking and caps.tracking_plugin_installed:
-        work.append(("remove the CLI + MCP plugin", lambda: wizard.apply_tracking(False), None))
+        work.append((
+            "remove the CLI + MCP plugin",
+            # pi keeps its one package while capture stays selected.
+            lambda: wizard.apply_tracking(False, keep_capture=selection.capture),
+            None,
+        ))
 
     if (
         selection.tracking
@@ -3855,8 +3878,8 @@ def _run_wizard_action(
         # is cheap to ask on every run and a no-op on a healthy machine.
         work.append(
             (
-                "re-point the Codex MCP at your current read token",
-                wizard.sync_codex_mcp_token,
+                "re-point your agents' Probe MCP at your current read token",
+                wizard.sync_mcp_token,
                 Capability.TRACKING,
             )
         )
@@ -3934,6 +3957,14 @@ def _run_wizard_action(
                 None,
             )
         )
+    elif selection.agent_rules and wizard.statusline_catch_up_due(caps.agent_source):
+        # Rules already current, so the step above (which writes the status
+        # line) does not run: Kimi Code's footer shipped after them.
+        work.append((
+            f"add Probe's state to {wizard.agent_label(caps.agent_source)}'s status line",
+            lambda: wizard.catch_up_statusline(caps.agent_source),
+            None,
+        ))
 
     # The refresh is hoisted out of install_plugin (it used to run per plugin,
     # discarding both results), so the CALLER owns it now -- and owning it means
@@ -4122,6 +4153,19 @@ def _run_wizard_action(
             f"! stopped after {wizard.PHASE_BUDGET_S:.0f}s without starting: "
             f"{', '.join(skipped)}. Re-run `probe wizard` to finish."
         )
+
+    # A coding agent set up for the FIRST time (neither of its own plugins was
+    # here) joins the device's Who records: where the others record through the
+    # daemon, it starts there too (Richard 2026-10-06). Only with tracking AND
+    # capture chosen (the daemon records from capture), only after a clean run,
+    # and never a browser (`follow_machine_recorder` needs the daemon set up).
+    first_setup = not caps.tracking_plugin_installed and not caps.capture_plugin_installed
+    if first_setup and selection.tracking and selection.capture and not skipped and not ungranted:
+        joined = wizard.follow_machine_recorder(
+            caps.agent_source, doctor_impl.collect(), base_url=base_now, rules=selection.agent_rules
+        )
+        if joined:
+            progress.note(*joined)
 
     # THE VERDICT. Verify the postcondition rather than trusting the install
     # command: on the run that prompted this fix both installs reported failure
@@ -5065,7 +5109,7 @@ def mcp_token_set(
     # that still says authenticated.
     from probe.cli import setup as _wizard
 
-    for line in _wizard.sync_codex_mcp_token():
+    for line in _wizard.sync_mcp_token():
         print(line)
 
     who = (identity or {}).get("email") or "unverified"
@@ -5642,6 +5686,32 @@ def _project_id(client: Client, ref: str) -> str:
     :mod:`probe.cli.refs` for why that is a rule and not a preference.
     """
     return _ref(client, "project", ref).id
+
+
+def _container(client: Client, ref: str) -> tuple[str, str]:
+    """A project OR experiment ref (slug, or ``id:<uuid>``) -> ``(id, kind)``,
+    kind ``project`` or ``experiment``, for a verb that files something in
+    either (``run move --to``).
+
+    One ``GET /v1/scopes`` places either: slugs are one tenant-wide namespace
+    shared by projects and experiments, so this never leans on the projects
+    list answering an experiment row (the leaf door, removed at R6). A
+    ``name:`` ref, and a server older than ``/v1/scopes?slug=``, fall back to
+    the project resolver (kind ``project``: that server files by project id)."""
+    bare, how = refs.split_selector(ref)
+    if how == "name":
+        return _project_id(client, ref), "project"
+    try:
+        scope = client.get_scope(bare) if how == "id" else client.get_scope_by_slug(bare)
+    except errors.CapabilityUnavailable:
+        return _project_id(client, ref), "project"
+    except NotFoundError:
+        raise typer.BadParameter(f"no project or experiment {ref!r}") from None
+    if scope.get("kind") not in ("project", "experiment"):
+        raise typer.BadParameter(
+            f"{ref!r} is a {scope.get('kind')}: name a project or an experiment"
+        )
+    return str(scope["id"]), str(scope["kind"])
 
 
 def _project_slug(client: Client, ref: str | None) -> str | None:
@@ -7259,7 +7329,9 @@ def run_child(
             authored_by=_authored_by_value(authored_by),
         )
         if parent.get("experiment_id"):
-            child = c.create_run(parent["experiment_id"], name, **common)
+            child = c.create_run(
+                parent["experiment_id"], name, project_id=parent.get("project_id"), **common
+            )
         elif parent.get("project_id"):
             child = c.create_project_run(parent["project_id"], name, **common)
         elif "project_id" in parent:
@@ -7346,8 +7418,13 @@ def run_move(
     always has a home."""
     with _client() as c:
         run_id = _ref(c, "run", run).id
-        target = _project_id(c, to)
-        _print_json(c.move_run(run_id, project_id=target, group_id=group))
+        target, kind = _container(c, to)
+        # An experiment goes as an experiment (`experiment_id`), never as a
+        # project id: that address is the leaf door R6 removes.
+        if kind == "experiment":
+            _print_json(c.move_run(run_id, experiment_id=target, group_id=group))
+        else:
+            _print_json(c.move_run(run_id, project_id=target, group_id=group))
 
 
 @run_app.command("list")
@@ -8663,6 +8740,9 @@ def statusline_install(
     plugin_root: str = typer.Option(
         None, "--plugin-root", help="the probe-research plugin directory (auto-detected)"
     ),
+    agent: str = typer.Option(
+        None, "--agent", help="whose status line: kimi_code or claude_code (default: the agent running this shell)"
+    ),
 ) -> None:
     """Add the Probe segment to Claude Code's status line, keeping what is there.
 
@@ -8682,7 +8762,8 @@ def statusline_install(
     # would break that. So Codex ADDS the notice rather than replacing the
     # install, and the reply says plainly which surface got what.
     detected = agent_session.detect_agent()
-    under_codex = detected is not None and detected.label == "codex"
+    named = agent  # an agent named on the command line wins over the shell's
+    under_codex = named is None and detected is not None and detected.label == "codex"
     notice = str(statusline.enable_notice()) if under_codex else None
     if under_codex:
         print(
@@ -8692,7 +8773,21 @@ def statusline_install(
             file=sys.stderr,
         )
 
-    root = Path(plugin_root) if plugin_root else statusline.discover_plugin_root()
+    # Run from inside Kimi Code, the slot is Kimi's footer settings (the registry says
+    # which slot each agent has).
+    from probe.harness import get_registry
+    from probe.harness import registry as harness_registry
+
+    row = get_registry().find(named) if named is not None else None
+    if named is not None and (row is None or not row.statusline):
+        print(f"{named!r} has no status line Probe can install into", file=sys.stderr)
+        raise typer.Exit(2)
+    target = row.id if row is not None else (detected.label if detected is not None else None)
+    target_row = get_registry().find(target) if target is not None else None
+    kimi_slot = target_row is not None and target_row.statusline == harness_registry.STATUSLINE_KIMI_TUI_TOML
+    root = Path(plugin_root) if plugin_root else statusline.discover_plugin_root(
+        target if kimi_slot else None
+    )
     if root is None:
         print(
             "could not find the probe-research plugin — install it with "
@@ -8700,13 +8795,23 @@ def statusline_install(
             file=sys.stderr,
         )
         raise typer.Exit(1)
+    if kimi_slot:
+        try:
+            _print_json({**statusline.install_kimi(root), "notice": notice})
+        except (OSError, ValueError) as exc:
+            print(f"Kimi Code's status line was not changed: {exc}", file=sys.stderr)
+            raise typer.Exit(1) from exc
+        return
     _print_json({**statusline.install(root), "notice": notice})
 
 
 @statusline_app.command("uninstall")
 def statusline_uninstall() -> None:
     """Remove the Probe segment and the on-change notice, restoring what was wrapped."""
-    _print_json({**statusline.uninstall(), "notice_disabled": statusline.disable_notice()})
+    result = statusline.uninstall()
+    if statusline.kimi_installed():
+        result = {**result, "kimi": statusline.uninstall_kimi()}
+    _print_json({**result, "notice_disabled": statusline.disable_notice()})
 
 
 @statusline_app.command("status")
@@ -8847,7 +8952,9 @@ def _state_display(session_id: str, state: "str | None") -> "str | None":
     from probe.cli.daemon_cli import calling_agent
 
     return session_marker.state_display(
-        state, session_marker.daemon_session(session_id, calling_agent())
+        state,
+        session_marker.daemon_session(session_id, calling_agent()),
+        session_marker.is_inline(session_id, state),
     )
 
 
@@ -9089,6 +9196,121 @@ def session_toggle(
     _print_json(block)
 
 
+#: What `probe session inline` prints first: where the agent stands and how it
+#: hands back, then the one mechanics line the skills below it need in a session
+#: with no Probe MCP tools (the daemon profile loads none).
+INLINE_ENTERED = (
+    "Probe is `on (inline)` for this conversation: you read and write Probe yourself "
+    "until `probe session daemon` hands control back to the daemon."
+)
+INLINE_NO_MCP = (
+    "This session has no Probe MCP tools: where the skills below name one, use its "
+    "`probe` CLI command (`probe --help`)."
+)
+INLINE_SKILLS_MISSING = "These skills were not found in this install: {names}."
+INLINE_LEFT = "Probe is back to `{label}` for this conversation: the daemon records again."
+INLINE_LEFT_READ = "Probe is back to `{label}` for this conversation: the daemon reads, nothing is recorded."
+INLINE_LEFT_DOWN = (
+    "Probe is back to `{label}` for this conversation, but the daemon is {reason}, so nothing is "
+    "recorded until it runs again; `probe session inline` takes Probe back."
+)
+INLINE_OTHER_SESSION = (
+    "`probe session {verb}` acts only on this conversation, not on another session: nothing changed."
+)
+
+
+def _inline_skills_text() -> str:
+    """The main agent's version of the skills the daemon records by
+    (`bite.SHARED_SKILLS`: track-work and edit-notes), whole: in the daemon
+    profile no skill but instrument-code is installed, and an agent that takes
+    Probe over records by these (Richard 2026-10-05). Never raises: the takeover
+    has already happened when this runs."""
+    names: tuple[str, ...] = ()
+    try:
+        from probe import skill_versions
+        from probe.daemon.bite import SHARED_SKILLS, skills_root
+
+        names = SHARED_SKILLS
+        root = skills_root()
+        parts, missing = [], []
+        for name in names:
+            folder = root / name if root is not None else None
+            if folder is None or not (folder / "SKILL.md").is_file():
+                missing.append(name)
+                continue
+            body = skill_versions.split_front_matter(skill_versions.render(folder, skill_versions.MAIN_AGENT))[1]
+            parts.append(f"# Skill: {name}\n\n{body.strip()}")
+    except Exception:  # noqa: BLE001 - the switch already moved; say what is missing instead
+        return INLINE_SKILLS_MISSING.format(names=", ".join(names) or "track-work, edit-notes")
+    if missing:
+        parts.append(INLINE_SKILLS_MISSING.format(names=", ".join(missing)))
+    return "\n\n".join(parts)
+
+
+def _own_session(session: str | None, verb: str) -> str:
+    """This conversation's id for `probe session inline|daemon`. From inside a
+    coding agent a takeover is the calling agent's own act: `--session` naming
+    another conversation is refused (exit 2, nothing written). From a terminal
+    (no agent session) `--session` names the one to act on."""
+    own = agent_session.session_id_from_env()
+    if own and session and session != own:
+        print(INLINE_OTHER_SESSION.format(verb=verb), file=sys.stderr)
+        raise typer.Exit(2)
+    return _resolve_agent_session(session)
+
+
+@session_app.command("inline")
+def session_inline(
+    session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
+) -> None:
+    """Take Probe over from the daemon: read and write it yourself.
+
+    Only where the Probe daemon records this conversation, and only while the
+    researcher has Probe on or read (never off). The daemon leaves the turns you
+    hold to you; `probe session daemon` hands control back. Moving the switch
+    (`/probe on|read|off`) ends it too.
+    """
+    resolved = _own_session(session, "inline")
+    refusal = session_marker.enter_inline(resolved)
+    if refusal is not None:
+        print(refusal, file=sys.stderr)
+        raise typer.Exit(2)
+    typer.echo(INLINE_ENTERED)
+    typer.echo(INLINE_NO_MCP)
+    typer.echo("")
+    typer.echo(_inline_skills_text())
+
+
+@session_app.command("daemon")
+def session_daemon(
+    session: str = typer.Option(None, "--session", help="session id (defaults to this one)"),
+) -> None:
+    """Hand Probe back to the daemon after `probe session inline`.
+
+    Restores the state the session was taken over from (`on (daemon)` or
+    `read only (daemon)`). A session that is not inline is left exactly as it is.
+    """
+    resolved = _own_session(session, "daemon")
+    restored, failure = session_marker.leave_inline(resolved)
+    if failure is not None:
+        print(failure, file=sys.stderr)
+        raise typer.Exit(1)
+    if restored is None:
+        typer.echo(session_marker.NOT_INLINE)
+        return
+    label = _state_display(resolved, restored)
+    if restored != session_marker.STATE_DAEMON:
+        typer.echo(INLINE_LEFT_READ.format(label=label))
+        return
+    _capture_block(resolved, heal_cwd=os.getcwd())
+    status = session_marker.daemon_status(resolved, restored)
+    if status is not None and status[0] == session_marker.DAEMON_DEGRADED:
+        reason = session_marker.DAEMON_REASON_WORDS.get(status[1] or "", "not running")
+        typer.echo(INLINE_LEFT_DOWN.format(label=label, reason=reason))
+    else:
+        typer.echo(INLINE_LEFT.format(label=label))
+
+
 @session_app.command("initialize", hidden=True)
 def session_initialize(
     session: str = typer.Option(None, "--session", help="session id"),
@@ -9115,10 +9337,16 @@ def session_initialize(
     signal = session_marker.tracking_signal(resolved)
     seeded = False
     source = "session"
-    if state in (session_marker.STATE_FULL, session_marker.STATE_DAEMON) and agent is not None:
+    if (
+        state in (session_marker.STATE_FULL, session_marker.STATE_DAEMON)
+        and agent is not None
+        and not session_marker.is_inline(resolved, state)
+    ):
         # An `on` session follows its profile: a session resumed after the
         # researcher switched Who records records the way pi now loads it.
-        # `read-only` and `off` are the researcher's own switch and stay.
+        # `read-only` and `off` are the researcher's own switch and stay, and so
+        # does a session the agent took over (`probe session inline`): a reload
+        # must not hand Probe back behind the agent's back.
         target = session_marker.on_state(resolved, agent)
         if target != state and session_marker.set_session_state(resolved, target):
             state = session_marker.session_state(resolved)
@@ -9952,14 +10180,6 @@ def _ping_presign(
         return None
 
 
-_REFERENCE_ROUTES = {
-    # An experiment's files answer at its PROJECT address, where a leaf's
-    # rows are filed at its own `project_id` (0241). Same list, from the door
-    # that survives the cut.
-    Anchor.EXPERIMENT: "/v1/projects/{id}/artifacts",
-    Anchor.PROJECT: "/v1/projects/{id}/artifacts",
-}
-
 #: The 1A intent-ping cap. Load-bearing product behavior (CHANGELOG: "a
 #: ~2s-capped presign ping") -- named so the documented cap and the code
 #: cannot silently drift.
@@ -10044,9 +10264,23 @@ def _artifact_enqueue(
                 from ..sdk.redaction import scrub_text
 
                 body["notes"] = scrub_text(notes)
+            # Literal paths, one per anchor: tests/test_parity.py reads call
+            # sites statically, and a table lookup hid this one from it while it
+            # still named the leaf door. An experiment's reference is queued by
+            # the experiment alone and placed under its project when it drains
+            # (`journal._placed`, X21): no network here, and a move before
+            # delivery cannot dead-letter it.
+            if anchor is Anchor.EXPERIMENT:
+                from ..sdk.journal import UNPLACED_PROJECT
+
+                path = f"/v1/projects/{UNPLACED_PROJECT}/experiments/{anchor_id}/artifacts"
+            elif anchor is Anchor.PROJECT:
+                path = f"/v1/projects/{anchor_id}/artifacts"
+            else:
+                raise typer.BadParameter(f"a {anchor.value} anchor has no reference form")
             # `_enqueue`, not `journal.append_http`: this was the last bypass of
             # the never-raises rule the upload path adopted.
-            if not client._enqueue("POST", _REFERENCE_ROUTES[anchor].format(id=anchor_id), body):
+            if not client._enqueue("POST", path, body):
                 return {"mode": "refused", "op_id": None, "pinged": False}
         return {"mode": "reference", "op_id": None, "pinged": False}
 
@@ -12701,12 +12935,10 @@ def _entity_notes_row(client: Client, kind: str, entity_id: str) -> dict:
     if kind == "project":
         return client.get_project(entity_id)
     if kind == "experiment":
-        # The project-address read, on purpose: the experiment API's detail
-        # carries the notes but not their headroom pair (`notes_limit_chars`,
-        # `notes_remaining_chars`), which the read advisory and the over-cap
-        # refusal below need; and an experiment's notes are still WRITTEN there
-        # (`_replace_notes`) until the experiment API takes every notes verb.
-        return client.get_experiment_leaf(entity_id)
+        # The experiment API's detail: it carries the notes, their version and
+        # the headroom pair (`notes_limit_chars`, `notes_remaining_chars`) the
+        # read advisory and the over-cap refusal below need (server X21).
+        return client.get_experiment(entity_id)
     if kind == "run":
         return client.get_run(entity_id)
     if kind == "group":

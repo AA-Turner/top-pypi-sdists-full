@@ -21,7 +21,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from istari_digital_client.sdk._generated.v3.models.received_access_level import ReceivedAccessLevel
-from istari_digital_client.sdk._generated.v3.models.remote_transformation_dto import RemoteTransformationDto
+from istari_digital_client.sdk._generated.v3.models.tag_rule_set_dto import TagRuleSetDto
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -36,10 +36,13 @@ class SendingConnectionDto(BaseModel):
     is_archived: StrictBool = Field(description="Whether the connection is archived.")
     shared_id: StrictStr = Field(description="The shared identifier used to pair the connection.")
     object_store_id: StrictStr = Field(description="The object store used by this connection.")
-    transformations: List[RemoteTransformationDto] = Field(description="Control tag transformations for this connection.")
+    tag_rules: TagRuleSetDto = Field(description="The tag policy governing what may cross this connection.")
     infosec_level_id: Optional[StrictStr] = None
+    allow_all_senders: StrictBool = Field(description="When true, anyone with share permission on a file may share it over this connection; when false, only the connection's permitted senders may.")
+    allow_reshare: StrictBool = Field(description="When true, the receiving organization may share files received over this connection onward over its own sending connections (daisy chaining). When false, received files cannot leave the receiving instance over a secure connection.")
+    is_starred: Optional[StrictBool] = Field(default=False, description="Whether the requesting user has starred this connection. Stars are per-user: one admin's star is invisible to every other admin. False on a freshly created connection; star or unstar with `/api/v3/user/favorites/connections/{connection_id}`.")
     created: datetime = Field(description="Creation timestamp.")
-    __properties: ClassVar[List[str]] = ["id", "label", "description", "received_access_level", "is_archived", "shared_id", "object_store_id", "transformations", "infosec_level_id", "created"]
+    __properties: ClassVar[List[str]] = ["id", "label", "description", "received_access_level", "is_archived", "shared_id", "object_store_id", "tag_rules", "infosec_level_id", "allow_all_senders", "allow_reshare", "is_starred", "created"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -80,13 +83,9 @@ class SendingConnectionDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in transformations (list)
-        _items = []
-        if self.transformations:
-            for _item_transformations in self.transformations:
-                if _item_transformations:
-                    _items.append(_item_transformations.to_dict())
-            _dict['transformations'] = _items
+        # override the default output from pydantic by calling `to_dict()` of tag_rules
+        if self.tag_rules:
+            _dict['tag_rules'] = self.tag_rules.to_dict()
         # set to None if infosec_level_id (nullable) is None
         # and model_fields_set contains the field
         if self.infosec_level_id is None and "infosec_level_id" in self.model_fields_set:
@@ -111,8 +110,11 @@ class SendingConnectionDto(BaseModel):
             "is_archived": obj.get("is_archived"),
             "shared_id": obj.get("shared_id"),
             "object_store_id": obj.get("object_store_id"),
-            "transformations": [RemoteTransformationDto.from_dict(_item) for _item in obj["transformations"]] if obj.get("transformations") is not None else None,
+            "tag_rules": TagRuleSetDto.from_dict(obj["tag_rules"]) if obj.get("tag_rules") is not None else None,
             "infosec_level_id": obj.get("infosec_level_id"),
+            "allow_all_senders": obj.get("allow_all_senders"),
+            "allow_reshare": obj.get("allow_reshare"),
+            "is_starred": obj.get("is_starred") if obj.get("is_starred") is not None else False,
             "created": obj.get("created")
         })
         return _obj

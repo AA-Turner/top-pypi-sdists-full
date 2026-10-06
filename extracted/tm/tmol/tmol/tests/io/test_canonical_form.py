@@ -25,8 +25,8 @@ def test_create_canonical_ordering_smoke(default_database):
     assert "nterm" in co.down_termini_patches
     assert "cterm" in co.up_termini_patches
     for x in ["H1", "H2", "H3"]:
-        assert x in co.termini_patch_added_atoms["nterm"]
-    assert "OXT" in co.termini_patch_added_atoms["cterm"]
+        assert x in co.termini_patch_added_atoms["ALA", "nterm"]
+    assert "OXT" in co.termini_patch_added_atoms["ALA", "cterm"]
     assert co.max_n_canonical_atoms >= 28
 
 
@@ -197,3 +197,44 @@ def test_concatenate_pdb_atom_records_dataframes(disulfide_pdb):
     )
     co = default_canonical_ordering()
     canonical_form_from_atom_records(co, ar, torch.device("cpu"))
+
+
+def test_canonical_form_from_pdb_keeps_one_alternate_per_group(torch_device):
+    """1EJG writes PRO/SER A:22 and LEU/ILE A:25 as altlocs A/B of one position; a
+    later alternate no longer overwrites an earlier one atom by atom."""
+    import zstandard
+
+    from tmol.tests.data import data_path
+
+    packed = data_path("sweep_regressions", "microheterogeneity_1ejg.pdb.zst")
+    lines = zstandard.ZstdDecompressor().decompress(
+        packed.read_bytes(), max_output_size=1 << 26
+    )
+    lines = lines.decode()
+    records = parse_pdb(lines)
+    co = default_canonical_ordering()
+    cf = canonical_form_from_pdb(co, lines, torch_device)
+    atoms = "\n".join(
+        line for line in lines.splitlines() if line.startswith(("ATOM", "HETATM"))
+    )
+    shifted = "\n".join(
+        line[:16] + line[16].translate(str.maketrans("AB", "BC")) + line[17:]
+        for line in atoms.splitlines()
+    )
+    ensemble = f"MODEL        1\n{atoms}\nENDMDL\nMODEL        2\n{shifted}\nENDMDL\n"
+    models = canonical_form_from_pdb(co, ensemble, torch_device)
+    assert models.coords.shape[0] == 2
+    for model in range(2):
+        torch.testing.assert_close(models.coords[model], cf.coords[0], equal_nan=True)
+    for resi in (22, 25):
+        kept = records[(records.resi == resi) & (records.location == "A")]
+        res = list(cf.res_labels[0]).index(resi)
+        name = co.restype_io_equiv_classes[int(cf.res_types[0, res])]
+        index = co.restypes_atom_index_mapping[name]
+        assert set(kept.resn) == {name}
+        placed = [index[a] for a in kept.atomn if a in index]
+        numpy.testing.assert_allclose(
+            cf.coords[0, res, placed].cpu().numpy(),
+            kept[kept.atomn.isin(list(index))][["x", "y", "z"]].to_numpy(),
+            atol=1e-3,
+        )

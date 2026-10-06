@@ -25,17 +25,17 @@ _sym_db = _symbol_database.Default()
 from query_cache_protobuf.query_cache import shared_pb2 as query__cache__protobuf_dot_query__cache_dot_shared__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n?query_cache_protobuf/query_cache/services/explain_service.proto\x12\x18\x63om.fivetran.query_cache\x1a-query_cache_protobuf/query_cache/shared.proto\"\xe3\x01\n\x0b\x45xplainLine\x12\x0c\n\x04text\x18\x01 \x01(\t\x12<\n\x06marker\x18\x02 \x01(\x0e\x32\'.com.fivetran.query_cache.ExplainMarkerH\x00\x88\x01\x01\x12:\n\x05\x62\x61\x64ge\x18\x03 \x01(\x0e\x32&.com.fivetran.query_cache.ExplainBadgeH\x01\x88\x01\x01\x12\x37\n\x08\x63hildren\x18\x04 \x03(\x0b\x32%.com.fivetran.query_cache.ExplainLineB\t\n\x07_markerB\x08\n\x06_badge\"\xd1\x01\n\x13\x45xplainMessageEntry\x12\x1d\n\x15\x65xecution_decision_id\x18\x01 \x01(\t\x12?\n\x08\x64\x65\x63ision\x18\x02 \x01(\x0e\x32-.com.fivetran.query_cache.SubmitSQLResultType\x12\x1c\n\x14\x64\x65\x63ision_description\x18\x03 \x01(\t\x12<\n\rexplain_lines\x18\x04 \x03(\x0b\x32%.com.fivetran.query_cache.ExplainLine\";\n\x19GetExplainMessagesRequest\x12\x1e\n\x16\x65xecution_decision_ids\x18\x01 \x03(\t\"]\n\x1aGetExplainMessagesResponse\x12?\n\x08messages\x18\x01 \x03(\x0b\x32-.com.fivetran.query_cache.ExplainMessageEntry*D\n\rExplainMarker\x12\x12\n\x0e\x45M_UNSPECIFIED\x10\x00\x12\x0b\n\x07SUCCESS\x10\x01\x12\x08\n\x04\x46\x41IL\x10\x02\x12\x08\n\x04INFO\x10\x03*\xd6\x01\n\x0c\x45xplainBadge\x12\x12\n\x0e\x45\x42_UNSPECIFIED\x10\x00\x12\t\n\x05\x46RESH\x10\x01\x12\x14\n\x10WITHIN_TOLERANCE\x10\x02\x12\x0c\n\x08OUTDATED\x10\x03\x12\x16\n\x12NODE_QUERY_CHANGED\x10\x04\x12\x18\n\x14NODE_QUERY_UNCHANGED\x10\x05\x12\x1a\n\x16UPSTREAM_QUERY_CHANGED\x10\x06\x12\x1c\n\x18UPSTREAM_QUERY_UNCHANGED\x10\x07\x12\x17\n\x13TARGET_TABLE_EXISTS\x10\x08\x32\x8a\x01\n\x07\x45xplain\x12\x7f\n\x12GetExplainMessages\x12\x33.com.fivetran.query_cache.GetExplainMessagesRequest\x1a\x34.com.fivetran.query_cache.GetExplainMessagesResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n?query_cache_protobuf/query_cache/services/explain_service.proto\x12\x18\x63om.fivetran.query_cache\x1a-query_cache_protobuf/query_cache/shared.proto\"\xe3\x01\n\x0b\x45xplainLine\x12\x0c\n\x04text\x18\x01 \x01(\t\x12<\n\x06marker\x18\x02 \x01(\x0e\x32\'.com.fivetran.query_cache.ExplainMarkerH\x00\x88\x01\x01\x12:\n\x05\x62\x61\x64ge\x18\x03 \x01(\x0e\x32&.com.fivetran.query_cache.ExplainBadgeH\x01\x88\x01\x01\x12\x37\n\x08\x63hildren\x18\x04 \x03(\x0b\x32%.com.fivetran.query_cache.ExplainLineB\t\n\x07_markerB\x08\n\x06_badge\"\xd1\x01\n\x13\x45xplainMessageEntry\x12\x1d\n\x15\x65xecution_decision_id\x18\x01 \x01(\t\x12?\n\x08\x64\x65\x63ision\x18\x02 \x01(\x0e\x32-.com.fivetran.query_cache.SubmitSQLResultType\x12\x1c\n\x14\x64\x65\x63ision_description\x18\x03 \x01(\t\x12<\n\rexplain_lines\x18\x04 \x03(\x0b\x32%.com.fivetran.query_cache.ExplainLine\";\n\x19GetExplainMessagesRequest\x12\x1e\n\x16\x65xecution_decision_ids\x18\x01 \x03(\t\"]\n\x1aGetExplainMessagesResponse\x12?\n\x08messages\x18\x01 \x03(\x0b\x32-.com.fivetran.query_cache.ExplainMessageEntry\"<\n#GetUpstreamDependencyChangesRequest\x12\x15\n\rexecution_ids\x18\x01 \x03(\t\"w\n$GetUpstreamDependencyChangesResponse\x12O\n\x12\x64\x65pendency_changes\x18\x01 \x03(\x0b\x32\x33.com.fivetran.query_cache.UpstreamDependencyChanges\"g\n\x19UpstreamDependencyChanges\x12\x14\n\x0c\x65xecution_id\x18\x01 \x01(\t\x12\x34\n\x05lines\x18\x02 \x03(\x0b\x32%.com.fivetran.query_cache.ExplainLine*D\n\rExplainMarker\x12\x12\n\x0e\x45M_UNSPECIFIED\x10\x00\x12\x0b\n\x07SUCCESS\x10\x01\x12\x08\n\x04\x46\x41IL\x10\x02\x12\x08\n\x04INFO\x10\x03*\xd6\x01\n\x0c\x45xplainBadge\x12\x12\n\x0e\x45\x42_UNSPECIFIED\x10\x00\x12\t\n\x05\x46RESH\x10\x01\x12\x14\n\x10WITHIN_TOLERANCE\x10\x02\x12\x0c\n\x08OUTDATED\x10\x03\x12\x16\n\x12NODE_QUERY_CHANGED\x10\x04\x12\x18\n\x14NODE_QUERY_UNCHANGED\x10\x05\x12\x1a\n\x16UPSTREAM_QUERY_CHANGED\x10\x06\x12\x1c\n\x18UPSTREAM_QUERY_UNCHANGED\x10\x07\x12\x17\n\x13TARGET_TABLE_EXISTS\x10\x08\x32\xaa\x02\n\x07\x45xplain\x12\x7f\n\x12GetExplainMessages\x12\x33.com.fivetran.query_cache.GetExplainMessagesRequest\x1a\x34.com.fivetran.query_cache.GetExplainMessagesResponse\x12\x9d\x01\n\x1cGetUpstreamDependencyChanges\x12=.com.fivetran.query_cache.GetUpstreamDependencyChangesRequest\x1a>.com.fivetran.query_cache.GetUpstreamDependencyChangesResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'query_cache_protobuf.query_cache.services.explain_service_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_EXPLAINMARKER']._serialized_start=738
-  _globals['_EXPLAINMARKER']._serialized_end=806
-  _globals['_EXPLAINBADGE']._serialized_start=809
-  _globals['_EXPLAINBADGE']._serialized_end=1023
+  _globals['_EXPLAINMARKER']._serialized_start=1026
+  _globals['_EXPLAINMARKER']._serialized_end=1094
+  _globals['_EXPLAINBADGE']._serialized_start=1097
+  _globals['_EXPLAINBADGE']._serialized_end=1311
   _globals['_EXPLAINLINE']._serialized_start=141
   _globals['_EXPLAINLINE']._serialized_end=368
   _globals['_EXPLAINMESSAGEENTRY']._serialized_start=371
@@ -44,6 +44,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_GETEXPLAINMESSAGESREQUEST']._serialized_end=641
   _globals['_GETEXPLAINMESSAGESRESPONSE']._serialized_start=643
   _globals['_GETEXPLAINMESSAGESRESPONSE']._serialized_end=736
-  _globals['_EXPLAIN']._serialized_start=1026
-  _globals['_EXPLAIN']._serialized_end=1164
+  _globals['_GETUPSTREAMDEPENDENCYCHANGESREQUEST']._serialized_start=738
+  _globals['_GETUPSTREAMDEPENDENCYCHANGESREQUEST']._serialized_end=798
+  _globals['_GETUPSTREAMDEPENDENCYCHANGESRESPONSE']._serialized_start=800
+  _globals['_GETUPSTREAMDEPENDENCYCHANGESRESPONSE']._serialized_end=919
+  _globals['_UPSTREAMDEPENDENCYCHANGES']._serialized_start=921
+  _globals['_UPSTREAMDEPENDENCYCHANGES']._serialized_end=1024
+  _globals['_EXPLAIN']._serialized_start=1314
+  _globals['_EXPLAIN']._serialized_end=1612
 # @@protoc_insertion_point(module_scope)

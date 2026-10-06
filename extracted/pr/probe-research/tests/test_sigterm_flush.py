@@ -34,7 +34,9 @@ import json, os, signal, sys, time
 import probe
 
 def say(event, **fields):
-    print("CHILD " + json.dumps({"event": event, **fields}), flush=True)
+    # Signal handlers can run while a ready marker is being written. Keep
+    # fixture markers off BufferedWriter's non-reentrant lock.
+    os.write(1, ("CHILD " + json.dumps({"event": event, **fields}) + "\\n").encode())
 
 def loop(run, steps):
     for step in range(steps):

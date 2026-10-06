@@ -239,16 +239,20 @@ class AutoApprove(
         github: "GitHub",
         *,
         allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+        credentials: typing.Optional["GithubCredentials"] = None,
         label: typing.Optional[builtins.str] = None,
         secret: typing.Optional[builtins.str] = None,
+        sources: typing.Optional[typing.Sequence["PullRequestSource"]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param github: -
-        :param allowed_usernames: (experimental) Only pull requests authored by these Github usernames will be auto-approved. Default: ['github-bot']
-        :param label: (experimental) Only pull requests with this label will be auto-approved. Default: 'auto-approve'
-        :param secret: (experimental) A GitHub secret name which contains a GitHub Access Token with write permissions for the ``pull_request`` scope. This token is used to approve pull requests. Github forbids an identity to approve its own pull request. If your project produces automated pull requests using the Github default token - {@link https://docs.github.com/en/actions/reference/authentication-in-a-workflow ``GITHUB_TOKEN`` } - that you would like auto approved, such as when using the ``depsUpgrade`` property in ``NodeProjectOptions``, then you must use a different token here. Default: "GITHUB_TOKEN"
+        :param allowed_usernames: (deprecated) Only pull requests authored by these Github usernames will be auto-approved. An empty list approves pull requests from any user. Default: ['github-actions[bot]']
+        :param credentials: (experimental) The credentials used to approve pull requests. Github forbids an identity to approve its own pull request. These credentials must belong to a different identity than the one creating the pull requests. Use ``environment`` on the credentials to restrict which branches can access them. Default: - the workflow's ``GITHUB_TOKEN``
+        :param label: (experimental) Only pull requests with this label will be auto-approved. This is required in addition to matching one of the ``sources``. Default: 'auto-approve'
+        :param secret: (deprecated) A GitHub secret name which contains a GitHub Access Token with write permissions for the ``pull_request`` scope. This token is used to approve pull requests. Github forbids an identity to approve its own pull request. If your project produces automated pull requests using the Github default token - {@link https://docs.github.com/en/actions/reference/authentication-in-a-workflow ``GITHUB_TOKEN`` } - that you would like auto approved, such as when using the ``depsUpgrade`` property in ``NodeProjectOptions``, then you must use a different token here. Default: "GITHUB_TOKEN"
+        :param sources: (experimental) Only pull requests from one of these sources will be auto-approved. Components that create pull requests can add more sources with ``AutoApprove.addSource()``. Providing sources, either here or with ``addSource()``, replaces the default source. Default: [PullRequestSource.fromUsers({ logins: ["github-actions[bot]"] })]
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
 
@@ -259,13 +263,30 @@ class AutoApprove(
             check_type(argname="argument github", value=github, expected_type=type_hints["github"])
         options = AutoApproveOptions(
             allowed_usernames=allowed_usernames,
+            credentials=credentials,
             label=label,
             secret=secret,
+            sources=sources,
             runs_on=runs_on,
             runs_on_group=runs_on_group,
         )
 
         jsii.create(self.__class__, self, [github, options])
+
+    @jsii.member(jsii_name="addSource")
+    def add_source(self, source: "PullRequestSource") -> None:
+        '''(experimental) Auto-approve pull requests from this source, in addition to the configured sources.
+
+        Adding a source replaces the default source.
+
+        :param source: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1b8023d0b7156c8eb2a1e3a8a12621b907db983d764ee63436bcf0af586b5f70)
+            check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+        return typing.cast(None, jsii.invoke(self, "addSource", [source]))
 
     @builtins.property
     @jsii.member(jsii_name="label")
@@ -283,8 +304,10 @@ class AutoApprove(
         "runs_on": "runsOn",
         "runs_on_group": "runsOnGroup",
         "allowed_usernames": "allowedUsernames",
+        "credentials": "credentials",
         "label": "label",
         "secret": "secret",
+        "sources": "sources",
     },
 )
 class AutoApproveOptions(_projen_04054675.RunsOnOptions):
@@ -294,16 +317,20 @@ class AutoApproveOptions(_projen_04054675.RunsOnOptions):
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
         runs_on_group: typing.Optional[typing.Union["_projen_04054675.GroupRunnerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+        credentials: typing.Optional["GithubCredentials"] = None,
         label: typing.Optional[builtins.str] = None,
         secret: typing.Optional[builtins.str] = None,
+        sources: typing.Optional[typing.Sequence["PullRequestSource"]] = None,
     ) -> None:
         '''(experimental) Options for 'AutoApprove'.
 
         :param runs_on: (experimental) Github Runner selection labels. Default: ["ubuntu-latest"]
         :param runs_on_group: (experimental) Github Runner Group selection options.
-        :param allowed_usernames: (experimental) Only pull requests authored by these Github usernames will be auto-approved. Default: ['github-bot']
-        :param label: (experimental) Only pull requests with this label will be auto-approved. Default: 'auto-approve'
-        :param secret: (experimental) A GitHub secret name which contains a GitHub Access Token with write permissions for the ``pull_request`` scope. This token is used to approve pull requests. Github forbids an identity to approve its own pull request. If your project produces automated pull requests using the Github default token - {@link https://docs.github.com/en/actions/reference/authentication-in-a-workflow ``GITHUB_TOKEN`` } - that you would like auto approved, such as when using the ``depsUpgrade`` property in ``NodeProjectOptions``, then you must use a different token here. Default: "GITHUB_TOKEN"
+        :param allowed_usernames: (deprecated) Only pull requests authored by these Github usernames will be auto-approved. An empty list approves pull requests from any user. Default: ['github-actions[bot]']
+        :param credentials: (experimental) The credentials used to approve pull requests. Github forbids an identity to approve its own pull request. These credentials must belong to a different identity than the one creating the pull requests. Use ``environment`` on the credentials to restrict which branches can access them. Default: - the workflow's ``GITHUB_TOKEN``
+        :param label: (experimental) Only pull requests with this label will be auto-approved. This is required in addition to matching one of the ``sources``. Default: 'auto-approve'
+        :param secret: (deprecated) A GitHub secret name which contains a GitHub Access Token with write permissions for the ``pull_request`` scope. This token is used to approve pull requests. Github forbids an identity to approve its own pull request. If your project produces automated pull requests using the Github default token - {@link https://docs.github.com/en/actions/reference/authentication-in-a-workflow ``GITHUB_TOKEN`` } - that you would like auto approved, such as when using the ``depsUpgrade`` property in ``NodeProjectOptions``, then you must use a different token here. Default: "GITHUB_TOKEN"
+        :param sources: (experimental) Only pull requests from one of these sources will be auto-approved. Components that create pull requests can add more sources with ``AutoApprove.addSource()``. Providing sources, either here or with ``addSource()``, replaces the default source. Default: [PullRequestSource.fromUsers({ logins: ["github-actions[bot]"] })]
 
         :stability: experimental
         '''
@@ -314,8 +341,10 @@ class AutoApproveOptions(_projen_04054675.RunsOnOptions):
             check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
             check_type(argname="argument runs_on_group", value=runs_on_group, expected_type=type_hints["runs_on_group"])
             check_type(argname="argument allowed_usernames", value=allowed_usernames, expected_type=type_hints["allowed_usernames"])
+            check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
             check_type(argname="argument label", value=label, expected_type=type_hints["label"])
             check_type(argname="argument secret", value=secret, expected_type=type_hints["secret"])
+            check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if runs_on is not None:
             self._values["runs_on"] = runs_on
@@ -323,10 +352,14 @@ class AutoApproveOptions(_projen_04054675.RunsOnOptions):
             self._values["runs_on_group"] = runs_on_group
         if allowed_usernames is not None:
             self._values["allowed_usernames"] = allowed_usernames
+        if credentials is not None:
+            self._values["credentials"] = credentials
         if label is not None:
             self._values["label"] = label
         if secret is not None:
             self._values["secret"] = secret
+        if sources is not None:
+            self._values["sources"] = sources
 
     @builtins.property
     def runs_on(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -354,18 +387,39 @@ class AutoApproveOptions(_projen_04054675.RunsOnOptions):
 
     @builtins.property
     def allowed_usernames(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) Only pull requests authored by these Github usernames will be auto-approved.
+        '''(deprecated) Only pull requests authored by these Github usernames will be auto-approved.
 
-        :default: ['github-bot']
+        An empty list approves pull requests from any user.
 
-        :stability: experimental
+        :default: ['github-actions[bot]']
+
+        :deprecated: Use ``sources`` with ``PullRequestSource.fromUsers({ logins })`` instead.
+
+        :stability: deprecated
         '''
         result = self._values.get("allowed_usernames")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def credentials(self) -> typing.Optional["GithubCredentials"]:
+        '''(experimental) The credentials used to approve pull requests.
+
+        Github forbids an identity to approve its own pull request.
+        These credentials must belong to a different identity than the one creating the pull requests.
+        Use ``environment`` on the credentials to restrict which branches can access them.
+
+        :default: - the workflow's ``GITHUB_TOKEN``
+
+        :stability: experimental
+        '''
+        result = self._values.get("credentials")
+        return typing.cast(typing.Optional["GithubCredentials"], result)
+
+    @builtins.property
     def label(self) -> typing.Optional[builtins.str]:
         '''(experimental) Only pull requests with this label will be auto-approved.
+
+        This is required in addition to matching one of the ``sources``.
 
         :default: 'auto-approve'
 
@@ -376,7 +430,7 @@ class AutoApproveOptions(_projen_04054675.RunsOnOptions):
 
     @builtins.property
     def secret(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A GitHub secret name which contains a GitHub Access Token with write permissions for the ``pull_request`` scope.
+        '''(deprecated) A GitHub secret name which contains a GitHub Access Token with write permissions for the ``pull_request`` scope.
 
         This token is used to approve pull requests.
 
@@ -389,10 +443,26 @@ class AutoApproveOptions(_projen_04054675.RunsOnOptions):
 
         :default: "GITHUB_TOKEN"
 
-        :stability: experimental
+        :deprecated: Use ``credentials`` with ``GithubCredentials.fromPersonalAccessToken({ secret })`` instead.
+
+        :stability: deprecated
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def sources(self) -> typing.Optional[typing.List["PullRequestSource"]]:
+        '''(experimental) Only pull requests from one of these sources will be auto-approved.
+
+        Components that create pull requests can add more sources with ``AutoApprove.addSource()``.
+        Providing sources, either here or with ``addSource()``, replaces the default source.
+
+        :default: [PullRequestSource.fromUsers({ logins: ["github-actions[bot]"] })]
+
+        :stability: experimental
+        '''
+        result = self._values.get("sources")
+        return typing.cast(typing.Optional[typing.List["PullRequestSource"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8186,6 +8256,213 @@ class PullRequestPatchSource(CheckoutWithPatchOptions):
         )
 
 
+class PullRequestSource(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.github.PullRequestSource",
+):
+    '''(experimental) Describes where a pull request comes from.
+
+    Used to select which pull requests a workflow acts on, e.g. which pull requests are auto-approved.
+
+    :stability: experimental
+    '''
+
+    @jsii.member(jsii_name="fromBranch")
+    @builtins.classmethod
+    def from_branch(
+        cls,
+        *,
+        authors: typing.Optional[typing.Sequence[builtins.str]] = None,
+        branch: typing.Optional[builtins.str] = None,
+        branch_prefix: typing.Optional[builtins.str] = None,
+        target_branches: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> "PullRequestSource":
+        '''(experimental) Pull requests from a head branch in this repository.
+
+        Anyone who can push to the head branch controls the content of the pull request.
+        Protect the matching branches with a ruleset that only allows the intended automation
+        to create, update and delete them.
+
+        :param authors: (experimental) The GitHub usernames that may author the pull request. Default: - any author
+        :param branch: (experimental) The exact branch the pull request comes from. Default: - use ``branchPrefix``
+        :param branch_prefix: (experimental) A prefix the branch the pull request comes from must start with. Make sure to include a separator at the end like ``/`` or ``-``. Default: - use ``branch``
+        :param target_branches: (experimental) The branches the pull request may target. Default: - any target branch
+
+        :stability: experimental
+        '''
+        options = PullRequestSourceBranchOptions(
+            authors=authors,
+            branch=branch,
+            branch_prefix=branch_prefix,
+            target_branches=target_branches,
+        )
+
+        return typing.cast("PullRequestSource", jsii.sinvoke(cls, "fromBranch", [options]))
+
+    @jsii.member(jsii_name="fromUsers")
+    @builtins.classmethod
+    def from_users(
+        cls,
+        *,
+        logins: typing.Sequence[builtins.str],
+    ) -> "PullRequestSource":
+        '''(experimental) Pull requests authored by any of the given users.
+
+        Anyone with access to the credentials of these users can author a matching pull request.
+
+        :param logins: (experimental) The GitHub usernames that may author the pull request.
+
+        :stability: experimental
+        '''
+        options = PullRequestSourceUsersOptions(logins=logins)
+
+        return typing.cast("PullRequestSource", jsii.sinvoke(cls, "fromUsers", [options]))
+
+
+@jsii.data_type(
+    jsii_type="projen.github.PullRequestSourceBranchOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "authors": "authors",
+        "branch": "branch",
+        "branch_prefix": "branchPrefix",
+        "target_branches": "targetBranches",
+    },
+)
+class PullRequestSourceBranchOptions:
+    def __init__(
+        self,
+        *,
+        authors: typing.Optional[typing.Sequence[builtins.str]] = None,
+        branch: typing.Optional[builtins.str] = None,
+        branch_prefix: typing.Optional[builtins.str] = None,
+        target_branches: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Options for ``PullRequestSource.fromBranch``.
+
+        :param authors: (experimental) The GitHub usernames that may author the pull request. Default: - any author
+        :param branch: (experimental) The exact branch the pull request comes from. Default: - use ``branchPrefix``
+        :param branch_prefix: (experimental) A prefix the branch the pull request comes from must start with. Make sure to include a separator at the end like ``/`` or ``-``. Default: - use ``branch``
+        :param target_branches: (experimental) The branches the pull request may target. Default: - any target branch
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b67de0d5ae8b51b492cd2741d3a2dfc9d3ec5133ccb4cb7a87412646f5a37d2b)
+            check_type(argname="argument authors", value=authors, expected_type=type_hints["authors"])
+            check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
+            check_type(argname="argument branch_prefix", value=branch_prefix, expected_type=type_hints["branch_prefix"])
+            check_type(argname="argument target_branches", value=target_branches, expected_type=type_hints["target_branches"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if authors is not None:
+            self._values["authors"] = authors
+        if branch is not None:
+            self._values["branch"] = branch
+        if branch_prefix is not None:
+            self._values["branch_prefix"] = branch_prefix
+        if target_branches is not None:
+            self._values["target_branches"] = target_branches
+
+    @builtins.property
+    def authors(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The GitHub usernames that may author the pull request.
+
+        :default: - any author
+
+        :stability: experimental
+        '''
+        result = self._values.get("authors")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def branch(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The exact branch the pull request comes from.
+
+        :default: - use ``branchPrefix``
+
+        :stability: experimental
+        '''
+        result = self._values.get("branch")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def branch_prefix(self) -> typing.Optional[builtins.str]:
+        '''(experimental) A prefix the branch the pull request comes from must start with.
+
+        Make sure to include a separator at the end like ``/`` or ``-``.
+
+        :default: - use ``branch``
+
+        :stability: experimental
+        '''
+        result = self._values.get("branch_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def target_branches(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) The branches the pull request may target.
+
+        :default: - any target branch
+
+        :stability: experimental
+        '''
+        result = self._values.get("target_branches")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PullRequestSourceBranchOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.github.PullRequestSourceUsersOptions",
+    jsii_struct_bases=[],
+    name_mapping={"logins": "logins"},
+)
+class PullRequestSourceUsersOptions:
+    def __init__(self, *, logins: typing.Sequence[builtins.str]) -> None:
+        '''(experimental) Options for ``PullRequestSource.fromUsers``.
+
+        :param logins: (experimental) The GitHub usernames that may author the pull request.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3443a43c9c543f4c82893a14c7526f6c920a05bbae2a6636a905b72071793adc)
+            check_type(argname="argument logins", value=logins, expected_type=type_hints["logins"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "logins": logins,
+        }
+
+    @builtins.property
+    def logins(self) -> typing.List[builtins.str]:
+        '''(experimental) The GitHub usernames that may author the pull request.
+
+        :stability: experimental
+        '''
+        result = self._values.get("logins")
+        assert result is not None, "Required property 'logins' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "PullRequestSourceUsersOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class PullRequestTemplate(
     _projen_04054675.TextFile,
     metaclass=jsii.JSIIMeta,
@@ -11307,6 +11584,9 @@ __all__ = [
     "PullRequestLint",
     "PullRequestLintOptions",
     "PullRequestPatchSource",
+    "PullRequestSource",
+    "PullRequestSourceBranchOptions",
+    "PullRequestSourceUsersOptions",
     "PullRequestTemplate",
     "PullRequestTemplateOptions",
     "SemanticTitleOptions",
@@ -11358,10 +11638,18 @@ def _typecheckingstub__b9950225018303493365be2cb651e0d7d64a1e6439bed8efe63e4e98a
     github: GitHub,
     *,
     allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+    credentials: typing.Optional[GithubCredentials] = None,
     label: typing.Optional[builtins.str] = None,
     secret: typing.Optional[builtins.str] = None,
+    sources: typing.Optional[typing.Sequence[PullRequestSource]] = None,
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b8023d0b7156c8eb2a1e3a8a12621b907db983d764ee63436bcf0af586b5f70(
+    source: PullRequestSource,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11371,8 +11659,10 @@ def _typecheckingstub__1f9c4613bc56be10f461d808c77225c1917fcd25ebccedbc39aa410ff
     runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
     runs_on_group: typing.Optional[typing.Union[_projen_04054675.GroupRunnerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     allowed_usernames: typing.Optional[typing.Sequence[builtins.str]] = None,
+    credentials: typing.Optional[GithubCredentials] = None,
     label: typing.Optional[builtins.str] = None,
     secret: typing.Optional[builtins.str] = None,
+    sources: typing.Optional[typing.Sequence[PullRequestSource]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12215,6 +12505,23 @@ def _typecheckingstub__c3c9a28aa8266154d9a36adad571b3695e958b931e79b9eaff4a7dc55
     patch_file: typing.Optional[builtins.str] = None,
     job_id: builtins.str,
     output_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b67de0d5ae8b51b492cd2741d3a2dfc9d3ec5133ccb4cb7a87412646f5a37d2b(
+    *,
+    authors: typing.Optional[typing.Sequence[builtins.str]] = None,
+    branch: typing.Optional[builtins.str] = None,
+    branch_prefix: typing.Optional[builtins.str] = None,
+    target_branches: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3443a43c9c543f4c82893a14c7526f6c920a05bbae2a6636a905b72071793adc(
+    *,
+    logins: typing.Sequence[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass

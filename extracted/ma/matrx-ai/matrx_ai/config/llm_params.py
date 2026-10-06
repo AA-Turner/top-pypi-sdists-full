@@ -120,16 +120,20 @@ def normalize_max_output_tokens(value: Any) -> Any:
     """Truncate numeric token limits to the integer providers require.
 
     The frontend and persisted JSONB can supply a JSON number with a fractional
-    part. Keep invalid/non-numeric values unchanged so Pydantic still reports
+    part. A cap of zero or below means "no cap" (None): no provider accepts it,
+    and Gemini refuses the whole request. Keep invalid/non-numeric values unchanged so Pydantic still reports
     its normal validation error instead of silently accepting bad input.
     """
-    if value is None or isinstance(value, bool | int):
+    if value is None or isinstance(value, bool):
         return value
+    if isinstance(value, int):
+        return value if value > 0 else None
     if isinstance(value, float | str):
         try:
-            return int(float(value))
+            number = int(float(value))
         except (OverflowError, TypeError, ValueError):
             return value
+        return number if number > 0 else None
     return value
 
 

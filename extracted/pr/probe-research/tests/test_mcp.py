@@ -1102,6 +1102,7 @@ def test_browse_annotates_nodes_with_ref_and_available_views(app, client):
             "code",
             "lineage",
             "notes",
+            "overview",
             "papers",
             "readme",
             "record",

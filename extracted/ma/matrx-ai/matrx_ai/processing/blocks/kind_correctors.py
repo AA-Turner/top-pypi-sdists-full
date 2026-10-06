@@ -22,7 +22,9 @@ could not be checked — it never blocks the render.
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -72,8 +74,60 @@ def correct_kind_value(value: Any) -> tuple[Any, list[str]]:
     return corrected, list(notes)
 
 
+# A JSON object the answer TEXT carries: a fenced ```json block, the body of an
+# ``<artifact …>`` tag, or the whole text (structured-output mode answers bare JSON).
+_FENCED = re.compile(r"(```json[^\n]*\n)(.*?)(\n?```)", re.DOTALL | re.IGNORECASE)
+_ARTIFACT = re.compile(r"(<artifact\b[^>]*>)(.*?)(</artifact>)", re.DOTALL | re.IGNORECASE)
+
+
+def _correct_json_region(body: str, notes: list[str]) -> str:
+    stripped = body.strip()
+    if not stripped.startswith("{"):
+        return body
+    try:
+        value = json.loads(stripped)
+    except (ValueError, TypeError):
+        return body
+    corrected, changes = correct_kind_value(value)
+    if not changes or corrected is value:
+        return body
+    notes.extend(changes)
+    one_line = "\n" not in stripped
+    rendered = json.dumps(corrected, ensure_ascii=False, separators=(",", ":")) if one_line else json.dumps(
+        corrected, ensure_ascii=False, indent=2
+    )
+    lead = body[: len(body) - len(body.lstrip())]
+    trail = body[len(body.rstrip()) :]
+    return f"{lead}{rendered}{trail}"
+
+
+def correct_kind_regions_in_text(text: str) -> tuple[str, list[str]]:
+    """Correct every registered kind the answer TEXT carries, in place.
+
+    ``correct_kind_value`` at parse time fixes the block a live stream renders, but the
+    stored assistant text is what outlives the run, and some paths show that text as
+    written (an artifact's source view, a copy of the raw answer, any consumer that
+    re-parses it). So the same correction is applied to the durable text before it is
+    written: fenced ```json blocks, ``<artifact>`` bodies, and a bare-JSON answer.
+    Returns ``(text, [])`` when nothing changed. Never raises.
+    """
+    if not isinstance(text, str) or "__kind" not in text or not _correctors:
+        return text, []
+    notes: list[str] = []
+    try:
+        out = _FENCED.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes) + m.group(3), text)
+        out = _ARTIFACT.sub(lambda m: m.group(1) + _correct_json_region(m.group(2), notes) + m.group(3), out)
+        if out.strip().startswith("{"):
+            out = _correct_json_region(out, notes)
+    except Exception as exc:  # noqa: BLE001 — never block a write over a correction
+        logger.error("kind text correction failed: %s — text left as written", exc)
+        return text, []
+    return out, notes
+
+
 __all__ = [
     "KIND_CORRECTIONS_KEY",
+    "correct_kind_regions_in_text",
     "KindCorrector",
     "correct_kind_value",
     "has_kind_corrector",

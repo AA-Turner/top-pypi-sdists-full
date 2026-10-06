@@ -595,10 +595,22 @@ class RunCache:
             execution_runtime_ms=execution_runtime_ms,
             labels=self._get_request_labels(node),
         )
-        self._query_cache_client.confirm_execution(confirmation_request)
-        events.fire_debug_event(
-            "Confirmed execution for node {}, request_id {}", node.unique_id, request_id
-        )
+        response = self._query_cache_client.confirm_execution(confirmation_request)
+        if response.success:
+            events.fire_debug_event(
+                "Confirmed execution for node {}, execution_id: {}",
+                node.unique_id,
+                response.request_id,
+            )
+            # Note: when an ExecutionRequest is promoted to an Execution, it retains its id, so ConfirmExecutionResponse.request_id reflects the new execution_id
+            # For clones, it can be different to the request_id submitted in ConfirmExecutionRequest, so needs to be read off the response
+            self._decision_logger.log_confirm_execution(node.name, response.request_id)
+        else:
+            events.fire_debug_event(
+                "Execution confirmation failed for node {}, request_id: {}",
+                node.unique_id,
+                request_id,
+            )
 
     def prewarm_connections(self) -> None:
         self._adapter_ext.prewarm_connections()

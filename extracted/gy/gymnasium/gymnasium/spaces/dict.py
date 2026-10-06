@@ -5,15 +5,28 @@ from __future__ import annotations
 import collections.abc
 import typing
 from collections import OrderedDict
-from collections.abc import KeysView, Sequence
-from typing import Any
+from collections.abc import Iterable, Iterator, KeysView, Sequence
+from typing import TYPE_CHECKING, Any, Generic, cast
 
 import numpy as np
 
 from gymnasium.spaces.space import Space
 
+if TYPE_CHECKING:
+    from typing_extensions import TypeVar
 
-class Dict(Space[dict[str, Any]], typing.Mapping[str, Space[Any]]):
+    _T_co = TypeVar("_T_co", covariant=True, default=Any)
+else:
+    from typing import TypeVar
+
+    _T_co = TypeVar("_T_co", covariant=True)
+
+
+class Dict(
+    Space[dict[str, Space]],
+    typing.Mapping[str, Space[_T_co]],
+    Generic[_T_co],
+):
     """A dictionary of :class:`Space` instances.
 
     Elements of this space are (ordered) dictionaries of elements from the constituent spaces.
@@ -51,38 +64,51 @@ class Dict(Space[dict[str, Any]], typing.Mapping[str, Space[Any]]):
     Similar wrappers can be implemented to deal with :class:`Dict` actions.
     """
 
+    spaces: dict[str, Space[_T_co]]
+    sort_keys: bool
+
     def __init__(
         self,
-        spaces: None | dict[str, Space] | Sequence[tuple[str, Space]] = None,
+        spaces: (
+            dict[str, Space[_T_co]] | Sequence[tuple[str, Space[_T_co]]] | None
+        ) = None,
         seed: dict | int | np.random.Generator | None = None,
+        *,
+        sort_keys: bool = True,
         **spaces_kwargs: Space,
-    ):
+    ) -> None:
         """Constructor of :class:`Dict` space.
 
         This space can be instantiated in one of two ways: Either you pass a dictionary
         of spaces to :meth:`__init__` via the ``spaces`` argument, or you pass the spaces as separate
-        keyword arguments (where you will need to avoid the keys ``spaces`` and ``seed``)
+        keyword arguments (where you will need to avoid the keys ``spaces``, ``seed``, and ``sort_keys``)
 
         Args:
             spaces: A dictionary of spaces. This specifies the structure of the :class:`Dict` space
             seed: Optionally, you can use this argument to seed the RNGs of the spaces that make up the :class:`Dict` space.
+            sort_keys: Whether to sort the keys of a standard mapping. This does not affect :class:`OrderedDict` or sequence inputs.
             **spaces_kwargs: If ``spaces`` is ``None``, you need to pass the constituent spaces as keyword arguments, as described above.
         """
+        self.sort_keys = sort_keys
+
         if isinstance(spaces, OrderedDict):
-            spaces = dict(spaces.items())
+            spaces_dict = dict(spaces.items())
         elif isinstance(spaces, collections.abc.Mapping):
-            # for legacy reasons, we need to preserve the sorted dictionary items.
-            # as this could matter for projects flatten the dictionary.
-            try:
-                spaces = dict(sorted(spaces.items()))
-            except TypeError:
-                # Incomparable types (e.g. `int` vs. `str`, or user-defined types) found.
-                # The keys remain in the insertion order.
-                spaces = dict(spaces.items())
+            if self.sort_keys:
+                # for legacy reasons, we need to preserve the sorted dictionary items.
+                # as this could matter for projects flatten the dictionary.
+                try:
+                    spaces_dict = dict(sorted(spaces.items()))
+                except TypeError:
+                    # Incomparable types (e.g. `int` vs. `str`, or user-defined types) found.
+                    # The keys remain in the insertion order.
+                    spaces_dict = dict(spaces.items())
+            else:
+                spaces_dict = dict(spaces.items())
         elif isinstance(spaces, Sequence):
-            spaces = dict(spaces)
+            spaces_dict = dict(spaces)
         elif spaces is None:
-            spaces = dict()
+            spaces_dict = dict()
         else:
             raise TypeError(
                 f"Unexpected Dict space input, expecting dict, OrderedDict or Sequence, actual type: {type(spaces)}"
@@ -90,24 +116,25 @@ class Dict(Space[dict[str, Any]], typing.Mapping[str, Space[Any]]):
 
         # Add kwargs to spaces to allow both dictionary and keywords to be used
         for key, space in spaces_kwargs.items():
-            if key not in spaces:
-                spaces[key] = space
+            if key not in spaces_dict:
+                spaces_dict[key] = space
             else:
                 raise ValueError(
                     f"Dict space keyword '{key}' already exists in the spaces dictionary."
                 )
 
-        self.spaces: dict[str, Space[Any]] = spaces
+        self.spaces = cast("dict[str, Space[_T_co]]", spaces_dict)
         for key, space in self.spaces.items():
-            assert isinstance(space, Space), (
-                f"Dict space element is not an instance of Space: key='{key}', space={space}"
-            )
+            if not isinstance(space, Space):
+                raise TypeError(
+                    f"Dict space element is not an instance of Space: key='{key}', space={space}"
+                )
 
         # None for shape and dtype, since it'll require special handling
         super().__init__(None, None, seed)  # type: ignore
 
     @property
-    def is_np_flattenable(self):
+    def is_np_flattenable(self) -> bool:
         """Checks whether this space can be flattened to a :class:`spaces.Box`."""
         return all(space.is_np_flattenable for space in self.spaces.values())
 
@@ -212,12 +239,13 @@ class Dict(Space[dict[str, Any]], typing.Mapping[str, Space[Any]]):
 
     def __setitem__(self, key: str, value: Space[Any]):
         """Set the space that is associated to `key`."""
-        assert isinstance(value, Space), (
-            f"Trying to set {key} to Dict space with value that is not a gymnasium space, actual type: {type(value)}"
-        )
+        if not isinstance(value, Space):
+            raise TypeError(
+                f"Trying to set {key} to Dict space with value that is not a gymnasium space, actual type: {type(value)}"
+            )
         self.spaces[key] = value
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         """Iterator through the keys of the subspaces."""
         yield from self.spaces
 
@@ -239,7 +267,7 @@ class Dict(Space[dict[str, Any]], typing.Mapping[str, Space[Any]]):
             and self.spaces == other.spaces  # OrderedDict.__eq__
         )
 
-    def to_jsonable(self, sample_n: Sequence[dict[str, Any]]) -> dict[str, list[Any]]:
+    def to_jsonable(self, sample_n: Iterable[dict[str, Any]]) -> dict[str, list[Any]]:
         """Convert a batch of samples from this space to a JSONable data type."""
         # serialize as dict-repr of vectors
         return {
@@ -247,7 +275,7 @@ class Dict(Space[dict[str, Any]], typing.Mapping[str, Space[Any]]):
             for key, space in self.spaces.items()
         }
 
-    def from_jsonable(self, sample_n: dict[str, list[Any]]) -> list[dict[str, Any]]:
+    def from_jsonable(self, sample_n: dict[str, list[Any]]) -> list[dict[str, Any]]:  # ty:ignore[invalid-method-override]
         """Convert a JSONable data type to a batch of samples from this space."""
         dict_of_list: dict[str, list[Any]] = {
             key: space.from_jsonable(sample_n[key])

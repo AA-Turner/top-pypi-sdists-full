@@ -57,7 +57,7 @@ def test_evaluate_priority_order():
     l1 = _l1("open", floor=[{"tool": "*", "op_class": "destructive", "args": {"target": "prod*"}},
                             {"tool": "mcp:kintone:delete_record"}])
     eff = tighten_merge(l1, ProjectPolicy.from_json({"deny": ["vendor_delete*"]}))
-    assert evaluate(None, "read", "read") == Decision("forbid", "policy_unavailable", 0)
+    assert evaluate(None, "read", "read") == Decision("forbid", "policy_unavailable", 0, layer="system")
     d = evaluate(eff, "delete_record", "destructive", mcp_server="kintone")
     assert d.mode == "forbid" and d.reason == "floor" and d.matched == "mcp:kintone:delete_record"
     d = evaluate(eff, "wipe", "destructive", args={"target": "prod-db"})

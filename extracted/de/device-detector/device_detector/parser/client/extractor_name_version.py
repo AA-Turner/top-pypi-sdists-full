@@ -1,7 +1,7 @@
-from . import GenericClientParser
 from ...parser.key_value_pairs import key_value_pairs
 from ...utils import normalize_app_name
 from ..settings import METADATA_NAMES
+from . import GenericClientParser
 
 
 class NameVersionExtractor(GenericClientParser):

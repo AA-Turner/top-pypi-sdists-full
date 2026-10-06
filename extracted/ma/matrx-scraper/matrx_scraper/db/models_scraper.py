@@ -9,7 +9,7 @@ class ScrapeDomain(MatrxEntity):
     url = CharField()
     common_name = CharField()
     scrape_allowed = BooleanField(default=True)
-    created_at = DateTimeField()
+    created_at = DateTimeField(null=False)
     updated_at = DateTimeField()
     is_public = BooleanField(default=False)
     policy_action = TextField()
@@ -19,13 +19,15 @@ class ScrapeDomain(MatrxEntity):
     policy_notes = TextField()
     category = TextField()
     category_reason = TextField()
+    metadata = JSONBField(null=False, default={})
+    deleted_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'scrape_domain_settings': {'from_model': 'ScrapeDomainSettings', 'from_field': 'domain_id', 'referenced_field': 'id', 'related_name': 'scrape_domain_settings', 'from_schema': 'scraper'}, 'scrape_path_pattern': {'from_model': 'ScrapePathPattern', 'from_field': 'scrape_domain_id', 'referenced_field': 'id', 'related_name': 'scrape_path_pattern', 'from_schema': 'scraper'}}
     _database = "matrx_scraper"
     _table_name = "scrape_domain"
     _db_schema = "scraper"
     _entity_token = "scrape_domain"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = False
     _rls_variant = "reference"
 
@@ -41,6 +43,7 @@ class ScrapeFailureLog(MatrxEntity):
     proxy_type = TextField()
     attempt_count = IntegerField(null=False, default=1)
     created_at = DateTimeField(null=False)
+    metadata = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'scrape_retry_queue': {'from_model': 'ScrapeRetryQueue', 'from_field': 'failure_log_id', 'referenced_field': 'id', 'related_name': 'scrape_retry_queue', 'from_schema': 'scraper'}}
     _database = "matrx_scraper"
     _table_name = "scrape_failure_log"
@@ -72,7 +75,7 @@ class ScrapeParsedPage(MatrxEntity):
     remote_path = CharField()
     local_path = CharField()
     scraped_at = DateTimeField()
-    user_id = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    user_id = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     is_public = BooleanField()
@@ -84,8 +87,8 @@ class ScrapeParsedPage(MatrxEntity):
     content_type = TextField()
     organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     metadata = JSONBField(null=False, default={})
-    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
-    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
     version = IntegerField(null=False, default=1)
     canonical_url = TextField()
     content_hash = TextField()
@@ -138,7 +141,7 @@ class ScrapePathPattern(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     scrape_domain_id = ForeignKey(to_model=ScrapeDomain, to_column='id', to_schema='scraper', )
     path_pattern = CharField(default='/*')
-    created_at = DateTimeField()
+    created_at = DateTimeField(null=False)
     updated_at = DateTimeField()
     is_public = BooleanField(default=False)
     policy_action = TextField()
@@ -148,13 +151,15 @@ class ScrapePathPattern(MatrxEntity):
     policy_notes = TextField()
     category = TextField()
     category_reason = TextField()
+    metadata = JSONBField(null=False, default={})
+    deleted_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'scrape_path_override': {'from_model': 'ScrapePathOverride', 'from_field': 'path_pattern_id', 'referenced_field': 'id', 'related_name': 'scrape_path_override', 'from_schema': 'scraper'}}
     _database = "matrx_scraper"
     _table_name = "scrape_path_pattern"
     _db_schema = "scraper"
     _entity_token = "scrape_path_pattern"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = False
     _rls_variant = "reference"
 
@@ -175,6 +180,7 @@ class ScrapeRetryQueue(MatrxEntity):
     last_error = TextField()
     completed_at = DateTimeField()
     created_at = DateTimeField(null=False)
+    metadata = JSONBField(null=False, default={})
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_retry_queue"

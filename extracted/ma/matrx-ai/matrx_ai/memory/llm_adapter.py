@@ -164,10 +164,14 @@ class MemoryLLMAdapter:
             config.offering_id = held.pick_offering(
                 model, offering_id, where=f"memory.{event_type}"
             )
-        config.store = False
         model = config.model
+        # Every AI run keeps its history (owner ruling 2026-10-05): this paid
+        # call is recorded (store=True) — but under its OWN conversation, never
+        # the person's, so the observer/reflector exchange cannot appear as a
+        # turn in their chat. The person's conversation id stays on the OM event.
+        config.store = True
         request = AIMatrixRequest(
-            conversation_id=self.conversation_id,
+            conversation_id=str(uuid.uuid4()),
             config=config,
             debug=False,
             request_id=str(uuid.uuid4()),

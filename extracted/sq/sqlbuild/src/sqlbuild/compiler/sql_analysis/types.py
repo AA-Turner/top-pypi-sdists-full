@@ -7,6 +7,11 @@ from typing import Protocol
 
 type NativeDiagnosticRow = tuple[str, str, int | None, int | None, int | None, int | None, str]
 type NativeBindingRequest = tuple[str, list[tuple[str, bool]], dict[str, Mapping[str, str]]]
+type NativeNormalizationRequest = tuple[str, dict[str, str], dict[str, str]]
+
+
+class NativeCompactAnalysisJob(Protocol):
+    def run(self) -> bytes: ...
 
 
 class NativeProjectCatalog(Protocol):
@@ -21,11 +26,14 @@ class NativeProjectCatalog(Protocol):
         self, relations: Mapping[str, tuple[Mapping[str, str], Mapping[str, str]]]
     ) -> None: ...
     def register_override(self, relations: Mapping[str, Mapping[str, str]]) -> int: ...
-    def analyze_compact(self, payload: bytes) -> bytes: ...
+    def prepare_compact(self, payload: bytes) -> NativeCompactAnalysisJob: ...
     def update_relations(self, relations: Mapping[str, Mapping[str, str]]) -> None: ...
     def binding_results(
         self, requests: list[NativeBindingRequest]
     ) -> list[list[NativeDiagnosticRow]]: ...
+    def normalize_analysis_sqls(
+        self, *, dialect: str, requests: list[NativeNormalizationRequest]
+    ) -> list[str | Exception]: ...
 
 
 class NativeCatalogModule(Protocol):
@@ -43,8 +51,8 @@ class NativeBindingPositions(Protocol):
 
 class NativePositionsModule(Protocol):
     def normalize_analysis_sqls(
-        self, *, dialect: str, requests: list[tuple[str, dict[str, str]]]
-    ) -> list[str]: ...
+        self, *, dialect: str, requests: list[NativeNormalizationRequest]
+    ) -> list[str | Exception]: ...
     def binding_diagnostics(
         self, *, sql: str, dialect: str, rows: list[NativeDiagnosticRow]
     ) -> list[NativeDiagnosticRow]: ...

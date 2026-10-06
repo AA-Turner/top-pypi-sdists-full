@@ -265,3 +265,52 @@ def try_get_execution_state() -> ExecutionState | None:
 
 def clear_execution_state(token: Token) -> None:
     _execution_state.reset(token)
+
+
+# ---------------------------------------------------------------------------
+# Run usage sink — what an agent run spent, readable even when it ended early.
+#
+# ``run_agent`` opens a sink before ``Agent.execute``; the FIRST
+# ``execute_until_complete`` under it binds its ExecutionState. When the run is
+# cancelled (a per-call time limit, a client disconnect, a sibling's gather
+# cancel, a budget stop) or crashes out of the loop, ``Agent.execute`` raises
+# instead of returning — and the usage accumulated on the in-flight request
+# would otherwise never reach the run's settle, which then recorded $0 (news
+# run 70601b15, 2026-10-05: ~$0.70 under-recorded). The sink is how the early
+# exit settles the real spend.
+#
+# Binding is first-wins: a tool that calls the loop directly inside the run
+# (no ``run_agent`` of its own) must never re-point the run's sink at its own
+# request. A nested ``run_agent`` opens its own sink, so a child's spend stays
+# on the child (matching ``usage_history``'s own no-double-count rule).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class RunUsageSink:
+    state: ExecutionState | None = None
+
+    def usage_history(self) -> list[Any]:
+        request = self.state.current_request if self.state is not None else None
+        return list(getattr(request, "usage_history", None) or [])
+
+
+_run_usage_sink: ContextVar[RunUsageSink | None] = ContextVar("run_usage_sink", default=None)
+
+
+def open_run_usage_sink() -> tuple[RunUsageSink, Token]:
+    sink = RunUsageSink()
+    return sink, _run_usage_sink.set(sink)
+
+
+def close_run_usage_sink(token: Token) -> None:
+    try:
+        _run_usage_sink.reset(token)
+    except ValueError:  # token from another Context (a task hop) — just unbind
+        _run_usage_sink.set(None)
+
+
+def bind_run_usage_sink(state: ExecutionState) -> None:
+    sink = _run_usage_sink.get(None)
+    if sink is not None and sink.state is None:
+        sink.state = state

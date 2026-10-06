@@ -29,7 +29,7 @@ class CursorPageSendingConnectionDto(BaseModel):
     CursorPageSendingConnectionDto
     """ # noqa: E501
     items: List[SendingConnectionDto]
-    total: Annotated[int, Field(strict=True, ge=0)]
+    total: Optional[Annotated[int, Field(strict=True, ge=0)]]
     current_page: Optional[StrictStr] = None
     current_page_backwards: Optional[StrictStr] = None
     previous_page: Optional[StrictStr] = None
@@ -82,6 +82,11 @@ class CursorPageSendingConnectionDto(BaseModel):
                 if _item_items:
                     _items.append(_item_items.to_dict())
             _dict['items'] = _items
+        # set to None if total (nullable) is None
+        # and model_fields_set contains the field
+        if self.total is None and "total" in self.model_fields_set:
+            _dict['total'] = None
+
         # set to None if current_page (nullable) is None
         # and model_fields_set contains the field
         if self.current_page is None and "current_page" in self.model_fields_set:

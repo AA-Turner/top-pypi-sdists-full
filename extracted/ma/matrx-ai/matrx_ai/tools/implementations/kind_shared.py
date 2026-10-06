@@ -114,6 +114,22 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
         "@/components/kind-kit/KindHeaderBar",
         "@/components/kind-kit/StreamingSkeleton",
         "@/components/kind-kit/TagList",
+        # @ai-matrx/code-runtime's documented scope registry (2026-10-06,
+        # Applets AP-5): the primary UI set, icons, Applet parts, and the
+        # heavy libraries loaded only when referenced.
+        "@ai-matrx/design-system",
+        "@ai-matrx/design-system/controls",
+        "@ai-matrx/icons",
+        "@/applets",
+        "@ai-matrx/applets/react",
+        "motion/react",
+        "react-katex",
+        "react-pdf",
+        "xlsx",
+        "@react-three/fiber",
+        "three",
+        "date-fns",
+        "lodash",
     }
     | {
         f"@/components/ui/{name}"
@@ -812,6 +828,23 @@ class WriteRefused(Exception):
     """The database, in the caller's session, refused (or matched no row for) a write."""
 
 
+def scheduler_identity_active() -> bool:
+    """True only inside a scheduled system run (``scheduled_run_attribution`` installs this
+    context: origin_class ``scheduled`` from source_app ``matrx-scheduler``). The one thing
+    ``system_job`` is allowed to open the admin write lane for."""
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+    except Exception:  # noqa: BLE001 -- fail closed
+        return False
+    return bool(
+        ctx is not None
+        and getattr(ctx, "origin_class", "") == "scheduled"
+        and getattr(ctx, "source_app", "") == "matrx-scheduler"
+    )
+
+
 @asynccontextmanager
 async def writing_as_the_person(
     ctx: ToolContext | None, *, system_job: bool = False
@@ -824,6 +857,10 @@ async def writing_as_the_person(
     """
     from matrx_ai.tools.person_session import as_the_person
 
+    if system_job and not scheduler_identity_active():
+        raise WriteRefused(
+            "system_job writes are only for the scheduler's system identity; this caller is not one"
+        )
     try:
         async with as_the_person():
             # ``system_job``: a scheduled platform job (the weekly shape refresh) runs as the
@@ -876,75 +913,6 @@ async def ensure_can_edit_kind(kind_row: Any, ctx: ToolContext) -> ToolResult | 
         "forbidden",
         f"You do not have edit access to kind '{kind_row.kind}' (id {kind_row.id}).",
         "Work on kinds you created, or kinds explicitly shared with you at editor level.",
-    )
-
-
-SHAPE_AUTHORING_REFUSAL = (
-    "Only AI Matrx staff can write shape component code right now. Custom "
-    "shape authoring opens to every organization when the isolated sandbox "
-    "that runs component code ships. The shapes you already have keep "
-    "rendering exactly as they do today — this only stops new or changed "
-    "component code from being saved."
-)
-
-
-async def is_platform_shape_author(user_id: str) -> bool:
-    """``public.is_platform_admin_for(user_id)`` — the by-user-id twin of the
-    ``is_platform_admin()`` the table's own RLS and the
-    ``zzz_component_author_gate`` trigger call. Fail-closed.
-
-    THE ADMIN LANE (2026-09-25): the database answers yes only inside the admin
-    lane, and this door opens it only for a run started from an admin surface —
-    from a normal chat the answer is no before the database is even asked."""
-    if not user_id or not ctx_is_admin(None):  # type: ignore[arg-type]
-        return False
-    try:
-        from matrx_orm import admin_lane, call_function
-
-        database = get_db_model("KindDefinition")._database
-        async with admin_lane(database=database):
-            return bool(
-                await call_function(
-                    database,
-                    "public",
-                    "is_platform_admin_for",
-                    user_id,
-                    mode="scalar",
-                )
-            )
-    except Exception:  # noqa: BLE001 — fail closed, never raise into the tool
-        logger.warning(
-            "platform-staff check failed for user %s — refusing (fail-closed)",
-            user_id,
-            exc_info=True,
-        )
-        return False
-
-
-async def ensure_platform_shape_author(ctx: ToolContext) -> ToolResult | None:
-    """B-23 / DD-123 — AUTHORING a component body is platform-staff-only.
-
-    ``component_source`` / ``props_transform`` are arbitrary TSX the browser
-    compiles with ``new Function`` inside the signed-in page's own origin.
-    Verifier V-17 showed the string gate cannot close the exfiltration class
-    (computed global access, a plain ``<img src>`` beacon). The real fix is the
-    iframe origin boundary (DD-123); until it ships the chair's ruling is that
-    only platform staff may author. The database holds the same door
-    (``zzz_component_author_gate``, migration 0639) for the browser lane — but
-    these tools run on a privileged connection where RLS and that trigger's
-    ``auth.uid()`` are both absent, so the rule is enforced HERE for this door.
-
-    Edit access to the kind is still required and checked separately; this is
-    an additional bar, never a replacement.
-    """
-    if await is_platform_shape_author(ctx_user_id(ctx) or ""):
-        return None
-    return err(
-        "forbidden",
-        SHAPE_AUTHORING_REFUSAL,
-        "Ask an AI Matrx platform admin to author or change this component from "
-        "the admin app, or use the built-in shape components until custom "
-        "authoring opens.",
     )
 
 

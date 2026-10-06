@@ -11124,11 +11124,6 @@ class Messages(System.Object):
         """Provides user-facing messages for the Securities.SecurityTransactionManager class and its consumers or related classes"""
 
         @staticmethod
-        def cancel_open_orders_not_allowed_on_initialize_or_warm_up() -> str:
-            """Returns a string message saying CancelOpenOrders operation is not allowed in Initialize or during warm up"""
-            ...
-
-        @staticmethod
         def order_canceled_by_cancel_open_orders(time: typing.Union[datetime.datetime, datetime.date]) -> str:
             """Returns a string message saying the order was canceled by the CancelOpenOrders() at the given time"""
             ...

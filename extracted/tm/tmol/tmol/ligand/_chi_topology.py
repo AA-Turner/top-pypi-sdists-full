@@ -33,7 +33,7 @@ Scope notes / latitude:
   is not ported.
 - ``border > 1`` biaryl-pivot CHIs (ring <-> conjugated functional group) ARE
   emitted via a port of ``search_special_biaryl_ring`` (the hard-coded
-  :data:`_SPECIAL_BIARYL_PAIRS` class-pair list). The remaining pivots through
+  :data:`tmol.ligand._atom_typing.SPECIAL_BIARYL_PAIRS` class-pair list). The remaining pivots through
   ring-like conjugated groups (guanidinium ``Ngu1``, tertiary amide ``Nad3``,
   ``NG2``, furan ``Ofu``) are recovered not by the ``is_planar`` geometry port
   but by honoring the source mol2's literal single-bond order
@@ -62,6 +62,7 @@ from __future__ import annotations
 from rdkit import Chem
 
 from tmol.database.chemical import ChiSamples, Torsion, UnresolvedAtom
+from tmol.ligand._atom_typing import find_special_biaryl_pivots
 
 # RosettaVS hard-coded constant (Molecule.py): controls EXTRA expansion.
 MAX_CONFS = 5000
@@ -95,44 +96,6 @@ _CONJUGATING_ACLASSES = frozenset(
         "OG2",
         "Ssl",
         "SG2",
-    }
-)
-
-# RosettaVS ``search_special_biaryl_ring`` hard-coded ``special_biaryl_to_ring``
-# list (SetupTopology.py). An ordered ``(a2_aclass, a3_aclass)`` pair, where a2
-# is a non-ring atom bonded to an aromatic ring atom a1 and a3 is a2's further
-# neighbour. When matched (and a3 is further-connected), the a1-a2 bond is a
-# biaryl pivot: a rotatable CHI that survives the ``border > 1`` skip.
-_SPECIAL_BIARYL_PAIRS = frozenset(
-    {
-        ("CDp", "OG2"),
-        ("CDp", "Oal"),
-        ("CDp", "Oad"),
-        ("NG21", "CR"),
-        ("NG21", "CRp"),
-        ("NG21", "CD"),
-        ("NG21", "CDp"),
-        ("NG21", "CSp"),
-        ("NG21", "CS"),
-        ("NG21", "CS1"),
-        ("NG21", "CS2"),
-        ("NG21", "SG5"),
-        ("Nad", "CDp"),
-        ("CDp", "Nad"),
-        ("CDp", "Nam2"),
-        ("CDp", "NG2"),
-        ("CDp", "Nin"),
-        ("CD1", "CD1"),
-        ("CD1", "CD"),
-        ("CD", "CD"),
-        ("CD", "CD1"),
-        ("CD", "CR"),
-        ("CD1", "CR"),
-        ("CDp", "CR"),
-        ("CD", "F"),
-        ("CD", "Cl"),
-        ("CD", "Br"),
-        ("CD", "I"),
     }
 )
 
@@ -171,6 +134,29 @@ def _share_ring(ring_membership: dict[int, set[int]], a: int, b: int) -> bool:
     return bool(ring_membership.get(a, set()) & ring_membership.get(b, set()))
 
 
+def _symmetry_order(mol: Chem.Mol, b: int, c: int) -> int:
+    """How many times the b-c torsion turns the tip onto itself in a full turn.
+
+    A tip of interchangeable terminal substituents -- a carboxylate's two
+    oxygens, a phosphate's three -- repeats every 360/order degrees, so only
+    that much of the circle holds distinct structures.
+    """
+    others = [
+        n.GetIdx() for n in mol.GetAtomWithIdx(c).GetNeighbors() if n.GetIdx() != b
+    ]
+    if len(others) < 2:
+        return 1
+    # equivalent tips differ only by where the formal charge was written down,
+    #    so the element alone decides
+    elements = set()
+    for idx in others:
+        atom = mol.GetAtomWithIdx(idx)
+        if atom.GetDegree() != 1:
+            return 1
+        elements.add(atom.GetAtomicNum())
+    return len(others) if len(elements) == 1 else 1
+
+
 def build_chi_topology(  # noqa: C901
     mol: Chem.Mol,
     order: list[int],
@@ -181,6 +167,8 @@ def build_chi_topology(  # noqa: C901
     *,
     atype_by_idx: dict[int, str] | None = None,
     original_single_bonds: frozenset[frozenset[str]] | None = None,
+    assign_ring_chis: bool = False,
+    generate_heavy_chi_samples: bool = False,
     logger=None,
 ) -> tuple[tuple[Torsion, ...], tuple[ChiSamples, ...]]:
     """Classify rotatable bonds and return ``(torsions, chi_samples)``.
@@ -190,6 +178,10 @@ def build_chi_topology(  # noqa: C901
     is the root itself).  ``atom_names[idx]`` is the final residue atom name
     (or ``None`` for dropped atoms).  ``typing_state`` is a
     :class:`~tmol.ligand._atom_typing.RosettaTypingState`.
+
+    ``assign_ring_chis`` keeps single bonds inside a non-aromatic ring as chi,
+    the way proline's chi2/chi3 are defined. Polymer residues set it; ligands
+    do not.
 
     ``original_single_bonds`` (optional) is a set of ``frozenset({name_a,
     name_b})`` pairs that the source mol2 records as literal single bonds.
@@ -228,39 +220,9 @@ def build_chi_topology(  # noqa: C901
         n_h = sum(1 for nb in atom.GetNeighbors() if nb.GetAtomicNum() == 1)
         return n_h == atom.GetDegree() - 1
 
-    def _detect_biaryl_pivots() -> set[frozenset]:
-        """Port RosettaVS ``search_special_biaryl_ring``: ring<->functional-group
-        rotatable bonds detected via the hard-coded ``_SPECIAL_BIARYL_PAIRS``.
-
-        For each aromatic ring atom ``a1`` and non-ring neighbour ``a2``, if some
-        ``(a2_aclass, a3_aclass)`` matches the list (``a3`` a further neighbour of
-        ``a2`` that is itself connected on), the ``a1-a2`` bond is a biaryl pivot.
-        These survive the ``border > 1`` skip. (The ``is_planar`` geometry
-        refinement is not yet ported, so a few planar pivots may be over-kept.)
-        """
-        pivots: set[frozenset] = set()
-        for a1 in atms_aro:
-            atom1 = mol.GetAtomWithIdx(a1)
-            for nb2 in atom1.GetNeighbors():
-                a2 = nb2.GetIdx()
-                if a2 not in valid or _share_ring(ring_membership, a1, a2):
-                    continue
-                a2c = atype_by_idx.get(a2)
-                special = False
-                further_connected = False
-                for nb3 in nb2.GetNeighbors():
-                    a3 = nb3.GetIdx()
-                    if a3 == a1:
-                        continue
-                    if (a2c, atype_by_idx.get(a3)) in _SPECIAL_BIARYL_PAIRS:
-                        special = True
-                    if nb3.GetDegree() > 1:
-                        further_connected = True
-                if special and further_connected:
-                    pivots.add(frozenset((a1, a2)))
-        return pivots
-
-    biaryl_pivots = _detect_biaryl_pivots()
+    biaryl_pivots = find_special_biaryl_pivots(
+        mol, atype_by_idx, atms_aro, ring_membership, valid
+    )
 
     # Map each atom to its tree children (atoms whose parent is this atom).
     children: dict[int, list[int]] = {i: [] for i in order}
@@ -314,6 +276,16 @@ def build_chi_topology(  # noqa: C901
         # Determine the tip atom d (on c's side) and the chi kind.
         c_children = children.get(c, [])
         heavy_children = [x for x in c_children if _is_heavy(mol, x)]
+        if assign_ring_chis and not heavy_children:
+            # the last atom of a ring reaches the rest of it by a back edge, so
+            #    its tip is a neighbour rather than a tree child
+            heavy_children = [
+                x.GetIdx()
+                for x in mol.GetAtomWithIdx(c).GetNeighbors()
+                if x.GetIdx() != b
+                and x.GetIdx() in valid
+                and _is_heavy(mol, x.GetIdx())
+            ]
         polar_h_children = [x for x in c_children if _is_polar_hydrogen(mol, x)]
         if heavy_children:
             is_proton = False
@@ -387,7 +359,7 @@ def build_chi_topology(  # noqa: C901
                 _trace(c, b, "skip: same aromatic ring")
                 continue
             # ring-ring single bond: report_ringring_chi=True -> keep
-        elif _share_ring(ring_membership, b, c):
+        elif _share_ring(ring_membership, b, c) and not assign_ring_chis:
             _trace(c, b, "skip: non-aromatic ring-internal")
             continue
 
@@ -445,15 +417,34 @@ def build_chi_topology(  # noqa: C901
                 d=UnresolvedAtom(atom=atom_names[d]),
             )
         )
+        # sp2 (2-coordinate) heteroatom -> samples 0/180; sp3 -> 60/-60/180.
+        samples = (0.0, 180.0) if is_sp2 else (60.0, -60.0, 180.0)
         if is_proton:
-            # sp2 (2-coordinate) heteroatom -> samples 0/180; sp3 -> 60/-60/180.
-            samples = (0.0, 180.0) if is_sp2 else (60.0, -60.0, 180.0)
             chi_samples.append(
                 ChiSamples(
                     chi_dihedral=name,
                     samples=samples,
                     expansions=extra_expansions,
+                    is_proton=True,
                 )
             )
+        elif generate_heavy_chi_samples:
+            # a ring torsion cannot be turned on its own without tearing the
+            #    ring open, whatever the chi definition says
+            bond = mol.GetBondBetweenAtoms(b, c)
+            if bond is not None and not bond.IsInRing():
+                # spread the samples over the distinct part of the circle, so a
+                #    symmetric tip is covered once rather than repeatedly
+                step = 360.0 / _symmetry_order(mol, b, c) / len(samples)
+                chi_samples.append(
+                    ChiSamples(
+                        chi_dihedral=name,
+                        samples=tuple(
+                            samples[0] + i * step for i in range(len(samples))
+                        ),
+                        expansions=extra_expansions,
+                        is_proton=False,
+                    )
+                )
 
     return tuple(torsions), tuple(chi_samples)

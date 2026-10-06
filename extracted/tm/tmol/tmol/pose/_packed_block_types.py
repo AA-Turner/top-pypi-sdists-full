@@ -16,13 +16,9 @@ from tmol.chemical import (
 from tmol.database import PatchedChemicalDatabase
 from tmol.utility._device import resolve_device
 
-
-def residue_types_from_residues(residues):
-    rt_dict = {}
-    for res in residues:
-        if id(res.residue_type) not in rt_dict:
-            rt_dict[id(res.residue_type)] = res.residue_type
-    return [rt for addr, rt in rt_dict.items()]
+# The per-block connection capacity of the ljlk, elec, hbond and lk_ball
+# kernels' shared-memory tiles (MAX_N_CONN in their .hh files).
+MAX_N_CONN = 12
 
 
 @attr.s(auto_attribs=True)
@@ -33,18 +29,14 @@ class PackedBlockTypes:
     (specifically, RefinedResidueTypes); once constructed, this order will not
     change, so residue types may be referred to by index within this object.
 
-    The PackedBlockTypes object is the bag in which scoring terms cache their
-    tensors holding the chemical/scoring properties of the block types in use.
-    Each term needs several tensors in order to map from block-type index to
-    the data required to score that block type, and the construction of these
-    tensors and moving these tensors can be slowThe idiom we follow to ensure
-    that these tensors are preserved between score evaluations is to cache
-    them in this object. The term will annotate the PackedBlockTypes object,
-    pbt, using setattr(pbt, "tensor_name", tensor) and then will later decide
-    if the annotation has already been made using hasattr(pbt, "tensor_name").
-    Thus, it is more efficient to use a single PackedBlockTypes object between
-    multiple PoseStack objects so that the expense of creating the annotations
-    can be amortized of many score evaluations.
+    Score terms cache derived tensors on this object to share annotation work
+    across poses with the same ordered residue types. Topology annotations can
+    be reused for the object's lifetime. Parameter-dependent annotations must
+    also identify their chemical/scoring sources, settings and tensor device;
+    the presence of an attribute alone does not establish a valid cache hit.
+    Keep historical configurations bounded, and let rendered scoring modules
+    capture their requested annotation tensors instead of reading whichever
+    configuration happens to be stored here during a later forward call.
 
     Annotation process:
     There are three steps to the annotation process. 1) Terms
@@ -138,7 +130,20 @@ class PackedBlockTypes:
 
         Returns:
             Packed residue-type tensors and their concrete device metadata.
+
+        Raises:
+            ValueError: If a residue type has more than ``MAX_N_CONN`` connections.
         """
+        overfull = [
+            f"{bt.name} ({len(bt.connections)})"
+            for bt in active_block_types
+            if len(bt.connections) > MAX_N_CONN
+        ]
+        if overfull:
+            raise ValueError(
+                f"Residue types exceed the {MAX_N_CONN} connections the scoring "
+                f"kernels hold per block: {', '.join(overfull)}"
+            )
         device = resolve_device(device)
         max_n_atoms = cls.count_max_n_atoms(active_block_types)
         n_atoms = cls.count_n_atoms(active_block_types, device)
@@ -441,5 +446,59 @@ class PackedBlockTypes:
         )
         for self_key in self.__dict__:
             if self_key not in new_inst.__dict__:
-                setattr(new_inst, self_key, cpu_equiv(self.__dict___[self_key]))
+                setattr(new_inst, self_key, cpu_equiv(self.__dict__[self_key]))
         return new_inst
+
+
+def annotate_packed_block_types_w_dslf_conn_inds(pbt: PackedBlockTypes):
+    """Annotate each block type with its disulfide connection index, or -1."""
+    if hasattr(pbt, "canonical_dslf_conn_ind"):
+        return
+    canonical_dslf_conn_ind = numpy.full((pbt.n_types,), -1, dtype=numpy.int64)
+    for i, bt in enumerate(pbt.active_block_types):
+        if "dslf" in bt.connection_to_cidx:
+            canonical_dslf_conn_ind[i] = bt.connection_to_cidx["dslf"]
+    canonical_dslf_conn_ind = torch.tensor(
+        canonical_dslf_conn_ind, dtype=torch.int64, device=pbt.device
+    )
+    setattr(pbt, "canonical_dslf_conn_ind", canonical_dslf_conn_ind)
+
+
+def annotate_packed_block_types_w_kinematic_conns(pbt: PackedBlockTypes):
+    """Mark, per block type, which connections carry motion between blocks."""
+    if hasattr(pbt, "kinematic_conn"):
+        return
+    kinematic_conn = numpy.zeros((pbt.n_types, pbt.max_n_conn), dtype=bool)
+    for i, bt in enumerate(pbt.active_block_types):
+        for ind, conn in enumerate(bt.connections):
+            kinematic_conn[i, ind] = conn.kinematic
+    setattr(
+        pbt,
+        "kinematic_conn",
+        torch.tensor(kinematic_conn, dtype=torch.bool, device=pbt.device),
+    )
+
+
+def annotate_packed_block_types_w_conjugation_conns(pbt: PackedBlockTypes):
+    """Mark, per block type, which connections are conjugations.
+
+    A kinematic connection other than the polymer up or down joins a residue to
+    something other than its own chain: a glycan on a serine, a ligand on a
+    lysine. Read from the connections themselves, so a generated component and
+    a patched canonical residue are treated alike.
+    """
+    if hasattr(pbt, "conjugation_conn"):
+        return
+    annotate_packed_block_types_w_kinematic_conns(pbt)
+    kinematic = pbt.kinematic_conn.cpu().numpy()
+
+    conjugation_conn = numpy.zeros((pbt.n_types, pbt.max_n_conn), dtype=bool)
+    for i, bt in enumerate(pbt.active_block_types):
+        polymer = {bt.down_connection_ind, bt.up_connection_ind}
+        for ind in range(len(bt.connections)):
+            conjugation_conn[i, ind] = ind not in polymer and kinematic[i, ind]
+    setattr(
+        pbt,
+        "conjugation_conn",
+        torch.tensor(conjugation_conn, dtype=torch.bool, device=pbt.device),
+    )

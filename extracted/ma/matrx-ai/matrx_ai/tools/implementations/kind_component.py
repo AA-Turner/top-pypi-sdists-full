@@ -67,7 +67,6 @@ from matrx_ai.tools.implementations.kind_shared import (
     ctx_user_id,
     ensure_can_edit_kind,
     ensure_can_view_kind,
-    ensure_platform_shape_author,
     err,
     example_summary,
     kind_summary,
@@ -389,12 +388,6 @@ async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
         denied = await ensure_can_edit_kind(kd, ctx)
         if denied:
             return denied
-        # B-23 / DD-123 — authoring a component BODY is platform-staff-only
-        # until the iframe sandbox ships. Edit access to the kind is necessary
-        # but no longer sufficient.
-        denied_author = await ensure_platform_shape_author(ctx)
-        if denied_author:
-            return denied_author
 
         KindComponent = get_db_model("KindComponent")
         existing = await KindComponent.filter(
@@ -631,12 +624,6 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
-        # B-23 / DD-123 — authoring a component BODY is platform-staff-only
-        # until the iframe sandbox ships. Edit access to the kind is necessary
-        # but no longer sufficient.
-        denied_author = await ensure_platform_shape_author(ctx)
-        if denied_author:
-            return denied_author
         sections = list(updates.keys())
         prior_sections = {k: getattr(comp, k, None) for k in sections}
         after_sections = {k: updates.get(k) for k in sections}
@@ -724,12 +711,6 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         comp, _kd, failure = await _load_editable_component(component_id, ctx)
         if failure:
             return failure
-        # B-23 / DD-123 — authoring a component BODY is platform-staff-only
-        # until the iframe sandbox ships. Edit access to the kind is necessary
-        # but no longer sufficient.
-        denied_author = await ensure_platform_shape_author(ctx)
-        if denied_author:
-            return denied_author
         code = getattr(comp, section) or ""
         if not code:
             return err(

@@ -8,7 +8,6 @@ parallel, one task each.
 """
 
 import os
-import re
 import traceback
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -20,6 +19,7 @@ from pikobs.figures import save_figure
 from pikobs.obsdb import open_result
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 
@@ -35,6 +35,7 @@ TOTAL_VARNO = -1
 # the two runs, in the colours every module uses
 from pikobs.configobs.style import (CTL_COLOUR as REF_COLOR,
                                     EXP_COLOUR as EXP_COLOR)
+from pikobs.obsdb import safe_name as _safe
 
 _AGR_STYLE = {
     'nobs': {'ls': '-',  'marker_ref': 'o', 'marker_exp': 's'},
@@ -44,6 +45,19 @@ _AGR_STYLE = {
 
 _PALETTE = ['#4C72B0', '#DD8452', '#55A868', '#C44E52', '#8172B3',
             '#937860', '#DA8BC3', '#8C8C8C', '#CCB974', '#64B5CD']
+
+
+def _text_factor() -> float:
+    """Every text of an obscountdb card, and its header, grow by this: the
+    title (14 pt) at the shared size and 30 % more, as the other modules."""
+    try:
+        from pikobs.configobs.style import font_size
+        return font_size("title") / 14.0 * 1.3
+    except Exception:
+        return 1.0
+
+
+FS = _text_factor()
 
 
 def _norm_agr(agr):
@@ -57,10 +71,6 @@ def _norm_agr(agr):
         if a in AGR_METRICS and a not in out:
             out.append(a)
     return out
-
-
-def _safe(text) -> str:
-    return re.sub(r'[^A-Za-z0-9._+-]', '_', str(text))
 
 
 FIGURE_DIR = "figures"
@@ -286,13 +296,15 @@ def _station_figure(task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     # general card: observations and profiles per cycle
     # varno card: the departure rows of that varno
     n_rows = (2 if general else 0) + len(plotted) + sum(has_range.values())
-    row_h = 3.0
-    fig, axes = plt.subplots(n_rows, 1, figsize=(10, 1.4 + row_h * n_rows),
+    # the text at the size of the other modules: wider, and taller rows
+    row_h = 3.0 * (1 + 0.3 * (FS - 1))
+    fig, axes = plt.subplots(n_rows, 1, figsize=(10 * (1 + 0.45 * (FS - 1)), (1.4 + 1.2 * (FS - 1)) + row_h * n_rows),
                              sharex=True, squeeze=False)
     axes = axes[:, 0]
     stn_col = _stn_color(stn)
 
     summary = []
+    drawn = set()          # what is on the figure: the runs, and the kinds of line
     k = -1
     s_nobs = _AGR_STYLE['nobs']
     if general:
@@ -307,12 +319,12 @@ def _station_figure(task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 ax_n.plot(df['date'], df[col], marker=marker, markersize=5,
                           linestyle=s_nobs['ls'], linewidth=1.8,
                           label=f'{tag}: {name}', color=color)
+                drawn.add(tag)
                 summary.append(f'{label}({tag})='
                                f'{int(np.nansum(df[col].to_numpy())):,}')
-            ax_n.set_ylabel(label, fontsize=11, fontweight='bold')
+            ax_n.set_ylabel(label, fontsize=11 * FS, fontweight='bold')
             ax_n.grid(True, linestyle=':', alpha=0.6)
-            ax_n.legend(fontsize=9, loc='best', ncol=2)
-            ax_n.tick_params(labelsize=9)
+            ax_n.tick_params(labelsize=9 * FS)
 
     # One row per departure metric (mean and std), plus one row with the
     # extremes of each cycle when they are available
@@ -330,6 +342,7 @@ def _station_figure(task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             ax_m.plot(df['date'], df[acol], marker=marker, markersize=4.5,
                       linestyle=st['ls'], linewidth=1.6, zorder=3,
                       label=f'{tag} {metric} (mean)', color=color)
+            drawn.update((tag, f'mean:{metric}'))
             summary.append(f'{metric}({tag})='
                            f'{_fmt_departure(float(np.nanmean(df[acol])))}')
             if scol in df.columns and df[scol].notna().any():
@@ -337,15 +350,14 @@ def _station_figure(task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                           markerfacecolor='none', linestyle=':', linewidth=1.2,
                           zorder=3, label=f'{tag} {metric} (std)', color=color,
                           alpha=0.6)
+                drawn.add('std')
                 summary.append(f'std({tag})='
                                f'{_fmt_departure(float(np.nanmean(df[scol])))}')
-        ax_m.set_ylabel(f'{metric} {_units(task)}\n(solid=mean, dotted=std)',
-                        fontsize=10,
+        ax_m.set_ylabel(f'{metric} {_units(task)}', fontsize=10 * FS,
                         fontweight='bold')
         _scale_panel(ax_m, (df_ref, df_exp), (f'avg_{metric}', f'std_{metric}'))
         ax_m.grid(True, linestyle=':', alpha=0.6)
-        ax_m.legend(fontsize=8, loc='best', ncol=2)
-        ax_m.tick_params(labelsize=9)
+        ax_m.tick_params(labelsize=9 * FS)
 
         if not has_range[metric]:
             continue
@@ -365,29 +377,35 @@ def _station_figure(task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                       label=f'{tag} min')
             ax_r.fill_between(df['date'], df[lo], df[hi], color=color,
                               alpha=0.07, linewidth=0)
+            drawn.update((tag, 'range'))
             summary.append(f'{tag} {metric} in ['
                            f'{_fmt_departure(float(np.nanmin(df[lo])))}, '
                            f'{_fmt_departure(float(np.nanmax(df[hi])))}]')
         ax_r.set_ylabel(f'{metric} {_units(task)}\n(min / max per cycle)',
-                        fontsize=10,
+                        fontsize=10 * FS,
                         fontweight='bold')
         ax_r.grid(True, linestyle=':', alpha=0.6)
-        ax_r.legend(fontsize=8, loc='best', ncol=2)
-        ax_r.tick_params(labelsize=9)
+        ax_r.tick_params(labelsize=9 * FS)
 
     ax_bottom = axes[-1]
-    ax_bottom.set_xlabel('Date', fontsize=10)
+    ax_bottom.set_xlabel('Date', fontsize=10 * FS)
     locator = mdates.AutoDateLocator(minticks=5, maxticks=10)
     ax_bottom.xaxis.set_major_locator(locator)
     ax_bottom.xaxis.set_major_formatter(mdates.ConciseDateFormatter(locator))
+    ax_bottom.xaxis.get_offset_text().set_fontsize(9 * FS)   # the month under the dates
 
     head = f'Station: {stn}'
     if int(task.get('varno', TOTAL_VARNO)) != TOTAL_VARNO:
         head += f'   |   varno {varno_label(task["varno"])}'
-    fig.suptitle(head, fontsize=14, fontweight='bold',
+    fig.suptitle(head, fontsize=14 * FS, fontweight='bold',
                  color='white', x=0.5, y=1.02,
                  bbox=dict(boxstyle='round,pad=0.4', facecolor=stn_col,
                            edgecolor='none'))
+    # the header, in inches from the top whatever the number of rows: the
+    # numbers of the period, then one legend for the whole figure -- the
+    # runs in their colours, and what each kind of line is
+    fig_h = fig.get_figheight()
+    y_in = 0.18 * FS                       # under the station's title box
     if summary:
         # the numbers of the period on two balanced lines: one long line
         # would force the card to be much wider than the plots need
@@ -395,15 +413,44 @@ def _station_figure(task: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         text = "  |  ".join(summary[:half])
         if summary[half:]:
             text += "\n" + "  |  ".join(summary[half:])
-        fig.text(0.5, 0.975, text, ha='center', va='top', linespacing=1.5,
-                 fontsize=10.5, fontweight='bold', color='#222')
+        fig.text(0.5, 1 - y_in / fig_h, text, ha='center', va='top',
+                 linespacing=1.5, fontsize=10.5 * FS, fontweight='bold', color='#222')
+        y_in += (0.48 if summary[half:] else 0.28) * FS
+    grey = '#555555'
+    handles = []
+    if 'Ref' in drawn:
+        handles.append(Line2D([], [], color=REF_COLOR, lw=2.2, label=f'Ref: {name1}'))
+    if 'Exp' in drawn:
+        handles.append(Line2D([], [], color=EXP_COLOR, lw=2.2, label=f'Exp: {name2}'))
+    for metric in plotted:                 # the mean as each panel draws it
+        if f'mean:{metric}' in drawn:
+            st = _AGR_STYLE.get(metric, _AGR_STYLE['omp'])
+            handles.append(Line2D([], [], color=grey, lw=1.6, ls=st['ls'],
+                                  marker=st['marker_ref'], markersize=4.5,
+                                  label=f'{metric} mean'))
+    if 'std' in drawn:
+        handles.append(Line2D([], [], color=grey, lw=1.2, ls=':', marker='o',
+                              markersize=3.5, markerfacecolor='none', label='std'))
+    if 'range' in drawn:
+        handles.append(Line2D([], [], color=grey, lw=1.3, marker='^', markersize=3.5,
+                              label='max per cycle'))
+        handles.append(Line2D([], [], color=grey, lw=1.3, ls='--', marker='v',
+                              markersize=3.5, label='min per cycle'))
+    if handles:
+        fig.legend(handles=handles, loc='upper center', ncol=len(handles),
+                   bbox_to_anchor=(0.5, 1 - y_in / fig_h), frameon=False,
+                   fontsize=10 * FS, handlelength=2.6, columnspacing=1.6)
+        y_in += 0.30 * FS
 
     for ax_ in axes:
         for spine in ax_.spines.values():
             spine.set_edgecolor(stn_col)
             spine.set_linewidth(1.6)
 
-    fig.tight_layout(rect=[0, 0, 1, 0.93])
+    # tight_layout keeps its own padding above the panels: the room asked
+    # for is the header less that padding
+    fig.align_ylabels(axes)                # Nobs, Profiles... in one column
+    fig.tight_layout(rect=[0, 0, 1, 1 - max(y_in - 0.30 * FS, 0.1) / fig_h])
     # One PNG per station on disk: a report with several regions and
     # criteria would weigh hundreds of MB with the images embedded.
     rel = os.path.join(FIGURE_DIR,

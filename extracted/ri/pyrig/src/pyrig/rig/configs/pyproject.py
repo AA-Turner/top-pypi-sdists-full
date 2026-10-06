@@ -25,6 +25,7 @@ from pyrig.rig.tools.base.tool import Tool
 from pyrig.rig.tools.dependencies.checker import DependencyChecker
 from pyrig.rig.tools.docs.builder import DocsBuilder
 from pyrig.rig.tools.linting.python import PythonLinter
+from pyrig.rig.tools.linting.yaml import YAMLLinter
 from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.pyrigger import Pyrigger
 from pyrig.rig.tools.testing.project import ProjectTester
@@ -174,7 +175,9 @@ class PyprojectConfigFile(TOMLConfigFile):
             **self.tool_section(),
             DependencyChecker.I.config_name(): {
                 "root": PackageManager.I.source_root().as_posix(),
-                "per_rule_ignores": {"DEP002": [Pyrigger.I.runtime_dependency()]},
+                "per_rule_ignores": {
+                    "DEP002": sorted(Pyrigger.I.runtime_dependencies()),
+                },
             },
             ProjectTester.I.config_name(): {
                 "testpaths": [ProjectTester.I.package_root().as_posix()],
@@ -193,6 +196,12 @@ class PyprojectConfigFile(TOMLConfigFile):
                 },
                 "format": {
                     "docstring-code-format": True,
+                },
+            },
+            YAMLLinter.I.config_name(): {
+                "rules": {
+                    "ALL": "enable",
+                    "key-ordering": "disable",
                 },
             },
         }

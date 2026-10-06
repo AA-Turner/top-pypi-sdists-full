@@ -346,7 +346,7 @@ def create_app() -> FastAPI:
         dependencies=[Depends(require_authenticated)],
     )
     async def dataforseo_operations() -> DataForSeoOperationsResponse:
-        return dataforseo_operations_catalog()
+        return await dataforseo_operations_catalog()
 
     @app.post(
         "/sites/{site_id}/backlinks/refresh",

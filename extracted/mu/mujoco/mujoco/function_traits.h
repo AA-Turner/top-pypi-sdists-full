@@ -454,7 +454,7 @@ struct mj_copyModel {
 struct mj_saveModel {
   static constexpr char name[] = "mj_saveModel";
   static constexpr char doc[] = "Save model to binary MJB file or memory buffer; buffer has precedence when given.";
-  using type = void (const mjModel *, const char *, void *, int);
+  using type = void (const mjModel *, const char *, void *, mjtSize);
   static constexpr auto param_names = std::make_tuple("m", "filename", "buffer", "buffer_sz");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {
@@ -476,7 +476,7 @@ struct mj_loadModel {
 struct mj_loadModelBuffer {
   static constexpr char name[] = "mj_loadModelBuffer";
   static constexpr char doc[] = "Load model from memory buffer.";
-  using type = mjModel * (const void *, int);
+  using type = mjModel * (const void *, mjtSize);
   static constexpr auto param_names = std::make_tuple("buffer", "buffer_sz");
 
   MUJOCO_ALWAYS_INLINE static type& GetFunc() {

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pglast
 import pglast.parser
@@ -29,24 +29,34 @@ from confiture.core.linting import seed_secrets
 from confiture.core.linting.inventory import (
     Inventory,
     SchemaObject,
-    attribute_files,
     build_inventory,
     distinct,
+    files_alone,
     label_for,
 )
 from confiture.core.linting.quoted_names import needs_quotes, quoted_names
 from confiture.core.linting.rule_registry import LINT_RULES, UNPARSEABLE_RULE_ID
-from confiture.core.linting.seed_secrets import SECRET_COLUMN_PATTERNS
+from confiture.core.linting.seed_secrets import secret_kinds
+from confiture.core.linting.soft_delete import null_key_findings, reserved_key_findings
 from confiture.core.linting.tenant import rules as tenant_rules
 from confiture.core.linting.tview_rules import tview_findings
 from confiture.core.schema_identity import DEFAULT_SCHEMA
-from confiture.core.sql_lexer import blank_copy_blocks, blank_preserving_lines
+from confiture.core.sql_lexer import (
+    ParsedFile,
+    Rejected,
+    blank_copy_blocks,
+    parse_file,
+)
 from confiture.exceptions import ConfiturError
 
-if TYPE_CHECKING:
-    from confiture.core.linting.duplicates import Rejected
-
 logger = logging.getLogger(__name__)
+
+#: The ``softdel`` rules: the name a finding gives each, and its judge. The
+#: severity is the registry's.
+_SOFT_DELETE_RULES = {
+    "softdel_001": ("Soft-Delete Reserved Key", reserved_key_findings),
+    "softdel_002": ("Soft-Delete Nullable Key", null_key_findings),
+}
 
 #: How long ``build_003``'s live tier waits for a connection. A lint runs in a
 #: pre-commit hook; a server that is not there must cost a moment, not a minute.
@@ -186,6 +196,8 @@ class LintConfig:
         check_tenant_views: bool = False,
         check_tenant_foreign_keys: bool = False,
         check_tenant_unique_keys: bool = False,
+        check_softdel_reserved_keys: bool = False,
+        check_softdel_null_keys: bool = False,
         check_tview_hot: bool = False,
         check_tview_replicas: bool = False,
         has_replicas: bool = False,
@@ -230,6 +242,12 @@ class LintConfig:
                 (``tenant_004``).
             check_tenant_unique_keys: A tenant table's primary key, UNIQUEs and
                 unique indexes lead with the discriminator (``tenant_005``).
+            check_softdel_reserved_keys: A unique key on a table carrying the
+                tombstone column excludes deleted rows (``softdel_001``). Both
+                switches of the ``softdel`` family need a ``soft_delete:`` block
+                in ``db/project.yaml``.
+            check_softdel_null_keys: Such a key over a nullable column says
+                ``NULLS NOT DISTINCT`` (``softdel_002``).
             check_tview_hot: No index over ``data`` or ``updated_at`` on a pg_tviews
                 TVIEW (``tview_001``).
             check_tview_replicas: A TVIEW is made LOGGED where replicas are
@@ -281,6 +299,8 @@ class LintConfig:
         self.check_tenant_views = check_tenant_views
         self.check_tenant_foreign_keys = check_tenant_foreign_keys
         self.check_tenant_unique_keys = check_tenant_unique_keys
+        self.check_softdel_reserved_keys = check_softdel_reserved_keys
+        self.check_softdel_null_keys = check_softdel_null_keys
         self.check_tview_hot = check_tview_hot
         self.check_tview_replicas = check_tview_replicas
         self.has_replicas = has_replicas
@@ -342,23 +362,17 @@ class SchemaLinter:
         # Load environment configuration
         self.environment = Environment.load(env, project_dir=project_dir)
 
-        # Schema cache. Two strings, deliberately, and they are not
-        # interchangeable (#274):
-        #   `_schema_sql` is the build as `SchemaBuilder` produced it, COPY
-        #     rows and all. It is what gets materialised into a database
-        #     (`bodies.diagnose`).
-        #   `_parse_sql` is what pglast is asked to read: the same files with
-        #     their COPY blocks blanked, assembled by `_assemble_parse_text`.
-        # Handing the first to pglast reads nothing; handing the second to a
-        # database drops the seed rows.
+        # `_schema_sql` is the build as `SchemaBuilder` produced it, COPY rows and
+        # all: what gets materialised into a database (`bodies.diagnose`). What
+        # the rules read is `_files`, each schema file parsed once on its own,
+        # COPY blocks blanked (#274, #561).
         self._schema_sql: str | None = None
-        self._parse_sql: str = ""
+        self._files: list[ParsedFile] = []
         self._inventory: Inventory = Inventory()
         self._tables: dict[str, dict[str, Any]] | None = None
         self._schema_files: list[Path] = []
         self._file_objects: list[SchemaObject] = []
         self._file_schemas: list[SchemaObject] = []
-        self._source_cache: list[tuple[str | None, str]] | None = None
         self._written_cache: list[tuple[str | None, str]] | None = None
 
     def lint(self, schema: str | None = None) -> LintReport:
@@ -375,7 +389,6 @@ class SchemaLinter:
         if not self.config.enabled:
             return report
 
-        self._source_cache = None
         self._written_cache = None
         # Use provided schema or load from files
         if schema is not None:
@@ -391,18 +404,12 @@ class SchemaLinter:
         # A schema PostgreSQL's own parser rejects can never lint clean: the
         # rules below read what they can, and this notice says the rest was
         # not read.
-        self._inventory = Inventory()
-        self._file_objects, self._file_schemas, rejected = self._inventory_per_file()
-        self._parse_sql = self._assemble_parse_text({r.label for r in rejected})
+        self._files, rejected = self._parsed_files()
         self._report_rejected_files(report, rejected)
-        try:
-            self._inventory = build_inventory(self._parse_sql)
-            attribute_files(self._inventory, self._file_objects)
-        except pglast.parser.ParseError as exc:
-            # A file-backed run has already reported each rejected file by name
-            # above; reaching here means the *concatenation* failed, or there
-            # were no files at all — `lint(schema=...)`, which has none to name.
-            self._add_unparseable(report, None, self._parse_sql, exc)
+        self._inventory = build_inventory(self._files)
+        self._file_objects, self._file_schemas = (
+            files_alone(self._files) if self._schema_files else ([], [])
+        )
 
         report.tables_checked = len(self._inventory.tables)
         report.columns_checked = sum(len(t.columns) for t in self._inventory.tables)
@@ -472,6 +479,16 @@ class SchemaLinter:
                 partial(self._check_tenancy, "tenant_005"),
                 "tenant",
             ),
+            (
+                self.config.check_softdel_reserved_keys,
+                partial(self._check_soft_delete, "softdel_001"),
+                "softdel",
+            ),
+            (
+                self.config.check_softdel_null_keys,
+                partial(self._check_soft_delete, "softdel_002"),
+                "softdel",
+            ),
             (self.config.check_tview_hot, partial(self._check_tview, "tview_001"), "tview"),
             (self.config.check_tview_replicas, partial(self._check_tview, "tview_002"), "tview"),
         ):
@@ -503,24 +520,23 @@ class SchemaLinter:
 
         return report
 
-    def _inventory_per_file(
-        self,
-    ) -> tuple[list[SchemaObject], list[SchemaObject], list[Rejected]]:
-        """``(objects, CREATE SCHEMA declarations, rejected files)``, each knowing its file.
+    def _parsed_files(self) -> tuple[list[ParsedFile], list[Rejected]]:
+        """Each schema file parsed once, and the files PostgreSQL's parser rejected.
 
-        The first two are empty for a whole-string lint (``lint(schema=...)``),
-        which has no files and therefore no locations to report.
-
-        The third is kept because the per-file pass knows exactly which file
-        pglast refused: discarding it would leave the whole-build parse to fail
-        on that file and take the other files' objects with it (#274).
+        A rejected file costs that file alone: it contributes no statement, and is
+        reported by name (#274). A whole-string lint (``lint(schema=...)``) is one
+        file with no name.
         """
-        # Reason: import cycle (duplicates imports this module's inventory at module level)
-        from confiture.core.linting.duplicates import inventory_texts
-
-        if not self._schema_files:
-            return [], [], []
-        return inventory_texts(self._sources())
+        files: list[ParsedFile] = []
+        rejected: list[Rejected] = []
+        base = 0
+        for label, text in self._written_sources():
+            try:
+                files.append(parse_file(text, label, base))
+            except pglast.parser.ParseError as exc:
+                rejected.append(Rejected(label=label, text=blank_copy_blocks(text), error=exc))
+            base += len(text) + 1
+        return files, rejected
 
     def _load_schema(self) -> None:
         """Load schema SQL from files."""
@@ -573,7 +589,7 @@ class SchemaLinter:
                         message=(
                             f"Column '{column.name}' should be lowercase with underscores (snake_case)"
                         ),
-                        file_path=table.file,
+                        file_path=column.file or table.file,
                         line_number=column.line,
                     )
                 )
@@ -632,7 +648,7 @@ class SchemaLinter:
 
     def _check_tview(self, code: str, report: LintReport) -> None:
         """One rule of the ``tview`` family over the TVIEWs the tree declares (#504)."""
-        for found, name, severity, obj, message, fix, line in tview_findings(
+        for found, name, severity, obj, message, fix, file, line in tview_findings(
             self._inventory, has_replicas=self.config.has_replicas
         ):
             if found == code:
@@ -644,6 +660,7 @@ class SchemaLinter:
                         object_type="tview",
                         object_name=obj,
                         message=message,
+                        file_path=file,
                         line_number=line,
                         suggested_fix=fix,
                     )
@@ -724,7 +741,7 @@ class SchemaLinter:
         # Reason: import cycle (unresolved imports LintViolation from this module at module level)
         from confiture.core.linting.unresolved import forward_references
 
-        scans = [(label, read_references(text)) for label, text in self._sources()]
+        scans = [(parsed.label, read_references(parsed)) for parsed in self._files]
         if self.config.check_forward_references:
             for violation in forward_references(
                 scans,
@@ -824,8 +841,8 @@ class SchemaLinter:
             self._skip_body_rules(report, bodies.BUILD_FAILED + _first_line(exc))
             return
         wanted = set(self._selected_body_rules())
-        where = bodies.locations(self._sources())
-        temp = references.temp_relations(self._schema_sql or "")
+        where = bodies.locations(self._files)
+        temp = references.temp_relations(self._files)
         for violation in bodies.findings(diagnoses, where, temp=temp):
             if violation.rule_id in wanted:
                 report.add_violation(violation)
@@ -902,40 +919,16 @@ class SchemaLinter:
         ) as connection:
             return probe(connection, candidates, search_path)
 
-    def _sources(self) -> list[tuple[str | None, str]]:
-        """``(project-relative label, text)`` per schema file, or the one string linted.
-
-        Every rule that reads the files *as files* — rather than the build they
-        concatenate into — needs the same pair, and a whole-string lint
-        (``lint(schema=...)``) has no file to name, so its label is ``None``.
-
-        The text is **blanked**: a ``COPY … FROM stdin`` block is psql client
-        protocol and pglast rejects the text it sits in, so one unblanked seed
-        file would empty the inventory (#274). Blanking keeps every offset and every
-        line number, so a finding still points at the line its author wrote —
-        which deleting the block would not (:func:`sql_lexer.blank_copy_blocks`).
-
-        Read once per lint and held: six rules want it, and a schema tree is
-        thousands of files. ``lint()`` clears it, so a reused linter still sees
-        what is on disk now.
-        """
-        if self._source_cache is None:
-            self._source_cache = [
-                (label, blank_copy_blocks(text)) for label, text in self._written_sources()
-            ]
-        return self._source_cache
-
     @staticmethod
     def _report_rejected_files(report: LintReport, rejected: list[Rejected]) -> None:
         """One ``UNPARSEABLE`` finding per file pglast refused, naming that file.
 
-        The whole-build parse fails as a unit, so all it could name is a line
-        in a generated artefact; the per-file pass names the file (#274).
+        Each file is parsed on its own, so the finding names the file and the line
+        in it (#274); a whole-string lint names only the line.
         """
         for rejection in rejected:
-            SchemaLinter._add_unparseable(
-                report, Path(rejection.label), rejection.text, rejection.error
-            )
+            where = None if rejection.label is None else Path(rejection.label)
+            SchemaLinter._add_unparseable(report, where, rejection.text, rejection.error)
 
     @staticmethod
     def _report_blinded_rules(
@@ -943,9 +936,8 @@ class SchemaLinter:
     ) -> None:
         """Say which rules read less of the schema than the build contains.
 
-        A rejected file is missing from *both* object lists — the whole-build
-        inventory never saw it, and `inventory_texts` skips it, so the per-file
-        list has none of its objects either. So every rule whose subject is DDL
+        A rejected file contributes no statement, so none of its objects is in
+        the tree's inventory or in any file's own. So every rule whose subject is DDL
         examines a short schema, `build_001` and `qual_001` included: exempting
         them would leave a duplicate defined in the broken file unreported with
         nothing saying so.
@@ -954,9 +946,11 @@ class SchemaLinter:
         record the `UNPARSEABLE` finding as known, and the blindness still says
         so on every run.
         """
+        # A whole-string lint has no file to name: its notice says it all.
+        rejected = [r for r in rejected if r.label is not None]
         if not rejected:
             return
-        files = ", ".join(sorted(r.label for r in rejected))
+        files = ", ".join(sorted(r.label for r in rejected if r.label is not None))
         one = len(rejected) == 1
         were = "file was" if one else "files were"
         define = "it defines or references" if one else "they define or reference"
@@ -982,39 +976,6 @@ class SchemaLinter:
 
         report.add_violation(unparseable_notice(path, text, exc))
 
-    def _assemble_parse_text(self, rejected: set[str]) -> str:
-        """The text pglast is asked to read — the blanked files, concatenated.
-
-        A file in ``rejected`` contributes its own length in spaces and nothing
-        else. That is what makes a broken file cost one file: the remaining
-        files still parse as *one* text, so a ``COMMENT ON`` in one of them
-        still resolves against a ``CREATE`` in another — which is the only
-        reason a whole-build inventory exists beside the per-file one.
-
-        Deliberately **not** ``self._schema_sql``. The three things
-        ``SchemaBuilder.build`` adds — a header, a per-file separator, and the
-        ``build.two_pass`` FK rewrite — reach no rule: the inventory reads
-        ``CREATE`` statements, their columns and their primary keys, and
-        two-pass moves only foreign keys. What assembling it here buys is worth
-        more than byte-equality with an artefact nobody edits:
-
-        * the whole-build inventory and the per-file inventory then walk the
-          same statements in the same order *by construction*, which is what
-          :func:`attribute_files` needs and cannot check — it zips positionally
-          and stops at the first disagreement;
-        * every file's span in this text is known, because this laid it out.
-
-        ``_schema_sql`` keeps the real build, COPY rows and all, for the one
-        consumer that wants it: ``bodies.diagnose()`` materialises it into a
-        throwaway database.
-        """
-        parts: list[str] = []
-        for label, text in self._sources():
-            parts.append(blank_preserving_lines(text) if label in rejected else text)
-            if text and not text.endswith("\n"):
-                parts.append("\n")
-        return "".join(parts)
-
     def _directive_lines(self, name: str) -> frozenset[tuple[str | None, int]]:
         """``(file, statement line)`` of every statement carrying ``-- confiture:<name>``.
 
@@ -1025,9 +986,9 @@ class SchemaLinter:
         that, not a walk of its own.
         """
         return frozenset(
-            (label, directive.statement_line)
-            for label, text in self._sources()
-            for directive in sql_lexer.directives(text)
+            (parsed.label, directive.statement_line)
+            for parsed in self._files
+            for directive in sql_lexer.directives(parsed.text)
             if directive.name == name and directive.statement_line is not None
         )
 
@@ -1035,24 +996,24 @@ class SchemaLinter:
         """Columns whose names suggest sensitive data, read from the inventory."""
         for table in self._inventory.tables:
             for column in table.columns:
-                for pattern, description in SECRET_COLUMN_PATTERNS:
-                    if not re.search(pattern, column.name, re.IGNORECASE):
-                        continue
-                    report.add_violation(
-                        LintViolation(
-                            rule_id="sec_001",
-                            rule_name="Sensitive Data Column",
-                            severity=RuleSeverity.WARNING,
-                            object_type="column",
-                            object_name=column.name,
-                            message=(
-                                f"Column '{column.name}' appears to store {description} - "
-                                "ensure proper encryption and access controls"
-                            ),
-                            file_path=table.file,
-                            line_number=column.line,
-                        )
+                kinds = secret_kinds(column.name)
+                if not kinds:
+                    continue
+                report.add_violation(
+                    LintViolation(
+                        rule_id="sec_001",
+                        rule_name="Sensitive Data Column",
+                        severity=RuleSeverity.WARNING,
+                        object_type="column",
+                        object_name=column.name,
+                        message=(
+                            f"Column '{column.name}' appears to store {' and '.join(kinds)} - "
+                            "ensure proper encryption and access controls"
+                        ),
+                        file_path=column.file or table.file,
+                        line_number=column.line,
                     )
+                )
 
     def _check_seed_secrets(self, report: LintReport) -> None:
         """``sec_003``: a credential written as a literal — a seed row, a role password.
@@ -1084,8 +1045,11 @@ class SchemaLinter:
                             "the value is in git history and in every database it seeds"
                         ),
                         suggested_fix=(
-                            "Store a hash, or load the value from the environment when "
-                            "the seed is applied"
+                            "Seed a fictitious value: personal data in a seed is shared "
+                            "with everyone who can read the repository"
+                            if finding.personal
+                            else "Store a hash, or load the value from the environment "
+                            "when the seed is applied"
                         ),
                         file_path=label,
                         line_number=finding.line,
@@ -1095,8 +1059,9 @@ class SchemaLinter:
     def _written_sources(self) -> list[tuple[str | None, str]]:
         """``(label, text)`` per file as written — ``COPY`` rows kept — read once per lint.
 
-        :meth:`_sources` is these, blanked; a rule that reads the data itself
-        (``sec_003``) takes them as they are. One trip to disk serves both.
+        Each is parsed once into ``_files`` (``COPY`` data blanked); a rule that
+        reads the data itself (``sec_003``) takes them as they are. One trip to
+        disk serves both.
         """
         if self._written_cache is None:
             self._written_cache = (
@@ -1128,7 +1093,7 @@ class SchemaLinter:
             )
             return
         rule = tenant_rules.RULES[code]
-        tree = tenant_rules.tree(self._inventory, tenancy, self._sources())
+        tree = tenant_rules.tree(self._inventory, tenancy, self._files)
         unjudged: list[str] = []
         for finding in rule.findings(tree):
             if not finding.judged:
@@ -1154,6 +1119,40 @@ class SchemaLinter:
                     code=code,
                     state="degraded",
                     reason=f"{len(unjudged)} not judged: {'; '.join(unjudged)}",
+                )
+            )
+
+    def _check_soft_delete(self, code: str, report: LintReport) -> None:
+        """Run one rule of the ``softdel`` family over the tree's unique keys.
+
+        Without a ``soft_delete:`` block no table is known to soft-delete, and
+        the rule says so rather than passing.
+        """
+        config = load_project_config(self.project_dir).soft_delete
+        if config is None:
+            report.skipped.append(
+                RuleStatus(
+                    code=code,
+                    state="skipped",
+                    reason="no soft_delete: block in db/project.yaml, "
+                    "so no table is known to soft-delete",
+                )
+            )
+            return
+        rule, judge = _SOFT_DELETE_RULES[code]
+        severity = RuleSeverity(next(r.severity for r in LINT_RULES if r.code == code))
+        for finding in judge(self._inventory, self._files, config):
+            report.add_violation(
+                LintViolation(
+                    rule_id=code,
+                    rule_name=rule,
+                    severity=severity,
+                    object_type="table",
+                    object_name=finding.table,
+                    message=finding.message,
+                    suggested_fix=finding.fix,
+                    file_path=finding.file,
+                    line_number=finding.line,
                 )
             )
 

@@ -1,11 +1,19 @@
 //! Compile-owned schema catalog and native, batched binding requests.
 
 use crate::bindings::main::compiler_error::compiler_error;
+use crate::bindings::main::normalization_results::normalization_results;
 use crate::bindings::types::CompilerDetach;
+use crate::semantic_validation::main::normalize_batch;
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::semantic_validation::models::{CatalogInput, Columns, FunctionProbes, ProjectCatalog};
-use crate::semantic_validation::types::{BindingRequest, DiagnosticRow, Relations};
+use crate::semantic_validation::models::{
+    CatalogInput, Columns, CompactAnalysisJob, FunctionProbes, ProjectCatalog,
+};
+use crate::semantic_validation::types::{
+    BindingRequest, DiagnosticRow, NormalizationRequest, Relations,
+};
 use crate::semantic_validation::{
     _helpers::{diagnostics, identifiers},
     main as validation,
@@ -16,10 +24,13 @@ use polyglot_sql::{
     ValidationSchema,
 };
 use pyo3::exceptions::PyValueError;
-use pyo3::prelude::{Bound, FromPyObject, PyAny, PyAnyMethods, PyResult, Python};
+use pyo3::prelude::{Bound, FromPyObject, Py, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::pymethods;
 use pyo3::types::{PyBytes, PyDict, PyDictMethods};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+
+const ANALYSIS_WORKERS: usize = 4;
+const ANALYSIS_WORKER_STACK_BYTES: usize = 16 * 1024 * 1024;
 
 impl<'py> FromPyObject<'py> for Columns {
     fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<Self> {
@@ -129,7 +140,9 @@ impl ProjectCatalog {
             tables: HashMap::new(),
             overrides: Vec::new(),
             analysis_tables: HashMap::new(),
-            function_probes: FunctionProbes::default(),
+            function_probes: Arc::new(FunctionProbes::default()),
+            analysis_pool: Arc::default(),
+            running_analyses: Arc::default(),
         };
         catalog.update_relations(relations);
         Ok(catalog)
@@ -149,7 +162,9 @@ impl ProjectCatalog {
             tables: self.tables.clone(),
             overrides: Vec::new(),
             analysis_tables: self.analysis_tables.clone(),
-            function_probes: FunctionProbes::default(),
+            function_probes: Arc::new(FunctionProbes::default()),
+            analysis_pool: Arc::clone(&self.analysis_pool),
+            running_analyses: Arc::clone(&self.running_analyses),
         };
         catalog.update_relations(relations);
         catalog
@@ -202,16 +217,21 @@ impl ProjectCatalog {
         serde_json::to_string(&payloads).map_err(|error| PyValueError::new_err(error.to_string()))
     }
 
-    fn analyze_compact<'py>(
-        &self,
-        py: Python<'py>,
-        payload: &[u8],
-    ) -> PyResult<Bound<'py, PyBytes>> {
+    /// Resolve a compact batch now; the job runs later while the catalog keeps changing.
+    fn prepare_compact(&self, py: Python<'_>, payload: &[u8]) -> PyResult<CompactAnalysisJob> {
         let text = std::str::from_utf8(payload)
             .map_err(|error| PyValueError::new_err(error.to_string()))?;
-        let result = py.compiler_detach(|| crate::query_analysis::main::analyze_project_catalog::analyze_project_compact_with_catalog(text, self))
+        let analysis = py
+            .compiler_detach(|| {
+                crate::query_analysis::main::prepare_project_catalog::prepare_project_compact_with_catalog(
+                    text, self,
+                )
+            })
             .map_err(compiler_error)?;
-        Ok(PyBytes::new(py, result.as_bytes()))
+        Ok(CompactAnalysisJob {
+            analysis: Mutex::new(Some(analysis)),
+            catalog: self.analysis_view(),
+        })
     }
 
     fn binding_results(
@@ -220,11 +240,8 @@ impl ProjectCatalog {
         requests: Vec<BindingRequest>,
     ) -> PyResult<Vec<Vec<DiagnosticRow>>> {
         py.compiler_detach(|| {
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(4.min(requests.len().max(1)))
-                .stack_size(16 * 1024 * 1024)
-                .build()
-                .map_err(|error| error.to_string())?;
+            let pool = self.analysis_pool()?;
+            let _running = RunningAnalysis::start(&self.running_analyses);
             pool.install(|| {
                 requests
                     .into_par_iter()
@@ -244,9 +261,102 @@ impl ProjectCatalog {
         })
         .map_err(compiler_error)
     }
+
+    /// Normalize a preparation batch on the idle analysis pool, else in turn, in one detached call.
+    fn normalize_analysis_sqls(
+        &self,
+        py: Python<'_>,
+        dialect: &str,
+        requests: Vec<NormalizationRequest>,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let results = py
+            .compiler_detach(|| {
+                let pool = (self.running_analyses.load(Ordering::Acquire) == 0)
+                    .then(|| self.analysis_pool())
+                    .transpose()?;
+                Ok(normalize_batch::normalize_analysis_sqls(
+                    dialect,
+                    requests,
+                    pool.as_deref(),
+                ))
+            })
+            .map_err(compiler_error)?;
+        normalization_results(py, results)
+    }
+}
+
+/// Count one analysis batch as running on the catalog's pool until dropped.
+struct RunningAnalysis<'a>(&'a AtomicUsize);
+
+impl<'a> RunningAnalysis<'a> {
+    fn start(running: &'a AtomicUsize) -> Self {
+        running.fetch_add(1, Ordering::AcqRel);
+        Self(running)
+    }
+}
+
+impl Drop for RunningAnalysis<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+#[pymethods]
+impl CompactAnalysisJob {
+    fn run<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let analysis = self
+            .analysis
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+            .ok_or_else(|| PyValueError::new_err("compact analysis job already ran"))?;
+        let result = py
+            .compiler_detach(|| {
+                let _running = RunningAnalysis::start(&self.catalog.running_analyses);
+                analysis(&self.catalog)
+            })
+            .map_err(compiler_error)?;
+        Ok(PyBytes::new(py, result.as_bytes()))
+    }
 }
 
 impl ProjectCatalog {
+    /// Return the options-only view a resolved analysis batch validates with.
+    pub(crate) fn analysis_view(&self) -> Self {
+        Self {
+            dialect: self.dialect,
+            options: self.options.clone(),
+            quoted_ignore_case: self.quoted_ignore_case,
+            tables: HashMap::new(),
+            overrides: Vec::new(),
+            analysis_tables: HashMap::new(),
+            function_probes: Arc::clone(&self.function_probes),
+            analysis_pool: Arc::clone(&self.analysis_pool),
+            running_analyses: Arc::clone(&self.running_analyses),
+        }
+    }
+
+    /// Return this compile's analysis pool, building it on first use.
+    pub(crate) fn analysis_pool(&self) -> Result<Arc<rayon::ThreadPool>, String> {
+        let mut pool = self
+            .analysis_pool
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if let Some(pool) = pool.as_ref() {
+            return Ok(Arc::clone(pool));
+        }
+        let built = Arc::new(
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(ANALYSIS_WORKERS)
+                .stack_size(ANALYSIS_WORKER_STACK_BYTES)
+                .thread_name(|index| format!("sqlbuild-analysis-{index}"))
+                .build()
+                .map_err(|error| error.to_string())?,
+        );
+        *pool = Some(Arc::clone(&built));
+        Ok(built)
+    }
+
     pub(crate) fn with_options(
         dialect: DialectType,
         options: SchemaValidationOptions,
@@ -259,7 +369,9 @@ impl ProjectCatalog {
             tables: HashMap::new(),
             overrides: Vec::new(),
             analysis_tables: HashMap::new(),
-            function_probes: FunctionProbes::default(),
+            function_probes: Arc::new(FunctionProbes::default()),
+            analysis_pool: Arc::default(),
+            running_analyses: Arc::default(),
         }
     }
     pub(crate) fn analysis_schema(

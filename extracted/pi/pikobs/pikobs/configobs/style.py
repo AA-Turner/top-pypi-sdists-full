@@ -67,6 +67,32 @@ DPI = 150
 SIGMA = "sigma"             # standard deviation of a departure
 BIAS = "bias"               # its mean
 
+#: how much bigger the text of a figure is than it used to be: big enough to
+#: read on a slide, or on a shared screen, a figure shrunk to a third
+FONT_SCALE = 3.0
+#: the size of each kind of text, in points before FONT_SCALE: every module
+#: takes its sizes from here (font_size), never writes a number of its own
+FONT = {
+    "title": 12.0,       # the title of a figure
+    "names": 10.0,       # the names of the runs, in their colours
+    "note": 8.5,         # what the colours mean, the notes
+    "table_title": 9.5,  # the title of a table or of a panel
+    "column": 7.5,       # the headers of the columns, the tick labels
+    "row": 7.5,          # the labels of the rows
+    "block": 8.0,        # the label of a block of rows
+    "cell": 7.5,         # the numbers in the cells of a table
+    "tick": 9.0,         # the numbers along an axis
+    "axis_label": 9.0,   # the name of an axis, under or beside it
+    "badge": 15.0,       # MATCH ON / MATCH OFF
+    "badge_sub": 7.5,    # the line under it: what is drawn, which test
+}
+
+
+def font_size(kind: str) -> float:
+    """The size, in points, of one kind of text of a figure."""
+    return FONT[kind] * FONT_SCALE
+
+
 STYLE = {"font.family": "DejaVu Sans", "axes.titlesize": 11,
          "axes.labelsize": 10, "legend.fontsize": 8.5,
          "figure.dpi": DPI, "savefig.dpi": DPI}

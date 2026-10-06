@@ -25,11 +25,12 @@ from typing_extensions import Self
 
 class UpdateTag(BaseModel):
     """
-    UpdateTag
+    Advance a tag to point at a new snapshot and/or rename it.  At least one of `tag` or `snapshot_id` must be provided. `commit_message` is recorded on the revision created for a new snapshot pointer, so it may only be supplied together with `snapshot_id`. A whitespace-only `tag` normalizes to unset, so it is treated as \"no rename requested\" rather than as a blank name.
     """ # noqa: E501
-    snapshot_id: StrictStr
+    snapshot_id: Optional[StrictStr] = None
     commit_message: Optional[Annotated[str, Field(strict=True, max_length=2000)]] = None
-    __properties: ClassVar[List[str]] = ["snapshot_id", "commit_message"]
+    tag: Optional[Annotated[str, Field(strict=True, max_length=255)]] = None
+    __properties: ClassVar[List[str]] = ["snapshot_id", "commit_message", "tag"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -70,10 +71,20 @@ class UpdateTag(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if snapshot_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.snapshot_id is None and "snapshot_id" in self.model_fields_set:
+            _dict['snapshot_id'] = None
+
         # set to None if commit_message (nullable) is None
         # and model_fields_set contains the field
         if self.commit_message is None and "commit_message" in self.model_fields_set:
             _dict['commit_message'] = None
+
+        # set to None if tag (nullable) is None
+        # and model_fields_set contains the field
+        if self.tag is None and "tag" in self.model_fields_set:
+            _dict['tag'] = None
 
         return _dict
 
@@ -88,6 +99,7 @@ class UpdateTag(BaseModel):
 
         _obj = cls.model_validate({
             "snapshot_id": obj.get("snapshot_id"),
-            "commit_message": obj.get("commit_message")
+            "commit_message": obj.get("commit_message"),
+            "tag": obj.get("tag")
         })
         return _obj

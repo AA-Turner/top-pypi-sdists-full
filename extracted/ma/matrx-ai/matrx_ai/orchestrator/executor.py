@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import rich
 from matrx_connect.chat_timing import chat_timing_mark
-from matrx_connect.context.app_context import set_app_context
+from matrx_connect.context.app_context import clear_app_context, set_app_context
 from matrx_connect.context.error_buffer import buffer_error_events
 from matrx_connect.context.events import InfoPayload, ProviderRetryPayload, WarningPayload
 from matrx_connect.request_controls import RequestControlRegistry
@@ -70,9 +70,9 @@ from matrx_ai.orchestrator.tracking import TimingUsage, ToolCallUsage
 from matrx_ai.providers.errors import RetryableError, classify_provider_error
 from matrx_ai.providers.failure_report import PROVIDER_OUT_OF_CREDIT_KIND  # noqa: F401 — re-export
 from matrx_ai.providers.snapshot_redactors import (
-    DEFAULT_SNAPSHOT_REDACTORS,
     apply_redactors,
     apply_response_redactors,
+    redactors_with_stored_blobs,
 )
 from matrx_ai.tools.handle_tool_calls import handle_tool_calls_v2
 from matrx_ai.tools.turn_ledger import (
@@ -292,11 +292,18 @@ async def _execute_stoppable(call: Any, request_id: str | None) -> Any:
                     reason = f"Request stopped by execution control: {spine}"
             if reason:
                 task.cancel()
+                stopped = ProviderCallStopped(reason)
                 try:
                     await task
-                except BaseException:  # noqa: BLE001 — the cancelled call's own unwinding
-                    pass
-                raise ProviderCallStopped(reason)
+                except BaseException as call_exc:  # noqa: BLE001 — the cancelled call's own unwinding
+                    # The provider bills from the first token: whatever usage the
+                    # adapter stamped on the cancelled call rides the stop out,
+                    # so the stopped run's cost record (and the run's spine
+                    # settle) carries it instead of $0 — budget stops included.
+                    from matrx_ai.providers.errors import attach_billed_usage, get_billed_usage
+
+                    attach_billed_usage(stopped, get_billed_usage(call_exc))
+                raise stopped
     except asyncio.CancelledError:
         task.cancel()
         raise
@@ -519,6 +526,62 @@ async def execute_ai_request(
         )
     if holding is not None:
         return await holding.answer(config, metadata)
+
+    # THE RUN RECORD for an AGENT-held code call (AF-R): the call is its own
+    # run — its own conversation, linked to the one it ran inside — never a
+    # turn written into the surrounding chat or the parent run's record. A
+    # MACHINE context minted non-persisting (a worker) still keeps it; a
+    # person's own do-not-save request is honoured. The ids go back to the
+    # HeldCall so its completion records the run under the mandate key.
+    from matrx_ai.mandates import held_call_id_of, note_held_run
+
+    if conversation_id is None and held_call_id_of(metadata):
+        held_store = store
+        if held_store is None:
+            held_store = bool(ctx.store) or bool(getattr(ctx, "is_internal_agent", False))
+        own_conversation_id = str(uuid4())
+        # The link points at a conversation that exists: a context that just
+        # BECAME a system run (``run_held_call``, ``llm_stream_*(system_run=)``)
+        # holds a freshly minted id with no row yet — its parent is the real one.
+        surrounding = (
+            ctx.parent_conversation_id
+            if getattr(ctx, "system_run", False) or not _is_valid_uuid_str(ctx.conversation_id)
+            else ctx.conversation_id
+        )
+        # A held code call is internal machinery, never a conversation in the
+        # person's history: stamp the existing ``subagent`` type (chat.conversation_lane
+        # → 'subagent') unless the surrounding run already declared a more specific
+        # non-standard type (workflow, scheduled, ...).
+        held_type = getattr(ctx, "conversation_type", None) or "standard"
+        if held_type == "standard":
+            held_type = "subagent"
+        token = set_app_context(
+            ctx.with_overrides(
+                conversation_id=own_conversation_id,
+                parent_conversation_id=surrounding,
+                conversation_type=held_type,
+                store=held_store,
+            )
+        )
+        try:
+            completed = await execute_ai_request(
+                config,
+                max_iterations,
+                max_retries_per_iteration,
+                metadata,
+                conversation_id=own_conversation_id,
+                store=held_store,
+                mandate_key=mandate_key,
+            )
+        finally:
+            clear_app_context(token)
+        note_held_run(
+            metadata,
+            conversation_id=own_conversation_id,
+            request_id=getattr(getattr(completed, "request", None), "request_id", None),
+            stored=held_store,
+        )
+        return completed
 
     # 🚨 THE RUNTIME MANDATE-CARRIER GATE. Every AI call in the platform funnels
     # through here, so this is the ONE place that can ask "who holds this call?"
@@ -1184,10 +1247,10 @@ async def _flush_assistant_message_mid_loop(
     alignment lets ``persist_completed_request`` find our reserved id and UPDATE
     (not double-insert) the row when the loop eventually completes.
     """
+    # One behaviour for every stored run: a system run keeps its messages like a
+    # chat, so it checkpoints like a chat (it is rarely reached — a system run
+    # cannot delegate to a client — but a stored row is never special-cased).
     if not getattr(exec_ctx, "store", True):
-        return None
-    # System runs persist no cx_message rows — nothing to checkpoint mid-loop.
-    if getattr(exec_ctx, "system_run", False):
         return None
 
     messages = response.messages
@@ -2583,6 +2646,7 @@ async def _finalize_and_persist(
     # CHILD's answer, and the child's own run already corrected it.
     if not skip_structured_output:
         _apply_ledger_truth_to_turn_text(completed.request, final_response)
+        _apply_kind_corrections_to_turn_text(completed.request, final_response)
 
     # Strip keep_fresh structured input blocks from the last user message before
     # persisting. These blocks are re-fetched on every turn so we never store
@@ -2605,20 +2669,35 @@ async def _finalize_and_persist(
     # PersistenceBarrierError propagates to the streaming handler, which emits
     # fatal_error to the client and records system_error. (The cancel path
     # wraps this call in its own shielded, watchdog-backstopped handler.)
-    await persist_completed_request(
-        completed,
-        conversation_id=conv_id,
-        debug=debug,
-        state=state,
-        since_position=state.committed_position if state is not None else None,
-        since_iteration=state.committed_iteration if state is not None else None,
-        is_final=True,
-    )
+    from matrx_ai.db.persistence import record_run_history_write_failure
+    from matrx_ai.db.persistence import stored_run_in_context as _stored_run
     from matrx_ai.persistence.queue_helpers import get_coordinator as _get_coord
 
-    _coord = _get_coord()
-    if _coord is not None:
-        await _coord.finalize(reason="request_final_commit")
+    try:
+        await persist_completed_request(
+            completed,
+            conversation_id=conv_id,
+            debug=debug,
+            state=state,
+            since_position=state.committed_position if state is not None else None,
+            since_iteration=state.committed_iteration if state is not None else None,
+            is_final=True,
+        )
+        _coord = _get_coord()
+        if _coord is not None:
+            await _coord.finalize(reason="request_final_commit")
+    except Exception as _history_exc:
+        # A stored run whose history could not land is a counted alarm with
+        # its own kind (system runs have no streaming handler to record it);
+        # the contract still propagates the failure.
+        if _stored_run():
+            await record_run_history_write_failure(
+                _history_exc,
+                stage="commit",
+                conversation_id=conv_id,
+                request_id=current_request.request_id,
+            )
+        raise
 
     # cx_user_request totals are DERIVED by the chat.request _propagate_totals
     # trigger — atomically, per child row. Nothing here may write them: a
@@ -2628,13 +2707,15 @@ async def _finalize_and_persist(
     from matrx_connect import try_get_app_context as _try_ctx_for_rollup
 
     _rollup_ctx = _try_ctx_for_rollup()
-    _is_request_owner = _rollup_ctx is None or not getattr(_rollup_ctx, "parent_request_id", None)
+    from matrx_ai.orchestrator.cost_budget import owns_tree, release_tree_budget
+
+    # Owner-only (``owns_tree``): a sub-agent AND a workflow step — which runs on the
+    # root's request id with no parent id — must NOT release the shared accumulator
+    # while the tree may still be spending against it (review 6 N6-4).
+    _is_request_owner = owns_tree(_rollup_ctx)
     if _is_request_owner and req_id and _is_valid_uuid_str(req_id):
         # The whole tree is durable — drop its tree-wide dollar
         # budget accumulator so the process-local map can't grow without bound.
-        # Owner-only: a sub-agent must NOT release the shared accumulator while
-        # siblings may still be spending against it.
-        from matrx_ai.orchestrator.cost_budget import release_tree_budget
 
         release_tree_budget(req_id)
 
@@ -2653,6 +2734,9 @@ async def _finalize_and_persist(
     # parsing it against the CALLER's schema would be wrong on both sides.
     if not skip_structured_output:
         parsed_output = await _emit_structured_output_if_schema(completed)
+        # The typed answer stays on the result for in-process hosts (the
+        # mandate run record keeps it) — the event above is the wire copy.
+        completed.structured_output = parsed_output
 
         # Same chokepoint, the durable side-effect seam: if a host dispatcher is
         # configured and the parsed output is an object, hand it over so an
@@ -2794,6 +2878,7 @@ async def _persist_turn_and_commit(
     # becomes permanent, so the correction happens HERE — before the write, not
     # after it. (See _apply_ledger_truth_to_turn_text.)
     _apply_ledger_truth_to_turn_text(current_request, final_response)
+    _apply_kind_corrections_to_turn_text(current_request, final_response)
 
     # Fetch-if-not-fetched: ensure the DB pricing lookup is loaded before the
     # total_usage cost aggregation runs (see ensure_pricing_lookup docstring).
@@ -2944,6 +3029,58 @@ def _resolve_structured_contract(config: Any) -> tuple[dict, dict, bool] | None:
     if not isinstance(schema, dict):
         return None
     return envelope, schema, standing
+
+
+def _apply_kind_corrections_to_turn_text(current_request: Any, final_response: Any = None) -> bool:
+    """THE DURABLE KIND-CORRECTION CHOKEPOINT. Call before ANY persistence seam.
+
+    ``correct_kind_value`` (StreamBlockProcessor) fixes the parsed block a live stream
+    renders, but the stored assistant TEXT is what outlives the run, and some paths show
+    it as written — an artifact's source, a raw copy, any consumer that re-parses it. A
+    ``draft_critique`` stating 17 points over criteria that sum to 3 was still 17 there.
+    So the same registered correctors run over the turn's durable text here, before the
+    write, and every change rides the text part as ``metadata["kindCorrections"]``, which
+    is stored with it. Idempotent (a corrected value has nothing left to change). Never
+    raises.
+    """
+    try:
+        from matrx_ai.processing.blocks.kind_correctors import (
+            KIND_CORRECTIONS_KEY,
+            correct_kind_regions_in_text,
+        )
+
+        config = getattr(current_request, "config", None)
+        message = config.messages.get_last_by_role("assistant") if config is not None else None
+        targets = list(getattr(message, "content", None) or []) if message is not None else []
+        for msg in getattr(final_response, "messages", None) or []:
+            if getattr(msg, "role", None) == "assistant":
+                targets.extend(getattr(msg, "content", None) or [])
+        changed = False
+        seen: set[int] = set()
+        for content in targets:
+            if id(content) in seen or getattr(content, "type", None) != "text":
+                continue
+            seen.add(id(content))
+            text = getattr(content, "text", None)
+            if not isinstance(text, str):
+                continue
+            rewritten, notes = correct_kind_regions_in_text(text)
+            if notes and rewritten != text:
+                content.text = rewritten
+                metadata = getattr(content, "metadata", None)
+                if isinstance(metadata, dict):
+                    metadata[KIND_CORRECTIONS_KEY] = list(metadata.get(KIND_CORRECTIONS_KEY) or []) + notes
+                changed = True
+        if changed:
+            vcprint(
+                "[KindCorrectors] this turn's text carried a kind value that disagreed with its "
+                "own rules; the DURABLE text was corrected by code before persistence.",
+                color="cyan",
+            )
+        return changed
+    except Exception as exc:  # noqa: BLE001 — a correction never blocks persistence
+        vcprint(f"[KindCorrectors] durable text correction failed: {exc}", color="red")
+        return False
 
 
 def _apply_ledger_truth_to_turn_text(current_request: Any, final_response: Any = None) -> bool:
@@ -3221,8 +3358,9 @@ def _schedule_labeling_if_new(exec_ctx: Any, config: UnifiedConfig) -> None:
 
         if not exec_ctx.store:
             return
-        # System runs are throwaway machine transcripts — never title them
-        # (and never spend another LLM call doing it).
+        # System runs keep full history but skip titling: it is a separate LLM
+        # call per run (the 2026-07-07 fan-out starvation), and the run is
+        # already named by its source_feature / mandate key.
         if getattr(exec_ctx, "system_run", False):
             return
 
@@ -3765,16 +3903,33 @@ async def _write_request_snapshot(
         #   - leaves an inline marker identifying what it changed and why
         #   - never adds, removes, reorders, or retypes keys
         # See matrx_ai.providers.snapshot_redactors for the guarantees.
+        # Blobs the request does not already name by file are saved ONCE through
+        # the host blob store first, so the marker carries a file_id (no-op with no
+        # store bound; a failed save is counted and keeps the sha256-only marker).
+        async def _blob_failed(exc: BaseException, ctx: dict[str, Any]) -> None:
+            await _record_snapshot_capture_failure(exc, {**ctx, "path_kind": "blob_store"})
+
+        def _blob_redactors(tree: Any) -> Any:
+            return redactors_with_stored_blobs(
+                tree,
+                user_id=getattr(exec_ctx, "user_id", None),
+                organization_id=getattr(exec_ctx, "organization_id", None)
+                or getattr(exec_ctx, "metadata", {}).get("organization_id"),
+                on_error=_blob_failed,
+            )
+
         if safe_request is not None:
-            safe_request = apply_redactors(safe_request, DEFAULT_SNAPSHOT_REDACTORS)
+            safe_request = apply_redactors(safe_request, await _blob_redactors(safe_request))
         if safe_unified is not None:
-            safe_unified = apply_redactors(safe_unified, DEFAULT_SNAPSHOT_REDACTORS)
+            safe_unified = apply_redactors(safe_unified, await _blob_redactors(safe_unified))
         if safe_response is not None:
             # The response keeps the assistant's answer text verbatim — a
             # recorded AI call keeps what the AI said (KI-049, 2026-09-14);
             # blobs anywhere in it, including inside assistant content, are
             # still redacted. See snapshot_redactors.apply_response_redactors.
-            safe_response = apply_response_redactors(safe_response, DEFAULT_SNAPSHOT_REDACTORS)
+            safe_response = apply_response_redactors(
+                safe_response, await _blob_redactors(safe_response)
+            )
 
         payload_dict = {
             "conversation_id": exec_ctx.conversation_id,
@@ -4100,6 +4255,11 @@ async def execute_until_complete(
     # asyncio task ContextVar fork — no cross-task aliasing possible.
     state = ExecutionState()
     state_token = set_execution_state(state)
+    # The enclosing run_agent reads this run's spend through the sink when the
+    # run ends early (cancel / crash) and never returns a CompletedRequest.
+    from matrx_ai.orchestrator.execution_state import bind_run_usage_sink
+
+    bind_run_usage_sink(state)
     # The per-run TOOL-CALL LEDGER (matrx_ai.tools.turn_ledger). Opened on the
     # same task, with the same ContextVar-fork isolation as ExecutionState, so
     # every tool call this run makes is recorded where the structured-output
@@ -4444,13 +4604,10 @@ async def _execute_until_complete_inner(
     # reservation entirely; persist_completed_request CREATEs the messages
     # directly via the cxm fallback instead. ``get_coordinator()`` lazily creates
     # the coordinator when a lane exists, so the streaming path is unaffected.
-    # System runs (cost-only persistence) write no cx_message rows at all, so
-    # reserving message ids would announce rows that will never exist.
-    if (
-        exec_ctx.store
-        and not getattr(exec_ctx, "system_run", False)
-        and get_coordinator() is not None
-    ):
+    # System runs reserve too: they write their messages like any chat, and a
+    # reservation is a queued op coalesced into the same single flush (no extra
+    # round trip) — one behaviour for every stored run.
+    if exec_ctx.store and get_coordinator() is not None:
         # Reserve user and assistant message rows via the WriteCoordinator.
         # These were previously blocking pre-API INSERTs; they are now fire-
         # and-forget queue calls. The reservation tracker announces the IDs
@@ -4915,6 +5072,11 @@ async def _execute_until_complete_inner(
                         # Accepted: no failure snapshot will carry this id.
                         state.failure_snapshot_id = None
                 except ProviderCallStopped as _stopped:
+                    # The stopped call's billed usage (if the adapter saw any
+                    # before the stop) joins the request's spend.
+                    _record_billed_usage_on_failure(
+                        current_request, _stopped, iteration=iteration
+                    )
                     await exec_ctx.emitter.send_phase("complete")
                     await exec_ctx.emitter.send_info(
                         InfoPayload(
@@ -7304,13 +7466,22 @@ async def _execute_until_complete_inner(
 
             # Continue - loop back for next iteration
 
-        except PersistenceBarrierError:
+        except PersistenceBarrierError as _barrier_exc:
             # A commit barrier failed — STOP EVERYTHING. DEGRADE first (data
             # before speed): synchronously flush the cache + drain any other
             # in-flight commits (captured to system_write_failure). Then let it
             # propagate to the streaming handler (fatal_error + system_error).
             # Do NOT route through the soft error-persist path below.
             await _degrade_and_secure(reason="barrier_failed")
+            if getattr(exec_ctx, "store", True):
+                from matrx_ai.db.persistence import record_run_history_write_failure
+
+                await record_run_history_write_failure(
+                    _barrier_exc,
+                    stage="commit",
+                    conversation_id=current_request.conversation_id,
+                    request_id=current_request.request_id,
+                )
             raise
         except Exception as e:
             # DEGRADE first — on ANY error the first priority is zero data loss,

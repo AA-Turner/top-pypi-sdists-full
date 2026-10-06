@@ -228,6 +228,11 @@ class TextContent:
         citations = self.metadata.get("citations")
         if citations:
             result["citations"] = citations
+        # What code corrected in this text before it was stored (kind_correctors) —
+        # the "corrected by code" record every reader can show.
+        corrections = self.metadata.get("kindCorrections")
+        if corrections:
+            result["kindCorrections"] = list(corrections)
         return result
 
     def __repr__(self) -> str:

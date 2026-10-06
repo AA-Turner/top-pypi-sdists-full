@@ -52,6 +52,7 @@ class ProductConnectionType(str, Enum):
     HOST = 'Host'
     CONTAINERVERSION = 'ContainerVersion'
     CONTAINERVERSIONQUERY = 'ContainerVersionQuery'
+    NESTEDPRODUCTQUERY = 'NestedProductQuery'
     NESTEDPRODUCTREPOSITORY = 'NestedProductRepository'
 
     @classmethod

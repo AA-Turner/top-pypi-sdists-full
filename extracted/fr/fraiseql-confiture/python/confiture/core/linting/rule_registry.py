@@ -317,10 +317,26 @@ LINT_RULES: tuple[LintRule, ...] = (
     LintRule(
         code="tenant_005",
         family="tenant",
-        title="A tenant table's primary key and unique keys lead with the discriminator",
+        title="A tenant table's primary key and unique keys keep tenants apart",
         severity="warning",
         default_on=False,
         enabled_by="tenancy",
+    ),
+    LintRule(
+        code="softdel_001",
+        family="softdel",
+        title="A unique key on a soft-deleting table excludes deleted rows",
+        severity="warning",
+        default_on=False,
+        enabled_by="soft_delete",
+    ),
+    LintRule(
+        code="softdel_002",
+        family="softdel",
+        title="A nullable column in such a key is NULLS NOT DISTINCT",
+        severity="info",
+        default_on=False,
+        enabled_by="soft_delete",
     ),
     LintRule(
         code="tview_001",
@@ -396,7 +412,7 @@ LINT_RULES: tuple[LintRule, ...] = (
     LintRule(
         code="tree_003",
         family="tree",
-        title="Prefixes within one directory are contiguous",
+        title="A directory's numbering keeps its own step",
         severity="warning",
         default_on=False,
     ),

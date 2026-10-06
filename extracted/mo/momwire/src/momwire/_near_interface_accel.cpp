@@ -77,6 +77,10 @@
 #include <stdexcept>
 #include <vector>
 
+#if defined(__AVX2__) && defined(__FMA__) && !defined(_MSC_VER)
+#include <immintrin.h>
+#endif
+
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -120,6 +124,34 @@ extern "C" double sin(double);
 #endif
 
 #include "_near_interface_columns_inline.h"
+
+// Cooperative cancellation (momwire#1348 scope), the `_accel_common.h`
+// convention spelled locally: this companion does not include that header,
+// and its exception is its OWN type, registered on this module, so no
+// C++ type has to be matched across two shared objects. `_accel` remaps
+// this module's `AcceleratorAborted` to `momwire.SolveAborted` exactly as it
+// does `_accelerators`'. `cancel_flag` is a CancelToken's raw int32 address
+// (0 = none), read with a volatile load per work item; inside a parallel
+// region the drain pattern (no exception may cross an omp boundary).
+#include <atomic>
+namespace {
+struct NiAborted : std::exception {
+    const char *what() const noexcept override { return "accelerator solve aborted"; }
+};
+}  // namespace
+#define NI_CANCEL_SETUP(flag_addr)                                          \
+    const volatile int32_t *ni_cancel =                                        \
+        reinterpret_cast<const volatile int32_t *>(flag_addr);                 \
+    std::atomic<bool> ni_aborted { false }
+#define NI_CANCEL_POLL()                                                    \
+    if (ni_aborted.load(std::memory_order_relaxed)) continue;                  \
+    if (ni_cancel && *ni_cancel) {                                             \
+        ni_aborted.store(true, std::memory_order_relaxed);                     \
+        continue;                                                              \
+    }
+#define NI_THROW_IF_ABORTED()                                               \
+    if (ni_aborted.load(std::memory_order_relaxed) || (ni_cancel && *ni_cancel)) \
+        throw NiAborted {}
 
 // `six_point` over parallel (rho, z, zp) arrays: the (n, 6) table, OpenMP
 // across points with the GIL released. The wavenumbers arrive DERIVED
@@ -202,7 +234,8 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
     py::array_t<double, py::array::c_style | py::array::forcecast> zp,
     double lam_mult, int p, double detour, int n_threads,
     py::array_t<double, py::array::c_style | py::array::forcecast> gx,
-    py::array_t<double, py::array::c_style | py::array::forcecast> gw) {
+    py::array_t<double, py::array::c_style | py::array::forcecast> gw,
+    uintptr_t cancel_flag = 0) {
     if (rho.ndim() != 1 || offsets.ndim() != 1 || z.ndim() != 1 ||
         zp.ndim() != 1)
         throw std::invalid_argument("rho, offsets, z and zp must be 1-D");
@@ -293,8 +326,13 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
 
     {
         py::gil_scoped_release release;
+        NI_CANCEL_SETUP(cancel_flag);
+        // Polled per column, and per member of a column too big to be one
+        // work item; checked between those columns, whose rules are built
+        // serially.
         #pragma omp parallel for schedule(dynamic) num_threads(nt)
         for (py::ssize_t j = 0; j < n_col; ++j) {
+            NI_CANCEL_POLL();
             const py::ssize_t c = by_column[j];
             const py::ssize_t lo = ob(c), hi = ob(c + 1);
             mw899::Scratch s;
@@ -309,6 +347,7 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
             }
         }
         for (py::ssize_t j = 0; j < n_mem; ++j) {
+            NI_THROW_IF_ABORTED();
             const py::ssize_t c = by_member[j];
             const py::ssize_t lo = ob(c), hi = ob(c + 1);
             mw899::Scratch s;
@@ -323,11 +362,13 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
             // take, and it makes the cheap members the deep ones.
             #pragma omp parallel for schedule(dynamic, 32) num_threads(nt)
             for (py::ssize_t i = lo; i < hi; ++i) {
+                NI_CANCEL_POLL();
                 mw_contour::cd out[6];
                 mw899::column_member(s, K, zb(i), pb(i), out);
                 for (int q = 0; q < 6; ++q) vb(i, q) = out[q];
             }
         }
+        NI_THROW_IF_ABORTED();
     }
     return vals;
 }
@@ -367,19 +408,25 @@ static py::array_t<std::complex<double>> near_interface_six_columns(
 
 namespace mw_sheet {
 
+// The node test, the divisions and the normalising products are each a loop
+// of their own (momwire#1290) so that the divisions vectorise: a division is
+// correctly rounded in any lane, so they are the floats the one fused loop
+// gave, and the sum still runs a = 0, 1, ... in order. The fused loop
+// returned on the FIRST node within 1e-15; so does this one.
 static inline void bary(double t, double lo, double hi, const double *x,
                         const double *bw, int p, double *w) {
     const double xx = (2.0 * t - (lo + hi)) / (hi - lo);
-    double sum = 0.0;
-    for (int a = 0; a < p; ++a) {
-        const double df = xx - x[a];
-        if (std::fabs(df) < 1e-15) {  // on a node: its value, exactly
-            for (int b = 0; b < p; ++b) w[b] = (a == b) ? 1.0 : 0.0;
-            return;
-        }
-        w[a] = bw[a] / df;
-        sum += w[a];
+    int on = 0;
+    for (int a = 0; a < p; ++a) on |= std::fabs(xx - x[a]) < 1e-15;
+    if (on) {
+        int a = 0;
+        while (!(std::fabs(xx - x[a]) < 1e-15)) ++a;
+        for (int b = 0; b < p; ++b) w[b] = (a == b) ? 1.0 : 0.0;
+        return;
     }
+    for (int a = 0; a < p; ++a) w[a] = bw[a] / (xx - x[a]);
+    double sum = 0.0;
+    for (int a = 0; a < p; ++a) sum += w[a];
     const double inv = 1.0 / sum;
     for (int a = 0; a < p; ++a) w[a] *= inv;
 }
@@ -396,6 +443,91 @@ static inline py::ssize_t cell_of(double t, const double *e, py::ssize_t n) {
     return j;
 }
 
+// One row's tensor-product sum over its cell's p x p block, into acc[0, nd):
+//
+//     acc[k] = sum_i wr[i] * (sum_j ws[j] * V[i][j][k])
+//
+// each sum in index order, every step one fused multiply-add, the inner sum
+// started at +0.0 and restarted per i. `cell_sum` spells it for any width;
+// `cell_sum_fixed<NV>` is the same arithmetic at a compile-time width of
+// 4 NV doubles, held in registers (momwire#1290): with `nd` a runtime value
+// GCC keeps `inner` in memory and every j step is a store-to-load round
+// trip. It also runs the inner sums of rows i and i + 1 together. They are
+// independent chains, so that changes when each fused op issues, not which
+// ops run or their order within any one sum, and every acc[k] still takes i
+// in order. The two are therefore the same floats entry for entry; the
+// width-generic reference stays reachable (`generic=True`) and is gated
+// against this one as uint64 (tests/test_sheet_fixed_width_1290.py). Only
+// the AVX2 build has the fixed route: the baseline, arm64 and MSVC builds
+// take the generic loop, which is the same floats anyway.
+static inline void cell_sum(const double *blk, const double *wr,
+                            const double *ws, int p, int nd, double *acc) {
+    for (int k = 0; k < nd; ++k) acc[k] = 0.0;
+    for (int i = 0; i < p; ++i) {
+        double inner[2 * MW_SHEET_MAX_KEYS] = {0.0};
+        const double *Vi = blk + static_cast<std::int64_t>(i) * p * nd;
+        for (int j = 0; j < p; ++j) {
+            const double w = ws[j];
+            const double *Vj = Vi + j * nd;
+            for (int k = 0; k < nd; ++k)
+                inner[k] = mw_fma::fma(w, Vj[k], inner[k]);
+        }
+        const double wi = wr[i];
+        for (int k = 0; k < nd; ++k)
+            acc[k] = mw_fma::fma(wi, inner[k], acc[k]);
+    }
+}
+
+#if defined(__AVX2__) && defined(__FMA__) && !defined(_MSC_VER)
+#define MW_SHEET_FIXED 1
+// ND = 4 NV doubles in NV ymm registers. `_mm256_fmadd_pd` is four
+// independent fused multiply-adds, one per lane, each rounding exactly as
+// `std::fma` does on that lane's operands, so a lane is the scalar chain.
+// Spelled with intrinsics because GCC 11, left to vectorise the plain loops
+// at a fixed width, spilled the inner sums to the stack and gathered across
+// j, which was barely faster than the generic loop.
+template <int NV>
+static inline void cell_sum_fixed(const double *blk, const double *wr,
+                                  const double *ws, int p, double *acc) {
+    constexpr int ND = 4 * NV;
+    const std::int64_t row = static_cast<std::int64_t>(p) * ND;
+    __m256d a[NV];
+    for (int v = 0; v < NV; ++v) a[v] = _mm256_setzero_pd();
+    int i = 0;
+    for (; i + 2 <= p; i += 2) {
+        __m256d x0[NV], x1[NV];
+        for (int v = 0; v < NV; ++v) x0[v] = x1[v] = _mm256_setzero_pd();
+        const double *V0 = blk + i * row;
+        const double *V1 = V0 + row;
+        for (int j = 0; j < p; ++j) {
+            const __m256d w = _mm256_set1_pd(ws[j]);
+            for (int v = 0; v < NV; ++v) {
+                x0[v] = _mm256_fmadd_pd(w, _mm256_loadu_pd(V0 + j * ND + 4 * v), x0[v]);
+                x1[v] = _mm256_fmadd_pd(w, _mm256_loadu_pd(V1 + j * ND + 4 * v), x1[v]);
+            }
+        }
+        const __m256d w0 = _mm256_set1_pd(wr[i]), w1 = _mm256_set1_pd(wr[i + 1]);
+        for (int v = 0; v < NV; ++v) a[v] = _mm256_fmadd_pd(w0, x0[v], a[v]);
+        for (int v = 0; v < NV; ++v) a[v] = _mm256_fmadd_pd(w1, x1[v], a[v]);
+    }
+    for (; i < p; ++i) {
+        __m256d x0[NV];
+        for (int v = 0; v < NV; ++v) x0[v] = _mm256_setzero_pd();
+        const double *V0 = blk + i * row;
+        for (int j = 0; j < p; ++j) {
+            const __m256d w = _mm256_set1_pd(ws[j]);
+            for (int v = 0; v < NV; ++v)
+                x0[v] = _mm256_fmadd_pd(w, _mm256_loadu_pd(V0 + j * ND + 4 * v), x0[v]);
+        }
+        const __m256d w0 = _mm256_set1_pd(wr[i]);
+        for (int v = 0; v < NV; ++v) a[v] = _mm256_fmadd_pd(w0, x0[v], a[v]);
+    }
+    for (int v = 0; v < NV; ++v) _mm256_storeu_pd(acc + 4 * v, a[v]);
+}
+#else
+#define MW_SHEET_FIXED 0
+#endif
+
 }  // namespace mw_sheet
 
 static void near_interface_grid_sheet(
@@ -411,7 +543,10 @@ static void near_interface_grid_sheet(
     py::array_t<std::complex<double>, py::array::c_style | py::array::forcecast>
         vals,
     py::array_t<std::complex<double>, py::array::c_style> out, int n_threads,
-    py::array_t<std::int64_t, py::array::c_style | py::array::forcecast> rpow) {
+    py::array_t<std::int64_t, py::array::c_style | py::array::forcecast> rpow,
+    bool generic) {
+    const bool fixed_ok = !generic;
+    (void)fixed_ok;  // read only where the fixed route is built
     if (sub.ndim() != 2 || sub.shape(1) != 3)
         throw std::invalid_argument("sub must be (m, 3)");
     const py::ssize_t m = sub.shape(0);
@@ -503,20 +638,18 @@ static void near_interface_grid_sheet(
             mw_sheet::bary(rho, re[a], re[a + 1], xp, bwp, p, wr);
             mw_sheet::bary(s, se[b], se[b + 1], xp, bwp, p, ws);
             const double *blk = V + co[a * ns + b] * nd;
-            double acc[2 * MW_SHEET_MAX_KEYS] = {0.0};
-            for (int i = 0; i < p; ++i) {
-                double inner[2 * MW_SHEET_MAX_KEYS] = {0.0};
-                const double *Vi = blk + static_cast<std::int64_t>(i) * p * nd;
-                for (int j = 0; j < p; ++j) {
-                    const double w = ws[j];
-                    const double *Vj = Vi + j * nd;
-                    for (int k = 0; k < nd; ++k)
-                        inner[k] = mw_fma::fma(w, Vj[k], inner[k]);
-                }
-                const double wi = wr[i];
-                for (int k = 0; k < nd; ++k)
-                    acc[k] = mw_fma::fma(wi, inner[k], acc[k]);
-            }
+            double acc[2 * MW_SHEET_MAX_KEYS];
+            // The two widths the families have today (`_SHEET_FAMILIES`:
+            // six kernels, four point kernels) at a fixed width; any other
+            // width, and the reference, through the generic loop.
+#if MW_SHEET_FIXED
+            if (fixed_ok && nk == 6)
+                mw_sheet::cell_sum_fixed<3>(blk, wr, ws, p, acc);
+            else if (fixed_ok && nk == 4)
+                mw_sheet::cell_sum_fixed<2>(blk, wr, ws, p, acc);
+            else
+#endif
+                mw_sheet::cell_sum(blk, wr, ws, p, nd, acc);
             // 1/R^pw per column, as a product of 1/R's: pw = 2 is i1 * i1,
             // the spelling the fixed six-column loop used.
             const double i1 = 1.0 / std::hypot(rho, s);
@@ -550,6 +683,7 @@ static void near_interface_grid_sheet(
 #endif
 
 PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
+    py::register_exception<NiAborted>(m, "AcceleratorAborted");
     m.doc() =
         "momwire#680 U2 and #899 item 1: the C++ twins of "
         "_near_interface.six_point and _near_interface.six_columns. "
@@ -574,7 +708,7 @@ PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
           py::arg("k_p"), py::arg("k_m"), py::arg("rho"), py::arg("offsets"),
           py::arg("z"), py::arg("zp"), py::arg("lam_mult"), py::arg("p"),
           py::arg("detour"), py::arg("n_threads"), py::arg("gx"),
-          py::arg("gw"),
+          py::arg("gw"), py::arg("cancel_flag") = 0,
           "six_columns over CONCATENATED columns -> (n, 6) complex. Column c "
           "owns members offsets[c]..offsets[c+1], all at rho[c]; the answer "
           "keeps the members' order. Parallel over columns, and over the "
@@ -591,15 +725,20 @@ PYBIND11_MODULE(MOMWIRE_MODULE_NAME, m) {
     // from the caller. A distinct flag, so a stale build is refused by name
     // rather than handed an argument it does not know.
     m.attr("grid_sheet_width_1221") = true;
+    // momwire#1290: whether this build has the fixed-width cell sums (the
+    // AVX2 variant does); either way `generic=True` reaches the width-generic
+    // loop they are gated against.
+    m.attr("grid_sheet_fixed_1290") = bool(MW_SHEET_FIXED);
     m.def("near_interface_grid_sheet", &near_interface_grid_sheet,
           py::arg("sub"), py::arg("idx"), py::arg("fixed"), py::arg("height"),
           py::arg("rho_edges"), py::arg("s_edges"), py::arg("cell_off"),
           py::arg("x"), py::arg("bw"), py::arg("vals"), py::arg("out"),
-          py::arg("n_threads"), py::arg("rpow"),
+          py::arg("n_threads"), py::arg("rpow"), py::arg("generic") = false,
           "Interpolate the rows sub[idx] (rho, z, zp) of one sheet -- the plane "
           "z' = fixed < 0, or with height=True the height z = fixed > 0 -- "
           "from a _near_interface.PlaneSheet strip grid into out[idx] ((m, "
           "len(rpow)) complex, KEYS order; column k was tabulated times "
           "R^rpow[k]). Row-parallel; the answer does not depend on the "
-          "thread count.");
+          "thread count. `generic` (TEST-ONLY) takes the width-generic cell "
+          "sum, the reference the fixed-width ones are gated against.");
 }

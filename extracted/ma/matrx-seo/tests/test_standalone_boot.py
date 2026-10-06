@@ -348,10 +348,11 @@ def test_package_default_ships_no_matrx_domain(bare_env: pytest.MonkeyPatch) -> 
     assert any("localhost" in origin for origin in defaults)
 
 
-def test_dataforseo_catalog_exposes_endpoint_scoped_examples() -> None:
+@pytest.mark.asyncio
+async def test_dataforseo_catalog_exposes_endpoint_scoped_examples() -> None:
     from matrx_seo.api_contracts import dataforseo_operations_catalog
 
-    catalog = dataforseo_operations_catalog()
+    catalog = await dataforseo_operations_catalog()
     examples = [
         example for operation in catalog.operations for example in operation.endpoint_examples
     ]

@@ -2056,15 +2056,28 @@ def test_installed_plugins_never_asks_claude_or_codex_about_pi(monkeypatch):
 
     monkeypatch.setattr(plugin_cli, "list_plugins", _must_not_run)
 
-    monkeypatch.setattr(pi_config, "package_entry_installed", lambda: False)
+    def merged(installed: bool, tracking_off: bool = False):
+        return lambda *a, **kw: pi_config.MergedPackageEntry(
+            installed, "global" if installed else None, None, None, tracking_off
+        )
+
+    monkeypatch.setattr(pi_config, "merged_package_entry", merged(False))
     absent = capabilities_mod.installed_plugins(source="pi")
     assert absent.verified is False
     assert len(absent) == 0
 
-    monkeypatch.setattr(pi_config, "package_entry_installed", lambda: True)
+    # One package, both halves: tracking reads installed with capture...
+    monkeypatch.setattr(pi_config, "merged_package_entry", merged(True))
     present = capabilities_mod.installed_plugins(source="pi")
     assert present.verified is False
     assert capabilities_mod.TAP_PLUGIN_NAME in present
+    assert capabilities_mod.tracking_plugin_name("pi") in present
+
+    # ...unless the entry switches tracking off (capture keeps running).
+    monkeypatch.setattr(pi_config, "merged_package_entry", merged(True, tracking_off=True))
+    off = capabilities_mod.installed_plugins(source="pi")
+    assert capabilities_mod.TAP_PLUGIN_NAME in off
+    assert capabilities_mod.tracking_plugin_name("pi") not in off
 
 
 def test_apply_capture_installs_the_pi_package_entry(monkeypatch):
@@ -3877,15 +3890,15 @@ def test_ctrl_c_on_the_confirm_screen_still_abandons_the_wizard(monkeypatch):
     assert events == ["action", "agent", "confirm"], "and must not re-prompt"
 
 
-def test_action_menu_state_names_each_detected_agent():
+def test_action_menu_state_shows_each_detected_agent():
     lines = setup.describe_state(
         {
             "claude_code": _caps(agent_source="claude_code"),
             "codex": _caps(agent_source="codex"),
         }
     )
-    assert any("Claude Code" in line for line in lines)
-    assert any("Codex" in line for line in lines)
+    assert any(line.startswith("  Claude Code") for line in lines)
+    assert any(line.startswith("  Codex") for line in lines)
 
 
 def test_removing_probe_also_takes_the_block_out_of_claude_md(monkeypatch, tmp_path):
@@ -8759,3 +8772,52 @@ def test_the_account_screen_removes_another_saved_account_never_the_active_one(i
     assert setup.remove_account("work") == ["No other account is saved as “work”; nothing was removed."]
     assert setup.remove_account("side") == ["Removed the account saved as “side”."]
     assert set(load_file()["contexts"]) == {"work"} and current_context_name() == "work"
+
+
+# --- a new agent joins the device's Who records (Richard 2026-10-06) --------
+
+
+@pytest.mark.parametrize(
+    ("recorders", "source", "moves"),
+    [
+        ({"claude_code": "daemon", "codex": "daemon"}, "kimi_code", True),  # the others record via the daemon
+        ({}, "kimi_code", False),  # nobody does: stays on the agent
+        ({"claude_code": "daemon", "kimi_code": "daemon"}, "kimi_code", False),  # already there
+        ({"claude_code": "daemon"}, "cursor", False),  # no daemon profile
+    ],
+)
+def test_a_new_agent_follows_the_devices_daemon(monkeypatch, recorders, source, moves):
+    from probe.cli import setup as wizard
+    from probe.sdk import session_marker
+
+    from probe.cli import daemon_cli
+
+    calls = []
+    monkeypatch.setattr(session_marker, "recorder", lambda s, config=None: recorders.get(s, "agent"))
+    monkeypatch.setattr(wizard, "apply_recorder", lambda caps, value, **kw: calls.append((caps, value)) or ["moved"])
+    monkeypatch.setattr(wizard, "companion_token_held", lambda: True)
+    monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "/libs")
+
+    lines = wizard.follow_machine_recorder(source, _caps(), base_url="https://api.test")
+
+    assert bool(calls) is moves
+    if moves:
+        assert calls[0][1] == "daemon" and "moved" in lines
+    else:
+        assert lines == []
+
+
+def test_a_new_agent_never_opens_a_browser_to_join_the_daemon(monkeypatch):
+    """The daemon not ready here (no key, no libraries): setting it up would open
+    a browser in the middle of an install, so the new agent records itself and
+    the line says how to move it."""
+    from probe.cli import daemon_cli
+    from probe.cli import setup as wizard
+    from probe.sdk import session_marker
+
+    monkeypatch.setattr(session_marker, "recorder", lambda s, config=None: "daemon" if s == "claude_code" else "agent")
+    monkeypatch.setattr(wizard, "apply_recorder", lambda *a, **k: pytest.fail("no move without a ready daemon"))
+    monkeypatch.setattr(wizard, "companion_token_held", lambda: False)
+    monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "/libs")
+    lines = wizard.follow_machine_recorder("kimi_code", _caps(), base_url="https://api.test")
+    assert lines and "Who records" in lines[0]

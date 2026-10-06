@@ -94,7 +94,7 @@ def test_a_missing_plugin_is_reported_not_crashed(tmp_path, monkeypatch) -> None
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude))
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     monkeypatch.setenv("PROBE_PLUGIN_ROOT", str(tmp_path / "nowhere"))
-    monkeypatch.setattr(statusline, "discover_plugin_root", lambda: None)
+    monkeypatch.setattr(statusline, "discover_plugin_root", lambda source=None: None)
 
     messages = wizard.apply_statusline()
 

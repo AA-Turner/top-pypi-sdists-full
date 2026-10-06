@@ -444,6 +444,39 @@ async def test_get_expired_ssl(loop: asyncio.AbstractEventLoop) -> None:
         await conn.close()
 
 
+async def test_get_never_expires_with_keepalive_timeout_none() -> None:
+    loop = asyncio.get_running_loop()
+    conn = aiohttp.BaseConnector(keepalive_timeout=None)
+    key = ConnectionKey("localhost", 80, False, False, None, None, None)
+    try:
+        proto = create_mocked_conn(loop)
+        conn._conns[key] = deque([(proto, loop.time() - 1000)])
+        connection = await conn._get(key, [])
+        assert connection is not None
+        assert connection.protocol == proto
+        connection.close()
+    finally:
+        await conn.close()
+
+
+async def test_release_with_keepalive_timeout_none_schedules_no_cleanup(
+    key: ConnectionKey,
+) -> None:
+    """_cleanup() asserts a non-None timeout, so nothing may schedule it for None."""
+    loop = asyncio.get_running_loop()
+    conn = aiohttp.BaseConnector(keepalive_timeout=None)
+    with mock.patch.object(conn, "_release_waiter", autospec=True, spec_set=True):
+        proto = create_mocked_conn(loop, should_close=False)
+
+        conn._acquired.add(proto)
+        conn._acquired_per_host[key].add(proto)
+
+        conn._release(key, proto)
+        assert conn._cleanup_handle is None
+        assert conn._conns[key][0][0] == proto
+        await conn.close()
+
+
 async def test_release_acquired(loop, key) -> None:
     proto = mock.Mock()
     conn = aiohttp.BaseConnector(loop=loop, limit=5, limit_per_host=10)
@@ -2545,6 +2578,28 @@ async def test_start_tls_exception_with_ssl_shutdown_timeout_nonzero_pre_311(
     # Should close, not abort
     underlying_transport.close.assert_called_once()
     underlying_transport.abort.assert_not_called()
+
+
+async def test_start_tls_connection_returns_none() -> None:
+    """A transport closed before the upgrade makes start_tls() return None."""
+    loop = asyncio.get_running_loop()
+    conn = aiohttp.TCPConnector()
+    req = ClientRequest("GET", URL("https://example.com"), loop=loop)
+
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        transport, _ = await loop.create_connection(
+            asyncio.Protocol, *listener.getsockname()
+        )
+    transport.close()
+
+    with pytest.raises(aiohttp.ClientConnectorError) as exc_info:
+        await conn._start_tls_connection(transport, req, ClientTimeout())
+
+    assert "Failed to start TLS" in exc_info.value.os_error.args[0]
+
+    await conn.close()
 
 
 async def test_start_tls_with_zero_total_timeout(

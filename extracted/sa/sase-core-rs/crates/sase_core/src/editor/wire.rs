@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::content_layout::MemoryTierWire;
+use crate::macro_input_types::{CatalogSource, InputTypeKind};
 use crate::project_tag::ProjectTagTargetWire;
+use crate::MobileInputChoiceWire;
 
 pub const EDITOR_WIRE_SCHEMA_VERSION: u32 = 3;
 
@@ -39,22 +41,15 @@ pub enum CompletionContextKind {
     Placeholder,
     ArtifactRefKind,
     ArtifactRefPayload,
-    Xprompt,
+    Macro,
     SlashSkill,
     FilePath,
     FileHistory,
-    #[serde(rename = "xprompt_argument_name", alias = "macro_argument_name")]
     MacroArgumentName,
-    #[serde(rename = "xprompt_argument_value", alias = "macro_argument_value")]
     MacroArgumentValue,
-    #[serde(rename = "xprompt_argument_path", alias = "macro_argument_path")]
     MacroArgumentPath,
-    #[serde(rename = "xprompt_argument_agent", alias = "macro_argument_agent")]
     MacroArgumentAgent,
-    #[serde(
-        rename = "xprompt_argument_type_hint",
-        alias = "macro_argument_type_hint"
-    )]
+    MacroArgumentModel,
     MacroArgumentTypeHint,
     DirectiveName,
     DirectiveArgument,
@@ -95,7 +90,7 @@ pub struct CompletionContext {
     pub kind: CompletionContextKind,
     pub token: Option<TokenInfo>,
     #[serde(default)]
-    pub active_xprompt: Option<String>,
+    pub active_macro: Option<String>,
     #[serde(default)]
     pub active_input: Option<String>,
     #[serde(default)]
@@ -402,6 +397,12 @@ pub struct MacroInputHint {
     pub position: u32,
     #[serde(default)]
     pub repeatable: bool,
+    #[serde(default)]
+    pub choices: Vec<MobileInputChoiceWire>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub named_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value_role: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -442,7 +443,6 @@ pub struct MacroAssistEntry {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MacroArgumentSource {
-    #[serde(rename = "xprompt", alias = "macro")]
     Macro,
     Directive,
 }
@@ -1313,6 +1313,49 @@ pub struct EditorDiagnostic {
     pub severity: DiagnosticSeverity,
     pub code: String,
     pub message: String,
+    /// Structured suggestions and edits. Absent on existing diagnostics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<EditorDiagnosticData>,
+}
+
+/// Canonical suggestions plus explicit quick-fix titles and edits.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditorDiagnosticData {
+    #[serde(default)]
+    pub suggestions: Vec<EditorDiagnosticSuggestion>,
+}
+
+/// One diagnostic-driven quick fix.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EditorDiagnosticSuggestion {
+    /// Canonical replacement value (never a label).
+    pub value: String,
+    pub title: String,
+    pub edit: EditorTextEdit,
+    #[serde(default)]
+    pub preferred: bool,
+}
+
+impl EditorDiagnostic {
+    pub fn new(
+        range: EditorRange,
+        severity: DiagnosticSeverity,
+        code: impl Into<String>,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            range,
+            severity,
+            code: code.into(),
+            message: message.into(),
+            data: None,
+        }
+    }
+
+    pub fn with_data(mut self, data: EditorDiagnosticData) -> Self {
+        self.data = Some(data);
+        self
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1371,10 +1414,27 @@ pub struct FrontmatterInputType {
     pub aliases: Vec<String>,
     /// One-line human rule describing what values the type accepts.
     pub rule: String,
+    /// Catalog kind, added after the original schema wire.
+    #[serde(default = "default_frontmatter_input_type_kind")]
+    pub kind: InputTypeKind,
+    /// Human-readable description from the shared catalog.
+    #[serde(default)]
+    pub description: String,
+    /// Provenance from the shared catalog.
+    #[serde(default = "default_frontmatter_input_type_source")]
+    pub source: CatalogSource,
     /// When false the type is parsed and transported but not advertised in
     /// public completion, pickers, or helper catalogs.
     #[serde(default = "default_true")]
     pub advertised: bool,
+}
+
+fn default_frontmatter_input_type_kind() -> InputTypeKind {
+    InputTypeKind::Scalar
+}
+
+fn default_frontmatter_input_type_source() -> CatalogSource {
+    CatalogSource::Builtin
 }
 
 fn default_true() -> bool {
@@ -1466,37 +1526,43 @@ mod tests {
     }
 
     #[test]
-    fn macro_argument_source_accepts_old_and_new_spellings() {
-        let old: MacroArgumentSource =
-            serde_json::from_value(serde_json::json!("xprompt")).unwrap();
+    fn macro_argument_source_pins_canonical_output() {
         let new: MacroArgumentSource =
             serde_json::from_value(serde_json::json!("macro")).unwrap();
-        assert_eq!(old, MacroArgumentSource::Macro);
         assert_eq!(new, MacroArgumentSource::Macro);
         assert_eq!(
             serde_json::to_value(new).unwrap(),
-            serde_json::json!("xprompt")
+            serde_json::json!("macro")
         );
+        // Legacy request variants are rejected by design.
+        assert!(serde_json::from_value::<MacroArgumentSource>(
+            serde_json::json!("xprompt") // legacy xprompt spelling
+        )
+        .is_err());
     }
 
     #[test]
-    fn completion_context_macro_variants_pin_legacy_output() {
+    fn completion_context_macro_variants_pin_canonical_output() {
         for (legacy, alias) in [
-            ("xprompt_argument_name", "macro_argument_name"),
-            ("xprompt_argument_value", "macro_argument_value"),
-            ("xprompt_argument_path", "macro_argument_path"),
-            ("xprompt_argument_agent", "macro_argument_agent"),
-            ("xprompt_argument_type_hint", "macro_argument_type_hint"),
+            ("xprompt_argument_name", "macro_argument_name"), // legacy xprompt spelling
+            ("xprompt_argument_value", "macro_argument_value"), // legacy xprompt spelling
+            ("xprompt_argument_path", "macro_argument_path"), // legacy xprompt spelling
+            ("xprompt_argument_agent", "macro_argument_agent"), // legacy xprompt spelling
+            ("xprompt_argument_type_hint", "macro_argument_type_hint"), // legacy xprompt spelling
         ] {
-            let from_old: CompletionContextKind =
-                serde_json::from_value(serde_json::json!(legacy)).unwrap();
             let from_new: CompletionContextKind =
                 serde_json::from_value(serde_json::json!(alias)).unwrap();
-            assert_eq!(from_old, from_new, "alias {alias} must parse");
             assert_eq!(
                 serde_json::to_value(&from_new).unwrap(),
-                serde_json::json!(legacy),
-                "alias {alias} must emit legacy {legacy}"
+                serde_json::json!(alias),
+                "alias {alias} must emit canonical {alias}"
+            );
+            assert!(
+                serde_json::from_value::<CompletionContextKind>(
+                    serde_json::json!(legacy)
+                )
+                .is_err(),
+                "legacy {legacy} must be rejected"
             );
         }
     }

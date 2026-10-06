@@ -29,6 +29,7 @@ class Permission(str, Enum):
     MEMBER = 'member'
     MANAGE = 'manage'
     VIEW = 'view'
+    CATALOG_VIEW = 'catalog_view'
     EDIT = 'edit'
     EXECUTE = 'execute'
     ARCHIVE = 'archive'

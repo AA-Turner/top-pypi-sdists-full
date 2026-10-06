@@ -54,6 +54,7 @@ from probe.cli.capabilities import (
     TRACKING_PLUGIN_NAME,
     Capabilities,
     Capability,
+    McpState,
     TokenSource,
     agent_source,
     agent_target,
@@ -61,6 +62,7 @@ from probe.cli.capabilities import (
     tap_plugin_dir,
     tracking_plugin_name,
 )
+from probe.cli.tui import CONTENT_WIDTH
 from probe.cli.versions import VersionStatus
 from probe.cli.versions import overall as overall_version_status
 from probe.cli.capture import AWAITING_CONFIRMATION, OffMode, clear_killswitch, turn_off
@@ -123,6 +125,21 @@ def _installable_rows():
 
 
 AGENT_LABELS = {h.id: h.label for h in _installable_rows()}
+
+
+def agent_logo(source: str) -> bytes | None:
+    """The agent's logo as the PNG a terminal draws in the device summary
+    (Richard 2026-10-06: "actually get the correct icons", in "this circular
+    colored background style"): its brand mark in white on a circle of its
+    brand colour, rendered by `agent/tools/render_harness_icons.py` into
+    `probe/cli/icons/<registry icon stem>.png`."""
+    from probe.harness import get_registry
+
+    harness = get_registry().find(source)
+    if harness is None or not harness.icon:
+        return None
+    path = Path(__file__).parent / "icons" / f"{Path(harness.icon).stem}.png"
+    return path.read_bytes() if path.is_file() else None
 
 #: The sources that install through a plugin MARKETPLACE (`plugin_cli.py`'s
 #: `install`/`marketplace update`/`marketplace add`) rather than pi's
@@ -1831,7 +1848,7 @@ def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
     return refreshed
 
 
-def _install_pi_package() -> claude_cli.Result:
+def _install_pi_package(*, tracking: bool = True) -> claude_cli.Result:
     """The `source == "pi"` half of `install_plugin`.
 
     Kept as its own function so `install_plugin` itself stays one dispatch
@@ -1858,7 +1875,7 @@ def _install_pi_package() -> claude_cli.Result:
     plugin developer, the published mirror repo otherwise), so this call site
     just asks for the install and reports what happened.
     """
-    result = pi_config.install_package_entry()
+    result = pi_config.install_package_entry(tracking=tracking)
     if not result.ok:
         return result
 
@@ -1904,7 +1921,10 @@ def install_plugin(name: str, *, source: str | None = None, on_retry=None) -> cl
             ok=False, detail=f"{selected} has no plugin marketplace", reachable=False
         )
     if selected == "pi":
-        return _install_pi_package()
+        # One package, two halves: only the tracking half's install (either
+        # profile's name) brings Probe's skills and MCP on a FRESH entry; the
+        # capture half arrives as `pi_config.PACKAGE_NAME` (CAPTURE_PLUGIN_LABEL).
+        return _install_pi_package(tracking=name in _TRACKING_NAMES)
     result = plugin_cli.install(selected, f"{name}@{MARKETPLACE}")
     if result.ok or on_retry is None or not on_retry():
         return result
@@ -1912,15 +1932,36 @@ def install_plugin(name: str, *, source: str | None = None, on_retry=None) -> cl
     return plugin_cli.install(selected, f"{name}@{MARKETPLACE}")
 
 
-def uninstall_plugin(name: str, *, source: str | None = None) -> claude_cli.Result:
+#: The tracking half's plugin names (either profile). For pi, whose one package
+#: carries both halves, these decide which half an install or uninstall means.
+_TRACKING_NAMES = (TRACKING_PLUGIN_NAME, DAEMON_PLUGIN_NAME)
+
+
+def uninstall_plugin(
+    name: str, *, source: str | None = None, keep_capture: bool | None = None
+) -> claude_cli.Result:
     selected = source or agent_source()
     if selected not in INSTALLABLE_AGENT_SOURCES:
         return claude_cli.Result(
             ok=False, detail=f"{selected} has no plugin marketplace", reachable=False
         )
     if selected == "pi":
+        capture_stays = _settings_capture_on(selected) if keep_capture is None else keep_capture
+        if name in _TRACKING_NAMES and capture_stays:
+            # Capture rides in the same package: switch tracking off instead.
+            return pi_config.set_tracking(False, daemon=daemon_records(selected))
         return pi_config.remove_package_entry()
     return plugin_cli.uninstall(selected, f"{name}@{MARKETPLACE}")
+
+
+def _settings_capture_on(source: str) -> bool:
+    """A settings-package agent's (pi's) capture is live here: its own
+    credential, no killswitch. Decides whether unticking tracking may delete
+    the one package both halves share."""
+    try:
+        return bool(capture_token_sources(source)) and not (tap_plugin_dir(source) / ".disabled").exists()
+    except Exception:  # noqa: BLE001 - unknown is "keep the package"
+        return True
 
 
 #: What each capability's plugin cannot work without.
@@ -2083,7 +2124,11 @@ def needs_authorization(caps: Capabilities, selection: Selection) -> list[str]:
     # Its own signal, never `api`'s: a token pasted into `probe wizard --action
     # login --token` signs in without an MCP token, and folding `mcp` into
     # `api` left that device with no MCP at all (R11).
-    if caps.mcp_token_held:
+    # A token the API REFUSED is not held: re-authorizing is the only repair,
+    # and without this a revoked token made `probe wizard` a no-op.
+    from probe.cli.capabilities import mcp_token_rejected
+
+    if caps.mcp_token_held and not mcp_token_rejected():
         have.add("mcp")
     return [grant for grant in wanted if grant not in have]
 
@@ -2256,7 +2301,7 @@ def authorize(
     # `configured_bearer` returns None from a file read and the sync returns
     # before it shells out to `codex mcp list`.
     if "mcp" in by_grant:
-        messages.extend(sync_codex_mcp_token())
+        messages.extend(sync_mcp_token())
 
     # Every captured source EXCEPT claude_code needs its token written
     # straight into its own tap plugin dir: claude_code alone can fall back to
@@ -2353,6 +2398,10 @@ def plan(caps: Capabilities, selection: Selection) -> list[str]:
             # and a POINTER_VERSION bump could never reach a machine at all.
             if capability is Capability.AGENT_RULES and want and caps.agent_rules_stale:
                 steps.append(f"refresh {PLAN_LABELS[capability]}")
+            elif capability is Capability.AGENT_RULES and want and statusline_catch_up_due(caps.agent_source):
+                # Same trap as the stale block: rules current, so nothing here
+                # would run the step that writes Kimi Code's footer.
+                steps.append(f"add Probe's state to {agent_label(caps.agent_source)}'s status line")
             elif capability is Capability.AGENT_RULES and not want and leftover_team_note(caps):
                 steps.append(f"disable {PLAN_LABELS[capability]}")
             continue
@@ -2443,31 +2492,61 @@ def apply_capture(caps: Capabilities, want: bool, *, mode: OffMode, on_retry=Non
     return messages
 
 
-def apply_tracking(want: bool, *, on_retry=None) -> list[str]:
+def apply_tracking(want: bool, *, on_retry=None, keep_capture: bool | None = None) -> list[str]:
     """Bring tracking to `want`.
 
     Turning it off removes the plugin but deliberately does NOT revoke the PAT
     or log the CLI out: the wizard is not a logout command, and silently
     destroying a credential the user may be scripting against would be a nasty
     surprise. `probe logout` remains the explicit way to do that.
+
+    pi carries both halves in one package: off keeps the package while capture
+    stays (`keep_capture`, the run's selection; unknown reads the device), and
+    the extension switches tracking off itself (0.4.0+, updated first).
     """
     messages: list[str] = []
     # The profile's plugin (`probe-research-daemon` where the daemon records),
     # so a re-run of the install never puts the other profile's plugin back.
     name = tracking_plugin_name()
+    selected = agent_source()
+    pi = _current_harness().lean_profile == LEAN_SETTINGS_FILTER  # one package, both halves
+    capture_stays = (_settings_capture_on(selected) if keep_capture is None else keep_capture) if pi else False
+    if pi and not want and capture_stays:
+        ready = _settings_tracking_ready()
+        if not ready.ok:
+            return [f"! pi keeps Probe's tracking on: {ready.detail}"]
     if want:
         result = install_plugin(name, on_retry=on_retry)
+        if result.ok and pi:
+            # An existing entry may carry tracking-off: switch it back on.
+            result = pi_config.set_tracking(True, daemon=daemon_records(selected))
         if not result.ok:
             messages.append(f"could not install {name}: {result.detail}")
-        return messages
-    result = uninstall_plugin(name)
+        return [*messages, *(_pi_project_override(want=True) if pi else [])]
+    result = uninstall_plugin(name, keep_capture=capture_stays) if pi else uninstall_plugin(name)
     if not result.ok:
         messages.append(f"could not uninstall {name}: {result.detail}")
+    elif pi and capture_stays:
+        messages.append("Probe's tracking is off in pi; session capture keeps running. You are still signed in.")
     else:
         messages.append(
             "Removed the tracking plugin. You are still signed in."
         )
-    return messages
+    return [*messages, *(_pi_project_override(want=False) if pi else [])]
+
+
+def _pi_project_override(*, want: bool) -> list[str]:
+    """The wizard writes pi's GLOBAL entry; a project entry in this folder wins
+    over it (pi's merge rule). Say so instead of editing someone's project file."""
+    merged = pi_config.merged_package_entry(cwd=Path.cwd())
+    if merged.scope != "project" or not merged.installed:
+        return []
+    if merged.tracking_off == (not want):
+        return []
+    project = pi_config.project_settings_path(Path.cwd())
+    state = "on" if want is False else "off"
+    return [f"! {project} keeps Probe's tracking {state} in this folder (pi lets a project entry win); "
+            f"edit or remove its probe-research-pi entry to match."]
 
 
 def agent_profile(source: str | None = None) -> "agent_rules.Profile":
@@ -2655,6 +2734,28 @@ def daemon_package_ready(source: str) -> _Ready:
                                   "then switch Who records again."])
         lines.append(f"{label}'s Probe package updated to {'.'.join(str(part) for part in version)}.")
     return _Ready(True, lines)
+
+
+def _settings_tracking_ready() -> claude_cli.Result:
+    """pi's package is new enough to honour tracking-off
+    (`pi_config.TRACKING_OFF_MIN_PACKAGE_VERSION`), updating it first
+    (`pi update <source>`) when it is not. An older extension ignores
+    `probeTracking` and keeps bridging Probe's MCP, so the status would read
+    "off" while pi still served it."""
+    floor = pi_config.TRACKING_OFF_MIN_PACKAGE_VERSION
+    want = ".".join(str(part) for part in floor)
+    version = pi_config.installed_package_version()
+    if version is None or version < floor:
+        pi_config.update_package()
+        version = pi_config.installed_package_version()
+    if version is not None and version >= floor:
+        return claude_cli.Result(ok=True, detail="")
+    have = ".".join(str(part) for part in version) if version else "unknown"
+    return claude_cli.Result(
+        ok=False,
+        detail=f"its Probe package is {have}, and switching tracking off needs {want} or newer. "
+        f"Run `pi update {pi_config.MIRROR_GIT_SOURCE}`, then untick tracking again.",
+    )
 
 
 def _settings_profile_ready(source: str, label: str, *, base_url: str) -> _Ready:
@@ -2963,6 +3064,24 @@ def codex_mcp_token_drifted() -> bool:
     return configured != token or codex_config.needs_header_migration(CODEX_MCP_NAME)
 
 
+def mcp_token_drifted() -> bool:
+    """Any agent-held copy of the read token (Codex's config, Kimi Code's
+    installed manifest) differs from the one this device holds."""
+    from probe.cli import kimi_config
+
+    return codex_mcp_token_drifted() or kimi_config.mcp_bearer_drifted()
+
+
+def sync_mcp_token() -> list[str]:
+    """Re-point EVERY agent-held copy of the read token at the current one:
+    Codex's config.toml and Kimi Code's installed manifest. The one call every
+    token replacement makes (`authorize()`, `probe mcp token set`, the wizard's
+    drift repair), so no copy is left answering 401."""
+    from probe.cli import kimi_config
+
+    return [*sync_codex_mcp_token(), *kimi_config.sync_mcp_bearer()]
+
+
 def sync_codex_mcp_token() -> list[str]:
     """Re-point an existing Codex entry at the CURRENT read token.
 
@@ -3090,19 +3209,59 @@ def apply_statusline() -> list[str]:
     """
     from probe.cli import statusline
 
-    root = statusline.discover_plugin_root()
+    source = agent_source()
+    root = statusline.discover_plugin_root(source)
     if root is None:
         return [
             "Status line: skipped — the plugin is not on disk yet.",
             "  Run the wizard's Install again once it is.",
         ]
     try:
-        result = statusline.install(root)
+        # The slot the registry names: Claude Code's settings.json or Kimi
+        # Code's footer settings (a running Kimi shows it from its next start).
+        result = statusline.install_for(source, root)
     except (OSError, ValueError) as exc:
         return [f"Status line: not configured ({exc}). Nothing else was affected."]
     if result.get("chained_after"):
         return ["Status line: on, chained after the command you already had."]
     return ["Status line: on."]
+
+
+def statusline_catch_up_due(source: str | None) -> bool:
+    """The one-time footer catch-up would do something now: owed, not already
+    there, and the plugin it renders from is on disk."""
+    from probe.cli import statusline
+
+    if not source or not statusline.catch_up_owed(source):
+        return False
+    if statusline.installed_for(source):
+        return False
+    return statusline.discover_plugin_root(source) is not None
+
+
+def catch_up_statusline(source: str | None = None) -> list[str]:
+    """Kimi Code's footer for a machine whose rules predate it: the footer is
+    written by the rules step (`apply_agent_rules`), which a machine with current
+    rules never runs again, so upgrading to 0.214.0 left every existing Kimi
+    machine without it. Once per agent (`statusline.mark_caught_up`): whatever
+    happens here, a later uninstall is never undone. Not once the plugin is
+    missing from disk (a later run tries again)."""
+    from probe.cli import statusline
+    from probe.cli.capabilities import agent_target
+
+    selected = source or agent_source()
+    if not statusline.catch_up_owed(selected):
+        return []
+    if statusline.installed_for(selected):
+        statusline.mark_caught_up(selected)
+        return []
+    if statusline.discover_plugin_root(selected) is None:
+        return []
+    with agent_target(selected):
+        lines = apply_statusline()
+    statusline.mark_caught_up(selected)
+    return [f"{agent_label(selected)} {line[0].lower()}{line[1:]}" if i == 0 else line
+            for i, line in enumerate(lines)]
 
 
 def remove_statusline() -> list[str]:
@@ -3111,11 +3270,12 @@ def remove_statusline() -> list[str]:
     behind, the status line keeps running a renderer nobody maintains."""
     from probe.cli import statusline
 
+    source = agent_source()
     try:
-        result = statusline.uninstall()
+        result = statusline.uninstall_for(source)
     except (OSError, ValueError) as exc:
-        return [f"! left the status line in place ({exc}); remove `statusLine` from "
-                f"{statusline.settings_path()} by hand."]
+        return [f"! left the status line in place ({exc}); remove Probe's status-line command from "
+                f"{statusline.slot_path(source)} by hand."]
     if not result.get("removed"):
         return []
     if result.get("restored"):
@@ -3516,9 +3676,14 @@ def run_action_menu(caps: Capabilities | dict[str, Capabilities]):
 
     from probe.cli import doctor as doctor_impl  # noqa: F401
 
+    # Read once per menu, not per frame: the menu is rebuilt after every action,
+    # so an agent installed meanwhile shows on the next one.
+    installed = detectable_sources()
+    images = tui.image_protocol()
+
     def live_lines():
         progress = import_jobs_ui.active_progress_lines()
-        lines = describe_state(caps)
+        lines = describe_state(caps, installed=installed, images=images)
         if progress:
             lines += ["", tui.StyledLine("Import progress", style="class:question"), "", *progress]
         return lines
@@ -3539,7 +3704,12 @@ def run_action_menu(caps: Capabilities | dict[str, Capabilities]):
     )
     switch.wire(question)
     recorder.wire(question)
-    return tui.ask(question, height=tui.content_height(message, choices))
+    try:
+        return tui.ask(question, height=tui.content_height(message, choices))
+    finally:
+        if images:
+            sys.stdout.write(tui.forget_images(images, len(caps) if isinstance(caps, dict) else 1))
+            sys.stdout.flush()
 
 
 class _RecorderSwitch:
@@ -3705,8 +3875,25 @@ class _DefaultSwitch:
 #: of the line restating the one above it. `probe doctor` still lists all four.
 _VERSION_LABELS = {"cli": "CLI", "plugin": "plugin", "tap": "tap"}
 
-#: What is left of a CONTENT_WIDTH row after "  " + a 28-column label + a space.
-_STATE_VALUE_WIDTH = 45
+#: The label column of the device summary: its longest label, "Last update
+#: attempt", plus a space. Agents carry an icon rather than a name since
+#: 2026-10-05, so nothing longer has to fit.
+_STATE_LABEL_WIDTH = 20
+
+#: What is left of a CONTENT_WIDTH row after "  " + the label + a space.
+_STATE_VALUE_WIDTH = CONTENT_WIDTH - 3 - _STATE_LABEL_WIDTH
+
+#: Each agent's MCP answer in a few words. `Capabilities.mcp_status` is the
+#: sentence `probe doctor` prints; at up to 53 characters it wrapped every agent
+#: row here onto a second line that read as a row of its own.
+_MCP_WORDS = {
+    McpState.ON: "on",
+    McpState.LOGIN_NEEDED: "login needed",
+    McpState.DAEMON: "off (daemon reads)",
+    McpState.NOT_INSTALLED: "not installed",
+    McpState.NOT_OFFERED: "not offered",
+    McpState.UNKNOWN: "unknown",
+}
 
 #: A manifest older than this grades the verdict against a list that may predate
 #: several releases, so "up to date" stops being a claim worth making plainly.
@@ -3715,11 +3902,49 @@ _MANIFEST_STALE_S = 86400
 
 
 def _state_row(label: str, value: str, style: str = "") -> str:
-    """One aligned row of the device summary, optionally carrying a TUI style."""
+    """One aligned row of the device summary, optionally carrying a TUI style.
+
+    Clipped, never wrapped: a wrapped value loses its alignment and reads as a
+    new row with a blank label (see `_fit`)."""
     from probe.cli import tui
 
-    text = f"  {label:<28} {value}"
-    return tui.StyledLine(text, style=style) if style else text
+    return tui.StyledLine(f"  {label:<{_STATE_LABEL_WIDTH}} {value}", style=style, clip=True)
+
+
+def _agent_rows(caps_by_source: dict[str, Capabilities], images=None) -> list[str]:
+    """One row per agent: its logo (or its name), then MCP and capture in
+    aligned columns.
+
+    `images` is the terminal's `tui.ImageProtocol`. With one, each agent is its
+    logo, two cells wide, and pointing at the row shows its name; without one
+    (Terminal.app, tmux, a pipe) the name stands in the logo's column. One
+    agent without a logo gets names for every row, so the columns still line up.
+    """
+    from probe.cli import tui
+
+    names = {source: agent_label(source) for source in caps_by_source}
+    logos = {source: agent_logo(source) for source in caps_by_source} if images else {}
+    drawn = bool(logos) and all(logos.values())
+    lead = 2 if drawn else max(map(len, names.values()), default=0)
+    mcp = {
+        source: f"MCP {_MCP_WORDS.get(snapshot.mcp_state, snapshot.mcp_state)}"
+        for source, snapshot in caps_by_source.items()
+    }
+    mcp_width = max(map(len, mcp.values()), default=0)
+    rows: list[str] = []
+    for index, (source, snapshot) in enumerate(caps_by_source.items()):
+        capture = "on" if snapshot.capture_on else "off"
+        if snapshot.capture_killswitched:
+            capture = "off (killswitch set)"
+        label = "" if drawn else names[source]
+        text = f"  {label:<{lead}}  {mcp[source]:<{mcp_width}}   capture {capture}"
+        if drawn:
+            # Drawn over the two blank cells before column 4, once that column is.
+            logo = tui.image_escape(logos[source], images, cells=2, image_id=tui.IMAGE_ID_BASE + index)
+            rows.append(tui.StyledLine(text, clip=True, escapes=((4, logo),), hover=names[source]))
+        else:
+            rows.append(tui.StyledLine(text, clip=True))
+    return rows
 
 
 def _fit(parts: list[str], limit: int = _STATE_VALUE_WIDTH) -> str:
@@ -3833,55 +4058,59 @@ def _version_detail(rows: list, verdict: VersionStatus) -> str:
     return _fit([f"{_VERSION_LABELS[row.kind]} {row.installed}" for row in rows if row.installed])
 
 
-def describe_state(caps: Capabilities | dict[str, Capabilities]) -> list[str]:
+def describe_state(
+    caps: Capabilities | dict[str, Capabilities],
+    installed: Iterable[str] | None = None,
+    images=None,
+) -> list[str]:
     """A one-glance summary printed above the menu on a re-run.
 
     The wizard already knows all of this, so showing it means the user picks an
     action against real state rather than guessing which one they need.
+
+    `installed` limits the agent rows to the agents found on this machine
+    (`detectable_sources`); None shows every agent in `caps`. The device rows
+    still come off the first snapshot either way. `images` draws each agent as
+    its logo (`_agent_rows`).
     """
     if isinstance(caps, dict):
-        lines: list[str] = []
-        for source, snapshot in caps.items():
-            label = agent_label(source)
-            capture = "on" if snapshot.capture_on else "off"
-            if snapshot.capture_killswitched:
-                capture = "off (killswitch set)"
-            lines.append(
-                f"  {label:<28} MCP {'on' if snapshot.tracking_on else 'off'} · capture {capture}"
-            )
+        found = None if installed is None else set(installed)
+        agents = {source: snapshot for source, snapshot in caps.items() if found is None or source in found}
+        lines: list[str] = _agent_rows(agents, images) if agents else [
+            _state_row("Coding agents", "none found on this device")
+        ]
         first = next(iter(caps.values()), None)
         if first is not None:
+            lines.append("")
             # Directly under the agents, above the update settings: what you are
             # running, then whether it keeps itself current, then when it last
             # tried. The version rows are device-wide -- one CLI, one plugin
             # ledger -- so they come off the first snapshot like the rows below.
             lines.extend(describe_versions(first))
-            lines.append(
-                f"  {'Automatic updates':<28} {'on' if first.auto_update_enabled else 'off'}"
-            )
+            lines.append(_state_row("Automatic updates", "on" if first.auto_update_enabled else "off"))
             # ALWAYS, signed in or not. Printed only when an email resolved,
             # "not signed in" was the one state this summary could not show --
             # so the machine that most needs the account row was the machine
             # that never got one.
-            lines.append(f"  {'Account':<28} {first.logged_in_as or 'not signed in'}")
+            lines.append(_state_row("Account", first.logged_in_as or "not signed in"))
             if first.last_update_attempt_summary:
-                lines.append(f"  {'Last update attempt':<28} {first.last_update_attempt_summary}")
+                lines.append(_state_row("Last update attempt", first.last_update_attempt_summary))
         return lines
 
-    lines = []
-    lines.append(
-        f"  CLI + MCP                   {'on' if caps.tracking_on else 'off'}"
-        + (f"  ({caps.logged_in_as})" if caps.logged_in_as else "")
-    )
+    lines = [
+        _state_row(
+            "CLI + MCP",
+            caps.mcp_status() + (f"  ({caps.logged_in_as})" if caps.logged_in_as else ""),
+        )
+    ]
     capture = "on" if caps.capture_on else "off"
     if caps.capture_killswitched:
         capture = "off (killswitch set)"
-    lines.append(f"  Session capture             {capture}")
+    lines.append(_state_row("Session capture", capture))
     lines.extend(describe_versions(caps))
-    auto = "on" if caps.auto_update_enabled else "off"
-    lines.append(f"  Automatic updates           {auto}")
+    lines.append(_state_row("Automatic updates", "on" if caps.auto_update_enabled else "off"))
     if caps.last_update_attempt_summary:
-        lines.append(f"  {'Last update attempt':<28} {caps.last_update_attempt_summary}")
+        lines.append(_state_row("Last update attempt", caps.last_update_attempt_summary))
     return lines
 
 
@@ -4863,6 +5092,29 @@ RECORDER_ROW_COPY: dict[str, tuple[str, ...]] = {
         "Deletes go to the trash or ask first, unless prompts are off.",
     ),
 }
+
+
+def follow_machine_recorder(source: str, caps: Capabilities, *, base_url: str, rules: bool | None = None) -> list[str]:
+    """A coding agent set up for the FIRST time joins the device's Who records:
+    where the other agents record through the daemon, a new one starts there too
+    (Richard 2026-10-06) instead of on its own. Only at first setup: an agent
+    already set up never moves on its own, because who records decides what
+    leaves the machine (`_run_recorder_action`)."""
+    from probe.sdk import session_marker
+
+    from probe.cli.daemon_cli import ai_libraries
+
+    daemon = session_marker.RECORDER_DAEMON
+    if source not in RECORDER_SOURCES or session_marker.recorder(source) == daemon:
+        return []
+    if not any(session_marker.recorder(other) == daemon for other in RECORDER_SOURCES if other != source):
+        return []
+    if not companion_token_held() or ai_libraries() is None:
+        # Setting the daemon up here would open a browser mid-install.
+        return [f"{agent_label(source)} records itself for now: the daemon is not ready on this device. "
+                "`probe wizard` › Who records moves it."]
+    lines = apply_recorder(caps, daemon, base_url=base_url, rules=rules)
+    return [f"{agent_label(source)}: Who records — the daemon, like this device's other agents.", *lines]
 
 
 def machine_recorder() -> str:

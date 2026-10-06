@@ -19,7 +19,7 @@ pub(crate) async fn run(hook: &Hook, filenames: &[&Path]) -> Result<HookOutput> 
     .await
 }
 
-fn check_file(file_path: &Path, filename: &Path) -> Result<HookOutput> {
+fn check_file(file_path: &Path, display_path: &Path) -> Result<HookOutput> {
     let content = fs_err::read(file_path)?;
     if content.is_empty() {
         return Ok(HookOutput::unchanged(0, Vec::new()));
@@ -29,7 +29,8 @@ fn check_file(file_path: &Path, filename: &Path) -> Result<HookOutput> {
     let content_str = match simdutf8::compat::from_utf8(&content) {
         Ok(s) => s,
         Err(e) => {
-            let error_message = format!("{}: Failed to decode UTF-8 ({e})\n", filename.display());
+            let error_message =
+                format!("{}: Failed to decode UTF-8 ({e})\n", display_path.display());
             return Ok(HookOutput::unchanged(1, error_message.into_bytes()));
         }
     };
@@ -44,7 +45,7 @@ fn check_file(file_path: &Path, filename: &Path) -> Result<HookOutput> {
             writeln!(
                 output,
                 "{}: Failed to toml decode ({error})",
-                filename.display()
+                display_path.display()
             )?;
         }
         Ok(HookOutput::unchanged(1, output))
@@ -76,7 +77,7 @@ key2 = "value2"
         let file_path = create_test_file(&dir, "valid.toml", content).await?;
         let result = check_file(&file_path, &file_path)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -89,7 +90,7 @@ key2 = "value2"
         let file_path = create_test_file(&dir, "invalid.toml", content).await?;
         let result = check_file(&file_path, &file_path)?;
         assert_eq!(result.exit_status, 1);
-        assert!(!result.output.is_empty());
+        assert_ne!(result.output, b"");
         Ok(())
     }
 
@@ -102,7 +103,7 @@ key1 = "value2"
         let file_path = create_test_file(&dir, "duplicate.toml", content).await?;
         let result = check_file(&file_path, &file_path)?;
         assert_eq!(result.exit_status, 1);
-        assert!(!result.output.is_empty());
+        assert_ne!(result.output, b"");
         Ok(())
     }
 
@@ -113,7 +114,7 @@ key1 = "value2"
         let file_path = create_test_file(&dir, "empty.toml", content).await?;
         let result = check_file(&file_path, &file_path)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 

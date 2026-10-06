@@ -42,7 +42,7 @@ from packaging.version import parse as parse_version
 import snowflake.snowpark._internal.proto.generated.ast_pb2 as proto
 import snowflake.snowpark.context as context
 from snowflake.connector import ProgrammingError, SnowflakeConnection
-from snowflake.connector.options import installed_pandas, pandas, pyarrow
+from snowflake.snowpark._internal.options import installed_pandas, pandas, pyarrow
 from snowflake.connector.pandas_tools import write_pandas
 
 from snowflake.snowpark import UDFProfiler
@@ -397,6 +397,24 @@ class Session:
 
     :class:`Session` contains functions to construct a :class:`DataFrame` like :meth:`table`,
     :meth:`sql` and :attr:`read`, etc.
+
+    A :class:`Session` object is thread-safe. You can share a single session across
+    multiple threads to submit queries concurrently, using Python's standard threading
+    APIs. This requires version 1.24.0 or later. Note that a single session does not
+    support concurrent transactions, and changing session configuration - such as the
+    current database or schema - while other threads are active can lead to unexpected
+    behavior. Use a separate :class:`Session` object for each thread in those cases.
+    For more information, see
+    `Submit Snowpark queries concurrently <https://docs.snowflake.com/en/developer-guide/snowpark/python/working-with-dataframes#label-snowpark-python-dataframe-threadsafe-objects>`_.
+
+    To run DataFrame operations concurrently on a shared session::
+
+        >>> from concurrent.futures import ThreadPoolExecutor
+        >>> def count_rows(table_name):
+        ...     return session.table(table_name).count()
+        >>> tables = ["table_a", "table_b", "table_c"]
+        >>> with ThreadPoolExecutor(max_workers=3) as executor:  # doctest: +SKIP
+        ...     counts = list(executor.map(count_rows, tables))
     """
 
     class RuntimeConfig:
@@ -502,9 +520,32 @@ class Session:
             Adds the specified :class:`dict` of connection parameters to
             the :class:`SessionBuilder` configuration.
 
+            Args:
+                options: A dictionary mapping connection parameter names to their values.
+                    For supported parameters and their descriptions, see the
+                    `Snowflake Connector for Python connect parameters
+                    <https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-api#label-snowflake-connector-methods-connect>`_.
+
+            Returns:
+                This :class:`SessionBuilder` instance. Call :meth:`create` to establish
+                the session.
+
             Note:
-                Calling this method overwrites any existing connection parameters
-                that you have already set in the SessionBuilder.
+                Values in ``options`` overwrite previously configured values with the
+                same keys. Previously configured parameters not present in ``options``
+                are retained.
+
+            Example::
+                >>> # Use a connection named "myconnection" defined in connections.toml.
+                >>> connection_parameters = {
+                ...     "connection_name": "myconnection",
+                ...     "warehouse": "MY_WAREHOUSE",
+                ... }
+                >>> session = Session.builder.configs(connection_parameters).create()  # doctest: +SKIP
+
+            For authentication options and additional examples, see
+            `Creating a Session for Snowpark Python
+            <https://docs.snowflake.com/en/developer-guide/snowpark/python/creating-session>`_.
             """
             self._options = {**self._options, **options}
             return self
@@ -535,7 +576,22 @@ class Session:
             return session
 
         def getOrCreate(self) -> "Session":
-            """Gets the last created session or creates a new one if needed."""
+            """Returns the single active session, or creates one if needed.
+
+            Unlike :meth:`create`, which creates a new session, this method
+            reuses the active session when exactly one exists and its connection
+            hasn't expired. Builder configuration options aren't applied to a
+            reused session.
+
+            If no active session exists, or the single active session's
+            connection has expired, this method calls :meth:`create` using this
+            builder's configuration. If multiple sessions are active, it raises
+            :class:`~snowflake.snowpark.exceptions.SnowparkSessionException`
+            instead of selecting the most recently created session.
+
+            Returns:
+                The existing active session or a newly created :class:`Session`.
+            """
             try:
                 session = _get_active_session()
                 if session._conn._conn.expired:
@@ -1689,9 +1745,8 @@ class Session:
             >>> import dateutil
             >>> # add numpy with the latest version on Snowflake Anaconda
             >>> # and pandas with the version "2.3.*"
-            >>> # and dateutil with the local version in your environment
-            >>> session.custom_package_usage_config = {"enabled": True}  # This is added because latest dateutil is not in snowflake yet
-            >>> session.add_packages("numpy", "pandas==2.3.*", dateutil)
+            >>> # and python-dateutil with the latest version on Snowflake Anaconda
+            >>> session.add_packages("numpy", "pandas==2.3.*", "python-dateutil")
             >>> @udf
             ... def get_package_name_udf() -> list:
             ...     return [numpy.__name__, pandas.__name__, dateutil.__name__]
@@ -3628,7 +3683,8 @@ class Session:
                         **kwargs,
                     )
         except ProgrammingError as pe:
-            if pe.msg.endswith("does not exist"):
+            msg = getattr(pe, "raw_msg", pe.msg)
+            if msg.endswith("does not exist"):
                 raise SnowparkClientExceptionMessages.DF_PANDAS_TABLE_DOES_NOT_EXIST_EXCEPTION(
                     location
                 ) from pe

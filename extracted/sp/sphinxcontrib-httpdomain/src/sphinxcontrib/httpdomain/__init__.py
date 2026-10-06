@@ -2,7 +2,7 @@
     sphinxcontrib.httpdomain
     ~~~~~~~~~~~~~~~~~~~~~~~~
 
-    The HTTP domain for documenting RESTful HTTP APIs.
+    Domains for documenting HTTP APIs and WebSocket connections.
 
     :copyright: Copyright 2011 by Hong Minhee
     :license: BSD, see LICENSE for details.
@@ -28,6 +28,8 @@ from sphinx.util.nodes import make_refnode
 from sphinx.util.docfields import GroupedField, TypedField
 from sphinx.util.docutils import Reporter, LoggingReporter
 from sphinx.locale import get_translation
+from ._path_signature import render_path_signature
+from .websocket import WebSocketDomain
 _ = get_translation('httpdomain')
 
 logger = logging.getLogger(__name__)
@@ -75,7 +77,7 @@ class IETFRef(DocRef):
     """Represents a reference to the specific IETF RFC."""
 
     def __init__(self, rfc, section):
-        url = 'https://www.rfc-editor.org/rfc/rfc{0:d}'.format(rfc)
+        url = 'https://www.rfc-editor.org/info/rfc{0:d}'.format(rfc)
         super(IETFRef, self).__init__(url, 'section-', section)
 
 
@@ -108,6 +110,7 @@ METHOD_REFS = {
     'trace': IETFRef(7231, '4.3.8'),
     'connect': IETFRef(7231, '4.3.6'),
     'copy': IETFRef(2518, 8.8),
+    'query': IETFRef(10008, 2),
     'any': ''
 }
 
@@ -119,6 +122,7 @@ HEADER_REFS = {
     'Accept-Charset': IETFRef(7231, '5.3.3'),
     'Accept-Encoding': IETFRef(7231, '5.3.4'),
     'Accept-Language': IETFRef(7231, '5.3.5'),
+    'Accept-Query': IETFRef(10008, 3),
     'Accept-Ranges': IETFRef(7233, 2.3),
     'Age': IETFRef(7234, 5.1),
     'Allow': IETFRef(7231, '7.4.1'),
@@ -207,6 +211,7 @@ HTTP_STATUS_CODES = {
     304: 'Not Modified',
     305: 'Use Proxy',
     307: 'Temporary Redirect',
+    308: 'Permanent Redirect',
     400: 'Bad Request',
     401: 'Unauthorized',
     402: 'Payment Required',     # unused
@@ -221,7 +226,7 @@ HTTP_STATUS_CODES = {
     411: 'Length Required',
     412: 'Precondition Failed',
     413: 'Request Entity Too Large',
-    414: 'Request URI Too Long',
+    414: 'URI Too Long',
     415: 'Unsupported Media Type',
     416: 'Requested Range Not Satisfiable',
     417: 'Expectation Failed',
@@ -229,6 +234,7 @@ HTTP_STATUS_CODES = {
     422: 'Unprocessable Entity',
     423: 'Locked',
     424: 'Failed Dependency',
+    425: 'Too Early',           # RFC 8470
     426: 'Upgrade Required',
     429: 'Too Many Requests',
     449: 'Retry With',           # proprietary MS extension
@@ -244,10 +250,6 @@ HTTP_STATUS_CODES = {
 }
 
 WEBDAV_STATUS_CODES = [207, 422, 423, 424, 507]
-
-http_sig_param_re = re.compile(r'\((?:(?P<type>[^:)]+):)?(?P<name>[\w_]+)\)',
-                               re.VERBOSE)
-
 
 def sort_by_method(entries):
     def cmp(item):
@@ -275,17 +277,17 @@ class HTTPResource(ObjectDescription):
                    names=('jsonparameter', 'jsonparam', 'json'),
                    typenames=('jsonparamtype', 'jsontype')),
         TypedField('requestjsonobject', label=_('Request JSON Object'),
-                   names=('reqjsonobj', 'reqjson', '<jsonobj', '<json'),
-                   typenames=('reqjsonobj', '<jsonobj')),
+                   names=('reqjsonobj', 'reqjson', '>jsonobj', '>json'),
+                   typenames=('reqjsonobj', '>jsonobj')),
         TypedField('requestjsonarray', label=_('Request JSON Array of Objects'),
-                   names=('reqjsonarr', '<jsonarr'),
-                   typenames=('reqjsonarrtype', '<jsonarrtype')),
+                   names=('reqjsonarr', '>jsonarr'),
+                   typenames=('reqjsonarrtype', '>jsonarrtype')),
         TypedField('responsejsonobject', label=_('Response JSON Object'),
-                   names=('resjsonobj', 'resjson', '>jsonobj', '>json'),
-                   typenames=('resjsonobj', '>jsonobj')),
+                   names=('resjsonobj', 'resjson', '<jsonobj', '<json'),
+                   typenames=('resjsonobj', '<jsonobj')),
         TypedField('responsejsonarray', label=_('Response JSON Array of Objects'),
-                   names=('resjsonarr', '>jsonarr'),
-                   typenames=('resjsonarrtype', '>jsonarrtype')),
+                   names=('resjsonarr', '<jsonarr'),
+                   typenames=('resjsonarrtype', '<jsonarrtype')),
         TypedField('queryparameter', label=_('Query Parameters'),
                    names=('queryparameter', 'queryparam', 'qparam', 'query'),
                    typenames=('queryparamtype', 'querytype', 'qtype')),
@@ -293,10 +295,10 @@ class HTTPResource(ObjectDescription):
                      names=('formparameter', 'formparam', 'fparam', 'form')),
         GroupedField('requestheader', label=_('Request Headers'),
                      rolename='header',
-                     names=('<header', 'reqheader', 'requestheader')),
+                     names=('>header', 'reqheader', 'requestheader')),
         GroupedField('responseheader', label=_('Response Headers'),
                      rolename='header',
-                     names=('>header', 'resheader', 'responseheader')),
+                     names=('<header', 'resheader', 'responseheader')),
         GroupedField('statuscode', label=_('Status Codes'),
                      rolename='statuscode',
                      names=('statuscode', 'status', 'code'))
@@ -310,28 +312,28 @@ class HTTPResource(ObjectDescription):
     }
 
     method = NotImplemented
+    noindex = False
+
+    def run(self):
+        # ObjectDescription.run() skips add_target_and_index() entirely when
+        # the noindex option is set, which would drop the per-page anchor
+        # along with the global registration. Anchors are per-document ids
+        # and cannot collide across pages, so pop the option before running
+        # the base class and gate only the registration in
+        # add_target_and_index().
+        self.noindex = 'noindex' in self.options
+        self.options.pop('noindex', None)
+        nodes = super().run()
+        if self.noindex:
+            for node in nodes:
+                if isinstance(node, addnodes.desc):
+                    node['noindex'] = node['no-index'] = True
+        return nodes
 
     def handle_signature(self, sig, signode):
         method = self.method.upper() + ' '
         signode += addnodes.desc_name(method, method)
-        offset = 0
-        path = None
-        for match in http_sig_param_re.finditer(sig):
-            path = sig[offset:match.start()]
-            signode += addnodes.desc_name(path, path)
-            params = addnodes.desc_parameterlist()
-            typ = match.group('type')
-            if typ:
-                typ += ': '
-                params += addnodes.desc_annotation(typ, typ)
-            name = match.group('name')
-            params += addnodes.desc_parameter(name, name)
-            signode += params
-            offset = match.end()
-        if offset < len(sig):
-            path = sig[offset:len(sig)]
-            signode += addnodes.desc_name(path, path)
-        assert path is not None, 'no matches for sig: %s' % sig
+        path = render_path_signature(sig, signode)
         fullname = self.method.upper() + ' ' + path
         signode['method'] = self.method
         signode['path'] = sig
@@ -343,7 +345,7 @@ class HTTPResource(ObjectDescription):
 
     def add_target_and_index(self, name_cls, sig, signode):
         signode['ids'].append(http_resource_anchor(*name_cls[1:]))
-        if 'noindex' not in self.options:
+        if not self.noindex:
             self.env.domaindata['http'][self.method][sig] = (
                 self.env.docname,
                 self.options.get('synopsis', ''),
@@ -577,7 +579,7 @@ class HTTPIndex(Index):
             entries.append([
                 method.upper() + ' ' + path, 0, info[0],
                 http_resource_anchor(method, path),
-                '', 'Deprecated' if info[2] else '', info[1]
+                '', _('Deprecated') if info[2] else '', info[1]
             ])
         items = sorted(
             (path, sort_by_method(entries))
@@ -807,6 +809,7 @@ def register_routingtable_as_label(app, document):
 
 def setup(app):
     app.add_domain(HTTPDomain)
+    app.add_domain(WebSocketDomain)
     app.connect('doctree-read', register_routingtable_as_label)
 
     package_dir = os.path.abspath(os.path.dirname(__file__))

@@ -22,6 +22,33 @@ from ..tenalg.svd import svd_interface
 # License: BSD 3 clause
 
 
+def _complete_factor(factor, n_columns, non_negative=False, random_state=None):
+    """Pad a factor to ``n_columns`` columns.
+
+    The SVD cannot return more vectors than the smaller dimension of the matrix, which
+    can be fewer than the requested Tucker rank. The extra columns are random and
+    orthogonal to the existing ones (or non-negative if ``non_negative``).
+    """
+    n_rows, n_existing = tl.shape(factor)
+    if n_existing >= n_columns:
+        return factor
+
+    rng = tl.check_random_state(random_state)
+    extra = tl.tensor(
+        rng.random_sample((n_rows, n_columns - n_existing)), **tl.context(factor)
+    )
+    if not non_negative:
+        extra = extra - tl.dot(factor, tl.dot(tl.transpose(tl.conj(factor)), extra))
+        extra = tl.qr(extra)[0]
+    return tl.concatenate([factor, extra], axis=1)
+
+
+def _is_tucker_factors_init(init):
+    return isinstance(init, Iterable) and not isinstance(
+        init, (str, bytes, tuple, TuckerTensor)
+    )
+
+
 def initialize_tucker(
     tensor,
     rank,
@@ -73,6 +100,7 @@ def initialize_tucker(
                 n_iter_mask_imputation=svd_mask_repeats,
                 random_state=random_state,
             )
+            U = _complete_factor(U, rank[index], non_negative, random_state)
 
             factors.append(U)
         # The initial core approximation is needed here for the masking step
@@ -92,8 +120,34 @@ def initialize_tucker(
             for index, mode in enumerate(modes)
         ]
 
+    elif isinstance(init, tuple):
+        if len(init) != 2 or not isinstance(init[1], Iterable):
+            raise ValueError(
+                "If `init` is a tuple, it must be of the form (core, factors) "
+                "with `factors` an iterable of factor matrices."
+            )
+        core, factors = init
+    elif isinstance(init, TuckerTensor):
+        core, factors = init
+    elif _is_tucker_factors_init(init):
+        factors = list(init)
+        if len(factors) != len(modes):
+            raise ValueError(f"Expected {len(modes)} factors, got {len(factors)}")
+
+        for i, (factor, mode) in enumerate(zip(factors, modes)):
+            expected_shape = (tensor.shape[mode], rank[i])
+            if tl.shape(factor) != expected_shape:
+                raise ValueError(
+                    f"Factor {i} has shape {tl.shape(factor)} but expected "
+                    f"{expected_shape}"
+                )
+
+        core = multi_mode_dot(tensor, factors, modes=modes, transpose=True)
     else:
-        (core, factors) = init
+        raise ValueError(
+            "Got invalid `init`. Expected 'svd', 'random', a Tucker tensor, "
+            "a (core, factors) tuple, or an iterable of factors."
+        )
 
     if non_negative is True:
         factors = [tl.abs(f) for f in factors]
@@ -199,7 +253,9 @@ def partial_tucker(
                 n_eigenvecs=rank[index],
                 random_state=random_state,
             )
-            factors[index] = eigenvecs
+            factors[index] = _complete_factor(
+                eigenvecs, rank[index], random_state=random_state
+            )
 
         core = multi_mode_dot(tensor, factors, modes=modes, transpose=True)
 
@@ -285,8 +341,18 @@ def tucker(
     """
     if fixed_factors:
         try:
-            (core, factors) = init
-        except:
+            if _is_tucker_factors_init(init):
+                core, factors = initialize_tucker(
+                    tensor,
+                    rank,
+                    modes=list(range(tl.ndim(tensor))),
+                    init=init,
+                    svd=svd,
+                    random_state=random_state,
+                )
+            else:
+                core, factors = init
+        except Exception:
             raise ValueError(
                 f'Got fixed_factor={fixed_factors} but no appropriate Tucker tensor was passed for "init".'
             )
@@ -625,12 +691,18 @@ def non_negative_tucker_hals(
             )
             UtM = tl.transpose(MtU)
 
-            # Call the hals resolution with nnls, optimizing the current mode
+            # Call the hals resolution with nnls, optimizing the current mode.
+            # A handful of inner sweeps is enough: each outer iteration
+            # re-linearizes the subproblem anyway, so driving this inner solve
+            # to its own tight convergence is wasted work. This matters most on
+            # backends with high per-op dispatch overhead (jax, tensorflow),
+            # where hals_nnls's sequential row-wise index_update calls make a
+            # large n_iter_max extremely costly.
             nn_factor = hals_nnls(
                 UtM,
                 UtU,
                 tl.transpose(nn_factors[mode]),
-                n_iter_max=100,
+                n_iter_max=5,
                 sparsity_coefficient=sparsity_coefficients[mode],
                 exact=exact,
             )

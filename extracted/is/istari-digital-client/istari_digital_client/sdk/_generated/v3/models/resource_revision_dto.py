@@ -27,7 +27,7 @@ from typing_extensions import Self
 
 class ResourceRevisionDto(BaseModel):
     """
-    An immutable snapshot of a resource's content and metadata at a specific point in time.  Revisions are append-only: they can be archived but never modified.  The most recently created non-archived revision is the **active revision** and is what `ResourceDto` reflects in its top-level fields.
+    A snapshot of a resource's content and metadata at a specific point in time.  The content snapshot is immutable — the tokens, `name`, `extension`, `mime`, and `size` are fixed once created.  The four user-provided annotations (`display_name`, `description`, `version_name`, `external_identifier`) are mutable and can be edited in place via `PATCH /resources/{resource_id}/revisions/{revision_id}` without creating a new revision.  The most recently created non-archived revision is the **active revision** and is what `ResourceDto` reflects in its top-level fields.
     """ # noqa: E501
     owning_entity_id: Optional[StrictStr]
     owning_entity_type: Optional[StrictStr] = None

@@ -17,18 +17,31 @@ import torch
 from tmol.tests.data import data_path
 from tmol.io import canonical_ordering_for_biotite
 from tmol.ligand import (
+    chem_comp_types_from_cif,
     prepare_ligands,
+    _dimorphite_protonate_smiles,
     _prepare_ligand_via_smiles,
     _residue_names_with_cross_residue_bonds,
     detect_nonstandard_residues,
-    protonate_mol_variants,
-    read_params_file,
-    write_params_file,
     inject_ligand_preparations,
 )
 
 PLI_CIF_INPUT_DIR = data_path("protein_ligand_test", "cif_inputs")
 PLI_DATA_DIR = data_path("protein_ligand_test")
+
+
+def test_nitric_oxide_is_not_converted_to_nitroxyl(torch_device):
+    """1KOI NO has no hydrogen; its radical cannot be filled with an H to prepare it."""
+    from tmol.io import atom_array_from_file, pose_stack_from_biotite
+    from tmol.ligand import LigandPreparationError
+
+    array = atom_array_from_file(
+        data_path("sweep_regressions", "nitric_oxide_1koi.cif.zst")
+    )
+    with pytest.raises(LigandPreparationError, match=r"\[N:1\]=\[O:2\]"):
+        pose_stack_from_biotite(
+            array, torch_device, prepare_ligands=True, strict_ligands=True, no_optH=True
+        )
 
 
 class TestDetectFromCIF:
@@ -53,11 +66,12 @@ class TestDetectFromCIF:
         assert detect_nonstandard_residues(biotite_1ubq, canonical_ordering) == []
 
     def test_detects_i4b_in_184l(self, cif_184l_with_i4b, canonical_ordering) -> None:
-        """The I4B ligand in 184L is detected with coords and CCD type."""
+        """The I4B ligand in 184L is detected, and the file calls it a ligand."""
         ligands = detect_nonstandard_residues(cif_184l_with_i4b, canonical_ordering)
         i4b = {lig.res_name: lig for lig in ligands}.get("I4B")
         assert i4b is not None
-        assert "NON-POLYMER" in i4b.ccd_type.upper()
+        # not in a polymer entity: the file leaves its label_seq_id unset
+        assert i4b.in_polymer_entity is False
         assert i4b.coords.shape == (len(i4b.atom_names), 3)
 
     def test_detects_pse_with_partial_occupancy(
@@ -112,8 +126,8 @@ class TestFullPipeline:
         ligands = detect_nonstandard_residues(
             cif_184l_with_i4b, canonical_ordering_for_biotite()
         )
-        i4b = next(l for l in ligands if l.res_name == "I4B")
-        prep = _prepare_ligand_via_smiles(i4b, ph=7.4, sample_proton_chi=True)
+        i4b = next(ligand for ligand in ligands if ligand.res_name == "I4B")
+        prep = _prepare_ligand_via_smiles(i4b, ph=7.4)
 
         n_before = len(param_db.chemical.residues)
         extended_db = inject_ligand_preparations(param_db, [prep])
@@ -153,6 +167,7 @@ def test_prepare_ligands_missing_ligand_atom_fails(
 
     from tmol.database import ParameterDatabase
     from tmol.io import pose_stack_from_biotite
+    from tmol.ligand import LigandPreparationError
 
     bt = cif_184l_with_i4b.copy()
     ligand_atoms = numpy.nonzero(bt.res_name == "I4B")[0]
@@ -163,7 +178,9 @@ def test_prepare_ligands_missing_ligand_atom_fails(
     keep_mask[ligand_atoms[0]] = False
     bt_ligand_missing = bt[keep_mask]
 
-    with pytest.raises(Exception):
+    with pytest.raises(
+        LigandPreparationError, match="I4B.*missing declared heavy atoms: C1"
+    ):
         pose_stack_from_biotite(
             bt_ligand_missing,
             torch_device,
@@ -236,44 +253,6 @@ def test_ddg_from_cif_complex_with_onthefly_ligand_prep(
 class TestParamsRoundtrip:
     """Write a prepared ligand to .params and read it back."""
 
-    def test_i4b_params_roundtrip(self, tmp_path, cif_184l_with_i4b) -> None:
-        """A prepared ligand written to .params reloads with matching topology."""
-        co = canonical_ordering_for_biotite()
-        ligands = detect_nonstandard_residues(cif_184l_with_i4b, co)
-        i4b = next(lig for lig in ligands if lig.res_name == "I4B")
-        prep = _prepare_ligand_via_smiles(i4b, ph=7.4, sample_proton_chi=True)
-        restype = prep.residue_type
-
-        path = tmp_path / "I4B.params"
-        write_params_file(prep, path, format="rosetta")
-        loaded = read_params_file(path)
-
-        assert loaded.name == "I4B"
-        assert len(loaded.atoms) == len(restype.atoms)
-        assert len(loaded.bonds) == len(restype.bonds)
-        assert len(loaded.icoors) == len(restype.icoors)
-        assert prep.atom_type_elements is not None
-        assert len(prep.atom_type_elements) > 0
-
-    def test_params_roundtrip_preserves_bond_types(
-        self, tmp_path, cif_184l_with_i4b
-    ) -> None:
-        """Bond types and ring flags survive a .params write/read roundtrip."""
-        co = canonical_ordering_for_biotite()
-        ligands = detect_nonstandard_residues(cif_184l_with_i4b, co)
-        i4b = next(lig for lig in ligands if lig.res_name == "I4B")
-        prep = _prepare_ligand_via_smiles(i4b, ph=7.4, sample_proton_chi=True)
-        restype = prep.residue_type
-
-        path = tmp_path / "I4B_bondtypes.params"
-        write_params_file(prep, path, format="rosetta")
-        loaded = read_params_file(path)
-
-        assert all(len(b) == 4 for b in loaded.bonds)
-        assert {(a, b, t, r) for a, b, t, r in loaded.bonds} == {
-            (a, b, t, r) for a, b, t, r in restype.bonds
-        }
-
 
 def test_collect_new_atom_types_strict_mode_errors(default_database) -> None:
     """Strict atom typing raises on an unknown element mapping."""
@@ -292,28 +271,24 @@ def test_collect_new_atom_types_strict_mode_errors(default_database) -> None:
         )
 
 
-def test_protonate_mol_variants_produces_valid_mol() -> None:
-    """Protonating a molecule yields RDKit-parseable variant SMILES."""
-    from rdkit import Chem
-
-    input_smiles = "CC(=O)ON"
-    mol = Chem.MolFromSmiles(input_smiles)
-    assert mol is not None
-    mol_variants = protonate_mol_variants(
-        mol,
-        min_ph=7.4,
-        max_ph=7.4,
-        pka_precision=0.1,
-        max_variants=128,
-        silent=True,
-    )
-    assert mol_variants
-    result_smi = Chem.MolToSmiles(mol_variants[0], isomericSmiles=True)
-    assert Chem.MolFromSmiles(result_smi) is not None
+@pytest.mark.parametrize(
+    ("smiles", "expected"),
+    [
+        ("CC(=O)ON", "CC(=O)ON"),
+        # the cases Frank added to the rule inventory
+        ("CN(C)C=C", "C=CN(C)C"),
+        ("CN(C)N=O", "CN(C)N=O"),
+        ("COP(=O)(S)OC", "COP(=O)([S-])OC"),
+        ("[O-]S([O-])(=O)=O", "O=S(=O)([O-])[O-]"),
+        ("OP(O)(O)=O", "O=P([O-])([O-])O"),
+    ],
+)
+def test_ligand_smiles_are_protonated_at_ph_7_4(smiles, expected) -> None:
+    assert _dimorphite_protonate_smiles(smiles, ph=7.4) == expected
 
 
 def test_prepare_ligand_from_cif_helper_loads_reference_fixture() -> None:
-    """The CIF helper prepares a ligand and registers it as LG1."""
+    """The CIF helper prepares a ligand and registers it under its CIF name, L_1."""
     from tmol.database import ParameterDatabase
     from tmol.ligand import prepare_ligand_from_cif
 
@@ -322,7 +297,7 @@ def test_prepare_ligand_from_cif_helper_loads_reference_fixture() -> None:
         str(cif_path),
         param_db=ParameterDatabase.get_default(),
     )
-    assert any(rt.name == "LG1" for rt in param_db.chemical.residues)
+    assert any(rt.name == "L_1" for rt in param_db.chemical.residues)
 
 
 def _residue_atoms(res_id, res_name, names_coords, chain_id="A"):
@@ -388,21 +363,36 @@ class TestCovalentDetection:
         linked = _residue_names_with_cross_residue_bonds(arr)
         assert "LIG" in linked
 
-    def test_polymer_linking_residue_spatial_fallback_retained(self) -> None:
-        """Glycans (saccharides) are still flagged via the spatial fallback."""
-        atoms = _residue_atoms(
-            1,
-            "NAG",
-            [("C1", "C", (0.0, 0.0, 0.0))],
-        ) + _residue_atoms(
-            2,
-            "NAG",
-            [("O4", "O", (1.4, 0.0, 0.0))],  # glycosidic distance, no explicit bond
-        )
-        arr = struc.array(atoms)
+    _GLYCAN_CIF = data_path("ligand_cif_fixtures") / "glycan_nag_pair.cif"
 
-        linked = _residue_names_with_cross_residue_bonds(arr)
-        assert "NAG" in linked
+    def _glycan(self):
+        """The glycan fixture, as its atoms and the types it declares."""
+        import biotite.structure.io.pdbx as pdbx
+
+        atoms = pdbx.get_structure(
+            pdbx.CIFFile.read(str(self._GLYCAN_CIF)),
+            model=1,
+            include_bonds=True,
+            extra_fields=["label_seq_id"],
+        )
+        return atoms, chem_comp_types_from_cif(self._GLYCAN_CIF)
+
+    def test_polymer_contacts_require_an_explicit_bond(self) -> None:
+        """A linking component type does not make a close contact covalent."""
+        atoms, declared = self._glycan()
+        assert declared == {"NAG": "D-SACCHARIDE, BETA LINKING"}
+        assert _residue_names_with_cross_residue_bonds(atoms) == frozenset()
+        starts = struc.get_residue_starts(atoms, add_exclusive_stop=True)
+        first = next(
+            i for i in range(starts[0], starts[1]) if atoms.atom_name[i] == "C1"
+        )
+        second = next(
+            i for i in range(starts[1], starts[2]) if atoms.atom_name[i] == "O4"
+        )
+        atoms.bonds.add_bond(first, second, struc.BondType.SINGLE)
+        assert _residue_names_with_cross_residue_bonds(atoms) == frozenset({"NAG"})
+        atoms.coord[:] = 0
+        assert _residue_names_with_cross_residue_bonds(atoms) == frozenset({"NAG"})
 
 
 _YANJING_BTN_DIR = Path(
@@ -425,16 +415,14 @@ def test_btn_close_contact_ligand_not_dropped_as_covalent(filename) -> None:
     (clashes in unminimized generated models). They used to be discarded as
     covalently linked, leaving the ligand out of the pose and ddG meaningless.
     """
-    import biotite.structure.io.pdbx as pdbx
 
     cif_path = _YANJING_BTN_DIR / filename
     if not cif_path.exists():
         pytest.skip(f"Yanjing dataset not available: {cif_path}")
 
-    cif = pdbx.CIFFile.read(str(cif_path))
-    arr = pdbx.get_structure(cif, model=1, include_bonds=True)
-    if isinstance(arr, struc.AtomArrayStack):
-        arr = arr[0]
+    from tmol.io import atom_array_from_cif
+
+    arr = atom_array_from_cif(cif_path)
 
     ligands = detect_nonstandard_residues(arr, canonical_ordering_for_biotite())
     btn = next((lig for lig in ligands if lig.res_name == "B;N"), None)

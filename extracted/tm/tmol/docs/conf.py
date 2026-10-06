@@ -76,6 +76,7 @@ master_doc = "index"
 
 exclude_patterns = [
     "_build",
+    "_static/brand/README.md",
     "Thumbs.db",
     ".DS_Store",
     "README.md",
@@ -110,6 +111,9 @@ nbsphinx_thumbnails = {
     "tutorial/08_nucleic_acids": "_static/tutorials/08_nucleic_acids.png",
     "tutorial/09_protein_interface_hotspot_scan": "_static/tutorials/09_protein_interface_hotspot_scan.png",
     "tutorial/10_ligand_pose_sensitivity": "_static/tutorials/10_ligand_pose_sensitivity.png",
+    "tutorial/11_extending_chemistry_and_scoring": "_static/tutorials/11_extending_chemistry_and_scoring.png",
+    "tutorial/12_explicit_foldforests_and_torsions": "_static/tutorials/12_explicit_foldforests_and_torsions.png",
+    "tutorial/13_extending_the_packer": "_static/tutorials/13_extending_the_packer.png",
 }
 nbsphinx_epilog = r"""
 ----
@@ -149,9 +153,17 @@ html_baseurl = os.environ.get(
     "TMOL_DOCS_BASE_URL", "https://uw-ipd.github.io/tmol/latest/"
 )
 html_static_path = ["_static"]
+templates_path = ["_templates"]
 html_css_files = ["custom.css"]
 html_title = "TMol"
+html_logo = "_static/brand/tmol-logo-light.svg"
+html_favicon = "_static/brand/favicon.ico"
 html_theme_options = {
+    "logo": {
+        "image_light": "_static/brand/tmol-logo-light.svg",
+        "image_dark": "_static/brand/tmol-logo-dark.svg",
+        "alt_text": "TMol documentation — Home",
+    },
     "show_nav_level": 2,
     "collapse_navigation": False,
     "navigation_depth": -1,

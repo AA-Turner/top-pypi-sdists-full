@@ -73,7 +73,13 @@ from .filetype import name_with_extension
 from .hashing import fingerprint
 from .secret_gate import check_upload, freeze_upload, prepare_upload
 from .session_marker import WIZARD_HINT
-from .journal import CredentialSource, Journal, credential_fingerprint, run_ref_for_path
+from .journal import (
+    UNPLACED_PROJECT,
+    CredentialSource,
+    Journal,
+    credential_fingerprint,
+    run_ref_for_path,
+)
 from .journal import classify as _journal_classify
 
 from .surface import Surface
@@ -369,32 +375,14 @@ class _UNSET:  # noqa: N801 — a sentinel type, used as the value itself
 #: `/v1/experiments/*` (410). The light-experiments split gave experiments their
 #: own record again and, at R4, this client moved onto the experiment API:
 #: `/v1/projects/{project}/experiments[/{experiment}]` (see the experiments
-#: section of `Client`). `_as_experiment` below stays for the read-only
-#: `Reader`: a service token reaches only allowlisted reads, and the experiment
-#: API is not on that list, so the Reader still reads the leaf row.
+#: section of `Client`). Since X21 the experiment's children are addressed
+#: there too (`/v1/projects/{P}/experiments/{E}/<child>`), and the read-only
+#: `Reader` reads the experiment API as well.
 #:
 #: Paths are spelled out at every call site rather than built by a helper:
 #: `tests/test_parity.py` READS the client's source to decide which backend
 #: routes a client can reach, and refuses a transport call whose path it cannot
 #: resolve.
-
-
-def _as_experiment(row: object) -> object:
-    """A project-shaped row, answered back in the experiment vocabulary.
-
-    The SDK's public surface is unchanged by the move -- callers that read
-    `row["question"]` keep reading it -- so the two renames are undone on the
-    way out. Additive, never destructive: the project fields stay, because a
-    caller that has already learned the new names should not lose them.
-    """
-    if not isinstance(row, dict):
-        return row
-    out = dict(row)
-    if "question" not in out and "description" in out:
-        out["question"] = out["description"]
-    if "project_id" not in out and "parent_project_id" in out:
-        out["project_id"] = out["parent_project_id"]
-    return out
 
 
 #: An experiment's description was replaced by its question (0231); both the
@@ -411,6 +399,50 @@ _EXPERIMENT_DESCRIPTION_RETIRED = (
 #: `read_router.py`): at most 500 per page, 100 when unasked.
 _EXPERIMENT_PAGE_MAX = 500
 _EXPERIMENT_PAGE_DEFAULT = 100
+
+#: A child route this server does not have: it predates X21.
+_PREDATES_CHILD_ROUTES = (
+    "this Probe server predates the experiment API's child routes (research-os #2282, "
+    "light experiments X21 -- and X21b for an experiment's W&B sources), which this client "
+    "uses for an experiment's runs, groups, files, notes, lineage and W&B sources; upgrade "
+    "the server, or keep the previous probe release until it is"
+)
+
+
+def _moved_away(exc: errors.RosError) -> bool:
+    """A 404 or 410 at an experiment's remembered or supplied project: it may
+    have moved, so it is worth placing again. Not a route-absent 404."""
+    return bool(exc.in_trash) or (
+        isinstance(exc, errors.NotFoundError) and not _route_absent(exc)
+    )
+
+
+def _experiment_pages(transport: Any, project_id: str, *, missing_ok: bool = True) -> list[dict]:
+    """One project's experiments through the experiment API, every page
+    (offset paged, newest first, :data:`_EXPERIMENT_PAGE_MAX` a page). With
+    ``missing_ok`` a project that went away (404) or into the trash (410)
+    since it was listed is [] -- a walk skips it; without, the error rises."""
+    rows: list[dict] = []
+    offset = 0
+    while True:
+        try:
+            page = transport.get(
+                f"/v1/projects/{project_id}/experiments",
+                params={"limit": _EXPERIMENT_PAGE_MAX, "offset": offset},
+            )
+        except errors.NotFoundError:
+            if missing_ok:
+                return rows
+            raise
+        except errors.RosError as exc:
+            if missing_ok and exc.in_trash:
+                return rows
+            raise
+        rows.extend(_from_experiment_api(item) for item in page.get("items") or [])
+        next_offset = page.get("next_offset")
+        if next_offset is None:
+            return rows
+        offset = next_offset
 
 
 def _refuse_read_only_experiment_fields(**fields: object) -> None:
@@ -965,6 +997,9 @@ class Client:
         #: there were in all (the deque forgets the oldest).
         self.undelivered_writes: deque[dict] = deque(maxlen=self.UNDELIVERED_KEPT)
         self.undelivered_count = 0
+        #: Experiment id -> the project it is filed in, as last placed
+        #: (`_experiment_home`); a 404 or 410 there places it again.
+        self._experiment_homes: dict[str, str] = {}
         # One queue (eng review 2026-07-29, T1-C): the journal holds both
         # async-mode writes and the sync fail-open safety net that used to be
         # the spool. `spool_dir` keeps its name as the directory override.
@@ -1494,7 +1529,7 @@ class Client:
         # network. It therefore implies sync, and an explicit strict=True beats
         # async mode rather than being quietly overruled by it.
         strict = (not self.fail_open) if strict is None else strict
-        if self.async_writes and not sync and not strict:
+        if self._journals(strict=strict, sync=sync):
             if self._send_instead_of_queueing(method, path, body):
                 return None
             if self._enqueue(
@@ -2694,7 +2729,11 @@ class Client:
         if anchor is Anchor.RUN:
             path = f"/v1/runs/{anchor_id}/artifacts"
         elif anchor is Anchor.EXPERIMENT:
-            path = f"/v1/projects/{anchor_id}/artifacts"
+            # Journaled by the experiment alone and placed when it drains
+            # (`journal._placed`): queueing needs no network, a move before
+            # delivery cannot dead-letter it, and the correlation digest names
+            # no project.
+            path = f"/v1/projects/{UNPLACED_PROJECT}/experiments/{anchor_id}/artifacts"
         elif anchor is Anchor.PROJECT:
             path = f"/v1/projects/{anchor_id}/artifacts"
         else:
@@ -3156,6 +3195,10 @@ class Client:
     def get_project(self, project_id: str) -> dict:
         return self.transport.get(f"/v1/projects/{project_id}")
 
+    def get_project_overview(self, project_id: str) -> dict:
+        """Read the complete saved unified Overview; never queue generation."""
+        return self.transport.get(f"/v1/projects/{project_id}/overview")
+
     def list_project_contributors(self, project_id: str) -> list[dict]:
         """Who worked on this project. `direct` false = their work is in a
         subproject, named by `via_project_id`."""
@@ -3444,15 +3487,29 @@ class Client:
         if anchor is Anchor.RUN:
             return self.transport.post(f"/v1/runs/{anchor_id}/artifacts/uploads", body)
         if anchor is Anchor.EXPERIMENT:
-            return self.transport.post(f"/v1/projects/{anchor_id}/artifacts/uploads", body)
+            return self._on_experiment(
+                lambda p, e: self.transport.post(
+                    f"/v1/projects/{p}/experiments/{e}/artifacts/uploads", body
+                ),
+                str(anchor_id),
+            )
         if anchor is Anchor.PROJECT:
             return self.transport.post(f"/v1/projects/{anchor_id}/artifacts/uploads", body)
         if anchor is Anchor.WORKSPACE:
             return self.transport.post(f"/v1/workspaces/{anchor_id}/files/uploads", body)
         return self.transport.post("/v1/shared/files/uploads", body)
 
-    def list_anchored(self, anchor: Anchor, anchor_id: str | None = None, **params) -> Any:
-        """List the artifacts/files under one anchor."""
+    def list_anchored(
+        self,
+        anchor: Anchor,
+        anchor_id: str | None = None,
+        *,
+        project_id: str | None = None,
+        **params,
+    ) -> Any:
+        """List the artifacts/files under one anchor. ``project_id``: an
+        experiment anchor's project, when the caller holds it (saves the
+        ``/v1/scopes`` lookup); ignored for the other anchors."""
         query = params or None
         if anchor is Anchor.RUN:
             if "limit" not in params and "offset" not in params:
@@ -3464,7 +3521,13 @@ class Client:
                 )
             return self.transport.get(f"/v1/runs/{anchor_id}/artifacts", params=query)
         if anchor is Anchor.EXPERIMENT:
-            return self.transport.get(f"/v1/projects/{anchor_id}/artifacts", params=query)
+            return self._on_experiment(
+                lambda p, e: self.transport.get(
+                    f"/v1/projects/{p}/experiments/{e}/artifacts", params=query
+                ),
+                str(anchor_id),
+                project_id,
+            )
         if anchor is Anchor.PROJECT:
             return self.transport.get(f"/v1/projects/{anchor_id}/artifacts", params=query)
         if anchor is Anchor.WORKSPACE:
@@ -3481,7 +3544,12 @@ class Client:
         if anchor is Anchor.RUN:
             return self.transport.post(f"/v1/runs/{anchor_id}/artifacts", body)
         if anchor is Anchor.EXPERIMENT:
-            return self.transport.post(f"/v1/projects/{anchor_id}/artifacts", body)
+            return self._on_experiment(
+                lambda p, e: self.transport.post(
+                    f"/v1/projects/{p}/experiments/{e}/artifacts", body
+                ),
+                anchor_id,
+            )
         if anchor is Anchor.PROJECT:
             return self.transport.post(f"/v1/projects/{anchor_id}/artifacts", body)
         raise ValueError(
@@ -3744,14 +3812,18 @@ class Client:
     #   DELETE /v1/projects/{P}/experiments/{E}        move to the trash
     #   GET    /v1/scopes/{id}                         where an id is filed
     #   GET    /v1/projects/{P}/workspace?scope=...    T16: one scope in one read
+    #   /v1/projects/{P}/experiments/{E}/<child>       its runs, groups, edges,
+    #       lineage, versions, reproduce, code, artifacts[/uploads], sub-notes,
+    #       notes/versions (server X21)
     #
     # Nothing here addresses an experiment as a project (`/v1/projects/{E}`):
     # from the server's R4 refusal on, an older client that does is answered
-    # 410 `client_too_old`. Two things still go through that address because
-    # the experiment API has no field for them yet, and the server serves them
-    # to this client until R6: the experiment's `document` (a block of its
-    # Overview page) and the child routes (runs, groups, edges, files, notes
-    # history, versions). See `agent/CHANGELOG.md` for the list.
+    # 410 `client_too_old`, and R6 removes that address. The experiment's
+    # `document` (a block of its Overview page) is the detail's `document` and
+    # the PATCH's; a child route needs the project the experiment is filed in,
+    # which `_on_experiment` finds once per client (`GET /v1/scopes/{E}`) when
+    # the caller does not pass it. Its W&B sources are children too (server
+    # X21b), and a run moves into it by `experiment_id` on the run PATCH.
     #
     # The writes take uuids only (the server refuses a slug in either slot:
     # a slug can be minted again once its holder is in the trash), so a slug is
@@ -3854,17 +3926,26 @@ class Client:
                 raise errors.NotFoundError(
                     f"no experiment with id {ref!r}: that id is a {scope.get('kind') or 'something else'}"
                 )
-            return str(scope["project_id"]), ref
+            return self._remember_home(str(scope["project_id"]), ref)
         try:
             scope = self._experiment_scope(ref)
         except CapabilityUnavailable:
             row = self._walk_for_slug(ref)
             if row is None:
                 raise errors.NotFoundError(f"no experiment {ref!r}") from None
-            return str(row["project_id"]), str(row["id"])
+            return self._remember_home(str(row["project_id"]), str(row["id"]))
         if scope is None:
             raise errors.NotFoundError(f"no experiment {ref!r}")
-        return str(scope["project_id"]), str(scope.get("experiment_id") or scope["id"])
+        return self._remember_home(
+            str(scope["project_id"]), str(scope.get("experiment_id") or scope["id"])
+        )
+
+    def _remember_home(self, project: str, experiment: str) -> tuple[str, str]:
+        """Remember where the server just said an experiment is filed, so its
+        child routes cost no second lookup; ``(project, experiment)``."""
+        if _is_uuid(project) and _is_uuid(experiment):
+            self._experiment_homes[experiment] = project
+        return project, experiment
 
     def _experiment_ids(self, ref: str, project_id: str | None) -> tuple[str, str]:
         """``(project uuid, experiment uuid)``: what the experiment API's writes take."""
@@ -3873,6 +3954,91 @@ class Client:
             row = self.get_experiment(experiment, project_id=project)
             project, experiment = str(row["project_id"]), str(row["id"])
         return project, experiment
+
+    def _experiment_home(
+        self, ref: str, project_id: str | None = None
+    ) -> tuple[str, str, bool]:
+        """``(project uuid, experiment uuid, from_cache)`` to address one of an
+        experiment's CHILD routes (``/v1/projects/{P}/experiments/{E}/...``).
+
+        An experiment's children (runs, groups, files, notes history, sub-notes,
+        versions, lineage) are addressed under the project it is filed in, so a
+        caller holding only the experiment's id costs one ``GET /v1/scopes/{E}``
+        -- once per client: the answer is remembered by experiment id. A move
+        makes it stale, which :meth:`_on_experiment` repairs on the 404."""
+        homes = self._experiment_homes
+        ref = str(ref)
+        if project_id and _is_uuid(ref) and _is_uuid(str(project_id)):
+            homes[ref] = str(project_id)
+            return str(project_id), ref, False
+        if not project_id and ref in homes:
+            return homes[ref], ref, True
+        project, experiment = self._experiment_ids(ref, project_id)
+        homes[experiment] = project
+        return project, experiment, False
+
+    def _on_experiment(
+        self,
+        call: Callable[[str, str], Any],
+        experiment_id: str,
+        project_id: str | None = None,
+        *,
+        journaled: bool = False,
+    ) -> Any:
+        """``call(project, experiment)`` on an experiment's child route.
+
+        ``call`` spells its path as a literal f-string (``f"/v1/projects/{p}/
+        experiments/{e}/groups"``): the parity guard reads call sites statically,
+        and a path built from a shared prefix would be invisible to it.
+
+        A 404 or 410 at a project this did not just get from ``/v1/scopes`` --
+        remembered, or supplied by the caller -- means the experiment may have
+        moved since: its place is asked again and, if that names another
+        project, the call is made once more (a 404 or 410 creates nothing, so a
+        create is safe to resend). A route-absent 404 is a server older than
+        X21, said so (``CapabilityUnavailable``).
+
+        ``journaled=True``: the caller's write is about to be QUEUED rather than
+        sent (:meth:`_journals`). It is queued under the experiment alone
+        (``/v1/projects/~/experiments/{E}/...``) and placed when it drains, so
+        queueing needs no network and survives a move. Only for an experiment
+        uuid: a slug has to be placed now to be named at all."""
+        if journaled and _is_uuid(str(experiment_id)):
+            return call(UNPLACED_PROJECT, str(experiment_id))
+        supplied = bool(project_id)
+        try:
+            project, experiment, cached = self._experiment_home(experiment_id, project_id)
+        except errors.RosError as exc:
+            # A slug looked up under a supplied project that does not hold it.
+            if not (supplied and _moved_away(exc)):
+                raise
+            project, experiment, cached = self._experiment_home(experiment_id, None)
+            supplied = False
+        try:
+            return call(project, experiment)
+        except errors.RosError as exc:
+            if _route_absent(exc):
+                raise CapabilityUnavailable(
+                    "experiment_child_routes", _PREDATES_CHILD_ROUTES
+                ) from exc
+            if not ((cached or supplied) and _moved_away(exc)):
+                raise
+            self._experiment_homes.pop(experiment, None)
+            try:
+                fresh, experiment, _ = self._experiment_home(experiment, None)
+            except errors.RosError:
+                raise exc from None
+            if fresh == project:
+                raise
+            return call(fresh, experiment)
+
+    def _journals(self, *, strict: bool | None, sync: bool = False) -> bool:
+        """Whether :meth:`write` would QUEUE a durable write with these flags
+        rather than send it. The one place that decision is spelled, so a
+        caller that addresses the write differently when queued
+        (:meth:`_on_experiment` ``journaled=``) cannot drift from it."""
+        strict = (not self.fail_open) if strict is None else strict
+        return bool(self.async_writes) and not sync and not strict
 
     def _tenant_experiments(self, *, stop_at: str | None = None) -> list[dict]:
         """Every experiment the caller can see, project by project.
@@ -3914,25 +4080,7 @@ class Client:
     def _experiments_of(self, project_id: str) -> list[dict]:
         """One project's experiments, every page; [] for a project that went
         away (404) or into the trash (410) since the project list was read."""
-        rows: list[dict] = []
-        offset = 0
-        while True:
-            try:
-                page = self.transport.get(
-                    f"/v1/projects/{project_id}/experiments",
-                    params={"limit": _EXPERIMENT_PAGE_MAX, "offset": offset},
-                )
-            except errors.NotFoundError:
-                return rows
-            except errors.RosError as exc:
-                if exc.in_trash:
-                    return rows
-                raise
-            rows.extend(_from_experiment_api(item) for item in page.get("items") or [])
-            next_offset = page.get("next_offset")
-            if next_offset is None:
-                return rows
-            offset = next_offset
+        return _experiment_pages(self.transport, project_id)
 
     def _walk_for_slug(self, slug: str) -> dict | None:
         """The experiment ``slug`` names, found by walking (an older server only)."""
@@ -3981,9 +4129,9 @@ class Client:
 
         ``document`` seeds authored Markdown that lives INSIDE the experiment's
         Overview page, as a block the page's AI writer may not rewrite (written
-        right after the create; the experiment API has no field for it yet). A
-        README embed in that document also derives the experiment's repo, using
-        the same syntax documented by :meth:`update_experiment`.
+        by a PATCH right after the create, which takes no document). A README
+        embed in that document also derives the experiment's repo, using the
+        same syntax documented by :meth:`update_experiment`.
 
         ``tags`` and ``description`` are refused: an experiment's tags are kept
         read-only since it moved to its own record, and its question replaced
@@ -4010,7 +4158,7 @@ class Client:
         if document is not None:
             try:
                 row["document"] = self._write_experiment_document(
-                    str(row["id"]), document, authored_by
+                    str(row["id"]), document, authored_by, project_id=str(row["project_id"])
                 )
             except errors.RosError as exc:
                 raise errors.DocumentNotWritten(
@@ -4025,20 +4173,28 @@ class Client:
         return row
 
     def _write_experiment_document(
-        self, experiment_id: str, document: str, authored_by: str | None
+        self,
+        experiment_id: str,
+        document: str,
+        authored_by: str | None,
+        *,
+        project_id: str | None = None,
     ) -> str | None:
         """Write an experiment's Overview-page block and check it landed.
 
-        THROUGH THE PROJECT ADDRESS, on purpose and for now: the experiment API
-        takes no `document`, and the server keeps this write working for a
-        client at or above its experiment floor until R6. The check reads the
-        write's OWN row: a detail GET answers from the page, a lossy rendering of
-        what was sent (see :meth:`update_project`)."""
+        ``PATCH /v1/projects/{P}/experiments/{E}`` with ``document``. The check
+        reads the write's OWN answer, which echoes the document it wrote: a
+        detail GET answers from the page, a lossy rendering of what was sent
+        (see :meth:`update_project`)."""
         body: dict[str, Any] = {"document": document}
         _put_authorship(body, authored_by)
-        written = self.transport.patch(f"/v1/projects/{experiment_id}", body)
+        written = self._on_experiment(
+            lambda p, e: self.transport.patch(f"/v1/projects/{p}/experiments/{e}", body),
+            experiment_id,
+            project_id,
+        )
         self._verify_entity_markdown_written(
-            "experiment", document, written, "PATCH /v1/projects/{id}"
+            "experiment", document, written, "PATCH /v1/projects/{P}/experiments/{E}"
         )
         return written.get("document") if isinstance(written, dict) else None
 
@@ -4143,29 +4299,27 @@ class Client:
             self.transport.get(f"/v1/projects/{project}/experiments/{experiment}")
         )
 
-    def get_experiment_document(self, experiment_id: str) -> str | None:
+    def get_experiment_document(
+        self, experiment_id: str, *, project_id: str | None = None
+    ) -> str | None:
         """The experiment's authored Markdown (``document=``), as its Overview page
         holds it; None when it has none.
 
-        :meth:`get_experiment` no longer carries it: the experiment API serves
-        the page (HTML) and not the authored block the server cuts out of it.
-        This reads it at the experiment's PROJECT address, which the server keeps
-        serving this client until R6. Not byte-identical to what was sent: the
-        page renders it (see :meth:`update_project`)."""
-        row = self.get_experiment_leaf(experiment_id)
+        The experiment detail's ``document`` (``GET /v1/projects/{P}/experiments/
+        {E}``). Not byte-identical to what was sent: the page renders it (see
+        :meth:`update_project`)."""
+        row = self.get_experiment(experiment_id, project_id=project_id)
         return row.get("document") if isinstance(row, dict) else None
 
-    def get_experiment_leaf(self, experiment_id: str) -> dict:
-        """The experiment as its PROJECT address answers it (``GET /v1/projects/{E}``).
+    def get_experiment_leaf(self, experiment_id: str, *, project_id: str | None = None) -> dict:
+        """The experiment with its authored ``document`` and the notes' headroom
+        pair (``notes_limit_chars``, ``notes_remaining_chars``).
 
-        For the two things only that read still carries: the authored
-        ``document`` and the notes' headroom pair (``notes_limit_chars``,
-        ``notes_remaining_chars``). The server keeps it answering this client
-        until R6; everything else about an experiment is :meth:`get_experiment`."""
-        experiment = str(experiment_id)
-        if not _is_uuid(experiment):
-            experiment = self._experiment_ids(experiment, None)[1]
-        return self.transport.get(f"/v1/projects/{experiment}")
+        Kept for callers of 0.209.0, which read these from the experiment's
+        PROJECT address (``GET /v1/projects/{E}``). The experiment detail carries
+        all three now, so this is :meth:`get_experiment`; nothing here addresses
+        an experiment as a project."""
+        return self.get_experiment(experiment_id, project_id=project_id)
 
     def get_experiment_overview(
         self, experiment_id: str, *, project_id: str | None = None, status_only: bool = False
@@ -4207,8 +4361,8 @@ class Client:
         experiment's private Notes. Read immediately before editing and preserve
         useful sections; ``""`` clears it. A line containing only
         ``[README](https://github.com/owner/repo)`` embeds that README and derives
-        the experiment's read-only ``repo`` field. (Written through the project
-        address: the experiment API has no field for it yet.)
+        the experiment's read-only ``repo`` field. It travels in the SAME PATCH
+        as the question and name, so the edit lands whole or not at all.
 
         DO NOT expect a read-back to be byte-identical: a detail GET answers
         from the page, which renders the document -- see :meth:`update_project`.
@@ -4227,35 +4381,21 @@ class Client:
         if not identity and document is None:
             raise ValueError("update_experiment needs at least one field to set")
         project, experiment = self._experiment_ids(experiment_id, project_id)
-        row: dict | None = None
-        if identity:
-            # AFTER the emptiness check, deliberately. `authored_by` declares who
-            # wrote the OTHER fields; on its own it declares authorship of nothing.
-            _put_authorship(identity, authored_by)
-            row = _from_experiment_api(
-                self.transport.patch(
-                    f"/v1/projects/{project}/experiments/{experiment}", identity
-                )
-            )
+        body: dict[str, Any] = dict(identity)
         if document is not None:
-            try:
-                written = self._write_experiment_document(experiment, document, authored_by)
-            except errors.RosError as exc:
-                if row is None:
-                    raise  # nothing landed: the one failure is the whole answer
-                raise errors.DocumentNotWritten(
-                    f"experiment {row.get('slug') or experiment!r} ({experiment}): "
-                    f"{' and '.join(sorted(k for k in identity if k != 'authored_by'))} "
-                    f"changed, but its document was not written: {exc}. Write it with "
-                    f"`probe experiment set {shlex.quote(str(row.get('slug') or experiment))} "
-                    "--summary <markdown or @file>`.",
-                    experiment=row,
-                    status=exc.status,
-                ) from exc
-            if row is None:
-                row = self.get_experiment(experiment, project_id=project)
-            row["document"] = written
-        assert row is not None
+            body["document"] = document
+        # AFTER the emptiness check, deliberately. `authored_by` declares who
+        # wrote the OTHER fields; on its own it declares authorship of nothing.
+        _put_authorship(body, authored_by)
+        written = self.transport.patch(f"/v1/projects/{project}/experiments/{experiment}", body)
+        if document is not None:
+            self._verify_entity_markdown_written(
+                "experiment", document, written, "PATCH /v1/projects/{P}/experiments/{E}"
+            )
+        row = _from_experiment_api(written)
+        if document is None and isinstance(row, dict):
+            # The write answers `document` only when it wrote one.
+            row.pop("document", None)
         return row
 
     def move_experiment(
@@ -4361,15 +4501,23 @@ class Client:
         )
         return resp.json() if resp.content else None
 
-    def experiment_edges(self, experiment_id: str, *, limit: int | None = None) -> list[dict]:
+    def experiment_edges(
+        self, experiment_id: str, *, limit: int | None = None, project_id: str | None = None
+    ) -> list[dict]:
         """Every lineage edge under an experiment (the run-level view is
         :meth:`run_edges`); at most ``limit`` (1-1000) when given, stored edges
-        first. The experiment's OWN links are :meth:`project_lineage`.
+        first. The experiment's OWN links are :meth:`experiment_lineage`.
 
-        Still read at the project address: the experiment API has no edges
-        route yet, and the server serves this one to this client until R6."""
+        ``GET /v1/projects/{P}/experiments/{E}/edges``; ``project_id`` saves the
+        lookup of where the experiment is filed."""
         params = {"limit": limit} if limit is not None else None
-        return self.transport.get(f"/v1/projects/{experiment_id}/edges", params=params)
+        return self._on_experiment(
+            lambda p, e: self.transport.get(
+                f"/v1/projects/{p}/experiments/{e}/edges", params=params
+            ),
+            experiment_id,
+            project_id,
+        )
 
     # -- run groups (sweeps / ensembles) ------------------------------------
     @staticmethod
@@ -4405,6 +4553,7 @@ class Client:
         kind: str = "group",
         spec: dict | None = None,
         notes: str | None = None,
+        project_id: str | None = None,
     ) -> dict:
         """Create a run group under an experiment — coordination metadata for a
         sweep or ensemble; ``spec`` holds e.g. the search space.
@@ -4419,15 +4568,23 @@ class Client:
         changes the row's identity and mints a second group instead of colliding
         with the one it describes."""
         model = RunGroupCreate(name=name, kind=kind, spec=spec or {}, notes=notes)
-        row = self.transport.post(
-            f"/v1/projects/{experiment_id}/groups",
-            model.model_dump(mode="json", exclude_none=True),
+        body = model.model_dump(mode="json", exclude_none=True)
+        row = self._on_experiment(
+            lambda p, e: self.transport.post(f"/v1/projects/{p}/experiments/{e}/groups", body),
+            experiment_id,
+            project_id,
         )
         self._warn_if_notes_dropped(notes, row, "run groups")
         return row
 
-    def list_groups(self, experiment_id: str) -> list[dict]:
-        return self.transport.get(f"/v1/projects/{experiment_id}/groups")
+    def list_groups(self, experiment_id: str, *, project_id: str | None = None) -> list[dict]:
+        """The experiment's run groups, newest first
+        (``GET /v1/projects/{P}/experiments/{E}/groups``)."""
+        return self._on_experiment(
+            lambda p, e: self.transport.get(f"/v1/projects/{p}/experiments/{e}/groups"),
+            experiment_id,
+            project_id,
+        )
 
     def get_group(self, group_id: str) -> dict:
         return self.transport.get(f"/v1/groups/{group_id}")
@@ -4647,8 +4804,11 @@ class Client:
         labeled_point_budget: int | None = None,
         slug: str | None = None,
         authored_by: str | None = None,
+        project_id: str | None = None,
     ) -> Run:
-        """Create an experiment-attached run.
+        """Create an experiment-attached run
+        (``POST /v1/projects/{P}/experiments/{E}/runs``; ``project_id`` saves the
+        lookup of where the experiment is filed).
 
         0220: a run carries no authored document. Projects and experiments
         keep theirs as ``document``, which is the Overview page's marked block.
@@ -4676,14 +4836,21 @@ class Client:
         session_id, lease = self._lease_for_create(
             body, heartbeat=heartbeat, awaiting_attach=awaiting_attach, launcher=launcher
         )
-        data = self._create_idempotently(
-            # Literal call site: the tests/test_parity.py AST scan must see the route.
-            lambda replay: self.transport.post(
-                f"/v1/projects/{experiment_id}/runs", body, idempotent=replay
-            ),
-            path=f"/v1/projects/{experiment_id}/runs",
-            body=body,
-        )
+        def create_in(project: str, experiment: str) -> Any:
+            return self._create_idempotently(
+                # Literal call site: the tests/test_parity.py AST scan must see the route.
+                lambda replay: self.transport.post(
+                    f"/v1/projects/{project}/experiments/{experiment}/runs",
+                    body,
+                    idempotent=replay,
+                ),
+                path=f"/v1/projects/{project}/experiments/{experiment}/runs",
+                body=body,
+            )
+
+        # A 404 creates nothing, so a remembered home gone stale is re-asked
+        # and the create sent once more (`_on_experiment`).
+        data = self._on_experiment(create_in, experiment_id, project_id)
         self._verify_slug_written(slug, data)
         self._warn_if_notes_dropped(notes, data, "runs")
         return self._opened(
@@ -5321,7 +5488,7 @@ class Client:
             )
         self._maybe_attach_retry_parent(run_kw, experiment_id=exp["id"])
         handle = self._create_run_with_policy(
-            lambda kw, nm: self.create_run(exp["id"], nm, **kw),
+            lambda kw, nm: self.create_run(exp["id"], nm, project_id=exp.get("project_id"), **kw),
             run_kw,
             name,
             on_conflict,
@@ -6891,7 +7058,9 @@ class Client:
         kw = dict(run_kw, parent_run_id=src["id"], parent_relation="fork")
         experiment_id = src.get("experiment_id")
         if experiment_id:
-            run = self.create_run(experiment_id, fork_name, **kw)
+            run = self.create_run(
+                experiment_id, fork_name, project_id=src.get("project_id"), **kw
+            )
         elif src.get("project_id"):
             run = self.create_project_run(src["project_id"], fork_name, **kw)
         elif "project_id" in src:
@@ -7045,13 +7214,21 @@ class Client:
         before capture-core answers 200 with a degraded body, never a 404."""
         return self.transport.get(f"/v1/runs/{run_id}/reproduce")
 
-    def experiment_reproduce(self, experiment_id: str, *, version: int | None = None) -> dict:
-        """GET /v1/projects/{id}/reproduce — per-run reproduction summaries (a
+    def experiment_reproduce(
+        self, experiment_id: str, *, version: int | None = None, project_id: str | None = None
+    ) -> dict:
+        """GET /v1/projects/{P}/experiments/{E}/reproduce — per-run reproduction summaries (a
         map, not N full assemblies; each summary carries a `reproduce_url` for
         drill-down). `version` pins against a minted experiment_versions manifest;
         omitted reads live rows."""
         params = {"version": version} if version is not None else None
-        return self.transport.get(f"/v1/projects/{experiment_id}/reproduce", params=params)
+        return self._on_experiment(
+            lambda p, e: self.transport.get(
+                f"/v1/projects/{p}/experiments/{e}/reproduce", params=params
+            ),
+            experiment_id,
+            project_id,
+        )
 
     def run_lineage(self, run_id: str) -> dict:
         return self.transport.get(f"/v1/runs/{run_id}/lineage")
@@ -7886,9 +8063,25 @@ class Client:
         reads, ``derived: true``), its ``origin``, and its direct children as
         ``nodes``, each with an origin (at most ``limit``, 1-1000; the server's
         default 200). The graph AMONG its runs and files is
-        :meth:`experiment_edges`."""
+        :meth:`experiment_edges`; an experiment's own lineage is
+        :meth:`experiment_lineage`."""
         params = {"limit": limit} if limit is not None else None
         return self.transport.get(f"/v1/projects/{project_id}/lineage", params=params)
+
+    def experiment_lineage(
+        self, experiment_id: str, *, limit: int | None = None, project_id: str | None = None
+    ) -> dict:
+        """An experiment's OWN lineage, in :meth:`project_lineage`'s shape: its
+        links in and out, its ``origin`` and its direct children
+        (``GET /v1/projects/{P}/experiments/{E}/lineage``)."""
+        params = {"limit": limit} if limit is not None else None
+        return self._on_experiment(
+            lambda p, e: self.transport.get(
+                f"/v1/projects/{p}/experiments/{e}/lineage", params=params
+            ),
+            experiment_id,
+            project_id,
+        )
 
     def artifacts_by_hash(self, content_hash: str) -> dict:
         """Every stored copy of these bytes, its writer, and its readers."""
@@ -7946,52 +8139,93 @@ class Client:
         as_of: str | None = None,
         exclude_run_ids: list[str] | None = None,
         strict: bool | None = None,
+        project_id: str | None = None,
     ) -> dict | None:
-        """POST /v1/projects/{id}/versions - mint an immutable launch-time manifest
-        (a snapshot of the experiment's runs). This replaces the removed run-level
-        `promote`; Probe Research rejected promotion tiers."""
+        """POST /v1/projects/{P}/experiments/{E}/versions - mint an immutable
+        launch-time manifest (a snapshot of the experiment's runs). This replaces
+        the removed run-level `promote`; Probe Research rejected promotion tiers."""
         model = ExperimentVersionMint(
             label=label, as_of=as_of, exclude_run_ids=exclude_run_ids or []
         )
-        return self.write(
-            "POST",
-            f"/v1/projects/{experiment_id}/versions",
-            model.model_dump(mode="json", exclude_none=True),
-            strict=strict,
+        body = model.model_dump(mode="json", exclude_none=True)
+        return self._on_experiment(
+            lambda p, e: self.write(
+                "POST", f"/v1/projects/{p}/experiments/{e}/versions", body, strict=strict
+            ),
+            experiment_id,
+            project_id,
+            journaled=self._journals(strict=strict),
         )
 
-    def list_experiment_versions(self, experiment_id: str) -> list[dict]:
-        return self.transport.get(f"/v1/projects/{experiment_id}/versions")
+    def list_experiment_versions(
+        self, experiment_id: str, *, project_id: str | None = None
+    ) -> list[dict]:
+        return self._on_experiment(
+            lambda p, e: self.transport.get(f"/v1/projects/{p}/experiments/{e}/versions"),
+            experiment_id,
+            project_id,
+        )
 
-    def get_experiment_version(self, experiment_id: str, version: int | str) -> dict:
-        return self.transport.get(f"/v1/projects/{experiment_id}/versions/{version}")
+    def get_experiment_version(
+        self, experiment_id: str, version: int | str, *, project_id: str | None = None
+    ) -> dict:
+        return self._on_experiment(
+            lambda p, e: self.transport.get(
+                f"/v1/projects/{p}/experiments/{e}/versions/{version}"
+            ),
+            experiment_id,
+            project_id,
+        )
 
-    def move_run(self, run_id: str, *, project_id: str, group_id: str | None = None) -> dict:
+    def move_run(
+        self,
+        run_id: str,
+        *,
+        project_id: str | None = None,
+        experiment_id: str | None = None,
+        group_id: str | None = None,
+    ) -> dict:
         """PATCH /v1/runs/{id} with a new home: file a floating run, or refile one.
 
-        ``project_id`` is a project or an experiment (an experiment IS a project
-        row); ``group_id`` must be a sweep group inside that experiment. The
-        server moves the run in one transaction and re-indexes it.
+        Exactly one of ``project_id`` (a project to file the run in directly)
+        and ``experiment_id`` (an experiment's uuid; the run lands in it, under
+        the project the experiment is filed in) names the target; ``group_id``
+        must be a sweep group inside that experiment. The server moves the run
+        in one transaction and re-indexes it. An experiment goes to the server
+        as ``experiment_id`` (server X21b), never as ``project_id`` -- that
+        addresses the experiment as a project, the door R6 removes.
 
         The answer must SHOW the run in its new home. A server that predates
-        filing ignores `project_id` in a run PATCH and answers 200 with the run
-        where it was, so a move that did nothing would read as done; that is
-        refused (``CapabilityUnavailable``), as the unfiled listing is.
+        filing (or, for ``experiment_id``, X21b) ignores the field and answers
+        200 with the run where it was, so a move that did nothing would read as
+        done; that is refused (``CapabilityUnavailable``), as the unfiled
+        listing is.
 
         A run moved into an EXPERIMENT answers with the experiment in
-        ``experiment_id`` and its parent (the run's home project) in
-        ``project_id`` (0238): either field naming the wanted id is the move."""
-        body: dict = {"project_id": project_id}
+        ``experiment_id`` and its project (the run's home) in ``project_id``."""
+        if (project_id is None) == (experiment_id is None):
+            raise ValueError("move_run needs exactly one of project_id and experiment_id")
+        if experiment_id is not None:
+            if not _is_uuid(str(experiment_id)):
+                raise ValueError("move_run's experiment_id is the experiment's uuid")
+            body: dict = {"experiment_id": str(experiment_id)}
+        else:
+            body = {"project_id": project_id}
         if group_id is not None:
             body["group_id"] = group_id
         row = self.transport.patch(f"/v1/runs/{run_id}", body)
         row = row if isinstance(row, dict) else {}
-        landed = _same_id(row.get("project_id"), project_id) or _same_id(row.get("experiment_id"), project_id)
+        if experiment_id is not None:
+            landed = _same_id(row.get("experiment_id"), experiment_id)
+        else:
+            landed = _same_id(row.get("project_id"), project_id) or _same_id(
+                row.get("experiment_id"), project_id
+            )
         if not landed or (group_id is not None and not _same_id(row.get("group_id"), group_id)):
             raise errors.CapabilityUnavailable(
                 "run_filing",
-                "this server cannot file runs yet: it answered the move with the run where it was. "
-                "Upgrade the backend before filing runs.",
+                "this server cannot file runs this way yet: it answered the move with the run "
+                "where it was. Upgrade the backend before filing runs.",
             )
         return row
 
@@ -8126,8 +8360,14 @@ class Client:
             body["target_id"] = target_id
         return self.transport.post(f"/v1/artifacts/{artifact_id}/move", body)
 
-    def list_experiment_artifacts(self, experiment_id: str) -> list[dict]:
-        return self.transport.get(f"/v1/projects/{experiment_id}/artifacts")
+    def list_experiment_artifacts(
+        self, experiment_id: str, *, project_id: str | None = None
+    ) -> list[dict]:
+        return self._on_experiment(
+            lambda p, e: self.transport.get(f"/v1/projects/{p}/experiments/{e}/artifacts"),
+            experiment_id,
+            project_id,
+        )
 
     # --- project code sources (0134) ----------------------------------------
     #
@@ -8550,7 +8790,13 @@ class Client:
         )
 
     def disconnect_wandb_account(self, connection_id: str) -> None:
-        """Disconnect credentials while retaining imported records and attachments."""
+        """Disconnect a W&B account: revoke its credential and PERMANENTLY delete
+        every run its sources imported, with any work attached to those runs.
+
+        The destination projects and experiments, runs created in Probe, and
+        the account row (revoked, reconnectable) stay; W&B itself is untouched.
+        To stop importing but keep the runs, pause the sources instead
+        (`patch_project_wandb_source(..., sync_enabled=False)`)."""
         self.transport.delete(f"/v1/integrations/wandb/accounts/{connection_id}")
 
     def list_mirror_connections(self) -> list[dict]:
@@ -8591,43 +8837,90 @@ class Client:
         )
 
     def detach_project_wandb_source(self, project_id: str, attachment_id: str) -> None:
+        """Detach one source: revoke it and PERMANENTLY delete the runs it
+        imported, with any work attached to them. Runs created in Probe and
+        the destination stay. Pausing (`patch_project_wandb_source(...,
+        sync_enabled=False)`) keeps them."""
         self.write(
             "DELETE", f"/v1/projects/{project_id}/wandb-sources/{attachment_id}", strict=True
         )
 
-    def list_experiment_wandb_sources(self, experiment_id: str) -> list[dict]:
-        return self.transport.get(f"/v1/projects/{experiment_id}/wandb-sources")
+    # An experiment's W&B sources live on the experiment API (server X21b):
+    # `/v1/projects/{P}/experiments/{E}/wandb-sources[...]`, never the leaf
+    # door `/v1/projects/{E}/wandb-sources` R6 removes. `project_id` (the
+    # project the experiment is filed in) saves the one `GET /v1/scopes/{E}`
+    # that places it otherwise. Their history imports are launched and read at
+    # the PROJECT's address (`*_project_wandb_backfill` with the project's id):
+    # a job's target is the project, so both addresses answer the same job.
+
+    def list_experiment_wandb_sources(
+        self, experiment_id: str, *, project_id: str | None = None
+    ) -> list[dict]:
+        return self._on_experiment(
+            lambda p, e: self.transport.get(
+                f"/v1/projects/{p}/experiments/{e}/wandb-sources"
+            ),
+            experiment_id,
+            project_id,
+        )
 
     def attach_experiment_wandb_source(
-        self, experiment_id: str, *, connection_id: str, external_id: str
+        self,
+        experiment_id: str,
+        *,
+        connection_id: str,
+        external_id: str,
+        project_id: str | None = None,
     ) -> dict:
         """Reuse the canonical source attachment; new attachments start paused.
 
         Strict writes never enter the generic outbox. Callers retaining an
         admission intent must receive either the actual receipt or an error.
         """
-        return self.write(
-            "POST",
-            f"/v1/projects/{experiment_id}/wandb-sources",
-            {"connection_id": connection_id, "external_id": external_id},
-            strict=True,
+        return self._on_experiment(
+            lambda p, e: self.write(
+                "POST",
+                f"/v1/projects/{p}/experiments/{e}/wandb-sources",
+                {"connection_id": connection_id, "external_id": external_id},
+                strict=True,
+            ),
+            experiment_id,
+            project_id,
         )
 
     def patch_experiment_wandb_source(
-        self, experiment_id: str, attachment_id: str, *, sync_enabled: bool, expected_revision: int
+        self,
+        experiment_id: str,
+        attachment_id: str,
+        *,
+        sync_enabled: bool,
+        expected_revision: int,
+        project_id: str | None = None,
     ) -> dict:
-        return self.write(
-            "PATCH",
-            f"/v1/projects/{experiment_id}/wandb-sources/{attachment_id}",
-            {"sync_enabled": sync_enabled, "expected_revision": expected_revision},
-            strict=True,
+        return self._on_experiment(
+            lambda p, e: self.write(
+                "PATCH",
+                f"/v1/projects/{p}/experiments/{e}/wandb-sources/{attachment_id}",
+                {"sync_enabled": sync_enabled, "expected_revision": expected_revision},
+                strict=True,
+            ),
+            experiment_id,
+            project_id,
         )
 
-    def detach_experiment_wandb_source(self, experiment_id: str, attachment_id: str) -> None:
-        self.write(
-            "DELETE",
-            f"/v1/projects/{experiment_id}/wandb-sources/{attachment_id}",
-            strict=True,
+    def detach_experiment_wandb_source(
+        self, experiment_id: str, attachment_id: str, *, project_id: str | None = None
+    ) -> None:
+        """`detach_project_wandb_source` for an experiment's source: the runs it
+        imported are PERMANENTLY deleted; pausing keeps them."""
+        self._on_experiment(
+            lambda p, e: self.write(
+                "DELETE",
+                f"/v1/projects/{p}/experiments/{e}/wandb-sources/{attachment_id}",
+                strict=True,
+            ),
+            experiment_id,
+            project_id,
         )
 
     def launch_project_wandb_backfill(
@@ -8710,12 +9003,16 @@ class Client:
         as a named ``state``, never an error."""
         return self.transport.get(f"/v1/runs/{run_id}/code/compare", params={"to": to})
 
-    def get_experiment_code(self, experiment_id: str) -> dict:
+    def get_experiment_code(self, experiment_id: str, *, project_id: str | None = None) -> dict:
         """What changed in the repo between an experiment's runs: the
         project's sources (inherited — there is no experiment-level attach),
         each run's stored ``owner/repo@sha``, and the per-repo commit window.
         Stored rows only; the backend never asks GitHub on this read."""
-        return self.transport.get(f"/v1/projects/{experiment_id}/code")
+        return self._on_experiment(
+            lambda p, e: self.transport.get(f"/v1/projects/{p}/experiments/{e}/code"),
+            experiment_id,
+            project_id,
+        )
 
     def list_project_artifacts(self, project_id: str) -> list[dict]:
         """Project-wide shared data (fold #22) — the sibling of the experiment read.
@@ -8898,7 +9195,16 @@ class Client:
         if entity == "project":
             return self.write("PATCH", f"/v1/projects/{entity_id}", body, **kw)
         if entity == "experiment":
-            return self.write("PATCH", f"/v1/projects/{entity_id}", body, **kw)
+            # The experiment API's body is CLOSED and has no `op_key` (the leaf
+            # door accepted and ignored it), so it is not sent there.
+            experiment_body = {k: v for k, v in body.items() if k != "op_key"}
+            return self._on_experiment(
+                lambda p, e: self.write(
+                    "PATCH", f"/v1/projects/{p}/experiments/{e}", experiment_body, **kw
+                ),
+                entity_id,
+                journaled=self._journals(strict=strict, sync=sync),
+            )
         if entity == "run":
             return self.write("PATCH", f"/v1/runs/{entity_id}", body, **kw)
         if entity == "group":
@@ -8954,7 +9260,10 @@ class Client:
         if entity == "project":
             return self.transport.get(f"/v1/projects/{entity_id}/sub-notes")
         if entity == "experiment":
-            return self.transport.get(f"/v1/projects/{entity_id}/sub-notes")
+            return self._on_experiment(
+                lambda p, e: self.transport.get(f"/v1/projects/{p}/experiments/{e}/sub-notes"),
+                entity_id,
+            )
         if entity == "run":
             return self.transport.get(f"/v1/runs/{entity_id}/sub-notes")
         if entity == "group":
@@ -8984,7 +9293,12 @@ class Client:
         if entity == "project":
             return self.write("POST", f"/v1/projects/{entity_id}/sub-notes", payload, **kw)
         if entity == "experiment":
-            return self.write("POST", f"/v1/projects/{entity_id}/sub-notes", payload, **kw)
+            return self._on_experiment(
+                lambda p, e: self.write(
+                    "POST", f"/v1/projects/{p}/experiments/{e}/sub-notes", payload, **kw
+                ),
+                entity_id,
+            )
         if entity == "run":
             return self.write("POST", f"/v1/runs/{entity_id}/sub-notes", payload, **kw)
         if entity == "group":
@@ -9004,7 +9318,13 @@ class Client:
         if entity == "project":
             return self.write("PATCH", f"/v1/projects/{entity_id}/sub-notes", body, **kw)
         if entity == "experiment":
-            return self.write("PATCH", f"/v1/projects/{entity_id}/sub-notes", body, **kw)
+            return self._on_experiment(
+                lambda p, e: self.write(
+                    "PATCH", f"/v1/projects/{p}/experiments/{e}/sub-notes", body, **kw
+                ),
+                entity_id,
+                journaled=self._journals(strict=strict),
+            )
         if entity == "run":
             return self.write("PATCH", f"/v1/runs/{entity_id}/sub-notes", body, **kw)
         if entity == "group":
@@ -9046,7 +9366,12 @@ class Client:
         if entity == "project":
             return self.write("PATCH", f"/v1/projects/{entity_id}/sub-notes", body, **kw)
         if entity == "experiment":
-            return self.write("PATCH", f"/v1/projects/{entity_id}/sub-notes", body, **kw)
+            return self._on_experiment(
+                lambda p, e: self.write(
+                    "PATCH", f"/v1/projects/{p}/experiments/{e}/sub-notes", body, **kw
+                ),
+                entity_id,
+            )
         if entity == "run":
             return self.write("PATCH", f"/v1/runs/{entity_id}/sub-notes", body, **kw)
         if entity == "group":

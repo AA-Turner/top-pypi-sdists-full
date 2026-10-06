@@ -9,10 +9,9 @@ use crate::hooks::HookOutput;
 use crate::hooks::pre_commit_hooks::shebangs::{
     file_has_shebang, git_index_stage_output, matching_git_index_paths_by_executable_bit,
 };
-use crate::hooks::pre_commit_hooks::{FilenamesArgs, hook_filenames, parse_hook_args};
-use crate::hooks::run_concurrent_file_checks;
-use crate::run::INTERNAL_CONCURRENCY;
-use rustc_hash::FxHashSet;
+use crate::hooks::pre_commit_hooks::{
+    FilenamesArgs, hook_filenames, parse_hook_args, run_blocking_file_checks,
+};
 
 /// Runs the `check-executables-have-shebangs` hook.
 pub(crate) async fn run(hook: &Hook, filenames: &[&Path]) -> Result<HookOutput, anyhow::Error> {
@@ -22,42 +21,42 @@ pub(crate) async fn run(hook: &Hook, filenames: &[&Path]) -> Result<HookOutput, 
         return Ok(HookOutput::unchanged(0, Vec::new()));
     }
 
-    let stdout = git::git_cmd()?
+    let mut cmd = git::git_cmd()?;
+    let output = cmd
         .arg("config")
         .arg("core.fileMode")
-        .check(true)
+        .check(false)
         .output()
-        .await?
-        .stdout;
+        .await?;
 
-    let tracks_executable_bit = std::str::from_utf8(&stdout)?.trim() != "false";
+    let tracks_executable_bit = if output.status.code() == Some(1) {
+        // Git returns 1 when the setting is absent; core.fileMode defaults to true.
+        true
+    } else {
+        let output = cmd.check_output(output)?;
+        std::str::from_utf8(&output.stdout)?.trim() != "false"
+    };
     let file_base = hook.project().relative_path();
 
     if tracks_executable_bit {
         // core.fileMode=true means the platform honors the executable bit, so trust the FS metadata.
         // The `executables-have-shebangs` hook already restricts inputs to executable text files (`types: [text, executable]`).
-        os_check_shebangs(file_base, &filenames).await
+        check_shebangs(file_base, &filenames).await
     } else {
         // If on win32 use git to check executable bit
         git_check_shebangs(file_base, &filenames).await
     }
 }
 
-async fn os_check_shebangs(file_base: &Path, paths: &[&Path]) -> Result<HookOutput, anyhow::Error> {
-    run_concurrent_file_checks(
-        paths.iter().copied(),
-        *INTERNAL_CONCURRENCY,
-        |file| async move {
-            let file_path = file_base.join(file);
-            let has_shebang = file_has_shebang(&file_path).await?;
-            if has_shebang {
-                anyhow::Ok(HookOutput::unchanged(0, Vec::new()))
-            } else {
-                let msg = build_missing_shebang_warning(file)?;
-                Ok(HookOutput::unchanged(1, msg.into_bytes()))
-            }
-        },
-    )
+async fn check_shebangs(file_base: &Path, paths: &[&Path]) -> Result<HookOutput, anyhow::Error> {
+    run_blocking_file_checks(file_base, &[], paths, |file_path, file| {
+        if file_has_shebang(file_path)? {
+            Ok(HookOutput::unchanged(0, Vec::new()))
+        } else {
+            let msg = build_missing_shebang_warning(file)?;
+            Ok(HookOutput::unchanged(1, msg.into_bytes()))
+        }
+    })
     .await
 }
 
@@ -96,21 +95,9 @@ async fn git_check_shebangs(
     filenames: &[&Path],
 ) -> Result<HookOutput, anyhow::Error> {
     let stdout = git_index_stage_output(file_base).await?;
-    let filenames: FxHashSet<_> = filenames.iter().copied().collect();
-    let entries = matching_git_index_paths_by_executable_bit(&stdout, file_base, &filenames, true);
-
-    run_concurrent_file_checks(entries, *INTERNAL_CONCURRENCY, |file| async move {
-        let file_path = file_base.join(file);
-        if file_has_shebang(&file_path).await? {
-            Ok(HookOutput::unchanged(0, Vec::new()))
-        } else {
-            Ok(HookOutput::unchanged(
-                1,
-                build_missing_shebang_warning(file)?.into_bytes(),
-            ))
-        }
-    })
-    .await
+    let entries = matching_git_index_paths_by_executable_bit(&stdout, file_base, filenames, true)
+        .collect::<Vec<_>>();
+    check_shebangs(file_base, &entries).await
 }
 
 #[cfg(test)]
@@ -119,23 +106,23 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[tokio::test]
-    async fn test_os_check_shebangs_with_shebang() -> Result<(), anyhow::Error> {
+    async fn test_check_shebangs_with_shebang() -> Result<(), anyhow::Error> {
         let file = NamedTempFile::new()?;
         fs_err::tokio::write(file.path(), b"#!/bin/bash\necho ok\n").await?;
         let files = vec![file.path()];
-        let result = os_check_shebangs(Path::new(""), &files).await?;
+        let result = check_shebangs(Path::new(""), &files).await?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
 
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_os_check_shebangs_without_shebang() -> Result<(), anyhow::Error> {
+    async fn test_check_shebangs_without_shebang() -> Result<(), anyhow::Error> {
         let file = NamedTempFile::new()?;
         fs_err::tokio::write(file.path(), b"echo ok\n").await?;
         let files = vec![file.path()];
-        let result = os_check_shebangs(Path::new(""), &files).await?;
+        let result = check_shebangs(Path::new(""), &files).await?;
         assert_eq!(result.exit_status, 1);
         assert!(
             String::from_utf8_lossy(&result.output)
@@ -145,10 +132,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_os_check_shebangs_empty_input() -> Result<(), anyhow::Error> {
-        let result = os_check_shebangs(Path::new(""), &[]).await?;
+    async fn test_check_shebangs_empty_input() -> Result<(), anyhow::Error> {
+        let result = check_shebangs(Path::new(""), &[]).await?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 }

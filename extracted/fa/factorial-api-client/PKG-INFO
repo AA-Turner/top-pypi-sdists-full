@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: factorial-api-client
-Version: 2.0.4
+Version: 3.0.0
 Summary: Official Python SDK for the Factorial API
 Project-URL: Homepage, https://github.com/factorialco/factorial-api-sdks
 Project-URL: Documentation, https://apidoc.factorialhr.com
@@ -33,6 +33,7 @@ The SDK uses standard semver (`MAJOR.MINOR.PATCH`), independent of the Factorial
 |-------------|----------------------|
 | `1.x.y`     | `2026-04-01`         |
 | `2.x.y`     | `2026-07-01`         |
+| `3.x.y`     | `2026-10-01`         |
 
 Factorial releases new API versions quarterly (Jan/Apr/Jul/Oct).
 

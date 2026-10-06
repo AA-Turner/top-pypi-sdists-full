@@ -21,6 +21,7 @@ from pyrig.rig import resources
 from pyrig.rig.configs.base.yaml import YMLDictConfigFile, commented_map
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.tools.formatting.shell import ShellFormatter
+from pyrig.rig.tools.linting.yaml import YAMLLinter
 from pyrig.rig.tools.packages.manager import PackageManager
 from pyrig.rig.tools.version_control.controller import VersionController
 from pyrig.rig.tools.version_control.remote.controller import (
@@ -160,7 +161,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
         """
         return commented_map(
             permissions,
-            {
+            comments={
                 k: self.permission_comment()
                 for k in permissions
                 if (k, permissions[k]) != ("contents", "read")
@@ -379,7 +380,9 @@ class WorkflowConfigFile(YMLDictConfigFile):
     ) -> CommentedMap:
         """Build a step configuration dict.
 
-        Adds a comment to a step that uses an action.
+        Adds the action's version tag as an end-of-line comment and places a
+        standalone YAML linter directive before `uses` to disable the
+        `line-length` rule for that line.
 
         Args:
             method: Method representing this step; its name is used to
@@ -401,6 +404,7 @@ class WorkflowConfigFile(YMLDictConfigFile):
             preserve these comments.
         """
         comments: dict[str, str] = {}
+        comments_before: dict[str, str] = {}
 
         id_ = self.step_id_from_method(method)
         step = {
@@ -415,6 +419,9 @@ class WorkflowConfigFile(YMLDictConfigFile):
             action, ref, tag = uses
             step["uses"] = self.uses(action, ref)
             comments["uses"] = tag
+            comments_before["uses"] = (
+                YAMLLinter.I.disable_line_line_length().removeprefix("# ")
+            )
         if with_ is not None:
             step["with"] = with_
         if env is not None:
@@ -422,7 +429,8 @@ class WorkflowConfigFile(YMLDictConfigFile):
 
         return commented_map(
             step,
-            comments,
+            comments=comments,
+            comments_before=comments_before,
         )
 
     def name_from_id(self, id_: str) -> str:

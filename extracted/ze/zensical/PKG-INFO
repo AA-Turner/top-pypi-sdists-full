@@ -1,11 +1,15 @@
 Metadata-Version: 2.4
 Name: zensical
-Version: 0.0.67
+Version: 0.0.68
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Web Environment
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Text Processing :: Markup :: HTML
@@ -24,7 +28,7 @@ Summary: A modern static site generator built by the creators of Material for Mk
 Home-Page: https://github.com/zensical/zensical
 Author-email: Zensical <contributors@zensical.org>
 License-Expression: MIT
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Changelog, https://zensical.org/docs/changelog/
 Project-URL: Documentation, https://zensical.org/docs/

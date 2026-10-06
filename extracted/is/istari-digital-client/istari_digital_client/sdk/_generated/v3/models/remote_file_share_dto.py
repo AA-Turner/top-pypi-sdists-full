@@ -30,12 +30,13 @@ class RemoteFileShareDto(BaseModel):
     """ # noqa: E501
     id: StrictStr = Field(description="The unique identifier of this share.")
     sending_connection_id: StrictStr = Field(description="The sending connection the file is shared to.")
+    sending_connection_label: StrictStr = Field(description="Human-readable label of the sending connection the file is shared to.")
     file_id: StrictStr = Field(description="The shared file.")
     share_level: ReceivedAccessLevel = Field(description="Access level the receiver should grant to remote owners over this shared file (Editor or Viewer).")
     created: datetime = Field(description="When the share was created.")
     is_archived: StrictBool = Field(description="Whether the share has been revoked.")
     archived: Optional[datetime]
-    __properties: ClassVar[List[str]] = ["id", "sending_connection_id", "file_id", "share_level", "created", "is_archived", "archived"]
+    __properties: ClassVar[List[str]] = ["id", "sending_connection_id", "sending_connection_label", "file_id", "share_level", "created", "is_archived", "archived"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,6 +96,7 @@ class RemoteFileShareDto(BaseModel):
         _obj = cls.model_validate({
             "id": obj.get("id"),
             "sending_connection_id": obj.get("sending_connection_id"),
+            "sending_connection_label": obj.get("sending_connection_label"),
             "file_id": obj.get("file_id"),
             "share_level": obj.get("share_level"),
             "created": obj.get("created"),

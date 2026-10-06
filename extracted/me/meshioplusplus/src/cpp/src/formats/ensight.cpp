@@ -46,6 +46,9 @@
 #include "meshioplusplus/detail/fast_number.hpp"
 #include "meshioplusplus/detail/fortran_records.hpp"
 #include "meshioplusplus/detail/classic_stream.hpp"
+#include "../detail/polyhedron_groups.hpp"
+#include "../detail/text_cursor.hpp"
+#include "../detail/typed_view.hpp"
 
 namespace meshioplusplus {
 
@@ -198,25 +201,21 @@ public:
     }
 };
 
-class EnsightAsciiCursor final : public EnsightCursor {
+class EnsightAsciiCursor final : public EnsightCursor, private detail::TextCursor {
 public:
-    explicit EnsightAsciiCursor(std::string_view text) : mText(text) {}
+    explicit EnsightAsciiCursor(std::string_view text) : detail::TextCursor(text) {}
 
     bool AtEnd() override {
         std::size_t p = mPos;
-        while (p < mText.size() &&
-               (std::isspace(static_cast<unsigned char>(mText[p])) || mText[p] == '\0'))
+        while (p < mBuf.size() &&
+               (std::isspace(static_cast<unsigned char>(mBuf[p])) || mBuf[p] == '\0'))
             ++p;
-        return p >= mText.size();
+        return p >= mBuf.size();
     }
 
     std::string NextRecord() override {
-        while (mPos < mText.size()) {
-            std::size_t eol = mText.find('\n', mPos);
-            if (eol == std::string::npos)
-                eol = mText.size();
-            std::string line = ensight_trim(std::string(mText.substr(mPos, eol - mPos)));
-            mPos = eol < mText.size() ? eol + 1 : eol;
+        while (mPos < mBuf.size()) {
+            std::string line = ensight_trim(std::string(Line()));
             if (!line.empty())
                 return line;
         }
@@ -233,12 +232,9 @@ public:
     }
 
     std::int64_t NextInt() override {
-        const char* start = mText.data() + mPos;
-        char* end = nullptr;
-        const std::int64_t v = std::strtoll(start, &end, 10);
-        if (end == start)
+        std::int64_t v = 0;
+        if (!IntPrefix(v))
             throw ReadError("EnSight: expected an integer in geometry file");
-        mPos = static_cast<std::size_t>(end - mText.data());
         return v;
     }
 
@@ -249,12 +245,8 @@ public:
 
     void ReadFloats(std::size_t n, double* pDst) override {
         for (std::size_t i = 0; i < n; ++i) {
-            const char* start = mText.data() + mPos;
-            const char* end = nullptr;
-            pDst[i] = detail::parse_double(start, end);
-            if (end == start)
+            if (!DoublePrefix(pDst[i]))
                 throw ReadError("EnSight: expected a number in geometry file");
-            mPos = static_cast<std::size_t>(end - mText.data());
         }
     }
 
@@ -262,10 +254,6 @@ public:
         for (std::size_t i = 0; i < n; ++i)
             NextInt();
     }
-
-private:
-    std::string_view mText;
-    std::size_t mPos = 0;
 };
 
 class EnsightBinaryCursor final : public EnsightCursor {
@@ -443,7 +431,7 @@ struct EnsightCaseInfo {
 /// integer tokens (a `[ts] [fs]` prefix) -- the same rule `model:`/variable
 /// lines both use to make the leading timeset/fileset optional.
 std::vector<std::string> ensight_tokens_after_leading_ints(const std::string& rValue) {
-    auto toks = detail::make_classic_istringstream(rValue);
+    detail::TextStream toks(rValue);
     std::vector<std::string> tokens;
     std::string tok;
     while (toks >> tok)
@@ -464,7 +452,6 @@ std::vector<std::string> ensight_tokens_after_leading_ints(const std::string& rV
 /// VARIABLE, needed for `ReadOptions::mTimeStep` and variable-file reading.
 EnsightCaseInfo ensight_parse_case(const std::string& rCasePath) {
     const detail::FileSource source = ensight_read_whole_file(rCasePath, "case file");
-    const std::string data(source.View());  // small text file; parsed via istringstream
 
     std::string section;
     std::string format_type;
@@ -473,9 +460,9 @@ EnsightCaseInfo ensight_parse_case(const std::string& rCasePath) {
     bool in_time_values = false;
     bool have_time_set = false;
     long num_steps = -1;
-    auto stream = detail::make_classic_istringstream(data);
+    detail::TextStream stream(source.View());
     std::string raw;
-    while (std::getline(stream, raw)) {
+    while (getline(stream, raw)) {
         std::string line = ensight_trim(raw);
         if (line.empty() || line[0] == '#') {
             in_time_values = false;
@@ -503,8 +490,8 @@ EnsightCaseInfo ensight_parse_case(const std::string& rCasePath) {
             info.mConstants.emplace_back(joined, detail::parse_double(toks.back()));
         } else if (section == "VARIABLE") {
             static const char* kKinds[] = {
-                "scalar per node:",       "vector per node:",       "tensor symm per node:",
-                "tensor asym per node:",  "scalar per element:",    "vector per element:",
+                "scalar per node:",         "vector per node:",        "tensor symm per node:",
+                "tensor asym per node:",    "scalar per element:",     "vector per element:",
                 "tensor symm per element:", "tensor asym per element:"};
             for (const char* kind : kKinds) {
                 if (!ensight_starts_with(line, kind))
@@ -547,12 +534,12 @@ EnsightCaseInfo ensight_parse_case(const std::string& rCasePath) {
             } else if (ensight_starts_with(line, "time values:")) {
                 in_time_values = true;
                 const std::string rest = ensight_trim(line.substr(std::strlen("time values:")));
-                auto iss = detail::make_classic_istringstream(rest);
+                detail::TextStream iss(rest);
                 double v;
                 while (iss >> v)
                     info.mTimeValues.push_back(v);
             } else if (in_time_values) {
-                auto iss = detail::make_classic_istringstream(line);
+                detail::TextStream iss(line);
                 double v;
                 while (iss >> v)
                     info.mTimeValues.push_back(v);
@@ -607,8 +594,10 @@ std::string ensight_resolve_wildcard(const std::string& rPattern, long Number) {
 struct EnsightBlock {
     std::string mType;
     NDArray mConn{DType::Int64, {}};                                       // rectangular
-    std::vector<std::vector<std::int64_t>> mPolygonRows;                   // nsided
-    std::vector<std::vector<std::vector<std::int64_t>>> mPolyhedronCells;  // nfaced
+    // nsided / nfaced, as the CSR triple the mesh backends store.
+    std::vector<std::int64_t> mFlat;
+    std::vector<std::int64_t> mRowOffsets;
+    std::vector<std::int64_t> mFaceOffsets;
     int mKind = 0;  // 0 rectangular, 1 polygon, 2 polyhedron
     std::int64_t mPartId = 0;
     std::size_t mNumCells = 0;
@@ -632,7 +621,7 @@ struct EnsightPartLayout {
 // matters — Gold connectivity is positional, so ids are always skipped.
 bool ensight_ids_in_file(const std::string& rRecord, const char* pWhat) {
     // rRecord is e.g. "node id assign"; the mode is the last token.
-    auto iss = detail::make_classic_istringstream(rRecord);
+    detail::TextStream iss(rRecord);
     std::string tok, mode;
     while (iss >> tok)
         mode = tok;
@@ -734,79 +723,63 @@ Mesh ensight_parse_geo(EnsightCursor& rCur, std::vector<EnsightPartLayout>* pLay
             if (kw == "nsided") {
                 std::vector<std::int64_t> sizes(static_cast<std::size_t>(ne));
                 rCur.ReadInts(sizes.size(), sizes.data());
-                std::vector<std::vector<std::int64_t>> rows(static_cast<std::size_t>(ne));
-                std::vector<std::int64_t> flat;
-                std::size_t total = 0;
-                for (auto s : sizes)
-                    total += static_cast<std::size_t>(s);
-                flat.resize(total);
-                rCur.ReadInts(total, flat.data());
-                std::size_t at = 0;
-                for (std::size_t c = 0; c < rows.size(); ++c) {
-                    rows[c].resize(static_cast<std::size_t>(sizes[c]));
-                    for (std::size_t j = 0; j < rows[c].size(); ++j)
-                        rows[c][j] = resolve(flat[at++]);
+                std::vector<std::int64_t> rows(sizes.size() + 1, 0);
+                for (std::size_t c = 0; c < sizes.size(); ++c) {
+                    if (sizes[c] < 0)
+                        throw ReadError("EnSight: negative nsided node count");
+                    rows[c + 1] = rows[c] + sizes[c];
                 }
+                const auto total = static_cast<std::size_t>(rows.back());
+                std::vector<std::int64_t> flat(total);
+                rCur.ReadInts(total, flat.data());
+                for (std::int64_t& v : flat)
+                    v = resolve(v);
                 EnsightBlock b;
                 b.mType = "polygon";
                 b.mKind = 1;
                 b.mPartId = part_id;
-                b.mNumCells = rows.size();
-                b.mPolygonRows = std::move(rows);
+                b.mNumCells = sizes.size();
+                b.mFlat = std::move(flat);
+                b.mRowOffsets = std::move(rows);
                 blocks.push_back(std::move(b));
             } else if (kw == "nfaced") {
                 std::vector<std::int64_t> nfaces(static_cast<std::size_t>(ne));
                 rCur.ReadInts(nfaces.size(), nfaces.data());
-                std::size_t total_faces = 0;
-                for (auto f : nfaces)
-                    total_faces += static_cast<std::size_t>(f);
-                std::vector<std::int64_t> fsizes(total_faces);
-                rCur.ReadInts(total_faces, fsizes.data());
-                std::size_t total_nodes = 0;
-                for (auto s : fsizes)
-                    total_nodes += static_cast<std::size_t>(s);
-                std::vector<std::int64_t> flat(total_nodes);
-                rCur.ReadInts(total_nodes, flat.data());
-
-                std::vector<std::vector<std::vector<std::int64_t>>> cells(
-                    static_cast<std::size_t>(ne));
-                std::size_t face_at = 0, node_at = 0;
-                for (std::size_t c = 0; c < cells.size(); ++c) {
-                    cells[c].resize(static_cast<std::size_t>(nfaces[c]));
-                    for (auto& face : cells[c]) {
-                        face.resize(static_cast<std::size_t>(fsizes[face_at++]));
-                        for (auto& v : face)
-                            v = resolve(flat[node_at++]);
+                std::vector<std::int64_t> faces(nfaces.size() + 1, 0);
+                for (std::size_t c = 0; c < nfaces.size(); ++c) {
+                    if (nfaces[c] < 0)
+                        throw ReadError("EnSight: negative nfaced face count");
+                    faces[c + 1] = faces[c] + nfaces[c];
+                }
+                const auto total_faces = static_cast<std::size_t>(faces.back());
+                std::vector<std::int64_t> rows(total_faces + 1, 0);
+                {
+                    std::vector<std::int64_t> fsizes(total_faces);
+                    rCur.ReadInts(total_faces, fsizes.data());
+                    for (std::size_t f = 0; f < total_faces; ++f) {
+                        if (fsizes[f] < 0)
+                            throw ReadError("EnSight: negative nfaced face node count");
+                        rows[f + 1] = rows[f] + fsizes[f];
                     }
                 }
+                const auto total_nodes = static_cast<std::size_t>(rows.back());
+                std::vector<std::int64_t> flat(total_nodes);
+                rCur.ReadInts(total_nodes, flat.data());
+                for (std::int64_t& v : flat)
+                    v = resolve(v);
+
                 // Group by unique node count into "polyhedron<N>" blocks (the
                 // openfoam convention), preserving first-seen order.
-                std::vector<std::size_t> node_counts(cells.size());
-                for (std::size_t c = 0; c < cells.size(); ++c) {
-                    std::vector<std::int64_t> uniq;
-                    for (const auto& face : cells[c])
-                        uniq.insert(uniq.end(), face.begin(), face.end());
-                    std::sort(uniq.begin(), uniq.end());
-                    uniq.erase(std::unique(uniq.begin(), uniq.end()), uniq.end());
-                    node_counts[c] = uniq.size();
-                }
-                std::vector<std::size_t> group_order;
-                std::map<std::size_t, std::vector<std::size_t>> groups;
-                for (std::size_t c = 0; c < cells.size(); ++c) {
-                    if (groups.find(node_counts[c]) == groups.end())
-                        group_order.push_back(node_counts[c]);
-                    groups[node_counts[c]].push_back(c);
-                }
-                for (std::size_t n : group_order) {
-                    std::vector<std::vector<std::vector<std::int64_t>>> group_cells;
-                    for (std::size_t c : groups[n])
-                        group_cells.push_back(std::move(cells[c]));
+                for (auto& g : detail::group_polyhedra_by_node_count(
+                         std::move(flat), std::move(rows), std::move(faces))) {
                     EnsightBlock b;
-                    b.mType = "polyhedron" + std::to_string(n);
+                    b.mType = "polyhedron" + std::to_string(g.mNodeCount);
                     b.mKind = 2;
                     b.mPartId = part_id;
-                    b.mNumCells = group_cells.size();
-                    b.mPolyhedronCells = std::move(group_cells);
+                    b.mNumCells = g.mCells.size();
+                    b.mFlat = std::move(g.mFlat);
+                    b.mRowOffsets = std::move(g.mRowOffsets);
+                    b.mFaceOffsets = std::move(g.mFaceOffsets);
                     blocks.push_back(std::move(b));
                 }
             } else {
@@ -853,9 +826,10 @@ Mesh ensight_parse_geo(EnsightCursor& rCur, std::vector<EnsightPartLayout>* pLay
         if (b.mKind == 0)
             mesh.AddCellBlock(b.mType, std::move(b.mConn));
         else if (b.mKind == 1)
-            mesh.AddPolygonBlock(b.mType, std::move(b.mPolygonRows));
+            mesh.AddPolygonBlock(b.mType, std::move(b.mFlat), std::move(b.mRowOffsets));
         else
-            mesh.AddPolyhedronBlock(b.mType, std::move(b.mPolyhedronCells));
+            mesh.AddPolyhedronBlock(b.mType, std::move(b.mFlat), std::move(b.mRowOffsets),
+                                    std::move(b.mFaceOffsets));
     }
 
     if (pLayout != nullptr) {
@@ -1294,9 +1268,10 @@ void ensight_write_geo_ascii(std::ostream& rOs, const Mesh& rMesh,
     out += "coordinates\n";
     std::snprintf(buf, sizeof(buf), "%10lld\n", static_cast<long long>(np));
     out += buf;
+    const detail::DoubleView point_values(points);
     for (std::size_t c = 0; c < 3; ++c) {
         for (std::size_t i = 0; i < np; ++i) {
-            const double v = c < dim ? detail::read_double(points, i * dim + c) : 0.0;
+            const double v = c < dim ? point_values[i * dim + c] : 0.0;
             detail::snprintf_c(buf, sizeof(buf), "%12.5e\n", v);
             out += buf;
         }
@@ -1355,11 +1330,11 @@ void ensight_write_geo_ascii(std::ostream& rOs, const Mesh& rMesh,
             }
             continue;
         }
+        const detail::Int64View conn_values(conn);
         for (std::size_t r = 0; r < ne; ++r) {
             for (std::size_t j = 0; j < npc; ++j) {
                 const std::size_t src = perm != nullptr ? static_cast<std::size_t>((*perm)[j]) : j;
-                const long long v =
-                    static_cast<long long>(detail::read_int(conn, r * npc + src)) + 1;
+                const long long v = static_cast<long long>(conn_values[r * npc + src]) + 1;
                 std::snprintf(buf, sizeof(buf), "%10lld", v);
                 out += buf;
             }
@@ -1395,10 +1370,10 @@ void ensight_write_geo_binary(std::ostream& rOs, const Mesh& rMesh,
     out.Int(static_cast<std::int64_t>(np));
     {
         std::vector<float> col(np * 3);
+        const detail::DoubleView point_values(points);
         for (std::size_t c = 0; c < 3; ++c)
             for (std::size_t i = 0; i < np; ++i)
-                col[c * np + i] =
-                    c < dim ? static_cast<float>(detail::read_double(points, i * dim + c)) : 0.0f;
+                col[c * np + i] = c < dim ? static_cast<float>(point_values[i * dim + c]) : 0.0f;
         for (std::size_t c = 0; c < 3; ++c)
             out.Floats(col.data() + c * np, np);
     }
@@ -1448,11 +1423,11 @@ void ensight_write_geo_binary(std::ostream& rOs, const Mesh& rMesh,
             continue;
         }
         std::vector<std::int32_t> flat(ne * npc);
+        const detail::Int64View conn_values(conn);
         for (std::size_t r = 0; r < ne; ++r)
             for (std::size_t j = 0; j < npc; ++j) {
                 const std::size_t src = perm != nullptr ? static_cast<std::size_t>((*perm)[j]) : j;
-                flat[r * npc + j] =
-                    static_cast<std::int32_t>(detail::read_int(conn, r * npc + src)) + 1;
+                flat[r * npc + j] = static_cast<std::int32_t>(conn_values[r * npc + src]) + 1;
             }
         out.Ints(flat);
     }
@@ -1476,8 +1451,7 @@ struct EnsightVariableToWrite {
 
 // EnSight's kind word and written component count for a data array's actual
 // component count; `false` when the count has no EnSight representation.
-bool ensight_kind_for_ncomp(std::size_t NumComponents, std::string& rKind,
-                            std::size_t& rWritten) {
+bool ensight_kind_for_ncomp(std::size_t NumComponents, std::string& rKind, std::size_t& rWritten) {
     switch (NumComponents) {
         case 1:
             rKind = "scalar";
@@ -1531,18 +1505,16 @@ std::string ensight_variable_extension(const std::string& rKind, bool PerNode) {
  */
 std::vector<double> ensight_variable_column(const Mesh& rMesh, const EnsightVariableToWrite& rVar,
                                             std::size_t Comp, std::size_t BlockIndex) {
-    const std::size_t mio_comp = (rVar.mKind == "tensor symm" && (Comp == 4 || Comp == 5))
-                                     ? (Comp == 4 ? 5 : 4)
-                                     : Comp;
+    const std::size_t mio_comp =
+        (rVar.mKind == "tensor symm" && (Comp == 4 || Comp == 5)) ? (Comp == 4 ? 5 : 4) : Comp;
     const NDArray& arr =
         rVar.mPerNode ? rMesh.PointData(rVar.mName) : rMesh.CellData(rVar.mName, BlockIndex);
     const std::size_t stored_ncomp = arr.Shape().size() >= 2 ? arr.Shape()[1] : 1;
-    const std::size_t n =
-        rVar.mPerNode ? rMesh.NumPoints() : rMesh.Cells(BlockIndex).NumCells();
+    const std::size_t n = rVar.mPerNode ? rMesh.NumPoints() : rMesh.Cells(BlockIndex).NumCells();
     std::vector<double> col(n);
+    const detail::DoubleView arr_values(arr);
     for (std::size_t i = 0; i < n; ++i)
-        col[i] =
-            mio_comp < stored_ncomp ? detail::read_double(arr, i * stored_ncomp + mio_comp) : 0.0;
+        col[i] = mio_comp < stored_ncomp ? arr_values[i * stored_ncomp + mio_comp] : 0.0;
     return col;
 }
 

@@ -10,17 +10,24 @@ Built once per client and shared with every manager (SDK_REDESIGN.md §5).
 from __future__ import annotations
 
 from collections import OrderedDict
+from functools import cached_property
 from typing import Any, Hashable, Tuple
 
 # A cached listing: the per-page item lists (page boundaries preserved) plus the
 # server-reported total, enough to rebuild the exact chained ``Page`` sequence.
 _CachedListing = Tuple[list[list[Any]], "int | None"]
 
+import istari_digital_client.identity.v2.models as identity_v2_models
+from istari_digital_client.identity.v2.api.identity_v2_api import IdentityV2Api
 from istari_digital_client.sdk._api_client import ApiClient
-from istari_digital_client.sdk._configuration import Configuration
+from istari_digital_client.sdk._configuration import Configuration, ConfigurationError
 from istari_digital_client.sdk._generated.storage_api.api.storage_api import StorageApi
 from istari_digital_client.sdk._generated.v2.api.v2_api import V2Api
 from istari_digital_client.sdk._generated.v3.api.v3_api import V3Api
+from istari_digital_client.sdk._identity.auth.identity_service import (
+    IdentityApiVersion,
+    parse_identity_api_version,
+)
 from istari_digital_client.sdk._storage.helper import StorageHelper
 
 
@@ -85,6 +92,51 @@ class _Engine:
             _ListingCache() if list_cache else None
         )
 
+    @cached_property
+    def identity_api_client(self) -> ApiClient:
+        """HTTP client bound to the identity-service, carrying identity hashes and models only.
+
+        Requires identity-service's v2 API (``identity_api_version`` ``"v2"``, or
+        ``"auto"`` against a server that serves ``/api/v2``) and identity-service auth;
+        either missing raises :class:`ConfigurationError` before any key request.
+
+        Identity models must be the only ones searched: several names, ``Tenant``
+        among them, also exist in the registry packages with different fields.
+        """
+        resolved = self.config.resolved_identity_api_version()
+        if resolved is not IdentityApiVersion.V2:
+            setting = parse_identity_api_version(self.config.identity_api_version)
+            raise ConfigurationError(
+                "admin.identity calls the identity-service v2 API and is unavailable while "
+                f"identity_api_version is {setting.value!r}"
+                + (
+                    " and the identity-service does not serve /api/v2"
+                    if setting is IdentityApiVersion.AUTO
+                    else ""
+                )
+                + " (ISTARI_IDENTITY_API_VERSION)"
+            )
+        base_url = self.config._identity_service_base_url()
+        if self.config._identity_service_client is None or base_url is None:
+            raise ConfigurationError(
+                "admin.identity needs identity-service auth: set "
+                "ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED=true with a credentials secret, and "
+                "ISTARI_DIGITAL_API_URL (gateway) or ISTARI_IDENTITY_URL (direct)"
+            )
+        return ApiClient(
+            self.config,
+            spec_ids=(IdentityV2Api._SPEC_ID,),
+            base_url=base_url,
+            model_packages=(identity_v2_models,),
+        )
+
+    @cached_property
+    def identity_v2_api(self) -> IdentityV2Api:
+        """Generated identity-service v2 API handle."""
+        return IdentityV2Api(config=self.config, api_client=self.identity_api_client)
+
     def close(self) -> None:
-        """Release the shared HTTP connection pool. Idempotent."""
+        """Release the shared HTTP connection pools. Idempotent."""
         self._api_client.close()
+        if "identity_api_client" in self.__dict__:
+            self.identity_api_client.close()

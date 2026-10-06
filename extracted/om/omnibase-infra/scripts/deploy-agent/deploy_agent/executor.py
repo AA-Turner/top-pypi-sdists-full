@@ -1083,6 +1083,127 @@ def _uv_sync_after_pull(agent_dir: str, boundary: EnumSelfUpdateBoundary) -> Non
         )
 
 
+#: Where ``_rebuild_tracking_branch_from_remote`` parks a HEAD that carried
+#: commits origin does not (OMN-20527). A ref, not a file, so ``git log`` and
+#: ``git bundle`` reach it and ``git gc`` never collects what it points at.
+SELF_UPDATE_PRESERVED_REF_PREFIX = "refs/deploy-agent/preserved"
+
+
+def _rebuild_tracking_branch_from_remote(
+    agent_dir: str,
+    branch: str,
+    remote_sha: str,
+    boundary: EnumSelfUpdateBoundary,
+    timeout: int,
+) -> bool:
+    """Put the clone on ``branch`` at ``remote_sha``, preserving local-only commits.
+
+    The rebuild-from-origin fallback for a clone that cannot fast-forward
+    (OMN-20527): it is on another branch, or its branch diverged. Measured on
+    .200 from 2026-09-25 to 2026-10-04, the dev-200 agent's clone sat on a
+    hand-made ``lab-200-proof`` branch nine commits off ``origin/dev``, every
+    ff-only pull failed, and the agent ran nine-day-old code.
+
+    Runs only after ``self_update``'s dirty-check passed, so the work tree
+    carries no tracked modification for ``checkout -B`` to discard. Commits
+    reachable from HEAD but not from ``remote_sha`` are first pinned under
+    ``SELF_UPDATE_PRESERVED_REF_PREFIX``; the branch HEAD was on is never
+    deleted. Returns True only when HEAD verifiably landed on ``remote_sha``.
+    """
+    head = _run(["git", "-C", agent_dir, "rev-parse", "HEAD"], timeout=timeout)
+    if head.returncode != 0:
+        logger.warning(
+            "self_update[boundary=%s]: rebuild refused, HEAD unreadable: %s",
+            boundary.value,
+            head.stderr[:200],
+        )
+        return False
+    head_sha = head.stdout.strip()
+
+    unique = _run(
+        ["git", "-C", agent_dir, "rev-list", "--count", f"{remote_sha}..{head_sha}"],
+        timeout=timeout,
+    )
+    if unique.returncode != 0:
+        logger.warning(
+            "self_update[boundary=%s]: rebuild refused, cannot count local-only "
+            "commits: %s",
+            boundary.value,
+            unique.stderr[:200],
+        )
+        return False
+    if unique.stdout.strip() not in ("", "0"):
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        preserved_ref = f"{SELF_UPDATE_PRESERVED_REF_PREFIX}/{stamp}-{head_sha[:12]}"
+        pinned = _run(
+            ["git", "-C", agent_dir, "update-ref", preserved_ref, head_sha],
+            timeout=timeout,
+        )
+        if pinned.returncode != 0:
+            logger.warning(
+                "self_update[boundary=%s]: rebuild refused, could not preserve "
+                "%s local-only commit(s) at %s: %s",
+                boundary.value,
+                unique.stdout.strip(),
+                head_sha[:12],
+                pinned.stderr[:200],
+            )
+            return False
+        logger.warning(
+            "self_update[boundary=%s]: preserved %s local-only commit(s) at %s "
+            "as %s friction_type=self_update_diverged_clone",
+            boundary.value,
+            unique.stdout.strip(),
+            head_sha[:12],
+            preserved_ref,
+        )
+
+    checkout = _run(
+        ["git", "-C", agent_dir, "checkout", "--quiet", "-B", branch, remote_sha],
+        timeout=timeout,
+    )
+    if checkout.returncode != 0:
+        logger.warning(
+            "self_update[boundary=%s]: rebuild of %s at %s failed (exit=%d), "
+            "skipping re-exec: %s",
+            boundary.value,
+            branch,
+            remote_sha[:12],
+            checkout.returncode,
+            checkout.stderr[:200],
+        )
+        return False
+    _run(
+        [
+            "git",
+            "-C",
+            agent_dir,
+            "branch",
+            f"--set-upstream-to=origin/{branch}",
+            branch,
+        ],
+        timeout=timeout,
+    )
+
+    landed = _run(["git", "-C", agent_dir, "rev-parse", "HEAD"], timeout=timeout)
+    if landed.returncode != 0 or landed.stdout.strip() != remote_sha:
+        logger.warning(
+            "self_update[boundary=%s]: rebuild did not land on %s (HEAD=%s), "
+            "skipping re-exec",
+            boundary.value,
+            remote_sha[:12],
+            landed.stdout.strip()[:12],
+        )
+        return False
+    logger.info(
+        "self_update[boundary=%s]: rebuilt %s from origin at %s",
+        boundary.value,
+        branch,
+        remote_sha[:12],
+    )
+    return True
+
+
 def _load_runtime_policy_env(path: Path | None = None) -> dict[str, str]:
     """Load contract-rendered runtime policy env values."""
     env_path = RUNTIME_POLICY_ENV_FILE if path is None else path
@@ -2389,20 +2510,52 @@ class DeployExecutor:
                 disk_sha[:12],
                 remote_sha[:12],
             )
-            pull_result = _run(
-                ["git", "-C", agent_dir, "pull", "--ff-only", "origin", branch],
+            # OMN-20527: a clone parked on another branch, or one whose branch
+            # carries commits origin does not, can never fast-forward. Before
+            # this, the ff-only pull below failed on every idle heartbeat for
+            # nine days on .200 (2578 logged failures) while the agent ran
+            # 2026-09-25 code. Such a clone is rebuilt from origin instead,
+            # with its local-only commits preserved first.
+            current_branch = _run(
+                ["git", "-C", agent_dir, "symbolic-ref", "--quiet", "--short", "HEAD"],
                 timeout=timeout,
-            )
-            if pull_result.returncode != 0:
+            ).stdout.strip()
+            if current_branch and current_branch != branch:
                 logger.warning(
-                    "self_update[boundary=%s]: git pull failed (exit=%d), skipping re-exec: %s",
+                    "self_update[boundary=%s]: clone is on %s, not the tracking "
+                    "branch %s; rebuilding %s from %s",
                     boundary.value,
-                    pull_result.returncode,
-                    pull_result.stderr[:200],
+                    current_branch,
+                    branch,
+                    branch,
+                    remote_ref,
                 )
-                return
-            # --ff-only onto origin/<branch> lands exactly there, so the
-            # post-pull HEAD is known without a second rev-parse.
+                if not _rebuild_tracking_branch_from_remote(
+                    agent_dir, branch, remote_sha, boundary, timeout
+                ):
+                    return
+            else:
+                pull_result = _run(
+                    ["git", "-C", agent_dir, "pull", "--ff-only", "origin", branch],
+                    timeout=timeout,
+                )
+                if pull_result.returncode != 0:
+                    logger.warning(
+                        "self_update[boundary=%s]: git pull failed (exit=%d), "
+                        "rebuilding %s from %s: %s",
+                        boundary.value,
+                        pull_result.returncode,
+                        branch,
+                        remote_ref,
+                        pull_result.stderr[:200],
+                    )
+                    if not _rebuild_tracking_branch_from_remote(
+                        agent_dir, branch, remote_sha, boundary, timeout
+                    ):
+                        return
+            # Either path lands HEAD exactly on origin/<branch> (the rebuild
+            # verifies it), so the post-update HEAD is known without a second
+            # rev-parse here.
             disk_sha = remote_sha
 
         # OMN-20037: even a current clone can have a stale installed unit.
@@ -4604,6 +4757,7 @@ class DeployExecutor:
         lane: EnumRuntimeLane = EnumRuntimeLane.DEV,
         extra_env: Mapping[str, str] | None = None,
         force_recreate: bool = True,
+        build: bool = True,
     ) -> None:
         on_phase_update(phase, PhaseStatus.IN_PROGRESS)
 
@@ -4637,9 +4791,14 @@ class DeployExecutor:
             )
             # The migration one-shots are not gated on any healthcheck, so they
             # keep the flat phase bound.
-            self._ensure_runtime_migrations_ready(
-                lane=lane, timeout=PHASE_TIMEOUTS[Phase.RUNTIME]
-            )
+            if build:
+                self._ensure_runtime_migrations_ready(
+                    lane=lane, timeout=PHASE_TIMEOUTS[Phase.RUNTIME]
+                )
+            else:
+                self._ensure_runtime_migrations_ready(
+                    lane=lane, timeout=PHASE_TIMEOUTS[Phase.RUNTIME], build=False
+                )
         elif not deps_phase:
             timeout = PHASE_TIMEOUTS.get(phase, 300)
         cmd = [
@@ -4684,9 +4843,11 @@ class DeployExecutor:
         # already running alone"). The two now agree.
         if force_recreate:
             cmd.append("--force-recreate")
+        if not build:
+            cmd.append("--no-build")
         cmd += [
             "--pull",
-            "never" if scope == Scope.RUNTIME else "always",
+            "never" if scope == Scope.RUNTIME or not build else "always",
         ]
         # OMN-9455: runtime scope must pass --no-deps so compose cannot recreate
         # the core infra services (postgres/redpanda/valkey/infisical) declared
@@ -4753,18 +4914,21 @@ class DeployExecutor:
                 stuck,
             )
             for name in stuck:
+                recovery_cmd = [
+                    "docker",
+                    "compose",
+                    *_compose_file_args(lane),
+                    "-p",
+                    config.compose_project,
+                    "up",
+                    "-d",
+                    "--no-deps",
+                ]
+                if not build:
+                    recovery_cmd.extend(["--no-build", "--pull", "never"])
+                recovery_cmd.append(name)
                 start_result = subprocess.run(
-                    [
-                        "docker",
-                        "compose",
-                        *_compose_file_args(lane),
-                        "-p",
-                        config.compose_project,
-                        "up",
-                        "-d",
-                        "--no-deps",
-                        name,
-                    ],
+                    recovery_cmd,
                     capture_output=True,
                     text=True,
                     check=False,
@@ -4819,6 +4983,7 @@ class DeployExecutor:
         *,
         lane: EnumRuntimeLane = EnumRuntimeLane.DEV,
         timeout: int = 300,
+        build: bool = True,
     ) -> str:
         """Run bounded migration services before a runtime-only restart.
 
@@ -4842,6 +5007,8 @@ class DeployExecutor:
             "--no-deps",
             "--force-recreate",
         ]
+        if not build:
+            base_cmd.extend(["--no-build", "--pull", "never"])
         for service in RUNTIME_MIGRATION_SERVICES:
             cmd = [*base_cmd, service]
             self._record_compose_invocation(Phase.RUNTIME, cmd)
@@ -5452,3 +5619,201 @@ class DeployExecutor:
         )
         self.verify_recreate.append(record)
         logger.info("verify recreate: %s", record.describe())
+
+
+# ---------------------------------------------------------------------------
+# OMN-20602: automatic rollback of a non-prod lane whose post-deploy
+# verification failed, to the images it ran while healthy before the deploy.
+# ---------------------------------------------------------------------------
+class ModelRetainedImage(BaseModel):
+    """One running container's image and compose service."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    container: str
+    service: str
+    image_ref: str
+    image_id: str
+
+
+class ModelRollbackPoint(BaseModel):
+    """Image identities captured from a healthy lane before rebuilding."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    lane: EnumRuntimeLane
+    captured_at: datetime
+    images: tuple[ModelRetainedImage, ...]
+
+
+class ModelRollbackOutcome(BaseModel):
+    """Whether image restoration and its subsequent verification succeeded."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    restored: bool
+    verified: bool
+    detail: str
+
+
+class DeployRolledBackError(VerificationFailedError):
+    """The deploy failed verification and attempted automatic rollback."""
+
+    def __init__(
+        self,
+        original: VerificationFailedError,
+        outcome: ModelRollbackOutcome,
+        point: ModelRollbackPoint,
+    ) -> None:
+        super().__init__(original.failures)
+        self.outcome = outcome
+        image_ids = ", ".join(
+            dict.fromkeys(
+                image.image_id.removeprefix("sha256:")[:12] for image in point.images
+            )
+        )
+        self.args = (
+            (
+                f"{original}; auto-rollback: restored={outcome.restored} "
+                f"verified={outcome.verified} to {image_ids}"
+            ),
+        )
+
+
+def _retention_ref(image_ref: str, lane: EnumRuntimeLane) -> str:
+    repo = image_ref.split("@", 1)[0]
+    if repo.rfind(":") > repo.rfind("/"):
+        repo = repo.rsplit(":", 1)[0]
+    return f"{repo}:rollback-{lane.value}"
+
+
+def _tag_image(image_id: str, image_ref: str) -> None:
+    result = _run(
+        ["docker", "tag", image_id, image_ref],
+        timeout=PHASE_TIMEOUTS[Phase.RUNTIME],
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"docker tag {image_id} {image_ref} failed (exit {result.returncode}): "
+            f"{result.stderr.strip() or result.stdout.strip()}"
+        )
+
+
+def capture_rollback_point(
+    executor: DeployExecutor, lane: EnumRuntimeLane
+) -> ModelRollbackPoint | None:
+    """Capture only a healthy lane whose images can all be read and retained."""
+    try:
+        targets = lane_config_for(lane).runtime_health_targets
+        for container, port in targets:
+            check, timed_out = executor._probe_runtime_health(
+                service=container, port=port
+            )
+            if check.status != "pass" or timed_out is not None:
+                logger.warning(
+                    "Cannot capture rollback for %s: %s is unhealthy: %s",
+                    lane.value,
+                    container,
+                    check.detail or str(timed_out),
+                )
+                return None
+
+        service_by_index = {
+            index: service for service, index in SERVICE_HEALTH_TARGET_INDEX.items()
+        }
+        images: list[ModelRetainedImage] = []
+        retention: dict[str, str] = {}
+        for index, (container, _) in enumerate(targets):
+            result = _run(
+                ["docker", "inspect", "--format", "{{.Config.Image}}", container],
+                timeout=PHASE_TIMEOUTS[Phase.VERIFICATION],
+            )
+            image_ref = result.stdout.strip()
+            if result.returncode != 0 or not image_ref:
+                logger.warning(
+                    "Cannot capture rollback for %s: unreadable image reference for %s: %s",
+                    lane.value,
+                    container,
+                    result.stderr.strip() or "empty reference",
+                )
+                return None
+            image_id = _container_image_id(container)
+            if not image_id:
+                logger.warning(
+                    "Cannot capture rollback for %s: unreadable image id for %s",
+                    lane.value,
+                    container,
+                )
+                return None
+            retain_ref = _retention_ref(image_ref, lane)
+            if retain_ref in retention and retention[retain_ref] != image_id:
+                logger.warning(
+                    "Cannot capture rollback for %s: conflicting image ids for %s",
+                    lane.value,
+                    retain_ref,
+                )
+                return None
+            retention[retain_ref] = image_id
+            images.append(
+                ModelRetainedImage(
+                    container=container,
+                    service=service_by_index[index],
+                    image_ref=image_ref,
+                    image_id=image_id,
+                )
+            )
+        if not images:
+            logger.warning(
+                "Cannot capture rollback for %s: no runtime targets", lane.value
+            )
+            return None
+        for retain_ref, image_id in retention.items():
+            _tag_image(image_id, retain_ref)
+        return ModelRollbackPoint(
+            lane=lane, captured_at=datetime.now(UTC), images=tuple(images)
+        )
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+        logger.warning("Cannot capture rollback for %s: %s", lane.value, exc)
+        return None
+
+
+def restore_rollback_point(
+    executor: DeployExecutor,
+    point: ModelRollbackPoint,
+    on_phase_update: PhaseCallback,
+) -> ModelRollbackOutcome:
+    """Restore retained references without building, then verify the lane again."""
+    try:
+        refs: dict[str, str] = {}
+        for image in point.images:
+            if image.image_ref in refs and refs[image.image_ref] != image.image_id:
+                raise RuntimeError(
+                    f"Conflicting rollback image ids for {image.image_ref}"
+                )
+            refs[image.image_ref] = image.image_id
+        for image_ref, image_id in refs.items():
+            _tag_image(image_id, image_ref)
+        executor._compose_up(
+            Phase.RUNTIME,
+            Scope.RUNTIME,
+            _requested_services_for_up(Scope.RUNTIME, [], lane=point.lane),
+            on_phase_update,
+            lane=point.lane,
+            force_recreate=True,
+            build=False,
+        )
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+        logger.warning("Auto-rollback restore failed for %s: %s", point.lane.value, exc)
+        return ModelRollbackOutcome(restored=False, verified=False, detail=str(exc))
+    try:
+        executor.verify(on_phase_update=on_phase_update, lane=point.lane)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+        logger.warning(
+            "Auto-rollback verification failed for %s: %s", point.lane.value, exc
+        )
+        return ModelRollbackOutcome(restored=True, verified=False, detail=str(exc))
+    return ModelRollbackOutcome(
+        restored=True,
+        verified=True,
+        detail="Retained runtime images restored and verified",
+    )

@@ -38,7 +38,12 @@ def cli(ctx: click.Context) -> None:
     help="Model selector to filter results by model name (Unix-style wildcards supported)",
     required=False,
 )
-@click.option("-v", "--verbose", is_flag=True, default=False, help="Enable more detailed output")
+@click.option(
+    "-v",
+    "--verbose",
+    count=True,
+    help="Enable more detailed output. Pass twice (-vv) to also include all upstream dependency changes",
+)
 @click.option(
     "-l",
     "--log-file",
@@ -49,7 +54,7 @@ def cli(ctx: click.Context) -> None:
 @click.pass_context
 def explain(
     ctx: click.Context,
-    verbose: bool,
+    verbose: int,
     select: t.Optional[str] = None,
     log_file: t.Optional[str] = None,
 ) -> None:
@@ -79,7 +84,7 @@ def explain(
         Explainer(
             query_cache_client=query_cache_client,
             file_path=log_file_path,
-            verbose=verbose,
+            verbosity=verbose,
             node_selector=select,
         ).explain()
     finally:

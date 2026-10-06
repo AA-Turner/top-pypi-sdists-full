@@ -174,7 +174,7 @@ def _repo_with_commit(root, *, identity=True):
     (root / "train.py").write_text("print('train')\n")
     _git(root, "add", "-A")
     _git(
-        root, "commit", "-q", "-m", "init",
+        root, "-c", "maintenance.auto=false", "-c", "gc.auto=0", "commit", "-q", "-m", "init",
         env={"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@e.com",
              "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@e.com"},
     )

@@ -32,6 +32,7 @@ from anyscale.commands import (
     auth_commands,
     cloud_commands,
     compute_config_commands,
+    events_commands,
     image_commands,
     job_commands,
     job_queue_commands,
@@ -62,6 +63,7 @@ from anyscale.compute_config.models import (
     PhysicalResources,
     WorkerNodeGroupConfig,
 )
+from anyscale.events.models import Event, EventsFilter
 from anyscale.image.models import ImageBuild, ImageBuildStatus
 from anyscale.job.models import (
     ConnectionConfig,
@@ -553,6 +555,31 @@ ALL_MODULES = [
         sdk_prefix="anyscale.logs",
         sdk_commands=[],
         models=[],
+    ),
+    Module(
+        title="Events",
+        filename="events.md",
+        # The four commands hang under four different groups; the group prefix map
+        # renders each as `anyscale <group> events`.
+        cli_prefix="anyscale",
+        cli_commands=[
+            events_commands.job_events,
+            events_commands.service_events,
+            events_commands.workspace_events,
+            events_commands.cluster_events,
+        ],
+        cli_command_group_prefix={
+            events_commands.job_events: "job",
+            events_commands.service_events: "service",
+            events_commands.workspace_events: "workspace_v2",
+            events_commands.cluster_events: "cluster",
+        },
+        sdk_prefix="anyscale.events",
+        sdk_commands=[anyscale.events.list],
+        models=[EventsFilter, Event],
+        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
+        # importable and callable; see the note in commands/events_commands.py.
+        hidden=True,
     ),
     Module(
         title="Workspaces",

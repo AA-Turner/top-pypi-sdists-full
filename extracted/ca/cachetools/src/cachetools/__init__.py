@@ -12,7 +12,7 @@ __all__ = (
     "cachedmethod",
 )
 
-__version__ = "7.2.0"
+__version__ = "7.2.1"
 
 import collections
 import collections.abc
@@ -52,7 +52,7 @@ class Cache(collections.abc.MutableMapping):
     def __init__(self, maxsize, getsizeof=None):
         if maxsize < 0:
             raise ValueError("maxsize must be non-negative")
-        if getsizeof:
+        if getsizeof is not None:
             self.getsizeof = getsizeof
         if self.getsizeof is not Cache.getsizeof:
             self.__size = {}
@@ -357,12 +357,11 @@ class RRCache(Cache):
 
     def popitem(self):
         """Remove and return a random `(key, value)` pair."""
-        try:
-            key = self.__choice(self.__keys)
-        except IndexError:
+        keys = self.__keys
+        if not keys:
             raise KeyError("%s is empty" % type(self).__name__) from None
-        else:
-            return (key, self.pop(key))
+        key = self.__choice(keys)
+        return (key, self.pop(key))
 
     def clear(self):
         Cache.clear(self)

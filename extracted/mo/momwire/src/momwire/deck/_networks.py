@@ -72,6 +72,8 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
+
 from ..networks import TL, Admittance, Driven, Network, NetworkReducer, PortOnWire
 from .model import DeckModel, DeckWire, NetworkCard
 
@@ -238,24 +240,39 @@ def build_network(
     cards = live_cards(model, plan, group)
     if not cards:
         return None
+    return flat_network(cards, plan.n_ports, voltages, wires=model.wires, held=held)
 
-    n = plan.n_ports
-    port_to_idx = {port_name(k): k for k in range(n)}
+
+def flat_network(
+    cards, n_ports: int, voltages, *, wires=(), held: tuple[int, ...] = ()
+) -> tuple[Network, dict[str, int]]:
+    """``cards`` — ``(card, (port a, port b))`` pairs — as one flat network
+    over ``n_ports`` structure ports, with every non-endpoint port pinned.
+
+    The composition half of :func:`build_network`, and the whole of it for a
+    dialect that resolves its own addressing: the NEC-5 seam lands a card on
+    NODES, not on segment centres, so it cannot use :func:`live_cards`' plan
+    but builds exactly this network (momwire#1336 — it kept a copy of these
+    lines until then).  ``wires`` is what :func:`card_branches`' zero-length
+    rule measures against; a caller that resolved every length already passes
+    none.  The pinning rule is :func:`build_network`'s docstring.
+    """
+    port_to_idx = {port_name(k): k for k in range(n_ports)}
     # Every deck port is a delta gap on the structure, which is what
     # `PortOnWire` names.  There are no `PortVirtual` nodes here and there
     # cannot be: a NEC network's every node is a segment.
-    ports = {port_name(k): PortOnWire(name=port_name(k)) for k in range(n)}
+    ports = {port_name(k): PortOnWire(name=port_name(k)) for k in range(n_ports)}
 
     branches: list[object] = []
     endpoints: set[int] = set()
     for card, (port_a, port_b) in cards:
-        branches += card_branches(card, port_a, port_b, model.wires)
+        branches += card_branches(card, port_a, port_b, wires)
         endpoints.add(port_a)
         endpoints.add(port_b)
 
     sources = [
         Driven(port_name(k), complex(voltages[k]))
-        for k in range(n)
+        for k in range(n_ports)
         if k not in endpoints or k in held or voltages[k] != 0
     ]
     network = Network(ports=ports, branches=branches, sources=sources)
@@ -277,3 +294,36 @@ def build_reducer(
         return None
     network, port_to_idx = built
     return NetworkReducer(network, port_to_idx, plan.n_ports)
+
+
+def reduced_ports(reducer, y_eff, wavelength: float, n_ports: int, driven):
+    """``(V_applied, I_structure, I_source)`` at every structure port: one
+    reducer solve over the antenna's (load-folded) admittance ``y_eff``.
+
+    Both front ends read a network deck's ports back this way and kept a copy
+    each until momwire#1336 (the portal's ``DeckSolver._composed``, the NEC-5
+    seam's ``_reduced_state``).  Three vectors, three different numbers:
+
+    * ``V_applied`` is the solve's, with every PINNED port written back from
+      its own boundary condition.  A pinned port's voltage is a BOUNDARY
+      CONDITION, not a result: the termination row says ``v_k = E``, and
+      reading ``E`` back out of the solution only adds the solve's round-off
+      to a number that was exact going in.  It also decides the SIGN OF ZERO,
+      a byte both printouts show — an ``EX`` of ``1+0j`` came back with an
+      imaginary part of ±1e-17 and printed ``0.0000E+00`` or ``-0.0000E+00``
+      by BLAS thread count (momwire#456 phase C).
+    * ``I_structure = y_eff @ V_applied``, the current INTO the structure.
+    * ``I_source`` is that everywhere except at a ``driven`` port, where it is
+      the reducer's TERMINATION-branch current: antenna plus network, which
+      is what the generator actually delivered.
+    """
+    system = reducer.apply_branches(y_eff, wavelength)
+    v, j = system.solve()
+    v_applied = np.asarray(v[:n_ports], dtype=np.complex128).copy()
+    for port, volts in zip(reducer.driven_port_idx, reducer.driven_voltages):
+        v_applied[port] = volts
+    i_port = y_eff @ v_applied
+    i_source = i_port.copy()
+    for port in driven:
+        i_source[port] = j[system.terminations[port][0]]
+    return v_applied, i_port, i_source

@@ -1,14 +1,15 @@
 from collections import Counter
 from hashlib import blake2s
-from string import punctuation
+from string import digits, punctuation
 from urllib.parse import unquote
+
 from .enums import AppType
 from .lazy_regex import RegexLazy, RegexLazyIgnore
 
 PUNC_SPACE = f'{punctuation} '
 trans_tbl = str.maketrans(dict.fromkeys(PUNC_SPACE, ''))  # type: ignore[arg-type]
 punctuation_tbl = str.maketrans(dict.fromkeys(' /.', ''))  # type: ignore[arg-type]
-number_table = str.maketrans(dict.fromkeys('0123456789', ''))  # type: ignore[arg-type]
+number_table = str.maketrans(dict.fromkeys(digits, ''))  # type: ignore[arg-type]
 REPEATED_CHARACTERS = RegexLazy(r'(.)(\1{11,})')
 
 TRIM_LONG_COMBO_EXTENSIONS = RegexLazyIgnore(
@@ -51,12 +52,16 @@ TRIM_SUFFIX_PATTERNS = (
 
 # Safari often appends a meaningless alphanumeric string enclosed in parens.
 # Otherwise, the UAs are identical so strip that suffix
-# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16C101 (5836419392)  # noqa
-# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16D57 baidumap_IPHO (10793838272)  # noqa
+# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16C101 (5836419392)
+# Mozilla/5.0 (iPhone; CPU iPhone OS 12_1_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/16D57 baidumap_IPHO (10793838272)
 STRIP_NUM_SUFFIX = RegexLazyIgnore(r'(\([0-9]+\))$')
 COMMON_BIGRAMS = RegexLazyIgnore(
-    r'th|he|in|er|an|ar|re|on|at|en|nd|ti|es|or|te|of|ed|is|it|al|ar|st|to|nt|ng|se|'
-    r'ha|as|ou|io|le|ve|co|me|de|hi|ri|ro|ic|ne|ea|ee|oo|ra|ce|li|ch|ll|be|ma|si|om|ur'
+    r'ha|he|hi|ho|'
+    r'th|in|er|an|ar|au|re|on|at|en|nd|ti|es|or|te|of|ed|is|it|al|ar|st|to|nt|ng|'
+    r'ha|as|ou|le|ve|co|me|de|ri|ro|ie|io|ic|ne|ea|ee|ra|ca|ce|ch|ll|be|ma|se|si|'
+    r'la|le|li|lo|'
+    r'om|oo|'
+    r'ul|ur'
 )
 ILLEGAL_BIGRAMS = RegexLazyIgnore(r'[a-z0-9](jq|qg|qk|qy|qz|wq|wz)')
 LEGAL_BIGRAMS = RegexLazyIgnore(
@@ -85,9 +90,9 @@ LEGAL_BIGRAMS = RegexLazyIgnore(
 )
 COMMON_TRIGRAMS = RegexLazyIgnore(
     r'(the|and|ing|her|hat|his|tha|ere|for|lab|ent|ion|ter|was|you|ith|ver|all|wit|thi|tio|p2p|dev|'
-    r'ink|jet|ios|mac|win|dos|rss|med|fun|sun|fax|app|api|bot|cam|cpu|lab|hue|rgb|sdk|web|oku|pad|'
+    r'ink|jet|ios|mac|win|dos|rss|med|fun|sun|fax|app|api|ali|bot|cam|cpu|lab|hue|rgb|sdk|web|oku|'
     r'art|bea|boa|cat|law|mes|new|not|vpn|zig|4x4|gun|sim|mp3|wma|mov|pic|pix|vid|war|key|sho|syn|'
-    r'bit|boy|cli|dri|han|log|man|mot|rad|oil|sip|nom|gen|per|sig|tim|tun|wor)'
+    r'bit|boy|cli|coc|dri|han|log|man|mot|rad|oil|pad|sip|nom|gen|per|sig|tie|tim|tun|wor)'
 )
 COMMON_QUADRIGRAMS = RegexLazyIgnore(
     '(clou|ipod|ipad|that|ther|with|tion|here|ould|ight|have|hich|whic|this|thin|they|atio|ever|'
@@ -177,8 +182,8 @@ def clean_ua(user_agent: str, user_agent_lower: str) -> str:
     ua = unquote(STRIP_NUM_SUFFIX.sub('', user_agent)).strip()
 
     for prefix in (
-        # sprd-Galaxy-S4/1.0 Linux/2.6.35.7 Android/4.2.2 Release/10.14.2013 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile  # noqa
-        # sprd-lingwin-U820S/1.0 Linux/2.6.35.7 Android/2.3.5 Release/10.15.2012 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile  # noqa
+        # sprd-Galaxy-S4/1.0 Linux/2.6.35.7 Android/4.2.2 Release/10.14.2013 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile
+        # sprd-lingwin-U820S/1.0 Linux/2.6.35.7 Android/2.3.5 Release/10.15.2012 Browser/AppleWebKit533.1 (KHTML, like Gecko) Mozilla/5.0 Mobile
         'sprd-',
         # null (FlipboardProxy/1.1; http://flipboard.com/browserproxy)
         # (null) MyOperations/3.0.0/162 JDM/1.0
@@ -400,7 +405,7 @@ def reset_sequences(current: int, longest: int) -> tuple[int, int]:
     Set longest sequence to current if it's shorter
     and reset current sequence to zero.
     """
-    return 0, current if current > longest else longest
+    return 0, max(longest, current)
 
 
 def uuid_like_name(value: str) -> bool:
@@ -487,13 +492,13 @@ def normalize_app_name(app_name: str) -> str:
 
 __all__ = (
     'calculate_dtype',
-    'ua_hash_key',
-    'long_ua_no_punctuation',
-    'only_numerals_and_punctuation',
-    'mostly_numerals',
     'clean_ua',
+    'long_ua_no_punctuation',
+    'mostly_numerals',
     'mostly_repeating_characters',
-    'random_alphanumeric_string',
-    'uuid_like_name',
     'normalize_app_name',
+    'only_numerals_and_punctuation',
+    'random_alphanumeric_string',
+    'ua_hash_key',
+    'uuid_like_name',
 )

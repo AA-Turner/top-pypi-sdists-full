@@ -36,8 +36,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-import pglast
-
 from confiture.core._pglast_enums import member as _pg_member
 from confiture.core.idempotency._ast_visitor import (
     _extract_snippet_from_stmt,
@@ -57,10 +55,10 @@ if TYPE_CHECKING:
 # Enum constants
 # ---------------------------------------------------------------------------
 
-# Resolved BY NAME, never by literal ordinal (#192). ObjectType and ConstrType
-# happen to be stable across pglast 7 and 8 while AlterTableType is not — but
-# the bug class is "literal ordinal", not "this particular literal ordinal", so
-# leaving the stable ones as literals would just invite the next addition.
+# Resolved BY NAME, never by literal ordinal (#192). PostgreSQL 18 renumbered
+# AlterTableType and left ObjectType and ConstrType alone — but the bug class is
+# "literal ordinal", not "this particular literal ordinal", so leaving the
+# stable ones as literals would just invite the next renumbering.
 _OBJECT_TABLE = _pg_member("ObjectType", "OBJECT_TABLE")
 _OBJECT_VIEW = _pg_member("ObjectType", "OBJECT_VIEW")
 _OBJECT_MATVIEW = _pg_member("ObjectType", "OBJECT_MATVIEW")
@@ -111,7 +109,7 @@ def _enum_value(value: object) -> int | None:
     inner = getattr(value, "value", value)
     try:
         return int(inner)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -472,12 +470,11 @@ def _detect_via_ast(sql: str) -> list[PatternMatch]:
     """Detect non-idempotent SQL patterns using pglast's AST.
 
     Raises:
-        pglast.parser.ParseError: when the SQL is not valid PostgreSQL.
-            The dispatcher in :mod:`patterns` catches this and falls
-            through to the regex backend.
+        pglast.parser.ParseError: when the SQL is not valid PostgreSQL; the
+            validator records the file as unparseable (``IDEM_UNPARSEABLE``).
     """
 
-    statements = _iter_statements(sql, pglast)
+    statements = _iter_statements(sql)
     drops = _collect_pair_drops(statements)
     matches: list[PatternMatch] = []
     for ctx in statements:

@@ -261,7 +261,11 @@ def _download_to_path(url: str, out_path: Path) -> bool:
                 if getattr(response, "status", 200) != 200:
                     _log(f"Wheel probe returned HTTP {response.status}: {url}")
                     return False
-                with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                # Keep the staging file on the destination filesystem so the
+                # final atomic rename also works when /tmp is a separate mount.
+                with tempfile.NamedTemporaryFile(
+                    dir=out_path.parent, delete=False
+                ) as tmp:
                     shutil.copyfileobj(response, tmp)
                     tmp_path = Path(tmp.name)
             tmp_path.replace(out_path)
@@ -388,14 +392,8 @@ def get_requires_for_build_sdist(
     )
 
 
-def prepare_metadata_for_build_wheel(
-    metadata_directory: str,
-    config_settings: dict[str, Any] | None = None,
-) -> str:
-    return _skbuild_backend.prepare_metadata_for_build_wheel(
-        metadata_directory,
-        config_settings=config_settings,
-    )
+# Let the frontend extract metadata from build_wheel's actual result. A fetched
+# ABI-qualified wheel can differ from the source project's version/dependencies.
 
 
 def prepare_metadata_for_build_editable(

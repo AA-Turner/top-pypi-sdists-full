@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whisper-ctranslate2
-Version: 0.5.7
+Version: 0.5.8
 Summary: Whisper command line client that uses CTranslate2 and faster-whisper
 Home-page: https://github.com/Softcatala/whisper-ctranslate2
 Author: Jordi Mas
@@ -21,14 +21,13 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: faster-whisper>=1.2.0
+Requires-Dist: av<19,>=11
 Requires-Dist: ctranslate2
 Requires-Dist: tqdm
 Requires-Dist: sounddevice
 Requires-Dist: numpy
 Provides-Extra: dev
-Requires-Dist: flake8==7.*; extra == "dev"
-Requires-Dist: black==24.*; extra == "dev"
-Requires-Dist: isort==5.13; extra == "dev"
+Requires-Dist: ruff==0.16.10; extra == "dev"
 Requires-Dist: nose2; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Dynamic: author
@@ -77,7 +76,7 @@ You can use build docker image. First pull the image:
 
     docker pull ghcr.io/softcatala/whisper-ctranslate2:latest
 
-The Docker image includes the small, medium" and large-v2.
+The Docker image includes the small, medium and large-v2 models.
 
 To run it:
 
@@ -99,7 +98,7 @@ GPU and CPU support is provided by [CTranslate2](https://github.com/OpenNMT/CTra
 
 It has compatibility with x86-64 and AArch64/ARM64 CPU and integrates multiple backends that are optimized for these platforms: Intel MKL, oneDNN, OpenBLAS, Ruy, and Apple Accelerate.
 
-GPU execution requires the NVIDIA libraries cuBLAS 11.x to be installed on the system. Please refer to the [CTranslate2 documentation](https://opennmt.net/CTranslate2/installation.html)
+GPU execution requires the NVIDIA libraries cuBLAS for CUDA 12 and cuDNN 9 for CUDA 12 to be installed on the system. Please refer to the [CTranslate2 documentation](https://opennmt.net/CTranslate2/installation.html)
 
 By default the best hardware available is selected for inference. You can use the options `--device` and `--device_index` to control manually the selection.
     
@@ -133,7 +132,7 @@ On top of the OpenAI Whisper command line options, there are some specific optio
 
 ## Batched inference
 
-Batched inference transcribes each segment in-dependently which can provide an additional 2x-4x speed increase:
+Batched inference transcribes each segment independently which can provide an additional 2x-4x speed increase:
 
     whisper-ctranslate2 inaguracio2011.mp3 --batched True
     
@@ -150,7 +149,7 @@ no_speech_threshold, condition_on_previous_text, prompt_reset_on_temperature, pr
 
 ## Loading the model from a directory
 
-`--model_directory` option allows to specify the directory from which you want to load a CTranslate2 Whisper model. For example, if you want to load your own quantified [Whisper model](https://opennmt.net/CTranslate2/conversion.html) version or using your own [Whisper fine-tuned](https://github.com/huggingface/community-events/tree/main/whisper-fine-tuning-event) version. The model must be in CTranslate2 format.
+`--model_directory` option allows to specify the directory from which you want to load a CTranslate2 Whisper model. For example, if you want to load your own quantized [Whisper model](https://opennmt.net/CTranslate2/conversion.html) version or using your own [Whisper fine-tuned](https://github.com/huggingface/community-events/tree/main/whisper-fine-tuning-event) version. The model must be in CTranslate2 format.
 
 ## Using Voice Activity Detection (VAD) filter
 
@@ -160,7 +159,7 @@ no_speech_threshold, condition_on_previous_text, prompt_reset_on_temperature, pr
 
 The VAD filter accepts multiple additional options to determine the filter behavior:
 
-    --vad_onset VALUE (float)
+    --vad_threshold VALUE (float)
 
 Probabilities above this value are considered as speech.
 
@@ -175,7 +174,7 @@ Maximum duration of speech chunks in seconds. Longer will be split at the timest
 
 ## Print colors
 
-`--print_colors True` options prints the transcribed text using an experimental color coding strategy based on [whisper.cpp](https://github.com/ggerganov/whisper.cpp) to highlight words with high or low confidence:
+`--print_colors True` options prints the transcribed text using a color coding strategy based on [whisper.cpp](https://github.com/ggerganov/whisper.cpp) to highlight words with high or low confidence:
 
     whisper-ctranslate2 myfile.mp3 --print_colors True
 
@@ -191,7 +190,7 @@ https://user-images.githubusercontent.com/309265/231533784-e58c4b92-e9fb-4256-b4
 
 ## Diarization (speaker identification)
 
-There is experimental diarization support using [`pyannote.audio`](https://github.com/pyannote/pyannote-audio) to identify speakers. At the moment, the support is at segment level.
+Diarization support using [`pyannote.audio`](https://github.com/pyannote/pyannote-audio) to identify speakers. At the moment, the support is at segment level.
 
 To enable diarization you need to follow these steps:
 
@@ -201,9 +200,9 @@ To enable diarization you need to follow these steps:
 
 And then execute passing the HuggingFace API token as parameter to enable diarization:
 
-    whisper-ctranslate2 --hf_token YOUR_HF_TOKEN
+    whisper-ctranslate2 myfile.mp3 --hf_token YOUR_HF_TOKEN
 
-and then the name of the speaker is added in the output files (e.g. JSON, VTT and STR files):
+and then the name of the speaker is added in the output files (e.g. JSON, VTT and SRT files):
 
 _[SPEAKER_00]: There is a lot of people in this room_
 

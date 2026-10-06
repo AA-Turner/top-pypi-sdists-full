@@ -17,12 +17,19 @@ concurrency:
 
 jobs:
   test:
-    name: Tests
+    name: Tests (PostgreSQL ${{ matrix.postgres }})
     runs-on: ubuntu-latest
+    # The floor confiture supports and the newest server (#608): 18 changed what
+    # the catalog says (NOT NULL rows in pg_constraint, conenforced, virtual
+    # generated columns), and a developer's machine is likelier to run 18 than 16.
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['16', '18']
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:${{ matrix.postgres }}
         env:
           # uv sync builds the native extension; the parity tests must run it, not skip it
           CONFITURE_REQUIRE_NATIVE: "1"
@@ -43,7 +50,7 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
         native: 'true'
 
     - name: Setup environment and install dependencies
@@ -62,6 +69,17 @@ jobs:
         # Build and install Rust extension with modern maturin+uv integration
         uv run maturin develop --uv
 
+    - name: PostgreSQL ${{ matrix.postgres }} client tools
+      # pg_dump refuses a server newer than itself, and a pg_dump newer than the
+      # server writes settings (`SET transaction_timeout`, 17+) an older server
+      # rejects on restore. The runner's stock client is 16, so each leg installs
+      # the client of its own server and puts it first on PATH.
+      run: |
+        sudo apt-get install -y --no-install-recommends postgresql-common
+        sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+        sudo apt-get install -y --no-install-recommends postgresql-client-${{ matrix.postgres }}
+        echo /usr/lib/postgresql/${{ matrix.postgres }}/bin >> "$GITHUB_PATH"
+
     - name: Verify Environment
       run: |
         echo "=== Environment Verification ==="
@@ -70,10 +88,9 @@ jobs:
         uv run pytest --version
         rustc --version
         pg_isready -h localhost -p 5432 -U confiture && echo '✅ PostgreSQL Ready' || echo '❌ PostgreSQL Not Ready'
-        # Client version, on the record: pg_dump refuses to dump a server newer
-        # than itself, and pg_dump 17+ emits `SET transaction_timeout` which a
-        # 15 server rejects. Both directions of that skew break the restore
-        # round-trip tests, and neither is visible without this line.
+        # Server and client versions, on the record: both directions of a skew
+        # break the restore round-trip tests, and neither is visible without them.
+        PGPASSWORD=confiture psql -h localhost -U confiture -d confiture_test -Atc "SHOW server_version;"
         pg_dump --version
         uv run python -c "import psycopg; conn = psycopg.connect('postgresql://confiture:confiture@localhost:5432/confiture_test'); print('✅ DB connection successful'); conn.close()" || echo "❌ DB connection failed"
         echo "=== Rust Extension Verification ==="
@@ -117,8 +134,12 @@ jobs:
         # coverage starts BEFORE pytest imports its plugins: the confiture pytest11
         # plugin would otherwise be imported (with everything it pulls in) before
         # pytest-cov could begin recording, and those lines would read as missed.
+        # Every xdist worker is measured the same way, from its first line
+        # (`patch = ["subprocess"]` in pyproject.toml); each writes its own data
+        # file, combined below. One job runs the suite on every core, and it is
+        # also the proof the suite is safe in parallel.
         uv run coverage run --source=python/confiture -m pytest tests/ \
-          -v \
+          -n auto \
           -rs \
           --tb=short \
           || {
@@ -126,113 +147,62 @@ jobs:
             exit 1
           }
         echo "✅ Core tests completed successfully"
-    - name: Coverage report (fail_under from pyproject) and per-file floors
+    - name: Combine this leg's workers
+      # One data file per server; the coverage job joins the two and judges them.
       run: |
-        uv run coverage xml
-        uv run coverage json -o coverage.json
-        uv run coverage report --skip-covered | tail -5
-        uv run python scripts/coverage_floors.py --check coverage.json
+        uv run coverage combine
+        mv .coverage coverage-pg${{ matrix.postgres }}.data
 
-    - name: Upload coverage
-      uses: codecov/codecov-action@v5
+    - name: Upload this leg's coverage data
+      uses: actions/upload-artifact@v4
       with:
-        files: ./coverage.xml
-        flags: unittests
-        name: Python-3.11
-        fail_ci_if_error: false
-      continue-on-error: true
+        name: coverage-pg${{ matrix.postgres }}
+        path: coverage-pg${{ matrix.postgres }}.data
+        retention-days: 1
+        if-no-files-found: error
 
-  # The lockfile pins ONE pglast. That is right for reproducibility and wrong
-  # for a library whose `[ast]` extra accepts a range: #192 was a silent
-  # misclassification that only appeared on the version CI did not install.
-  # This leg walks the range's ends explicitly.
-  integration-parallel:
-    name: Integration (parallel, -n 4)
+  coverage:
+    name: Coverage (PostgreSQL 16 and 18 combined)
+    # The floors are judged once, over both servers together: checked per leg,
+    # a line only one server reaches would read as missed on the other; checked
+    # on one leg, the other's tests would count for nothing.
+    needs: test
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: confiture
-          POSTGRES_PASSWORD: confiture
-          POSTGRES_DB: confiture_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
     - uses: actions/checkout@v6
 
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
-        native: 'true'
+        python-version: '3.14'
 
-    - name: Setup environment and install dependencies
+    - name: Install coverage (no project build needed to read the data)
       run: |
-        # Create virtual environment with uv
         uv venv
+        uv sync --locked --no-install-project --extra dev
 
-        # Sync from the COMMITTED uv.lock so this run is a function of the
-        # commit alone (#191). --locked fails loudly when the lock has drifted
-        # from pyproject.toml; the fix is `uv lock` + commit, never a silent
-        # re-resolve. The [notifications] and [ast] extras are required —
-        # tests/unit/hooks/notifications/ requires jinja2, and the SQL parsers
-        # depend on pglast for the primary path.
-        uv sync --locked --extra dev --extra notifications
+    - name: Download both legs' data
+      uses: actions/download-artifact@v4
+      with:
+        pattern: coverage-pg*
+        merge-multiple: true
 
-        # Build and install Rust extension with modern maturin+uv integration
-        uv run maturin develop --uv
-
-    - name: Verify Environment
+    - name: Coverage report (fail_under from pyproject) and per-file floors
       run: |
-        echo "=== Environment Verification ==="
-        uv run python --version
-        uv --version
-        uv run pytest --version
-        rustc --version
-        pg_isready -h localhost -p 5432 -U confiture && echo '✅ PostgreSQL Ready' || echo '❌ PostgreSQL Not Ready'
-        # Client version, on the record: pg_dump refuses to dump a server newer
-        # than itself, and pg_dump 17+ emits `SET transaction_timeout` which a
-        # 15 server rejects. Both directions of that skew break the restore
-        # round-trip tests, and neither is visible without this line.
-        pg_dump --version
-        uv run python -c "import psycopg; conn = psycopg.connect('postgresql://confiture:confiture@localhost:5432/confiture_test'); print('✅ DB connection successful'); conn.close()" || echo "❌ DB connection failed"
-        echo "=== Rust Extension Verification ==="
-        uv run python -c "from confiture.core.builder import HAS_RUST; print(f'✅ Rust extension loaded: {HAS_RUST}')" || echo "❌ Builder import failed"
+        uv run --no-sync coverage combine coverage-pg16.data coverage-pg18.data
+        uv run --no-sync coverage xml
+        uv run --no-sync coverage json -o coverage.json
+        uv run --no-sync coverage report --skip-covered | tail -5
+        uv run --no-sync python scripts/coverage_floors.py --check coverage.json
 
-    - name: Create test databases
-      run: |
-        PGPASSWORD=confiture psql -h localhost -U confiture -c "SELECT 1;" confiture_test || PGPASSWORD=confiture psql -h localhost -U confiture -d postgres -c "CREATE DATABASE confiture_test;"
-        PGPASSWORD=confiture psql -h localhost -U confiture -c "SELECT 1;" confiture_source_test || PGPASSWORD=confiture psql -h localhost -U confiture -d postgres -c "CREATE DATABASE confiture_source_test;"
-        PGPASSWORD=confiture psql -h localhost -U confiture -c "SELECT 1;" confiture_target_test || PGPASSWORD=confiture psql -h localhost -U confiture -d postgres -c "CREATE DATABASE confiture_target_test;"
-
-    - name: Run database suites in parallel
-      env:
-        # The three CONFITURE_* variables are the only database routing the
-        # suite reads (tests/conftest.py, tests/README.md). Setting them here is
-        # what makes a failed connection a *failure* in CI rather than a skip.
-        CONFITURE_TEST_DB_URL: postgresql://confiture:confiture@localhost:5432/confiture_test
-        CONFITURE_SOURCE_DB_URL: postgresql://confiture:confiture@localhost:5432/confiture_source_test
-        CONFITURE_TARGET_DB_URL: postgresql://confiture:confiture@localhost:5432/confiture_target_test
-        POSTGRES_HOST: localhost
-        POSTGRES_PORT: 5432
-        POSTGRES_USER: confiture
-        POSTGRES_PASSWORD: confiture
-        POSTGRES_DB: confiture_test
-      run: |
-        # The database suites under four xdist workers. Each worker gets its own
-        # databases (tests/conftest.py resolves `confiture_test` to
-        # `confiture_test_gw0`, …); a test that only passes serially is a
-        # shared-state bug, and this leg is where it shows (TST-03).
-        echo "=== Running database suites with -n 4 ==="
-        uv run pytest tests/integration tests/e2e tests/contract -n 4 -rs --tb=short
+    - name: Upload coverage
+      uses: codecov/codecov-action@v5
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: Python-3.14
+        fail_ci_if_error: false
+      continue-on-error: true
 
   pggit-plugin:
     name: pgGit plugin (plugins/fraiseql-confiture-pggit)
@@ -241,9 +211,10 @@ jobs:
     # only here: confiture's own suite walks the live command tree, and must see
     # confiture's commands alone.
     runs-on: ubuntu-latest
+    # The floor only: the plugin's tests exercise its CLI seams, not the catalog.
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16
         env:
           POSTGRES_USER: confiture
           POSTGRES_PASSWORD: confiture
@@ -260,7 +231,7 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
 
     - name: Install confiture's locked tree, then the plugin beside it
       run: |
@@ -296,142 +267,43 @@ jobs:
       # --no-sync: a re-sync would remove the plugin, which the lock does not name.
       run: uv run --no-sync pytest plugins/fraiseql-confiture-pggit/tests -rs --tb=short
 
-  pglast-matrix:
-    name: AST backend (pglast ${{ matrix.pglast }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # The floor and the current major. Both are claimed by the
-        # `pglast>=6.0` dependency, so both are tested. They are not the same
-        # parser: #270 was a PL/pgSQL *compiler* stub that only pglast 8 has,
-        # refusing every schema-qualified type name, and pglast 6.16 and 7.18
-        # resolve all of them — so the body suites below assert the contract on
-        # every major and probe for the stub before pinning its behaviour.
-        pglast: ['>=6,<7', '>=8']
-    steps:
-    - uses: actions/checkout@v6
-    - name: Set up Python and uv
-      uses: ./.github/actions/python-uv
-      with:
-        python-version: '3.11'
-
-    - name: Install dependencies, then override pglast
-      run: |
-        uv venv
-        # Locked tree first (#191), then deliberately step pglast off the lock —
-        # `uv pip install` does not touch uv.lock, so this overrides exactly one
-        # package and leaves the rest reproducible.
-        uv sync --locked --no-install-project --extra dev --extra notifications
-        uv pip install "pglast${{ matrix.pglast }}"
-        uv run --no-sync python -c "import pglast; print('pglast', pglast.__version__)"
-    - name: Run the AST-backed suites
-      # --no-sync: a re-sync would restore the locked pglast and silently
-      # test the wrong thing — which is this leg's entire failure mode.
-      run: |
-        uv run --no-sync pytest \
-          tests/unit/idempotency \
-          tests/unit/test_operation_classifier.py \
-          tests/unit/test_replica_corpus.py \
-          tests/unit/test_replica_rule.py \
-          tests/unit/test_replica_preflight.py \
-          tests/unit/test_tview_preflight.py \
-          tests/unit/linting/test_tview_rules.py \
-          tests/unit/test_idempotency_captures.py \
-          tests/unit/test_idempotency_suggestion_wiring.py \
-          tests/unit/test_pglast_enum_binding.py \
-          tests/unit/test_plpgsql_parse.py \
-          tests/unit/test_plpgsql_fragments.py \
-          tests/unit/test_fragment_census.py \
-          tests/unit/test_data_assertions.py \
-          tests/unit/linting/test_reference_extraction.py \
-          tests/unit/test_relation_references.py \
-          tests/unit/test_generated_ddl_quotes_identifiers.py \
-          tests/unit/linting/test_naming_003_dotted_identifiers.py \
-          tests/unit/linting/test_naming_004_quoted_identifiers.py \
-          tests/unit/linting/test_build_003_references.py \
-          tests/unit/linting/test_build_004.py \
-          tests/unit/test_constraint_reader_is_exhaustive.py \
-          tests/unit/test_alter_subtypes_are_exhaustive.py \
-          tests/unit/test_ddl_objects_are_exhaustive.py \
-          tests/unit/test_ddl_statement_kinds_are_exhaustive.py \
-          tests/unit/test_one_alter_folder.py \
-          tests/unit/test_one_schema_model.py \
-          tests/unit/test_ddl_walk_read_constraint.py \
-          tests/unit/test_ddl_walk_read_index.py \
-          tests/unit/test_fk_extractor.py \
-          tests/unit/test_one_constraint_reader.py \
-          tests/unit/test_mutation_sql_validity.py \
-          tests/unit/test_schema_analyzer.py \
-          tests/unit/test_differ_sql.py \
-          tests/unit/test_differ_sql_objects.py \
-          tests/unit/test_change_order.py \
-          tests/unit/test_exclusion_constraints.py \
-          tests/unit/test_one_identifier_quoter.py \
-          tests/unit/test_one_column_tracer.py \
-          tests/unit/linting/test_tenant_003_views.py \
-          tests/unit/linting/test_tenant_004_foreign_keys.py \
-          tests/unit/linting/test_tenant_005_unique_keys.py \
-          tests/unit/linting/test_tenant_001_inserts.py \
-          tests/unit/linting/test_tenant_partitions.py \
-          tests/unit/linting/test_tenant_like_and_inherits.py \
-          tests/unit/linting/test_inventory_like_and_inherits.py \
-          tests/unit/test_schema_change.py \
-          tests/unit/test_schema_change_is_exhaustive.py \
-          tests/unit/test_schema_change_tiers.py \
-          tests/unit/test_differ_order_is_stable.py \
-          tests/unit/linting/test_inventory_reads_columns_whole.py \
-          tests/unit/linting/test_inventory_builds_the_model.py \
-          tests/unit/test_live_catalog_reads_text_like_ddl.py \
-          tests/unit/test_routine_identity.py \
-          tests/unit/test_wide_signatures.py \
-          tests/unit/test_function_signature_checker.py \
-          tests/unit/test_function_body_checker.py \
-          tests/unit/test_sql_lexer_scripts.py \
-          tests/unit/test_sql_lexer_multibyte.py \
-          tests/unit/test_platform_dependency_order.py \
-          tests/unit/test_platform_writer_facts.py \
-          tests/unit/test_platform_seed_writers.py \
-          tests/unit/seed_validation/prep_seed/test_level_1_reads_statements.py \
-          tests/unit/seed_validation/prep_seed/test_level_1_seed_files.py \
-          tests/unit/seed_validation/prep_seed/test_union_uncast_nulls.py \
-          tests/unit/seed_validation/prep_seed/test_union_inline_comments.py \
-          tests/unit/seed_validation/prep_seed/test_level_2_reads_one_model.py \
-          tests/unit/seed_validation/prep_seed/test_level_3_resolvers.py \
-          tests/unit/seed_validation/prep_seed/test_resolvers_by_definition.py \
-          tests/unit/seed_validation/prep_seed/test_final_table_per_resolver.py \
-          tests/contract/test_platform_surface.py \
-          tests/unit/test_port_parity_corpus.py \
-          -q
-
   plpgsql-check:
-    name: Body analysis (plpgsql_check)
+    name: Body analysis (plpgsql_check, PostgreSQL ${{ matrix.postgres }})
     runs-on: ubuntu-latest
     # No `services:` block: a service takes a pre-built image, and there is no
     # published PostgreSQL image carrying plpgsql_check. The extension ships
-    # with no distribution — not the stock `postgres:15` this repository uses
-    # everywhere else, not `postgres:16-alpine` in docker-compose.yml, not a
+    # with no distribution — not the stock `postgres` images this repository
+    # uses everywhere else, not `postgres:16-alpine` in docker-compose.yml, not a
     # local install — which is why `body_001` skips on every other leg and this
-    # one exists. The base is pinned by digest so the leg is a function of the
-    # commit; the one added layer is the PGDG package.
+    # one exists. Each base is pinned by digest so the leg is a function of the
+    # commit; the one added layer is the PGDG package, built for 16 and for 18.
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['16', '18']
+        include:
+        - postgres: '16'
+          digest: sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+        - postgres: '18'
+          digest: sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
     steps:
     - uses: actions/checkout@v6
 
     - name: Build a PostgreSQL carrying plpgsql_check
       run: |
         cat > /tmp/Dockerfile.plpgsql-check <<'DOCKERFILE'
-        FROM postgres:15@sha256:9b1d34adbce1dd07ee6e94b4a2cf698884b89bd44a6c9c12f5da8f3acbfe4957
+        FROM postgres:${{ matrix.postgres }}@${{ matrix.digest }}
         RUN apt-get update \
-         && apt-get install -y --no-install-recommends postgresql-15-plpgsql-check \
+         && apt-get install -y --no-install-recommends postgresql-${{ matrix.postgres }}-plpgsql-check \
          && rm -rf /var/lib/apt/lists/*
         DOCKERFILE
-        docker build -f /tmp/Dockerfile.plpgsql-check -t confiture-plpgsql-check:15 /tmp
+        docker build -f /tmp/Dockerfile.plpgsql-check -t confiture-plpgsql-check:${{ matrix.postgres }} /tmp
 
     - name: Start it
       run: |
         docker run -d --name plpgsql-check-db \
           -e POSTGRES_USER=confiture -e POSTGRES_PASSWORD=confiture \
-          -e POSTGRES_DB=confiture_test -p 5432:5432 confiture-plpgsql-check:15
+          -e POSTGRES_DB=confiture_test -p 5432:5432 confiture-plpgsql-check:${{ matrix.postgres }}
         for _ in $(seq 1 60); do
           docker exec plpgsql-check-db pg_isready -U confiture && break
           sleep 1
@@ -440,7 +312,7 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
 
     - name: Setup environment and install dependencies
       run: |
@@ -518,7 +390,7 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
 
     - name: Setup environment and install dependencies
       run: |
@@ -550,6 +422,9 @@ jobs:
       run: |
         uv run pytest \
           tests/integration/test_tview_live.py \
+          tests/integration/test_tview_diff.py \
+          tests/integration/test_diff_from_a_database.py \
+          tests/integration/test_drift_agrees_with_diff.py \
           tests/integration/test_tview_migrate.py \
           tests/integration/test_tview_restore.py \
           tests/unit/test_tview_model.py \
@@ -557,6 +432,33 @@ jobs:
           tests/unit/test_drift_tviews.py \
           tests/unit/test_pg_tviews_contract.py \
           -q -rs -p no:randomly
+
+  wheel-python-314:
+    name: Wheel on Python 3.14
+    runs-on: ubuntu-latest
+    # The newest CPython confiture supports gets a wheel, and an install takes it.
+    # The release workflow builds every wheel, but only on a tag; this builds one
+    # on every pull request, so a binding that rejects an interpreter (#587) or a
+    # wheel that is not built (#586) fails here and not at release.
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Python 3.14 and uv
+      uses: ./.github/actions/python-uv
+      with:
+        python-version: '3.14'
+        native: 'true'
+
+    - name: Build the wheel
+      run: maturin build --release --interpreter python3.14 --out dist
+
+    - name: A fresh venv installs it, never the sdist
+      # No cache: an earlier source build in uv's cache would hide a missing wheel.
+      run: |
+        uv venv --python 3.14 /tmp/v314
+        uv pip install --python /tmp/v314/bin/python --no-cache \
+          --only-binary fraiseql-confiture dist/*.whl
+        /tmp/v314/bin/python -c "import sys; from confiture.core.builder import HAS_RUST; assert HAS_RUST, 'no native extension'; print(sys.version)"
 
   lint:
     name: Lint
@@ -566,7 +468,7 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
 
     - name: Install dependencies
       run: |
@@ -603,7 +505,7 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
 
     - name: Cache ty tool
       uses: actions/cache@v5
@@ -655,7 +557,7 @@ jobs:
     - name: Set up Python (cargo test links libpython without the extension-module feature)
       uses: actions/setup-python@v5
       with:
-        python-version: "3.11"
+        python-version: "3.14"
 
     - name: Run cargo test
       run: scripts/cargo-test.sh
@@ -668,7 +570,7 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
 
     - name: Install dependencies
       run: |
@@ -697,7 +599,7 @@ jobs:
   quality-gate:
     name: Quality Gate ✅
     runs-on: ubuntu-latest
-    needs: [test, pggit-plugin, pglast-matrix, plpgsql-check, pg-tviews, lint, type-check, rust-checks, security]
+    needs: [test, coverage, pggit-plugin, plpgsql-check, pg-tviews, wheel-python-314, lint, type-check, rust-checks, security]
     if: always()
     steps:
       - name: Check quality gate status
@@ -707,17 +609,15 @@ jobs:
             echo "❌ Tests failed - Quality gate blocked"
             exit 1
           fi
+          # Required: the floors are judged on both servers' coverage combined.
+          if [[ "${{ needs.coverage.result }}" != "success" ]]; then
+            echo "❌ Coverage below its floors - Quality gate blocked"
+            exit 1
+          fi
           # Required: the plugin imports confiture's CLI seams, so a change here
           # that breaks it is caught in this repository, not after a release.
           if [[ "${{ needs.pggit-plugin.result }}" != "success" ]]; then
             echo "❌ pgGit plugin tests failed - Quality gate blocked"
-            exit 1
-          fi
-          # Required, not advisory: the `[ast]` extra accepts pglast >=6.0, and
-          # #192 was a silent misclassification on a version the lock did not
-          # pin. An advisory leg here would have let it ship again.
-          if [[ "${{ needs.pglast-matrix.result }}" != "success" ]]; then
-            echo "❌ AST backend matrix failed - Quality gate blocked"
             exit 1
           fi
           # Required, not advisory: pg_tviews is in no stock PostgreSQL, so every
@@ -731,6 +631,11 @@ jobs:
           # leg that runs the rule, and an advisory one would let it rot unseen.
           if [[ "${{ needs.plpgsql-check.result }}" != "success" ]]; then
             echo "❌ Body analysis failed - Quality gate blocked"
+            exit 1
+          fi
+          # Required: the newest supported CPython must get a wheel (#586, #587).
+          if [[ "${{ needs.wheel-python-314.result }}" != "success" ]]; then
+            echo "❌ Python 3.14 wheel failed - Quality gate blocked"
             exit 1
           fi
           if [[ "${{ needs.lint.result }}" != "success" ]]; then

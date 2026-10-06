@@ -1079,7 +1079,8 @@ class DocumentInputContent(_StructuredInputBase):
         if ids:
             self.metadata["resolved_text"] = "\n".join(
                 (
-                    _record_reference_fence("document", ids),
+                    # the cloud document (udt_document); bare "document" is the markdown document
+                    _record_reference_fence("udt_document", ids),
                     _content_tool_instruction("document", ids, self.editable),
                 )
             )

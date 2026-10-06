@@ -36,7 +36,9 @@ class OidcProviderData(BaseModel):
     send_scope_on_refresh: Optional[StrictBool] = False
     send_redirect_uri_on_refresh: Optional[StrictBool] = False
     authorization_params: Optional[Dict[str, StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["issuer", "client_id", "scopes", "use_pkce", "authorization_endpoint", "token_endpoint", "client_secret_header", "send_scope_on_refresh", "send_redirect_uri_on_refresh", "authorization_params"]
+    tls_ca_pem: Optional[StrictStr] = None
+    tls_verify: Optional[StrictBool] = True
+    __properties: ClassVar[List[str]] = ["issuer", "client_id", "scopes", "use_pkce", "authorization_endpoint", "token_endpoint", "client_secret_header", "send_scope_on_refresh", "send_redirect_uri_on_refresh", "authorization_params", "tls_ca_pem", "tls_verify"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -92,6 +94,11 @@ class OidcProviderData(BaseModel):
         if self.client_secret_header is None and "client_secret_header" in self.model_fields_set:
             _dict['client_secret_header'] = None
 
+        # set to None if tls_ca_pem (nullable) is None
+        # and model_fields_set contains the field
+        if self.tls_ca_pem is None and "tls_ca_pem" in self.model_fields_set:
+            _dict['tls_ca_pem'] = None
+
         return _dict
 
     @classmethod
@@ -113,6 +120,8 @@ class OidcProviderData(BaseModel):
             "client_secret_header": obj.get("client_secret_header"),
             "send_scope_on_refresh": obj.get("send_scope_on_refresh") if obj.get("send_scope_on_refresh") is not None else False,
             "send_redirect_uri_on_refresh": obj.get("send_redirect_uri_on_refresh") if obj.get("send_redirect_uri_on_refresh") is not None else False,
-            "authorization_params": obj.get("authorization_params")
+            "authorization_params": obj.get("authorization_params"),
+            "tls_ca_pem": obj.get("tls_ca_pem"),
+            "tls_verify": obj.get("tls_verify") if obj.get("tls_verify") is not None else True
         })
         return _obj

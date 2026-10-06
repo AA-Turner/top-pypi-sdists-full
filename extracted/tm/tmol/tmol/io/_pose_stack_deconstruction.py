@@ -12,6 +12,7 @@ from tmol.io import (
     CanonicalForm,
     chain_inds_for_pose_stack,
 )
+from tmol.database.chemical import GEOMETRY_NAMES, site_connections
 from tmol.io.details import (
     _annotate_packed_block_types_w_canonical_res_order,
 )
@@ -145,6 +146,30 @@ def canonical_form_from_pose_stack(
     )
     disulfides = redundant_dslf_tuples[is_non_redundant_dslf_tuple, :]
 
+    # a closing bond is an up connection whose partner is not the next residue;
+    # the sequential builder never makes one, so it can only be a cycle
+    up_conn_ind = torch.full((n_poses, max_n_res), -1, dtype=torch.int64, device=device)
+    up_conn_ind[is_real_block] = pbt.up_conn_inds[real_bt_inds64].to(torch.int64)
+    has_up_conn = up_conn_ind != -1
+    nz_pose_ind_for_up, nz_res_ind_for_up = torch.nonzero(has_up_conn, as_tuple=True)
+    up_partner = pose_stack.inter_residue_connections[
+        nz_pose_ind_for_up,
+        nz_res_ind_for_up,
+        up_conn_ind[has_up_conn],
+        0,
+    ].to(torch.int64)
+    is_closure = torch.logical_and(
+        up_partner != -1, up_partner != nz_res_ind_for_up + 1
+    )
+    cyclic_bonds = torch.cat(
+        (
+            _u1(nz_pose_ind_for_up[is_closure]),
+            _u1(nz_res_ind_for_up[is_closure]),
+            _u1(up_partner[is_closure]),
+        ),
+        dim=1,
+    )
+
     if chain_id is None:
         chain_id = torch.tensor(
             chain_inds_for_pose_stack(pose_stack), dtype=torch.int32, device=device
@@ -154,6 +179,9 @@ def canonical_form_from_pose_stack(
 
     res_not_connected = determine_res_not_connected_from_pose_stack(
         co, pose_stack, chain_id, is_real_block, real_bt_inds64
+    )
+    metal_sites, metal_coordination, covalent_bonds = _declared_connections(
+        co, pose_stack
     )
 
     return CanonicalForm(
@@ -167,7 +195,82 @@ def canonical_form_from_pose_stack(
         atom_b_factor=expanded_b_factor,
         res_not_connected=res_not_connected,
         disulfides=disulfides,
+        cyclic_bonds=cyclic_bonds,
+        covalent_bonds=covalent_bonds,
+        metal_sites=metal_sites,
+        metal_coordination=metal_coordination,
+        metal_origins=pose_stack.pdb_info.metal_origins,
+        residue_annotations=pose_stack.pdb_info.residue_annotations,
     )
+
+
+def _declared_connections(co: CanonicalOrdering, pose_stack: PoseStack):
+    """Metal sites, filled metal sites and conjugation bonds in canonical terms (None if
+    none); ligand-fragment connections are left to the fragment mapping."""
+    pbt = pose_stack.packed_block_types
+    bt_inds = pose_stack.block_type_ind64.cpu().numpy()
+    irc = pose_stack.inter_residue_connections64.cpu().numpy()
+
+    def canonical_atom(bt, conn):
+        return co.restypes_atom_index_mapping[bt.io_equiv_class][
+            bt.connections[conn].atom
+        ]
+
+    # Everything below is a property of the block type, not of the residue, so it is
+    # worked out once per type rather than once per residue.
+    per_type = {}
+    for index, bt in enumerate(pbt.active_block_types):
+        per_type[index] = (
+            {
+                bt.up_connection_ind,
+                bt.down_connection_ind,
+                bt.connection_to_cidx.get("dslf", -1),
+            },
+            tuple(site_connections(bt)) if bt.metal_sites else (),
+            GEOMETRY_NAMES.index(bt.metal_sites[0].geometry) if bt.metal_sites else -1,
+        )
+
+    sites, coordination, bonds = [], [], []
+    for pose, res in zip(*numpy.nonzero(bt_inds >= 0)):
+        pose, res = int(pose), int(res)
+        bt = pbt.active_block_types[bt_inds[pose, res]]
+        structural, site_names, geometry_index = per_type[int(bt_inds[pose, res])]
+        if bt.metal_sites:
+            sites.append((pose, res, geometry_index))
+            for k, name in enumerate(site_names):
+                partner, conn = irc[pose, res, bt.connection_to_cidx[name]]
+                if partner >= 0:
+                    other = pbt.active_block_types[bt_inds[pose, partner]]
+                    atom = canonical_atom(other, conn)
+                    coordination.append((pose, res, k, int(partner), atom))
+            continue
+        if bt.is_ligand_fragment:
+            continue
+        for conn in range(len(bt.connections)):
+            partner, partner_conn = irc[pose, res, conn]
+            if conn in structural or partner <= res:
+                continue
+            other = pbt.active_block_types[bt_inds[pose, partner]]
+            if other.metal_sites or other.is_ligand_fragment:
+                continue
+            bonds.append(
+                (
+                    pose,
+                    res,
+                    canonical_atom(bt, conn),
+                    int(partner),
+                    canonical_atom(other, partner_conn),
+                )
+            )
+
+    def rows(values, width):
+        if not values:
+            return None
+        return torch.tensor(values, dtype=torch.int64, device=pose_stack.device).view(
+            -1, width
+        )
+
+    return rows(sites, 3), rows(coordination, 5), rows(bonds, 5)
 
 
 def _annotate_packed_block_types_w_termini_types(

@@ -29,7 +29,7 @@ setup(
     # wget, and the documentation tools stay in the repository
     package_data={
         "pikobs": ["extension/*.so", "extension/*.json"],
-        "pikobs.configobs": ["*.json", "*.csv", "*.txt", "*.npz", "*.npy",
+        "pikobs.configobs": ["*.cfg", "*.json", "*.csv", "*.txt", "*.npz", "*.npy",
                              "regions_data/*"],
         "pikobs.mapobs": ["*.json", "*.csv", "*.txt", "*.png"],
     },

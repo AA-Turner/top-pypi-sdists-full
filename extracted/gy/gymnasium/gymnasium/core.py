@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Generic, SupportsFloat, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, SupportsFloat, TypeAlias
 
 import numpy as np
+from typing_extensions import TypeVar
 
 import gymnasium
 from gymnasium import spaces
 from gymnasium.utils import RecordConstructorArgs, seeding
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from gymnasium.envs.registration import EnvSpec, WrapperSpec
 
-ObsType = TypeVar("ObsType")
-ActType = TypeVar("ActType")
+# All TypeVars default to `Any` so that generic classes can be partially subscripted,
+# e.g., `Env[np.ndarray]`, with the omitted parameters falling back to `Any`.
+ObsType = TypeVar("ObsType", default=Any)
+ActType = TypeVar("ActType", default=Any)
 
 RenderFrame: TypeAlias = str | np.ndarray | tuple[np.ndarray, np.ndarray]
 
@@ -108,6 +113,11 @@ class Env(Generic[ObsType, ActType]):
                 return undefined results. This was removed in OpenAI Gym v26 in favor of terminated and truncated attributes.
                 A done signal may be emitted for different reasons: Maybe the task underlying the environment was solved successfully,
                 a certain timelimit was exceeded, or the physics simulation has entered an invalid state.
+
+        Note:
+            Users commonly keep the data from every timestep, most obviously in a replay or rollout buffer, so each
+            call must return new observation and info objects rather than modifying and returning the same buffer.
+            :func:`gymnasium.utils.env_checker.check_env` checks this.
         """
         raise NotImplementedError
 
@@ -116,7 +126,7 @@ class Env(Generic[ObsType, ActType]):
         *,
         seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObsType, dict[str, Any]]:  # type: ignore
+    ) -> tuple[ObsType, dict[str, Any]]:
         """Resets the environment to an initial internal state, returning an initial observation and info.
 
         This method generates a new starting state often with some randomness to ensure that the agent explores the
@@ -151,6 +161,10 @@ class Env(Generic[ObsType, ActType]):
                 (typically a numpy array) and is analogous to the observation returned by :meth:`step`.
             info (dictionary):  This dictionary contains auxiliary information complementing ``observation``. It should be analogous to
                 the ``info`` returned by :meth:`step`.
+
+        Note:
+            As with :meth:`step`, the returned observation and info must be new data rather than a
+            buffer that a previous call already returned and that this call has mutated in place.
         """
         # Initialize the RNG if the seed is manually passed
         if seed is not None:
@@ -255,11 +269,11 @@ class Env(Generic[ObsType, ActType]):
         else:
             return f"<{type(self).__name__}<{self.spec.id}>>"
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         """Support with-statement for the environment."""
         return self
 
-    def __exit__(self, *args: Any):
+    def __exit__(self, *args: Any) -> bool:
         """Support with-statement for the environment and closes the environment."""
         self.close()
         # propagate exception
@@ -281,8 +295,8 @@ class Env(Generic[ObsType, ActType]):
         return False
 
 
-WrapperObsType = TypeVar("WrapperObsType")
-WrapperActType = TypeVar("WrapperActType")
+WrapperObsType = TypeVar("WrapperObsType", default=Any)
+WrapperActType = TypeVar("WrapperActType", default=Any)
 
 
 class Wrapper(
@@ -303,6 +317,8 @@ class Wrapper(
         If you inherit from :class:`Wrapper`, don't forget to call ``super().__init__(env)``
     """
 
+    env: Env[WrapperObsType, WrapperActType]
+
     def __init__(self, env: Env[WrapperObsType, WrapperActType]):
         """Wraps an environment to allow a modular transformation of the :meth:`step` and :meth:`reset` methods.
 
@@ -310,9 +326,8 @@ class Wrapper(
             env: The environment to wrap
         """
         self.env = env
-        assert isinstance(env, Env), (
-            f"Expected env to be a `gymnasium.Env` but got {type(env)}"
-        )
+        if not isinstance(env, Env):
+            raise TypeError(f"Expected env to be a `gymnasium.Env` but got {type(env)}")
 
         self._action_space: spaces.Space[WrapperActType] | None = None
         self._observation_space: spaces.Space[WrapperObsType] | None = None

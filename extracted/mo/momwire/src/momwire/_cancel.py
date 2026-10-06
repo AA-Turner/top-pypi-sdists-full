@@ -14,6 +14,9 @@ missed read costs at most one extra poll interval. Default ``cancel=None`` makes
 every checkpoint a single ``is not None`` test — zero cost for existing callers.
 """
 
+import contextlib
+import threading
+
 import numpy as np
 
 
@@ -77,3 +80,75 @@ class _Cancelable:
         """
         cancel = self._cancel
         return cancel.ptr if cancel is not None else 0
+
+
+# --------------------------------------------------------------------------
+# Ambient token (momwire#1342).
+#
+# The crossing fill (`_crossing_fill`) and the near-interface tables
+# (`_near_interface`) are free functions: the fill receives its solver's data
+# as a `CrossingContext`, and the tables sit several calls below it with no
+# context at all (`designed_rows`, `sheet_plan`, `PlaneSheet.cover`, the column
+# twin). A token argument would have to be threaded through ~40 signatures,
+# four memo classes and the razor, bspline, sinusoidal and Galerkin callers.
+# Instead each public fill entry installs its context's token for the duration
+# of the call (`scope`), and the seams below read it (`poll`).
+#
+# Thread-local on purpose. The scope is entered and read on the thread that
+# runs the fill; a pool thread started beneath it sees no token and so polls
+# nothing, which costs latency and never correctness (the owning thread polls
+# again when it collects the pool's result). A scope restores the PREVIOUS
+# token on exit, so a fill nested inside another (the two-radius node calls
+# two single-radius fills) leaves the outer one installed.
+_ambient = threading.local()
+
+
+@contextlib.contextmanager
+def scope(token):
+    """Make `token` (a `CancelToken` or None) the ambient one for the block."""
+    prev = getattr(_ambient, "token", None)
+    _ambient.token = token
+    try:
+        yield
+    finally:
+        _ambient.token = prev
+
+
+def poll():
+    """Raise :class:`SolveAborted` if the ambient token has been tripped. One
+    attribute read when there is none."""
+    token = getattr(_ambient, "token", None)
+    if token is not None and token._flag[0]:
+        raise SolveAborted()
+
+
+def ptr():
+    """The ambient token's raw flag address for a C++ kernel's `cancel_flag`
+    argument; 0 (no cancellation) when there is none."""
+    token = getattr(_ambient, "token", None)
+    return token.ptr if token is not None else 0
+
+
+class _BorrowedFlag:
+    """A token-shaped view of a flag some solver's `CancelToken` owns, known
+    here only by its raw address (`_Cancelable._cancel_flag`). The grid
+    getters receive that address, the convention their callers already pass
+    to `_sommerfeld.get_grid`; this lets them install it as the ambient token
+    without a second spelling of `poll`. It owns nothing: the solver's token
+    outlives the call that borrows it."""
+
+    def __init__(self, addr):
+        import ctypes
+
+        self.ptr = int(addr)
+        self._flag = np.ctypeslib.as_array((ctypes.c_int32 * 1).from_address(self.ptr))
+
+
+def scope_flag(addr):
+    """`scope` for a raw flag address (0 = none). A zero address installs no
+    token, so the block keeps whatever token is already ambient: a getter
+    called with no flag of its own from inside a fill that has one still
+    polls the fill's."""
+    if not addr:
+        return contextlib.nullcontext()
+    return scope(_BorrowedFlag(addr))

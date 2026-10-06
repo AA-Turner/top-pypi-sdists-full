@@ -29,30 +29,47 @@ def adaptive_poll_interval(base_interval: float, start_time: float) -> float:
 
 
 # Job statuses after which a job can no longer be "waiting to start".
-_TERMINAL_JOB_STATUSES = frozenset(('failed', 'error', 'cancelled', 'done'))
+_TERMINAL_JOB_STATUSES = frozenset(('failed', 'error', 'cancelled', 'done', 'aborted'))
+
+# Non-terminal statuses in which no training process is running: queued for a
+# worker ('ready'), or stopped on purpose and owned by the node until it
+# resumes ('paused' -- upgrade quiesce, priority eviction, needs-bigger-GPU,
+# vMotion). Neither is a hang; a job that can never resume is failed by the
+# node, and the waiter sees that status.
+_NOT_RUNNING_JOB_STATUSES = frozenset(('ready', 'paused'))
 
 
 def job_awaiting_start(job: dict) -> bool:
     """True while a non-terminal job exists but hasn't begun real work, so a
     wait loop should treat the time as queued, not as a stall.
 
-    Two server-reported shapes:
+    Three server-reported shapes:
       - no `started_at` yet: the session chain claimed the job but the node
         hasn't picked it up (waiting on a worker slot between pipeline steps);
       - `gpu_slot_wait_started_at` set: the node's celery task started (so
         `started_at` IS set and status reads 'running') but it is held in
         celery_app._wait_for_gpu_training_slot until a GPU training slot
-        frees. The node clears the marker the moment it launches.
+        frees. The node clears the marker the moment it launches;
+      - status 'ready' / 'paused' (_NOT_RUNNING_JOB_STATUSES): no process is
+        running, whatever `started_at` says. A job paused or moved after it
+        started keeps the earlier attempt's `started_at`.
 
     2026-09-25 taco: an ES job held 68 min behind "4/4 running" with
     started_at set and no epochs; the waiter counted all of it as no-progress
     and the QA client failed it at the 3600s stall budget.
+
+    2026-10-05 KDD98: the ES OOM'd on taco, paused itself (needs_bigger_gpu)
+    and was vMotioned to queso, where it sat 'ready' behind the busy GPU
+    worker with taco's `started_at` still set. The QA client failed it as
+    "stalled" at 3616s.
     """
     status = job.get('status')
     if hasattr(status, 'value'):
         status = status.value
     if status in _TERMINAL_JOB_STATUSES:
         return False
+    if status in _NOT_RUNNING_JOB_STATUSES:
+        return True
     return (not job.get('started_at')) or bool(job.get('gpu_slot_wait_started_at'))
 
 

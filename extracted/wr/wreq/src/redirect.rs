@@ -1,6 +1,10 @@
-use std::{fmt::Display, sync::Arc};
+use std::{
+    fmt::{self, Display},
+    sync::Arc,
+};
 
 use pyo3::prelude::*;
+use tokio::task::spawn_blocking;
 
 use crate::{header::HeaderMap, http::StatusCode};
 
@@ -98,17 +102,20 @@ impl Policy {
     #[pyo3(signature = (callback))]
     pub fn custom(callback: Py<PyAny>) -> Self {
         let callback = Arc::new(callback);
-        let polciy = wreq::redirect::Policy::custom(move |attempt| {
+        let policy = wreq::redirect::Policy::custom(move |attempt| {
             let callback = callback.clone();
             attempt.pending(|attempt| async move {
                 let args = Attempt::from(&attempt);
-                let kind = tokio::task::spawn_blocking(move || {
-                    Python::attach(|py| {
+                let kind = spawn_blocking(move || {
+                    Python::try_attach(|py| {
                         callback
                             .call1(py, (args,))
                             .and_then(|result| result.extract::<Action>(py).map_err(PyErr::from))
                             .map(|action| action.kind)
                             .unwrap_or_else(|err| ActionKind::Error(err.to_string()))
+                    })
+                    .unwrap_or_else(|| {
+                        ActionKind::Error("The Python interpreter is not available".into())
                     })
                 })
                 .await;
@@ -122,7 +129,7 @@ impl Policy {
             })
         });
 
-        Self(polciy)
+        Self(policy)
     }
 }
 
@@ -133,7 +140,6 @@ impl_print_str!(Debug, Policy);
 #[pymethods]
 impl Attempt {
     /// Returns an action meaning the client should follow the next URI.
-    #[inline]
     pub fn follow(&self) -> Action {
         Action {
             kind: ActionKind::Follow,
@@ -143,7 +149,6 @@ impl Attempt {
     /// Returns an action meaning the client should not follow the next URI.
     ///
     /// The 30x response will be returned as the result.
-    #[inline]
     pub fn stop(&self) -> Action {
         Action {
             kind: ActionKind::Stop,
@@ -153,7 +158,6 @@ impl Attempt {
     /// Returns an action failing the redirect with an error.
     ///
     /// The error will be returned for the result of the sent request.
-    #[inline]
     pub fn error(&self, message: String) -> Action {
         Action {
             kind: ActionKind::Error(message),
@@ -173,7 +177,7 @@ impl From<&wreq::redirect::Attempt<'static, false>> for Attempt {
 }
 
 impl Display for Attempt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "Attempt {{ status: {}, next: {}, previous: {:?} }}",
@@ -185,7 +189,7 @@ impl Display for Attempt {
 // ===== impl Action =====
 
 impl Display for Action {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
             ActionKind::Follow => write!(f, "Action::Follow"),
             ActionKind::Stop => write!(f, "Action::Stop"),

@@ -11,18 +11,18 @@ use std::{
     time::Duration,
 };
 
-use pyo3::{IntoPyObjectExt, coroutine::CancelHandle, prelude::*, pybacked::PyBackedStr};
+use pyo3::{IntoPyObjectExt, prelude::*, pybacked::PyBackedStr, types::PyDict};
 use req::{Request, WebSocketRequest};
 use tokio_util::sync::CancellationToken;
 use wreq::tls::trust::CertStore;
 
 use self::{
-    nogil::NoGIL,
     req::{execute_request, execute_websocket_request},
     resp::{BlockingResponse, BlockingWebSocket, Response, WebSocket},
 };
 use crate::{
     cookie::Jar,
+    coroutine::{self, Coroutine},
     dns::{DnsOptions, HickoryResolver, LookupIpStrategy},
     emulate::EmulationLike,
     error::Error,
@@ -32,11 +32,11 @@ use crate::{
     http1::Http1Options,
     http2::Http2Options,
     proxy::Proxy,
-    redirect,
+    redirect, runtime,
     tls::{Identity, KeyLog, TlsOptions, TlsVerify, TlsVersion},
 };
 
-/// A IP socket address.
+/// An IP socket address.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[pyclass(eq, str, frozen, skip_from_py_object)]
 pub struct SocketAddr(pub std::net::SocketAddr);
@@ -59,6 +59,7 @@ impl_print_str!(Display, SocketAddr);
 /// A builder for `Client`.
 #[derive(Default)]
 struct Builder {
+    runtime: Option<runtime::Runtime>,
     /// The Emulation settings for the client.
     emulation: Option<EmulationLike>,
     /// The user agent to use for the client.
@@ -171,6 +172,7 @@ impl FromPyObject<'_, '_> for Builder {
 
     fn extract(ob: Borrowed<PyAny>) -> PyResult<Self> {
         let mut builder = Self::default();
+        extract_option!(ob, builder, runtime);
         extract_option!(ob, builder, emulation);
         extract_option!(ob, builder, user_agent);
         extract_option!(ob, builder, headers);
@@ -229,11 +231,15 @@ impl FromPyObject<'_, '_> for Builder {
 }
 
 /// A client for making HTTP requests.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 #[pyclass(subclass, frozen, skip_from_py_object)]
 pub struct Client {
     inner: wreq::Client,
+    /// Runs this client's requests and response reads, keeping the runtime alive.
+    runtime: runtime::Runtime,
+    /// Cancelled by `close()`; pending and new requests then fail with `CancelledError`.
     cancel: CancellationToken,
+    /// Turn error statuses into exceptions for every request.
     raise_for_status: bool,
 
     /// Get the cookie jar of the client.
@@ -246,7 +252,65 @@ pub struct Client {
 #[pyclass(name = "Client", subclass, frozen, skip_from_py_object)]
 pub struct BlockingClient(Client);
 
-// ====== Client =====
+// ===== impl Client =====
+
+impl Client {
+    /// Return a coroutine named `qualname` that sends the request when awaited.
+    fn send<'py>(
+        &self,
+        py: Python<'py>,
+        qualname: &'static str,
+        method: Method,
+        url: PyBackedStr,
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        let kwds = kwds.map(Bound::unbind);
+        coroutine::managed(py, qualname, self.clone().execute(method, url, kwds))
+    }
+
+    /// Send a request on the client's runtime, extracting options on first await so an
+    /// async generator body binds to the running loop.
+    pub(crate) async fn execute(
+        self,
+        method: Method,
+        url: PyBackedStr,
+        kwds: Option<Py<PyDict>>,
+    ) -> PyResult<Response> {
+        let kwds = Python::attach(|py| kwds.map(|kwds| kwds.bind(py).extract()).transpose())?;
+        coroutine::run(
+            self.runtime.clone(),
+            execute_request(self, method, url, kwds),
+        )
+        .await
+    }
+
+    /// Open a WebSocket on the client's runtime, extracting options on first await.
+    pub(crate) async fn connect(
+        self,
+        url: PyBackedStr,
+        kwds: Option<Py<PyDict>>,
+    ) -> PyResult<WebSocket> {
+        let kwds = Python::attach(|py| kwds.map(|kwds| kwds.bind(py).extract()).transpose())?;
+        coroutine::run(
+            self.runtime.clone(),
+            execute_websocket_request(self, url, kwds),
+        )
+        .await
+    }
+}
+
+impl Default for Client {
+    fn default() -> Self {
+        let runtime = runtime::get();
+        Self {
+            inner: wreq::Client::default(),
+            runtime: runtime.clone(),
+            cancel: CancellationToken::new(),
+            raise_for_status: false,
+            cookie_jar: None,
+        }
+    }
+}
 
 #[pymethods]
 impl Client {
@@ -255,6 +319,10 @@ impl Client {
     #[pyo3(signature = (**kwds))]
     fn new(py: Python, kwds: Option<Builder>) -> PyResult<Client> {
         py.detach(|| {
+            let runtime = match kwds.as_ref().and_then(|config| config.runtime.as_ref()) {
+                Some(runtime) => runtime.select()?,
+                None => runtime::get().clone(),
+            };
             // Create the client builder.
             let mut builder = wreq::Client::builder();
             let mut cookie_jar: Option<Jar> = None;
@@ -464,6 +532,7 @@ impl Client {
                 .build()
                 .map(|inner| Client {
                     inner,
+                    runtime,
                     cancel: CancellationToken::new(),
                     cookie_jar,
                     raise_for_status,
@@ -473,154 +542,150 @@ impl Client {
         })
     }
 
-    /// Close the client, preventing any new requests.
-    #[inline]
+    /// Cancel pending requests and reject new ones with asyncio.CancelledError.
+    /// Existing responses, WebSockets and the shared runtime remain usable.
     pub fn close(&self) {
         self.cancel.cancel();
     }
 
+    /// The runtime used by this client and its responses.
+    #[getter]
+    pub fn runtime(&self) -> runtime::Runtime {
+        self.runtime.clone()
+    }
+
     /// Make a GET request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn get(
+    pub fn get<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::GET, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.get", Method::GET, url, kwds)
     }
 
     /// Make a HEAD request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn head(
+    pub fn head<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::HEAD, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.head", Method::HEAD, url, kwds)
     }
 
     /// Make a POST request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn post(
+    pub fn post<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::POST, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.post", Method::POST, url, kwds)
     }
 
     /// Make a PUT request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn put(
+    pub fn put<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::PUT, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.put", Method::PUT, url, kwds)
     }
 
     /// Make a DELETE request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn delete(
+    pub fn delete<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::DELETE, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.delete", Method::DELETE, url, kwds)
     }
 
     /// Make a PATCH request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn patch(
+    pub fn patch<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::PATCH, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.patch", Method::PATCH, url, kwds)
     }
 
     /// Make a OPTIONS request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn options(
+    pub fn options<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::OPTIONS, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.options", Method::OPTIONS, url, kwds)
     }
 
     /// Make a TRACE request to the given URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn trace(
+    pub fn trace<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        self.request(cancel, Method::TRACE, url, kwds).await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.trace", Method::TRACE, url, kwds)
     }
 
     /// Make a request with the given method and URL.
-    #[inline]
     #[pyo3(signature = (method, url, **kwds))]
-    pub async fn request(
+    pub fn request<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         method: Method,
         url: PyBackedStr,
-        kwds: Option<Request>,
-    ) -> PyResult<Response> {
-        NoGIL::new_with_token(
-            execute_request(self.clone(), method, url, kwds),
-            cancel,
-            self.cancel.clone(),
-        )
-        .await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        self.send(py, "Client.request", method, url, kwds)
     }
 
     /// Make a WebSocket request to the given URL.
-    #[inline]
     #[pyo3(signature = (url, **kwds))]
-    pub async fn websocket(
+    pub fn websocket<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         url: PyBackedStr,
-        kwds: Option<WebSocketRequest>,
-    ) -> PyResult<WebSocket> {
-        NoGIL::new_with_token(
-            execute_websocket_request(self.clone(), url, kwds),
-            cancel,
-            self.cancel.clone(),
-        )
-        .await
+        kwds: Option<Bound<'py, PyDict>>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        let kwds = kwds.map(Bound::unbind);
+        coroutine::managed(py, "Client.websocket", self.clone().connect(url, kwds))
     }
 }
 
 #[pymethods]
 impl Client {
-    #[inline]
-    async fn __aenter__(slf: Py<Self>) -> PyResult<Py<Self>> {
-        Ok(slf)
+    fn __aenter__(slf: Bound<'_, Self>) -> PyResult<Bound<'_, Coroutine>> {
+        coroutine::ready("Client.__aenter__", slf)
     }
 
-    #[inline]
-    async fn __aexit__(&self, _exc_type: Py<PyAny>, _exc_val: Py<PyAny>, _traceback: Py<PyAny>) {
-        self.close();
+    /// Close the client like `close()`: cancel pending requests and reject new ones.
+    fn __aexit__<'py>(
+        &self,
+        py: Python<'py>,
+        _exc_type: Py<PyAny>,
+        _exc_val: Py<PyAny>,
+        _traceback: Py<PyAny>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        let cancel = self.cancel.clone();
+        coroutine::local(py, "Client.__aexit__", async move {
+            cancel.cancel();
+            Ok(())
+        })
     }
 }
 
@@ -628,29 +693,32 @@ impl Client {
 
 #[pymethods]
 impl BlockingClient {
+    /// The runtime used by this client and its responses.
+    #[getter]
+    pub fn runtime(&self) -> runtime::Runtime {
+        self.0.runtime()
+    }
+
     /// Creates a new blocking Client instance.
     #[new]
-    #[inline]
     #[pyo3(signature = (**kwds))]
     fn new(py: Python, kwds: Option<Builder>) -> PyResult<BlockingClient> {
         Client::new(py, kwds).map(BlockingClient)
     }
 
     /// Get the cookie jar of the client.
-    #[inline]
     #[getter]
     pub fn cookie_jar(&self) -> Option<Jar> {
         self.0.cookie_jar.clone()
     }
 
-    /// Close the client, preventing any new requests.
-    #[inline]
+    /// Cancel pending requests and reject new ones with asyncio.CancelledError.
+    /// Existing responses, WebSockets and the shared runtime remain usable.
     pub fn close(&self) {
         self.0.close();
     }
 
     /// Make a GET request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn get(
         &self,
@@ -662,7 +730,6 @@ impl BlockingClient {
     }
 
     /// Make a POST request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn post(
         &self,
@@ -674,7 +741,6 @@ impl BlockingClient {
     }
 
     /// Make a PUT request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn put(
         &self,
@@ -686,7 +752,6 @@ impl BlockingClient {
     }
 
     /// Make a PATCH request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn patch(
         &self,
@@ -698,7 +763,6 @@ impl BlockingClient {
     }
 
     /// Make a DELETE request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn delete(
         &self,
@@ -710,7 +774,6 @@ impl BlockingClient {
     }
 
     /// Make a HEAD request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn head(
         &self,
@@ -722,7 +785,6 @@ impl BlockingClient {
     }
 
     /// Make a OPTIONS request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn options(
         &self,
@@ -734,7 +796,6 @@ impl BlockingClient {
     }
 
     /// Make a TRACE request to the specified URL.
-    #[inline(always)]
     #[pyo3(signature = (url, **kwds))]
     pub fn trace(
         &self,
@@ -745,7 +806,7 @@ impl BlockingClient {
         self.request(py, Method::TRACE, url, kwds)
     }
 
-    /// Make a rqeuest with the specified method and URL.
+    /// Make a request with the specified method and URL.
     #[pyo3(signature = (method, url, **kwds))]
     pub fn request(
         &self,
@@ -755,9 +816,11 @@ impl BlockingClient {
         kwds: Option<Request>,
     ) -> PyResult<BlockingResponse> {
         py.detach(|| {
-            pyo3_async_runtimes::tokio::get_runtime()
-                .block_on(execute_request(self.0.clone(), method, url, kwds))
-                .map(Into::into)
+            nogil::block_on(
+                &self.0.runtime,
+                execute_request(self.0.clone(), method, url, kwds),
+            )
+            .map(Into::into)
         })
     }
 
@@ -770,21 +833,22 @@ impl BlockingClient {
         kwds: Option<WebSocketRequest>,
     ) -> PyResult<BlockingWebSocket> {
         py.detach(|| {
-            pyo3_async_runtimes::tokio::get_runtime()
-                .block_on(execute_websocket_request(self.0.clone(), url, kwds))
-                .map(Into::into)
+            nogil::block_on(
+                &self.0.runtime,
+                execute_websocket_request(self.0.clone(), url, kwds),
+            )
+            .map(Into::into)
         })
     }
 }
 
 #[pymethods]
 impl BlockingClient {
-    #[inline]
     fn __enter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
 
-    #[inline]
+    /// Close the client like `close()`: cancel pending requests and reject new ones.
     fn __exit__<'py>(
         &self,
         _py: Python<'py>,

@@ -2136,7 +2136,7 @@ class StorageApi:
     def list_tenants(
         self,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="Page number")] = None,
-        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.")] = None,
+        size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=1)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
         _request_auth: Optional[Dict[StrictStr, Any]] = None,
         _content_type: Optional[StrictStr] = None,
@@ -2149,7 +2149,7 @@ class StorageApi:
 
         :param page: Page number
         :type page: int
-        :param size: Number of items to return per page.  Must be between 0 and 100.  Defaults to 10.
+        :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
         :type size: int
         :param http_request_timeout_secs: timeout setting for this request
         :type http_request_timeout_secs: int, optional

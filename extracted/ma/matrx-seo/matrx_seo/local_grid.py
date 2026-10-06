@@ -208,6 +208,11 @@ class PointResult:
     reused: bool = False
     #: Never dispatched: the dispatch budget ran out first. Never billed.
     pending: bool = False
+    #: The point's first ``top_n`` listings: ``{rank, name, cid}``.
+    top: list[dict[str, Any]] | None = None
+    #: Every listing the point returned, ``(cid, name, rank)`` — for the grid
+    #: summary; never rendered per point.
+    listings: list[tuple[str | None, str | None, int | None]] = field(default_factory=list)
     extra: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
@@ -224,6 +229,8 @@ class PointResult:
             out["error"] = self.error
         if self.run_id is not None:
             out["run_id"] = self.run_id
+        if self.top is not None:
+            out["top"] = self.top
         if self.pending:
             out["pending"] = True
         return out
@@ -236,9 +243,11 @@ def point_from_items(
     cid: str | None,
     place_id: str | None,
     name: str | None,
+    top_n: int = 1,
 ) -> tuple[PointResult, dict[str, Any] | None, MatchedBy | None]:
     """Score one point's SERP rows: the target's rank, how many rows came back,
-    and who ranked first — so a null rank is interpretable."""
+    the first ``top_n`` listings (who outranks whom there), and every listing for
+    the grid-level competitor summary — so a null rank is interpretable."""
     rows = [item for item in items if isinstance(item, dict)]
     match, matched_by = match_business(rows, cid=cid, place_id=place_id, name=name)
     first = rows[0] if rows else None
@@ -247,6 +256,7 @@ def point_from_items(
         if first is None
         else {"name": _text(first.get("title")), "cid": _text(str(first.get("cid") or ""))}
     )
+    listings = [(_text(str(r.get("cid") or "")), _text(r.get("title")), item_rank(r)) for r in rows]
     return (
         PointResult(
             row=point.row,
@@ -256,10 +266,72 @@ def point_from_items(
             rank=item_rank(match),
             results_count=len(rows),
             top_result=top,
+            top=[
+                {"rank": rank, "name": title, "cid": c}
+                for c, title, rank in listings[: max(top_n, 0)]
+            ],
+            listings=listings,
         ),
         match,
         matched_by,
     )
+
+
+def competitor_summary(
+    points: Iterable[PointResult], *, exclude: set[str], limit: int
+) -> list[dict[str, Any]]:
+    """Who the target is up against across the whole grid, computed once so every
+    screen and agent reads the same numbers. Per business (by cid, else name):
+    ``points_won`` (rank 1), ``points_present`` (listed within the depth checked),
+    ``points_searched``, ``coverage`` (present ÷ searched, 2 dp), ``avg_rank``
+    where present (2 dp) and ``best_rank``. Failed and unsent points are not
+    searched. Ordered by points won, then coverage, then average rank. Every
+    business that ranks #1 at any point is included even beyond ``limit``; the
+    cap applies only to businesses that never rank #1."""
+    searched = [p for p in points if p.error is None and not p.pending]
+    n = len(searched)
+    stats: dict[str, dict[str, Any]] = {}
+    for p in searched:
+        seen: set[str] = set()
+        for cid, name, rank in p.listings:
+            key = cid or (f"name:{name}" if name else None)
+            if not key or key in seen or (cid and cid in exclude):
+                continue
+            seen.add(key)
+            entry = stats.setdefault(key, {"name": name, "cid": cid, "ranks": []})
+            if rank is not None:
+                entry["ranks"].append(rank)
+            else:
+                entry.setdefault("unranked", 0)
+                entry["unranked"] = entry.get("unranked", 0) + 1
+    out = []
+    for entry in stats.values():
+        ranks = entry["ranks"]
+        present = len(ranks) + entry.get("unranked", 0)
+        out.append(
+            {
+                "name": entry["name"],
+                "cid": entry["cid"],
+                "points_won": sum(1 for r in ranks if r == 1),
+                "points_present": present,
+                "points_searched": n,
+                "coverage": round(present / n, 2) if n else None,
+                "avg_rank": round(sum(ranks) / len(ranks), 2) if ranks else None,
+                "best_rank": min(ranks) if ranks else None,
+            }
+        )
+    out.sort(
+        key=lambda e: (
+            -e["points_won"],
+            -e["points_present"],
+            e["avg_rank"] if e["avg_rank"] is not None else float("inf"),
+        )
+    )
+    # Every business that ranks #1 at any point is always listed — a screen names a
+    # point's winner from here — and the cap applies only to the rest.
+    winners = [e for e in out if e["points_won"] > 0]
+    rest = [e for e in out if e["points_won"] == 0]
+    return winners + rest[: max(limit - len(winners), 0)]
 
 
 PointOutcome = Literal["abort", "empty", "point"]
@@ -534,6 +606,7 @@ __all__ = [
     "build_grid",
     "business_data_coordinate",
     "classify_point_failure",
+    "competitor_summary",
     "distance_km",
     "format_coordinate",
     "grid_zoom",

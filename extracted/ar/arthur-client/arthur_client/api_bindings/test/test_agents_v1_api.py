@@ -47,6 +47,20 @@ class TestAgentsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_unregistered_agents_summary_for_organization(self) -> None:
+        """Test case for get_unregistered_agents_summary_for_organization
+
+        Summarize Organization Unregistered Agents
+        """
+        pass
+
+    def test_get_unregistered_agents_summary_for_workspace(self) -> None:
+        """Test case for get_unregistered_agents_summary_for_workspace
+
+        Summarize A Workspace'S Unregistered Agents.
+        """
+        pass
+
     def test_list_agent_llm_models_for_organization(self) -> None:
         """Test case for list_agent_llm_models_for_organization
 

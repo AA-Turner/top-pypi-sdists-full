@@ -182,7 +182,9 @@ def test_hooks_json_registers_precompact():
     Claude Code only runs what is registered, so every test above passes against
     a plugin where this hook never fires.
     """
-    hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())
+    entries = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())["hooks"]
+    assert "PreCompact" in entries and "SessionStart" in entries, "each event needs its hooks.json entry"
+    hooks = json.loads((PLUGIN / "hooks" / "routes.json").read_text())
     assert "PreCompact" in hooks["hooks"], "PreCompact must be registered to fire at all"
     assert "SessionStart" in hooks["hooks"], "and it must not have replaced SessionStart"
 
@@ -194,7 +196,7 @@ def test_precompact_exports_the_event_marker():
     start, so it would emit SessionStart's payload on the wrong event and inject
     a nudge mid-compaction.
     """
-    hooks = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())
+    hooks = json.loads((PLUGIN / "hooks" / "routes.json").read_text())
     command = hooks["hooks"]["PreCompact"][0]["hooks"][0]["command"]
     assert "PROBE_HOOK_EVENT=precompact" in command
     assert "session-start.sh" in command, "both events share one script"

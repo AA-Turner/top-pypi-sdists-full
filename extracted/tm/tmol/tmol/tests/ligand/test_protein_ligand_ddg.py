@@ -77,14 +77,30 @@ def _rosetta_ddg(target: str) -> float:
 
 def _load_complex_cif(target: str):
     import biotite.structure as struc
-    import biotite.structure.io
+    from biotite.structure.io.pdbx import CIFFile, get_structure
+    from tmol.io._atomworks_reader import _mark_inferred_polymer_bonds
 
     cif_path = PLI_DATA_DIR / f"{target}.tmol.nomin.cif"
-    structure = biotite.structure.io.load_structure(
-        str(cif_path), model=1, include_bonds=True
-    )
+    file = CIFFile.read(cif_path)
+    # These exports contain coordinates only: every bond is loader-inferred.
+    assert set(file.block) == {"atom_site"}
+    structure = get_structure(file, model=1, include_bonds=True)
     if isinstance(structure, struc.AtomArrayStack):
         structure = structure[0]
+    # These exported fixtures reuse blank chain labels when residue numbering
+    # restarts. Biotite's inferred peptide bonds must respect those chain breaks.
+    starts = struc.get_chain_starts(structure, add_exclusive_stop=True)
+    chain = numpy.repeat(numpy.arange(len(starts) - 1), numpy.diff(starts))
+    # Make this legacy export's inferred segments explicit for the AtomArray
+    # input contract; residue-number decreases alone no longer define a chain.
+    structure.chain_id = chain.astype(str)
+    for first, second, _ in structure.bonds.as_array():
+        if chain[first] != chain[second] and {
+            structure.atom_name[first],
+            structure.atom_name[second],
+        } == {"C", "N"}:
+            structure.bonds.remove_bond(int(first), int(second))
+    _mark_inferred_polymer_bonds(structure, set())
     return structure
 
 
@@ -120,7 +136,6 @@ def _weighted_ddg_from_fixtures(target: str, torch_device: torch.device) -> floa
         prepare_ligands=True,
         ligand_params_files=[str(tmol_path)],
         no_optH=True,
-        sample_proton_chi=False,
         param_db=ParameterDatabase.get_default(),
         return_context=True,
     )

@@ -1,19 +1,24 @@
+import os
 import logging
 import threading
 from pathlib import Path
 from dataclasses import field, dataclass
-from typing import TypedDict, Literal, Optional, Union
+from typing import TypedDict, Literal, Optional, Union, cast
 
 from istari_digital_client.sdk._env import (
     env_bool,
     env_bool_aliased,
+    env_bool_aliased_optional,
     env_int,
     env_str,
     env_cache_root,
 )
-from istari_digital_client.sdk._auth.identity_service import (
+from istari_digital_client.sdk._identity.auth.identity_service import (
+    IdentityApiVersion,
+    IdentityApiVersionLike,
     IdentityServiceClient,
     RetryPolicy,
+    parse_identity_api_version,
     validate_credentials_file,
     validate_inline_credentials,
 )
@@ -31,7 +36,10 @@ BearerAuthSetting = TypedDict(
 AuthSettings = TypedDict(
     "AuthSettings",
     {
+        # The registry specs name their scheme RequestAuthenticator; the
+        # identity-service spec names the same bearer scheme "bearer".
         "RequestAuthenticator": BearerAuthSetting,
+        "bearer": BearerAuthSetting,
     },
     total=False,
 )
@@ -41,6 +49,23 @@ AuthSettings = TypedDict(
 # Configuration._configure_logging): serializes concurrent client construction so
 # handlers are never installed twice or closed while another thread is logging.
 _LOGGING_LOCK = threading.Lock()
+logger = logging.getLogger(__name__)
+
+
+class _FromEnv:
+    """Default for a credential field the caller omitted; resolved from the environment."""
+
+    def __repr__(self) -> str:
+        return "<from environment>"
+
+
+_FROM_ENV = _FromEnv()
+
+_CREDENTIAL_ENV_VARS = (
+    ("registry_auth_token", "ISTARI_REGISTRY_AUTH_TOKEN"),
+    ("identity_service_secret", "ISTARI_CLIENT_IDENTITY_SERVICE_SECRET"),
+    ("identity_service_secret_file", "ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE"),
+)
 
 
 @dataclass
@@ -68,7 +93,7 @@ class Configuration:
     ``registry_url``); unset (the default) addresses the registry directly via
     ``registry_url``. See :meth:`_registry_base_url`."""
     registry_auth_token: Optional[str] = field(
-        default_factory=env_str("ISTARI_REGISTRY_AUTH_TOKEN"),
+        default=cast(Optional[str], _FROM_ENV),  # omitted: read from ISTARI_REGISTRY_AUTH_TOKEN
         repr=False,  # secret: keep the PAT out of repr/str/logs/tracebacks
     )
     http_request_timeout_secs: Optional[int] = field(
@@ -138,30 +163,34 @@ class Configuration:
 
     # === Identity Service auth config fields ===
     identity_service_enabled: Optional[bool] = field(
-        default_factory=env_bool_aliased(
+        default_factory=env_bool_aliased_optional(
             [
                 "ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED",
                 "ISTARI_CLIENT_IDENTITY_SERVICE_ENABLED",
-            ],
-            default=False,
+            ]
         )
     )
     """When True, authenticate to the registry with an auto-refreshed JWT obtained
     from the Identity Service (RFC 7523 private_key_jwt) instead of a fixed PAT.
-    Requires ``digital_api_url``; the Identity Service base URL is derived from it as
-    ``<digital_api_url>/identity`` (see :meth:`_identity_service_base_url`). Read from
-    the shared ``ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED`` (preferred) or the
-    service-prefixed ``ISTARI_CLIENT_IDENTITY_SERVICE_ENABLED`` alias."""
+    Requires ``digital_api_url`` (gateway) or ``identity_url`` (direct); see
+    :meth:`_identity_service_base_url`. Read from the shared
+    ``ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED`` (preferred) or the service-prefixed
+    ``ISTARI_CLIENT_IDENTITY_SERVICE_ENABLED`` alias; the shared variable wins when both are set.
+    Left unset (the default), it resolves to True when an identity-service secret or secret
+    file is configured and a gateway or ``identity_url`` resolves, and to False otherwise
+    (logging a warning when a secret is configured but no URL resolves); a PAT does not turn it
+    on. An explicit False (the argument, or whichever toggle variable takes effect) wins unless
+    ``identity_service_required`` is set. When True without a configured secret, a client that
+    has a PAT uses the PAT instead. A PAT passed as an argument also wins over a secret read
+    from the environment. Both of those PAT rules yield to ``identity_service_required``."""
     identity_service_secret: Optional[str] = field(
-        default_factory=env_str("ISTARI_CLIENT_IDENTITY_SERVICE_SECRET", default=None),
+        default=cast(Optional[str], _FROM_ENV),  # omitted: read from ISTARI_CLIENT_IDENTITY_SERVICE_SECRET
         repr=False,  # secret: decodes to a PEM private key — keep out of repr/logs
     )
     """Inline Identity Service credentials: a base64-encoded JSON blob
     {clientId, keyId, key} where key is a PEM-encoded ECDSA P-384 private key."""
     identity_service_secret_file: Optional[Union[str, Path]] = field(
-        default_factory=env_str(
-            "ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE", default=None
-        )
+        default=cast(Optional[Union[str, Path]], _FROM_ENV)  # omitted: read from ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE
     )
     """Path to a raw JSON Identity Service credentials file. Preferred over the
     inline secret when both are set."""
@@ -201,6 +230,51 @@ class Configuration:
     ``REQUESTS_CA_BUNDLE``, ``SSL_CERT_FILE``). The explicit ``proxy_url`` and
     ``ca_bundle`` settings still apply. Defaults to True."""
 
+    identity_url: Optional[str] = field(
+        default_factory=env_str("ISTARI_IDENTITY_URL", default=None)
+    )
+    """Direct base URL of the identity-service, used when no gateway is set. The
+    gateway derivation ``<digital_api_url>/identity`` wins when ``digital_api_url``
+    is set, mirroring how ``registry_url`` yields to the gateway."""
+    identity_api_version: IdentityApiVersionLike = field(
+        default_factory=env_str("ISTARI_IDENTITY_API_VERSION", default=IdentityApiVersion.AUTO)
+    )
+    """Which identity-service API this client uses: ``"auto"`` (the default), ``"v2"`` or ``"v1"``.
+
+    Pass an :class:`IdentityApiVersion` member or its string; the attribute holds the
+    member once the configuration is constructed.
+
+    * ``"v2"``: the bearer token is issued at ``/api/v2/oauth2/token`` and
+      carries ``principal_kind``; ``IstariAdmin.identity`` (tenants,
+      memberships, principals, keys, roles, OAuth) works.
+    * ``"v1"``: the bearer token is issued at ``/oauth2/token``;
+      ``IstariAdmin.identity`` raises.
+    * ``"auto"``: the first token fetch tries the v2 endpoint and settles on v1
+      when the identity-service does not serve ``/api/v2``; nothing is sent when
+      the configuration is constructed. :meth:`resolved_identity_api_version` reports
+      the outcome.
+
+    The deprecated key surface (``IstariAdmin.keys``, ``client.keys`` on the legacy
+    clients, and the ``istari_digital_client.identity.v1`` helpers) works under any
+    setting. Read from ``ISTARI_IDENTITY_API_VERSION`` when the argument is
+    omitted; an explicit argument wins over the environment variable. Any other
+    value raises :class:`ConfigurationError` when the configuration is constructed."""
+
+    identity_service_required: bool = field(
+        default_factory=env_bool_aliased(
+            [
+                "ISTARI_DIGITAL_IDENTITY_SERVICE_REQUIRED",
+                "ISTARI_CLIENT_IDENTITY_SERVICE_REQUIRED",
+            ],
+            default=False,
+        )
+    )
+    """When True, identity-service auth is mandatory: it is enabled whatever
+    ``identity_service_enabled`` says, and a missing secret raises
+    :class:`ConfigurationError` instead of falling back to the PAT. Read from
+    ``ISTARI_DIGITAL_IDENTITY_SERVICE_REQUIRED`` (preferred) or the
+    ``ISTARI_CLIENT_IDENTITY_SERVICE_REQUIRED`` alias. Defaults to False."""
+
     # === Date and time formats ===
     datetime_format: str = field(init=False, default="%Y-%m-%dT%H:%M:%S.%f%z")
     date_format: str = field(init=False, default="%Y-%m-%d")
@@ -210,8 +284,13 @@ class Configuration:
     _identity_service_client: Optional[IdentityServiceClient] = field(
         init=False, default=None, repr=False, compare=False
     )
+    # Credential fields filled from the environment rather than passed as arguments.
+    _credentials_from_env: frozenset[str] = field(
+        init=False, default=frozenset(), repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
+        self._read_credentials_from_env()
         if not self.registry_url and not self.digital_api_url:
             raise ConfigurationError(
                 "One of ISTARI_REGISTRY_URL (direct) or ISTARI_DIGITAL_API_URL "
@@ -224,8 +303,19 @@ class Configuration:
                 "ISTARI_CLIENT_S3_BUCKET_NAME must be set when ISTARI_CLIENT_S3_DIRECT_UPLOAD is enabled"
             )
 
-        self._configure_identity_service()
         self._configure_logging()
+        self._configure_identity_service()
+
+    def _read_credentials_from_env(self) -> None:
+        """Fill omitted credential fields from the environment, recording which ones it supplied."""
+        from_env = set()
+        for name, env_var in _CREDENTIAL_ENV_VARS:
+            if getattr(self, name) is _FROM_ENV:
+                value = os.environ.get(env_var)
+                setattr(self, name, value)
+                if value is not None:
+                    from_env.add(name)
+        self._credentials_from_env = frozenset(from_env)
 
     def _registry_base_url(self) -> Optional[str]:
         """Gateway-fronted registry base URL, or None to address the registry directly.
@@ -239,16 +329,26 @@ class Configuration:
             return None
         return self.digital_api_url.rstrip("/") + "/registry"
 
-    def _identity_service_base_url(self) -> Optional[str]:
-        """Identity Service base URL derived from the gateway, or None if unset.
+    def resolved_identity_api_version(self) -> IdentityApiVersion:
+        """The identity-service API version in force: ``IdentityApiVersion.V1`` or ``V2``.
 
-        The service-router gateway fronts the Identity Service under
-        ``<digital_api_url>/identity``, mirroring how the registry is served under
-        ``<digital_api_url>/registry`` (see :meth:`_registry_base_url`).
+        Settles ``"auto"`` on first use through the identity-service client, which
+        fetches a token; without identity-service auth ``"auto"`` reads as ``"v2"``.
+
+        :raises IdentityServiceError: If settling ``"auto"`` fails.
         """
-        if not self.digital_api_url:
-            return None
-        return self.digital_api_url.rstrip("/") + "/identity"
+        if self._identity_service_client is not None:
+            return self._identity_service_client.api_version
+        version = parse_identity_api_version(self.identity_api_version)
+        return IdentityApiVersion.V2 if version is IdentityApiVersion.AUTO else version
+
+    def _identity_service_base_url(self) -> Optional[str]:
+        """Identity-service base URL: the gateway derivation, else ``identity_url``, else None."""
+        if self.digital_api_url:
+            return self.digital_api_url.rstrip("/") + "/identity"
+        if self.identity_url:
+            return self.identity_url.rstrip("/")
+        return None
 
     def _retry_policy(self) -> RetryPolicy:
         """Build a RetryPolicy for the Identity Service token fetch from the retry_* knobs."""
@@ -279,14 +379,62 @@ class Configuration:
         service-router gateway), so enabling identity-service auth requires the
         gateway to be configured.
         """
+        try:
+            self.identity_api_version = parse_identity_api_version(self.identity_api_version)
+        except ValueError as e:
+            raise ConfigurationError(str(e)) from None
+
+        has_secret = bool(self.identity_service_secret or self.identity_service_secret_file)
+        explicit_secret = any(
+            getattr(self, name) and name not in self._credentials_from_env
+            for name in ("identity_service_secret", "identity_service_secret_file")
+        )
+        explicit_pat = bool(self.registry_auth_token) and (
+            "registry_auth_token" not in self._credentials_from_env
+        )
+        # Unset: a secret turns it on when an identity-service URL resolves; a PAT never does.
+        if self.identity_service_enabled is None:
+            has_url = bool(self._identity_service_base_url())
+            self.identity_service_enabled = has_secret and has_url
+            if (
+                has_secret
+                and not has_url
+                and not self.identity_service_required
+                and not (explicit_pat and not explicit_secret)
+            ):
+                logger.warning(
+                    "An identity-service secret is configured but identity-service auth stays off: "
+                    "set ISTARI_DIGITAL_API_URL (gateway) or ISTARI_IDENTITY_URL (direct) to use it"
+                )
+        if self.identity_service_required:
+            self.identity_service_enabled = True
+        elif self.identity_service_enabled and has_secret and explicit_pat and not explicit_secret:
+            logger.debug(
+                "The personal access token passed to Configuration takes precedence over the "
+                "identity-service secret read from ISTARI_CLIENT_IDENTITY_SERVICE_SECRET(_FILE)"
+            )
+            self.identity_service_enabled = False
+        elif self.identity_service_enabled and not has_secret and self.registry_auth_token:
+            logger.debug(
+                "No identity-service secret is configured, so the client authenticates with its "
+                "personal access token; set ISTARI_DIGITAL_IDENTITY_SERVICE_REQUIRED=true to refuse it"
+            )
+            self.identity_service_enabled = False
+        elif self.identity_service_enabled and not has_secret:
+            raise ConfigurationError(
+                "No credentials are configured: set ISTARI_REGISTRY_AUTH_TOKEN to authenticate "
+                "with a personal access token, or ISTARI_CLIENT_IDENTITY_SERVICE_SECRET or "
+                "ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE to authenticate through identity-service"
+            )
         if not self.identity_service_enabled:
             return
 
         identity_service_url = self._identity_service_base_url()
         if not identity_service_url:
             raise ConfigurationError(
-                "ISTARI_DIGITAL_API_URL must be set when identity-service auth "
-                "is enabled (ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED)"
+                "ISTARI_DIGITAL_API_URL (gateway) or ISTARI_IDENTITY_URL (direct) must be set when "
+                "identity-service auth is enabled (ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED) or "
+                "required (ISTARI_DIGITAL_IDENTITY_SERVICE_REQUIRED)"
             )
 
         # Prefer the file-based secret if configured; fall back to the inline secret.
@@ -298,8 +446,8 @@ class Configuration:
             raise ConfigurationError(
                 "ISTARI_CLIENT_IDENTITY_SERVICE_SECRET or "
                 "ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE must be set when "
-                "identity-service auth is enabled "
-                "(ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED)"
+                "identity-service auth is enabled (ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED) "
+                "or required (ISTARI_DIGITAL_IDENTITY_SERVICE_REQUIRED)"
             )
 
         # Validate credentials on load.
@@ -317,6 +465,7 @@ class Configuration:
             identity_service_url,
             secret,
             retry_policy=self._retry_policy(),
+            api_version=self.identity_api_version,
         )
 
     def _configure_logging(self) -> None:
@@ -336,10 +485,10 @@ class Configuration:
         if not isinstance(log_level, int):
             raise ValueError(f"Invalid log level: {self.log_level}")
 
-        logger = logging.getLogger("istari_digital_client")
+        pkg_logger = logging.getLogger("istari_digital_client")
 
         with _LOGGING_LOCK:
-            if getattr(logger, "_istari_configured", False):
+            if getattr(pkg_logger, "_istari_configured", False):
                 return
 
             formatter = logging.Formatter(
@@ -369,11 +518,11 @@ class Configuration:
             stream_handler.setFormatter(formatter)
             handlers.append(stream_handler)
 
-            logger.setLevel(log_level)
+            pkg_logger.setLevel(log_level)
             for handler in handlers:
-                logger.addHandler(handler)
-            logger.propagate = False
-            logger._istari_configured = True  # type: ignore[attr-defined]
+                pkg_logger.addHandler(handler)
+            pkg_logger.propagate = False
+            pkg_logger._istari_configured = True  # type: ignore[attr-defined]
 
     def auth_settings(self) -> AuthSettings:
         """Gets Auth Settings dict for api client.
@@ -381,6 +530,9 @@ class Configuration:
         When the Identity Service is enabled, the bearer value is a live JWT
         obtained (and proactively refreshed) from the Identity Service; otherwise it is the
         fixed registry auth token (PAT).
+
+        The same setting is published under both scheme names the specs use, so a
+        generated method finds it whichever spec it came from; the unused name is ignored.
 
         :return: The Auth Settings information dict.
         """
@@ -393,12 +545,14 @@ class Configuration:
             bearer_value = "Bearer " + self.registry_auth_token
 
         if bearer_value is not None:
-            auth["RequestAuthenticator"] = {
+            setting: BearerAuthSetting = {
                 "type": "bearer",
                 "in": "header",
                 "key": "Authorization",
                 "value": bearer_value,
             }
+            auth["RequestAuthenticator"] = setting
+            auth["bearer"] = setting
         return auth
 
     def _invalidate_managed_auth(self) -> bool:

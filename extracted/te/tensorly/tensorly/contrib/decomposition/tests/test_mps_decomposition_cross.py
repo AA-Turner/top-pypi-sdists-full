@@ -40,7 +40,7 @@ def test_tensor_train_cross_1():
     # has the correct number of elements
     r_prev_iteration = 1
     for k in range(d):
-        (r_prev_k, n_k, r_k) = factors[k].shape
+        r_prev_k, n_k, r_k = factors[k].shape
         assert tensor_shape[k] == n_k, (
             "Mode 1 of factor "
             + str(k)
@@ -66,7 +66,7 @@ def test_tensor_train_cross_2():
     factors = tensor_train_cross(tensor, rank, random_state=rng)
 
     for k in range(6):
-        (r_prev, n_k, r_k) = factors[k].shape
+        r_prev, n_k, r_k = factors[k].shape
 
         first_error_message = (
             "TT rank " + str(k) + " is greater than the maximum allowed "
@@ -154,3 +154,23 @@ def test_tensor_train_cross_4():
 
     print(error)
     assert_(error < 1e-5, "norm 2 of reconstruction higher than tol")
+
+
+@pytest.mark.parametrize(
+    "shape, rank",
+    [((2,) * 6, [1, 3, 3, 3, 3, 3, 1]), ((8, 2, 2), [1, 5, 2, 1])],
+)
+def test_tensor_train_cross_rejects_too_many_columns(shape, rank):
+    """An impossible number of distinct right indices must not loop forever."""
+    tensor = tl.tensor(np.zeros(shape))
+    with pytest.raises(
+        ValueError, match="exceeds the number of available column indices"
+    ):
+        tensor_train_cross(tensor, rank, random_state=0)
+
+
+def test_tensor_train_cross_all_columns():
+    """A rank equal to a multi-mode right index capacity remains valid."""
+    tensor = tl.tensor(np.random.RandomState(0).random_sample((8, 2, 2)))
+    factors = tensor_train_cross(tensor, [1, 4, 2, 1], random_state=0)
+    np.testing.assert_allclose(tl.to_numpy(tt_to_tensor(factors)), tl.to_numpy(tensor))

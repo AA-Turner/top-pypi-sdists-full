@@ -11,6 +11,13 @@ from sky.skylet import autostop_lib
 from sky.skylet import constants
 from sky.utils import kubernetes_enums
 
+# Valid values for the `scope` field of a dashboard.external_links entry:
+# the dashboard pages a link may appear on. 'cluster' is the cluster detail
+# page; 'jobs' covers job detail pages (both cluster jobs and managed jobs).
+# Keep in sync with EXTERNAL_LINK_SCOPES in
+# sky/dashboard/src/utils/externalLinks.js.
+DASHBOARD_EXTERNAL_LINK_SCOPES = ('cluster', 'jobs')
+
 # Registry for plugin-provided job_recovery schema properties.
 # Plugins call register_job_recovery_property() to add strategy-specific
 # config fields. On the server, once plugins have loaded, their properties
@@ -39,6 +46,8 @@ def register_job_recovery_property(name: str, schema: Dict[str, Any]) -> None:
 _extra_jobs_properties: Dict[str, Any] = {}
 
 _extra_kubernetes_properties: Dict[str, Any] = {}
+
+_extra_slurm_properties: Dict[str, Any] = {}
 
 # Registry for plugin-provided properties under the top-level
 # `plugins:` config section. Keyed by plugin name.
@@ -99,6 +108,23 @@ def register_kubernetes_property(name: str, schema: Dict[str, Any]) -> None:
             (e.g., {'type': 'string'}).
     """
     _extra_kubernetes_properties[name] = schema
+
+
+def register_slurm_property(name: str, schema: Dict[str, Any]) -> None:
+    """Register an additional property for the slurm schema.
+
+    This allows plugins to extend the slurm dict schema with slurm-specific
+    configuration fields. The property is merged into the schema's properties
+    dict (both at the top level and under each per-cluster ``cluster_configs``
+    entry), so it passes JSON schema validation even with
+    additionalProperties: False.
+
+    Args:
+        name: The property name.
+        schema: The JSON Schema for the property
+            (e.g., {'type': 'string'}).
+    """
+    _extra_slurm_properties[name] = schema
 
 
 def _check_not_both_fields_present(field1: str, field2: str):
@@ -446,6 +472,9 @@ def _get_single_resources_schema():
                     'type': 'integer',
                 }],
             },
+            # Deprecated: use disk_size instead. Kept for backward
+            # compatibility with configs written by older versions.
+            # TODO (kyuds): remove v0.14.0.
             'ephemeral_storage': {
                 'anyOf': [{
                     'type': 'string',
@@ -1134,7 +1163,13 @@ def _task_config_schema():
         constants.OVERRIDEABLE_CONFIG_KEYS_IN_TASK)['properties']
     return {
         'type': 'object',
-        'additionalProperties': False,
+        # On the client, let unknown keys pass through so config keys
+        # registered as task-overrideable on the server (via
+        # skypilot_config.register_task_overrideable_config_key) are not
+        # rejected by a client that does not know about them — mirroring
+        # how the global config schema handles plugin-registered
+        # properties. The server enforces the full set.
+        'additionalProperties': _allow_additional_properties(),
         'properties': {
             **overrideable,
             'hooks': _HOOKS_SCHEMA,
@@ -1474,6 +1509,28 @@ _SBATCH_OPTIONS_SCHEMA = {
     },
 }
 
+# `quota.queue` names the QOS a job is submitted with (`sbatch --qos`) and
+# `quota.account` the account it is charged to (`sbatch --account`), mirroring
+# `kubernetes.quota.queue`. Permissive so external schedulers (registered via
+# plugins) can layer their own sub-fields under `quota`.
+_SLURM_QUOTA_SCHEMA = {
+    'type': 'object',
+    'required': [],
+    'additionalProperties': True,
+    'properties': {
+        # Non-empty: an empty value would still be emitted as a bare
+        # `--qos=` / `--account=` directive and be rejected by sbatch.
+        'queue': {
+            'type': 'string',
+            'minLength': 1,
+        },
+        'account': {
+            'type': 'string',
+            'minLength': 1,
+        },
+    },
+}
+
 _GPU_PARTITION_MAP_SCHEMA = {
     'type': 'object',
     'required': [],
@@ -1484,6 +1541,31 @@ _GPU_PARTITION_MAP_SCHEMA = {
             'type': 'array',
             'items': {
                 'type': 'string',
+            },
+        }],
+    },
+}
+
+_CONTAINER_MOUNTS_SCHEMA = {
+    'type': 'object',
+    'required': [],
+    # Maps a container path to a host path string (read-only) or
+    # {host_path: ..., mode: ro|rw}.
+    'additionalProperties': {
+        'anyOf': [{
+            'type': 'string',
+        }, {
+            'type': 'object',
+            'required': ['host_path'],
+            'additionalProperties': False,
+            'properties': {
+                'host_path': {
+                    'type': 'string',
+                },
+                'mode': {
+                    'type': 'string',
+                    'enum': ['ro', 'rw'],
+                },
             },
         }],
     },
@@ -1522,6 +1604,16 @@ _CONTEXT_CONFIG_SCHEMA_MINIMAL = {
     },
     'provision_timeout': {
         'type': 'integer',
+    },
+    'max_inline_command_length': {
+        # Largest command, in bytes of request URL, that SkyPilot will inline
+        # into a `kubectl exec` instead of uploading as a file. Lower this if a
+        # proxy in front of the Kubernetes API rejects large requests; the only
+        # cost of a lower value is an extra file upload per job submission.
+        # Lives here rather than in the Kubernetes-only schema so SSH node
+        # pools, which run through the same runner, can set it too.
+        'type': 'integer',
+        'minimum': 1024,
     },
     'custom_metadata': {
         'type': 'object',
@@ -1568,6 +1660,33 @@ _CONTEXT_CONFIG_SCHEMA_KUBERNETES = {
             },
         },
     },
+    'rdma': {
+        # How RDMA NICs reach pods on this context. Unset preserves the
+        # historical behavior (RDMA-capable clusters imply host networking).
+        'type': 'object',
+        'required': [],
+        'additionalProperties': False,
+        'properties': {
+            'mode': {
+                'type': 'string',
+                'case_insensitive_enum': [
+                    mode.value for mode in kubernetes_enums.KubernetesRdmaMode
+                ],
+            },
+            # Extended resource advertised by the RDMA device plugin, e.g.
+            # nvidia.com/rdma-vf. Site-specific: the device plugin's config
+            # composes it from an operator-chosen prefix and name.
+            'resource': {
+                'type': 'string',
+            },
+            # Value for the Multus k8s.v1.cni.cncf.io/networks annotation --
+            # the NetworkAttachmentDefinition to attach, repeated once per
+            # requested VF.
+            'networks': {
+                'type': 'string',
+            },
+        },
+    },
     # TODO(kevin): Remove 'networking' in v0.13.0.
     'networking': {
         'type': 'string',
@@ -1608,6 +1727,11 @@ _CONTEXT_CONFIG_SCHEMA_KUBERNETES = {
         'properties': {
             'local_queue_name': {
                 'type': 'string',
+            },
+            # Seconds a launch may wait for queue admission (pods held by
+            # a scheduling gate) before failing; -1 waits indefinitely.
+            'admission_timeout': {
+                'type': 'integer',
             },
         },
     },
@@ -1695,6 +1819,17 @@ _CONTEXT_CONFIG_SCHEMA_KUBERNETES = {
                     },
                     'minItems': 1,
                 },
+                # Whose launches this auto-mount applies to, mirroring the
+                # personal/workspace/global scopes used by secrets:
+                # - personal: only launches by the volume's owner
+                # - workspace: only launches in the volume's workspace
+                # - global: every launch (default; original behavior)
+                # Values must match volume.AutoMountScope (not imported here
+                # to avoid a circular import).
+                'scope': {
+                    'type': 'string',
+                    'enum': ['personal', 'workspace', 'global'],
+                },
             },
         },
     },
@@ -1728,6 +1863,17 @@ _CONTEXT_CONFIG_SCHEMA_KUBERNETES = {
             },
         ],
     },
+}
+
+_SLURM_USERNAME_MAP_SCHEMA = {
+    'type': 'object',
+    'propertyNames': {
+        'minLength': 1
+    },
+    'additionalProperties': {
+        'type': 'string',
+        'pattern': '^[a-z_][a-z0-9_.-]*$'
+    }
 }
 
 
@@ -1789,6 +1935,27 @@ def get_config_schema():
             'additionalProperties': _allow_additional_properties(),
             'properties': props,
         }
+
+    # Budgets bounding how long the managed-job controller tolerates
+    # consecutive failures of its job-status check before treating the job as
+    # unhealthy and recovering it. Recovery is only triggered once *both*
+    # budgets are exhausted; see
+    # sky.jobs.utils.TransientStatusCheckWindow.
+    jobs_status_check_schema = {
+        'type': 'object',
+        'required': [],
+        'additionalProperties': False,
+        'properties': {
+            'min_elapsed_seconds': {
+                'type': 'number',
+                'minimum': 0,
+            },
+            'min_retries': {
+                'type': 'integer',
+                'minimum': 0,
+            },
+        },
+    }
 
     cloud_configs = {
         'aws': {
@@ -1858,6 +2025,14 @@ def get_config_schema():
                                 'type': 'string'
                             }
                         }]
+                    },
+                },
+                'enforce_tags': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'string',
+                        'case_sensitive_enum': ['instance', 'volume'],
                     },
                 },
                 **_CAPABILITIES_SCHEMA,
@@ -2039,7 +2214,11 @@ def get_config_schema():
         'slurm': {
             'type': 'object',
             'required': [],
-            'additionalProperties': False,
+            # On the server, plugins have registered their properties via
+            # register_slurm_property(), so we can be strict. On the client we
+            # allow unknown properties to pass through for server-side
+            # validation.
+            'additionalProperties': _allow_additional_properties(),
             'properties': {
                 'allowed_clusters': {
                     'oneOf': [{
@@ -2055,11 +2234,36 @@ def get_config_schema():
                 'provision_timeout': {
                     'type': 'integer',
                 },
+                'submit_as_user': {
+                    'type': 'boolean',
+                },
+                'username_map': (_SLURM_USERNAME_MAP_SCHEMA),
                 'pricing': _PRICING_SCHEMA,
                 'sbatch_options': _SBATCH_OPTIONS_SCHEMA,
+                'quota': _SLURM_QUOTA_SCHEMA,
                 'gpu_partition_map': _GPU_PARTITION_MAP_SCHEMA,
                 'cpu_partition': {
                     'type': 'string',
+                },
+                'container_mounts': _CONTAINER_MOUNTS_SCHEMA,
+                # Shared GPU-metrics federation defaults, applied to any
+                # cluster that does not override them under cluster_configs.
+                # The common case: one central Prometheus, reachable through a
+                # single fleet's login node, serving every cluster — set `url`
+                # (and `via`) once here rather than on each cluster, and give
+                # each cluster only its own `prometheus.filter`.
+                'prometheus': {
+                    'type': 'object',
+                    'required': [],
+                    'additionalProperties': False,
+                    'properties': {
+                        'url': {
+                            'type': 'string',
+                        },
+                        'via': {
+                            'type': 'string',
+                        },
+                    },
                 },
                 'cluster_configs': {
                     'type': 'object',
@@ -2068,7 +2272,10 @@ def get_config_schema():
                     'additionalProperties': {
                         'type': 'object',
                         'required': [],
-                        'additionalProperties': False,
+                        # Strict on the server (plugins have registered their
+                        # per-cluster properties via register_slurm_property);
+                        # permissive on the client for server-side validation.
+                        'additionalProperties': _allow_additional_properties(),
                         'properties': {
                             'workdir': {
                                 'type': 'string',
@@ -2076,12 +2283,57 @@ def get_config_schema():
                             'tmpdir': {
                                 'type': 'string',
                             },
+                            'submit_as_user': {
+                                'type': 'boolean',
+                            },
+                            'username_map': (_SLURM_USERNAME_MAP_SCHEMA),
+                            # The Prometheus this cluster's GPU metrics are
+                            # federated from.
+                            'prometheus': {
+                                'type': 'object',
+                                'required': [],
+                                'additionalProperties': False,
+                                'properties': {
+                                    # Reachable from the cluster's login
+                                    # node, scraping the cluster's node/DCGM
+                                    # exporters; opts the cluster into
+                                    # /gpu-metrics federation.
+                                    'url': {
+                                        'type': 'string',
+                                    },
+                                    # Label matchers scoping this cluster's
+                                    # slice of `url`, for a Prometheus that
+                                    # aggregates several fleets. Without them
+                                    # an unscoped DCGM_.* pull attributes
+                                    # every fleet's series to this cluster.
+                                    'filter': {
+                                        'type': 'object',
+                                        'additionalProperties': {
+                                            'type': 'string',
+                                        },
+                                    },
+                                    # Slurm cluster whose login node runs the
+                                    # /federate curl instead of this
+                                    # cluster's own, for a central Prometheus
+                                    # reachable from only some login nodes.
+                                    'via': {
+                                        'type': 'string',
+                                    },
+                                },
+                            },
+                            # Deprecated: superseded by `prometheus.url`,
+                            # kept so deployed configs keep federating.
+                            'prometheus_url': {
+                                'type': 'string',
+                            },
                             'pricing': _PRICING_SCHEMA,
                             'sbatch_options': _SBATCH_OPTIONS_SCHEMA,
+                            'quota': _SLURM_QUOTA_SCHEMA,
                             'gpu_partition_map': _GPU_PARTITION_MAP_SCHEMA,
                             'cpu_partition': {
                                 'type': 'string',
                             },
+                            'container_mounts': _CONTAINER_MOUNTS_SCHEMA,
                             'partition_configs': {
                                 'type': 'object',
                                 'required': [],
@@ -2093,12 +2345,19 @@ def get_config_schema():
                                     'properties': {
                                         'pricing': _PRICING_SCHEMA,
                                         'sbatch_options': _SBATCH_OPTIONS_SCHEMA,  # pylint: disable=line-too-long
+                                        'quota': _SLURM_QUOTA_SCHEMA,
                                     },
                                 },
                             },
+                            # Plugin-registered per-cluster slurm properties
+                            # via register_slurm_property().
+                            **_extra_slurm_properties,
                         },
                     },
                 },
+                # Plugin-registered top-level slurm properties via
+                # register_slurm_property().
+                **_extra_slurm_properties,
             }
         },
         'oci': {
@@ -2156,11 +2415,17 @@ def get_config_schema():
                 **_NETWORK_CONFIG_SCHEMA, 'use_static_ip_address': {
                     'type': 'boolean',
                 },
+                'disk_encrypted': {
+                    'type': 'boolean',
+                },
                 'tenant_id': {
                     'type': 'string',
                 },
                 'domain': {
                     'type': 'string',
+                },
+                'use_personal_pricing': {
+                    'type': 'boolean',
                 },
                 'security_group_name':
                     (_PROPERTY_NAME_OR_CLUSTER_NAME_TO_PROPERTY),
@@ -2181,6 +2446,9 @@ def get_config_schema():
                             },
                             'fabric': {
                                 'type': 'string',
+                            },
+                            'disk_encrypted': {
+                                'type': 'boolean',
                             },
                             'filesystems': {
                                 'type': 'array',
@@ -2327,6 +2595,9 @@ def get_config_schema():
             'cluster_terminal_event_retention_hours': {
                 'type': 'number',
             },
+            'launch_attempt_retention_hours': {
+                'type': 'number',
+            },
             'daemon_log_max_bytes': {
                 'type': 'integer',
                 'minimum': 0,
@@ -2344,7 +2615,7 @@ def get_config_schema():
                 'case_insensitive_enum': ['admin', 'user', 'viewer']
             },
             # When true, GET /workspaces/config is restricted to admins (the
-            # config payload includes admin-only secrets). Defaults to false.
+            # config payload includes admin-only secrets). Defaults to true.
             'restrict_config_to_admins': {
                 'type': 'boolean',
             },
@@ -2372,13 +2643,15 @@ def get_config_schema():
 
     allowed_workspace_cloud_names = list(
         constants.ALL_CLOUDS) + constants.STORAGE_ONLY_CLOUDS
-    # Create pattern for not supported clouds, i.e.
-    # all clouds except aws, gcp, kubernetes, ssh, nebius
+    # Create pattern for not supported clouds, i.e. all clouds except aws,
+    # gcp, kubernetes, ssh, nebius, slurm.
     not_supported_clouds = [
-        cloud for cloud in allowed_workspace_cloud_names
-        if cloud.lower() not in ['aws', 'gcp', 'kubernetes', 'ssh', 'nebius']
+        cloud for cloud in allowed_workspace_cloud_names if cloud.lower() not in
+        ['aws', 'gcp', 'kubernetes', 'ssh', 'nebius', 'slurm']
     ]
     not_supported_cloud_regex = '|'.join(not_supported_clouds)
+    slurm_allowed_clusters_schema = cloud_configs['slurm']['properties'][
+        'allowed_clusters']
     workspaces_schema = {
         'type': 'object',
         'required': [],
@@ -2410,6 +2683,17 @@ def get_config_schema():
                     'items': {
                         'type': 'string',
                     },
+                },
+                # Who may read a (private) workspace. 'allowed_users'
+                # (default): only the workspace's allowed users (members)
+                # and admins can see it; it is hidden from everyone else.
+                # 'all': anyone can see the workspace and its clusters/jobs, but
+                # writes stay members-only, so non-members get read-only access.
+                # Only meaningful for private workspaces; an open (non-private)
+                # workspace is usable by everyone regardless.
+                'read_access': {
+                    'type': 'string',
+                    'enum': ['allowed_users', 'all'],
                 },
                 'gcp': {
                     'type': 'object',
@@ -2485,6 +2769,9 @@ def get_config_schema():
                                 'local_queue_name': {
                                     'type': 'string',
                                 },
+                                'admission_timeout': {
+                                    'type': 'integer',
+                                },
                             },
                         },
                         'quota': {
@@ -2558,6 +2845,47 @@ def get_config_schema():
                     # unknown properties to pass through for
                     # server-side validation.
                     'additionalProperties': _allow_additional_properties(),
+                },
+                'slurm': {
+                    'type': 'object',
+                    'required': [],
+                    'additionalProperties': False,
+                    'properties': {
+                        'disabled': {
+                            'type': 'boolean'
+                        },
+                        'allowed_clusters': slurm_allowed_clusters_schema,
+                        'sbatch_options': _SBATCH_OPTIONS_SCHEMA,
+                        'quota': _SLURM_QUOTA_SCHEMA,
+                        'cluster_configs': {
+                            'type': 'object',
+                            'required': [],
+                            'properties': {},
+                            'additionalProperties': {
+                                'type': 'object',
+                                'required': [],
+                                'additionalProperties': False,
+                                'properties': {
+                                    'sbatch_options': _SBATCH_OPTIONS_SCHEMA,
+                                    'quota': _SLURM_QUOTA_SCHEMA,
+                                    'partition_configs': {
+                                        'type': 'object',
+                                        'required': [],
+                                        'properties': {},
+                                        'additionalProperties': {
+                                            'type': 'object',
+                                            'required': [],
+                                            'additionalProperties': False,
+                                            'properties': {
+                                                'sbatch_options': _SBATCH_OPTIONS_SCHEMA,  # pylint: disable=line-too-long
+                                                'quota': _SLURM_QUOTA_SCHEMA,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
                 },
                 'nebius': {
                     'type': 'object',
@@ -2680,6 +3008,36 @@ def get_config_schema():
         },
     }
 
+    metrics_schema = {
+        'type': 'object',
+        'required': [],
+        'additionalProperties': False,
+        'properties': {
+            # The Prometheus deployment that /gpu-metrics federates from
+            # in each context. Defaults match the SkyPilot Helm chart
+            # (service `skypilot-prometheus-server` in namespace
+            # `skypilot`, port 80).
+            'prometheus': {
+                'type': 'object',
+                'required': [],
+                'additionalProperties': False,
+                'properties': {
+                    'namespace': {
+                        'type': 'string',
+                    },
+                    'service': {
+                        'type': 'string',
+                    },
+                    'port': {
+                        'type': 'integer',
+                        'minimum': 1,
+                        'maximum': 65535,
+                    },
+                },
+            },
+        },
+    }
+
     dashboard_schema = {
         'type': 'object',
         'required': [],
@@ -2689,7 +3047,7 @@ def get_config_schema():
                 'type': 'array',
                 'items': {
                     'type': 'object',
-                    'required': ['label', 'regex'],
+                    'required': ['label'],
                     'additionalProperties': False,
                     'properties': {
                         'label': {
@@ -2700,7 +3058,32 @@ def get_config_schema():
                             'type': 'string',
                             'minLength': 1,
                         },
+                        'url': {
+                            'type': 'string',
+                            'minLength': 1,
+                        },
+                        # Pages the link may appear on. Omitted means all
+                        # pages (subject to template-variable resolution).
+                        'scope': {
+                            'type': 'array',
+                            'minItems': 1,
+                            'uniqueItems': True,
+                            'items': {
+                                'type': 'string',
+                                'enum': list(DASHBOARD_EXTERNAL_LINK_SCOPES),
+                            },
+                        },
                     },
+                    # Each entry is either a log-scanning pattern (regex) or
+                    # a templated link (url), never both.
+                    'oneOf': [
+                        {
+                            'required': ['regex']
+                        },
+                        {
+                            'required': ['url']
+                        },
+                    ],
                 },
             },
         },
@@ -2719,8 +3102,10 @@ def get_config_schema():
             'db': {
                 'type': 'string',
             },
-            'jobs': _get_controller_schema(
-                extra_properties=_extra_jobs_properties,),
+            'jobs': _get_controller_schema(extra_properties={
+                'status_check': jobs_status_check_schema,
+                **_extra_jobs_properties,
+            },),
             'serve': _get_controller_schema(),
             'allowed_clouds': allowed_clouds,
             'admin_policy': admin_policy_schema,
@@ -2729,12 +3114,28 @@ def get_config_schema():
             'api_server': api_server,
             'active_workspace': workspace_schema,
             'workspaces': workspaces_schema,
+            # Org-wide defaults applied to every workspace unless the
+            # workspace overrides them under `workspaces.<name>`.
+            'workspace_config': {
+                'type': 'object',
+                'required': [],
+                'additionalProperties': False,
+                'properties': {
+                    # Default read access for private workspaces. A
+                    # per-workspace `read_access` overrides this.
+                    'read_access': {
+                        'type': 'string',
+                        'enum': ['allowed_users', 'all'],
+                    },
+                },
+            },
             'provision': provision_configs,
             'rbac': rbac_schema,
             'logs': logs_schema,
             'daemons': daemon_schema,
             'data': data_schema,
             'dashboard': dashboard_schema,
+            'metrics': metrics_schema,
             **cloud_configs,
             # For plugin-specific config.
             'plugins': {

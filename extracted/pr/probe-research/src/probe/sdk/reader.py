@@ -24,7 +24,7 @@ from typing import Any
 
 from . import errors, nonfinite
 from .artifact_listing import read_artifact_rows
-from .client import SOURCE_READ_CONTRACT, _as_experiment
+from .client import SOURCE_READ_CONTRACT, _experiment_pages, _from_experiment_api
 from .config import resolve
 from .transport import Transport
 
@@ -110,29 +110,58 @@ class Reader:
         return self._t.get(f"/v1/projects/{project_id}")
 
     def experiments(self, *, project_id=None, slug=None, tags=None) -> list[dict]:
-        """0231: read at the PROJECT address, in the experiment vocabulary.
+        """Experiments, through the experiment API (light experiments X21): one
+        project's (``project_id``), or every project's, walked project by
+        project. ``slug`` names at most one experiment tenant-wide (``GET
+        /v1/scopes?slug=``). Rows carry ``project_id`` (and, for code written
+        against the project address, ``parent_project_id``, ``description`` and
+        ``kind``).
 
-        `project_id` becomes `parent_id` because an experiment's project IS its
-        parent, and `kind=experiment` is what both narrows the list and lifts
-        the exclusion that keeps an experiment's address off the Projects page.
-        """
-        return [
-            _as_experiment(row)
-            for row in self._all(
-                "/v1/projects",
-                _clean(
-                    {
-                        "parent_id": project_id,
-                        "slug": slug,
-                        "tags": tags,
-                        "kind": "experiment",
-                    }
-                ),
+        ``tags`` is refused: an experiment's tags are kept read-only since it
+        moved to its own record, and the experiment API does not serve them."""
+        if tags:
+            raise ValueError(
+                "experiments have no tags to filter by any more: they are kept "
+                "read-only since an experiment moved to its own record"
             )
-        ]
+        if slug is not None:
+            found = self._experiment_by_slug(slug, project_id)
+            return [found] if found is not None else []
+        if project_id:
+            # The project the caller named: its absence is the caller's error.
+            return _experiment_pages(self._t, str(project_id), missing_ok=False)
+        rows: list[dict] = []
+        for project in self._all("/v1/projects"):
+            # A project trashed or gone since the list was read is skipped.
+            rows.extend(_experiment_pages(self._t, str(project["id"])))
+        return rows
+
+    def _experiment_by_slug(self, slug: str, project_id: str | None) -> dict | None:
+        try:
+            if project_id is None:
+                scope = self._t.get("/v1/scopes", params={"slug": slug})
+                if scope.get("kind") != "experiment":
+                    return None
+                project_id, slug = scope["project_id"], scope["id"]
+            return _from_experiment_api(
+                self._t.get(f"/v1/projects/{project_id}/experiments/{slug}")
+            )
+        except errors.NotFoundError:
+            return None
+
+    def _experiment_project(self, experiment_id: str) -> str:
+        """The project an experiment is filed in (``GET /v1/scopes/{id}``)."""
+        scope = self._t.get(f"/v1/scopes/{experiment_id}")
+        if scope.get("kind") != "experiment" or not scope.get("project_id"):
+            raise errors.NotFoundError(f"no experiment with id {experiment_id!r}")
+        return str(scope["project_id"])
 
     def experiment(self, experiment_id: str) -> dict:
-        return _as_experiment(self._t.get(f"/v1/projects/{experiment_id}"))
+        """One experiment (``GET /v1/projects/{P}/experiments/{E}``)."""
+        project_id = self._experiment_project(experiment_id)
+        return _from_experiment_api(
+            self._t.get(f"/v1/projects/{project_id}/experiments/{experiment_id}")
+        )
 
     def runs(self, *, experiment_id=None, project_id=None, status=None, tags=None) -> list[dict]:
         return self._all(
@@ -158,11 +187,10 @@ class Reader:
         )
 
     def groups(self, experiment_id: str) -> list[dict]:
-        # The project address: the same rows, from the door that survives
-        # the cut. `tests/integration/test_project_route_parity.py` asserts
-        # the two responses are byte-identical, which is what makes moving
-        # this invisible to a caller.
-        return self._t.get(f"/v1/projects/{experiment_id}/groups")
+        """The experiment's run groups (``GET /v1/projects/{P}/experiments/{E}/groups``):
+        the leaf door's rows, with ``project_id`` beside ``experiment_id``."""
+        project_id = self._experiment_project(experiment_id)
+        return self._t.get(f"/v1/projects/{project_id}/experiments/{experiment_id}/groups")
 
     def group(self, group_id: str) -> dict:
         return self._t.get(f"/v1/groups/{group_id}")

@@ -203,7 +203,7 @@ class WorkloadConfig(ModelBase):
     ray_version: Optional[str] = field(
         default=None,
         metadata={
-            "docstring": "The Ray version (X.Y.Z) specified for this image specified by either an image URI or a containerfile. If you don't specify a Ray version, Anyscale defaults to the latest Ray version available at the time of the Anyscale CLI/SDK release."
+            "docstring": "Ray version (X.Y.Z) of the image, from an image URI or a containerfile. Defaults to the version of the containerfile's Anyscale base image, if any. Otherwise, Anyscale doesn't assume a version."
         },
     )
 

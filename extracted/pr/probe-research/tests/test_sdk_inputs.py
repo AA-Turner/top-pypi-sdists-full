@@ -880,7 +880,7 @@ def test_collect_scrubs_each_row_once(tmp_path, monkeypatch) -> None:
     assert len(calls) == n + 1, "one per row's path, plus the host once"
 
 
-def test_ten_thousand_reads_collect_and_journal_quickly(tmp_path, monkeypatch) -> None:
+def test_ten_thousand_reads_collect_and_journal_quickly(tmp_path, monkeypatch, record_property) -> None:
     """The finish-time cost, through the REAL journal (whose own scrubs re-read
     every row): it was ~3.9 s here and 6.8 s on the plan's box.
 
@@ -889,8 +889,9 @@ def test_ten_thousand_reads_collect_and_journal_quickly(tmp_path, monkeypatch) -
     shared timestamp and no hashes the cache hid ~24k full scans (1.38-1.42 s
     against this limit). The count of UNCACHED scrubs is the deterministic
     check: one per row's path (and a few constants), not one per field. The
-    time bound is CPU time, not wall time: the cost this guards is the scan,
-    and on a shared box at load 20 the same run took 2.8 s of wall clock."""
+    scan count guards the algorithm on every runner. Record CPU time for
+    benchmarks; an absolute seconds budget depends on the host and Python
+    version and does not belong in a functional deployment gate."""
     from probe.sdk import redaction
     from probe.sdk.journal import Journal
 
@@ -934,7 +935,7 @@ def test_ten_thousand_reads_collect_and_journal_quickly(tmp_path, monkeypatch) -
     assert len(rows) == n and all(r["content_hash"] and r["fingerprint"] for r in rows)
     assert len({r["first_seen_at"] for r in rows}) == n
     assert uncached[0] < n + 200, f"{uncached[0]} uncached scrubs for {n} rows"
-    assert elapsed < 1.5, f"{elapsed:.2f}s of CPU for {n} reads"
+    record_property("collect_and_journal_cpu_seconds", elapsed)
 
 
 # -- .probeignore (plan (n)) ------------------------------------------------------

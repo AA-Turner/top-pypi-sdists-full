@@ -52,20 +52,10 @@ struct HBondPoseScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev>
-          pose_stack_min_bond_separation,  // ?? needed ?? I think so
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev>
-          pose_stack_inter_block_bondsep,  // ?? needed ?? I think so
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -110,12 +100,14 @@ struct HBondPoseScoreDispatch {
       TView<Vec<Real, 3>, 2, Dev> derived_coords,
       TView<Int, 2, Dev> derived_atom_inds,
 
+      TView<Int, 1, Dev> shared_compact_block_neighbors,
       bool output_block_pair_energies,
-      bool compute_derivs)
+      bool compute_derivs,
+      bool allow_split_pairs = false)
       -> std::tuple<
           TPack<Real, 4, Dev>,
           TPack<Vec<Real, 3>, 2, Dev>,
-          TPack<Int, 3, Dev> >;
+          TPack<Int, 3, Dev>>;
 
   static auto backward(
       ContextManager& mgr,
@@ -138,20 +130,10 @@ struct HBondPoseScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev>
-          pose_stack_min_bond_separation,  // ?? needed ?? I think so
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev>
-          pose_stack_inter_block_bondsep,  // ?? needed ?? I think so
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -208,6 +190,29 @@ template <
     typename Real,
     typename Int>
 struct HBondRotamerScoreDispatch {
+  static auto rotamer_spheres(
+      ContextManager& mgr,
+      TView<Vec<Real, 3>, 1, Dev> rot_coords,
+      TView<Int, 1, Dev> rot_coord_offset,
+      TView<Int, 2, Dev> first_rot_block_type,
+      TView<Int, 1, Dev> block_type_ind_for_rot,
+      TView<Int, 2, Dev> n_rots_for_block,
+      TView<Int, 2, Dev> rot_offset_for_block,
+      TView<Int, 1, Dev> block_type_n_atoms)
+      -> std::tuple<TPack<Real, 2, Dev>, TPack<Real, 3, Dev>>;
+
+  static auto rotamer_dispatch_page(
+      ContextManager& mgr,
+      TView<Int, 2, Dev> first_rot_block_type,
+      TView<Real, 3, Dev> block_spheres,
+      TView<Int, 2, Dev> n_rots_for_block,
+      TView<Int, 2, Dev> rot_offset_for_block,
+      TView<Real, 2, Dev> rot_spheres,
+      TView<Int, 2, Dev> lockstep_group_for_block,
+      Real reach,
+      Int candidate_begin,
+      Int candidate_end) -> TPack<Int, 2, Dev>;
+
   static auto forward(
       ContextManager& mgr,
       // common params
@@ -223,6 +228,9 @@ struct HBondRotamerScoreDispatch {
       TView<Int, 1, Dev> rot_offset_for_pose,
       TView<Int, 2, Dev> n_rots_for_block,
       TView<Int, 2, Dev> rot_offset_for_block,
+      // [n_poses, max_n_blocks]; blocks sharing an id >= 0 move in
+      // lockstep, so only matching rotamer indices ever coexist
+      TView<Int, 2, Dev> lockstep_group_for_block,
       Int max_n_rots_per_pose,
 
       // For determining which atoms to retrieve from neighboring
@@ -230,20 +238,10 @@ struct HBondRotamerScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev>
-          pose_stack_min_bond_separation,  // ?? needed ?? I think so
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev>
-          pose_stack_inter_block_bondsep,  // ?? needed ?? I think so
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -289,11 +287,12 @@ struct HBondRotamerScoreDispatch {
       TView<Int, 2, Dev> derived_atom_inds,
 
       bool output_block_pair_energies,
-      bool compute_derivs)
+      bool compute_derivs,
+      TPack<Int, 2, Dev> shared_dispatch_indices)
       -> std::tuple<
           TPack<Real, 2, Dev>,
           TPack<Vec<Real, 3>, 2, Dev>,
-          TPack<Int, 2, Dev> >;
+          TPack<Int, 2, Dev>>;
 
   static auto backward(
       ContextManager& mgr,
@@ -316,20 +315,10 @@ struct HBondRotamerScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev>
-          pose_stack_min_bond_separation,  // ?? needed ?? I think so
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev>
-          pose_stack_inter_block_bondsep,  // ?? needed ?? I think so
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties

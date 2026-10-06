@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: harbor-rewardkit
-Version: 0.2.1
+Version: 0.2.2
 Summary: Lightweight grading toolkit for environment-based tasks.
 Keywords: grading,evaluation,rewards,llm,agents,benchmarks
 Author: benediktstroebl
@@ -15,14 +15,17 @@ Classifier: Topic :: Software Development :: Testing
 Requires-Dist: litellm>=1.83
 Requires-Dist: pillow>=10.0 ; extra == 'all'
 Requires-Dist: markitdown[pdf,docx,pptx,xlsx,xls,outlook]>=0.1 ; extra == 'all'
+Requires-Dist: typesafe-sdk>=0.7 ; extra == 'all'
 Requires-Dist: markitdown[pdf,docx,pptx,xlsx,xls,outlook]>=0.1 ; extra == 'documents'
 Requires-Dist: pillow>=10.0 ; extra == 'image'
+Requires-Dist: typesafe-sdk>=0.7 ; extra == 'jev'
 Requires-Python: >=3.12
 Project-URL: Repository, https://github.com/harbor-framework/harbor
 Project-URL: Issues, https://github.com/harbor-framework/harbor/issues
 Provides-Extra: all
 Provides-Extra: documents
 Provides-Extra: image
+Provides-Extra: jev
 Description-Content-Type: text/markdown
 
 # Harbor Rewardkit
@@ -78,13 +81,16 @@ register no checks are ignored.
 ```toml
 # tests/quality.toml
 [judge]
-judge = "anthropic/claude-sonnet-5"
+judge = "anthropic/claude-opus-5-5"
 files = ["/app/main.py"]
 
 [[criterion]]
 description = "Is the code correct?"
 type = "binary"
 ```
+
+`judge` is a LiteLLM model, an agent such as `claude-code`, or `jev` for
+JEV, a new type of language model from TypeSafe (install `harbor-rewardkit[jev]`).
 
 Python files and judge TOMLs can coexist. A judge TOML is also a component named
 after its stem and has its own optional `[scoring]` section.
@@ -128,6 +134,6 @@ Python files, judge TOMLs, and child directories. Reference files by stem and
 child groups by directory name.
 
 See the [documentation](https://harborframework.com/docs/rewardkit) for custom
-criteria, agent judges, MCP servers, nested groups, and the complete config
+criteria, agent judges, the JEV judge, MCP servers, nested groups, and the complete config
 reference. A [working Harbor task](https://github.com/harbor-framework/harbor/tree/main/examples/tasks/reward-kit-example)
 shows the full layout.

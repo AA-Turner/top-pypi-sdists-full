@@ -49,6 +49,7 @@ class PermissionSubjectType(str, Enum):
     DOCUMENT = 'document'
     RESOURCE = 'resource'
     WORKFLOW_OUTPUT = 'workflow_output'
+    CONNECTEDSOURCE = 'connectedsource'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

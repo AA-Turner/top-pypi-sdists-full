@@ -18,9 +18,9 @@ from pglast.stream import RawStream
 
 from confiture.core._migrator.discovery import _version_from_migration_filename
 from confiture.core.ddl_walk import column_edit, object_edits, tview_calls, walk_nodes
-from confiture.core.linting.inventory import build_model
 from confiture.core.schema_identity import DEFAULT_SCHEMA
 from confiture.core.schema_model import TVIEW_PREFIX
+from confiture.core.schema_read import read_text
 from confiture.core.sql_lexer import ParsedStatement, parse
 from confiture.models.results import PreflightIssue
 
@@ -37,7 +37,7 @@ def live_issues(files: Iterable[Path], tviews: Mapping[str, str]) -> list[Prefli
         version = _version_from_migration_filename(path.name)
         try:
             statements = parse(path.read_text(encoding="utf-8"))
-        except (pglast.parser.ParseError, OSError):
+        except pglast.parser.ParseError, OSError:
             continue
         dropped: set[str] = set()
         for statement in statements:
@@ -68,7 +68,7 @@ def _creates_tview(stmt: Any) -> bool:
     """``CREATE TABLE tv_* AS …``: the statement pg_tviews converts into a TVIEW."""
     into = getattr(stmt, "into", None)
     rel = getattr(into, "rel", None) if type(stmt).__name__ == "CreateTableAsStmt" else None
-    return rel is not None and bool(build_model(RawStream()(stmt) + ";").tviews)
+    return rel is not None and bool(read_text(RawStream()(stmt) + ";").model.tviews)
 
 
 def _issue(
@@ -136,7 +136,7 @@ class _Reads:
         self._star = False
         try:
             root = pglast.parse_sql(query)[0].stmt
-        except (pglast.parser.ParseError, IndexError):
+        except pglast.parser.ParseError, IndexError:
             self._star = True
             return
         nodes = list(walk_nodes(root))

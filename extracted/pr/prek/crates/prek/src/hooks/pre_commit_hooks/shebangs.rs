@@ -1,15 +1,15 @@
+use std::io::Read;
 use std::path::Path;
 use std::str;
 
 use rustc_hash::FxHashSet;
-use tokio::io::AsyncReadExt;
 
 use crate::git;
 
-pub(super) async fn file_has_shebang(path: &Path) -> Result<bool, anyhow::Error> {
-    let mut file = fs_err::tokio::File::open(path).await?;
+pub(super) fn file_has_shebang(path: &Path) -> Result<bool, anyhow::Error> {
+    let mut file = fs_err::File::open(path)?;
     let mut buf = [0u8; 2];
-    let n = file.read(&mut buf).await?;
+    let n = file.read(&mut buf)?;
     Ok(n >= 2 && buf[0] == b'#' && buf[1] == b'!')
 }
 
@@ -33,12 +33,17 @@ pub(super) async fn git_index_stage_output(file_base: &Path) -> Result<Vec<u8>, 
 pub(super) fn matching_git_index_paths_by_executable_bit<'a>(
     stdout: &'a [u8],
     file_base: &'a Path,
-    filenames: &'a FxHashSet<&Path>,
+    filenames: &[&'a Path],
     executable: bool,
 ) -> impl Iterator<Item = &'a Path> + 'a {
+    // Git reports index paths without a leading `./`.
+    let filenames = filenames
+        .iter()
+        .map(|path| path.strip_prefix(".").unwrap_or(path))
+        .collect::<FxHashSet<_>>();
     stdout
         .split(|&b| b == b'\0')
-        .filter_map(move |entry| parse_stage_entry(entry, file_base, filenames, executable))
+        .filter_map(move |entry| parse_stage_entry(entry, file_base, &filenames, executable))
 }
 
 fn parse_stage_entry<'a>(
@@ -99,21 +104,21 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn file_has_shebang_detects_valid_shebang() -> Result<(), anyhow::Error> {
+    #[test]
+    fn file_has_shebang_detects_valid_shebang() -> Result<(), anyhow::Error> {
         let file = NamedTempFile::new()?;
-        fs_err::tokio::write(file.path(), b"#!/bin/sh\necho hi\n").await?;
+        fs_err::write(file.path(), b"#!/bin/sh\necho hi\n")?;
 
-        assert!(file_has_shebang(file.path()).await?);
+        assert!(file_has_shebang(file.path())?);
         Ok(())
     }
 
-    #[tokio::test]
-    async fn file_has_shebang_rejects_non_shebang_prefixes() -> Result<(), anyhow::Error> {
+    #[test]
+    fn file_has_shebang_rejects_non_shebang_prefixes() -> Result<(), anyhow::Error> {
         let file = NamedTempFile::new()?;
-        fs_err::tokio::write(file.path(), b"##!/bin/sh\n").await?;
+        fs_err::write(file.path(), b"##!/bin/sh\n")?;
 
-        assert!(!file_has_shebang(file.path()).await?);
+        assert!(!file_has_shebang(file.path())?);
         Ok(())
     }
 }

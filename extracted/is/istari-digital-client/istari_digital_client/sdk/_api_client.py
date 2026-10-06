@@ -11,7 +11,8 @@ import tempfile
 from urllib.parse import urljoin
 
 from urllib.parse import quote
-from typing import Tuple, Optional, List, Dict, Union
+from types import ModuleType
+from typing import Tuple, Optional, List, Dict, Sequence, Union
 from pydantic import SecretStr
 
 from istari_digital_client.sdk._configuration import Configuration
@@ -47,6 +48,12 @@ class ApiClient:
         the API.
     :param cookie: a cookie to include in the header when making calls
         to the API
+    :param base_url: overrides the registry-derived URL, e.g. for a
+        different backing service such as the identity service
+    :param model_packages: model packages searched when resolving a response
+        model by name, in order. Defaults to the registry's v2, storage and v3
+        packages. A client bound to another service must pass its own, or a
+        name the registry also defines resolves to the wrong class.
     """
 
     PRIMITIVE_TYPES = (float, bool, bytes, str, int)
@@ -65,9 +72,15 @@ class ApiClient:
 
     def __init__(
             self, configuration=None, header_name=None, header_value=None,
-            cookie=None, spec_ids=None,
+            cookie=None, spec_ids=None, base_url=None,
+            model_packages: Optional[Sequence[ModuleType]] = None,
     ) -> None:
         self.configuration = configuration if configuration else Configuration()
+        self.model_packages: Sequence[ModuleType] = (
+            model_packages
+            if model_packages is not None
+            else (v2_models, storage_models, v3_models)
+        )
 
         self.rest_client = rest.RESTClientObject(configuration)
         self.default_headers = {}
@@ -78,6 +91,7 @@ class ApiClient:
         self.user_agent = "OpenAPI-Generator/1.0.0/python"
         self.client_side_validation = True
         self.compatibility_checker = CompatibilityChecker()
+        self.base_url = base_url.rstrip("/") if base_url else None
         self._set_compatibility_header(spec_ids)
 
     def _set_compatibility_header(self, spec_ids: Optional[Tuple[str, ...]] = None) -> None:
@@ -239,7 +253,9 @@ class ApiClient:
             body = self.sanitize_for_serialization(body)
 
         # request url
-        if _host is None:
+        if _host is None and self.base_url is not None:
+            url = self.base_url + "/" + str(resource_path).lstrip("/")
+        elif _host is None:
             registry_base = self.configuration._registry_base_url()
             if registry_base is not None:
                 # Gateway mode: the service-router serves the registry under a
@@ -461,32 +477,20 @@ class ApiClient:
         return self.__deserialize(data, response_type)
 
     def _get_model_class(self, class_name: str):
-        """Get model class from either v2 or storage models.
+        """Resolve a response model by name against this client's model packages, in order.
 
         :param class_name: Name of the model class
         :return: Model class
-        :raises: AttributeError if class is not found in any model module
+        :raises: AttributeError if no configured package defines the name
         """
-        # Try to get the class from v2 models first
-        try:
-            return getattr(v2_models, class_name)
-        except AttributeError:
-            pass
+        for package in self.model_packages:
+            try:
+                return getattr(package, class_name)
+            except AttributeError:
+                continue
 
-        # Try to get the class from storage models
-        try:
-            return getattr(storage_models, class_name)
-        except AttributeError:
-            pass
-
-        # Try to get the class from v3 models
-        try:
-            return getattr(v3_models, class_name)
-        except AttributeError:
-            pass
-
-        # If not found in either, raise an error
-        raise AttributeError(f"Model class '{class_name}' not found in v3 or v2 or storage models")
+        searched = ", ".join(p.__name__ for p in self.model_packages) or "no packages"
+        raise AttributeError(f"Model class '{class_name}' not found in {searched}")
 
     def __deserialize(self, data, klass):
         """Deserializes dict, list, str into an object.
@@ -640,11 +644,11 @@ class ApiClient:
         if not accepts:
             return None
 
-        for accept in accepts:
-            if re.search("json", accept, re.IGNORECASE):
-                return accept
-
-        return accepts[0]
+        # Accept ALL of the operation's response content types, not just json. Sending
+        # `Accept: application/json` on an endpoint whose success body is e.g. text/csv
+        # yields a 406 from strict servers/mocks and a parse mismatch from lenient ones;
+        # advertising every producible type lets content negotiation pick the right one.
+        return ", ".join(accepts)
 
     def select_header_content_type(self, content_types):
         """Returns `Content-Type` based on an array of content_types provided.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: istari-digital-client
-Version: 13.1.9
+Version: 13.2.0
 Summary: Python client for the Istari Digital platform
 License: MIT License
          
@@ -35,12 +35,12 @@ Requires-Dist: inflection (>=0.5.1,<0.6.0)
 Requires-Dist: istari-digital-core (==7.3.2)
 Requires-Dist: istari-digital-core-fips (==7.3.2) ; extra == "fips"
 Requires-Dist: pydantic (>=2.9.0,<3.0.0)
-Requires-Dist: pyjwt (>=2.13.0,<3.0.0)
+Requires-Dist: pyjwt (>=2.15.1,<3.0.0)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
 Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
 Requires-Dist: types-python-dateutil (>=2.9.0.20240906,<3.0.0.0)
 Requires-Dist: typing-extensions (>=4.12.2,<5.0.0)
-Requires-Dist: urllib3 (>=2.6.0,<3.0.0)
+Requires-Dist: urllib3 (>=2.8.0,<3.0.0)
 Project-URL: Documentation, https://docs.istaridigital.com
 Project-URL: Homepage, https://istaridigital.com
 Description-Content-Type: text/markdown
@@ -97,6 +97,75 @@ There are two common proxy shapes:
 `NO_PROXY` is honored with exact and dot-boundary suffix matching (`NO_PROXY=internal.example` bypasses the proxy for `registry.internal.example`), including when `proxy_url` is set explicitly. When the Istari control plane is reached over a direct route (for example a site-to-site VPN) while object storage requires the proxy, list the control-plane host in `NO_PROXY`.
 
 SOCKS proxies are not supported: an explicit SOCKS `proxy_url` is rejected with an error, while a SOCKS URL arriving via environment variables (for example `ALL_PROXY=socks5://...`) is ignored with a warning and the client connects directly — it does **not** route traffic through the SOCKS proxy.
+
+## Identity-service API version
+
+`Configuration.identity_api_version` selects which identity-service API the client uses, when identity-service is enabled (see "Choosing identity-service or a personal access token" below), for its token and for `IstariAdmin.identity`. The default, `auto`, detects the version, so most callers leave it unset.
+
+| Environment Variable | Constructor Arg | Description |
+|---|---|---|
+| `ISTARI_IDENTITY_API_VERSION` | `identity_api_version` | `auto` (default), `v1` or `v2`; see below. |
+
+The constructor argument takes an `IdentityApiVersion` member (`AUTO`, `V1` or `V2`) or its string, so existing code passing `"auto"`, `"v1"` or `"v2"` keeps working. Import the enum from `istari_digital_client`, `istari_digital_client.sdk`, `istari_digital_client.legacy` or `istari_digital_client.identity`. `identity_api_version` holds the member once the configuration is built, and `resolved_identity_api_version()`, `IdentityServiceClient.api_version` and `IdentityServiceClient.configured_api_version` return members. Members compare equal to their strings, and `str()` and f-strings give the bare value.
+
+- `auto` sends nothing when the configuration is built. The first token fetch tries `/api/v2/oauth2/token`; if that answers 404 with a body lacking identity-service's `error` field, the identity-service does not serve `/api/v2`, and the client uses `/oauth2/token` and v1 from then on. The result holds for that configuration once the v2 endpoint returns a token or answers that 404. Any other failure, such as a 401, a 5xx or a timeout, is raised as `IdentityServiceError` rather than read as "v1 only", leaves `auto` undecided, and the next token fetch checks again.
+- `v2` issues tokens at `/api/v2/oauth2/token`, and `v1` at `/oauth2/token`. Either explicit value skips the check.
+- `IstariAdmin.identity` (tenants, memberships, principals, keys, roles, OAuth) works when the version in use is v2, and raises `ConfigurationError` when it is v1. Under `auto`, a call made before the version is decided fetches a token first.
+- `Configuration.resolved_identity_api_version()` and `IdentityServiceClient.api_version` report the version in use. If `auto` has not been decided yet they fetch a token first, and raise `IdentityServiceError` if that fetch fails.
+- `IdentityServiceClient` built directly defaults to `v2` without detection. Pass `api_version="auto"` to detect, or `api_version="v1"` to use `/oauth2/token`.
+- An explicit argument wins over the environment variable. A value other than `auto`, `v1` or `v2` raises `ConfigurationError` when the configuration is built.
+
+### The deprecated key surface
+
+`IstariAdmin.keys`, `client.keys` on the legacy clients, and the `istari_digital_client.identity.v1` helpers work under every setting, and callers do not need to set `identity_api_version` or `api_version` for them. Key management needs a client configured with identity-service credentials; the PAT exchange needs only the personal access token. Their key-management and exchange methods take `api_version`, which defaults to `"auto"` and accepts an `IdentityApiVersion` member or its string; `None` also means `"auto"`, and any other value raises `ConfigurationError`.
+
+A key-management call on a v1 route always carries a token from the v1 token endpoint, `/oauth2/token`, minted from the client's identity-service credentials, because identity-service's v1 key routes accept a v2 token only for `"me"`. Results have the same types whichever route serves a call; a v2 key listing's `principal_id` and `active` arrive as `PrincipalKeys.user_uuid` and `enabled`. Each operation warns once per process with a `DeprecationWarning`, and only when a call reaches a v1 route.
+
+Under `"auto"`, key management (`register_key`, `list_keys`, `get_key`, `revoke_key`, `generate_keypair_and_register`) works as follows:
+
+- When the version in use is v1, every call uses the v1 routes.
+- When it is v2, a principal id other than `"me"` is treated as a v1 id, so ids that worked against v1 keep working: the call first looks it up over v2, by `client_id` with `kind=AGENT` (agent client ids are often UUIDs that are not principal ids), otherwise by `upstream_user_id`. Unless an exception in the next item applies, a call uses the v2 key routes (`/api/v2/principals/{id}/keys`) for:
+  - `"me"`, except with `kind=AGENT`;
+  - an id the lookup resolves to exactly one principal;
+  - a UUID in hyphenated 8-4-4-4-12 form that the lookup matches to no principal, used as the principal UUID.
+- When it is v2, these calls use the v1 routes, with a v1 token, instead:
+  - a register call with `username` or `display_name`, which only v1 accepts, to seed an agent that does not exist yet when an administrator registers its first key;
+  - an id that is not a UUID and that the lookup matches to no principal, an id it matches to several, or a lookup refused with a 403; the id goes to v1 unchanged;
+  - an id the lookup matches to one person whose holder id (the id the person's keys authenticate as) differs from the id passed;
+  - `"me"` with `kind=AGENT` (`client.keys` rejects this with `ValueError` under every `api_version`).
+
+  The `username`/`display_name` and `"me"`-with-`kind=AGENT` cases also log a warning through the SDK logger on every call, naming the argument.
+- Any other lookup failure, such as a 401, a 5xx or a timeout, raises `KeyRegistrationError`.
+- A 404 from a v2 key route raises `KeyRegistrationError`; there is no v1 retry. Against an identity-service that issues v2 tokens but lacks the v2 key routes, pass `api_version="v1"`.
+- `generate_keypair_and_register` served by v2 lists the principal's keys first, so it can bind the returned credentials to the client id the key authenticates as.
+
+The PAT exchange (`exchange_pat`, `generate_keypair_and_exchange`) uses v1 with the personal access token under `"auto"` and `"v1"`, and raises `ConfigurationError` under `"v2"`; identity-service has no v2 exchange.
+
+The explicit values override the routing:
+
+- `"v1"` uses the v1 routes with a v1 token, under any configuration.
+- `"v2"` uses the v2 routes only and never falls back to v1. It raises `ConfigurationError` before any request for a register call with `username` or `display_name`, for `"me"` with `kind=AGENT`, and for the PAT exchange. An id the lookup cannot resolve raises `KeyRegistrationError`: `code` `"principal_not_found"` with `status` 404 when no principal visible to the caller matches (it may not exist, or the caller may lack permission to see it) or, for a person, when the matched principal's key holder is not the id passed, and `code` `"principal_ambiguous"` when several do.
+
+## Choosing identity-service or a personal access token
+
+Identity-service authentication is opt-in. A client without identity-service credentials authenticates to the registry with a personal access token. Configuring an identity-service secret turns identity-service on while `identity_service_enabled` (`ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED`) is unset and an identity-service URL is configured (see below), unless a personal access token is passed as an argument and the secret comes only from the environment (case 4); a personal access token alone never turns it on. `identity_service_required` (`ISTARI_DIGITAL_IDENTITY_SERVICE_REQUIRED`, default false) requires identity-service and raises `ConfigurationError` if it cannot be used. With identity-service on, the client uses identity-service's v2 API unless you select v1 (see `identity_api_version` above).
+
+- A secret is `identity_service_secret` / `ISTARI_CLIENT_IDENTITY_SERVICE_SECRET` or `identity_service_secret_file` / `ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE`.
+- A personal access token is `registry_auth_token` / `ISTARI_REGISTRY_AUTH_TOKEN`.
+
+The first case that applies wins. Cases 4 to 7 apply once identity-service is on: `identity_service_enabled` is true, or it is unset and a secret and an identity-service URL are configured.
+
+1. **Required** (`ISTARI_DIGITAL_IDENTITY_SERVICE_REQUIRED=true`): identity-service, regardless of `identity_service_enabled`. Without a secret, construction raises `ConfigurationError` instead of using the personal access token.
+2. **Disabled** (`identity_service_enabled=False`, or `ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED` or `ISTARI_CLIENT_IDENTITY_SERVICE_ENABLED` set to false; when both are set, the `ISTARI_DIGITAL_` one decides): the personal access token, even when a secret is configured. With no token, the legacy `Client` raises `ConfigurationError` at construction; the SDK `Configuration` builds and sends no credentials.
+3. **Unset, and no secret or no identity-service URL:** the personal access token. A secret without a URL logs one warning naming `ISTARI_DIGITAL_API_URL` and `ISTARI_IDENTITY_URL`, except when the secret comes only from the environment and a personal access token is passed as an argument. With no token, the legacy `Client` raises `ConfigurationError` at construction; the SDK `Configuration` builds and sends no credentials.
+4. **Secret configured, personal access token passed as an argument, and the secret comes only from the environment:** the personal access token. This is logged at debug level. A client given one user's token keeps using it even when the process environment holds a secret.
+5. **Secret configured:** identity-service. This includes a secret and a personal access token that both come from the environment. A secret that is unreadable or malformed raises `ConfigurationError`.
+6. **No secret, personal access token** (`identity_service_enabled` set to true): the personal access token. The fallback is logged at debug level.
+7. **No secret, no token** (`identity_service_enabled` set to true): construction raises `ConfigurationError`.
+
+Passing `None` for a credential argument leaves it unset instead of reading its environment variable.
+
+When the client uses identity-service, it signs in with an auto-refreshed identity-service token and needs `ISTARI_DIGITAL_API_URL` (the gateway) or `ISTARI_IDENTITY_URL` (identity-service directly). While `identity_service_enabled` is unset, a secret with neither leaves identity-service off. With `identity_service_required`, or with `identity_service_enabled` true and a secret that no personal access token argument overrides, a missing URL raises `ConfigurationError`. Each setting also accepts an `ISTARI_CLIENT_` alias (`ISTARI_CLIENT_IDENTITY_SERVICE_ENABLED`, `ISTARI_CLIENT_IDENTITY_SERVICE_REQUIRED`); when both are set, the `ISTARI_DIGITAL_` name wins. To force identity-service's v1 API, set `ISTARI_IDENTITY_API_VERSION=v1`; the default `auto` switches to v1 automatically when identity-service does not serve `/api/v2`.
 
 ## Contributing
 

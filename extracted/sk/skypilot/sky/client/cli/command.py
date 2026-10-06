@@ -346,10 +346,6 @@ def _async_call_or_wait(request_id: server_common.RequestId[T],
                 f'\n{ux_utils.INDENT_SYMBOL}{colorama.Style.DIM}View logs: '
                 f'{ux_utils.BOLD}sky api logs {short_request_id}'
                 f'{colorama.Style.RESET_ALL}'
-                f'\n{ux_utils.INDENT_SYMBOL}{colorama.Style.DIM}Or, '
-                'visit: '
-                f'{server_common.get_server_url()}/api/stream?'
-                f'request_id={short_request_id}'
                 f'\n{ux_utils.INDENT_LAST_SYMBOL}{colorama.Style.DIM}To cancel '
                 'the request, run: '
                 f'{ux_utils.BOLD}sky api cancel {short_request_id}'
@@ -363,10 +359,7 @@ def _async_call_or_wait(request_id: server_common.RequestId[T],
             f'{ux_utils.INDENT_SYMBOL}{colorama.Style.DIM}Check logs with: '
             f'{ux_utils.BOLD}sky api logs {short_request_id}'
             f'{colorama.Style.RESET_ALL}\n'
-            f'{ux_utils.INDENT_SYMBOL}{colorama.Style.DIM}Or, visit: '
-            f'{server_common.get_server_url()}/api/stream?'
-            f'request_id={short_request_id}'
-            f'\n{ux_utils.INDENT_LAST_SYMBOL}{colorama.Style.DIM}To cancel '
+            f'{ux_utils.INDENT_LAST_SYMBOL}{colorama.Style.DIM}To cancel '
             'the request, run: '
             f'{ux_utils.BOLD}sky api cancel {short_request_id}'
             f'{colorama.Style.RESET_ALL}\n')
@@ -1036,14 +1029,14 @@ def _make_task_or_dag_from_entrypoint_with_overrides(
 
         # Check if this is a JobGroup YAML
         if dag_utils.is_job_group_yaml(entrypoint):
-            click.secho('Detected JobGroup YAML', fg='cyan')
+            click.secho('Detected Job Group YAML', fg='cyan')
             dag = dag_utils.load_job_group_from_yaml(entrypoint,
                                                      env_overrides=env,
                                                      secrets_overrides=secret)
             if override_params:
                 click.secho(
                     f'WARNING: override params {override_params} are ignored '
-                    'for JobGroup YAML.',
+                    'for Job Group YAML.',
                     fg='yellow')
             for task in dag.tasks:
                 task.update_workdir(workdir, git_url, git_ref)
@@ -4066,8 +4059,10 @@ def check(infra_list: Tuple[str],
         api_server_url = server_common.get_server_url()
         click.echo()
         click.echo(
-            click.style(f'Using SkyPilot API server: {api_server_url}',
-                        fg='green'))
+            click.style(
+                'Using SkyPilot API server: '
+                f'{server_common.redact_url_password(api_server_url)}',
+                fg='green'))
 
 
 @cli.command()
@@ -5621,6 +5616,11 @@ def _build_volume_override_config(
 
 @volumes.command('ls', cls=_DocumentedCodeCommand)
 @flags.config_option(expose_value=False)
+@click.argument('names',
+                required=False,
+                type=str,
+                nargs=-1,
+                **_get_shell_complete_args(_complete_volume_name))
 @click.option('--verbose',
               '-v',
               default=False,
@@ -5635,11 +5635,79 @@ def _build_volume_override_config(
               help='Refresh volume state from cloud APIs before listing. '
               'Without this flag, cached data is returned which is updated '
               'periodically by the background daemon.')
+@flags.output_format_option()
 @usage_lib.entrypoint
-def volumes_ls(verbose: bool, refresh: bool):
-    """List volumes managed by SkyPilot."""
-    request_id = volumes_sdk.ls(refresh=refresh)
-    all_volumes = sdk.stream_and_get(request_id)
+def volumes_ls(names: List[str],
+               verbose: bool,
+               refresh: bool,
+               output_format: str = 'table'):
+    """List volumes managed by SkyPilot.
+
+    Pass one or more volume names to show only those. Combined with --refresh,
+    only the named volumes are re-probed, which is much cheaper than refreshing
+    every volume when you are waiting on one you just created. Names are exact;
+    unlike sky volumes delete, this does not take glob patterns.
+
+    Examples:
+
+    .. code-block:: bash
+
+        # Show every volume.
+        sky volumes ls
+        \b
+        # Show one volume, re-probing just that one.
+        sky volumes ls my-vol -r
+        \b
+        # Read a volume's status from a script.
+        sky volumes ls my-vol -o json
+    """
+    request_id = volumes_sdk.ls(refresh=refresh, names=names)
+    json_output = output_format == flags.OUTPUT_FORMAT_JSON
+    if json_output:
+        # Keep stdout parseable. A request's server-side logs are streamed back
+        # here, and volume_refresh logs a line exactly when a volume's status
+        # changes -- the NOT_READY -> READY tick a poller is waiting for. Ahead
+        # of the JSON that is the one iteration a parser cannot read, so send
+        # the stream to a sink, as `sky check -o json` does.
+        all_volumes = sdk.stream_and_get(request_id,
+                                         output_stream=io.StringIO())
+    else:
+        all_volumes = sdk.stream_and_get(request_id)
+    if names:
+        # Filter here as well as on the server. An API server older than this
+        # change ignores the names and returns every volume; narrowing again
+        # keeps the output correct against those servers, which is what lets
+        # the names be sent without an API version gate. Against a current
+        # server the response is already narrowed and this is a no-op.
+        requested = set(names)
+        all_volumes = [
+            volume for volume in all_volumes if volume.name in requested
+        ]
+        if not json_output:
+            # Report what matched nothing, rather than showing an empty table
+            # and letting a typo read as "the volume is gone" -- the message a
+            # not-ready volume points here with makes that an easy mistake.
+            # Not on the json path, where an empty array already says it and a
+            # stray line would break parsing.
+            missing = sorted(requested - {v.name for v in all_volumes})
+            if len(missing) == 1:
+                # Worded as `sky volumes delete` words it.
+                click.echo(f'Volume {missing[0]} not found.')
+            elif missing:
+                # One line rather than one per name: here a miss is the whole
+                # answer for that name, so a list reads better than a stack.
+                click.echo(f'Volumes not found: {", ".join(missing)}.')
+            if not all_volumes:
+                # Nothing left to tabulate. The empty table renders as "No
+                # existing volumes.", which is a claim about the whole table --
+                # and a filtered listing never looked at the whole table.
+                return
+    if json_output:
+        click.echo(
+            json.dumps(
+                [volume.model_dump(mode='json') for volume in all_volumes],
+                indent=2))
+        return
     volume_table = table_utils.format_volume_table(all_volumes,
                                                    show_all=verbose)
     click.echo(volume_table)
@@ -5774,6 +5842,20 @@ def jobs():
               type=int,
               required=False,
               help='Number of jobs to submit.')
+@click.option('--job-group',
+              default=None,
+              type=str,
+              required=False,
+              help=('Attach to an existing job group, by job id or unique '
+                    'running job name. The job is shown under it and '
+                    'cancelled with it. Defaults to the surrounding job '
+                    'group when launched from inside one.'))
+@click.option('--no-job-group',
+              is_flag=True,
+              default=False,
+              required=False,
+              help=('Launch a top-level job even when running inside a job '
+                    'group (do not attach to it).'))
 @click.option('--git-url', type=str, help='Git repository URL.')
 @click.option('--git-ref',
               type=str,
@@ -5824,6 +5906,8 @@ def jobs_launch(
     config_override: Optional[Dict[str, Any]] = None,
     git_url: Optional[str] = None,
     git_ref: Optional[str] = None,
+    job_group: Optional[str] = None,
+    no_job_group: bool = False,
 ):
     """Launch a managed job from a YAML or a command.
 
@@ -5929,10 +6013,20 @@ def jobs_launch(
             f'Managed job {dag.name!r} will be launched on (estimated):',
             fg='yellow')
 
+    if job_group is not None and no_job_group:
+        raise click.UsageError(
+            '--job-group and --no-job-group are mutually exclusive.')
+    job_group_arg: Union[int, str, None, Any] = managed_jobs.AUTO_JOB_GROUP
+    if no_job_group:
+        job_group_arg = None
+    elif job_group is not None:
+        job_group_arg = int(job_group) if job_group.isdigit() else job_group
+
     request_id = managed_jobs.launch(dag,
                                      name,
                                      pool,
                                      num_jobs,
+                                     job_group=job_group_arg,
                                      _need_confirmation=not yes)
     job_id_handle = _async_call_or_wait(request_id, async_call,
                                         'sky.jobs.launch')
@@ -6125,6 +6219,20 @@ def _parse_datetime_to_epoch(value: str) -> float:
     required=False,
     help=('Show only jobs submitted at or before this absolute local time '
           '(e.g. "2026-01-13" or "2026-01-13 15:30:00").'))
+@click.option(
+    '--infra',
+    default=None,
+    type=str,
+    required=False,
+    help=(
+        'Show only jobs running on this infrastructure. '
+        'Format: cloud, cloud/region, cloud/region/zone, '
+        'k8s/context-name, or ssh/node-pool-name. '
+        'Examples: aws, aws/us-east-1, aws/us-east-1/us-east-1a, '
+        # TODO(zhwu): we have to use `\*` to make sure the docs build
+        # not complaining about the `*`, but this will cause `--help`
+        # to show `\*` instead of `*`.
+        'aws/\\*/us-east-1a, k8s/my-context, ssh/my-nodes.'))
 @flags.all_users_option('Show jobs from all users.')
 @flags.all_option('Show all jobs.')
 @flags.output_format_option()
@@ -6137,6 +6245,7 @@ def jobs_queue(verbose: bool,
                since: Optional[str],
                after: Optional[str],
                before: Optional[str],
+               infra: Optional[str],
                all_users: bool,
                all: bool,
                limit: int,
@@ -6152,7 +6261,9 @@ def jobs_queue(verbose: bool,
 
     - ``RUNNING``: Job is running.
 
-    - ``RECOVERING``: The cluster of the job is recovering from a preemption.
+    - ``RECOVERING``: The job is recovering — from a cluster preemption or
+      failure, or from a controller-side issue (the controller restarted or
+      hit an unexpected internal error and is restarting job management).
 
     - ``SUCCEEDED``: Job succeeded.
 
@@ -6222,6 +6333,12 @@ def jobs_queue(verbose: bool,
 
       sky jobs queue --after 2026-01-01 --before 2026-01-31
 
+    (Tip) To show only jobs on one infrastructure, use ``--infra``:
+
+    .. code-block:: bash
+
+      sky jobs queue --infra k8s/my-context
+
     """
     status_filter = [status for group in statuses for status in group]
     # TODO(kevin): remove in 0.15.0, along with _SKIP_FINISHED_SENTINEL and the
@@ -6282,7 +6399,8 @@ def jobs_queue(verbose: bool,
                 fields=fields,
                 statuses=status_filter,
                 submitted_after=submitted_after,
-                submitted_before=submitted_before)
+                submitted_before=submitted_before,
+                infra_match=infra)
 
         def get_pool_status():
             try:
@@ -6348,6 +6466,14 @@ def jobs_queue(verbose: bool,
               type=str,
               help='Pool name to cancel.')
 @click.argument('job_ids', default=None, type=int, required=False, nargs=-1)
+@click.option('--task',
+              'task',
+              default=None,
+              type=str,
+              required=False,
+              help=('Cancel one dynamic task of the job (a job launched from '
+                    'inside it), by the index shown in `sky jobs queue` or '
+                    'by name. A declared task cannot be cancelled alone.'))
 @_add_click_options(flags.GRACEFUL_OPTIONS)
 @flags.all_option('Cancel all managed jobs for the current user.')
 @flags.yes_option()
@@ -6357,7 +6483,8 @@ def jobs_queue(verbose: bool,
 def jobs_cancel(
     name: Optional[str],
     pool: Optional[str],  # pylint: disable=redefined-outer-name
-    job_ids: Tuple[int],
+    job_ids: Tuple[int, ...],
+    task: Optional[str],
     graceful: bool,
     graceful_timeout: Optional[int],
     all: bool,
@@ -6381,8 +6508,19 @@ def jobs_cancel(
       \b
       # Cancel all managed jobs in pool 'my-pool'
       $ sky jobs cancel -p my-pool
+      \b
+      # Cancel only task 2 of job group 39 (a job launched from inside it)
+      $ sky jobs cancel 39 --task 2
     """
     job_id_str = ','.join(map(str, job_ids))
+    task_arg: Optional[Union[str, int]] = None
+    if task is not None:
+        if len(job_ids) != 1 or name is not None or pool is not None or (
+                all or all_users):
+            raise click.UsageError(
+                '--task takes exactly one JOB_ID and no --name, --pool, '
+                '--all or --all-users.')
+        task_arg = int(task) if task.isdigit() else task
     if sum([
             bool(job_ids), name is not None, pool is not None, all or all_users
     ]) != 1:
@@ -6401,6 +6539,8 @@ def jobs_cancel(
         job_identity_str = (f'managed job{plural} with ID{plural} {job_id_str}'
                             if job_ids else f'{name!r}' if name is not None else
                             f'managed jobs in pool {pool!r}')
+        if task_arg is not None:
+            job_identity_str = f'task {task_arg} of managed job {job_id_str}'
         if all_users:
             job_identity_str = 'all managed jobs FOR ALL USERS'
         elif all:
@@ -6416,6 +6556,7 @@ def jobs_cancel(
                             pool=pool,
                             graceful=graceful,
                             graceful_timeout=graceful_timeout,
+                            task=task_arg,
                             all=all,
                             all_users=all_users))
 
@@ -6463,7 +6604,9 @@ def jobs_logs(name: Optional[str], job_id: Optional[int], follow: bool,
     """Tail or sync down the log of a managed job.
 
     TASK can be a task ID (integer) or task name. Numeric values are treated
-    as task IDs. If not specified, logs for all tasks are shown.
+    as task IDs. If not specified, logs for all tasks are shown. A job
+    launched from inside a job group (a dynamic task) is addressed like the
+    group's declared tasks, by the index shown in `sky jobs queue` or by name.
 
 
     Examples:
@@ -6479,6 +6622,10 @@ def jobs_logs(name: Optional[str], job_id: Optional[int], follow: bool,
     \b
     # View logs for job named 'my-job', task 'eval'
     sky jobs logs -n my-job eval
+
+    \b
+    # View logs for the job launched from inside job group 39 shown as task 2
+    sky jobs logs 39 2
     """
     # tail == -1: user didn't pass --tail. With --sync-down that
     # means "fetch the whole file" (preserves pre-default-flip
@@ -7829,14 +7976,23 @@ def local():
     help='Starting port range for the local kind cluster. Needs to be a '
     'multiple of 100. If not given, a random range will be used. '
     'Used without ip list.')
+@click.option(
+    '--num-nodes',
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    required=False,
+    help='Number of nodes in the local kind cluster. A value greater than 1 '
+    'adds worker nodes, useful for testing multi-node scheduling locally. '
+    'Used without ip list.')
 @local.command('up', cls=_DocumentedCodeCommand)
 @flags.config_option(expose_value=False)
 @_add_click_options(flags.COMMON_OPTIONS)
 @usage_lib.entrypoint
 def local_up(gpus: bool, name: Optional[str], port_start: Optional[int],
-             async_call: bool):
+             num_nodes: int, async_call: bool):
     """Creates a local cluster."""
-    request_id = sdk.local_up(gpus, name, port_start)
+    request_id = sdk.local_up(gpus, name, port_start, num_nodes)
     _async_call_or_wait(request_id, async_call, request_name='local up')
 
 
@@ -7869,14 +8025,16 @@ def api():
               help=('Deploy the SkyPilot API server. When set to True, '
                     'SkyPilot API server will use all resources on the host '
                     'machine assuming the machine is dedicated to SkyPilot API '
-                    'server; host will also be set to 0.0.0.0 to allow remote '
-                    'access.'))
+                    'server; host will also be set to a wildcard address '
+                    '(0.0.0.0, or :: when an IPv6 --host is given) '
+                    'to allow remote access.'))
 @click.option('--host',
               default='127.0.0.1',
               type=click.Choice(server_common.AVAILBLE_LOCAL_API_SERVER_HOSTS),
               required=False,
-              help=('The host to deploy the SkyPilot API server. To allow '
-                    'remote access, set this to 0.0.0.0'))
+              help=('The host to bind the SkyPilot API server to. To allow '
+                    'remote access, set this to 0.0.0.0; use :: for IPv6 '
+                    'dual-stack.'))
 @click.option('--foreground',
               is_flag=True,
               default=False,
@@ -7891,16 +8049,29 @@ def api():
               default=False,
               required=False,
               help='Enable basic authentication in the SkyPilot API server.')
+@click.option('--port',
+              default=None,
+              type=int,
+              required=False,
+              help=('The port to bind the SkyPilot API server to. Defaults '
+                    'to the SKYPILOT_API_SERVER_LOCAL_PORT environment '
+                    'variable, or 46580. Other client commands only find a '
+                    'server on a non-default port if the same environment '
+                    'variable is exported.'))
 @usage_lib.entrypoint
 def api_start(deploy: bool, host: str, foreground: bool,
-              enable_basic_auth: bool):
+              enable_basic_auth: bool, port: Optional[int]):
     """Starts the SkyPilot API server locally."""
     sdk.api_start(deploy=deploy,
                   host=host,
                   foreground=foreground,
-                  enable_basic_auth=enable_basic_auth)
+                  enable_basic_auth=enable_basic_auth,
+                  port=port)
     api_server_url = server_common.get_server_url(host)
-    api_server_info = server_common.get_api_server_status(api_server_url)
+    # Dial via a reachable loopback URL: wildcard bind hosts (0.0.0.0 / ::) are
+    # not valid connect targets on all platforms.
+    api_server_info = server_common.get_api_server_status(
+        server_common.get_local_server_dial_url(host))
     server_common.check_and_print_upgrade_hint(api_server_info, api_server_url)
 
 
@@ -8188,7 +8359,10 @@ def api_info(output_format: str):
                        'server: sky api start')
         else:
             click.echo(
-                f'Could not connect to SkyPilot API server at {url}\n'
+                'Could not connect to SkyPilot API server at '
+                f'{server_common.redact_url_password(url)}\n'
+                # The hint below is meant to be copy-pasted, so it keeps the
+                # real URL -- redacting it would hand the user a broken command.
                 f'{ux_utils.INDENT_SYMBOL}To re-login to the API server: '
                 f'sky api login --relogin -e {url}\n'
                 f'{ux_utils.INDENT_LAST_SYMBOL}To logout the server: '
@@ -8237,7 +8411,8 @@ def api_info(output_format: str):
             location = f'Endpoint set via {config_path}'
     else:
         location = 'Endpoint set to default local API server.'
-    click.echo(f'Using SkyPilot API server and dashboard: {url}\n'
+    click.echo(f'Using SkyPilot API server and dashboard: '
+               f'{server_common.redact_url_password(url)}\n'
                f'{ux_utils.INDENT_SYMBOL}Status: {api_server_info.status}, '
                f'commit: {api_server_info.commit}, '
                f'version: {api_server_info.version}\n'
@@ -8323,9 +8498,13 @@ def workspace_info(output_format: str):
     source_str = info.get('source') or '-'
     preferred = info.get('preferred')
     preferred_str = (f'{preferred!r}' if preferred is not None else '(not set)')
-    accessible = info.get('accessible') or []
-    accessible_str = (', '.join(
-        repr(w) for w in accessible) if accessible else '(none)')
+    # `accessible` is the writable set (where a launch can land);
+    # `read_only` is listed separately.
+    writable = info.get('accessible') or []
+    read_only = info.get('read_only') or []
+    writable_str = ', '.join(
+        repr(w) for w in writable) if writable else '(none)'
+    read_only_str = ', '.join(repr(w) for w in read_only)
     note = info.get('note')
     lines = [
         f'Workspace: {workspace_str}',
@@ -8333,10 +8512,14 @@ def workspace_info(output_format: str):
     ]
     if note:
         lines.append(f'{ux_utils.INDENT_SYMBOL}Note: {note}')
-    lines.extend([
-        f'{ux_utils.INDENT_SYMBOL}Preferred: {preferred_str}',
-        f'{ux_utils.INDENT_LAST_SYMBOL}Accessible: {accessible_str}',
-    ])
+    lines.append(f'{ux_utils.INDENT_SYMBOL}Preferred: {preferred_str}')
+    if read_only:
+        lines.extend([
+            f'{ux_utils.INDENT_SYMBOL}Writable: {writable_str}',
+            f'{ux_utils.INDENT_LAST_SYMBOL}Read-only: {read_only_str}',
+        ])
+    else:
+        lines.append(f'{ux_utils.INDENT_LAST_SYMBOL}Writable: {writable_str}')
     click.echo('\n'.join(lines))
 
     # AMBIGUOUS is the only state whose recovery message is multi-line

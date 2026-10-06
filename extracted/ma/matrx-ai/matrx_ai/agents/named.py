@@ -910,6 +910,7 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
         variable_mapping: dict[str, ValueMapping | dict[str, Any]] | None = None,
         spill_variables: set[str] | None = None,
         consumed_variables: dict[str, Any] | None = None,
+        store: bool | None = None,
     ) -> AgentRunResult:
         """Load -> apply variables -> apply overrides -> execute.
 
@@ -1064,6 +1065,7 @@ class NamedAgent(Generic[InputsT, OutputT], ABC):
             independent_request=independent_request,
             suppress_stream=suppress_stream,
             stream_data_types=stream_data_types,
+            store=store,
         )
 
         if result.parsed is not None:

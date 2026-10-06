@@ -17,6 +17,7 @@ from .types.create_inbox_request import CreateInboxRequest
 from .types.display_name import DisplayName
 from .types.inbox import Inbox
 from .types.inbox_id import InboxId
+from .types.inbox_status import InboxStatus
 from .types.list_inboxes_response import ListInboxesResponse
 from .types.search_inboxes_response import SearchInboxesResponse
 from .types.update_metadata import UpdateMetadata
@@ -24,6 +25,7 @@ from .types.update_metadata import UpdateMetadata
 if typing.TYPE_CHECKING:
     from .accounts.client import AccountsClient, AsyncAccountsClient
     from .api_keys.client import ApiKeysClient, AsyncApiKeysClient
+    from .calendar.client import AsyncCalendarClient, CalendarClient
     from .drafts.client import AsyncDraftsClient, DraftsClient
     from .events.client import AsyncEventsClient, EventsClient
     from .lists.client import AsyncListsClient, ListsClient
@@ -48,6 +50,7 @@ class InboxesClient:
         self._events: typing.Optional[EventsClient] = None
         self._api_keys: typing.Optional[ApiKeysClient] = None
         self._accounts: typing.Optional[AccountsClient] = None
+        self._calendar: typing.Optional[CalendarClient] = None
 
     @property
     def with_raw_response(self) -> RawInboxesClient:
@@ -221,6 +224,7 @@ class InboxesClient:
         inbox_id: InboxId,
         *,
         display_name: typing.Optional[DisplayName] = OMIT,
+        status: typing.Optional[InboxStatus] = OMIT,
         metadata: typing.Optional[UpdateMetadata] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Inbox:
@@ -230,19 +234,27 @@ class InboxesClient:
         agentmail inboxes update --inbox-id <inbox_id> --display-name "Updated Name"
         ```
 
+        To pause an inbox, set `status` to `paused`; set it back to `active` to
+        resume. See [Pausing an inbox](/inboxes#pausing-an-inbox).
+
         Parameters
         ----------
         inbox_id : InboxId
 
         display_name : typing.Optional[DisplayName]
 
+        status : typing.Optional[InboxStatus]
+            `paused` stops the inbox sending and receiving mail; `active` resumes
+            it. Mail that arrived while the inbox was paused is not delivered on
+            resume.
+
         metadata : typing.Optional[UpdateMetadata]
             Metadata to merge into the inbox's existing metadata. Keys you include
             are added or overwritten; keys you omit are left unchanged. To remove a
             single key, send it with a null value. To clear all metadata, send
             `metadata` as null. Sending an empty object is rejected; use null to
-            clear. Each update must include at least one of `display_name` or
-            `metadata`.
+            clear. Each update must include at least one of `display_name`,
+            `status`, or `metadata`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -263,7 +275,7 @@ class InboxesClient:
         )
         """
         _response = self._raw_client.update(
-            inbox_id, display_name=display_name, metadata=metadata, request_options=request_options
+            inbox_id, display_name=display_name, status=status, metadata=metadata, request_options=request_options
         )
         return _response.data
 
@@ -418,6 +430,14 @@ class InboxesClient:
             self._accounts = AccountsClient(client_wrapper=self._client_wrapper)
         return self._accounts
 
+    @property
+    def calendar(self):
+        if self._calendar is None:
+            from .calendar.client import CalendarClient  # noqa: E402
+
+            self._calendar = CalendarClient(client_wrapper=self._client_wrapper)
+        return self._calendar
+
 
 class AsyncInboxesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -432,6 +452,7 @@ class AsyncInboxesClient:
         self._events: typing.Optional[AsyncEventsClient] = None
         self._api_keys: typing.Optional[AsyncApiKeysClient] = None
         self._accounts: typing.Optional[AsyncAccountsClient] = None
+        self._calendar: typing.Optional[AsyncCalendarClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawInboxesClient:
@@ -639,6 +660,7 @@ class AsyncInboxesClient:
         inbox_id: InboxId,
         *,
         display_name: typing.Optional[DisplayName] = OMIT,
+        status: typing.Optional[InboxStatus] = OMIT,
         metadata: typing.Optional[UpdateMetadata] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Inbox:
@@ -648,19 +670,27 @@ class AsyncInboxesClient:
         agentmail inboxes update --inbox-id <inbox_id> --display-name "Updated Name"
         ```
 
+        To pause an inbox, set `status` to `paused`; set it back to `active` to
+        resume. See [Pausing an inbox](/inboxes#pausing-an-inbox).
+
         Parameters
         ----------
         inbox_id : InboxId
 
         display_name : typing.Optional[DisplayName]
 
+        status : typing.Optional[InboxStatus]
+            `paused` stops the inbox sending and receiving mail; `active` resumes
+            it. Mail that arrived while the inbox was paused is not delivered on
+            resume.
+
         metadata : typing.Optional[UpdateMetadata]
             Metadata to merge into the inbox's existing metadata. Keys you include
             are added or overwritten; keys you omit are left unchanged. To remove a
             single key, send it with a null value. To clear all metadata, send
             `metadata` as null. Sending an empty object is rejected; use null to
-            clear. Each update must include at least one of `display_name` or
-            `metadata`.
+            clear. Each update must include at least one of `display_name`,
+            `status`, or `metadata`.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -689,7 +719,7 @@ class AsyncInboxesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            inbox_id, display_name=display_name, metadata=metadata, request_options=request_options
+            inbox_id, display_name=display_name, status=status, metadata=metadata, request_options=request_options
         )
         return _response.data
 
@@ -859,3 +889,11 @@ class AsyncInboxesClient:
 
             self._accounts = AsyncAccountsClient(client_wrapper=self._client_wrapper)
         return self._accounts
+
+    @property
+    def calendar(self):
+        if self._calendar is None:
+            from .calendar.client import AsyncCalendarClient  # noqa: E402
+
+            self._calendar = AsyncCalendarClient(client_wrapper=self._client_wrapper)
+        return self._calendar

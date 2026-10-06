@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mcp-for-blender
-Version: 2.1.6
+Version: 2.1.8
 Summary: Open source Blender integration through the Model Context Protocol (not affiliated with Blender Foundation)
 Author-email: Siddharth Ahuja <ahujasid@gmail.com>
 License-Expression: MIT
@@ -29,11 +29,11 @@ Dynamic: license-file
 Prompt-assisted 3D modeling, scene creation, and manipulation — driven by AI.
 
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/blender-mcp?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/blender-mcp)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/SNqPn4TcKQ)
+[![Website](https://img.shields.io/badge/Website-mcp--for--blender.com-black)](https://mcp-for-blender.com/)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ahujasid)
 [![PyPI Version](https://img.shields.io/pypi/v/mcp-for-blender?color=blue)](https://pypi.org/project/mcp-for-blender/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/SNqPn4TcKQ)
-
-[**Website**](https://mcp-for-blender.com/) · [**Full Tutorial**](https://www.youtube.com/watch?v=lCyQ717DuzQ) · [**Discord**](https://discord.gg/SNqPn4TcKQ) · [**Sponsor**](https://github.com/sponsors/ahujasid) · [**Buy me a coffee**](https://buymeacoffee.com/ahujasid) · [**Feedback**](https://cal.com/siddharth-ahuja/feedback-call)
 
 <a href="https://trendshift.io/repositories/14834?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14834" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/14834" alt="ahujasid%2Fblender-mcp | Trendshift" width="250" height="55"/></a>
 
@@ -42,7 +42,6 @@ Prompt-assisted 3D modeling, scene creation, and manipulation — driven by AI.
 **Supporters**
 
 [CodeRabbit](https://www.coderabbit.ai/)
-[Kevin Guanche Darias](https://github.com/KevinGuancheDarias)
 [Guillermo Rauch](https://github.com/rauchg)
 
 **All supporters:** [Support this project](https://github.com/sponsors/ahujasid)
@@ -203,8 +202,8 @@ The addon starts its server when Blender opens. To check, press `N` in the 3D vi
 | **Two-way communication** | Connect Claude AI to Blender through a socket-based server |
 | **Object manipulation** | Create, modify, and delete 3D objects in Blender |
 | **Material control** | Apply and modify materials and colors |
-| **Visual verification** | Multi-angle, camera, topology, rig and animation-strip views, so the AI checks its own work |
-| **Code execution** | The AI writes Blender Python directly, with on-demand guides for rigging, retopology, animation and level design |
+| **Visual verification** | Multi-angle, camera, wireframe, X-ray and animation-strip views, plus renders, so the AI checks its own work |
+| **Code execution** | The AI writes Blender Python directly |
 | **Asset & model generation** | Poly Haven assets, Sketchfab models, Poly Pizza low-poly models, and AI-generated 3D models via Tripo, Hyper3D Rodin and Hunyuan3D |
 
 ## Premium
@@ -607,18 +606,23 @@ Then open the **MCP for Blender** tab in Blender's sidebar (press `N` in the 3D 
 
 > For newcomers, go straight to [Quickstart](#quickstart). For existing users, see below.
 
-**1.** Update the addon file by running:
+**1.** Run:
 
 ```bash
-uvx mcp-for-blender install-addon
-uvx mcp-for-blender addon-paths   # optional: list detected Blender addons folders
+uvx mcp-for-blender@latest update
 ```
 
-**2.** In Blender: **Preferences → Add-ons** → disable and re-enable **Interface: MCP for Blender** (or restart Blender), then click **Start MCP Server** again.
+This updates the MCP server (refreshing uv's cached copy, or upgrading a `uv tool install`) and every installed copy of the Blender addon, keeping a `.bak` of each file it replaces. It never downgrades an addon that's newer than the release, and leaves alone a copy you've edited locally. Add `--dry-run` to see what it would change first.
 
-**3.** Delete the MCP server from Claude and add it back again if the server package itself needs a refresh.
+> Use `@latest` the first time: releases older than 2.1.7 don't have the `update` command, and uvx may still have one of those cached.
 
-> **Note:** the MCP server never modifies your Blender addon files on its own. When it starts, it checks whether the installed addon is behind the bundled copy and logs how to update; `install-addon` is what actually writes, and it keeps a `.bak` of the file it replaces. Trajectory capture still works on older loaded addons via an `execute_code` fallback.
+**2.** Restart your MCP client (Claude Desktop, Cursor, ...) so it starts the new server.
+
+**3.** In Blender: restart it, or **Preferences → Add-ons** → disable and re-enable **Interface: MCP for Blender**, then click **Start MCP Server** again.
+
+If a client is still set up with the old `blender-mcp` package name, `update` says so; `uvx mcp-for-blender setup` switches it over.
+
+> **Note:** the MCP server never modifies your Blender addon files on its own. When it starts, it checks whether the installed addon is behind the bundled copy and logs how to update; `update` and `install-addon` are what actually write. Trajectory capture still works on older loaded addons via an `execute_code` fallback.
 
 ---
 
@@ -642,16 +646,15 @@ Once the config file has been set on Claude, and the addon is running on Blender
 
 ### Capabilities
 
-The AI writes Blender Python itself for modelling, layout, materials, animation, rigging and retopology. The MCP adds what Python can't do on its own, as ten tools:
+The AI writes Blender Python itself for modelling, layout, materials, animation, rigging and retopology. The MCP adds what Python can't do on its own, as nine tools:
 
 | Tool | What it's for |
 |---|---|
 | `execute_blender_code` | Run Python in your live Blender |
-| `look` | See the result. Modes: `viewport`, `angles` (auto-framed multi-view sheet), `camera`, `topology` (wireframe + mesh stats), `rig` (bones + weighting stats), `frames` (animation strip) |
-| `get_scene_info` | Compact scene summary, one line per object; drill in with `root` or `query` |
+| `look` | See the result from the `viewport`, `camera`, `angles` (auto-framed multi-view sheet, any direction) or `frames` (animation strip), drawn `solid`, `material`, `rendered`, `wireframe` or `xray`; or show a render or image file |
+| `get_scene_info` | Compact scene summary, one line per object with the fields you pick (placement, materials, topology, weights, ...); drill in with `root` or `query` |
 | `generate_3d` | One call to generate and import a model with Tripo, Hunyuan3D or Hyper3D Rodin. Premium generators are preferred automatically |
 | `search_assets` / `import_asset` | [Poly Haven](https://polyhaven.com/) HDRIs, textures and models, [Sketchfab](https://sketchfab.com/) models, [Poly Pizza](https://poly.pizza/) low-poly models |
-| `get_guide` | Workflow guides loaded only when needed: `bpy`, `scene`, `level-design`, `animation`, `rigging`, `retopology`, `materials` (also exposed as `guide://` resources) |
 | `get_addon_status` | Blender version, addon version, and which libraries and generators are switched on |
 | `disable_telemetry`, `record_trajectory_feedback` | Data collection controls |
 

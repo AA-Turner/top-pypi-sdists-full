@@ -16,6 +16,7 @@ from typer.testing import CliRunner
 
 from confiture.core.test_db import TestDbProvisioner, _clone_sql
 from confiture.exceptions import ConfigurationError
+from confiture.sql_text import rendered
 from confiture.testing.worker_db import resolve_clone_strategy
 
 
@@ -25,10 +26,9 @@ def _options(sql: str) -> dict[str, str]:
 
 
 class _Conn:
-    """A maintenance connection that answers the version probe and records statements."""
+    """A maintenance connection that records the statements it is given."""
 
-    def __init__(self, version_num: int, fail_on: str | None = None) -> None:
-        self.version_num = version_num
+    def __init__(self, fail_on: str | None = None) -> None:
         self.fail_on = fail_on
         self.statements: list[str] = []
 
@@ -39,13 +39,13 @@ class _Conn:
         return False
 
     def execute(self, query: object, params: object = None, **_: object) -> _Conn:
-        text = query.as_string(None) if hasattr(query, "as_string") else str(query)
+        text = rendered(query)
         self.statements.append(text)
         if self.fail_on and text.startswith("CREATE DATABASE") and self.fail_on in text:
             import psycopg
 
             raise psycopg.errors.InvalidParameterValue("tablespace gone")
-        self._row = (str(self.version_num),) if "server_version_num" in text else (1,)
+        self._row = (1,)
         return self
 
     def fetchone(self) -> tuple[object, ...]:
@@ -60,17 +60,17 @@ def _provisioner(monkeypatch: pytest.MonkeyPatch, conn: _Conn) -> TestDbProvisio
 
 
 def test_file_copy_is_written_as_the_strategy_option() -> None:
-    sql = _clone_sql("t_gw0", "tmpl", strategy="file_copy").as_string(None)
+    sql = rendered(_clone_sql("t_gw0", "tmpl", strategy="file_copy"))
 
     assert _options(sql) == {"template": "tmpl", "strategy": "file_copy"}
 
 
 def test_no_strategy_writes_no_strategy_option() -> None:
-    assert "strategy" not in _options(_clone_sql("t_gw0", "tmpl").as_string(None))
+    assert "strategy" not in _options(rendered(_clone_sql("t_gw0", "tmpl")))
 
 
 def test_an_unknown_strategy_is_refused_before_anything_runs(monkeypatch) -> None:
-    conn = _Conn(180000)
+    conn = _Conn()
     prov = _provisioner(monkeypatch, conn)
 
     with pytest.raises(ConfigurationError, match="strategy"):
@@ -78,17 +78,8 @@ def test_an_unknown_strategy_is_refused_before_anything_runs(monkeypatch) -> Non
     assert conn.statements == []
 
 
-def test_a_server_without_the_clause_refuses_a_strategy_and_names_its_version(monkeypatch) -> None:
-    conn = _Conn(140012)
-    prov = _provisioner(monkeypatch, conn)
-
-    with pytest.raises(ConfigurationError, match="15"):
-        prov.clone("tmpl", "t_gw0", strategy="file_copy")
-    assert not any(s.startswith("CREATE DATABASE") for s in conn.statements)
-
-
 def test_the_strategy_rides_the_clone_and_its_result(monkeypatch) -> None:
-    conn = _Conn(180000)
+    conn = _Conn()
     result = _provisioner(monkeypatch, conn).clone("tmpl", "t_gw0", strategy="file_copy")
 
     (create,) = [s for s in conn.statements if s.startswith("CREATE DATABASE")]
@@ -97,7 +88,7 @@ def test_the_strategy_rides_the_clone_and_its_result(monkeypatch) -> None:
 
 
 def test_the_on_disk_fallback_keeps_the_strategy(monkeypatch) -> None:
-    conn = _Conn(180000, fail_on="TABLESPACE")
+    conn = _Conn(fail_on="TABLESPACE")
     result = _provisioner(monkeypatch, conn).clone(
         "tmpl", "t_gw0", tablespace="ram", strategy="file_copy"
     )

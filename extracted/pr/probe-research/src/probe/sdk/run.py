@@ -2039,6 +2039,7 @@ class Run:
                 name,
                 parent_run_id=self.id,
                 parent_relation=relation,
+                project_id=self.project_id,
                 **kw,
             )
         if self.project_id is not None:

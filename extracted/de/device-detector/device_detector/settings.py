@@ -1,5 +1,5 @@
-from collections import OrderedDict
 import os
+from collections import OrderedDict
 from typing import Any
 
 # Only match if useragent begins with given regex or there is no letter before it
@@ -29,7 +29,7 @@ class HashHints(dict):  # type: ignore[type-arg]
     def __hash__(self) -> int:  # type: ignore[override]
         return hash(self.__key())
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         return self.__key() == other.__key()
 
 
@@ -85,8 +85,8 @@ WORTHLESS_UA_TYPES = {
 
 __all__ = (
     'BOUNDED_REGEX',
-    'HashHints',
-    'LRUDict',
     'ROOT',
     'WORTHLESS_UA_TYPES',
+    'HashHints',
+    'LRUDict',
 )

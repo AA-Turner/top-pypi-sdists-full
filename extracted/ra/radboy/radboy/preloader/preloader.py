@@ -70,7 +70,22 @@ preloader={
 	f'{uuid1()}':{
 			'cmds':['xp nm ck',],
 			'exec':experimentName_power_useage,
-			'desc':'experiment name taxt cooking'
+			'desc':'experiment name text cooking'
+				},
+	f'{uuid1()}':{
+			'cmds':['xp nm ck2',],
+			'exec':experimentName_power_useage2,
+			'desc':'experiment name text cooking and remembers value for last fields\'s useage'
+				},
+	f'{uuid1()}':{
+			'cmds':['xp nm st','shift text'],
+			'exec':experimentName_shift_text,
+			'desc':'experiment name text shift drug_text'
+				},
+	f'{uuid1()}':{
+			'cmds':['xp nm tt',],
+			'exec':experimentName_Text,
+			'desc':'experiment name text trip text'
 				},
     f'{uuid1()}':{
             'cmds':['compound interest standard','cis'],

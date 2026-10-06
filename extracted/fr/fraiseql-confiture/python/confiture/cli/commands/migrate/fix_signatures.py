@@ -16,7 +16,6 @@ from confiture.cli.helpers import (
     is_json,
     open_connection,
 )
-from confiture.cli.markup import verbatim
 from confiture.cli.options import (
     CONFITURE_YAML,
     CheckSignatureSchemasOpt,
@@ -29,18 +28,18 @@ from confiture.cli.options import (
 from confiture.config.environment import SshTunnelConfig
 from confiture.core import builder as _core_builder
 from confiture.core.connection import DatabaseError, load_config
-from confiture.core.function_body_drift import FunctionBodyDriftDetector, paired
+from confiture.core.function_body_drift import FunctionBodyDriftDetector
 from confiture.core.function_signature_drift import (
     Definitions,
     FunctionSignatureDriftDetector,
-    by_function,
+    by_name,
     declared_routines,
     definition_of,
     live_routines,
-    matching,
     printed_signature,
     replacing_definitions,
     schemas_to_scan,
+    unpaired_routines,
 )
 from confiture.error_codes import FINDINGS
 from confiture.exceptions import ConfigurationError, ConfiturError, base_message
@@ -205,7 +204,7 @@ def migrate_fix_signatures(
         )
         if has_residual:
             raise typer.Exit(FINDINGS)
-    except (typer.Exit, ConfiturError):
+    except typer.Exit, ConfiturError:
         raise
     # Reason: any failure below the config check is one error, rendered by the boundary
     except Exception as e:
@@ -267,7 +266,7 @@ def _ssh_override(config_data: Any, ssh_via: str | None, format_output: str) -> 
             )
 
     if format_output == "text":
-        console.print(f"[dim]  (connecting via SSH tunnel to {verbatim(ssh_via)})[/dim]")
+        console.print(t"[dim]  (connecting via SSH tunnel to {ssh_via})[/dim]")
     return _SshOverride(config_data, SshTunnelConfig(host=ssh_host, user=ssh_user))
 
 
@@ -285,7 +284,7 @@ def _render_clean(
             console,
         )
     else:
-        console.print(f"[green]✅ {verbatim(message)}[/green]")
+        console.print(t"[green]✅ {message}[/green]")
 
 
 def _render_unfixable(
@@ -313,7 +312,7 @@ def _render_unfixable(
             console,
         )
     else:
-        error_console.print(f"[red]❌ {verbatim(message)}[/red]")
+        error_console.print(t"[red]❌ {message}[/red]")
 
 
 def _plan_signature_fixes(
@@ -334,15 +333,14 @@ def _plan_signature_fixes(
     """
     fix_blocks: list[dict[str, Any]] = []
     missing_source: list[str] = []
-    declared_by_fn, live_by_fn = by_function(declared), by_function(live)
+    undeployed = by_name(unpaired_routines(declared, live)[0])
     planned: set[str] = set()
     for overload in drift_report.stale_overloads:
         fn_key = f"{overload.schema}.{overload.name}"
         lacking = [
             routine
-            for routine in declared_by_fn.get(fn_key, [])
-            if matching(routine, live_by_fn.get(fn_key, [])) is None
-            and printed_signature(routine) not in planned
+            for routine in undeployed.get(fn_key, [])
+            if printed_signature(routine) not in planned
         ]
         creates = [definition_of(definitions, routine) for routine in lacking]
         if fn_key not in definitions or None in creates:
@@ -362,7 +360,7 @@ def _plan_signature_fixes(
             "(skipped — would leave function undefined):[/yellow]"
         )
         for sig in missing_source:
-            console.print(f"[yellow]    {verbatim(sig)}[/yellow]")
+            console.print(t"[yellow]    {sig}[/yellow]")
     return fix_blocks, missing_source
 
 
@@ -376,7 +374,7 @@ def _plan_body_fixes(
 
     A drifted body belongs to an overload both sides hold, which the signature
     fixes never create, so the two plans cannot overlap. Its definition is the
-    declared routine the detector paired it with.
+    declared routine of the signature the report prints.
     """
     if not check_body:
         return [], []
@@ -385,9 +383,8 @@ def _plan_body_fixes(
     body_fix_blocks: list[dict[str, Any]] = []
     body_missing_source: list[str] = []
     if body_report.has_drift:
-        declared_twin = {
-            printed_signature(actual): expected for expected, actual in paired(declared, live)
-        }
+        # A report prints a routine one way whichever side it was read from.
+        declared_twin = {printed_signature(routine): routine for routine in declared}
         for drift in body_report.body_drifts:
             expected = declared_twin.get(drift.signature_key)
             create_sql = definition_of(definitions, expected) if expected else None
@@ -435,14 +432,14 @@ def _render_fix_dry_run(
         return
     if fix_blocks:
         console.print(
-            f"[bold]Plan: {len(fix_blocks)} fix(es) (pass --mode apply to execute):[/bold]"
+            t"[bold]Plan: {len(fix_blocks)} fix(es) (pass --mode apply to execute):[/bold]"
         )
         console.print()
         console.print(combined_sql)
     if body_fix_blocks:
         console.print(
-            f"[bold]Plan: {len(body_fix_blocks)} body drift fix(es)"
-            " (pass --mode apply to execute):[/bold]"
+            t"[bold]Plan: {len(body_fix_blocks)} body drift fix(es)"
+            t" (pass --mode apply to execute):[/bold]"
         )
         for block in body_fix_blocks:
             console.print()
@@ -518,13 +515,13 @@ def _render_fix_applied(
         )
         return
     if fix_blocks:
-        console.print(f"[green]✅ Applied {len(fix_blocks)} signature fix(es):[/green]")
+        console.print(t"[green]✅ Applied {len(fix_blocks)} signature fix(es):[/green]")
         for sig in applied:
-            console.print(f"[green]    {verbatim(sig)}[/green]")
+            console.print(t"[green]    {sig}[/green]")
     if body_fix_blocks:
-        console.print(f"[green]✅ Applied {len(body_fix_blocks)} body drift fix(es):[/green]")
+        console.print(t"[green]✅ Applied {len(body_fix_blocks)} body drift fix(es):[/green]")
         for sig in body_applied:
-            console.print(f"[green]    {verbatim(sig)}[/green]")
+            console.print(t"[green]    {sig}[/green]")
     if has_residual:
         console.print(
             "[yellow]⚠ Residual drift detected after apply — "

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest_httpserver
-Version: 1.1.5
+Version: 1.2.0
 Summary: pytest-httpserver is a httpserver for pytest
 License-Expression: MIT
 License-File: LICENSE
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Framework :: Pytest
-Requires-Dist: Werkzeug (>=2.0.0)
+Requires-Dist: Werkzeug (>=3.0.0)
 Project-URL: Bug Tracker, https://github.com/csernazs/pytest-httpserver/issues
 Project-URL: Documentation, https://pytest-httpserver.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/csernazs/pytest-httpserver

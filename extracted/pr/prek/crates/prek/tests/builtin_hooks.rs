@@ -388,6 +388,34 @@ fn require_pattern_hook_reports_files_without_any_match() {
 }
 
 #[test]
+fn trailing_whitespace_empty_chars() {
+    let files = [("plain.txt", "hello \t\n"), ("doc.md", "hello   \r\n  \n")];
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: trailing-whitespace
+                args: ['--chars=', --markdown-linebreak-ext=md]
+    "})
+        .with_files(files)
+        .init_git();
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    trim trailing whitespace.................................................Passed
+
+    ----- stderr -----
+    "#);
+
+    for (name, contents) in files {
+        assert_eq!(context.read(name), contents);
+    }
+}
+
+#[test]
 fn trailing_whitespace_check() -> Result<()> {
     let files = [
         ("extra.md", "trim   \r\n"),
@@ -1095,7 +1123,7 @@ fn check_json_hook() {
         .init_git();
 
     // First run: hooks should fail
-    cmd_snapshot!(context, context.run(), @r"
+    cmd_snapshot!(context, context.run(), @r#"
     success: false
     exit_code: 1
     ----- stdout -----
@@ -1105,14 +1133,16 @@ fn check_json_hook() {
     - exit code: 1
 
       duplicate.json: Failed to json decode (duplicate key `a` at line 1 column 12)
+      empty.json: Failed to json decode (EOF while parsing a value at line 1 column 0)
       invalid.json: Failed to json decode (trailing comma at line 1 column 9)
 
     ----- stderr -----
-    ");
+    "#);
 
     // Fix the files
     context.write_file("invalid.json", r#"{"a": 1}"#);
     context.write_file("duplicate.json", r#"{"a": 1, "b": 2}"#);
+    context.write_file("empty.json", "null");
 
     context.git().add(".");
 
@@ -1283,8 +1313,8 @@ fn check_added_large_files_hook() {
                   - id: check-added-large-files
                     args: ['--maxkb', '1']
         "})
-        .with_file("small_file.txt", "Hello World\n")
-        .with_file("large_file.txt", [0_u8; 2048]);
+        .with_file("small_file.txt", [0_u8; 1024])
+        .with_file("large_file.txt", [0_u8; 1025]);
 
     context.git().add(".");
 
@@ -1365,6 +1395,36 @@ fn check_added_large_files_hook() {
 
     ----- stderr -----
     ");
+}
+
+#[test]
+fn check_added_large_files_zero_limit() {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: check-added-large-files
+                args: ['--maxkb=0']
+                files: '\.bin$'
+    "})
+        .with_file("empty.bin", "")
+        .with_file("nonempty.bin", [0_u8; 1])
+        .init_git();
+
+    cmd_snapshot!(context, context.run(), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    check for added large files..............................................Failed
+    - hook id: check-added-large-files
+    - description: Prevents giant files from being committed
+    - exit code: 1
+
+      nonempty.bin (1 KB) exceeds 0 KB
+
+    ----- stderr -----
+    "#);
 }
 
 #[test]
@@ -1556,6 +1616,7 @@ fn builtin_hooks_workspace_mode() {
       - exit code: 1
 
         duplicate.json: Failed to json decode (duplicate key `a` at line 1 column 12)
+        empty.json: Failed to json decode (EOF while parsing a value at line 1 column 0)
         invalid.json: Failed to json decode (trailing comma at line 1 column 9)
       mixed line ending......................................................Failed
       - hook id: mixed-line-ending
@@ -1605,6 +1666,7 @@ fn builtin_hooks_workspace_mode() {
     context.write_file("app/duplicate.yaml", "a: 1\nb: 2\n");
     context.write_file("app/invalid.json", concat!(r#"{"a": 1}"#, "\n"));
     context.write_file("app/duplicate.json", concat!(r#"{"a": 1, "b": 2}"#, "\n"));
+    context.write_file("app/empty.json", "null\n");
     context.write_file("app/large.bin", [0u8; 100]);
     context.git().add(".");
 
@@ -2957,7 +3019,7 @@ fn no_commit_to_branch_hook_with_patterns() {
           - repo: builtin
             hooks:
               - id: no-commit-to-branch
-                args: ['--pattern', '^feature/.*', '--pattern', '.*-wip$']
+                args: ['--pattern', 'feature/.*', '--pattern', '.*-wip$']
     "})
         .with_file("test.txt", "Hello World")
         .init_git();
@@ -3025,11 +3087,11 @@ fn no_commit_to_branch_hook_with_patterns() {
     ----- stderr -----
     ");
 
-    // Test 4: Create and switch to normal branch (should pass - doesn't match patterns)
+    // Test 4: A match in the middle of a branch name must not protect it
     context
         .git()
-        .branch("normal-branch")
-        .checkout("normal-branch");
+        .branch("fix/feature/new-feature")
+        .checkout("fix/feature/new-feature");
 
     context.write_file("normal.txt", "Normal content");
     context.git().add(".").commit("Add normal content");
@@ -3143,15 +3205,17 @@ fn check_executables_have_shebangs_hook() -> Result<()> {
     Ok(())
 }
 
-#[cfg(windows)]
 #[test]
-fn check_executables_have_shebangs_win() {
+fn check_executables_have_shebangs_git_index() {
     let context = TestEnv::new()
         .with_config(indoc::indoc! {r"
         repos:
           - repo: builtin
             hooks:
               - id: check-executables-have-shebangs
+                args: [./win_script_with_shebang.sh, ./win_script_without_shebang.sh]
+                pass_filenames: false
+                types: [file]
     "})
         .with_file("win_script_with_shebang.sh", "#!/bin/bash\necho ok\n")
         .with_file("win_script_without_shebang.sh", "missing shebang\n")
@@ -3159,6 +3223,7 @@ fn check_executables_have_shebangs_win() {
 
     context
         .git()
+        .run(["config", "core.fileMode", "false"])
         .run(["update-index", "--chmod=+x", "win_script_with_shebang.sh"])
         .run([
             "update-index",
@@ -3310,6 +3375,8 @@ fn check_shebang_scripts_are_executable() -> Result<()> {
           - repo: builtin
             hooks:
               - id: check-shebang-scripts-are-executable
+                args: [./plain.txt, ./script.sh, ./script_exec.sh]
+                pass_filenames: false
     "})
         .with_file("plain.txt", "plain text\n")
         .with_file("script.sh", "#!/bin/sh\necho hi\n")
@@ -3507,6 +3574,70 @@ fn check_case_conflict_among_new_files() -> Result<()> {
       Case-insensitivity conflict found: NEWFILE.TXT
       Case-insensitivity conflict found: NewFile.txt
       Case-insensitivity conflict found: newfile.txt
+
+    ----- stderr -----
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn check_case_conflict_selected_and_unselected_paths() -> Result<()> {
+    let context = TestEnv::new()
+        .with_config(indoc::indoc! {r"
+        repos:
+          - repo: builtin
+            hooks:
+              - id: check-case-conflict
+    "})
+        .with_files([("foo.txt", "existing file"), ("trigger.txt", "trigger")])
+        .init_git();
+    context.git().commit("Initial commit");
+
+    // Populate the index directly so this also works on case-insensitive filesystems.
+    let blob = context.git().rev_parse("HEAD:foo.txt")?;
+    context.git().run([
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        &format!("100644,{blob},FOO.txt"),
+    ]);
+
+    cmd_snapshot!(context, context.run().args(["--files", "trigger.txt"]), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    check for case conflicts.................................................Failed
+    - hook id: check-case-conflict
+    - description: Checks for files that would conflict in case-insensitive filesystems
+    - exit code: 1
+
+      Case-insensitivity conflict found: FOO.txt
+      Case-insensitivity conflict found: foo.txt
+
+    ----- stderr -----
+    "#);
+
+    context.git().commit("Existing case conflict");
+    cmd_snapshot!(context, context.run().args(["--files", "trigger.txt"]), @r#"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    check for case conflicts.................................................Passed
+
+    ----- stderr -----
+    "#);
+    cmd_snapshot!(context, context.run().args(["--files", "foo.txt"]), @r#"
+    success: false
+    exit_code: 1
+    ----- stdout -----
+    check for case conflicts.................................................Failed
+    - hook id: check-case-conflict
+    - description: Checks for files that would conflict in case-insensitive filesystems
+    - exit code: 1
+
+      Case-insensitivity conflict found: FOO.txt
+      Case-insensitivity conflict found: foo.txt
 
     ----- stderr -----
     "#);

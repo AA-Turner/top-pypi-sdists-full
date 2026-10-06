@@ -672,6 +672,17 @@ def _resource_kind(tag: str, url: str, rel: str, mime_type: str) -> str:
     return "other"
 
 
+_SCRIPT_LAZY_ATTRIBUTES = ("data-src", "data-lazy-src", "data-original", "nitro-lazy-src", "data-srcset")
+
+
+def _is_script_lazy(attrs: dict[str, Any]) -> bool:
+    """True when a lazy-loading SCRIPT (not `loading=lazy`) defers this image."""
+    if any(attrs.get(name) for name in _SCRIPT_LAZY_ATTRIBUTES):
+        return True
+    classes = (attrs.get("class") or "").lower().split()
+    return any(c in ("lazy", "lazyload", "lazyloaded", "lazyloading") for c in classes)
+
+
 def _extract_page_resources(
     tree: HTMLParser,
     base_url: str,
@@ -750,10 +761,12 @@ def _extract_page_resources(
             "picture_formats": _picture_source_formats(img, base_url),
             "picture_sources": _picture_source_urls(img, base_url),
             "sizes": attrs.get("sizes"),
-            "alt": attrs.get("alt"),
+            # selectolax reports `alt=""` as None; presence of the attribute is the signal.
+            "alt": (attrs.get("alt") or "") if "alt" in attrs else None,
             "width": _number_attribute(attrs.get("width")),
             "height": _number_attribute(attrs.get("height")),
             "loading": attrs.get("loading"),
+            "js_lazy": _is_script_lazy(attrs),
             "decoding": attrs.get("decoding"),
             "fetchpriority": attrs.get("fetchpriority"),
             "title": attrs.get("title"),
@@ -2430,6 +2443,12 @@ def check_text_html_ratio(ev: PageEvidence) -> CheckOutcome:
 def check_image_alt_presence(ev: PageEvidence) -> CheckOutcome:
     count = ev.image_count
     missing = ev.images_missing_alt
+    items = [item for item in ev.image_items if isinstance(item, dict)]
+    if count and len(items) == count:
+        # The inventory is complete, so recompute from it: snapshots stored before
+        # the capture learned that `alt=""` is a valid decorative marker counted
+        # those images as missing (9 of 10 on a real author page).
+        missing = sum(1 for item in items if item.get("alt") is None)
     if count is None or missing is None:
         return CheckOutcome(
             "n_a",
@@ -2537,7 +2556,20 @@ def check_image_lazy_loading(ev: PageEvidence) -> CheckOutcome:
         return unavailable
 
     def is_lazy(item: dict[str, Any]) -> bool:
-        return str(item.get("loading") or "").strip().lower() == "lazy"
+        return str(item.get("loading") or "").strip().lower() == "lazy" or item.get("js_lazy") is True
+
+    # An image with no resolvable source is a script placeholder (the real URL
+    # arrives from a lazy-loader attribute we did not capture, e.g. nitro-lazy-src
+    # or a data: URI). Its loading behaviour is unknowable here, so it is neither
+    # eager nor lazy — 383 findings said "loads eagerly" about exactly these.
+    items = [item for item in items if item.get("src")]
+    if not items:
+        return CheckOutcome(
+            "n_a",
+            None,
+            "This page's images are placed by a lazy-loading script, so their loading policy "
+            "cannot be judged from the page source.",
+        )
 
     above_fold_indexes = {
         index
@@ -3851,12 +3883,62 @@ LOCAL_BUSINESS_SUBTYPES: frozenset[str] = frozenset(
         "TelevisionStation",
         "TouristInformationCenter",
         "TravelAgency",
+        # Second-level subtypes seen on real client sites (iopbm.com declares
+        # `MedicalClinic`, which sits under MedicalBusiness) — a whitelist of
+        # first-level children alone told those sites they had no business markup.
+        "AccountingService",
+        "Attorney",
+        "AutoDealer",
+        "AutoRepair",
+        "BankOrCreditUnion",
+        "Bar",
+        "BeautySalon",
+        "CafeOrCoffeeShop",
+        "DaySpa",
+        "DiagnosticLab",
+        "Electrician",
+        "GeneralContractor",
+        "HVACBusiness",
+        "HairSalon",
+        "HealthClub",
+        "Hospital",
+        "Hotel",
+        "HousePainter",
+        "IndividualPhysician",
+        "LegalService",
+        "Locksmith",
+        "MedicalClinic",
+        "MovingCompany",
+        "NailSalon",
+        "Notary",
+        "Optician",
+        "Pharmacy",
+        "Physician",
+        "Plumber",
+        "RoofingContractor",
+        "TattooParlor",
+        "VeterinaryCare",
+        "Winery",
     }
 )
 
 #: Types that declare "this site belongs to this business/organization".
 BUSINESS_ENTITY_TYPES: frozenset[str] = frozenset(
-    {"Organization", "Corporation", "NGO", "LocalBusiness", *LOCAL_BUSINESS_SUBTYPES}
+    {
+        "Organization",
+        "Corporation",
+        "NGO",
+        "LocalBusiness",
+        "MedicalOrganization",
+        "EducationalOrganization",
+        "School",
+        "CollegeOrUniversity",
+        "OnlineBusiness",
+        "OnlineStore",
+        "NewsMediaOrganization",
+        "SportsOrganization",
+        *LOCAL_BUSINESS_SUBTYPES,
+    }
 )
 
 #: NAP — Name, Address, Phone. The three properties a business entity exists to
@@ -3985,6 +4067,24 @@ def business_entities_in(structured_data: dict[str, Any]) -> list[dict[str, Any]
             entity[prop] = flatten_schema_value(_property_value(data, prop))
         entities.append(entity)
     return entities
+
+
+def legacy_business_types_in(structured_data: dict[str, Any]) -> list[str]:
+    """Business types a LEGACY capture names but never described.
+
+    Snapshots written before property-level capture carry only
+    ``{"schema_types": ["http://schema.org/Organization"], "schema_org": {}}`` and
+    no ``blocks``. They prove a business type is declared; they cannot say what
+    name/address/phone it states. The site check must treat that as *unknown*,
+    never as "no business markup".
+    """
+    if structured_data_blocks(structured_data):
+        return []
+    types = structured_data.get("schema_types")
+    if not isinstance(types, list):
+        return []
+    names = [str(t).rstrip("/").rsplit("/", 1)[-1] for t in types if t]
+    return [name for name in names if name in BUSINESS_ENTITY_TYPES]
 
 
 def check_structured_data_validity(ev: PageEvidence) -> CheckOutcome:
@@ -5012,6 +5112,7 @@ __all__ = [
     "check_ttfb_server_response",
     "check_viewport_meta",
     "business_entities_in",
+    "legacy_business_types_in",
     "clamp_score",
     "declared_page_type",
     "flatten_schema_value",

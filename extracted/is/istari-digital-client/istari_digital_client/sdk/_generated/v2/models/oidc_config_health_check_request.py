@@ -19,18 +19,20 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from istari_digital_client.sdk._generated.v2.models.oauth1_provider_data import Oauth1ProviderData
 from istari_digital_client.sdk._generated.v2.models.oidc_provider_data import OidcProviderData
 from typing import Optional, Set
 from typing_extensions import Self
 
 class OidcConfigHealthCheckRequest(BaseModel):
     """
-    A candidate OIDC configuration to probe before an integration is created or updated.  Carries the same provider data and client secret as ``NewAuthIntegration`` so an admin can validate a form's values without persisting anything; the secret is exercised server-side against the provider and never stored or returned. When no ``client_secret`` is given and ``auth_integration_id`` names an existing integration, that integration's stored secret is used -- the edit form can test changed provider fields without re-entering the secret.
+    A candidate provider configuration to probe before an integration is created or updated.  Carries the same provider data and client secret as ``NewAuthIntegration`` so an admin can validate a form's values without persisting anything; the secret is exercised server-side against the provider and never stored or returned. Exactly one of ``oidc_provider_data`` / ``oauth1_provider_data`` selects the standard to probe (for OAuth 1.0a the secret is the consumer secret). When no ``client_secret`` is given and ``auth_integration_id`` names an existing integration, that integration's stored secret is used -- the edit form can test changed provider fields without re-entering the secret.
     """ # noqa: E501
-    oidc_provider_data: OidcProviderData
+    oidc_provider_data: Optional[OidcProviderData] = None
+    oauth1_provider_data: Optional[Oauth1ProviderData] = None
     client_secret: Optional[StrictStr] = None
     auth_integration_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["oidc_provider_data", "client_secret", "auth_integration_id"]
+    __properties: ClassVar[List[str]] = ["oidc_provider_data", "oauth1_provider_data", "client_secret", "auth_integration_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -74,6 +76,19 @@ class OidcConfigHealthCheckRequest(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of oidc_provider_data
         if self.oidc_provider_data:
             _dict['oidc_provider_data'] = self.oidc_provider_data.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of oauth1_provider_data
+        if self.oauth1_provider_data:
+            _dict['oauth1_provider_data'] = self.oauth1_provider_data.to_dict()
+        # set to None if oidc_provider_data (nullable) is None
+        # and model_fields_set contains the field
+        if self.oidc_provider_data is None and "oidc_provider_data" in self.model_fields_set:
+            _dict['oidc_provider_data'] = None
+
+        # set to None if oauth1_provider_data (nullable) is None
+        # and model_fields_set contains the field
+        if self.oauth1_provider_data is None and "oauth1_provider_data" in self.model_fields_set:
+            _dict['oauth1_provider_data'] = None
+
         # set to None if client_secret (nullable) is None
         # and model_fields_set contains the field
         if self.client_secret is None and "client_secret" in self.model_fields_set:
@@ -97,6 +112,7 @@ class OidcConfigHealthCheckRequest(BaseModel):
 
         _obj = cls.model_validate({
             "oidc_provider_data": OidcProviderData.from_dict(obj["oidc_provider_data"]) if obj.get("oidc_provider_data") is not None else None,
+            "oauth1_provider_data": Oauth1ProviderData.from_dict(obj["oauth1_provider_data"]) if obj.get("oauth1_provider_data") is not None else None,
             "client_secret": obj.get("client_secret"),
             "auth_integration_id": obj.get("auth_integration_id")
         })

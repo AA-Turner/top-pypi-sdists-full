@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ome-zarr
-Version: 0.19.2
+Version: 0.20.1
 Summary: Implementation of images in Zarr files.
 Author: The Open Microscopy Team
 License-Expression: BSD-2-Clause
@@ -10,10 +10,10 @@ Project-URL: Changelog, https://github.com/ome/ome-zarr-py/blob/master/CHANGELOG
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.12
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -26,7 +26,7 @@ Requires-Dist: requests
 Requires-Dist: scikit-image>=0.19.0
 Requires-Dist: toolz
 Requires-Dist: rangehttpserver
-Requires-Dist: transformnd<0.8.0,>=0.6.0
+Requires-Dist: transformnd<0.10.0,>=0.9.2
 Requires-Dist: ome-zarr-models>=1.8.1
 Requires-Dist: Deprecated
 Dynamic: license-file
@@ -48,16 +48,19 @@ Documentation will be automatically built with `readthedocs`.
 
 It can be built locally with::
 
-    $ pip install -r docs/requirements.txt
-    $ sphinx-build -b html docs/source/ docs/build/html
+    $ uv run --group docs sphinx-build -b html docs/source/ docs/build/
+
+Or, if you prefer using pip:
+
+    $ pip install .[docs]
+    $ sphinx-build -b html docs/source/ docs/build/
 
 Tests
 -----
 
-Tests can be run locally via `tox` with::
+Tests can be run locally via `uv` with::
 
-    $ pip install tox
-    $ tox
+    $ uv run --group tests pytest
 
 To enable pre-commit code validation::
 

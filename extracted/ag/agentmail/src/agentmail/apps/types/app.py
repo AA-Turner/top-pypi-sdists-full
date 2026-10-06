@@ -6,6 +6,7 @@ import typing
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2
 from ...core.unchecked_base_model import UncheckedBaseModel
+from .app_category import AppCategory
 from .app_id import AppId
 
 
@@ -15,6 +16,11 @@ class App(UncheckedBaseModel):
     """
 
     app_id: AppId
+    slug: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Short name accepted in place of `app_id` by Get App, List App Accounts and Connect App. Set by AgentMail on apps in the catalog; renaming the app does not change it. Store `app_id`, the app's permanent ID.
+    """
+
     name: typing.Optional[str] = None
     updated_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
@@ -25,6 +31,11 @@ class App(UncheckedBaseModel):
     logo_url: typing.Optional[str] = None
     terms_url: typing.Optional[str] = None
     privacy_url: typing.Optional[str] = None
+    categories: typing.Optional[typing.List[AppCategory]] = pydantic.Field(default=None)
+    """
+    Kinds of app, up to 3. Omitted when the app sets none.
+    """
+
     owner_signup_limit: typing.Optional[int] = pydantic.Field(default=None)
     """
     Maximum number of accounts your organization may sign up at this app. Omitted when the app sets no limit. 0 means the app has paused new sign-ups; existing accounts keep signing in.

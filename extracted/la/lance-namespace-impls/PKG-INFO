@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: lance-namespace-impls
-Version: 0.4.1
+Version: 0.4.2
 Summary: Third-party catalog implementations for Lance Namespace
 License: Apache-2.0
 Requires-Python: >=3.10

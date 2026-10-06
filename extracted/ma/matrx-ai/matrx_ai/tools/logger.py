@@ -165,7 +165,13 @@ def _should_persist_tool_call() -> bool:
     ctx = try_get_app_context()
     if ctx is None:
         return True
-    return bool(getattr(ctx, "store", True))
+    if not getattr(ctx, "store", True):
+        return False
+    # A run with no conversation (a screen calling a tool through the screen-run
+    # door) has no chat.tool_call row to write: the row's conversation_id is NOT
+    # NULL with a foreign key. Its record is the runtime execution, and its
+    # tool-call log is chat.tool_trace, which still lands.
+    return bool(getattr(ctx, "conversation_id", None))
 
 
 async def _capture_tool_ledger_failure(

@@ -149,14 +149,28 @@ async def deletion_preview(env: dict[str, str], kind: str, ref: str, *, recursiv
     segment = quote(ref, safe="")
     async with await _client(env) as client:
         params = {"dry_run": "true"}
-        if recursive and kind in ("project", "experiment"):
+        if recursive and kind == "project":
             params["recursive"] = "true"
         # Literal f-strings, one per route: tests/test_parity.py reads the path
-        # at the call site. An experiment IS a project row (same uuid).
+        # at the call site.
         if kind == "run":
             resp = await client.delete(f"/v1/runs/{segment}", params=params)
-        elif kind in ("project", "experiment"):
+        elif kind == "project":
             resp = await client.delete(f"/v1/projects/{segment}", params=params)
+        elif kind == "experiment":
+            # The experiment API's trash preview, under the project it is filed
+            # in (`GET /v1/scopes` places it); an experiment has no subtree, so
+            # `recursive` never applies. A ref that is not an experiment's is
+            # answered as the failed read it is: "unknown owner".
+            resp = await _scope(client, ref)
+            if resp.status_code == 200 and (place := resp.json()).get("kind") == "experiment":
+                project = quote(str(place["project_id"]), safe="")
+                experiment = quote(str(place["id"]), safe="")
+                resp = await client.delete(
+                    f"/v1/projects/{project}/experiments/{experiment}", params=params
+                )
+            elif resp.status_code == 200:
+                resp = httpx.Response(404)
         else:
             raise KeyError(kind)
         _refuse_key(resp)
@@ -169,6 +183,17 @@ async def deletion_preview(env: dict[str, str], kind: str, ref: str, *, recursiv
                 "others": others_from(data.get("created_by"), me),
                 "count": data.get("count"), "updated_at": data.get("updated_at"),
                 "restorable_until": data.get("restorable_until")}
+
+
+_UUID = re.compile(r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}")
+
+
+async def _scope(client: httpx.AsyncClient, ref: str) -> httpx.Response:
+    """Where a project or experiment ref is filed: `GET /v1/scopes/{id}` for a
+    uuid, `GET /v1/scopes?slug=` for a slug (one tenant-wide namespace)."""
+    if _UUID.fullmatch(ref):
+        return await client.get(f"/v1/scopes/{quote(ref, safe='')}")
+    return await client.get("/v1/scopes", params={"slug": ref})
 
 
 async def edge(env: dict[str, str], edge_id: str) -> dict:

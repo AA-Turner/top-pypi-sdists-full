@@ -6,18 +6,18 @@ import platform
 import re
 import sys
 import zlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import nullcontext
 from typing import Any
 from unittest import mock
 from urllib.parse import quote
 
 import pytest
-from multidict import CIMultiDict
+from multidict import CIMultiDict, istr
 from yarl import URL
 
 import aiohttp
-from aiohttp import http_exceptions, streams
+from aiohttp import hdrs, http_exceptions, streams
 from aiohttp.base_protocol import BaseProtocol
 from aiohttp.client_proto import ResponseHandler
 from aiohttp.helpers import DEFAULT_CHUNK_SIZE
@@ -190,6 +190,24 @@ def test_max_msg_queue_size_caps_emitted_messages(
     assert not upgraded
 
 
+async def test_max_msg_queue_size_keeps_tail_to_itself(
+    request_cls: type[HttpRequestParser],
+    protocol: BaseProtocol,
+) -> None:
+    """The remainder is buffered for the next feed, so it must not be returned.
+
+    Handing it back as well gives the caller a second copy of bytes the parser
+    is already holding, and both copies get parsed.
+    """
+    loop = asyncio.get_running_loop()
+    parser = _build_request_parser(request_cls, protocol, loop, 4)
+
+    messages, _upgraded, tail = parser.feed_data(_PIPELINED_GET * 10)
+
+    assert len(messages) == 4
+    assert tail == b""
+
+
 def test_max_msg_queue_size_resumes_after_consume(
     request_cls: type[HttpRequestParser],
     protocol: BaseProtocol,
@@ -267,6 +285,80 @@ test2: data\r
 """
     with pytest.raises(http_exceptions.BadHttpMessage):
         parser.feed_data(text)
+
+
+# Sec-WebSocket-Key1 is rejected outright, see test_headers_old_websocket_key1.
+KNOWN_HEADERS = sorted(
+    v
+    for v in vars(hdrs).values()
+    if isinstance(v, istr) and v != hdrs.SEC_WEBSOCKET_KEY1
+)
+
+
+@pytest.mark.skipif(NO_EXTENSIONS, reason="Only tests C parser.")
+@pytest.mark.parametrize("name", KNOWN_HEADERS)
+@pytest.mark.parametrize("case", [str, str.lower, str.upper])
+def test_known_header_name_is_hdrs_constant(
+    loop: asyncio.AbstractEventLoop, name: istr, case: Callable[[str], str]
+) -> None:
+    parser = HttpResponseParserC(ResponseHandler(loop), loop, 2**16)
+    value = "chunked" if name == hdrs.TRANSFER_ENCODING else "0"
+    text = f"HTTP/1.1 200 OK\r\n{case(name)}: {value}\r\n\r\n"
+    messages, _, _ = parser.feed_data(text.encode())
+    (parsed,) = messages[0][0].headers
+    assert parsed is name
+
+
+@pytest.mark.skipif(NO_EXTENSIONS, reason="Only tests C parser.")
+@pytest.mark.parametrize(
+    "name", ["X-Sec-Fetch-Mode", "Accept-Charse", "Accept-Charsets", "T", "TEs"]
+)
+def test_unknown_header_name_keeps_its_spelling(
+    loop: asyncio.AbstractEventLoop, name: str
+) -> None:
+    parser = HttpResponseParserC(ResponseHandler(loop), loop, 2**16)
+    text = f"HTTP/1.1 200 OK\r\n{name}: 0\r\n\r\n"
+    messages, _, _ = parser.feed_data(text.encode())
+    (parsed,) = messages[0][0].headers
+    assert str(parsed) == name
+
+
+def _parsed_header_name(loop: asyncio.AbstractEventLoop, name: str) -> str:
+    parser = HttpResponseParserC(ResponseHandler(loop), loop, 2**16)
+    text = f"HTTP/1.1 200 OK\r\n{name}: 0\r\n\r\n"
+    messages, _, _ = parser.feed_data(text.encode())
+    (parsed,) = messages[0][0].headers
+    return parsed
+
+
+@pytest.mark.skipif(NO_EXTENSIONS, reason="Only tests C parser.")
+def test_unknown_header_name_is_reused(loop: asyncio.AbstractEventLoop) -> None:
+    first = _parsed_header_name(loop, "X-Reused-Name")
+    assert _parsed_header_name(loop, "X-Reused-Name") is first
+    assert _parsed_header_name(loop, "x-reused-name") == "x-reused-name"
+
+
+@pytest.mark.skipif(NO_EXTENSIONS, reason="Only tests C parser.")
+def test_long_unknown_header_name_is_not_reused(
+    loop: asyncio.AbstractEventLoop,
+) -> None:
+    name = "X-" + "a" * 63
+    first = _parsed_header_name(loop, name)
+    second = _parsed_header_name(loop, name)
+    assert second == first == name
+    assert second is not first
+
+
+@pytest.mark.skipif(NO_EXTENSIONS, reason="Only tests C parser.")
+def test_unknown_header_names_are_bounded(
+    loop: asyncio.AbstractEventLoop,
+) -> None:
+    first = _parsed_header_name(loop, "X-Evicted-Name")
+    for i in range(1024):
+        _parsed_header_name(loop, f"X-Filler-{i}")
+    again = _parsed_header_name(loop, "X-Evicted-Name")
+    assert again == first
+    assert again is not first
 
 
 @pytest.mark.skipif(NO_EXTENSIONS, reason="Only tests C parser.")
@@ -584,6 +676,15 @@ def test_whitespace_before_header(parser: Any) -> None:
     text = b"GET / HTTP/1.1\r\nHost: a\r\n\tContent-Length: 1\r\n\r\nX"
     with pytest.raises(http_exceptions.BadHttpMessage):
         parser.feed_data(text)
+
+
+def test_whitespace_around_header_value(parser: HttpRequestParser) -> None:
+    text = b"GET / HTTP/1.1\r\nHost: a\r\ntest: \t value \t \r\n\r\n"
+    messages, upgrade, tail = parser.feed_data(text)
+    msg = messages[0][0]
+
+    assert msg.headers["test"] == "value"
+    assert msg.raw_headers == ((b"Host", b"a"), (b"test", b"value"))
 
 
 @pytest.fixture
@@ -991,6 +1092,33 @@ def test_compression_zstd(parser: HttpRequestParser) -> None:
     assert msg.compression == "zstd"
 
 
+def test_compression_case_insensitive(parser: HttpRequestParser) -> None:
+    text = b"GET /test HTTP/1.1\r\nHost: a\r\ncontent-encoding: GZiP\r\n\r\n"
+    messages, upgrade, tail = parser.feed_data(text)
+    msg = messages[0][0]
+    assert msg.compression == "gzip"
+    # Headers mapping keeps Content-Encoding as received.
+    assert msg.headers.get("Content-Encoding") == "GZiP"
+
+
+async def test_compression_case_insensitive_decodes_body(
+    response: HttpResponseParser,
+) -> None:
+    original = b"hello mixed-case content-encoding"
+    compressed = gzip.compress(original)
+    text = (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Length: " + str(len(compressed)).encode() + b"\r\n"
+        b"Content-Encoding: Gzip\r\n"
+        b"\r\n"
+    ) + compressed
+    messages, upgrade, tail = response.feed_data(text)
+    msg, payload = messages[0][0], messages[0][-1]
+    assert msg.compression == "gzip"
+    assert msg.headers.get("Content-Encoding") == "Gzip"
+    assert await payload.read() == original
+
+
 @pytest.mark.parametrize(
     "enc",
     (
@@ -1042,7 +1170,81 @@ def test_url_absolute(parser: Any) -> None:
     assert msg.url == URL("https://www.google.com/path/to.html")
 
 
-def test_headers_old_websocket_key1(parser: Any) -> None:
+def test_url_authority_form_only_connect(parser: HttpRequestParser) -> None:
+    # https://www.rfc-editor.org/info/rfc9112/#section-3.2.3-1
+    with pytest.raises(http_exceptions.InvalidURLError):
+        parser.feed_data(b"GET www.google.com:443 HTTP/1.1\r\nHost: a\r\n\r\n")
+
+
+@pytest.mark.parametrize(
+    "target",
+    (
+        b"https:///protected",
+        b"https:////protected",
+        b"https://:80/protected",
+        b"https://user@/protected",
+        b"https://",
+        b"https://?q",
+        b"http:protected/x",
+        b"http:/protected/x",
+        b"http:\\\\protected/x",
+    ),
+    ids=(
+        "empty-host",
+        "empty-host-extra-slash",
+        "port-only",
+        "userinfo-only",
+        "no-authority",
+        "empty-host-query",
+        "no-slashes",
+        "one-slash",
+        "backslashes",
+    ),
+)
+def test_url_absolute_form_empty_host_rejected(
+    parser: HttpRequestParser, target: bytes
+) -> None:
+    # https://www.rfc-editor.org/rfc/rfc9110#section-4.2.2-4
+    with pytest.raises(http_exceptions.InvalidURLError):
+        parser.feed_data(b"GET " + target + b" HTTP/1.1\r\nHost: a\r\n\r\n")
+
+
+def test_url_absolute_form_invalid_port_rejected(parser: HttpRequestParser) -> None:
+    # yarl raises ValueError for an out-of-range port; that must surface as
+    # a 400, not escape the parser as a bare ValueError.
+    with pytest.raises(http_exceptions.InvalidURLError):
+        parser.feed_data(b"GET http://example.com:65536/x HTTP/1.1\r\nHost: a\r\n\r\n")
+
+
+def test_url_connect_invalid_port_rejected(parser: HttpRequestParser) -> None:
+    with pytest.raises(http_exceptions.InvalidURLError):
+        parser.feed_data(b"CONNECT example.com:65536 HTTP/1.1\r\nHost: a\r\n\r\n")
+
+
+def test_url_connect_empty_host_rejected(parser: HttpRequestParser) -> None:
+    with pytest.raises(http_exceptions.InvalidURLError):
+        parser.feed_data(b"CONNECT :80 HTTP/1.1\r\nHost: a\r\n\r\n")
+
+
+def test_url_origin_form_bare_slash(parser: HttpRequestParser) -> None:
+    messages, upgrade, tail = parser.feed_data(b"GET / HTTP/1.1\r\nHost: a\r\n\r\n")
+    assert messages[0][0].url == URL("/")
+
+
+def test_url_asterisk_form_options(parser: HttpRequestParser) -> None:
+    # https://www.rfc-editor.org/rfc/rfc9112#section-3.2.4
+    messages, upgrade, tail = parser.feed_data(b"OPTIONS * HTTP/1.1\r\nHost: a\r\n\r\n")
+    assert messages[0][0].url == URL("*")
+
+
+def test_url_asterisk_form_only_options(parser: HttpRequestParser) -> None:
+    # asterisk-form is only valid for OPTIONS; for other methods "*" is
+    # neither origin-form nor a valid absolute-form target.
+    with pytest.raises(http_exceptions.InvalidURLError):
+        parser.feed_data(b"GET * HTTP/1.1\r\nHost: a\r\n\r\n")
+
+
+def test_headers_old_websocket_key1(parser: HttpRequestParser) -> None:
     text = b"GET /test HTTP/1.1\r\nHost: a\r\nSEC-WEBSOCKET-KEY1: line\r\n\r\n"
 
     with pytest.raises(http_exceptions.BadHttpMessage):
@@ -1268,6 +1470,52 @@ async def test_compressed_with_tail(response: HttpResponseParser) -> None:
     assert result == b"ok"
 
 
+async def test_decompress_error_while_draining_pending_data(
+    response: HttpResponseParser,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Decompressor failure on the pending-data drain must not crash.
+
+    Regression test for https://github.com/aio-libs/aiohttp/issues/13203
+    where the C parser segfaulted on Python 3.12+ when the decompressor
+    raised while draining pending decompressed data, as brotlicffi 1.2
+    does on its empty-input drain call.
+    """
+
+    class _BrokenDecompressor:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            self._calls = 0
+
+        def decompress_sync(self, data: bytes, max_length: int = 0) -> bytes:
+            self._calls += 1
+            if self._calls > 1:
+                raise ValueError("decoder is broken")
+            # Must be large enough to exceed the high water mark so the
+            # parser pauses with pending data still available.
+            return b"x" * (1024 * 1024)
+
+        @property
+        def data_available(self) -> bool:
+            return True
+
+    monkeypatch.setattr("aiohttp.http_parser.ZLibDecompressor", _BrokenDecompressor)
+
+    headers = (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Length: 100\r\n"
+        b"Content-Encoding: deflate\r\n"
+        b"\r\n"
+    )
+    # First byte 0x78 keeps the zlib header sniff from swapping decompressors.
+    msgs, upgrade, tail = response.feed_data(headers + b"\x78\x9c" + b"a" * 8)
+    payload = msgs[0][-1]
+
+    # The next feed drains pending data first, which hits the broken decoder.
+    # The parser must not raise; the error is delivered via the payload.
+    response.feed_data(b"b" * 10)
+    assert isinstance(payload.exception(), http_exceptions.ContentEncodingError)
+
+
 async def test_two_content_length_responses_in_one_call(
     response: HttpResponseParser,
 ) -> None:
@@ -1392,6 +1640,79 @@ async def test_compressed_until_eof_with_pending(response: HttpResponseParser) -
     result = await payload.read()
     assert len(result) == len(original)
     assert result == original
+
+
+async def test_content_length_eof_while_paused(response: HttpResponseParser) -> None:
+    """EOF right after a fully received content-length body must complete it.
+
+    Regression test for #13348:
+    feeding the final body bytes pauses the parser for flow control before
+    the message can complete; a server closing the connection in that state
+    raised ContentLengthError despite received == expected.
+    """
+    # Must be large enough to exceed the high water mark so the parser
+    # pauses with the message not yet complete.
+    body = b"x" * (1024 * 1024)
+    headers = b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n" % len(body)
+
+    msgs, upgrade, tail = response.feed_data(headers + body)
+    payload = msgs[0][-1]
+    # The server has sent everything and closed the connection.
+    response.feed_eof()
+
+    result = await payload.read()
+    assert result == body
+    assert payload.is_eof()
+    assert payload.exception() is None
+
+
+async def test_compressed_content_length_eof_while_paused(
+    response: HttpResponseParser,
+) -> None:
+    """EOF with pending decompressed data on a complete content-length body.
+
+    Like test_content_length_eof_while_paused, but the decompressor still
+    holds pending data at EOF, so completion is deferred until the reader
+    drains it.
+    """
+    # Must be large enough to exceed high water mark.
+    original = b"B" * 5 * 1024 * 1024
+    compressed = zlib.compress(original)
+    headers = (
+        b"HTTP/1.1 200 OK\r\n"
+        b"Content-Length: " + str(len(compressed)).encode() + b"\r\n"
+        b"Content-Encoding: deflate\r\n"
+        b"\r\n"
+    )
+
+    msgs, upgrade, tail = response.feed_data(headers + compressed)
+    payload = msgs[0][-1]
+    response.feed_eof()
+
+    # Check that .feed_eof() hasn't decompressed entire payload into memory.
+    assert sum(len(b) for b in payload._buffer) <= (2 * 1024 * 1024)
+
+    result = await payload.read()
+    assert len(result) == len(original)
+    assert result == original
+    assert payload.is_eof()
+    assert payload.exception() is None
+
+
+async def test_content_length_eof_while_paused_incomplete(
+    response: HttpResponseParser,
+) -> None:
+    """EOF on a paused parser with a genuinely incomplete body still raises."""
+    body = b"x" * (1024 * 1024)
+    headers = b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n" % (len(body) + 1)
+
+    response.feed_data(headers + body)
+
+    with pytest.raises(
+        http_exceptions.ContentLengthError,
+        match=r"received 1048576 of 1048577 bytes",
+    ):
+        response.feed_eof()
 
 
 async def test_compressed_until_eof_high_water(
@@ -1769,6 +2090,29 @@ def test_http_request_parser_bad_ascii_uri(parser: Any) -> None:
 def test_http_request_parser_bad_nonascii_uri(parser: Any) -> None:
     with pytest.raises(http_exceptions.InvalidURLError):
         parser.feed_data(b"GET \xff HTTP/1.1\r\n\r\n")
+
+
+@pytest.mark.parametrize(
+    "target",
+    (
+        b"/a\x00b",
+        b"/a\tb",
+        b"/a\nb",
+        b"/a\rb",
+        b"/a\x1fb",
+        b"/a\x7fb",
+        b"/a?b=\x01",
+        b"/a#\x01",
+        b"http://example.com/a\x00b",
+    ),
+    ids=("nul", "htab", "lf", "cr", "us", "del", "query", "fragment", "absolute-form"),
+)
+def test_http_request_parser_ctl_in_request_target(
+    parser: HttpRequestParser, target: bytes
+) -> None:
+    # https://www.rfc-editor.org/rfc/rfc9112#section-3.2-4
+    with pytest.raises(http_exceptions.BadHttpMessage):
+        parser.feed_data(b"GET " + target + b" HTTP/1.1\r\nHost: a\r\n\r\n")
 
 
 @pytest.mark.parametrize("size", [40965, 8191])
@@ -2181,7 +2525,32 @@ def test_http_request_chunked_payload_and_next_message(parser) -> None:
     assert not payload2.is_eof()
 
 
-def test_http_request_chunked_payload_chunks(parser) -> None:
+def test_http_request_parser_head_with_content_length_payload(
+    parser: HttpRequestParser,
+) -> None:
+    smuggled = b"GET /smuggled HTTP/1.1\r\nHost: a\r\n\r\n"
+    text = (
+        b"HEAD /test HTTP/1.1\r\nHost: a\r\nContent-Length: %d\r\n\r\n" % len(smuggled)
+        + smuggled
+        + b"POST /next HTTP/1.1\r\nHost: a\r\nContent-Length: 0\r\n\r\n"
+    )
+    messages, upgraded, tail = parser.feed_data(text)
+
+    assert len(messages) == 2
+    msg, payload = messages[0]
+    assert msg.method == "HEAD"
+    assert b"".join(payload._buffer) == smuggled
+    assert payload.is_eof()
+
+    msg2, payload2 = messages[1]
+    assert msg2.method == "POST"
+    assert msg2.path == "/next"
+    assert payload2.is_eof()
+    assert not upgraded
+    assert not tail
+
+
+def test_http_request_chunked_payload_chunks(parser: HttpRequestParser) -> None:
     text = b"GET /test HTTP/1.1\r\nHost: a\r\ntransfer-encoding: chunked\r\n\r\n"
     msg, payload = parser.feed_data(text)[0][0]
 
@@ -2622,6 +2991,41 @@ class TestParsePayload:
             match=r"received 45 of 100 bytes",
         ):
             p.feed_eof()
+
+    async def test_parse_length_payload_eof_completes_after_pause(
+        self, protocol: BaseProtocol
+    ) -> None:
+        """feed_eof() completes a fully received length payload despite a pause.
+
+        Regression test for #13348:
+        The parser paused for flow control with pending decompressed data
+        when EOF arrived; the fully received body must complete instead of
+        raising ContentLengthError.
+        """
+        out = aiohttp.StreamReader(protocol, 2**16, loop=asyncio.get_running_loop())
+        original = b"x" * (1024 * 1024)
+        compressed = zlib.compress(original)
+
+        p = HttpPayloadParser(
+            out,
+            length=len(compressed),
+            compression="deflate",
+            headers_parser=HeadersParser(),
+        )
+        p.pause_reading()  # flow control kicked in before the final bytes
+        state, tail = p.feed_data(compressed)
+        assert state is PayloadState.PAYLOAD_HAS_PENDING_INPUT
+        assert not p.done
+
+        # All bytes were received, so EOF drains the pending data and
+        # completes the payload.
+        p.feed_eof()
+
+        assert p.done
+        assert out.is_eof()  # type: ignore[unreachable]
+        assert out.exception() is None
+        result = await out.read()
+        assert result == original
 
     async def test_parse_chunked_payload_size_error(
         self, protocol: BaseProtocol
@@ -3076,6 +3480,26 @@ class TestParsePayload:
         p.feed_data(payload)
         assert b"".join(parts) == b"".join(out._buffer)
         assert out.is_eof()
+
+    async def test_http_payload_gzip_empty_member_flood(
+        self, protocol: BaseProtocol
+    ) -> None:
+        """A body of many empty members is rejected, not decoded.
+
+        Empty members decode to nothing, so must fail from the member limit.
+        """
+        payload = gzip.compress(b"") * 20000
+        out = aiohttp.StreamReader(
+            protocol, DEFAULT_CHUNK_SIZE, loop=asyncio.get_running_loop()
+        )
+        p = HttpPayloadParser(
+            out,
+            length=len(payload),
+            compression="gzip",
+            headers_parser=HeadersParser(),
+        )
+        with pytest.raises(http_exceptions.ContentEncodingError):
+            p.feed_data(payload)
 
 
 class TestDeflateBuffer:

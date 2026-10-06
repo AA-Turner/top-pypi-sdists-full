@@ -47,9 +47,10 @@ from typing import TYPE_CHECKING, Any
 
 import pglast
 from pglast.stream import RawStream
-from psycopg import sql
 
+from confiture.core.ddl_objects import DDLObject, object_of, tview_object
 from confiture.core.ddl_walk import (
+    default_kind,
     read_constraint,
     read_index,
     render_default,
@@ -57,16 +58,18 @@ from confiture.core.ddl_walk import (
     written_type,
 )
 from confiture.core.ddl_walk import type_name as ddl_type_name
-from confiture.core.schema_identity import quote_identifier
+from confiture.core.schema_identity import DEFAULT_SCHEMA, quote_identifier
 from confiture.core.schema_model import (
     TVIEWS_SCHEMA,
     Column,
     Constraint,
+    Coverage,
     EnumType,
     GeneratedKind,
     IdentityKind,
     Index,
     ObjectRef,
+    OtherObject,
     RelationName,
     Routine,
     RoutineKind,
@@ -76,6 +79,7 @@ from confiture.core.schema_model import (
     TView,
     View,
     Volatility,
+    other_ref,
     ref_for,
     routine_ref,
     trigger_ref,
@@ -99,6 +103,93 @@ _EXTENSION_OWNED = """
 
 #: Not an object an extension created.
 _NOT_EXTENSION_OWNED = "NOT " + _EXTENSION_OWNED
+
+#: The first object id ``initdb`` does not hand out (PostgreSQL's
+#: ``FirstNormalObjectId``): an object below it — ``plpgsql``, ``pg_catalog``'s
+#: own — came with the cluster, and no tree declares it.
+_FIRST_USER_OID = 16384
+
+
+def _created(catalog: str, oid: str) -> str:
+    """Neither an extension's object nor one ``initdb`` made: one the database's users created."""
+    owned = _EXTENSION_OWNED.format(catalog=catalog, oid=oid)
+    return f"{oid} >= {_FIRST_USER_OID} AND NOT {owned}"
+
+
+#: Every object of the kinds no typed section holds, by the identity ``ddl_objects``
+#: gives it: ``(kind, schema, name)`` — ``schema`` ``NULL`` for a kind that lives in
+#: no schema, a policy or rule named ``table.name``. Existence only: the definition
+#: each would need is a deparse per kind.
+_OTHER_OBJECTS = f"""
+SELECT 'schema', NULL, n.nspname FROM pg_namespace n
+WHERE n.nspname = ANY(%(schemas)s) AND {_created("pg_namespace", "n.oid")}
+UNION ALL
+SELECT 'extension', NULL, e.extname FROM pg_extension e
+WHERE {_created("pg_extension", "e.oid")}
+UNION ALL
+SELECT 'domain', n.nspname, t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE t.typtype = 'd' AND n.nspname = ANY(%(schemas)s) AND {_created("pg_type", "t.oid")}
+UNION ALL
+SELECT 'type', n.nspname, t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+WHERE (t.typtype = 'r'
+       OR (t.typtype = 'c' AND EXISTS (
+           SELECT 1 FROM pg_class c WHERE c.oid = t.typrelid AND c.relkind = 'c')))
+  AND n.nspname = ANY(%(schemas)s) AND {_created("pg_type", "t.oid")}
+UNION ALL
+SELECT 'policy', n.nspname, c.relname || '.' || p.polname
+FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = ANY(%(schemas)s) AND {_created("pg_policy", "p.oid")}
+UNION ALL
+SELECT 'rule', n.nspname, c.relname || '.' || r.rulename
+FROM pg_rewrite r JOIN pg_class c ON c.oid = r.ev_class JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE r.rulename <> '_RETURN' AND n.nspname = ANY(%(schemas)s) AND {_created("pg_rewrite", "r.oid")}
+UNION ALL
+SELECT 'event_trigger', NULL, e.evtname FROM pg_event_trigger e
+WHERE {_created("pg_event_trigger", "e.oid")}
+UNION ALL
+SELECT 'statistics', n.nspname, s.stxname
+FROM pg_statistic_ext s JOIN pg_namespace n ON n.oid = s.stxnamespace
+WHERE n.nspname = ANY(%(schemas)s) AND {_created("pg_statistic_ext", "s.oid")}
+UNION ALL
+SELECT 'foreign_table', n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind = 'f' AND n.nspname = ANY(%(schemas)s) AND {_created("pg_class", "c.oid")}
+UNION ALL
+SELECT 'foreign_data_wrapper', NULL, w.fdwname FROM pg_foreign_data_wrapper w
+WHERE {_created("pg_foreign_data_wrapper", "w.oid")}
+UNION ALL
+SELECT 'server', NULL, s.srvname FROM pg_foreign_server s
+WHERE {_created("pg_foreign_server", "s.oid")}
+UNION ALL
+SELECT 'publication', NULL, p.pubname FROM pg_publication p
+WHERE {_created("pg_publication", "p.oid")}
+UNION ALL
+SELECT 'conversion', n.nspname, c.conname
+FROM pg_conversion c JOIN pg_namespace n ON n.oid = c.connamespace
+WHERE n.nspname = ANY(%(schemas)s) AND {_created("pg_conversion", "c.oid")}
+UNION ALL
+SELECT 'operator_class', n.nspname, o.opcname
+FROM pg_opclass o JOIN pg_namespace n ON n.oid = o.opcnamespace
+WHERE n.nspname = ANY(%(schemas)s) AND {_created("pg_opclass", "o.oid")}
+UNION ALL
+SELECT 'operator_family', n.nspname, o.opfname
+FROM pg_opfamily o JOIN pg_namespace n ON n.oid = o.opfnamespace
+WHERE n.nspname = ANY(%(schemas)s) AND {_created("pg_opfamily", "o.oid")}
+UNION ALL
+SELECT 'access_method', NULL, a.amname FROM pg_am a
+WHERE {_created("pg_am", "a.oid")}
+"""
+
+
+def _other_objects(
+    conn: psycopg.Connection, schemas: Sequence[str]
+) -> dict[ObjectRef, OtherObject]:
+    """Every object of the kinds no typed section holds, by identity (existence depth)."""
+    found = (
+        OtherObject(kind, (schema or DEFAULT_SCHEMA).lower(), name.lower())
+        for kind, schema, name in conn.execute(_OTHER_OBJECTS, {"schemas": list(schemas)})
+    )
+    return {other_ref(obj): obj for obj in found}
+
 
 #: The ``relkind`` letters of a table, partitioned or not.
 TABLE_KINDS = ("r", "p")
@@ -135,15 +226,21 @@ ORDER BY a.attrelid, a.attnum
 #: The referenced relation's schema and name ride along with a foreign key's
 #: definition: ``pg_get_constraintdef`` qualifies it only when ``search_path`` would
 #: not find it, so its spelling says where the *session* looks, not where the table is.
+#: A constraint PostgreSQL clones onto each partition of a partitioned table
+#: (``conparentid``), or a child holds only by inheritance (``conislocal`` false),
+#: is the parent's, which the tree declares once, on the parent.
 _CONSTRAINTS = """
 SELECT k.conrelid, k.conname, pg_get_constraintdef(k.oid), rn.nspname, rc.relname
 FROM pg_constraint k
 LEFT JOIN pg_class rc ON rc.oid = k.confrelid
 LEFT JOIN pg_namespace rn ON rn.oid = rc.relnamespace
 WHERE k.conrelid = ANY(%s) AND k.contype IN ('p', 'u', 'c', 'f', 'x')
+  AND k.conparentid = 0 AND k.conislocal
 ORDER BY k.conrelid, k.conname
 """
 
+#: An index attached to a partitioned table's index (``pg_inherits``) is that
+#: index's, as a cloned constraint is: the tree declares it once, on the parent.
 _INDEXES = """
 SELECT
     i.indrelid,
@@ -156,6 +253,7 @@ SELECT
 FROM pg_index i
 JOIN pg_class ic ON ic.oid = i.indexrelid
 WHERE i.indrelid = ANY(%s)
+  AND NOT EXISTS (SELECT 1 FROM pg_inherits h WHERE h.inhrelid = i.indexrelid)
 ORDER BY i.indrelid, ic.relname
 """
 
@@ -207,6 +305,7 @@ def _type_nodes(types: list[str]) -> list[Any]:
 def _column(row: tuple[Any, ...], type_node: Any) -> Column:
     _relid, name, spelled, not_null, stored, identity, generated = row
     generated_kind = _GENERATED.get(generated or "")
+    expression = _expression(stored) if stored and not generated_kind else None
     return Column(
         name=name,
         folded=name,
@@ -215,7 +314,8 @@ def _column(row: tuple[Any, ...], type_node: Any) -> Column:
         type_key=canonical_type(ddl_type_name(type_node)),
         raw_sql_type=written_type(type_node),
         not_null=bool(not_null),
-        default=render_default(_expression(stored)) if stored and not generated_kind else None,
+        default=render_default(expression) if expression is not None else None,
+        default_kind=default_kind(expression) if expression is not None else None,
         identity=_IDENTITY.get(identity or ""),
         generated=RawStream()(_expression(stored)) if stored and generated_kind else None,
         generated_kind=generated_kind,
@@ -293,7 +393,7 @@ def read(
     routines: bool = False,
     views: bool = False,
     triggers: bool = False,
-    tviews: bool = False,
+    other_objects: bool = False,
 ) -> SchemaModel:
     """The schema the database holds in *schemas*, in the model DDL is read into.
 
@@ -302,14 +402,20 @@ def read(
     caller that has always meant something else by "a table" says so —
     ``introspect`` reads ``('r',)``, the plugin's snapshot :data:`TABLE_LIKE`.
 
+    *other_objects* reads every object of the kinds no typed section holds — a
+    schema, an extension, a domain, a policy, … — that they exist, not what they
+    are (``Coverage`` says ``existence``).
+
     *routines*, *views* and *triggers* read those too — each a query, and a
     view's a deparse per view — for the callers that compare them. An
     extension's own routines and views are left out, as its tables are.
 
-    *tviews* reads each pg_tviews TVIEW (#504) as one object, and leaves its
-    parts — the ``tv_*`` table and the backing ``v_*`` view — out of the tables
-    and views: they are the TVIEW's. The triggers pg_tviews puts on a base
-    table run its own functions and are never read as a user's.
+    A pg_tviews TVIEW (#504) is always read as one object, whoever reads: its
+    parts — the ``tv_*`` table and the backing ``v_*`` view — are left out of the
+    tables and views, because they are the TVIEW's, and the triggers pg_tviews
+    puts on a base table run its own functions and are never read as a user's.
+    A database whose pg_tviews offers no read contract confiture knows is
+    refused (``CONFIG_014``) rather than read as parts.
     """
     wanted = list(schemas)
     enum_types = {
@@ -335,7 +441,7 @@ def read(
             if not row.extension_owned:
                 routine = routine_of(row)
                 routine_models[routine_ref(routine)].append(routine)
-    registered = _tviews(conn, wanted) if tviews else []
+    registered = _tviews(conn, wanted)
     parts = {oid for _tview, oid in registered}
     view_models = (
         {
@@ -359,6 +465,23 @@ def read(
         views=view_models,
         triggers=({trigger_ref(t): t for t in _triggers(conn, wanted)} if triggers else {}),
         tviews=tview_models,
+        other_objects=_other_objects(conn, wanted) if other_objects else {},
+        source="catalog",
+        coverage=Coverage.of(
+            {
+                **dict.fromkeys(("tables", "enum_types", "sequences", "tviews"), "definition"),
+                **{
+                    section: "definition"
+                    for section, read in (
+                        ("routines", routines),
+                        ("views", views),
+                        ("triggers", triggers),
+                    )
+                    if read
+                },
+                **({"other_objects": "existence"} if other_objects else {}),
+            }
+        ),
     )
 
 
@@ -647,8 +770,7 @@ ORDER BY n.nspname, c.relname
 # A trigger that runs a pg_tviews function is the TVIEW's refresh machinery,
 # created by the extension on each base table (#504), never the tree's. Only
 # pg_tviews': a user may declare a trigger on another extension's function.
-_TRIGGERS = """
-SELECT n.nspname, c.relname, t.tgname
+_TRIGGERS_WHERE = """
 FROM pg_trigger t
 JOIN pg_class c ON c.oid = t.tgrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -661,6 +783,8 @@ WHERE NOT t.tgisinternal
   )
 ORDER BY n.nspname, c.relname, t.tgname
 """
+_TRIGGERS = "SELECT n.nspname, c.relname, t.tgname" + _TRIGGERS_WHERE
+_TRIGGER_DEFINITIONS = "SELECT pg_get_triggerdef(t.oid)" + _TRIGGERS_WHERE
 
 #: The release a database runs: ``extversion`` is pg_tviews' own version from
 #: 0.1.0-beta.20 on (every earlier beta said ``0.1.0``).
@@ -673,30 +797,12 @@ CONTRACT_VERSION = 1
 
 _HAS_CONTRACT = "SELECT to_regprocedure(%s) IS NOT NULL"
 
-#: Each registered TVIEW: its relation, the query pg_tviews holds, the storage
-#: options it reads from the catalog, and its backing view's oid, whose relation
-#: is the TVIEW's and not a view of the tree's (``NULL`` once that view is gone).
-_TVIEWS = """
-SELECT r.schema, r.name, r.query, r.logged, (r.options ->> 'fillfactor')::int,
-       {backing_view}::oid::bigint
-FROM {registry} r
-WHERE r.schema = ANY(%s)
-ORDER BY r.schema, r.name
-"""
-
 #: The registry's ``view`` column, which pg_tviews appended under contract 1: an
 #: earlier contract-1 build has none, and its backing view is the one it creates
 #: beside the table, ``v_<entity>``, found by name. Either is the view's oid, so the
 #: reader's ``search_path`` does not change it.
-_BACKING_VIEW = sql.SQL("r.view")
-_BACKING_VIEW_BY_NAME = sql.SQL("to_regclass(format('%%I.%%I', r.schema, 'v_' || r.entity))")
-
-_HAS_VIEW_COLUMN = """
-SELECT EXISTS (
-    SELECT 1 FROM pg_attribute
-    WHERE attrelid = to_regclass(%s) AND attname = 'view' AND NOT attisdropped
-)
-"""
+_BACKING_VIEW = t"r.view"
+_BACKING_VIEW_BY_NAME = t"to_regclass(format('%I.%I', r.schema, 'v_' || r.entity))"
 
 # The argument types are spelled inside the one query, in order: a round trip
 # per parameter was what the introspector used to pay. `input_types` come from
@@ -882,9 +988,7 @@ def _contract(conn: psycopg.Connection) -> int | None:
     if not _scalar(conn, _HAS_CONTRACT, (f"{TVIEWS_SCHEMA}.contract_version()",)):
         return None
     with conn.cursor() as cursor:
-        cursor.execute(
-            sql.SQL("SELECT {}()").format(sql.Identifier(TVIEWS_SCHEMA, "contract_version"))
-        )
+        cursor.execute(t"SELECT {TVIEWS_SCHEMA:i}.contract_version()")
         row = cursor.fetchone()
     return None if row is None else int(row[0])
 
@@ -907,11 +1011,28 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
     if installed is None:
         return []
     require_supported_pg_tviews(installed[0], _contract(conn))
-    registry = sql.Identifier(TVIEWS_SCHEMA, "registry")
-    has_view = _scalar(conn, _HAS_VIEW_COLUMN, (registry.as_string(conn),))
-    query = sql.SQL(_TVIEWS).format(
-        registry=registry, backing_view=_BACKING_VIEW if has_view else _BACKING_VIEW_BY_NAME
+    has_view_column = conn.execute(
+        t"""
+        SELECT EXISTS (
+            SELECT 1 FROM pg_attribute
+            WHERE attrelid = to_regclass(format('%I.%I', {TVIEWS_SCHEMA}::text, 'registry'))
+              AND attname = 'view' AND NOT attisdropped
+        )
+        """
+    ).fetchone()
+    backing_view = (
+        _BACKING_VIEW if has_view_column and has_view_column[0] else _BACKING_VIEW_BY_NAME
     )
+    # Each registered TVIEW: its relation, the query pg_tviews holds, the storage
+    # options it reads from the catalog, and its backing view's oid, whose relation
+    # is the TVIEW's and not a view of the tree's (``NULL`` once that view is gone).
+    query = t"""
+        SELECT r.schema, r.name, r.query, r.logged, (r.options ->> 'fillfactor')::int,
+               {backing_view:q}::oid::bigint
+        FROM {TVIEWS_SCHEMA:i}.registry r
+        WHERE r.schema = ANY({list(schemas)})
+        ORDER BY r.schema, r.name
+        """
     return [
         (
             TView(
@@ -923,9 +1044,7 @@ def _tviews(conn: psycopg.Connection, schemas: Sequence[str]) -> list[tuple[TVie
             ),
             view_oid,
         )
-        for schema, name, definition, logged, fillfactor, view_oid in conn.execute(
-            query, (list(schemas),)
-        ).fetchall()
+        for schema, name, definition, logged, fillfactor, view_oid in conn.execute(query).fetchall()
     ]
 
 
@@ -1057,3 +1176,60 @@ def existing_names(
         frozenset(name for kind, name in rows if kind == "relation"),
         frozenset(name for kind, name in rows if kind == "routine"),
     )
+
+
+#: Each routine ``read`` models, as PostgreSQL writes the statement that creates it.
+#: An aggregate has none (``pg_get_functiondef`` refuses one): it is compared by
+#: its signature, and a change to it is not one this reader can write.
+_ROUTINE_DEFINITIONS = f"""
+SELECT pg_get_functiondef(p.oid)
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = ANY(%s)
+  AND p.prokind IN ('f', 'p', 'w')
+  AND {_NOT_EXTENSION_OWNED.format(catalog="pg_proc", oid="p.oid")}
+ORDER BY n.nspname, p.proname, p.oid
+"""
+
+
+def _view_statement(view: View) -> str:
+    keyword = "MATERIALIZED VIEW" if view.materialized else "VIEW"
+    name = f"{quote_identifier(view.schema or DEFAULT_SCHEMA)}.{quote_identifier(view.name)}"
+    return f"CREATE {keyword} {name} AS {view.definition}"
+
+
+def _other_statement(obj: OtherObject) -> str | None:
+    if obj.kind == "schema":
+        return f"CREATE SCHEMA {quote_identifier(obj.name)}"
+    if obj.kind == "extension":
+        return f"CREATE EXTENSION {quote_identifier(obj.name)}"
+    return None
+
+
+def catalogued_objects(
+    conn: psycopg.Connection, model: SchemaModel, schemas: Sequence[str]
+) -> dict[ObjectRef, list[DDLObject]]:
+    """The objects *model* holds that a statement creates, each as PostgreSQL writes it.
+
+    *model* is :func:`read`'s, of *schemas*. A routine is ``pg_get_functiondef``'s,
+    a trigger ``pg_get_triggerdef``'s, a view its ``pg_get_viewdef`` behind the
+    ``CREATE`` that names it, a TVIEW the call pg_tviews creates one with, a
+    schema or an extension its name — read through ``ddl_objects.object_of``, as a
+    tree's statements are, so a change can carry the statement that undoes it.
+    Every other object kind the model holds by existence alone, and has no entry.
+    """
+    wanted = list(schemas)
+    texts = [row[0] for row in conn.execute(_ROUTINE_DEFINITIONS, (wanted,)).fetchall()]
+    texts += [row[0] for row in conn.execute(_TRIGGER_DEFINITIONS, (wanted,)).fetchall()]
+    texts += [_view_statement(view) for view in model.views.values() if view.definition]
+    texts += [text for obj in model.other_objects.values() if (text := _other_statement(obj))]
+    found: dict[ObjectRef, list[DDLObject]] = defaultdict(list)
+    for text in texts:
+        raw = pglast.parse_sql(text)[0]
+        obj = object_of(text, raw)
+        if obj is not None:
+            found[obj.ref].append(obj)
+    for ref, tview in model.tviews.items():
+        found[ref].append(tview_object(ref, tview))
+    held = {*model.routines, *model.views, *model.triggers, *model.tviews, *model.other_objects}
+    return {ref: objs for ref, objs in found.items() if ref in held}

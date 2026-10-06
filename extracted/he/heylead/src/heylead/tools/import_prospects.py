@@ -34,6 +34,7 @@ from ..db.queries import (
 )
 from ..formatter import table
 from ..linkedin import get_account_id, get_linkedin_client
+from ..linkedin.headline_split import company_from_headline
 from ..services.campaign_naming import cut_at_word
 from ..services.dedup_service import (
     dedup_prospects,
@@ -310,7 +311,7 @@ def _format_dispositions(outcomes: list[RowOutcome]) -> list[str]:
         parts.append(f"**Rows not imported ({len(not_imported)})**:")
         for outcome in not_imported[:_MAX_DISPOSITION_LINES]:
             label = outcome.name or "(no name)"
-            parts.append(f"- row {outcome.row} — {label[:40]} — {outcome.status}")
+            parts.append(f"- row {outcome.row} — {cut_at_word(label, 40)} — {outcome.status}")
         if len(not_imported) > _MAX_DISPOSITION_LINES:
             parts.append(
                 f"- ... and {len(not_imported) - _MAX_DISPOSITION_LINES} more "
@@ -520,9 +521,9 @@ async def run_import_prospects(
                         if not p.get("title") and profile.get("headline"):
                             p["title"] = profile["headline"]
                         if not p.get("company"):
-                            headline = profile.get("headline", "")
-                            if " at " in headline:
-                                p["company"] = headline.rsplit(" at ", 1)[1]
+                            company = company_from_headline(profile.get("headline", ""))
+                            if company:
+                                p["company"] = company
                         enriched_count += 1
                 except Exception as e:
                     logger.debug("Enrich failed for %s: %s", lid, e)
@@ -673,9 +674,9 @@ async def run_import_prospects(
         rows_out = []
         for p in filtered[:10]:
             rows_out.append([
-                p.get("name", "")[:25],
-                (p.get("title") or "—")[:30],
-                (p.get("company") or "—")[:20],
+                cut_at_word(p.get("name", ""), 25),
+                cut_at_word(p.get("title") or "—", 30),
+                cut_at_word(p.get("company") or "—", 20),
                 f"{p.get('_fit_score', 0):.0%}",
             ])
         parts.append(table(["Name", "Title", "Company", "Fit"], rows_out))

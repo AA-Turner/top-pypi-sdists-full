@@ -3642,6 +3642,38 @@ class TestParseRetryAfter:
         response = httpx.Response(429, headers={"Retry-After": raw})
         assert client._parse_retry_after(response) is None
 
+    @pytest.mark.parametrize("raw", ["3601", "86400", str(2**40), "9" * 400])
+    def test_huge_header_is_capped(self, test_credentials: Session, raw: str) -> None:
+        """A Retry-After beyond one hour is clamped to 3600 seconds.
+
+        Mixpanel's rate-limit window is one rolling hour, so no legitimate
+        wait is longer. The parsed value is surfaced as
+        ``RateLimitError.retry_after`` once retries are exhausted, so it must
+        already be bounded here (a many-digit value would also overflow the
+        float conversion in ``_retry_wait_seconds``).
+
+        Args:
+            test_credentials: Session fixture.
+            raw: A Retry-After value larger than the cap.
+        """
+        client = MixpanelAPIClient(session=test_credentials)
+        response = httpx.Response(429, headers={"Retry-After": raw})
+        assert client._parse_retry_after(response) == 3600
+
+    @pytest.mark.parametrize("raw", ["60", "61", "3600"])
+    def test_header_within_window_is_preserved(
+        self, test_credentials: Session, raw: str
+    ) -> None:
+        """A Retry-After of one hour or less is returned unchanged.
+
+        Args:
+            test_credentials: Session fixture.
+            raw: A Retry-After value inside the one-hour window.
+        """
+        client = MixpanelAPIClient(session=test_credentials)
+        response = httpx.Response(429, headers={"Retry-After": raw})
+        assert client._parse_retry_after(response) == int(raw)
+
 
 class TestRetryWaitSeconds:
     """Test ``_retry_wait_seconds`` clamping and backoff fallback."""
@@ -3851,6 +3883,62 @@ class TestRetryAfterHardening:
             client.get_events()
 
         assert exc_info.value.retry_after == 3600
+
+    @pytest.mark.parametrize(
+        "operation",
+        ["get_events", "app_request", "export_events", "resolve_short_link"],
+    )
+    def test_huge_retry_after_capped_on_error(
+        self,
+        test_credentials: Session,
+        recorded_sleeps: list[float],
+        operation: str,
+    ) -> None:
+        """An exhausted retry run never surfaces a Retry-After above one hour.
+
+        ``RateLimitError``'s documented recovery pattern is
+        ``time.sleep(e.retry_after or 60)``. Mixpanel's rate-limit window is
+        one rolling hour, so a longer (or many-digit) server value would only
+        park caller code or crash it. Every retry loop's exhaustion branch
+        reports at most 3600 seconds, while its own sleeps stay at 60.
+
+        Args:
+            test_credentials: Session fixture.
+            recorded_sleeps: Captured sleep durations (guards against real
+                waits between attempts).
+            operation: Which client entry point to drive to exhaustion.
+        """
+
+        def handler(_request: httpx.Request) -> httpx.Response:
+            """Always rate limit with a very large Retry-After.
+
+            Args:
+                _request: The outgoing request (unused).
+
+            Returns:
+                A 429 response.
+            """
+            return httpx.Response(429, headers={"Retry-After": "9" * 400})
+
+        transport = httpx.MockTransport(handler)
+        client = MixpanelAPIClient(
+            session=test_credentials, max_retries=1, _transport=transport
+        )
+
+        with client, pytest.raises(RateLimitError) as exc_info:
+            if operation == "get_events":
+                client.get_events()
+            elif operation == "app_request":
+                client.app_request("GET", "/projects/12345/dashboards")
+            elif operation == "export_events":
+                list(client.export_events("2024-01-01", "2024-01-31"))
+            else:
+                client.resolve_short_link("abc123")
+
+        assert exc_info.value.retry_after == 3600
+        assert exc_info.value.details["retry_after"] == 3600
+        assert "Retry after 3600 seconds" in str(exc_info.value)
+        assert recorded_sleeps == [60.0]
 
     def test_app_request_negative_retry_after_uses_backoff(
         self,
@@ -4077,6 +4165,99 @@ class TestBlankErrorBodyFallbacks:
             client.get_events()
 
         assert exc_info.value.message == " boom "
+
+
+# =============================================================================
+# Error-message fallback to the ``message`` key
+# =============================================================================
+
+
+class TestMessageKeyFallback:
+    """A body without usable ``error`` text uses its ``message`` text instead."""
+
+    def test_500_with_message_only(self, test_credentials: Session) -> None:
+        """A 5xx body with only ``message`` puts that text in the exception."""
+        from mixpanel_headless.exceptions import ServerError
+
+        response = httpx.Response(
+            500, json={"message": "Try again. Error ID: abc123", "status": "error"}
+        )
+        with (
+            TestBlankErrorBodyFallbacks._client(test_credentials, response) as client,
+            pytest.raises(ServerError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Server error: Try again. Error ID: abc123"
+
+    def test_400_with_message_only(self, test_credentials: Session) -> None:
+        """A 4xx body with only ``message`` puts that text in the exception."""
+        response = httpx.Response(400, json={"message": "Bad segment"})
+        with (
+            TestBlankErrorBodyFallbacks._client(test_credentials, response) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Bad segment"
+
+    def test_error_wins_over_message(self, test_credentials: Session) -> None:
+        """A body with both keys uses ``error``."""
+        from mixpanel_headless.exceptions import ServerError
+
+        response = httpx.Response(
+            500, json={"error": "Database down", "message": "Something else"}
+        )
+        with (
+            TestBlankErrorBodyFallbacks._client(test_credentials, response) as client,
+            pytest.raises(ServerError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Server error: Database down"
+
+    def test_blank_error_falls_back_to_message(self, test_credentials: Session) -> None:
+        """A blank ``error`` string gives way to a usable ``message``."""
+        response = httpx.Response(400, json={"error": " ", "message": "Bad dates"})
+        with (
+            TestBlankErrorBodyFallbacks._client(test_credentials, response) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Bad dates"
+
+    def test_neither_key_keeps_default(self, test_credentials: Session) -> None:
+        """A body with neither key keeps the generic status text."""
+        from mixpanel_headless.exceptions import ServerError
+
+        response = httpx.Response(500, json={"status": "error"})
+        with (
+            TestBlankErrorBodyFallbacks._client(test_credentials, response) as client,
+            pytest.raises(ServerError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Server error: 500"
+
+    @pytest.mark.parametrize("message", ["", "   ", None, 42, ["a", "b"]])
+    def test_unusable_message_keeps_default(
+        self, test_credentials: Session, message: object
+    ) -> None:
+        """A blank or non-string ``message`` keeps the generic status text.
+
+        Args:
+            test_credentials: Session fixture value.
+            message: The unusable ``message`` value.
+        """
+        response = httpx.Response(404, json={"message": message})
+        with (
+            TestBlankErrorBodyFallbacks._client(test_credentials, response) as client,
+            pytest.raises(QueryError) as exc_info,
+        ):
+            client.get_events()
+
+        assert exc_info.value.message == "Resource not found"
 
 
 # =============================================================================

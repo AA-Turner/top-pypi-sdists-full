@@ -4,25 +4,22 @@ Run ./tools/gen.py to update it after the origin changing. */
 #include "_find_header.h"
 
 #define NEXT_CHAR() \
-{ \
+do { \
     count++; \
     if (count == size) { \
         /* end of search */ \
         return -1; \
     } \
-    pchar++; \
-    ch = *pchar; \
-    last = (count == size -1); \
-} while(0);
+    ch = str[count]; \
+    last = (count == size - 1); \
+} while (0)
 
 int
 find_header(const char *str, int size)
 {
-    char *pchar = str;
     int last;
     char ch;
     int count = -1;
-    pchar--;
 
 
     NEXT_CHAR();
@@ -127,6 +124,16 @@ find_header(const char *str, int size)
                 return -1;
             }
             goto M;
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto N;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto N;
         case 'O':
             if (last) {
                 return -1;
@@ -217,6 +224,16 @@ find_header(const char *str, int size)
                 return -1;
             }
             goto X;
+        case 'B':
+            if (last) {
+                return -1;
+            }
+            goto B;
+        case 'b':
+            if (last) {
+                return -1;
+            }
+            goto B;
         default:
             return -1;
     }
@@ -410,12 +427,12 @@ ACCEPT_C:
     switch (ch) {
         case 'H':
             if (last) {
-                return -1;
+                return 1;
             }
             goto ACCEPT_CH;
         case 'h':
             if (last) {
-                return -1;
+                return 1;
             }
             goto ACCEPT_CH;
         default:
@@ -495,12 +512,12 @@ ACCEPT_CHARSE:
     switch (ch) {
         case 'T':
             if (last) {
-                return 1;
+                return 2;
             }
             goto ACCEPT_CHARSET;
         case 't':
             if (last) {
-                return 1;
+                return 2;
             }
             goto ACCEPT_CHARSET;
         default:
@@ -614,12 +631,12 @@ ACCEPT_ENCODIN:
     switch (ch) {
         case 'G':
             if (last) {
-                return 2;
+                return 3;
             }
             goto ACCEPT_ENCODING;
         case 'g':
             if (last) {
-                return 2;
+                return 3;
             }
             goto ACCEPT_ENCODING;
         default:
@@ -733,12 +750,12 @@ ACCEPT_LANGUAG:
     switch (ch) {
         case 'E':
             if (last) {
-                return 3;
+                return 4;
             }
             goto ACCEPT_LANGUAGE;
         case 'e':
             if (last) {
-                return 3;
+                return 4;
             }
             goto ACCEPT_LANGUAGE;
         default:
@@ -818,12 +835,12 @@ ACCEPT_RANGE:
     switch (ch) {
         case 'S':
             if (last) {
-                return 4;
+                return 5;
             }
             goto ACCEPT_RANGES;
         case 's':
             if (last) {
-                return 4;
+                return 5;
             }
             goto ACCEPT_RANGES;
         default:
@@ -1322,12 +1339,12 @@ ACCESS_CONTROL_ALLOW_CREDENTIAL:
     switch (ch) {
         case 'S':
             if (last) {
-                return 5;
+                return 6;
             }
             goto ACCESS_CONTROL_ALLOW_CREDENTIALS;
         case 's':
             if (last) {
-                return 5;
+                return 6;
             }
             goto ACCESS_CONTROL_ALLOW_CREDENTIALS;
         default:
@@ -1424,12 +1441,12 @@ ACCESS_CONTROL_ALLOW_HEADER:
     switch (ch) {
         case 'S':
             if (last) {
-                return 6;
+                return 7;
             }
             goto ACCESS_CONTROL_ALLOW_HEADERS;
         case 's':
             if (last) {
-                return 6;
+                return 7;
             }
             goto ACCESS_CONTROL_ALLOW_HEADERS;
         default:
@@ -1526,12 +1543,12 @@ ACCESS_CONTROL_ALLOW_METHOD:
     switch (ch) {
         case 'S':
             if (last) {
-                return 7;
+                return 8;
             }
             goto ACCESS_CONTROL_ALLOW_METHODS;
         case 's':
             if (last) {
-                return 7;
+                return 8;
             }
             goto ACCESS_CONTROL_ALLOW_METHODS;
         default:
@@ -1611,12 +1628,12 @@ ACCESS_CONTROL_ALLOW_ORIGI:
     switch (ch) {
         case 'N':
             if (last) {
-                return 8;
+                return 9;
             }
             goto ACCESS_CONTROL_ALLOW_ORIGIN;
         case 'n':
             if (last) {
-                return 8;
+                return 9;
             }
             goto ACCESS_CONTROL_ALLOW_ORIGIN;
         default:
@@ -1827,12 +1844,12 @@ ACCESS_CONTROL_EXPOSE_HEADER:
     switch (ch) {
         case 'S':
             if (last) {
-                return 9;
+                return 10;
             }
             goto ACCESS_CONTROL_EXPOSE_HEADERS;
         case 's':
             if (last) {
-                return 9;
+                return 10;
             }
             goto ACCESS_CONTROL_EXPOSE_HEADERS;
         default:
@@ -1924,12 +1941,12 @@ ACCESS_CONTROL_MAX_AG:
     switch (ch) {
         case 'E':
             if (last) {
-                return 10;
+                return 11;
             }
             goto ACCESS_CONTROL_MAX_AGE;
         case 'e':
             if (last) {
-                return 10;
+                return 11;
             }
             goto ACCESS_CONTROL_MAX_AGE;
         default:
@@ -2167,12 +2184,12 @@ ACCESS_CONTROL_REQUEST_HEADER:
     switch (ch) {
         case 'S':
             if (last) {
-                return 11;
+                return 12;
             }
             goto ACCESS_CONTROL_REQUEST_HEADERS;
         case 's':
             if (last) {
-                return 11;
+                return 12;
             }
             goto ACCESS_CONTROL_REQUEST_HEADERS;
         default:
@@ -2252,12 +2269,12 @@ ACCESS_CONTROL_REQUEST_METHO:
     switch (ch) {
         case 'D':
             if (last) {
-                return 12;
+                return 13;
             }
             goto ACCESS_CONTROL_REQUEST_METHOD;
         case 'd':
             if (last) {
-                return 12;
+                return 13;
             }
             goto ACCESS_CONTROL_REQUEST_METHOD;
         default:
@@ -2269,12 +2286,12 @@ AG:
     switch (ch) {
         case 'E':
             if (last) {
-                return 13;
+                return 14;
             }
             goto AGE;
         case 'e':
             if (last) {
-                return 13;
+                return 14;
             }
             goto AGE;
         default:
@@ -2294,6 +2311,16 @@ AL:
                 return -1;
             }
             goto ALL;
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto ALT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto ALT;
         default:
             return -1;
     }
@@ -2320,14 +2347,138 @@ ALLO:
     switch (ch) {
         case 'W':
             if (last) {
-                return 14;
+                return 15;
             }
             goto ALLOW;
         case 'w':
             if (last) {
-                return 14;
+                return 15;
             }
             goto ALLOW;
+        default:
+            return -1;
+    }
+
+ALT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto ALT_;
+        default:
+            return -1;
+    }
+
+ALT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto ALT_S;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto ALT_S;
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto ALT_U;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto ALT_U;
+        default:
+            return -1;
+    }
+
+ALT_S:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'V':
+            if (last) {
+                return -1;
+            }
+            goto ALT_SV;
+        case 'v':
+            if (last) {
+                return -1;
+            }
+            goto ALT_SV;
+        default:
+            return -1;
+    }
+
+ALT_SV:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return 16;
+            }
+            goto ALT_SVC;
+        case 'c':
+            if (last) {
+                return 16;
+            }
+            goto ALT_SVC;
+        default:
+            return -1;
+    }
+
+ALT_U:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto ALT_US;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto ALT_US;
+        default:
+            return -1;
+    }
+
+ALT_US:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto ALT_USE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto ALT_USE;
+        default:
+            return -1;
+    }
+
+ALT_USE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return 17;
+            }
+            goto ALT_USED;
+        case 'd':
+            if (last) {
+                return 17;
+            }
+            goto ALT_USED;
         default:
             return -1;
     }
@@ -2369,6 +2520,16 @@ AUT:
 AUTH:
     NEXT_CHAR();
     switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto AUTHE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto AUTHE;
         case 'O':
             if (last) {
                 return -1;
@@ -2379,6 +2540,239 @@ AUTH:
                 return -1;
             }
             goto AUTHO;
+        default:
+            return -1;
+    }
+
+AUTHE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto AUTHEN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto AUTHEN;
+        default:
+            return -1;
+    }
+
+AUTHEN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENT;
+        default:
+            return -1;
+    }
+
+AUTHENT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTI;
+        default:
+            return -1;
+    }
+
+AUTHENTI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTIC;
+        default:
+            return -1;
+    }
+
+AUTHENTIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICA;
+        default:
+            return -1;
+    }
+
+AUTHENTICA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICAT;
+        default:
+            return -1;
+    }
+
+AUTHENTICAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATI;
+        default:
+            return -1;
+    }
+
+AUTHENTICATI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATIO;
+        default:
+            return -1;
+    }
+
+AUTHENTICATIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION;
+        default:
+            return -1;
+    }
+
+AUTHENTICATION:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION_;
+        default:
+            return -1;
+    }
+
+AUTHENTICATION_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION_I;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION_I;
+        default:
+            return -1;
+    }
+
+AUTHENTICATION_I:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION_IN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION_IN;
+        default:
+            return -1;
+    }
+
+AUTHENTICATION_IN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'F':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION_INF;
+        case 'f':
+            if (last) {
+                return -1;
+            }
+            goto AUTHENTICATION_INF;
+        default:
+            return -1;
+    }
+
+AUTHENTICATION_INF:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return 18;
+            }
+            goto AUTHENTICATION_INFO;
+        case 'o':
+            if (last) {
+                return 18;
+            }
+            goto AUTHENTICATION_INFO;
         default:
             return -1;
     }
@@ -2507,12 +2901,12 @@ AUTHORIZATIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 15;
+                return 19;
             }
             goto AUTHORIZATION;
         case 'n':
             if (last) {
-                return 15;
+                return 19;
             }
             goto AUTHORIZATION;
         default:
@@ -2522,6 +2916,16 @@ AUTHORIZATIO:
 C:
     NEXT_CHAR();
     switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto CD;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto CD;
         case 'A':
             if (last) {
                 return -1;
@@ -2532,6 +2936,16 @@ C:
                 return -1;
             }
             goto CA;
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto CL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto CL;
         case 'O':
             if (last) {
                 return -1;
@@ -2542,6 +2956,322 @@ C:
                 return -1;
             }
             goto CO;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CR;
+        default:
+            return -1;
+    }
+
+CD:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto CDN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto CDN;
+        default:
+            return -1;
+    }
+
+CDN:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CDN_;
+        default:
+            return -1;
+    }
+
+CDN_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CDN_C;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CDN_C;
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto CDN_L;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto CDN_L;
+        default:
+            return -1;
+    }
+
+CDN_C:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CA;
+        default:
+            return -1;
+    }
+
+CDN_CA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CAC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CAC;
+        default:
+            return -1;
+    }
+
+CDN_CAC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'H':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACH;
+        case 'h':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACH;
+        default:
+            return -1;
+    }
+
+CDN_CACH:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE;
+        default:
+            return -1;
+    }
+
+CDN_CACHE:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_;
+        default:
+            return -1;
+    }
+
+CDN_CACHE_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_C;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_C;
+        default:
+            return -1;
+    }
+
+CDN_CACHE_C:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CO;
+        default:
+            return -1;
+    }
+
+CDN_CACHE_CO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CON;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CON;
+        default:
+            return -1;
+    }
+
+CDN_CACHE_CON:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CONT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CONT;
+        default:
+            return -1;
+    }
+
+CDN_CACHE_CONT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CONTR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CONTR;
+        default:
+            return -1;
+    }
+
+CDN_CACHE_CONTR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CONTRO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CDN_CACHE_CONTRO;
+        default:
+            return -1;
+    }
+
+CDN_CACHE_CONTRO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return 20;
+            }
+            goto CDN_CACHE_CONTROL;
+        case 'l':
+            if (last) {
+                return 20;
+            }
+            goto CDN_CACHE_CONTROL;
+        default:
+            return -1;
+    }
+
+CDN_L:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CDN_LO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CDN_LO;
+        default:
+            return -1;
+    }
+
+CDN_LO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CDN_LOO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CDN_LOO;
+        default:
+            return -1;
+    }
+
+CDN_LOO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return 21;
+            }
+            goto CDN_LOOP;
+        case 'p':
+            if (last) {
+                return 21;
+            }
+            goto CDN_LOOP;
         default:
             return -1;
     }
@@ -2622,6 +3352,16 @@ CACHE_:
                 return -1;
             }
             goto CACHE_C;
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_S;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_S;
         default:
             return -1;
     }
@@ -2716,14 +3456,310 @@ CACHE_CONTRO:
     switch (ch) {
         case 'L':
             if (last) {
-                return 16;
+                return 22;
             }
             goto CACHE_CONTROL;
         case 'l':
             if (last) {
-                return 16;
+                return 22;
             }
             goto CACHE_CONTROL;
+        default:
+            return -1;
+    }
+
+CACHE_S:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_ST;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_ST;
+        default:
+            return -1;
+    }
+
+CACHE_ST:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_STA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_STA;
+        default:
+            return -1;
+    }
+
+CACHE_STA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_STAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_STAT;
+        default:
+            return -1;
+    }
+
+CACHE_STAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_STATU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto CACHE_STATU;
+        default:
+            return -1;
+    }
+
+CACHE_STATU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return 23;
+            }
+            goto CACHE_STATUS;
+        case 's':
+            if (last) {
+                return 23;
+            }
+            goto CACHE_STATUS;
+        default:
+            return -1;
+    }
+
+CL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CLE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CLE;
+        default:
+            return -1;
+    }
+
+CLE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto CLEA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto CLEA;
+        default:
+            return -1;
+    }
+
+CLEA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR;
+        default:
+            return -1;
+    }
+
+CLEAR:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_;
+        default:
+            return -1;
+    }
+
+CLEAR_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_S;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_S;
+        default:
+            return -1;
+    }
+
+CLEAR_S:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SI;
+        default:
+            return -1;
+    }
+
+CLEAR_SI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SIT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SIT;
+        default:
+            return -1;
+    }
+
+CLEAR_SIT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE;
+        default:
+            return -1;
+    }
+
+CLEAR_SITE:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE_;
+        default:
+            return -1;
+    }
+
+CLEAR_SITE_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE_D;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE_D;
+        default:
+            return -1;
+    }
+
+CLEAR_SITE_D:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE_DA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE_DA;
+        default:
+            return -1;
+    }
+
+CLEAR_SITE_DA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE_DAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto CLEAR_SITE_DAT;
+        default:
+            return -1;
+    }
+
+CLEAR_SITE_DAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return 24;
+            }
+            goto CLEAR_SITE_DATA;
+        case 'a':
+            if (last) {
+                return 24;
+            }
+            goto CLEAR_SITE_DATA;
         default:
             return -1;
     }
@@ -2872,12 +3908,12 @@ CONNECTIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 17;
+                return 25;
             }
             goto CONNECTION;
         case 'n':
             if (last) {
-                return 17;
+                return 25;
             }
             goto CONNECTION;
         default:
@@ -2970,6 +4006,16 @@ CONTENT_:
                 return -1;
             }
             goto CONTENT_E;
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_I;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_I;
         case 'L':
             if (last) {
                 return -1;
@@ -3000,6 +4046,16 @@ CONTENT_:
                 return -1;
             }
             goto CONTENT_R;
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_S;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_S;
         case 'T':
             if (last) {
                 return -1;
@@ -3034,6 +4090,16 @@ CONTENT_D:
 CONTENT_DI:
     NEXT_CHAR();
     switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_DIG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_DIG;
         case 'S':
             if (last) {
                 return -1;
@@ -3044,6 +4110,57 @@ CONTENT_DI:
                 return -1;
             }
             goto CONTENT_DIS;
+        default:
+            return -1;
+    }
+
+CONTENT_DIG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_DIGE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_DIGE;
+        default:
+            return -1;
+    }
+
+CONTENT_DIGE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_DIGES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_DIGES;
+        default:
+            return -1;
+    }
+
+CONTENT_DIGES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 26;
+            }
+            goto CONTENT_DIGEST;
+        case 't':
+            if (last) {
+                return 26;
+            }
+            goto CONTENT_DIGEST;
         default:
             return -1;
     }
@@ -3172,12 +4289,12 @@ CONTENT_DISPOSITIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 18;
+                return 27;
             }
             goto CONTENT_DISPOSITION;
         case 'n':
             if (last) {
-                return 18;
+                return 27;
             }
             goto CONTENT_DISPOSITION;
         default:
@@ -3291,14 +4408,31 @@ CONTENT_ENCODIN:
     switch (ch) {
         case 'G':
             if (last) {
-                return 19;
+                return 28;
             }
             goto CONTENT_ENCODING;
         case 'g':
             if (last) {
-                return 19;
+                return 28;
             }
             goto CONTENT_ENCODING;
+        default:
+            return -1;
+    }
+
+CONTENT_I:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return 29;
+            }
+            goto CONTENT_ID;
+        case 'd':
+            if (last) {
+                return 29;
+            }
+            goto CONTENT_ID;
         default:
             return -1;
     }
@@ -3430,12 +4564,12 @@ CONTENT_LANGUAG:
     switch (ch) {
         case 'E':
             if (last) {
-                return 20;
+                return 30;
             }
             goto CONTENT_LANGUAGE;
         case 'e':
             if (last) {
-                return 20;
+                return 30;
             }
             goto CONTENT_LANGUAGE;
         default:
@@ -3498,12 +4632,12 @@ CONTENT_LENGT:
     switch (ch) {
         case 'H':
             if (last) {
-                return 21;
+                return 31;
             }
             goto CONTENT_LENGTH;
         case 'h':
             if (last) {
-                return 21;
+                return 31;
             }
             goto CONTENT_LENGTH;
         default:
@@ -3600,12 +4734,12 @@ CONTENT_LOCATIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 22;
+                return 32;
             }
             goto CONTENT_LOCATION;
         case 'n':
             if (last) {
-                return 22;
+                return 32;
             }
             goto CONTENT_LOCATION;
         default:
@@ -3634,7 +4768,7 @@ CONTENT_MD:
     switch (ch) {
         case '5':
             if (last) {
-                return 23;
+                return 33;
             }
             goto CONTENT_MD5;
         default:
@@ -3697,14 +4831,441 @@ CONTENT_RANG:
     switch (ch) {
         case 'E':
             if (last) {
-                return 24;
+                return 34;
             }
             goto CONTENT_RANGE;
         case 'e':
             if (last) {
-                return 24;
+                return 34;
             }
             goto CONTENT_RANGE;
+        default:
+            return -1;
+    }
+
+CONTENT_S:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SE;
+        default:
+            return -1;
+    }
+
+CONTENT_SE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SEC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SEC;
+        default:
+            return -1;
+    }
+
+CONTENT_SEC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECU;
+        default:
+            return -1;
+    }
+
+CONTENT_SECU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECUR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECUR;
+        default:
+            return -1;
+    }
+
+CONTENT_SECUR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURI;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURIT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURIT;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURIT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY;
+        case 'y':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_P;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_PO;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POL;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLI;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLIC;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 35;
+            }
+            goto CONTENT_SECURITY_POLICY;
+        case 'y':
+            if (last) {
+                return 35;
+            }
+            goto CONTENT_SECURITY_POLICY;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_R;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_R;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_R:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_RE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_RE;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_RE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REP;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPO;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REPO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPOR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPOR;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REPOR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REPORT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REPORT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_O;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_O;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REPORT_O:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_ON;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_ON;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REPORT_ON:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_ONL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_ONL;
+        default:
+            return -1;
+    }
+
+CONTENT_SECURITY_POLICY_REPORT_ONL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 36;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_ONLY;
+        case 'y':
+            if (last) {
+                return 36;
+            }
+            goto CONTENT_SECURITY_POLICY_REPORT_ONLY;
         default:
             return -1;
     }
@@ -3974,12 +5535,12 @@ CONTENT_TRANSFER_ENCODIN:
     switch (ch) {
         case 'G':
             if (last) {
-                return 25;
+                return 37;
             }
             goto CONTENT_TRANSFER_ENCODING;
         case 'g':
             if (last) {
-                return 25;
+                return 37;
             }
             goto CONTENT_TRANSFER_ENCODING;
         default:
@@ -4008,12 +5569,12 @@ CONTENT_TYP:
     switch (ch) {
         case 'E':
             if (last) {
-                return 26;
+                return 38;
             }
             goto CONTENT_TYPE;
         case 'e':
             if (last) {
-                return 26;
+                return 38;
             }
             goto CONTENT_TYPE;
         default:
@@ -4059,14 +5620,893 @@ COOKI:
     switch (ch) {
         case 'E':
             if (last) {
-                return 27;
+                return 39;
             }
             goto COOKIE;
         case 'e':
             if (last) {
-                return 27;
+                return 39;
             }
             goto COOKIE;
+        default:
+            return -1;
+    }
+
+CR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CRO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CRO;
+        default:
+            return -1;
+    }
+
+CRO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto CROS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto CROS;
+        default:
+            return -1;
+    }
+
+CROS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto CROSS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto CROSS;
+        default:
+            return -1;
+    }
+
+CROSS:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_;
+        default:
+            return -1;
+    }
+
+CROSS_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_O;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_O;
+        default:
+            return -1;
+    }
+
+CROSS_O:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_OR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_OR;
+        default:
+            return -1;
+    }
+
+CROSS_OR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORI;
+        default:
+            return -1;
+    }
+
+CROSS_ORI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIG;
+        default:
+            return -1;
+    }
+
+CROSS_ORIG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGI;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_E;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_E;
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_O;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_O;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_R;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_R;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_E:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EM;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'B':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMB;
+        case 'b':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMB;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMB:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBE;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBED;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBED;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBED:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDD;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDD;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDD:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDE;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDER:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDER_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_P;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDER_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_PO;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDER_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POL;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDER_POL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POLI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POLI;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDER_POLI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POLIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POLIC;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_EMBEDDER_POLIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 40;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POLICY;
+        case 'y':
+            if (last) {
+                return 40;
+            }
+            goto CROSS_ORIGIN_EMBEDDER_POLICY;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_O:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OP;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPE;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPEN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPEN;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPEN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENE;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENER:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENER_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_P;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENER_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_PO;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENER_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_POL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_POL;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENER_POL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_POLI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_POLI;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENER_POLI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_POLIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_OPENER_POLIC;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_OPENER_POLIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 41;
+            }
+            goto CROSS_ORIGIN_OPENER_POLICY;
+        case 'y':
+            if (last) {
+                return 41;
+            }
+            goto CROSS_ORIGIN_OPENER_POLICY;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_R:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RE;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RES;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESO;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOU;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOUR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOUR;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOUR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURC;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURCE:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURCE_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_P;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURCE_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_PO;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURCE_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POL;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURCE_POL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POLI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POLI;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURCE_POLI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POLIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POLIC;
+        default:
+            return -1;
+    }
+
+CROSS_ORIGIN_RESOURCE_POLIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 42;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POLICY;
+        case 'y':
+            if (last) {
+                return 42;
+            }
+            goto CROSS_ORIGIN_RESOURCE_POLICY;
         default:
             return -1;
     }
@@ -4130,12 +6570,12 @@ DAT:
     switch (ch) {
         case 'E':
             if (last) {
-                return 28;
+                return 43;
             }
             goto DATE;
         case 'e':
             if (last) {
-                return 28;
+                return 43;
             }
             goto DATE;
         default:
@@ -4283,12 +6723,12 @@ DESTINATIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 29;
+                return 44;
             }
             goto DESTINATION;
         case 'n':
             if (last) {
-                return 29;
+                return 44;
             }
             goto DESTINATION;
         default:
@@ -4351,12 +6791,12 @@ DIGES:
     switch (ch) {
         case 'T':
             if (last) {
-                return 30;
+                return 45;
             }
             goto DIGEST;
         case 't':
             if (last) {
-                return 30;
+                return 45;
             }
             goto DIGEST;
         default:
@@ -4366,6 +6806,16 @@ DIGES:
 E:
     NEXT_CHAR();
     switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto EA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto EA;
         case 'T':
             if (last) {
                 return -1;
@@ -4386,6 +6836,137 @@ E:
                 return -1;
             }
             goto EX;
+        default:
+            return -1;
+    }
+
+EA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto EAR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto EAR;
+        default:
+            return -1;
+    }
+
+EAR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto EARL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto EARL;
+        default:
+            return -1;
+    }
+
+EARL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return -1;
+            }
+            goto EARLY;
+        case 'y':
+            if (last) {
+                return -1;
+            }
+            goto EARLY;
+        default:
+            return -1;
+    }
+
+EARLY:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto EARLY_;
+        default:
+            return -1;
+    }
+
+EARLY_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto EARLY_D;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto EARLY_D;
+        default:
+            return -1;
+    }
+
+EARLY_D:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto EARLY_DA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto EARLY_DA;
+        default:
+            return -1;
+    }
+
+EARLY_DA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto EARLY_DAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto EARLY_DAT;
+        default:
+            return -1;
+    }
+
+EARLY_DAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return 46;
+            }
+            goto EARLY_DATA;
+        case 'a':
+            if (last) {
+                return 46;
+            }
+            goto EARLY_DATA;
         default:
             return -1;
     }
@@ -4412,12 +6993,12 @@ ETA:
     switch (ch) {
         case 'G':
             if (last) {
-                return 31;
+                return 47;
             }
             goto ETAG;
         case 'g':
             if (last) {
-                return 31;
+                return 47;
             }
             goto ETAG;
         default:
@@ -4490,12 +7071,12 @@ EXPEC:
     switch (ch) {
         case 'T':
             if (last) {
-                return 32;
+                return 48;
             }
             goto EXPECT;
         case 't':
             if (last) {
-                return 32;
+                return 48;
             }
             goto EXPECT;
         default:
@@ -4541,12 +7122,12 @@ EXPIRE:
     switch (ch) {
         case 'S':
             if (last) {
-                return 33;
+                return 49;
             }
             goto EXPIRES;
         case 's':
             if (last) {
-                return 33;
+                return 49;
             }
             goto EXPIRES;
         default:
@@ -4687,12 +7268,12 @@ FORWARDE:
     switch (ch) {
         case 'D':
             if (last) {
-                return 34;
+                return 50;
             }
             goto FORWARDED;
         case 'd':
             if (last) {
-                return 34;
+                return 50;
             }
             goto FORWARDED;
         default:
@@ -4721,12 +7302,12 @@ FRO:
     switch (ch) {
         case 'M':
             if (last) {
-                return 35;
+                return 51;
             }
             goto FROM;
         case 'm':
             if (last) {
-                return 35;
+                return 51;
             }
             goto FROM;
         default:
@@ -4772,12 +7353,12 @@ HOS:
     switch (ch) {
         case 'T':
             if (last) {
-                return 36;
+                return 52;
             }
             goto HOST;
         case 't':
             if (last) {
-                return 36;
+                return 52;
             }
             goto HOST;
         default:
@@ -4926,12 +7507,12 @@ IF_MATC:
     switch (ch) {
         case 'H':
             if (last) {
-                return 37;
+                return 53;
             }
             goto IF_MATCH;
         case 'h':
             if (last) {
-                return 37;
+                return 53;
             }
             goto IF_MATCH;
         default:
@@ -5125,12 +7706,12 @@ IF_MODIFIED_SINC:
     switch (ch) {
         case 'E':
             if (last) {
-                return 38;
+                return 54;
             }
             goto IF_MODIFIED_SINCE;
         case 'e':
             if (last) {
-                return 38;
+                return 54;
             }
             goto IF_MODIFIED_SINCE;
         default:
@@ -5273,12 +7854,12 @@ IF_NONE_MATC:
     switch (ch) {
         case 'H':
             if (last) {
-                return 39;
+                return 55;
             }
             goto IF_NONE_MATCH;
         case 'h':
             if (last) {
-                return 39;
+                return 55;
             }
             goto IF_NONE_MATCH;
         default:
@@ -5341,12 +7922,12 @@ IF_RANG:
     switch (ch) {
         case 'E':
             if (last) {
-                return 40;
+                return 56;
             }
             goto IF_RANGE;
         case 'e':
             if (last) {
-                return 40;
+                return 56;
             }
             goto IF_RANGE;
         default:
@@ -5591,12 +8172,12 @@ IF_UNMODIFIED_SINC:
     switch (ch) {
         case 'E':
             if (last) {
-                return 41;
+                return 57;
             }
             goto IF_UNMODIFIED_SINCE;
         case 'e':
             if (last) {
-                return 41;
+                return 57;
             }
             goto IF_UNMODIFIED_SINCE;
         default:
@@ -5739,12 +8320,12 @@ KEEP_ALIV:
     switch (ch) {
         case 'E':
             if (last) {
-                return 42;
+                return 58;
             }
             goto KEEP_ALIVE;
         case 'e':
             if (last) {
-                return 42;
+                return 58;
             }
             goto KEEP_ALIVE;
         default:
@@ -5963,12 +8544,12 @@ LAST_EVENT_I:
     switch (ch) {
         case 'D':
             if (last) {
-                return 43;
+                return 59;
             }
             goto LAST_EVENT_ID;
         case 'd':
             if (last) {
-                return 43;
+                return 59;
             }
             goto LAST_EVENT_ID;
         default:
@@ -6082,12 +8663,12 @@ LAST_MODIFIE:
     switch (ch) {
         case 'D':
             if (last) {
-                return 44;
+                return 60;
             }
             goto LAST_MODIFIED;
         case 'd':
             if (last) {
-                return 44;
+                return 60;
             }
             goto LAST_MODIFIED;
         default:
@@ -6116,12 +8697,12 @@ LIN:
     switch (ch) {
         case 'K':
             if (last) {
-                return 45;
+                return 61;
             }
             goto LINK;
         case 'k':
             if (last) {
-                return 45;
+                return 61;
             }
             goto LINK;
         default:
@@ -6218,12 +8799,12 @@ LOCATIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 46;
+                return 62;
             }
             goto LOCATION;
         case 'n':
             if (last) {
-                return 46;
+                return 62;
             }
             goto LOCATION;
         default:
@@ -6400,14 +8981,48 @@ MAX_FORWARD:
     switch (ch) {
         case 'S':
             if (last) {
-                return 47;
+                return 63;
             }
             goto MAX_FORWARDS;
         case 's':
             if (last) {
-                return 47;
+                return 63;
             }
             goto MAX_FORWARDS;
+        default:
+            return -1;
+    }
+
+N:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto NE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto NE;
+        default:
+            return -1;
+    }
+
+NE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return 64;
+            }
+            goto NEL;
+        case 'l':
+            if (last) {
+                return 64;
+            }
+            goto NEL;
         default:
             return -1;
     }
@@ -6485,14 +9100,242 @@ ORIGI:
     switch (ch) {
         case 'N':
             if (last) {
-                return 48;
+                return 65;
             }
             goto ORIGIN;
         case 'n':
             if (last) {
-                return 48;
+                return 65;
             }
             goto ORIGIN;
+        default:
+            return -1;
+    }
+
+ORIGIN:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_;
+        default:
+            return -1;
+    }
+
+ORIGIN_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_A;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_A;
+        default:
+            return -1;
+    }
+
+ORIGIN_A:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AG;
+        default:
+            return -1;
+    }
+
+ORIGIN_AG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGE;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGEN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGEN;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGEN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_C;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_C;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT_C:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CL;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT_CL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLU;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT_CLU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLUS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLUS;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT_CLUS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLUST;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLUST;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT_CLUST:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLUSTE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto ORIGIN_AGENT_CLUSTE;
+        default:
+            return -1;
+    }
+
+ORIGIN_AGENT_CLUSTE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return 66;
+            }
+            goto ORIGIN_AGENT_CLUSTER;
+        case 'r':
+            if (last) {
+                return 66;
+            }
+            goto ORIGIN_AGENT_CLUSTER;
         default:
             return -1;
     }
@@ -6500,6 +9343,16 @@ ORIGI:
 P:
     NEXT_CHAR();
     switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto PE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto PE;
         case 'R':
             if (last) {
                 return -1;
@@ -6510,6 +9363,273 @@ P:
                 return -1;
             }
             goto PR;
+        default:
+            return -1;
+    }
+
+PE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto PER;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto PER;
+        default:
+            return -1;
+    }
+
+PER:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto PERM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto PERM;
+        default:
+            return -1;
+    }
+
+PERM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto PERMI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto PERMI;
+        default:
+            return -1;
+    }
+
+PERMI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto PERMIS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto PERMIS;
+        default:
+            return -1;
+    }
+
+PERMIS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto PERMISS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto PERMISS;
+        default:
+            return -1;
+    }
+
+PERMISS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSI;
+        default:
+            return -1;
+    }
+
+PERMISSI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIO;
+        default:
+            return -1;
+    }
+
+PERMISSIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSION;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSION;
+        default:
+            return -1;
+    }
+
+PERMISSION:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS;
+        default:
+            return -1;
+    }
+
+PERMISSIONS:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_;
+        default:
+            return -1;
+    }
+
+PERMISSIONS_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_P;
+        default:
+            return -1;
+    }
+
+PERMISSIONS_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_PO;
+        default:
+            return -1;
+    }
+
+PERMISSIONS_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_POL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_POL;
+        default:
+            return -1;
+    }
+
+PERMISSIONS_POL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_POLI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_POLI;
+        default:
+            return -1;
+    }
+
+PERMISSIONS_POLI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_POLIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto PERMISSIONS_POLIC;
+        default:
+            return -1;
+    }
+
+PERMISSIONS_POLIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 67;
+            }
+            goto PERMISSIONS_POLICY;
+        case 'y':
+            if (last) {
+                return 67;
+            }
+            goto PERMISSIONS_POLICY;
         default:
             return -1;
     }
@@ -6527,6 +9647,16 @@ PR:
                 return -1;
             }
             goto PRA;
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto PRI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto PRI;
         case 'O':
             if (last) {
                 return -1;
@@ -6580,14 +9710,99 @@ PRAGM:
     switch (ch) {
         case 'A':
             if (last) {
-                return 49;
+                return 68;
             }
             goto PRAGMA;
         case 'a':
             if (last) {
-                return 49;
+                return 68;
             }
             goto PRAGMA;
+        default:
+            return -1;
+    }
+
+PRI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto PRIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto PRIO;
+        default:
+            return -1;
+    }
+
+PRIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto PRIOR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto PRIOR;
+        default:
+            return -1;
+    }
+
+PRIOR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto PRIORI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto PRIORI;
+        default:
+            return -1;
+    }
+
+PRIORI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto PRIORIT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto PRIORIT;
+        default:
+            return -1;
+    }
+
+PRIORIT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 69;
+            }
+            goto PRIORITY;
+        case 'y':
+            if (last) {
+                return 69;
+            }
+            goto PRIORITY;
         default:
             return -1;
     }
@@ -6840,14 +10055,138 @@ PROXY_AUTHENTICAT:
     switch (ch) {
         case 'E':
             if (last) {
-                return 50;
+                return 70;
             }
             goto PROXY_AUTHENTICATE;
         case 'e':
             if (last) {
-                return 50;
+                return 70;
             }
             goto PROXY_AUTHENTICATE;
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATI;
+        default:
+            return -1;
+    }
+
+PROXY_AUTHENTICATI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATIO;
+        default:
+            return -1;
+    }
+
+PROXY_AUTHENTICATIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION;
+        default:
+            return -1;
+    }
+
+PROXY_AUTHENTICATION:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION_;
+        default:
+            return -1;
+    }
+
+PROXY_AUTHENTICATION_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION_I;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION_I;
+        default:
+            return -1;
+    }
+
+PROXY_AUTHENTICATION_I:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION_IN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION_IN;
+        default:
+            return -1;
+    }
+
+PROXY_AUTHENTICATION_IN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'F':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION_INF;
+        case 'f':
+            if (last) {
+                return -1;
+            }
+            goto PROXY_AUTHENTICATION_INF;
+        default:
+            return -1;
+    }
+
+PROXY_AUTHENTICATION_INF:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return 71;
+            }
+            goto PROXY_AUTHENTICATION_INFO;
+        case 'o':
+            if (last) {
+                return 71;
+            }
+            goto PROXY_AUTHENTICATION_INFO;
         default:
             return -1;
     }
@@ -6976,12 +10315,12 @@ PROXY_AUTHORIZATIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 51;
+                return 72;
             }
             goto PROXY_AUTHORIZATION;
         case 'n':
             if (last) {
-                return 51;
+                return 72;
             }
             goto PROXY_AUTHORIZATION;
         default:
@@ -7054,12 +10393,12 @@ RANG:
     switch (ch) {
         case 'E':
             if (last) {
-                return 52;
+                return 73;
             }
             goto RANGE;
         case 'e':
             if (last) {
-                return 52;
+                return 73;
             }
             goto RANGE;
         default:
@@ -7079,6 +10418,16 @@ RE:
                 return -1;
             }
             goto REF;
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto REP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto REP;
         case 'T':
             if (last) {
                 return -1;
@@ -7140,6 +10489,16 @@ REFER:
                 return -1;
             }
             goto REFERE;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto REFERR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto REFERR;
         default:
             return -1;
     }
@@ -7149,14 +10508,592 @@ REFERE:
     switch (ch) {
         case 'R':
             if (last) {
-                return 53;
+                return 74;
             }
             goto REFERER;
         case 'r':
             if (last) {
-                return 53;
+                return 74;
             }
             goto REFERER;
+        default:
+            return -1;
+    }
+
+REFERR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto REFERRE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto REFERRE;
+        default:
+            return -1;
+    }
+
+REFERRE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER;
+        default:
+            return -1;
+    }
+
+REFERRER:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_;
+        default:
+            return -1;
+    }
+
+REFERRER_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_P;
+        default:
+            return -1;
+    }
+
+REFERRER_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_PO;
+        default:
+            return -1;
+    }
+
+REFERRER_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_POL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_POL;
+        default:
+            return -1;
+    }
+
+REFERRER_POL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_POLI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_POLI;
+        default:
+            return -1;
+    }
+
+REFERRER_POLI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_POLIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto REFERRER_POLIC;
+        default:
+            return -1;
+    }
+
+REFERRER_POLIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 75;
+            }
+            goto REFERRER_POLICY;
+        case 'y':
+            if (last) {
+                return 75;
+            }
+            goto REFERRER_POLICY;
+        default:
+            return -1;
+    }
+
+REP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto REPO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto REPO;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto REPR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto REPR;
+        default:
+            return -1;
+    }
+
+REPO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto REPOR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto REPOR;
+        default:
+            return -1;
+    }
+
+REPOR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto REPORT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto REPORT;
+        default:
+            return -1;
+    }
+
+REPORT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto REPORT_;
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto REPORTI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto REPORTI;
+        default:
+            return -1;
+    }
+
+REPORT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto REPORT_T;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto REPORT_T;
+        default:
+            return -1;
+    }
+
+REPORT_T:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return 76;
+            }
+            goto REPORT_TO;
+        case 'o':
+            if (last) {
+                return 76;
+            }
+            goto REPORT_TO;
+        default:
+            return -1;
+    }
+
+REPORTI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto REPORTIN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto REPORTIN;
+        default:
+            return -1;
+    }
+
+REPORTIN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING;
+        default:
+            return -1;
+    }
+
+REPORTING:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_;
+        default:
+            return -1;
+    }
+
+REPORTING_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_E;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_E;
+        default:
+            return -1;
+    }
+
+REPORTING_E:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_EN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_EN;
+        default:
+            return -1;
+    }
+
+REPORTING_EN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_END;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_END;
+        default:
+            return -1;
+    }
+
+REPORTING_END:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDP;
+        default:
+            return -1;
+    }
+
+REPORTING_ENDP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPO;
+        default:
+            return -1;
+    }
+
+REPORTING_ENDPO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPOI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPOI;
+        default:
+            return -1;
+    }
+
+REPORTING_ENDPOI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPOIN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPOIN;
+        default:
+            return -1;
+    }
+
+REPORTING_ENDPOIN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPOINT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto REPORTING_ENDPOINT;
+        default:
+            return -1;
+    }
+
+REPORTING_ENDPOINT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return 77;
+            }
+            goto REPORTING_ENDPOINTS;
+        case 's':
+            if (last) {
+                return 77;
+            }
+            goto REPORTING_ENDPOINTS;
+        default:
+            return -1;
+    }
+
+REPR:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto REPR_;
+        default:
+            return -1;
+    }
+
+REPR_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto REPR_D;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto REPR_D;
+        default:
+            return -1;
+    }
+
+REPR_D:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DI;
+        default:
+            return -1;
+    }
+
+REPR_DI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DIG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DIG;
+        default:
+            return -1;
+    }
+
+REPR_DIG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DIGE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DIGE;
+        default:
+            return -1;
+    }
+
+REPR_DIGE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DIGES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto REPR_DIGES;
+        default:
+            return -1;
+    }
+
+REPR_DIGES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 78;
+            }
+            goto REPR_DIGEST;
+        case 't':
+            if (last) {
+                return 78;
+            }
+            goto REPR_DIGEST;
         default:
             return -1;
     }
@@ -7280,12 +11217,12 @@ RETRY_AFTE:
     switch (ch) {
         case 'R':
             if (last) {
-                return 54;
+                return 79;
             }
             goto RETRY_AFTER;
         case 'r':
             if (last) {
-                return 54;
+                return 79;
             }
             goto RETRY_AFTER;
         default:
@@ -7305,6 +11242,16 @@ S:
                 return -1;
             }
             goto SE;
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto ST;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto ST;
         default:
             return -1;
     }
@@ -7361,6 +11308,46 @@ SEC:
 SEC_:
     NEXT_CHAR();
     switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto SEC_C;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto SEC_C;
+        case 'F':
+            if (last) {
+                return -1;
+            }
+            goto SEC_F;
+        case 'f':
+            if (last) {
+                return -1;
+            }
+            goto SEC_F;
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto SEC_G;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto SEC_G;
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto SEC_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto SEC_P;
         case 'W':
             if (last) {
                 return -1;
@@ -7371,6 +11358,779 @@ SEC_:
                 return -1;
             }
             goto SEC_W;
+        default:
+            return -1;
+    }
+
+SEC_C:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'H':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH;
+        case 'h':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH;
+        default:
+            return -1;
+    }
+
+SEC_CH:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_;
+        default:
+            return -1;
+    }
+
+SEC_CH_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_U;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_U;
+        default:
+            return -1;
+    }
+
+SEC_CH_U:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return 80;
+            }
+            goto SEC_CH_UA;
+        case 'a':
+            if (last) {
+                return 80;
+            }
+            goto SEC_CH_UA;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_M;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_M;
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_P;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_M:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MO;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_MO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'B':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MOB;
+        case 'b':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MOB;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_MOB:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MOBI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MOBI;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_MOBI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MOBIL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_MOBIL;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_MOBIL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return 81;
+            }
+            goto SEC_CH_UA_MOBILE;
+        case 'e':
+            if (last) {
+                return 81;
+            }
+            goto SEC_CH_UA_MOBILE;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PL;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_PL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLA;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_PLA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLAT;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_PLAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'F':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLATF;
+        case 'f':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLATF;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_PLATF:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLATFO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLATFO;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_PLATFO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLATFOR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto SEC_CH_UA_PLATFOR;
+        default:
+            return -1;
+    }
+
+SEC_CH_UA_PLATFOR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return 82;
+            }
+            goto SEC_CH_UA_PLATFORM;
+        case 'm':
+            if (last) {
+                return 82;
+            }
+            goto SEC_CH_UA_PLATFORM;
+        default:
+            return -1;
+    }
+
+SEC_F:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FE;
+        default:
+            return -1;
+    }
+
+SEC_FE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FET;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FET;
+        default:
+            return -1;
+    }
+
+SEC_FET:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETC;
+        default:
+            return -1;
+    }
+
+SEC_FETC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'H':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH;
+        case 'h':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH;
+        default:
+            return -1;
+    }
+
+SEC_FETCH:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_D;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_D;
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_M;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_M;
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_S;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_S;
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_U;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_U;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_D:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_DE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_DE;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_DE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_DES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_DES;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_DES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 83;
+            }
+            goto SEC_FETCH_DEST;
+        case 't':
+            if (last) {
+                return 83;
+            }
+            goto SEC_FETCH_DEST;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_M:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_MO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_MO;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_MO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_MOD;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_MOD;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_MOD:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return 84;
+            }
+            goto SEC_FETCH_MODE;
+        case 'e':
+            if (last) {
+                return 84;
+            }
+            goto SEC_FETCH_MODE;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_S:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_SI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_SI;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_SI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_SIT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_SIT;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_SIT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return 85;
+            }
+            goto SEC_FETCH_SITE;
+        case 'e':
+            if (last) {
+                return 85;
+            }
+            goto SEC_FETCH_SITE;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_U:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_US;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_US;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_US:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_USE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto SEC_FETCH_USE;
+        default:
+            return -1;
+    }
+
+SEC_FETCH_USE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return 86;
+            }
+            goto SEC_FETCH_USER;
+        case 'r':
+            if (last) {
+                return 86;
+            }
+            goto SEC_FETCH_USER;
+        default:
+            return -1;
+    }
+
+SEC_G:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto SEC_GP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto SEC_GP;
+        default:
+            return -1;
+    }
+
+SEC_GP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return 87;
+            }
+            goto SEC_GPC;
+        case 'c':
+            if (last) {
+                return 87;
+            }
+            goto SEC_GPC;
+        default:
+            return -1;
+    }
+
+SEC_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PU;
+        default:
+            return -1;
+    }
+
+SEC_PU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PUR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PUR;
+        default:
+            return -1;
+    }
+
+SEC_PUR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PURP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PURP;
+        default:
+            return -1;
+    }
+
+SEC_PURP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PURPO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PURPO;
+        default:
+            return -1;
+    }
+
+SEC_PURPO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PURPOS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto SEC_PURPOS;
+        default:
+            return -1;
+    }
+
+SEC_PURPOS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return 88;
+            }
+            goto SEC_PURPOSE;
+        case 'e':
+            if (last) {
+                return 88;
+            }
+            goto SEC_PURPOSE;
         default:
             return -1;
     }
@@ -7653,12 +12413,12 @@ SEC_WEBSOCKET_ACCEP:
     switch (ch) {
         case 'T':
             if (last) {
-                return 55;
+                return 89;
             }
             goto SEC_WEBSOCKET_ACCEPT;
         case 't':
             if (last) {
-                return 55;
+                return 89;
             }
             goto SEC_WEBSOCKET_ACCEPT;
         default:
@@ -7806,12 +12566,12 @@ SEC_WEBSOCKET_EXTENSION:
     switch (ch) {
         case 'S':
             if (last) {
-                return 56;
+                return 90;
             }
             goto SEC_WEBSOCKET_EXTENSIONS;
         case 's':
             if (last) {
-                return 56;
+                return 90;
             }
             goto SEC_WEBSOCKET_EXTENSIONS;
         default:
@@ -7840,12 +12600,12 @@ SEC_WEBSOCKET_KE:
     switch (ch) {
         case 'Y':
             if (last) {
-                return 57;
+                return 91;
             }
             goto SEC_WEBSOCKET_KEY;
         case 'y':
             if (last) {
-                return 57;
+                return 91;
             }
             goto SEC_WEBSOCKET_KEY;
         default:
@@ -7857,7 +12617,7 @@ SEC_WEBSOCKET_KEY:
     switch (ch) {
         case '1':
             if (last) {
-                return 58;
+                return 92;
             }
             goto SEC_WEBSOCKET_KEY1;
         default:
@@ -7971,12 +12731,12 @@ SEC_WEBSOCKET_PROTOCO:
     switch (ch) {
         case 'L':
             if (last) {
-                return 59;
+                return 93;
             }
             goto SEC_WEBSOCKET_PROTOCOL;
         case 'l':
             if (last) {
-                return 59;
+                return 93;
             }
             goto SEC_WEBSOCKET_PROTOCOL;
         default:
@@ -8073,12 +12833,12 @@ SEC_WEBSOCKET_VERSIO:
     switch (ch) {
         case 'N':
             if (last) {
-                return 60;
+                return 94;
             }
             goto SEC_WEBSOCKET_VERSION;
         case 'n':
             if (last) {
-                return 60;
+                return 94;
             }
             goto SEC_WEBSOCKET_VERSION;
         default:
@@ -8124,14 +12884,128 @@ SERVE:
     switch (ch) {
         case 'R':
             if (last) {
-                return 61;
+                return 95;
             }
             goto SERVER;
         case 'r':
             if (last) {
-                return 61;
+                return 95;
             }
             goto SERVER;
+        default:
+            return -1;
+    }
+
+SERVER:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_;
+        default:
+            return -1;
+    }
+
+SERVER_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_T;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_T;
+        default:
+            return -1;
+    }
+
+SERVER_T:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TI;
+        default:
+            return -1;
+    }
+
+SERVER_TI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TIM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TIM;
+        default:
+            return -1;
+    }
+
+SERVER_TIM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TIMI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TIMI;
+        default:
+            return -1;
+    }
+
+SERVER_TIMI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TIMIN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto SERVER_TIMIN;
+        default:
+            return -1;
+    }
+
+SERVER_TIMIN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return 96;
+            }
+            goto SERVER_TIMING;
+        case 'g':
+            if (last) {
+                return 96;
+            }
+            goto SERVER_TIMING;
         default:
             return -1;
     }
@@ -8238,14 +13112,395 @@ SET_COOKI:
     switch (ch) {
         case 'E':
             if (last) {
-                return 62;
+                return 97;
             }
             goto SET_COOKIE;
         case 'e':
             if (last) {
-                return 62;
+                return 97;
             }
             goto SET_COOKIE;
+        default:
+            return -1;
+    }
+
+ST:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto STR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto STR;
+        default:
+            return -1;
+    }
+
+STR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto STRI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto STRI;
+        default:
+            return -1;
+    }
+
+STRI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto STRIC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto STRIC;
+        default:
+            return -1;
+    }
+
+STRIC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto STRICT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto STRICT;
+        default:
+            return -1;
+    }
+
+STRICT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_;
+        default:
+            return -1;
+    }
+
+STRICT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_T;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_T;
+        default:
+            return -1;
+    }
+
+STRICT_T:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TR;
+        default:
+            return -1;
+    }
+
+STRICT_TR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRA;
+        default:
+            return -1;
+    }
+
+STRICT_TRA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRAN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRAN;
+        default:
+            return -1;
+    }
+
+STRICT_TRAN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANS;
+        default:
+            return -1;
+    }
+
+STRICT_TRANS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSP;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPO;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPOR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPOR;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPOR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_S;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_S;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_S:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SE;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_SE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SEC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SEC;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_SEC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECU;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_SECU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECUR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECUR;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_SECUR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECURI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECURI;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_SECURI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECURIT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto STRICT_TRANSPORT_SECURIT;
+        default:
+            return -1;
+    }
+
+STRICT_TRANSPORT_SECURIT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 98;
+            }
+            goto STRICT_TRANSPORT_SECURITY;
+        case 'y':
+            if (last) {
+                return 98;
+            }
+            goto STRICT_TRANSPORT_SECURITY;
         default:
             return -1;
     }
@@ -8255,14 +13510,24 @@ T:
     switch (ch) {
         case 'E':
             if (last) {
-                return 63;
+                return 99;
             }
             goto TE;
         case 'e':
             if (last) {
-                return 63;
+                return 99;
             }
             goto TE;
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto TI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto TI;
         case 'R':
             if (last) {
                 return -1;
@@ -8273,6 +13538,285 @@ T:
                 return -1;
             }
             goto TR;
+        default:
+            return -1;
+    }
+
+TI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto TIM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto TIM;
+        default:
+            return -1;
+    }
+
+TIM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto TIMI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto TIMI;
+        default:
+            return -1;
+    }
+
+TIMI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto TIMIN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto TIMIN;
+        default:
+            return -1;
+    }
+
+TIMIN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto TIMING;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto TIMING;
+        default:
+            return -1;
+    }
+
+TIMING:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_;
+        default:
+            return -1;
+    }
+
+TIMING_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_A;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_A;
+        default:
+            return -1;
+    }
+
+TIMING_A:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_AL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_AL;
+        default:
+            return -1;
+    }
+
+TIMING_AL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALL;
+        default:
+            return -1;
+    }
+
+TIMING_ALL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLO;
+        default:
+            return -1;
+    }
+
+TIMING_ALLO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'W':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW;
+        case 'w':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW;
+        default:
+            return -1;
+    }
+
+TIMING_ALLOW:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_;
+        default:
+            return -1;
+    }
+
+TIMING_ALLOW_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_O;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_O;
+        default:
+            return -1;
+    }
+
+TIMING_ALLOW_O:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_OR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_OR;
+        default:
+            return -1;
+    }
+
+TIMING_ALLOW_OR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_ORI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_ORI;
+        default:
+            return -1;
+    }
+
+TIMING_ALLOW_ORI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_ORIG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_ORIG;
+        default:
+            return -1;
+    }
+
+TIMING_ALLOW_ORIG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_ORIGI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto TIMING_ALLOW_ORIGI;
+        default:
+            return -1;
+    }
+
+TIMING_ALLOW_ORIGI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return 100;
+            }
+            goto TIMING_ALLOW_ORIGIN;
+        case 'n':
+            if (last) {
+                return 100;
+            }
+            goto TIMING_ALLOW_ORIGIN;
         default:
             return -1;
     }
@@ -8317,6 +13861,16 @@ TRA:
                 return -1;
             }
             goto TRAN;
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto TRAC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto TRAC;
         default:
             return -1;
     }
@@ -8360,12 +13914,12 @@ TRAILE:
     switch (ch) {
         case 'R':
             if (last) {
-                return 64;
+                return 101;
             }
             goto TRAILER;
         case 'r':
             if (last) {
-                return 64;
+                return 101;
             }
             goto TRAILER;
         default:
@@ -8576,14 +14130,211 @@ TRANSFER_ENCODIN:
     switch (ch) {
         case 'G':
             if (last) {
-                return 65;
+                return 102;
             }
             goto TRANSFER_ENCODING;
         case 'g':
             if (last) {
-                return 65;
+                return 102;
             }
             goto TRANSFER_ENCODING;
+        default:
+            return -1;
+    }
+
+TRAC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto TRACE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto TRACE;
+        default:
+            return -1;
+    }
+
+TRACE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto TRACEP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto TRACEP;
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto TRACES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto TRACES;
+        default:
+            return -1;
+    }
+
+TRACEP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPA;
+        default:
+            return -1;
+    }
+
+TRACEPA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPAR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPAR;
+        default:
+            return -1;
+    }
+
+TRACEPAR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPARE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPARE;
+        default:
+            return -1;
+    }
+
+TRACEPARE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPAREN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto TRACEPAREN;
+        default:
+            return -1;
+    }
+
+TRACEPAREN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 130;
+            }
+            goto TRACEPARENT;
+        case 't':
+            if (last) {
+                return 130;
+            }
+            goto TRACEPARENT;
+        default:
+            return -1;
+    }
+
+TRACES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto TRACEST;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto TRACEST;
+        default:
+            return -1;
+    }
+
+TRACEST:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto TRACESTA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto TRACESTA;
+        default:
+            return -1;
+    }
+
+TRACESTA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto TRACESTAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto TRACESTAT;
+        default:
+            return -1;
+    }
+
+TRACESTAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return 131;
+            }
+            goto TRACESTATE;
+        case 'e':
+            if (last) {
+                return 131;
+            }
+            goto TRACESTATE;
         default:
             return -1;
     }
@@ -8630,12 +14381,12 @@ UR:
     switch (ch) {
         case 'I':
             if (last) {
-                return 66;
+                return 103;
             }
             goto URI;
         case 'i':
             if (last) {
-                return 66;
+                return 103;
             }
             goto URI;
         default:
@@ -8715,14 +14466,310 @@ UPGRAD:
     switch (ch) {
         case 'E':
             if (last) {
-                return 67;
+                return 104;
             }
             goto UPGRADE;
         case 'e':
             if (last) {
-                return 67;
+                return 104;
             }
             goto UPGRADE;
+        default:
+            return -1;
+    }
+
+UPGRADE:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_;
+        default:
+            return -1;
+    }
+
+UPGRADE_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_I;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_I;
+        default:
+            return -1;
+    }
+
+UPGRADE_I:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_IN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_IN;
+        default:
+            return -1;
+    }
+
+UPGRADE_IN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INS;
+        default:
+            return -1;
+    }
+
+UPGRADE_INS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSE;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSEC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSEC;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSEC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECU;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECUR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECUR;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECUR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_R;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_R;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_R:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_RE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_RE;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_RE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Q':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQ;
+        case 'q':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQ;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_REQ:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQU;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_REQU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQUE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQUE;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_REQUE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQUES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQUES;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_REQUES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQUEST;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto UPGRADE_INSECURE_REQUEST;
+        default:
+            return -1;
+    }
+
+UPGRADE_INSECURE_REQUEST:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return 105;
+            }
+            goto UPGRADE_INSECURE_REQUESTS;
+        case 's':
+            if (last) {
+                return 105;
+            }
+            goto UPGRADE_INSECURE_REQUESTS;
         default:
             return -1;
     }
@@ -8846,12 +14893,12 @@ USER_AGEN:
     switch (ch) {
         case 'T':
             if (last) {
-                return 68;
+                return 106;
             }
             goto USER_AGENT;
         case 't':
             if (last) {
-                return 68;
+                return 106;
             }
             goto USER_AGENT;
         default:
@@ -8907,12 +14954,12 @@ VAR:
     switch (ch) {
         case 'Y':
             if (last) {
-                return 69;
+                return 107;
             }
             goto VARY;
         case 'y':
             if (last) {
-                return 69;
+                return 107;
             }
             goto VARY;
         default:
@@ -8924,12 +14971,12 @@ VI:
     switch (ch) {
         case 'A':
             if (last) {
-                return 70;
+                return 108;
             }
             goto VIA;
         case 'a':
             if (last) {
-                return 70;
+                return 108;
             }
             goto VIA;
         default:
@@ -9184,12 +15231,12 @@ WWW_AUTHENTICAT:
     switch (ch) {
         case 'E':
             if (last) {
-                return 71;
+                return 109;
             }
             goto WWW_AUTHENTICATE;
         case 'e':
             if (last) {
-                return 71;
+                return 109;
             }
             goto WWW_AUTHENTICATE;
         default:
@@ -9255,6 +15302,16 @@ WANT:
 WANT_:
     NEXT_CHAR();
     switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto WANT_C;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto WANT_C;
         case 'D':
             if (last) {
                 return -1;
@@ -9265,6 +15322,232 @@ WANT_:
                 return -1;
             }
             goto WANT_D;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto WANT_R;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto WANT_R;
+        default:
+            return -1;
+    }
+
+WANT_C:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CO;
+        default:
+            return -1;
+    }
+
+WANT_CO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CON;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CON;
+        default:
+            return -1;
+    }
+
+WANT_CON:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONT;
+        default:
+            return -1;
+    }
+
+WANT_CONT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTE;
+        default:
+            return -1;
+    }
+
+WANT_CONTE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTEN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTEN;
+        default:
+            return -1;
+    }
+
+WANT_CONTEN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT;
+        default:
+            return -1;
+    }
+
+WANT_CONTENT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_;
+        default:
+            return -1;
+    }
+
+WANT_CONTENT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_D;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_D;
+        default:
+            return -1;
+    }
+
+WANT_CONTENT_D:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DI;
+        default:
+            return -1;
+    }
+
+WANT_CONTENT_DI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DIG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DIG;
+        default:
+            return -1;
+    }
+
+WANT_CONTENT_DIG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DIGE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DIGE;
+        default:
+            return -1;
+    }
+
+WANT_CONTENT_DIGE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DIGES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto WANT_CONTENT_DIGES;
+        default:
+            return -1;
+    }
+
+WANT_CONTENT_DIGES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 110;
+            }
+            goto WANT_CONTENT_DIGEST;
+        case 't':
+            if (last) {
+                return 110;
+            }
+            goto WANT_CONTENT_DIGEST;
         default:
             return -1;
     }
@@ -9342,14 +15625,179 @@ WANT_DIGES:
     switch (ch) {
         case 'T':
             if (last) {
-                return 72;
+                return 111;
             }
             goto WANT_DIGEST;
         case 't':
             if (last) {
-                return 72;
+                return 111;
             }
             goto WANT_DIGEST;
+        default:
+            return -1;
+    }
+
+WANT_R:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto WANT_RE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto WANT_RE;
+        default:
+            return -1;
+    }
+
+WANT_RE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REP;
+        default:
+            return -1;
+    }
+
+WANT_REP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR;
+        default:
+            return -1;
+    }
+
+WANT_REPR:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_;
+        default:
+            return -1;
+    }
+
+WANT_REPR_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_D;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_D;
+        default:
+            return -1;
+    }
+
+WANT_REPR_D:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DI;
+        default:
+            return -1;
+    }
+
+WANT_REPR_DI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DIG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DIG;
+        default:
+            return -1;
+    }
+
+WANT_REPR_DIG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DIGE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DIGE;
+        default:
+            return -1;
+    }
+
+WANT_REPR_DIGE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DIGES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto WANT_REPR_DIGES;
+        default:
+            return -1;
+    }
+
+WANT_REPR_DIGES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 112;
+            }
+            goto WANT_REPR_DIGEST;
+        case 't':
+            if (last) {
+                return 112;
+            }
+            goto WANT_REPR_DIGEST;
         default:
             return -1;
     }
@@ -9410,12 +15858,12 @@ WARNIN:
     switch (ch) {
         case 'G':
             if (last) {
-                return 73;
+                return 113;
             }
             goto WARNING;
         case 'g':
             if (last) {
-                return 73;
+                return 113;
             }
             goto WARNING;
         default:
@@ -9437,6 +15885,16 @@ X:
 X_:
     NEXT_CHAR();
     switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto X_C;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto X_C;
         case 'F':
             if (last) {
                 return -1;
@@ -9447,6 +15905,541 @@ X_:
                 return -1;
             }
             goto X_F;
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto X_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto X_P;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_R;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_R;
+        case 'X':
+            if (last) {
+                return -1;
+            }
+            goto X_X;
+        case 'x':
+            if (last) {
+                return -1;
+            }
+            goto X_X;
+        default:
+            return -1;
+    }
+
+X_C:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_CO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_CO;
+        default:
+            return -1;
+    }
+
+X_CO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto X_CON;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto X_CON;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_COR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_COR;
+        default:
+            return -1;
+    }
+
+X_CON:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_CONT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_CONT;
+        default:
+            return -1;
+    }
+
+X_CONT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTE;
+        default:
+            return -1;
+    }
+
+X_CONTE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTEN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTEN;
+        default:
+            return -1;
+    }
+
+X_CONTEN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT;
+        default:
+            return -1;
+    }
+
+X_CONTENT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_;
+        default:
+            return -1;
+    }
+
+X_CONTENT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_T;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_T;
+        default:
+            return -1;
+    }
+
+X_CONTENT_T:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TY;
+        case 'y':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TY;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TY:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYP;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_O;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_O;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE_O:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OP;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE_OP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPT;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE_OPT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPTI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPTI;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE_OPTI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPTIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPTIO;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE_OPTIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPTION;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto X_CONTENT_TYPE_OPTION;
+        default:
+            return -1;
+    }
+
+X_CONTENT_TYPE_OPTION:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return 114;
+            }
+            goto X_CONTENT_TYPE_OPTIONS;
+        case 's':
+            if (last) {
+                return 114;
+            }
+            goto X_CONTENT_TYPE_OPTIONS;
+        default:
+            return -1;
+    }
+
+X_COR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_CORR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_CORR;
+        default:
+            return -1;
+    }
+
+X_CORR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRE;
+        default:
+            return -1;
+    }
+
+X_CORRE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto X_CORREL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto X_CORREL;
+        default:
+            return -1;
+    }
+
+X_CORREL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELA;
+        default:
+            return -1;
+    }
+
+X_CORRELA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELAT;
+        default:
+            return -1;
+    }
+
+X_CORRELAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATI;
+        default:
+            return -1;
+    }
+
+X_CORRELATI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATIO;
+        default:
+            return -1;
+    }
+
+X_CORRELATIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATION;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATION;
+        default:
+            return -1;
+    }
+
+X_CORRELATION:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATION_;
+        default:
+            return -1;
+    }
+
+X_CORRELATION_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATION_I;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_CORRELATION_I;
+        default:
+            return -1;
+    }
+
+X_CORRELATION_I:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return 115;
+            }
+            goto X_CORRELATION_ID;
+        case 'd':
+            if (last) {
+                return 115;
+            }
+            goto X_CORRELATION_ID;
         default:
             return -1;
     }
@@ -9464,6 +16457,16 @@ X_F:
                 return -1;
             }
             goto X_FO;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_FR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_FR;
         default:
             return -1;
     }
@@ -9658,12 +16661,12 @@ X_FORWARDED_FO:
     switch (ch) {
         case 'R':
             if (last) {
-                return 74;
+                return 116;
             }
             goto X_FORWARDED_FOR;
         case 'r':
             if (last) {
-                return 74;
+                return 116;
             }
             goto X_FORWARDED_FOR;
         default:
@@ -9709,12 +16712,12 @@ X_FORWARDED_HOS:
     switch (ch) {
         case 'T':
             if (last) {
-                return 75;
+                return 117;
             }
             goto X_FORWARDED_HOST;
         case 't':
             if (last) {
-                return 75;
+                return 117;
             }
             goto X_FORWARDED_HOST;
         default:
@@ -9724,6 +16727,16 @@ X_FORWARDED_HOS:
 X_FORWARDED_P:
     NEXT_CHAR();
     switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_FORWARDED_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_FORWARDED_PO;
         case 'R':
             if (last) {
                 return -1;
@@ -9734,6 +16747,40 @@ X_FORWARDED_P:
                 return -1;
             }
             goto X_FORWARDED_PR;
+        default:
+            return -1;
+    }
+
+X_FORWARDED_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_FORWARDED_POR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_FORWARDED_POR;
+        default:
+            return -1;
+    }
+
+X_FORWARDED_POR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 118;
+            }
+            goto X_FORWARDED_PORT;
+        case 't':
+            if (last) {
+                return 118;
+            }
+            goto X_FORWARDED_PORT;
         default:
             return -1;
     }
@@ -9777,14 +16824,1406 @@ X_FORWARDED_PROT:
     switch (ch) {
         case 'O':
             if (last) {
-                return 76;
+                return 119;
             }
             goto X_FORWARDED_PROTO;
         case 'o':
             if (last) {
-                return 76;
+                return 119;
             }
             goto X_FORWARDED_PROTO;
+        default:
+            return -1;
+    }
+
+X_FR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto X_FRA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto X_FRA;
+        default:
+            return -1;
+    }
+
+X_FRA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAM;
+        default:
+            return -1;
+    }
+
+X_FRAM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME;
+        default:
+            return -1;
+    }
+
+X_FRAME:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_;
+        default:
+            return -1;
+    }
+
+X_FRAME_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_O;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_O;
+        default:
+            return -1;
+    }
+
+X_FRAME_O:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OP;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OP;
+        default:
+            return -1;
+    }
+
+X_FRAME_OP:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPT;
+        default:
+            return -1;
+    }
+
+X_FRAME_OPT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPTI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPTI;
+        default:
+            return -1;
+    }
+
+X_FRAME_OPTI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPTIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPTIO;
+        default:
+            return -1;
+    }
+
+X_FRAME_OPTIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPTION;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto X_FRAME_OPTION;
+        default:
+            return -1;
+    }
+
+X_FRAME_OPTION:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return 120;
+            }
+            goto X_FRAME_OPTIONS;
+        case 's':
+            if (last) {
+                return 120;
+            }
+            goto X_FRAME_OPTIONS;
+        default:
+            return -1;
+    }
+
+X_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_PO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_PO;
+        default:
+            return -1;
+    }
+
+X_PO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'W':
+            if (last) {
+                return -1;
+            }
+            goto X_POW;
+        case 'w':
+            if (last) {
+                return -1;
+            }
+            goto X_POW;
+        default:
+            return -1;
+    }
+
+X_POW:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_POWE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_POWE;
+        default:
+            return -1;
+    }
+
+X_POWE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_POWER;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_POWER;
+        default:
+            return -1;
+    }
+
+X_POWER:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_POWERE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_POWERE;
+        default:
+            return -1;
+    }
+
+X_POWERE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto X_POWERED;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto X_POWERED;
+        default:
+            return -1;
+    }
+
+X_POWERED:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_POWERED_;
+        default:
+            return -1;
+    }
+
+X_POWERED_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'B':
+            if (last) {
+                return -1;
+            }
+            goto X_POWERED_B;
+        case 'b':
+            if (last) {
+                return -1;
+            }
+            goto X_POWERED_B;
+        default:
+            return -1;
+    }
+
+X_POWERED_B:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'Y':
+            if (last) {
+                return 121;
+            }
+            goto X_POWERED_BY;
+        case 'y':
+            if (last) {
+                return 121;
+            }
+            goto X_POWERED_BY;
+        default:
+            return -1;
+    }
+
+X_R:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto X_RA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto X_RA;
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_RE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_RE;
+        default:
+            return -1;
+    }
+
+X_RA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_RAT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_RAT;
+        default:
+            return -1;
+    }
+
+X_RAT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_RATE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_RATE;
+        default:
+            return -1;
+    }
+
+X_RATE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto X_RATEL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto X_RATEL;
+        default:
+            return -1;
+    }
+
+X_RATEL:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELI;
+        default:
+            return -1;
+    }
+
+X_RATELI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIM;
+        default:
+            return -1;
+    }
+
+X_RATELIM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMI;
+        default:
+            return -1;
+    }
+
+X_RATELIMI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_L;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_L;
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_R;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_R;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_L:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_LI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_LI;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_LI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_LIM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_LIM;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_LIM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_LIMI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_LIMI;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_LIMI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 122;
+            }
+            goto X_RATELIMIT_LIMIT;
+        case 't':
+            if (last) {
+                return 122;
+            }
+            goto X_RATELIMIT_LIMIT;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_R:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_RE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_RE;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_RE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'M':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REM;
+        case 'm':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REM;
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_RES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_RES;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_REM:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMA;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_REMA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAI;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_REMAI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAIN;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAIN;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_REMAIN:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAINI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAINI;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_REMAINI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAININ;
+        case 'n':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_REMAININ;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_REMAININ:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return 123;
+            }
+            goto X_RATELIMIT_REMAINING;
+        case 'g':
+            if (last) {
+                return 123;
+            }
+            goto X_RATELIMIT_REMAINING;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_RES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_RESE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_RATELIMIT_RESE;
+        default:
+            return -1;
+    }
+
+X_RATELIMIT_RESE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return 124;
+            }
+            goto X_RATELIMIT_RESET;
+        case 't':
+            if (last) {
+                return 124;
+            }
+            goto X_RATELIMIT_RESET;
+        default:
+            return -1;
+    }
+
+X_RE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto X_REA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto X_REA;
+        case 'Q':
+            if (last) {
+                return -1;
+            }
+            goto X_REQ;
+        case 'q':
+            if (last) {
+                return -1;
+            }
+            goto X_REQ;
+        default:
+            return -1;
+    }
+
+X_REA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'L':
+            if (last) {
+                return -1;
+            }
+            goto X_REAL;
+        case 'l':
+            if (last) {
+                return -1;
+            }
+            goto X_REAL;
+        default:
+            return -1;
+    }
+
+X_REAL:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_REAL_;
+        default:
+            return -1;
+    }
+
+X_REAL_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_REAL_I;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_REAL_I;
+        default:
+            return -1;
+    }
+
+X_REAL_I:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return 125;
+            }
+            goto X_REAL_IP;
+        case 'p':
+            if (last) {
+                return 125;
+            }
+            goto X_REAL_IP;
+        default:
+            return -1;
+    }
+
+X_REQ:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'U':
+            if (last) {
+                return -1;
+            }
+            goto X_REQU;
+        case 'u':
+            if (last) {
+                return -1;
+            }
+            goto X_REQU;
+        default:
+            return -1;
+    }
+
+X_REQU:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUE;
+        default:
+            return -1;
+    }
+
+X_REQUE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUES;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUES;
+        default:
+            return -1;
+    }
+
+X_REQUES:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUEST;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUEST;
+        default:
+            return -1;
+    }
+
+X_REQUEST:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUEST_;
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTE;
+        default:
+            return -1;
+    }
+
+X_REQUEST_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUEST_I;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUEST_I;
+        default:
+            return -1;
+    }
+
+X_REQUEST_I:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return 126;
+            }
+            goto X_REQUEST_ID;
+        case 'd':
+            if (last) {
+                return 126;
+            }
+            goto X_REQUEST_ID;
+        default:
+            return -1;
+    }
+
+X_REQUESTE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'D':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED;
+        case 'd':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED;
+        default:
+            return -1;
+    }
+
+X_REQUESTED:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED_;
+        default:
+            return -1;
+    }
+
+X_REQUESTED_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'W':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED_W;
+        case 'w':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED_W;
+        default:
+            return -1;
+    }
+
+X_REQUESTED_W:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED_WI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED_WI;
+        default:
+            return -1;
+    }
+
+X_REQUESTED_WI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED_WIT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_REQUESTED_WIT;
+        default:
+            return -1;
+    }
+
+X_REQUESTED_WIT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'H':
+            if (last) {
+                return 127;
+            }
+            goto X_REQUESTED_WITH;
+        case 'h':
+            if (last) {
+                return 127;
+            }
+            goto X_REQUESTED_WITH;
+        default:
+            return -1;
+    }
+
+X_X:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto X_XS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto X_XS;
+        default:
+            return -1;
+    }
+
+X_XS:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'S':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS;
+        case 's':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS;
+        default:
+            return -1;
+    }
+
+X_XSS:
+    NEXT_CHAR();
+    switch (ch) {
+        case '-':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_;
+        default:
+            return -1;
+    }
+
+X_XSS_:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'P':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_P;
+        case 'p':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_P;
+        default:
+            return -1;
+    }
+
+X_XSS_P:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'R':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PR;
+        case 'r':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PR;
+        default:
+            return -1;
+    }
+
+X_XSS_PR:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PRO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PRO;
+        default:
+            return -1;
+    }
+
+X_XSS_PRO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROT;
+        default:
+            return -1;
+    }
+
+X_XSS_PROT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTE;
+        case 'e':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTE;
+        default:
+            return -1;
+    }
+
+X_XSS_PROTE:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'C':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTEC;
+        case 'c':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTEC;
+        default:
+            return -1;
+    }
+
+X_XSS_PROTEC:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'T':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTECT;
+        case 't':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTECT;
+        default:
+            return -1;
+    }
+
+X_XSS_PROTECT:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'I':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTECTI;
+        case 'i':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTECTI;
+        default:
+            return -1;
+    }
+
+X_XSS_PROTECTI:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'O':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTECTIO;
+        case 'o':
+            if (last) {
+                return -1;
+            }
+            goto X_XSS_PROTECTIO;
+        default:
+            return -1;
+    }
+
+X_XSS_PROTECTIO:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'N':
+            if (last) {
+                return 128;
+            }
+            goto X_XSS_PROTECTION;
+        case 'n':
+            if (last) {
+                return 128;
+            }
+            goto X_XSS_PROTECTION;
+        default:
+            return -1;
+    }
+
+B:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto BA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto BA;
+        default:
+            return -1;
+    }
+
+BA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto BAG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto BAG;
+        default:
+            return -1;
+    }
+
+BAG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto BAGG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto BAGG;
+        default:
+            return -1;
+    }
+
+BAGG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'A':
+            if (last) {
+                return -1;
+            }
+            goto BAGGA;
+        case 'a':
+            if (last) {
+                return -1;
+            }
+            goto BAGGA;
+        default:
+            return -1;
+    }
+
+BAGGA:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'G':
+            if (last) {
+                return -1;
+            }
+            goto BAGGAG;
+        case 'g':
+            if (last) {
+                return -1;
+            }
+            goto BAGGAG;
+        default:
+            return -1;
+    }
+
+BAGGAG:
+    NEXT_CHAR();
+    switch (ch) {
+        case 'E':
+            if (last) {
+                return 129;
+            }
+            goto BAGGAGE;
+        case 'e':
+            if (last) {
+                return 129;
+            }
+            goto BAGGAGE;
         default:
             return -1;
     }
@@ -9803,22 +18242,37 @@ ACCESS_CONTROL_REQUEST_HEADERS:
 ACCESS_CONTROL_REQUEST_METHOD:
 AGE:
 ALLOW:
+ALT_SVC:
+ALT_USED:
+AUTHENTICATION_INFO:
 AUTHORIZATION:
+BAGGAGE:
 CACHE_CONTROL:
+CACHE_STATUS:
+CDN_CACHE_CONTROL:
+CDN_LOOP:
+CLEAR_SITE_DATA:
 CONNECTION:
+CONTENT_DIGEST:
 CONTENT_DISPOSITION:
 CONTENT_ENCODING:
+CONTENT_ID:
 CONTENT_LANGUAGE:
 CONTENT_LENGTH:
 CONTENT_LOCATION:
 CONTENT_MD5:
 CONTENT_RANGE:
+CONTENT_SECURITY_POLICY_REPORT_ONLY:
 CONTENT_TRANSFER_ENCODING:
 CONTENT_TYPE:
 COOKIE:
+CROSS_ORIGIN_EMBEDDER_POLICY:
+CROSS_ORIGIN_OPENER_POLICY:
+CROSS_ORIGIN_RESOURCE_POLICY:
 DATE:
 DESTINATION:
 DIGEST:
+EARLY_DATA:
 ETAG:
 EXPECT:
 EXPIRES:
@@ -9836,35 +18290,68 @@ LAST_MODIFIED:
 LINK:
 LOCATION:
 MAX_FORWARDS:
-ORIGIN:
+NEL:
+ORIGIN_AGENT_CLUSTER:
+PERMISSIONS_POLICY:
 PRAGMA:
+PRIORITY:
 PROXY_AUTHENTICATE:
+PROXY_AUTHENTICATION_INFO:
 PROXY_AUTHORIZATION:
 RANGE:
 REFERER:
+REFERRER_POLICY:
+REPORTING_ENDPOINTS:
+REPORT_TO:
+REPR_DIGEST:
 RETRY_AFTER:
+SEC_CH_UA_MOBILE:
+SEC_CH_UA_PLATFORM:
+SEC_FETCH_DEST:
+SEC_FETCH_MODE:
+SEC_FETCH_SITE:
+SEC_FETCH_USER:
+SEC_GPC:
+SEC_PURPOSE:
 SEC_WEBSOCKET_ACCEPT:
 SEC_WEBSOCKET_EXTENSIONS:
 SEC_WEBSOCKET_KEY1:
 SEC_WEBSOCKET_PROTOCOL:
 SEC_WEBSOCKET_VERSION:
-SERVER:
+SERVER_TIMING:
 SET_COOKIE:
+STRICT_TRANSPORT_SECURITY:
 TE:
+TIMING_ALLOW_ORIGIN:
+TRACEPARENT:
+TRACESTATE:
 TRAILER:
 TRANSFER_ENCODING:
-UPGRADE:
+UPGRADE_INSECURE_REQUESTS:
 URI:
 USER_AGENT:
 VARY:
 VIA:
+WANT_CONTENT_DIGEST:
 WANT_DIGEST:
+WANT_REPR_DIGEST:
 WARNING:
 WWW_AUTHENTICATE:
+X_CONTENT_TYPE_OPTIONS:
+X_CORRELATION_ID:
 X_FORWARDED_FOR:
 X_FORWARDED_HOST:
+X_FORWARDED_PORT:
 X_FORWARDED_PROTO:
-missing:
+X_FRAME_OPTIONS:
+X_POWERED_BY:
+X_RATELIMIT_LIMIT:
+X_RATELIMIT_REMAINING:
+X_RATELIMIT_RESET:
+X_REAL_IP:
+X_REQUESTED_WITH:
+X_REQUEST_ID:
+X_XSS_PROTECTION:
     /* nothing found */
     return -1;
 }

@@ -10,11 +10,13 @@ from typing import Any
 import numpy as np
 
 import gymnasium as gym
-from gymnasium.core import ObsType
+from gymnasium.core import ActType
+from gymnasium.error import InvalidBound
 from gymnasium.logger import warn
 from gymnasium.spaces import Box
 from gymnasium.vector.utils import batch_space
 from gymnasium.vector.vector_env import (
+    ArrayType,
     AutoresetMode,
     VectorEnv,
     VectorObservationWrapper,
@@ -24,7 +26,10 @@ from gymnasium.wrappers.utils import RunningMeanStd
 __all__ = ["NormalizeObservation"]
 
 
-class NormalizeObservation(VectorObservationWrapper, gym.utils.RecordConstructorArgs):
+class NormalizeObservation(
+    VectorObservationWrapper[np.ndarray, ActType, np.ndarray, ArrayType],
+    gym.utils.RecordConstructorArgs,
+):
     """This wrapper will normalize observations s.t. each coordinate is centered with unit variance.
 
     The property `_update_running_mean` allows to freeze/continue the running mean calculation of the observation
@@ -63,13 +68,32 @@ class NormalizeObservation(VectorObservationWrapper, gym.utils.RecordConstructor
         >>> envs.close()
     """
 
-    def __init__(self, env: VectorEnv, epsilon: float = 1e-8):
+    single_observation_space: Box  # f32
+    observation_space: Box  # f32
+    obs_rms: RunningMeanStd  # f32
+    epsilon: float
+    _update_running_mean: bool
+
+    def __init__(
+        self, env: VectorEnv[np.ndarray, ActType, ArrayType], epsilon: float = 1e-8
+    ) -> None:
         """This wrapper will normalize observations s.t. each coordinate is centered with unit variance.
 
         Args:
             env (Env): The environment to apply the wrapper
             epsilon: A stability parameter that is used when scaling the observations.
+
+        Raises:
+            InvalidBound: If ``epsilon`` is not strictly positive.
         """
+        # `epsilon` is added under the square root to keep the division away from
+        # zero, so a non-positive value defeats its purpose and, once it exceeds
+        # the variance, silently turns every normalized observation into NaN.
+        if epsilon <= 0:
+            raise InvalidBound(
+                f"`epsilon` should be strictly positive. Received {epsilon}"
+            )
+
         gym.utils.RecordConstructorArgs.__init__(self, epsilon=epsilon)
         VectorObservationWrapper.__init__(self, env)
 
@@ -78,7 +102,10 @@ class NormalizeObservation(VectorObservationWrapper, gym.utils.RecordConstructor
                 f"{self} is missing `autoreset_mode` data. Assuming that the vector environment it follows the `NextStep` autoreset api or autoreset is disabled. Read https://farama.org/Vector-Autoreset-Mode for more details."
             )
         else:
-            assert self.env.metadata["autoreset_mode"] in {AutoresetMode.NEXT_STEP}
+            if self.env.metadata["autoreset_mode"] not in {AutoresetMode.NEXT_STEP}:
+                raise ValueError(
+                    f"Expected env.metadata['autoreset_mode'] to be AutoresetMode.NEXT_STEP, got {self.env.metadata['autoreset_mode']}"
+                )
 
         new_single_space = Box(
             low=-np.inf,
@@ -87,7 +114,8 @@ class NormalizeObservation(VectorObservationWrapper, gym.utils.RecordConstructor
             dtype=np.float32,
         )
         self.single_observation_space = new_single_space
-        self.observation_space = batch_space(new_single_space, self.num_envs)
+        # TODO: remove ignore comment once `ty` supports `@single_dispatch`
+        self.observation_space = batch_space(new_single_space, self.num_envs)  # ty:ignore[invalid-assignment]
 
         self.obs_rms = RunningMeanStd(
             shape=self.single_observation_space.shape,
@@ -102,25 +130,27 @@ class NormalizeObservation(VectorObservationWrapper, gym.utils.RecordConstructor
         return self._update_running_mean
 
     @update_running_mean.setter
-    def update_running_mean(self, setting: bool):
+    def update_running_mean(self, setting: bool) -> None:
         """Sets the property to freeze/continue the running mean calculation of the observation statistics."""
         self._update_running_mean = setting
 
     def reset(
         self,
         *,
-        seed: int | list[int] | None = None,
+        seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObsType, dict[str, Any]]:
+    ) -> tuple[np.ndarray, dict[str, Any]]:
         """Reset function for `NormalizeObservationWrapper` which is disabled for partial resets."""
-        assert (
-            options is None
-            or "reset_mask" not in options
-            or np.all(options["reset_mask"])
-        )
+        if options is not None and "reset_mask" in options:
+            if not np.all(options["reset_mask"]):
+                raise ValueError(
+                    "NormalizeObservation does not support partial resets. The 'reset_mask' must contain all True values."
+                )
         return super().reset(seed=seed, options=options)
 
-    def observations(self, observations: ObsType) -> ObsType:
+    def observations(
+        self, observations: np.ndarray[tuple[int], np.dtype[np.floating]]
+    ) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
         """Defines the vector observation normalization function.
 
         Args:

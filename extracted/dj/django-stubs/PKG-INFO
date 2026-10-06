@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-stubs
-Version: 6.1.1
+Version: 6.1.2
 Summary: Mypy stubs for Django
 Author: Maksim Kurnikov
 Author-email: Maksim Kurnikov <maxim.kurnikov@gmail.com>
@@ -20,7 +20,7 @@ Requires-Dist: django
 Requires-Dist: django-stubs-ext>=6.0.2
 Requires-Dist: types-pyyaml
 Requires-Dist: typing-extensions>=4.11.0
-Requires-Dist: mypy>=1.13,<2.4 ; extra == 'compatible-mypy'
+Requires-Dist: mypy>=1.13,<2.5 ; extra == 'compatible-mypy'
 Requires-Dist: oracledb ; extra == 'oracle'
 Requires-Dist: redis ; extra == 'redis'
 Requires-Dist: types-redis ; extra == 'redis'
@@ -92,6 +92,7 @@ We rely on different `django` and `mypy` versions:
 
 | django-stubs   | Mypy version | Django version | Django partial support | Python version |
 |----------------|--------------|----------------|------------------------|----------------|
+| 6.1.2          | 1.13 - 2.4   | 6.1            | 6.0, 5.2               | 3.11 - 3.14    |
 | 6.1.1          | 1.13 - 2.3   | 6.1            | 6.0, 5.2               | 3.11 - 3.14    |
 | 6.1.0          | 1.13 - 2.3   | 6.1            | 6.0, 5.2               | 3.11 - 3.14    |
 | 6.0.9          | 1.13 - 2.3   | 6.0            | 5.2, 5.1, 5.0          | 3.10 - 3.14    |

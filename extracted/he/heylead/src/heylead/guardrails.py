@@ -15,6 +15,8 @@ import os
 import re
 import unicodedata
 
+from .withdrawn_sentence import strip_withdrawn_sentence
+
 EM_DASH = "—"
 
 # Zero-width / format chars that are not Unicode Zs but still eat a "space"
@@ -70,10 +72,43 @@ def prepare_outbound_text(text: str, *, kind: str = "dm") -> str:
     is ever appended: the copy the validators passed is the copy that goes
     (D4umak/heylead-api#1766).
     """
-    prepared = normalize_outbound_spaces(text or "")
+    # A model shown an old message that ended with the withdrawn sentence can
+    # still write it; it never reaches the wire (heylead-api #1766).
+    prepared = normalize_outbound_spaces(strip_withdrawn_sentence(text or ""))
     if kind == "dm":
         prepared = break_dm_sentences(prepared)
     return prepared
+
+
+def fold_outbound_text(text: str) -> str:
+    """One shape for "the words we sent" and "the words LinkedIn holds".
+
+    Lowercased, every whitespace run (the blank lines break_dm_sentences
+    inserts included) one space, stripped, the withdrawn sentence gone. Both
+    sides of a read-back go through it, so what prepare_outbound_text does
+    on the wire, now or later, cannot make a delivered message read as
+    absent (D4umak/heylead-api#2142). Mirrors heylead-api's
+    message_guardrails.fold_outbound_text.
+    """
+    return " ".join(
+        normalize_outbound_spaces(strip_withdrawn_sentence(text or "")).lower().split()
+    )
+
+
+def text_landed(sent: str, thread_text: str, *, prefix: int = 80) -> bool:
+    """Whether a message we sent is the one a thread holds.
+
+    The only way to ask "is our text in this LinkedIn copy". The first
+    ``prefix`` folded characters of ``sent`` must appear in the folded
+    ``thread_text``; a comparison of raw slices never matched a DM whose
+    first sentence ended inside the slice, because the wire copy carries a
+    blank line there, and the laptop engine then sent it again (5 Oct 2026,
+    one person, three copies).
+    """
+    folded = fold_outbound_text(sent)[:prefix]
+    if not folded:
+        return False
+    return folded in fold_outbound_text(thread_text)
 
 
 # Scripts that do not separate words with spaces. Counting their characters as

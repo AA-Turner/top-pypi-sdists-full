@@ -1086,6 +1086,7 @@ class CaptureSource(StrEnum):
     claude_code = 'claude_code'
     codex = 'codex'
     pi = 'pi'
+    kimi_code = 'kimi_code'
 
 
 class Status1(StrEnum):
@@ -1254,6 +1255,60 @@ class ExecutionRecordOut(BaseModel):
     hardware: dict[str, Any] | None = Field(None, title='Hardware')
     paths: dict[str, Any] | None = Field(None, title='Paths')
     settings: dict[str, Any] | None = Field(None, title='Settings')
+
+
+class ExperimentGroupOut(BaseModel):
+    """
+    A run group of the experiment: the leaf door's `RunGroupOut` plus the
+    project. `experiment_id` is the experiment the group belongs to.
+    """
+
+    created_at: AwareDatetime = Field(..., title='Created At')
+    customer_id: str = Field(..., title='Customer Id')
+    experiment_id: UUID = Field(..., title='Experiment Id')
+    id: UUID = Field(..., title='Id')
+    kind: str = Field(..., title='Kind')
+    name: str = Field(..., title='Name')
+    notes: str | None = Field(None, title='Notes')
+    notes_limit_chars: int | None = Field(4000, title='Notes Limit Chars')
+    notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
+    notes_version: int | None = Field(None, title='Notes Version')
+    project_id: UUID = Field(
+        ...,
+        description='The project the experiment is filed under.',
+        title='Project Id',
+    )
+    spec: dict[str, Any] | None = Field(None, title='Spec')
+
+
+class ExperimentManifestOut(BaseModel):
+    """
+    One frozen manifest (an experiment version): the leaf door's
+    `ExperimentVersionOut` plus the project the experiment is filed under NOW
+    (a manifest is immutable; the experiment may have moved since it was
+    minted).
+    """
+
+    artifact_refs: list[UUID] | None = Field(None, title='Artifact Refs')
+    artifact_version_refs: list[UUID] | None = Field(
+        None, title='Artifact Version Refs'
+    )
+    as_of: AwareDatetime = Field(..., title='As Of')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    customer_id: str = Field(..., title='Customer Id')
+    excludes: dict[str, Any] | None = Field(None, title='Excludes')
+    execution_record_refs: list[str] | None = Field(None, title='Execution Record Refs')
+    experiment_id: UUID = Field(..., title='Experiment Id')
+    id: UUID = Field(..., title='Id')
+    label: str | None = Field(None, title='Label')
+    meta: dict[str, Any] | None = Field(None, title='Meta')
+    project_id: UUID = Field(
+        ...,
+        description='The project the experiment is filed under.',
+        title='Project Id',
+    )
+    run_refs: list[UUID] | None = Field(None, title='Run Refs')
+    version: int = Field(..., title='Version')
 
 
 class ExperimentMetadataValuePut(BaseModel):
@@ -1477,7 +1532,6 @@ class GraphState(StrEnum):
     ok = 'ok'
     partial = 'partial'
     pending = 'pending'
-    disabled = 'disabled'
 
 
 class GroupedPoint(BaseModel):
@@ -1700,6 +1754,7 @@ class CaptureSources1Enum(StrEnum):
     claude_code = 'claude_code'
     codex = 'codex'
     pi = 'pi'
+    kimi_code = 'kimi_code'
 
 
 class CaptureSources1(RootModel[list[CaptureSources1Enum]]):
@@ -3002,6 +3057,11 @@ class ProjectExperimentMutationOut(BaseModel):
         description="Server-stamped creator: 'user:<uuid>' or 'ingest:<token-uuid>'; null when unknown.",
         title='Created By',
     )
+    document: str | None = Field(
+        None,
+        description='The overview page\'s authored Markdown block as this write left it: set only when the request sent `document` (`""` when it cleared it), else null.',
+        title='Document',
+    )
     id: UUID = Field(..., title='Id')
     legacy_slug: str | None = Field(
         None,
@@ -3013,11 +3073,26 @@ class ProjectExperimentMutationOut(BaseModel):
         description='Display name. An unnamed experiment reads as its slug.',
         title='Name',
     )
+    notes_limit_chars: int | None = Field(
+        100000,
+        description="The notes' size cap, in characters.",
+        title='Notes Limit Chars',
+    )
+    notes_remaining_chars: int | None = Field(
+        None,
+        description='Room left in the notes before `notes_limit_chars` refuses the next write: whether the next edit fits, without echoing the text.',
+        title='Notes Remaining Chars',
+    )
     notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
     notes_version: int | None = Field(
         0,
         description="The notes' write counter after this write. Send it as `base_version` with the next `notes` edit; it moves only when the text changed.",
         title='Notes Version',
+    )
+    parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
+        None,
+        description='The saved parallel-coordinates panel, echoed when the request sent `parallel_coordinates_panel_v1`, else null.',
+        title='Parallel Coordinates Panel V1',
     )
     project_id: UUID = Field(
         ...,
@@ -3101,9 +3176,27 @@ class ProjectExperimentOut(BaseModel):
 class BaseVersion(RootModel[int]):
     root: int = Field(
         ...,
-        description='The `notes_version` the notes were read at (the experiment GET carries it). Required with `notes`; a stale one is a 409 carrying the current `notes_version`: re-read, merge, and replace again from that version.',
+        description='The `notes_version` the notes were read at (the experiment GET carries it). Required with `notes` unless `force`; a stale one is a 409 carrying the current `notes_version`: re-read, merge, and replace again from that version.',
         ge=0,
         title='Base Version',
+    )
+
+
+class Document1(RootModel[str]):
+    root: str = Field(
+        ...,
+        description='Whole replace of the overview page\'s authored Markdown block (the experiment GET\'s `document`); `""` clears it. Lands on the page, where a person edits it too.',
+        max_length=100000,
+        title='Document',
+    )
+
+
+class ExpectedDocument(RootModel[str]):
+    root: str = Field(
+        ...,
+        description='Optional compare-and-swap guard for `document`: the document as the caller read it (presence matters: `null` expects none). A page whose document differs is a 409. Only with `document`.',
+        max_length=100000,
+        title='Expected Document',
     )
 
 
@@ -3120,7 +3213,7 @@ class Name6(RootModel[str]):
 class Notes4(RootModel[str]):
     root: str = Field(
         ...,
-        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`.',
+        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`.',
         max_length=100000,
         title='Notes',
     )
@@ -3149,8 +3242,23 @@ class ProjectExperimentPatch(BaseModel):
     )
     base_version: BaseVersion | None = Field(
         None,
-        description='The `notes_version` the notes were read at (the experiment GET carries it). Required with `notes`; a stale one is a 409 carrying the current `notes_version`: re-read, merge, and replace again from that version.',
+        description='The `notes_version` the notes were read at (the experiment GET carries it). Required with `notes` unless `force`; a stale one is a 409 carrying the current `notes_version`: re-read, merge, and replace again from that version.',
         title='Base Version',
+    )
+    document: Document1 | None = Field(
+        None,
+        description='Whole replace of the overview page\'s authored Markdown block (the experiment GET\'s `document`); `""` clears it. Lands on the page, where a person edits it too.',
+        title='Document',
+    )
+    expected_document: ExpectedDocument | None = Field(
+        None,
+        description='Optional compare-and-swap guard for `document`: the document as the caller read it (presence matters: `null` expects none). A page whose document differs is a 409. Only with `document`.',
+        title='Expected Document',
+    )
+    force: bool | None = Field(
+        False,
+        description='Replace the notes WITHOUT a precondition: the one way to say "I know the notes moved and I mean to overwrite them" (an operator\'s escape hatch, and the way forward when no read version is at hand). Only with `notes`, and never with `base_version`.',
+        title='Force',
     )
     name: Name6 | None = Field(
         None,
@@ -3159,8 +3267,13 @@ class ProjectExperimentPatch(BaseModel):
     )
     notes: Notes4 | None = Field(
         None,
-        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`.',
+        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`.',
         title='Notes',
+    )
+    parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
+        None,
+        description="Replace the experiment page's saved parallel-coordinates panel (the experiment GET's `parallel_coordinates_panel_v1`) with this object, in one atomic write that leaves every other server-held key alone. At most 64 KiB of JSON; `null` is refused (send an object, or leave the field out).",
+        title='Parallel Coordinates Panel V1',
     )
     project_id: UUID | None = Field(
         None,
@@ -3245,7 +3358,11 @@ class ProjectOut(BaseModel):
     write_setting: str | None = Field('inherit', title='Write Setting')
 
 
-class ExpectedDocument(RootModel[str]):
+class Document2(RootModel[str]):
+    root: str = Field(..., max_length=100000, title='Document')
+
+
+class ExpectedDocument1(RootModel[str]):
     root: str = Field(..., max_length=100000, title='Expected Document')
 
 
@@ -3272,8 +3389,8 @@ class ProjectPatch(BaseModel):
     authored_by: Authorship | None = None
     base_version: int | None = Field(None, title='Base Version')
     description: Description | None = Field(None, title='Description')
-    document: Document | None = Field(None, title='Document')
-    expected_document: ExpectedDocument | None = Field(None, title='Expected Document')
+    document: Document2 | None = Field(None, title='Document')
+    expected_document: ExpectedDocument1 | None = Field(None, title='Expected Document')
     expected_summary_markdown: str | None = Field(
         None, title='Expected Summary Markdown'
     )
@@ -3344,7 +3461,7 @@ class ProjectSummaryMarkdownCAS(BaseModel):
         extra='forbid',
     )
     document: str = Field(..., max_length=100000, title='Document')
-    expected_document: ExpectedDocument | None = Field(..., title='Expected Document')
+    expected_document: ExpectedDocument1 | None = Field(..., title='Expected Document')
 
 
 class ProjectWorkspaceRunsOut(BaseModel):
@@ -6685,6 +6802,26 @@ class ExperimentRunCode(BaseModel):
     status: str = Field(..., title='Status')
 
 
+class ExperimentShareOut(BaseModel):
+    """
+    An experiment's publication (X21b): the leaf door's `PublicAccessOut`,
+    with an experiment's own share named as one -- `resource_kind:
+    "experiment"` (its notes' share stays `"note"`), where the leaf door serves
+    the same grant as `"project"` until R6.
+    """
+
+    access_count: int = Field(..., title='Access Count')
+    allow_downloads: bool = Field(..., title='Allow Downloads')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: UUID | None = Field(None, title='Created By')
+    expires_at: AwareDatetime | None = Field(None, title='Expires At')
+    include_children: bool = Field(..., title='Include Children')
+    last_accessed_at: AwareDatetime | None = Field(None, title='Last Accessed At')
+    resource_id: UUID = Field(..., title='Resource Id')
+    resource_kind: ResourceKind
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+
+
 class ExperimentTrashPreviewOut(BaseModel):
     """
     What the same DELETE answers with `?dry_run=true`: what would go, and
@@ -7221,6 +7358,11 @@ class ProjectExperimentDetailOut(BaseModel):
         description="Server-stamped creator: 'user:<uuid>' or 'ingest:<token-uuid>'; null when unknown.",
         title='Created By',
     )
+    document: str | None = Field(
+        None,
+        description="The overview page's authored Markdown block (what `PATCH` with `document` writes, and a person edits on the page). Null when the page holds none.",
+        title='Document',
+    )
     id: UUID = Field(..., title='Id')
     legacy_slug: str | None = Field(
         None,
@@ -7235,11 +7377,26 @@ class ProjectExperimentDetailOut(BaseModel):
     notes: str | None = Field(
         None, description='Free-text Markdown notes on the experiment.', title='Notes'
     )
+    notes_limit_chars: int | None = Field(
+        100000,
+        description="The notes' size cap, in characters.",
+        title='Notes Limit Chars',
+    )
+    notes_remaining_chars: int | None = Field(
+        None,
+        description='Room left in the notes before `notes_limit_chars` refuses the next write.',
+        title='Notes Remaining Chars',
+    )
     notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
     notes_version: int | None = Field(
         0,
         description="The notes' write counter; a notes edit names it to refuse a stale overwrite.",
         title='Notes Version',
+    )
+    parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
+        None,
+        description="The experiment page's saved parallel-coordinates panel (what `PATCH` with `parallel_coordinates_panel_v1` writes); null when none was saved.",
+        title='Parallel Coordinates Panel V1',
     )
     project_id: UUID = Field(
         ...,
@@ -7261,8 +7418,9 @@ class ProjectExperimentDetailOut(BaseModel):
         description='Unique in the tenant, in one namespace shared with project slugs.',
         title='Slug',
     )
-    summary: ProjectWorkspaceSummaryOut = Field(
-        ..., description="The experiment's overview page status."
+    summary: ProjectWorkspaceSummaryOut | None = Field(
+        None,
+        description="The experiment's overview page status (its generation job, why it failed or skipped, its queue position). Null for a service token, which the page's own status route stays closed to.",
     )
     updated_at: AwareDatetime = Field(
         ...,
@@ -7726,6 +7884,11 @@ class RunPatch(BaseModel):
     document: str | None = Field(None, title='Document')
     ended_at: AwareDatetime | None = Field(None, title='Ended At')
     env_ref: str | None = Field(None, title='Env Ref')
+    experiment_id: UUID | None = Field(
+        None,
+        description='Move (file) the run into this experiment, by its uuid: the run lands in the experiment, under the project the experiment is filed in. Not together with project_id (422); null is refused (to take a run out of its experiment, send the project as project_id). group_id, when sent, must be a group of this experiment.',
+        title='Experiment Id',
+    )
     force: bool | None = Field(False, title='Force')
     foreign_keys: dict[str, Any] | None = Field(None, title='Foreign Keys')
     group_id: UUID | None = Field(None, title='Group Id')
@@ -8281,6 +8444,16 @@ class ExperimentCodeOut(BaseModel):
     runs: list[ExperimentRunCode] | None = Field(None, title='Runs')
     sources: list[CodeSourceOut] | None = Field(None, title='Sources')
     windows: list[ExperimentCodeWindow] | None = Field(None, title='Windows')
+
+
+class ExperimentEffectiveShareOut(BaseModel):
+    """
+    What makes an experiment public: its own share (`resource_kind:
+    "experiment"`) or a project's that covers it (`inherited_from`).
+    """
+
+    inherited_from: PublicAccessSource | None = None
+    publication: ExperimentShareOut | None = None
 
 
 class HashLookupOut(BaseModel):

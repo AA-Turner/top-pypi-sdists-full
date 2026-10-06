@@ -1614,7 +1614,7 @@ class FoundationalModel:
                     if job_awaiting_start(job):
                         elapsed = int(time.time() - start_time)
                         if job_status != last_job_status:
-                            print(f"[{elapsed}s] 📥 Dispatched, waiting for a free compute slot...")
+                            print(f"[{elapsed}s] 📥 Waiting to (re)start: {job.get('pause_reason') or 'waiting for a free compute slot'}")
                         last_progress_time = time.time()
                         last_job_status = job_status
                         self.status = job_status
@@ -1925,7 +1925,7 @@ class FoundationalModel:
                 if job_awaiting_start(job):
                     if job_status != last_status and show_progress:
                         elapsed = int(time.time() - start_time)
-                        print(f"[{elapsed}s] 📥 Dispatched, waiting for a free compute slot...")
+                        print(f"[{elapsed}s] 📥 Waiting to (re)start: {job.get('pause_reason') or 'waiting for a free compute slot'}")
                     last_progress_time = time.time()
                     last_status = job_status
                     self.status = job_status

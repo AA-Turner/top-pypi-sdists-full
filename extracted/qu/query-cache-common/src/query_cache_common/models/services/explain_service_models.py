@@ -62,3 +62,19 @@ class GetExplainMessagesResponse(BaseSerDeModel):
     @property
     def by_id(self) -> t.Dict[str, ExplainMessageEntry]:
         return {m.execution_decision_id: m for m in self.messages}
+
+
+@proto_dataclass(explain_service_pb2.UpstreamDependencyChanges)
+class UpstreamDependencyChanges(BaseSerDeModel):
+    execution_id: str
+    lines: t.List[ExplainLine]
+
+
+@proto_dataclass(explain_service_pb2.GetUpstreamDependencyChangesRequest)
+class GetUpstreamDependencyChangesRequest(BaseSerDeModel):
+    execution_ids: t.List[str]
+
+
+@proto_dataclass(explain_service_pb2.GetUpstreamDependencyChangesResponse)
+class GetUpstreamDependencyChangesResponse(BaseSerDeModel):
+    dependency_changes: t.List[UpstreamDependencyChanges]

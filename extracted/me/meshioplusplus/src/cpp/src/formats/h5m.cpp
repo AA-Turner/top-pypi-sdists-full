@@ -25,10 +25,12 @@
 #include <vector>
 
 // Project includes
+#include "../detail/library_lock.hpp"
 #include "meshioplusplus/formats/h5m.hpp"
 #include "meshioplusplus/detail/hdf5_util.hpp"
 #include "meshioplusplus/detail/value_io.hpp"
 #include "meshioplusplus/exceptions.hpp"
+#include "../detail/typed_view.hpp"
 
 namespace meshioplusplus {
 
@@ -57,8 +59,16 @@ h5::Hid make_elem_enum() {
 // Fixed-length byte-string dataset (h5py's data=[b"...", ...]).
 void write_history(hid_t loc, int gzip_level) {
     std::time_t now = std::time(nullptr);
+    // localtime_r/_s, not std::localtime: its shared static buffer races with
+    // any other thread formatting a time (the Python bindings release the GIL).
+    std::tm tm_local{};
+#if defined(_WIN32)
+    localtime_s(&tm_local, &now);
+#else
+    localtime_r(&now, &tm_local);
+#endif
     char stamp[64];
-    std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
+    std::strftime(stamp, sizeof(stamp), "%Y-%m-%d %H:%M:%S", &tm_local);
     std::vector<std::string> items = {"meshioplusplus.h5m", "cpp-core", stamp};
 
     std::size_t maxlen = 1;
@@ -106,6 +116,7 @@ void write_tag_dataset(hid_t loc, const std::string& rName, const NDArray& rArr,
 }  // namespace
 
 Mesh read_h5m(const std::string& rPath) {
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     h5::Hid f = h5::open_file_read(rPath);
     h5::Hid tstt = h5::open_group(f, "tstt");
@@ -156,6 +167,7 @@ Mesh read_h5m(const std::string& rPath) {
 }
 
 void write_h5m(const std::string& rPath, const Mesh& rMesh, bool add_global_ids, int gzip_level) {
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     h5::Hid f = h5::create_file(rPath);
     h5::Hid tstt = h5::create_group(f, "tstt");
@@ -233,20 +245,27 @@ void write_h5m(const std::string& rPath, const Mesh& rMesh, bool add_global_ids,
         // 1-based connectivity, preserving the integer dtype.
         const NDArray& cconn = cb.Conn();
         NDArray conn(cconn.Dtype(), cconn.Shape());
-        for (std::size_t i = 0; i < cconn.Size(); ++i) {
-            std::int64_t v = detail::read_int(cconn, i) + 1;
-            switch (conn.Dtype()) {
+        // One dtype switch per block: each element is read as read_int reads it,
+        // shifted to 1-based and stored back in the same dtype.
+        const auto shift = [&]<class T>() {
+            const T* src = cconn.As<T>();
+            T* dst = conn.As<T>();
+            for (std::size_t i = 0; i < cconn.Size(); ++i)
+                dst[i] = static_cast<T>(static_cast<std::int64_t>(src[i]) + 1);
+        };
+        if (cconn.Size() > 0) {
+            switch (cconn.Dtype()) {
                 case DType::Int32:
-                    conn.As<std::int32_t>()[i] = static_cast<std::int32_t>(v);
+                    shift.template operator()<std::int32_t>();
                     break;
                 case DType::Int64:
-                    conn.As<std::int64_t>()[i] = v;
+                    shift.template operator()<std::int64_t>();
                     break;
                 case DType::UInt32:
-                    conn.As<std::uint32_t>()[i] = static_cast<std::uint32_t>(v);
+                    shift.template operator()<std::uint32_t>();
                     break;
                 case DType::UInt64:
-                    conn.As<std::uint64_t>()[i] = static_cast<std::uint64_t>(v);
+                    shift.template operator()<std::uint64_t>();
                     break;
                 default:
                     throw WriteError("H5M: unexpected connectivity dtype");

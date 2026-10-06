@@ -67,7 +67,12 @@ from ._accel import acc as _acc
 from ._cancel import _Cancelable
 from ._capabilities import Capabilities
 from ._element_currents import _ElementCurrents
-from ._port_solution import PortSolution, _SweptPortSolutions
+from ._port_solution import (
+    PortSolution,
+    _SweptPortSolutions,
+    port_impedances,
+    refuse_undriven,
+)
 from ._stable import asinh_diff
 from ._stable import expm1_neg_j as _expm1_neg_j
 from ._stable import expm1_neg_j_from_half as _expm1_neg_j_from_half
@@ -824,6 +829,18 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         (momwire#212, report §17).
     """
 
+    # momwire#1333: coincident wires joined to DIFFERENT wires are kept as
+    # written, not merged, and this family's answer for them is decided by
+    # rounding: the split rise fan read 32.75 - 342.05j ohm on Skylake and
+    # -158.42 ohm, deterministically, on some CI runners' CPUs. So it refuses
+    # them by this sentence (the Galerkin subclass says the same of its fill).
+    _KEPT_COINCIDENT_REFUSAL = (
+        "this family cannot solve coincident conductors: its answer for them "
+        "depends on the CPU's rounding (momwire#1333). Solve the deck with "
+        "BSplineSolver, or join both copies to the same wires at each end so "
+        "they merge as one"
+    )
+
     eps = 8.8541878188e-12
     mu = 1.25663706127e-6
 
@@ -923,6 +940,48 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         swept_mem_mb=256,
         cancel=None,
     ):
+        # momwire#1042: a wire listed twice is solved once. Dropped here,
+        # before anything reads a wire index, and every wire-indexed argument
+        # remapped; the per-wire readouts re-expand through `_wire_dedup`.
+        (
+            wires,
+            n_per_edge_per_wire,
+            _per_wire,
+            _sites,
+            junctions,
+            self._wire_dedup,
+        ) = _wire_spec.drop_duplicated_wires(
+            type(self).__name__,
+            list(wires) if wires is not None else [],
+            n_per_edge_per_wire,
+            per_wire={
+                "wire_radius": wire_radius,
+                "wire_conductivity": wire_conductivity,
+                "insulation_radius": insulation_radius,
+                "insulation_eps_r": insulation_eps_r,
+                "distributed_rlc": distributed_rlc,
+            },
+            sites={
+                "feeds": feeds,
+                "feed_wire_index": [(feed_wire_index,)] if feeds is None else [],
+            },
+            junctions=junctions,
+            junction_refs=tuple(junction_ports or ()),
+            refuse_reason=(
+                "node_ports or node_gaps are declared"
+                if getattr(self, "_node_drive_declared", False)
+                else None
+            ),
+            coincident_refusal=type(self)._KEPT_COINCIDENT_REFUSAL,
+        )
+        wire_radius = _per_wire["wire_radius"]
+        wire_conductivity = _per_wire["wire_conductivity"]
+        insulation_radius = _per_wire["insulation_radius"]
+        insulation_eps_r = _per_wire["insulation_eps_r"]
+        distributed_rlc = _per_wire["distributed_rlc"]
+        feeds = _sites["feeds"]
+        if feeds is None:
+            feed_wire_index = _sites["feed_wire_index"][0][0]
         if junction_ports:
             self._reject_junction_ports()
         if feed_model not in ("segment", "point"):
@@ -1183,6 +1242,20 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         )
 
         self.junction_ports = self._normalize_junction_ports(junction_ports)
+        # Sin-Galerkin advises at the end of its own constructor, once its
+        # node ports and node gaps exist.
+        if not hasattr(self, "_node_drive_declared"):
+            # momwire#959 (a stopgap until #1330): segments below the radius AT A
+            # GAP leave the delta-gap model unreliable. Advisory, once per solver.
+            _wire_spec.advise_gap_mesh_floor(
+                type(self).__name__,
+                self.wires_polylines,
+                self.n_per_edge_per_wire,
+                self._radius_per_wire,
+                self.extended_kernel,
+                _wire_spec.solver_gaps(self, junctions_are_gaps=self.extended_kernel),
+                gap_model="segment",
+            )
 
     def _reject_junction_ports(self):
         """Refuse `junction_ports=` on the point-matched solver.
@@ -1397,6 +1470,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             omega=self.omega,
             mu=self.mu,
             eps=self.eps,
+            cancel=self._cancel,
         )
 
     def _crossing_junction_indices(self):
@@ -1548,6 +1622,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         """
         return True
 
+    @_wire_spec.reads_input_wires("placements")
     def feed_placements(self):
         """Where each entry of ``feeds`` lands, as one
         :class:`~momwire.FeedPlacement` per feed, in order (momwire#1059).
@@ -1778,6 +1853,12 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 total_arc=total_arc,
                 family=type(self).__name__,
                 wire=w_f,
+                # A point gap carries the remainder in `feed_xi` and sits
+                # where it was asked whichever centre won, so only a
+                # grid-locked feed has a tie that moves the port (#1262).
+                mirror=None
+                if self.feed_model == "point"
+                else (lambda a, b, w=w_f: _feed_snap.mirror_images(self, w, a, b)),
             )
             feed_segs.append(first + pick)
             feed_xi.append(float(feed_arc - feed_arc_centers[pick]))
@@ -4753,7 +4834,12 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         )
 
         grid = _sommerfeld_below.get_grid_below(
-            medium.eps_t, medium.k_p, r1_below, self.omega, mu=self.mu
+            medium.eps_t,
+            medium.k_p,
+            r1_below,
+            self.omega,
+            mu=self.mu,
+            cancel_flag=self._cancel_flag,
         )
         n_src = N * q
         return {
@@ -4791,7 +4877,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
         def proj(obs_c, obs_t):
             return _sommerfeld_below.remainder_field_proj_below(
-                obs_c, obs_t, srcf, t_src, gz, k_p, k_m, grid
+                obs_c, obs_t, srcf, t_src, gz, k_p, k_m, grid, self._cancel_flag
             )
 
         return self._replay_remainder(
@@ -5280,6 +5366,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             self.omega,
             mu=self.mu,
             r_min=plan["r_cross_min"],
+            cancel_flag=self._cancel_flag,
         )
         proj_fn = (
             _sommerfeld_transmitted.transmitted_field_proj_above_to_below
@@ -6394,6 +6481,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             )
         return G
 
+    @_wire_spec.reads_input_wires("loss")
     def wire_loss_power(self, coeffs, omega=None):
         """Ohmic power dissipated in the wire metal, from a solve's coeffs.
 
@@ -6593,7 +6681,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             ],
             dtype=np.complex128,
         )
-        z_per_feed = voltages / feed_currents
+        z_per_feed = port_impedances(voltages, feed_currents)
         return z_per_feed[0] if len(self.feeds) == 1 else z_per_feed
 
     def compute_impedance(self):
@@ -6603,6 +6691,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         built as Σ_i V_i · (-1/h_i) · e_{feed_i} (linear superposition of
         Eq 187 delta-gap sources).
         """
+        refuse_undriven([v for _, _, v in self.feeds])  # momwire#1164
         geom = self._build_geometry()
         self._checkpoint()  # after geometry, before the field-tensor fill
         # The whole solve inside the medium (momwire#1222): a wholly-buried
@@ -6727,6 +6816,8 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         must not leave `Z_factors` pointing at a frequency the solver has
         already stepped away from.
         """
+        # Up front, so an undriven deck refuses even at an empty sweep.
+        refuse_undriven([v for _, _, v in self.feeds])  # momwire#1164
         k_array = np.asarray(k_array, dtype=float)
         n_feeds = len(self.feeds)
         if n_feeds == 1:
@@ -6804,6 +6895,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         (`_crossing_fill.point_observer_block`), within `_refuse_crossing_scope`."""
         return True
 
+    @_wire_spec.reads_input_wires("per_wire")
     def currents_at_knots(self, alpha, s_array=None):
         """Per-wire complex current sampled at every mesh knot.
 
@@ -6969,6 +7061,7 @@ class SinusoidalSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         xi = (sv - arc_at_knot[seg_in_wire]) - 0.5 * wire_h[seg_in_wire]
         return first + seg_in_wire, xi
 
+    @_wire_spec.reads_input_wires("per_wire")
     def current_slopes(self, coeffs, s_array=None):
         """Per-wire ``dI/ds`` — the solved current's arc-length derivative.
 

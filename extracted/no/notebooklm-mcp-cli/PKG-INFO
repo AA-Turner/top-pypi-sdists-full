@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: notebooklm-mcp-cli
-Version: 0.15.2
+Version: 0.15.3
 Summary: Unified CLI and MCP server for Google NotebookLM
 Project-URL: Homepage, https://github.com/jacob-bd/gemini-notebook-mcp-cli
 Project-URL: Repository, https://github.com/jacob-bd/gemini-notebook-mcp-cli
@@ -69,9 +69,9 @@ Description-Content-Type: text/markdown
 
 ### Latest
 
-|                                   **Codex Setup + Cinematic Video & Slides**                                   |
-| :------------------------------------------------------------------------------------------------------------: |
-| [![Latest](https://img.youtube.com/vi/KrgLCrvU1dw/mqdefault.jpg?v=20261002)](https://www.youtube.com/watch?v=KrgLCrvU1dw) |
+| **Claude Cowork & Interactive Reports** | **Codex Setup + Cinematic Video & Slides** |
+| :---: | :---: |
+| [![Claude Cowork and Interactive Reports demo](https://img.youtube.com/vi/UXxqTpNNGt0/mqdefault.jpg)](https://www.youtube.com/watch?v=UXxqTpNNGt0) | [![Codex Setup, Cinematic Video and Slides demo](https://img.youtube.com/vi/KrgLCrvU1dw/mqdefault.jpg?v=20261002)](https://www.youtube.com/watch?v=KrgLCrvU1dw) |
 
 ### MCP Demos
 

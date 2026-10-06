@@ -10,6 +10,8 @@ Takes a target description like "Find me fintech CTOs" and:
 
 from __future__ import annotations
 
+from ..services.campaign_naming import cut_at_word
+
 import re
 
 import json
@@ -1006,6 +1008,16 @@ async def run_create_campaign(
         except Exception as e:
             logger.warning("Connection enrichment failed (non-critical): %s", e)
 
+    # A result LinkedIn does not name (a private or out-of-network profile
+    # comes back as "LinkedIn Member" with its headline intact) is left out
+    # before it is scored: the title alone would clear the floor, and the
+    # cloud invited two such people on 5 Oct 2026 (D4umak/heylead-api#2164).
+    from ..services.nameless import is_nameless_profile
+    nameless_dropped = sum(1 for p in unique_prospects if is_nameless_profile(p))
+    if nameless_dropped:
+        unique_prospects = [p for p in unique_prospects if not is_nameless_profile(p)]
+        logger.info("Left out %d search results with no name", nameless_dropped)
+
     # Full ICP score (with enriched data for connections-only top candidates).
     # The per-dimension breakdown is kept as `why` on each prospect: it is
     # stored on the contact, pushed to the cloud, and rendered next to the
@@ -1069,7 +1081,7 @@ async def run_create_campaign(
     )
 
     # ── Step 6: Create campaign in DB ──
-    final_name = campaign_name or icp.get("campaign_name", target_description[:40])
+    final_name = campaign_name or icp.get("campaign_name", cut_at_word(target_description, 40))
 
     # Build config — connections-only disables invitations + all warm-up
     is_connections_only = connections_only == "on"
@@ -1144,9 +1156,9 @@ async def run_create_campaign(
 
     # Save contacts + create outreach records
     _source = _internal_source or "linkedin_search"
-    _source_detail = f"ICP: {target_description[:100]}"
+    _source_detail = f"ICP: {cut_at_word(target_description, 100)}"
     if _internal_source == "strategy_spawn":
-        _source_detail = f"Auto-spawned: {target_description[:100]}"
+        _source_detail = f"Auto-spawned: {cut_at_word(target_description, 100)}"
     from ..db.queries import has_running_message_ab_test
     has_ab_test = await run_db(has_running_message_ab_test, campaign_id)
     for prospect in prospects_to_save:
@@ -1282,6 +1294,11 @@ async def run_create_campaign(
     elif use_sales_nav:
         output_lines.append("Searched with Sales Navigator")
     output_lines.append(f"{count_noun(len(prospects_to_save), 'prospect')} queued")
+    if nameless_dropped:
+        output_lines.append(
+            f"{count_noun(nameless_dropped, 'result')} left out: LinkedIn withholds "
+            "the name (a private or out-of-network profile), so nobody could be addressed"
+        )
     if dedup_summary:
         output_lines.append(f"🔍 {dedup_summary}")
     if known_contacts_warning:
@@ -1740,7 +1757,7 @@ def _icp_result_to_legacy(result: IcpResult, target_description: str) -> dict:
         "fears": list(first.fears) if first else [],
         "barriers": list(first.barriers) if first else [],
         "summary": result.summary or target_description,
-        "campaign_name": result.campaign_name or target_description[:40],
+        "campaign_name": result.campaign_name or cut_at_word(target_description, 40),
         "relevance_hook": result.relevance_hook or "",
     }
 

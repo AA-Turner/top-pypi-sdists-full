@@ -6,9 +6,8 @@ from types import ModuleType
 from typing import Any
 
 import gymnasium as gym
-from gymnasium.core import ActType, ObsType
+from gymnasium.core import ActType, ObsType, WrapperActType, WrapperObsType
 from gymnasium.vector import VectorEnv, VectorWrapper
-from gymnasium.vector.vector_env import ArrayType
 from gymnasium.wrappers.array_conversion import (
     Device,
     array_conversion,
@@ -18,7 +17,11 @@ from gymnasium.wrappers.array_conversion import (
 __all__ = ["ArrayConversion"]
 
 
-class ArrayConversion(VectorWrapper, gym.utils.RecordConstructorArgs):
+class ArrayConversion(
+    # The reward and termination/truncation arrays are converted too, so they're typed as `Any`
+    VectorWrapper[WrapperObsType, WrapperActType, ObsType, ActType, Any],
+    gym.utils.RecordConstructorArgs,
+):
     """Wraps a vector environment returning Array API compatible arrays so that it can be interacted with through a specific framework.
 
     Popular Array API frameworks include ``numpy``, ``torch``, ``jax.numpy``, ``cupy`` etc. With this wrapper, you can convert outputs from your environment to
@@ -36,12 +39,12 @@ class ArrayConversion(VectorWrapper, gym.utils.RecordConstructorArgs):
 
     def __init__(
         self,
-        env: VectorEnv,
-        env_xp: ModuleType | str,
-        target_xp: ModuleType | str,
+        env: VectorEnv[ObsType, ActType, Any],
+        env_xp: ModuleType,
+        target_xp: ModuleType,
         env_device: Device | None = None,
         target_device: Device | None = None,
-    ):
+    ) -> None:
         """Wrapper class to change inputs and outputs of environment to any Array API framework.
 
         Args:
@@ -59,8 +62,8 @@ class ArrayConversion(VectorWrapper, gym.utils.RecordConstructorArgs):
         self._target_device = target_device
 
     def step(
-        self, actions: ActType
-    ) -> tuple[ObsType, ArrayType, ArrayType, ArrayType, dict]:
+        self, actions: WrapperActType
+    ) -> tuple[WrapperObsType, Any, Any, Any, dict[str, Any]]:
         """Transforms the action to the specified xp module array type.
 
         Args:
@@ -69,8 +72,10 @@ class ArrayConversion(VectorWrapper, gym.utils.RecordConstructorArgs):
         Returns:
             A tuple containing xp versions of the next observation, reward, termination, truncation, and extra info.
         """
-        actions = array_conversion(actions, xp=self._env_xp, device=self._env_device)
-        obs, reward, terminated, truncated, info = self.env.step(actions)
+        env_actions = array_conversion(
+            actions, xp=self._env_xp, device=self._env_device
+        )
+        obs, reward, terminated, truncated, info = self.env.step(env_actions)
 
         return (
             array_conversion(obs, xp=self._target_xp, device=self._target_device),
@@ -85,9 +90,9 @@ class ArrayConversion(VectorWrapper, gym.utils.RecordConstructorArgs):
     def reset(
         self,
         *,
-        seed: int | list[int] | None = None,
+        seed: int | None = None,
         options: dict[str, Any] | None = None,
-    ) -> tuple[ObsType, dict[str, Any]]:
+    ) -> tuple[WrapperObsType, dict[str, Any]]:
         """Resets the environment returning xp-based observation and info.
 
         Args:
@@ -108,7 +113,7 @@ class ArrayConversion(VectorWrapper, gym.utils.RecordConstructorArgs):
             device=self._target_device,
         )
 
-    def __getstate__(self):
+    def __getstate__(self) -> dict[str, Any]:
         """Returns the object pickle state with args and kwargs."""
         env_xp_name = self._env_xp.__name__.replace("array_api_compat.", "")
         target_xp_name = self._target_xp.__name__.replace("array_api_compat.", "")
@@ -122,7 +127,7 @@ class ArrayConversion(VectorWrapper, gym.utils.RecordConstructorArgs):
             "env": self.env,
         }
 
-    def __setstate__(self, d):
+    def __setstate__(self, d: dict[str, Any]) -> None:
         """Sets the object pickle state using d."""
         self.env = d["env"]
         self._env_xp = module_name_to_namespace(d["env_xp_name"])

@@ -1,6 +1,7 @@
-from . import BaseClientParser
-from ..parser import ENDSWITH_DARWIN
 from device_detector.enums import AppType
+
+from ..parser import ENDSWITH_DARWIN
+from . import BaseClientParser
 
 
 class MobileApp(BaseClientParser):

@@ -36,7 +36,7 @@ from probe.cli import agent_rules, team_note_file as tnf
 
 _ROOT = Path(__file__).resolve().parent.parent
 _HOOK = _ROOT / "plugins" / "probe-research" / "hooks" / "note_audit.py"
-_HOOKS_JSON = _ROOT / "plugins" / "probe-research" / "hooks" / "hooks.json"
+_ROUTES_JSON = _ROOT / "plugins" / "probe-research" / "hooks" / "routes.json"
 
 DUE = "<!-- audited 2020-01-01 -->\n## note\nbody"
 
@@ -537,7 +537,7 @@ def test_the_hook_names_the_right_harness(hook, monkeypatch, env: dict, source: 
 def test_the_wrapper_exports_the_harness_it_detects() -> None:
     """The python half above is the belt; this is the braces, and it is what the
     other six hook groups already do."""
-    hooks = json.loads(_HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]
+    hooks = json.loads(_ROUTES_JSON.read_text(encoding="utf-8"))["hooks"]
     command = next(
         entry["command"]
         for group in hooks["UserPromptSubmit"]
@@ -551,7 +551,7 @@ def test_the_wrapper_exports_the_harness_it_detects() -> None:
 def test_it_is_registered_on_user_prompt_submit() -> None:
     """WIRING, not capability: every other test here proves the file works and
     says nothing about whether a harness ever runs it."""
-    hooks = json.loads(_HOOKS_JSON.read_text(encoding="utf-8"))["hooks"]
+    hooks = json.loads(_ROUTES_JSON.read_text(encoding="utf-8"))["hooks"]
     commands = [
         entry["command"]
         for group in hooks.get("UserPromptSubmit", [])

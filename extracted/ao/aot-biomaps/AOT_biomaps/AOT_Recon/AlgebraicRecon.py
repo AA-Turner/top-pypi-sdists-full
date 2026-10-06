@@ -519,15 +519,33 @@ class AlgebraicRecon(Recon):
     # PUBLIC METHODS
     def generate_SMatrix(self, isShowLogs=True):
         if self.smatrixType == SMatrixType.DENSE:
-            self.SMatrix = self._fill_SMatrix_DENSE(isShowLogs=isShowLogs)
+            self.SMatrix = self._fill_SMatrix_DENSE(isShowLogs=isShowLogs, isLoading=False, SMatrixPath=None)
         elif self.smatrixType == SMatrixType.CSR:
-            self.SMatrix = self._fill_SMatrix_CSR(isShowLogs=isShowLogs)
+            self.SMatrix = self._fill_SMatrix_CSR(isShowLogs=isShowLogs, isLoading=False, SMatrixPath=None)
         elif self.smatrixType == SMatrixType.COO:
             raise NotImplementedError(f"[AOT-biomaps] COO sparse matrix not implemented yet.")
         elif self.smatrixType == SMatrixType.SELL:
-            self.SMatrix = self._fill_SMatrix_SELL(isShowLogs=isShowLogs)
+            self.SMatrix = self._fill_SMatrix_SELL(isShowLogs=isShowLogs, isLoading=False, SMatrixPath=None)
         else:
             raise ValueError(f"[AOT-biomaps] Unsupported SMatrix type: {self.smatrixType}")
+        
+    def load_SMatrix(self, SMatrixPath: str, isShowLogs=True):
+        if self.smatrixType == SMatrixType.DENSE:
+            self.SMatrix = self._fill_SMatrix_DENSE(isShowLogs=isShowLogs, isLoading=True, SMatrixPath=SMatrixPath)
+        elif self.smatrixType == SMatrixType.CSR:
+            self.SMatrix = self._fill_SMatrix_CSR(isShowLogs=isShowLogs, isLoading=True, SMatrixPath=SMatrixPath)
+        elif self.smatrixType == SMatrixType.COO:
+            raise NotImplementedError(f"[AOT-biomaps] COO sparse matrix not implemented yet.")
+        elif self.smatrixType == SMatrixType.SELL:
+            self.SMatrix = self._fill_SMatrix_SELL(isShowLogs=isShowLogs, isLoading=True, SMatrixPath=SMatrixPath)
+        else:
+            raise ValueError(f"[AOT-biomaps] Unsupported SMatrix type: {self.smatrixType}")
+        
+    def save_SMatrix(self, SMatrixPath: str):
+        if self.SMatrix is None:
+            raise ValueError("[AOT-biomaps] Cannot save SMatrix because it has not been generated or loaded yet.")
+        
+        self.SMatrix.save_SMatrix(filePath=SMatrixPath)
     
     def flip_probe(self):
         self.SMatrix.flip_probe()
@@ -1683,7 +1701,7 @@ class AlgebraicRecon(Recon):
 
         plt.show()
 
-    def check_existing_file(self, date=None, withTumor=True):
+    def check_existing_file(self, date=None, withTumor=True, optimizer=None):
         """
         Check if the reconstruction file already exists, based on current instance parameters.
 
@@ -1693,13 +1711,13 @@ class AlgebraicRecon(Recon):
             overwrite (bool): If True, ignores existing files and returns True for saving.
 
         Returns:
-            tuple: (bool: whether to save, str: the filepath)
+            tuple: (bool: whether to save, str: the filePath)
         """
         if self.saveDir is None:
             raise ValueError("[AOT-biomaps] Save directory is not specified.")
         if date is None:
             date = datetime.now().strftime("%d%m")
-        results_dir = os.path.join(self.saveDir, f'results_{date}_{self.optimizer.value}')
+        results_dir = os.path.join(self.saveDir, f'results_{date}_{self.optimizer.value if optimizer is None else optimizer.value}')
         if not os.path.exists(results_dir):
             os.makedirs(results_dir)
 
@@ -1728,58 +1746,12 @@ class AlgebraicRecon(Recon):
         else:
             if self.saveDir is None:
                 raise ValueError("[AOT-biomaps] Save directory is not specified. Please set saveDir before loading.")
-
-            # Determine the optimizer name to use
-            opt_name = optimizer.value if optimizer is not None else self.optimizer.value
-
-            # Build the base directory pattern (e.g., "results_*_PDHG")
-            dir_pattern = f'results_*_{opt_name}'
-
-            # Add optimizer-specific parameters to the pattern
-            if optimizer is None:
-                optimizer = self.optimizer
-            if optimizer == OptimizerType.PPGMLEM:
-                dir_pattern += f'_Beta_{self.beta}_Delta_{self.delta}_Gamma_{self.gamma}_Sigma_{self.sigma}'
-            elif optimizer in (OptimizerType.PGC, OptimizerType.DEPIERRO):
-                dir_pattern += f'_Beta_{self.beta}_Sigma_{self.sigma}'
-            elif optimizer == OptimizerType.PGD:
-                dir_pattern += f'_Alpha_{self.alpha}'
-
-            # List all directories in self.saveDir
-            all_dirs = [d for d in os.listdir(self.saveDir) if os.path.isdir(os.path.join(self.saveDir, d))]
-
-            # Filter directories matching the pattern (e.g., "results_0906_PDHG")
-            matching_dirs = []
-            for d in all_dirs:
-                if d.startswith('results_') and f'_{opt_name}' in d:
-                    matching_dirs.append(d)
-
-            if not matching_dirs:
-                raise FileNotFoundError(f"[AOT-biomaps] No matching results directory found for pattern 'results_*_{opt_name}' in {self.saveDir}.")
-
-            # If results_date is specified, use it
-            if results_date is not None:
-                target_dir = f'results_{results_date}_{opt_name}'
-                if optimizer == OptimizerType.PPGMLEM:
-                    target_dir += f'_Beta_{self.beta}_Delta_{self.delta}_Gamma_{self.gamma}_Sigma_{self.sigma}'
-                elif optimizer in (OptimizerType.PGC, OptimizerType.DEPIERRO):
-                    target_dir += f'_Beta_{self.beta}_Sigma_{self.sigma}'
-                elif optimizer == OptimizerType.PGD:
-                    target_dir += f'_Alpha_{self.alpha}'
-
-                # Check if the directory exists
-                results_dir = os.path.join(self.saveDir, target_dir)
-                if not os.path.exists(results_dir):
-                    raise FileNotFoundError(f"[AOT-biomaps] Directory {results_dir} does not exist.")
-            else:
-                # Find the most recent directory (sorted by date in ddmm format)
-                matching_dirs.sort(reverse=True)  # Sort alphabetically (ddmm dates are sortable)
-                results_dir = os.path.join(self.saveDir, matching_dirs[0])
-
-            # Path to the reconstruction file
-            recon_path = os.path.join(results_dir, f'{recon_key}.npy')
+            isExisting, recon_path = self.check_existing_file(date=results_date, withTumor=withTumor, optimizer=optimizer)
+            recon_path = os.path.join(recon_path, f"{recon_key}.npy")
+            if not isExisting:
+                raise FileNotFoundError(f"[AOT-biomaps] No existing reconstruction file found for {recon_key} in {self.saveDir}.")
             if not os.path.exists(recon_path):
-                raise FileNotFoundError(f"[AOT-biomaps] No {recon_key}.npy file found in {results_dir}.")
+                raise FileNotFoundError(f"[AOT-biomaps] No {recon_key}.npy file found in {self.saveDir}.")
 
         # Load the file (3D array or list of 2D arrays)
         data = np.load(recon_path, allow_pickle=True)
@@ -1810,46 +1782,62 @@ class AlgebraicRecon(Recon):
         
     # PRIVATE METHODS
              
-    def _fill_SMatrix_DENSE(self, isShowLogs=True):
+    def _fill_SMatrix_DENSE(self, isShowLogs=True, isLoading=False, SMatrixPath=None):
         """
         Build a real or complex dense matrix using SMatrix_DENSE class.
         Frees all temporary memory at each step.
         """
         print("[AOT-biomaps] Building DENSE SMatrix") if isShowLogs else None
         SMatrix = SMatrix_DENSE(experiment=self.experiment, device=self.device, isComplexSMatrix=self.isComplexRecon)
-        SMatrix.allocate()
-        SMatrix.normalize_matrix()
+        if isLoading:
+            if SMatrixPath is None:
+                raise ValueError("[AOT-biomaps] SMatrixPath is required when loading a SELL SMatrix.")
+            SMatrix.load_SMatrix(filePath=SMatrixPath)
+        else:
+            SMatrix.allocate()
+            SMatrix.normalize_matrix()
         if isShowLogs:
             print(f"[AOT-biomaps] DENSE SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
         return SMatrix
     
-    def _fill_SMatrix_CSR(self, isShowLogs=True):
+    def _fill_SMatrix_CSR(self, isShowLogs=True, isLoading=False, SMatrixPath=None):
         """
         Built a real or complex sparse CSR matrix in chunks without intermediate concatenation.
         Frees all temporary memory at each step.
         """
         print("[AOT-biomaps] Building CSR SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
         SMatrix = SMatrix_CSR(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, isComplexSMatrix=self.isComplexRecon)
-        SMatrix.allocate()
-        SMatrix.normalize_matrix()
+        if isLoading:
+            if SMatrixPath is None:
+                raise ValueError("[AOT-biomaps] SMatrixPath is required when loading a SELL SMatrix.")
+            SMatrix.load_SMatrix(filePath=SMatrixPath)
+        else:
+            SMatrix.allocate()
+            SMatrix.normalize_matrix()
         if isShowLogs:
             print(f"[AOT-biomaps] CSR SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
             print(f"[AOT-biomaps] CSR sparse matrix density: {SMatrix.compute_density():.2f}%")
         return SMatrix
     
-    def _fill_SMatrix_SELL(self, isShowLogs=True):
+    def _fill_SMatrix_SELL(self, isShowLogs=True, isLoading=False, SMatrixPath=None):
         """
         Built a real or complex sparse SELL matrix in chunks without intermediate concatenation.
         Frees all temporary memory at each step.
         """
         print("[AOT-biomaps] Building SELL SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
         SMatrix = SMatrix_SELL(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, slice_height=self.sliceHeight, sigma=self.sigma_sell, isComplexSMatrix=self.isComplexRecon)
-        SMatrix.allocate()
-        SMatrix.normalize_matrix()
+        if isLoading:
+            if SMatrixPath is None:
+                raise ValueError("[AOT-biomaps] SMatrixPath is required when loading a SELL SMatrix.")
+            SMatrix.load_SMatrix(filePath=SMatrixPath)
+        else:
+            SMatrix.allocate()
+            SMatrix.normalize_matrix()
         if isShowLogs:
             print(f"[AOT-biomaps] SELL SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
             print(f"[AOT-biomaps] SELL sparse matrix density: {SMatrix.compute_density():.2f}%")
         return SMatrix
+
         
     # STATIC METHODS
     @staticmethod

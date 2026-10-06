@@ -74,21 +74,49 @@ class BSplineInterpolation:
         This code handles splines of 2-4 dimensions
         """
 
-        # we only implement the python interface for CPU
-        assert coords.device == torch.device("cpu")
-        coeffs = coords.clone()
+        coeffs = cls._coefficients_from_coordinates(coords)
+        return cls(coeffs=coeffs, n_interp_dims=coords.ndim)
 
-        input_shape = coords.shape
-        if len(input_shape) == 2:
+    @staticmethod
+    def _coefficients_from_coordinates(
+        coords: Tensor[torch.float],
+    ) -> Tensor[torch.float]:
+        """Compute coefficients for already-validated CPU coordinates."""
+
+        assert coords.device == torch.device("cpu")
+        coeffs = coords.clone(memory_format=torch.contiguous_format)
+        if coords.ndim == 2:
             compiled.computeCoeffs2(coeffs)
-        elif len(input_shape) == 3:
+        elif coords.ndim == 3:
             compiled.computeCoeffs3(coeffs)
-        elif len(input_shape) == 4:
+        elif coords.ndim == 4:
             compiled.computeCoeffs4(coeffs)
         else:
             raise ValueError("Unsupported dimensionality in BSplineInterpolation!")
 
-        return cls(coeffs=coeffs, n_interp_dims=len(input_shape))
+        return coeffs
+
+    @staticmethod
+    def _coefficients_from_coordinate_tables(coordinates):
+        """Compute coefficients for a same-rank sequence of CPU tables."""
+
+        coeffs = [
+            table.clone(memory_format=torch.contiguous_format) for table in coordinates
+        ]
+        if not coeffs:
+            return coeffs
+        ndim = coeffs[0].ndim
+        if any(table.ndim != ndim for table in coeffs):
+            raise ValueError("B-spline coordinate tables must have the same rank")
+        if ndim == 2:
+            compiled.computeCoeffs2Batch(coeffs)
+        elif ndim == 3:
+            compiled.computeCoeffs3Batch(coeffs)
+        elif ndim == 4:
+            compiled.computeCoeffs4Batch(coeffs)
+        else:
+            raise ValueError("Unsupported dimensionality in BSplineInterpolation!")
+        return coeffs
 
     @validate_args
     def interpolate(self, X: Tensor[torch.float][...]) -> Tensor[torch.float]:

@@ -102,6 +102,8 @@ OWNERS: dict[str, str] = {
     "series latest": READ,
     "session default": SWITCH, "session initialize": SWITCH, "session state": SWITCH, "session status": READ,
     "session toggle": SWITCH, "session track": SWITCH, "session untrack": SWITCH,
+    # The agent taking Probe over from the daemon and handing it back.
+    "session inline": SWITCH, "session daemon": SWITCH,
     "setup": SETUP, "wizard": SETUP, "update": SETUP,
     "shared add": RESEARCHER, "shared delete": RESEARCHER, "shared download": RESEARCHER, "shared list": READ,
     "shared share": RESEARCHER, "shared unshare": RESEARCHER,

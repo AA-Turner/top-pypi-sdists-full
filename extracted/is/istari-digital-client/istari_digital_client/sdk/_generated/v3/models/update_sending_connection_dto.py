@@ -21,7 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from istari_digital_client.sdk._generated.v3.models.received_access_level import ReceivedAccessLevel
-from istari_digital_client.sdk._generated.v3.models.remote_transformation_create_dto import RemoteTransformationCreateDto
+from istari_digital_client.sdk._generated.v3.models.tag_rule_set_create_dto import TagRuleSetCreateDto
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,9 +35,11 @@ class UpdateSendingConnectionDto(BaseModel):
     object_store_id: Optional[StrictStr] = None
     infosec_level_id: Optional[StrictStr] = None
     received_access_level: Optional[ReceivedAccessLevel] = None
+    allow_all_senders: Optional[StrictBool] = None
+    allow_reshare: Optional[StrictBool] = None
     is_archived: Optional[StrictBool] = None
-    transformations: Optional[List[RemoteTransformationCreateDto]] = None
-    __properties: ClassVar[List[str]] = ["label", "description", "shared_secret", "object_store_id", "infosec_level_id", "received_access_level", "is_archived", "transformations"]
+    tag_rules: Optional[TagRuleSetCreateDto] = None
+    __properties: ClassVar[List[str]] = ["label", "description", "shared_secret", "object_store_id", "infosec_level_id", "received_access_level", "allow_all_senders", "allow_reshare", "is_archived", "tag_rules"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -78,13 +80,9 @@ class UpdateSendingConnectionDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in transformations (list)
-        _items = []
-        if self.transformations:
-            for _item_transformations in self.transformations:
-                if _item_transformations:
-                    _items.append(_item_transformations.to_dict())
-            _dict['transformations'] = _items
+        # override the default output from pydantic by calling `to_dict()` of tag_rules
+        if self.tag_rules:
+            _dict['tag_rules'] = self.tag_rules.to_dict()
         # set to None if label (nullable) is None
         # and model_fields_set contains the field
         if self.label is None and "label" in self.model_fields_set:
@@ -115,15 +113,25 @@ class UpdateSendingConnectionDto(BaseModel):
         if self.received_access_level is None and "received_access_level" in self.model_fields_set:
             _dict['received_access_level'] = None
 
+        # set to None if allow_all_senders (nullable) is None
+        # and model_fields_set contains the field
+        if self.allow_all_senders is None and "allow_all_senders" in self.model_fields_set:
+            _dict['allow_all_senders'] = None
+
+        # set to None if allow_reshare (nullable) is None
+        # and model_fields_set contains the field
+        if self.allow_reshare is None and "allow_reshare" in self.model_fields_set:
+            _dict['allow_reshare'] = None
+
         # set to None if is_archived (nullable) is None
         # and model_fields_set contains the field
         if self.is_archived is None and "is_archived" in self.model_fields_set:
             _dict['is_archived'] = None
 
-        # set to None if transformations (nullable) is None
+        # set to None if tag_rules (nullable) is None
         # and model_fields_set contains the field
-        if self.transformations is None and "transformations" in self.model_fields_set:
-            _dict['transformations'] = None
+        if self.tag_rules is None and "tag_rules" in self.model_fields_set:
+            _dict['tag_rules'] = None
 
         return _dict
 
@@ -143,7 +151,9 @@ class UpdateSendingConnectionDto(BaseModel):
             "object_store_id": obj.get("object_store_id"),
             "infosec_level_id": obj.get("infosec_level_id"),
             "received_access_level": obj.get("received_access_level"),
+            "allow_all_senders": obj.get("allow_all_senders"),
+            "allow_reshare": obj.get("allow_reshare"),
             "is_archived": obj.get("is_archived"),
-            "transformations": [RemoteTransformationCreateDto.from_dict(_item) for _item in obj["transformations"]] if obj.get("transformations") is not None else None
+            "tag_rules": TagRuleSetCreateDto.from_dict(obj["tag_rules"]) if obj.get("tag_rules") is not None else None
         })
         return _obj

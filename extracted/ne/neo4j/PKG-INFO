@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: neo4j
-Version: 6.3.1
+Version: 6.4.0
 Summary: Neo4j Bolt driver for Python
 Author-email: "Neo4j, Inc." <drivers@neo4j.com>
 License-Expression: Apache-2.0 AND Python-2.0
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
@@ -39,6 +40,9 @@ Requires-Dist: pandas[timezone]<4.0.0,>=1.1.0; extra == "pandas"
 Requires-Dist: numpy<3.0.0,>=1.21.2; extra == "pandas"
 Provides-Extra: pyarrow
 Requires-Dist: pyarrow<26.0.0,>=6.0.0; extra == "pyarrow"
+Provides-Extra: http
+Requires-Dist: aiohttp[speedups]<4.0.0,>=3.12.15; extra == "http"
+Requires-Dist: urllib3<3.0.0,>=2.0.0; extra == "http"
 Dynamic: license-file
 
 ****************************
@@ -52,6 +56,7 @@ Driver upgrades within a major version will never contain breaking API changes.
 For version compatibility with Neo4j server, please refer to:
 https://neo4j.com/developer/kb/neo4j-supported-versions/
 
++ Python 3.15 supported.
 + Python 3.14 supported.
 + Python 3.13 supported.
 + Python 3.12 supported.

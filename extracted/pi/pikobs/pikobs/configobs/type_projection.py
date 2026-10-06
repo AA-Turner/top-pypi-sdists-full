@@ -226,27 +226,6 @@ def type_projection(Proj):
     
     return ax, fig, LATPOS, PROJ, pc
 
-def get_rectangular_extent(proj_name):
-    """
-    Devuelve siempre la proyección PlateCarree (plana) y los límites EXACTOS
-    (lon_min, lon_max, lat_min, lat_max) para que los histogramas marginales
-    y los cross-sections se alineen perfectamente con el mapa.
-    """
-    proj = ccrs.PlateCarree()
-    name = proj_name.lower()
-    
-    if "npolar" in name:
-        return proj, [-180, 180, 50, 90]
-    elif "spolar" in name:
-        return proj, [-180, 180, -90, -50]
-    elif "ameriquenord" in name or "canada" in name:
-        return proj, [-150, -40, 30, 85]
-    elif "europe" in name:
-        return proj, [-25, 45, 30, 75]
-    else:
-        # Por defecto (cyl, global, etc.)
-        return proj, [-180, 180, -90, 90]    
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The gallery: every projection drawn the way the regions are

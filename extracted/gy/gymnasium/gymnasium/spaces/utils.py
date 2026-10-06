@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import operator as op
 from functools import reduce, singledispatch
-from typing import Any, TypeVar
+from typing import Any, TypeAlias, TypeVar
 
 import numpy as np
 from numpy.typing import NDArray
@@ -28,7 +28,73 @@ from gymnasium.spaces import (
     Text,
     Tuple,
 )
-from gymnasium.spaces.discrete import IntType
+
+_IntegerT = TypeVar("_IntegerT", bound=np.integer)
+
+
+@singledispatch
+def _flat_dtype(space: Space[Any]) -> np.dtype:
+    """Returns the dtype of the ``Box`` that ``space`` flattens to.
+
+    This is equivalent to ``flatten_space(space).dtype`` for any space that is
+    ``is_np_flattenable`` but does not construct the intermediate spaces, as this is
+    used by :func:`flatten` and :func:`unflatten`, which are called for every step of
+    an environment using :class:`gymnasium.wrappers.FlattenObservation`.
+
+    Args:
+        space: The space to compute the flattened dtype of
+
+    Returns:
+        The dtype of the ``Box`` that the space flattens to.
+    """
+    if space.dtype is None:
+        raise ValueError(
+            f"{space} does not have a dtype, therefore, it cannot be flattened to a numpy array, "
+            "probably because it contains a `Graph` or `Sequence` subspace."
+        )
+    return space.dtype
+
+
+@_flat_dtype.register(Text)
+def _flat_dtype_text(space: Text) -> np.dtype:
+    # `Text` flattens to a `Box` of indexes into the character set, not to its own dtype
+    return np.dtype(np.int32)
+
+
+@_flat_dtype.register(Tuple)
+def _flat_dtype_tuple(space: Tuple) -> np.dtype:
+    return np.result_type(*(_flat_dtype(subspace) for subspace in space.spaces))
+
+
+@_flat_dtype.register(Dict)
+def _flat_dtype_dict(space: Dict) -> np.dtype:
+    return np.result_type(
+        *(_flat_dtype(subspace) for subspace in space.spaces.values())
+    )
+
+
+@_flat_dtype.register(OneOf)
+def _flat_dtype_oneof(space: OneOf) -> np.dtype:
+    """Returns the dtype shared by ``flatten`` and ``flatten_space`` for a ``OneOf`` space.
+
+    The dtype is the promotion of the dtypes of the *flattened* subspaces rather than of
+    the subspaces themselves, as flattening can change the dtype of a space, for example,
+    :class:`gymnasium.spaces.Text` flattens to an ``int32`` :class:`gymnasium.spaces.Box`.
+    As all subspaces share one dtype, a subspace's sample is cast when flattened, which
+    can lose precision for integers too large to be exactly representable in it.
+
+    The subspace index is prepended to the flattened sample, so the dtype must be able to
+    represent the largest index as well, otherwise the index would silently overflow.
+    """
+    dtype = np.result_type(*(_flat_dtype(subspace) for subspace in space.spaces))
+
+    max_index = len(space.spaces) - 1
+    if (dtype.kind == "b" and max_index > 1) or (
+        dtype.kind in "iu" and max_index > np.iinfo(dtype).max
+    ):
+        dtype = np.result_type(dtype, np.min_scalar_type(max_index))
+
+    return dtype
 
 
 @singledispatch
@@ -95,9 +161,7 @@ def _flatdim_dict(space: Dict) -> int:
 
 @flatdim.register(Graph)
 def _flatdim_graph(space: Graph):
-    raise ValueError(
-        "Cannot get flattened size as the Graph Space in Gym has a dynamic size."
-    )
+    raise ValueError("Cannot get flattened size as the Graph Space has a dynamic size.")
 
 
 @flatdim.register(Text)
@@ -111,7 +175,7 @@ def _flatdim_oneof(space: OneOf) -> int:
 
 
 T = TypeVar("T")
-FlatType = NDArray[Any] | dict[str, Any] | tuple[Any, ...] | GraphInstance
+FlatType: TypeAlias = NDArray[Any] | dict[str, Any] | tuple[Any, ...] | GraphInstance
 
 
 @singledispatch
@@ -166,7 +230,7 @@ def _flatten_box_multibinary(space: Box | MultiBinary, x: NDArray[Any]) -> NDArr
 
 
 @flatten.register(Discrete)
-def _flatten_discrete(space: Discrete, x: IntType) -> NDArray[IntType]:
+def _flatten_discrete(space: Discrete, x: _IntegerT) -> NDArray[_IntegerT]:
     onehot = np.zeros(space.n, dtype=space.dtype)
     onehot[x - space.start] = 1
     return onehot
@@ -207,32 +271,36 @@ def _flatten_dict(space: Dict, x: dict[str, Any]) -> dict[str, Any] | NDArray[An
 
 @flatten.register(Graph)
 def _flatten_graph(space: Graph, x: GraphInstance) -> GraphInstance:
-    """We're not using ``.unflatten()`` for :class:`Box` and :class:`Discrete` because a graph is not a homogeneous space, see `.flatten` docstring."""
+    """The nodes and edges should be an instances of a batched of a flattened node/edge space."""
+    flat_node_space = flatten_space(space.node_space)
+    flattened_nodes = list(
+        flatten(space.node_space, node)
+        for node in gym.vector.utils.iterate(space.batch_node_space, x.nodes)
+    )
+    node_out = gym.vector.utils.create_empty_array(
+        flat_node_space, n=len(flattened_nodes)
+    )
+    concat_flat_nodes = gym.vector.utils.concatenate(
+        flat_node_space, flattened_nodes, node_out
+    )
 
-    def _graph_unflatten(
-        unflatten_space: Discrete | Box | None,
-        unflatten_x: NDArray[Any] | None,
-    ) -> NDArray[Any] | None:
-        ret = None
-        if unflatten_space is not None and unflatten_x is not None:
-            if isinstance(unflatten_space, Box):
-                ret = unflatten_x.reshape(unflatten_x.shape[0], -1)
-            else:
-                assert isinstance(unflatten_space, Discrete)
-                ret = np.zeros(
-                    (unflatten_x.shape[0], unflatten_space.n - unflatten_space.start),
-                    dtype=unflatten_space.dtype,
-                )
-                ret[
-                    np.arange(unflatten_x.shape[0]), unflatten_x - unflatten_space.start
-                ] = 1
-        return ret
+    if x.edges is not None:
+        assert space.edge_space is not None
+        flat_edge_space = flatten_space(space.edge_space)
+        flattened_edges = list(
+            flatten(space.edge_space, edge)
+            for edge in gym.vector.utils.iterate(space.batch_edge_space, x.edges)
+        )
+        edge_out = gym.vector.utils.create_empty_array(
+            flat_edge_space, n=len(flattened_edges)
+        )
+        concat_flat_edges = gym.vector.utils.concatenate(
+            flat_edge_space, flattened_edges, edge_out
+        )
+    else:
+        concat_flat_edges = None
 
-    nodes = _graph_unflatten(space.node_space, x.nodes)
-    assert nodes is not None
-    edges = _graph_unflatten(space.edge_space, x.edges)
-
-    return GraphInstance(nodes, edges, x.edge_links)
+    return GraphInstance(concat_flat_nodes, concat_flat_edges, x.edge_links)
 
 
 @flatten.register(Text)
@@ -267,7 +335,7 @@ def _flatten_sequence(
 def _flatten_oneof(space: OneOf, x: tuple[int, Any]) -> NDArray[Any]:
     idx, sample = x
     sub_space = space.spaces[idx]
-    flat_sample = flatten(sub_space, sample)
+    flat_sample: np.ndarray = flatten(sub_space, sample)
 
     max_flatdim = flatdim(space) - 1  # Don't include the index
     if flat_sample.size < max_flatdim:
@@ -276,7 +344,12 @@ def _flatten_oneof(space: OneOf, x: tuple[int, Any]) -> NDArray[Any]:
         )
         flat_sample = np.concatenate([flat_sample, padding])
 
-    return np.concatenate([[idx], flat_sample])
+    # The index must not promote the dtype of the sample, otherwise the flattened
+    # sample would not be contained within `flatten_space(space)`.
+    dtype = _flat_dtype(space)
+    return np.concatenate(
+        [np.array([idx], dtype=dtype), flat_sample.astype(dtype, copy=False)]
+    )
 
 
 @singledispatch
@@ -308,7 +381,9 @@ def _unflatten_box_multibinary(
 
 
 @unflatten.register(Discrete)
-def _unflatten_discrete(space: Discrete, x: NDArray[IntType | np.float64]) -> IntType:
+def _unflatten_discrete(
+    space: Discrete, x: NDArray[_IntegerT | np.float64]
+) -> _IntegerT:
     nonzero = np.nonzero(x)
     if len(nonzero[0]) == 0:
         raise ValueError(
@@ -361,6 +436,9 @@ def _unflatten_tuple(
 @unflatten.register(Dict)
 def _unflatten_dict(space: Dict, x: NDArray[Any] | dict[str, Any]) -> dict[str, Any]:
     if space.is_np_flattenable:
+        assert isinstance(x, np.ndarray), (
+            "x must be a numpy array when unflattening a numpy-flattenable space"
+        )
         dims = np.asarray([flatdim(s) for s in space.spaces.values()], dtype=np.int_)
         list_flattened = np.split(x, np.cumsum(dims[:-1]))
         return {
@@ -383,20 +461,33 @@ def _unflatten_graph(space: Graph, x: GraphInstance) -> GraphInstance:
     The size of the outcome is actually not fixed, but determined based on the number of
     nodes and edges in the graph.
     """
+    flat_nodes = list(
+        gym.vector.utils.iterate(flatten_space(space.node_space), x.nodes)
+    )
+    unflat_nodes = [unflatten(space.node_space, flat_node) for flat_node in flat_nodes]
+    node_out = gym.vector.utils.create_empty_array(space.node_space, n=len(flat_nodes))
+    concat_unflat_nodes = gym.vector.utils.concatenate(
+        space.node_space, unflat_nodes, node_out
+    )
 
-    def _graph_unflatten(unflatten_space, unflatten_x):
-        result = None
-        if unflatten_space is not None and unflatten_x is not None:
-            if isinstance(unflatten_space, Box):
-                result = unflatten_x.reshape(-1, *unflatten_space.shape)
-            elif isinstance(unflatten_space, Discrete):
-                result = np.asarray(np.nonzero(unflatten_x))[-1, :]
-        return result
+    if x.edges is not None:
+        assert space.edge_space is not None
+        flat_edges = list(
+            gym.vector.utils.iterate(flatten_space(space.edge_space), x.edges)
+        )
+        unflat_edges = [
+            unflatten(space.edge_space, flat_node) for flat_node in flat_edges
+        ]
+        edge_out = gym.vector.utils.create_empty_array(
+            space.edge_space, n=len(unflat_edges)
+        )
+        concat_unflat_edges = gym.vector.utils.concatenate(
+            space.edge_space, unflat_edges, edge_out
+        )
+    else:
+        concat_unflat_edges = None
 
-    nodes = _graph_unflatten(space.node_space, x.nodes)
-    edges = _graph_unflatten(space.edge_space, x.edges)
-
-    return GraphInstance(nodes, edges, x.edge_links)
+    return GraphInstance(concat_unflat_nodes, concat_unflat_edges, x.edge_links)
 
 
 @unflatten.register(Text)
@@ -430,7 +521,9 @@ def _unflatten_oneof(space: OneOf, x: NDArray[Any]) -> tuple[int, Any]:
     sub_space = space.spaces[idx]
 
     original_size = flatdim(sub_space)
-    trimmed_sample = x[1 : 1 + original_size]
+    # Restore the subspace's own flattened dtype, `x` uses the dtype shared by all subspaces
+    flat_subspace_dtype = _flat_dtype(sub_space)
+    trimmed_sample = x[1 : 1 + original_size].astype(flat_subspace_dtype)
 
     return idx, unflatten(sub_space, trimmed_sample)
 
@@ -510,6 +603,7 @@ def _flatten_space_box(space: Box) -> Box:
 @flatten_space.register(MultiBinary)
 @flatten_space.register(MultiDiscrete)
 def _flatten_space_binary(space: Discrete | MultiBinary | MultiDiscrete) -> Box:
+    assert space.dtype is not None
     return Box(low=0, high=1, shape=(flatdim(space),), dtype=space.dtype)
 
 
@@ -535,7 +629,8 @@ def _flatten_space_dict(space: Dict) -> Box | Dict:
             dtype=np.result_type(*[s.dtype for s in space_list]),
         )
     return Dict(
-        spaces={key: flatten_space(space) for key, space in space.spaces.items()}
+        spaces={key: flatten_space(space) for key, space in space.spaces.items()},
+        sort_keys=space.sort_keys,
     )
 
 
@@ -575,7 +670,7 @@ def _flatten_space_oneof(space: OneOf) -> Box:
     low = np.concatenate([[0], np.full(max_flatdim - 1, overall_low)])
     high = np.concatenate([[num_subspaces - 1], np.full(max_flatdim - 1, overall_high)])
 
-    dtype = np.result_type(*[s.dtype for s in space.spaces if hasattr(s, "dtype")])
+    dtype = _flat_dtype(space)
     return Box(low=low, high=high, shape=(max_flatdim,), dtype=dtype)
 
 
@@ -636,8 +731,13 @@ def _is_space_dict_dtype_shape_equiv(space_1: Dict, space_2):
 
 @is_space_dtype_shape_equiv.register(Tuple)
 def _is_space_tuple_dtype_shape_equiv(space_1, space_2):
-    return isinstance(space_2, Tuple) and all(
-        is_space_dtype_shape_equiv(space_1[i], space_2[i]) for i in range(len(space_1))
+    return (
+        isinstance(space_2, Tuple)
+        and len(space_1) == len(space_2)
+        and all(
+            is_space_dtype_shape_equiv(space_1[i], space_2[i])
+            for i in range(len(space_1))
+        )
     )
 
 

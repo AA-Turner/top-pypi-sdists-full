@@ -7,9 +7,8 @@ file. Real PLINDER ligands are vendored under
 
 * ``*.bonds_present.cif`` — carries an explicit ``_chem_comp_bond`` block
   (existing-bonds SMILES branch), and
-* ``*.bonds_absent.cif`` — atom-site records only; biotite re-infers
-  intra-residue bonds when it loads the file, which then feeds the same
-  existing-bonds SMILES branch (tmol itself never does a CCD lookup).
+* ``*.bonds_absent.cif`` — atom-site records only; these real CCD components
+  take their bonds from the CCD.
 
 Coverage here:
 
@@ -107,18 +106,11 @@ _GOLDEN_PARAMS: dict[str, dict] = {
 _PREPARABLE = ("vww", "sah")
 
 
-def _load_ligand_array(stem: str, variant: str, *, include_bonds: bool = True):
+def _load_ligand_array(stem: str, variant: str):
     """Load a fixture ligand CIF into a single biotite ``AtomArray``."""
-    import biotite.structure as struc
-    import biotite.structure.io.pdbx as pdbx
+    from tmol.io import atom_array_from_cif
 
-    cif = pdbx.CIFFile.read(str(FIXTURE_DIR / f"{stem}.{variant}.cif"))
-    arr = pdbx.get_structure(
-        cif, model=1, include_bonds=include_bonds, extra_fields=["charge"]
-    )
-    if isinstance(arr, struc.AtomArrayStack):
-        arr = arr[0]
-    return arr
+    return atom_array_from_cif(FIXTURE_DIR / f"{stem}.{variant}.cif")
 
 
 def _canonical(smiles: str) -> str | None:
@@ -261,13 +253,15 @@ def test_smiles_hard_fail_without_bond_table() -> None:
     with no bond table (e.g. a plain PDB ligand) must raise rather than guess
     chemistry.
     """
+    import biotite.structure as struc
     import numpy as np
 
     from tmol.ligand import ligand_smiles_from_atom_array
 
-    arr = _load_ligand_array("vww", "bonds_absent", include_bonds=False)
+    arr = _load_ligand_array("vww", "bonds_absent")
+    arr.bonds = struc.BondList(len(arr))
     arr.res_name = np.array(["LIG"] * len(arr), dtype=arr.res_name.dtype)
-    assert arr.bonds is None
+    assert arr.bonds.get_bond_count() == 0
 
     with pytest.raises(ValueError, match="no bond table"):
         ligand_smiles_from_atom_array(arr, res_name="LIG")

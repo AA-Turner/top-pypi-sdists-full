@@ -24,11 +24,15 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import itertools
+import re
 import typing
 import warnings
 import weakref
 
-from urwid.str_util import calc_text_pos, calc_width
+import wcwidth
+
+from urwid.str_util import calc_text_pos, calc_width, get_byte_encoding
 from urwid.text_layout import LayoutSegment, trim_line
 from urwid.util import (
     apply_target_encoding,
@@ -86,7 +90,12 @@ class CanvasCache:
 
     _widgets[widget] = {(wcls, size, focus): weakref.ref(canvas), ...}
     _refs[weakref.ref(canvas)] = (widget, wcls, size, focus)
-    _deps[widget} = {dependent_widget, ...}
+    _deps[widget] = {dependent_widget, ...}
+    _children[dependent_widget] = {widget, ...}
+
+    _children is the reverse of _deps.
+    It removes a dependent widget from _deps once that widget has no cached canvas left.
+    Widgets are not guaranteed to be weak-referenceable, so neither index can use weak references.
     """
 
     _widgets: typing.ClassVar[
@@ -105,6 +114,7 @@ class CanvasCache:
         ]
     ] = {}
     _deps: typing.ClassVar[dict[AbstractWidget, set[AbstractWidget]]] = {}
+    _children: typing.ClassVar[dict[AbstractWidget, set[AbstractWidget]]] = {}
     hits = 0
     fetches = 0
     cleanups = 0
@@ -130,23 +140,34 @@ class CanvasCache:
         depends_on = getattr(canvas, "depends_on", None)
         if depends_on is None and hasattr(canvas, "children"):
             depends_on = _walk_depends(canvas)
+        widgets = cls._widgets
         if depends_on:
-            widgets = cls._widgets
             for w in depends_on:
                 if w not in widgets:
                     return
-            deps = cls._deps
-            for w in depends_on:
-                deps.setdefault(w, set()).add(widget)
 
+        # cleanup() is a weakref callback and can run between any two lines below.
+        # It drops a widget's dependencies once its sizes are empty,
+        # so they are added only after the live canvas keeps the sizes non-empty.
         key = (wcls, size, focus)
         ref = weakref.ref(canvas, cls.cleanup)
         cls._refs[ref] = (widget, wcls, size, focus)
-        sizes = cls._widgets.get(widget)
+        sizes = widgets.get(widget)
         if sizes is None:
-            cls._widgets[widget] = {key: ref}
+            sizes = widgets[widget] = {key: ref}
         else:
             sizes[key] = ref
+        if not depends_on or widgets.get(widget) is not sizes:
+            # A cleanup dropped the emptied sizes before ref was added to them: the canvas is not cached.
+            return
+
+        cls._children.setdefault(widget, set()).update(depends_on)
+        deps = cls._deps
+        for w in depends_on:
+            deps.setdefault(w, set()).add(widget)
+            if widget not in deps.get(w, ()):
+                # A cleanup emptied and dropped the set between the lookup and the add.
+                deps[w] = {widget}
 
     @classmethod
     def fetch(
@@ -185,7 +206,9 @@ class CanvasCache:
             refs = cls._refs
             for ref in sizes.values():
                 refs.pop(ref, None)
+        cls._forget(widget)
 
+        # The popped set is out of reach of every other frame, so the recursion cannot change it.
         dependants = cls._deps.pop(widget, None)
         if not dependants:
             return
@@ -201,13 +224,36 @@ class CanvasCache:
         if not w:
             return
         widget, wcls, size, focus = w
+        key = (wcls, size, focus)
         sizes = cls._widgets.get(widget, None)
-        if not sizes:
+        # A later store() for the same key replaced ref: that entry belongs to a live canvas.
+        if not sizes or sizes.get(key) is not ref:
             return
-        sizes.pop((wcls, size, focus), None)
+        sizes.pop(key, None)
         if not sizes:
             cls._widgets.pop(widget, None)
-            cls._deps.pop(widget, None)
+            # Dependants still cached under another key must not keep this widget alive through _children.
+            children = cls._children
+            for dependant in cls._deps.pop(widget, ()):
+                siblings = children.get(dependant)
+                if siblings is not None:
+                    siblings.discard(widget)
+            cls._forget(widget)
+
+    @classmethod
+    def _forget(cls, widget: AbstractWidget) -> None:
+        """Remove *widget* from the dependants of every widget its cached canvases depended on."""
+        # Iterate the popped set: no other frame can reach it, so a nested cleanup() cannot change it.
+        children = cls._children.pop(widget, None)
+        if not children:
+            return
+        deps = cls._deps
+        for child in children:
+            dependants = deps.get(child)
+            if dependants is not None:
+                dependants.discard(widget)
+                if not dependants:
+                    deps.pop(child, None)
 
     @classmethod
     def clear(cls) -> None:
@@ -215,6 +261,7 @@ class CanvasCache:
         cls._widgets = {}
         cls._refs = {}
         cls._deps = {}
+        cls._children = {}
 
 
 class CanvasError(Exception):
@@ -228,7 +275,9 @@ class Canvas:
 
     cacheable = True
 
-    _finalized_error = CanvasError(
+    # A message rather than a shared exception: re-raising one instance chains every traceback onto it,
+    # and those frames keep the canvases and widgets of every failed call alive.
+    _finalized_message: typing.ClassVar[str] = (
         "This canvas has been finalized. Use CompositeCanvas to wrap this canvas if you need to make changes."
     )
 
@@ -255,7 +304,7 @@ class Canvas:
         :raises CanvasError: this canvas has already been finalized and can no longer be modified.
         """
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
         self._widget_info = widget, size, focus
 
     @property
@@ -335,7 +384,7 @@ class Canvas:
         :raises CanvasError: this canvas has already been finalized and can no longer be modified.
         """
         if self.widget_info and self.cacheable:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
         if c is None:
             self.coords.pop("cursor", None)
             return
@@ -370,7 +419,7 @@ class Canvas:
             or the overlay size is not positive
         """
         if self.widget_info and self.cacheable:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
 
         if left < 0 or top < 0:
             raise CanvasError(f"Pop-up position must not be negative, got left={left!r} and top={top!r}")
@@ -871,7 +920,7 @@ class CompositeCanvas(Canvas):
         if top >= self.rows():
             raise ValueError(f"cannot trim {top:d} lines from {self.rows():d}!")
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
 
         if top:
             self.shards = shards_trim_top(self.shards, top)
@@ -895,7 +944,7 @@ class CompositeCanvas(Canvas):
         if end > self.rows():
             raise ValueError(f"cannot trim {end:d} lines from {self.rows():d}!")
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
 
         self.shards = shards_trim_rows(self.shards, self.rows() - end)
 
@@ -909,7 +958,7 @@ class CompositeCanvas(Canvas):
         :raises CanvasError: this canvas has already been finalized and can no longer be modified.
         """
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
         shards = self.shards
         if left < 0 or right < 0:
             trim_left = max(0, -left)
@@ -938,7 +987,7 @@ class CompositeCanvas(Canvas):
         :raises CanvasError: this canvas has already been finalized and can no longer be modified.
         """
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
         orig_shards = self.shards
 
         if top < 0 or bottom < 0:
@@ -963,7 +1012,7 @@ class CompositeCanvas(Canvas):
         :raises ValueError: *other* does not fit within this canvas at the given *left* and *top* offsets.
         """
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
 
         width = other.cols()
         height = other.rows()
@@ -1019,7 +1068,7 @@ class CompositeCanvas(Canvas):
         :raises CanvasError: this canvas has already been finalized and can no longer be modified.
         """
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
 
         shards: list[tuple[int, list[_CView]]] = []
         for num_rows, original_cviews in self.shards:
@@ -1043,7 +1092,7 @@ class CompositeCanvas(Canvas):
         :raises CanvasError: this canvas has already been finalized and can no longer be modified.
         """
         if self.widget_info:
-            raise self._finalized_error
+            raise CanvasError(self._finalized_message)
 
         self.depends_on = widget_list
 
@@ -1495,6 +1544,58 @@ def CanvasJoin(canvas_info: Iterable[tuple[Canvas, typing.Any, bool, int]]) -> C
     return joined_canvas
 
 
+# C0 and C1 control characters and DEL, other than TAB and LF, which the layout places,
+# and SO and SI, which select the DEC line-drawing character set
+_CONTROL_CHARS = "\x00-\x08\x0b-\x0d\x10-\x1f\x7f-\x9f"
+_CONTROL_RE = re.compile(f"[{_CONTROL_CHARS}]")
+_CONTROL_UTF8_RE = re.compile(rb"[\x00-\x08\x0b-\x0d\x10-\x1f\x7f]|\xc2[\x80-\x9f]")
+_DRAWN_RUN_RE = re.compile(f"[^{_CONTROL_CHARS}]+")
+
+
+def _drawn_ranges(text: str | bytes, start: int, end: int, sc: int) -> list[tuple[int, int]] | None:
+    """Return the ranges of text[start:end] to draw so that they take the *sc* screen columns the layout measured.
+
+    The layout measures a segment either with :func:`calc_width`, which takes every escape sequence and control
+    character as zero columns, or with :func:`calc_text_pos`, which takes the control characters as zero columns
+    and the rest of an escape sequence, such as ``[31m`` after ESC, as printable text.
+    Leaving out what the measure that gives *sc* takes as zero columns draws exactly *sc* columns,
+    and nothing reaches the display for it to draw as ``?`` or to run as a terminal command.
+
+    :returns: ``None`` to draw the segment unchanged: it has no control character,
+        it is a byte string in an encoding that measures every byte as one column, or neither measure gives *sc*.
+    """
+    if isinstance(text, bytes):
+        if get_byte_encoding() != "utf8" or not _CONTROL_UTF8_RE.search(text, start, end):
+            return None
+        try:
+            decoded = text[start:end].decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        offsets: Sequence[int] = list(
+            itertools.accumulate((len(char.encode("utf-8")) for char in decoded), initial=start)
+        )
+    else:
+        if not _CONTROL_RE.search(text, start, end):
+            return None
+        decoded = text[start:end]
+        offsets = range(start, end + 1)
+
+    whole: list[tuple[int, int]] = []
+    pos = 0
+    for part, is_sequence in wcwidth.iter_sequences(decoded):
+        # calc_width keeps the text a sequence displays, such as that of OSC 66 text sizing
+        kept = wcwidth.strip_sequences(part) if is_sequence else part
+        at = pos + part.rfind(kept)
+        whole.extend((at + found.start(), at + found.end()) for found in _DRAWN_RUN_RE.finditer(kept))
+        pos += len(part)
+    controls_only = [found.span() for found in _DRAWN_RUN_RE.finditer(decoded)]
+    for ranges in (whole, controls_only):
+        drawn = "".join(decoded[s:e] for s, e in ranges)
+        if calc_width(drawn, 0, len(drawn)) == sc:
+            return [(offsets[s], offsets[e]) for s, e in ranges]
+    return None
+
+
 @dataclasses.dataclass
 class _AttrWalk:
     counter: int = 0  # counter for moving through elements of a
@@ -1507,7 +1608,11 @@ def apply_text_layout(
     ls: list[list[tuple[int, int, int | bytes] | tuple[int, int | None]]],
     maxcol: int,
 ) -> TextCanvas:
-    """Build a :class:`TextCanvas` by encoding *text* and *attr* according to the line layout *ls*."""
+    """Build a :class:`TextCanvas` by encoding *text* and *attr* according to the line layout *ls*.
+
+    Control characters and escape sequences that the layout measured as zero columns are left out of the canvas,
+    so that each line is drawn in the screen columns the layout measured.
+    """
     t: list[bytes] = []
     a: list[list[tuple[Hashable, int]]] = []
     c: list[list[tuple[Literal["0", "U"] | None, int]]] = []
@@ -1540,6 +1645,9 @@ def apply_text_layout(
             aw.offset += run
         return o
 
+    # one search of the whole text spares the search of each segment for text without control characters
+    has_control = bool(_CONTROL_UTF8_RE.search(text) if isinstance(text, bytes) else _CONTROL_RE.search(text))
+
     for line_layout in ls:
         # trim the line to fit within maxcol
         line_layout = trim_line(line_layout, text, 0, maxcol)  # noqa: PLW2901
@@ -1548,24 +1656,37 @@ def apply_text_layout(
         linea: list[tuple[Hashable, int]] = []
         linec: list[tuple[Literal["0", "U"] | None, int]] = []
 
-        def attrrange(start_offs: int, end_offs: int, destw: int) -> None:
-            """Add attributes based on attributes between start_offs and end_offs."""
+        def attrrange(
+            start_offs: int,
+            end_offs: int,
+            destw: int,
+            *,
+            src: str | bytes = text,
+            runs: list[tuple[Hashable, int]] | None = None,
+        ) -> None:
+            """Add attributes based on attributes between start_offs and end_offs.
+
+            :param src: the text *start_offs* and *end_offs* index, which encodes to *destw* bytes
+            :param runs: the attributes of src[start_offs:end_offs], ``None`` to look them up in *attr*
+            """
             # pylint: disable=cell-var-from-loop
             if start_offs == end_offs:
                 [(at, run)] = arange(start_offs, end_offs)  # pylint: disable=unbalanced-tuple-unpacking
                 rle_append_modify(linea, (at, destw))  # noqa: B023
                 return
+            if runs is None:
+                runs = arange(start_offs, end_offs)
             if destw == end_offs - start_offs:
-                for at, run in arange(start_offs, end_offs):
+                for at, run in runs:
                     rle_append_modify(linea, (at, run))  # noqa: B023
                 return
             # encoded version has different width
             o = start_offs
-            for at, run in arange(start_offs, end_offs):
+            for at, run in runs:
                 if o + run == end_offs:
                     rle_append_modify(linea, (at, destw))  # noqa: B023
                     return
-                tseg = text[o : o + run]
+                tseg = src[o : o + run]
                 tseg, cs = apply_target_encoding(tseg)
                 segw = rle_len(cs)
 
@@ -1577,9 +1698,21 @@ def apply_text_layout(
             # if seg is None: assert 0, ls
             s = LayoutSegment(seg)
             if s.end:
-                tseg, cs = apply_target_encoding(text[s.offs : s.end])
+                offs = typing.cast("int", s.offs)  # s.end is set
+                if not has_control or (drawn := _drawn_ranges(text, offs, s.end, s.sc)) is None:
+                    tseg, cs = apply_target_encoding(text[offs : s.end])
+                    attrrange(offs, s.end, rle_len(cs))
+                else:
+                    seg_text = typing.cast("str", text[:0]).join(
+                        typing.cast("str", text[start:end]) for start, end in drawn
+                    )
+                    tseg, cs = apply_target_encoding(seg_text)
+                    runs: list[tuple[Hashable, int]] = []
+                    for start, end in drawn:
+                        for run in arange(start, end):
+                            rle_append_modify(runs, run)
+                    attrrange(0, len(seg_text), rle_len(cs), src=seg_text, runs=runs)
                 line.append(tseg)
-                attrrange(typing.cast("int", s.offs), s.end, rle_len(cs))  # s.end is set
                 rle_join_modify(linec, cs)  # type: ignore[arg-type]
             elif s.text:
                 tseg, cs = apply_target_encoding(s.text)

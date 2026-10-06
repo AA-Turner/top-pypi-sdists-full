@@ -68,7 +68,7 @@ def test_load_freesolv_gaffmol2_vs_sybylmol2_vs_obabelpdb(get_fn, tmpdir):
     tar_filename = "freesolve_v0.3.tar.bz2"
     tar = tarfile.open(get_fn(tar_filename), mode="r:bz2")
     os.chdir(str(tmpdir))
-    tar.extractall()
+    tar.extractall(filter="fully_trusted")
     tar.close()
 
     with open("./v0.3/database.pickle", "rb") as f:
@@ -99,7 +99,7 @@ def test_load_freesolv_gaffmol2_vs_sybylmol2_vs_obabelpdb(get_fn, tmpdir):
         top_gaff, bonds_gaff = t_gaff.top.to_dataframe()
         top_sybyl, bonds_sybyl = t_sybyl.top.to_dataframe()
 
-        eq(top_sybyl.name.values, top_pdb.name.values)
+        eq(top_sybyl.name.to_numpy(), top_pdb.name.to_numpy())
 
         # eq(top_gaff.name.values, top_sybyl.name.values)  # THEY CAN HAVE DIFFERENT NAMES, so this isn't TRUE!
 

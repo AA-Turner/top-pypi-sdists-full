@@ -33,28 +33,44 @@ def _column_check_fn_scalar_out(data: pa.PolarsData) -> pl.LazyFrame:
     return data.lazyframe.select(pl.col(data.key).ge(0).all())
 
 
-@pytest.mark.xfail(
-    condition=CONFIG.use_narwhals_backend,
-    reason="Polars-style check functions receive PolarsData but narwhals backend passes different type",
-    strict=True,
-)
 @pytest.mark.parametrize(
     "check_fn, invalid_data, expected_output, ignore_na",
     [
-        [
+        pytest.param(
             _column_check_fn_df_out,
             [-1, 2, 3, -2],
             [False, True, True, False],
             False,
-        ],
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Polars-style check functions receive PolarsData but narwhals backend passes different type",
+                strict=True,
+            ),
+        ),
         [_column_check_fn_scalar_out, [-1, 2, 3, -2], [False], False],
-        [
+        pytest.param(
             _column_check_fn_df_out,
             [-1, 2, 3, None],
             [False, True, True, True],
             True,
-        ],
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Polars-style check functions receive PolarsData but narwhals backend passes different type",
+                strict=True,
+            ),
+        ),
         [_column_check_fn_scalar_out, [-1, 2, 3, None], [False], True],
+        pytest.param(
+            _column_check_fn_df_out,
+            [-1, 2, 3, None],
+            [False, True, True, False],
+            False,
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Polars-style check functions receive PolarsData but narwhals backend passes different type",
+                strict=True,
+            ),
+        ),
     ],
 )
 def test_polars_column_check(
@@ -77,6 +93,26 @@ def test_polars_column_check(
     )
 
 
+@pytest.mark.xfail(
+    condition=CONFIG.use_narwhals_backend,
+    reason="The narwhals backend ignores null check outputs on polars frames even when ignore_na=False",
+    strict=True,
+)
+def test_polars_check_ignore_na_false_fails_null_rows():
+    """A null value fails the check when ignore_na=False."""
+    lf = pl.LazyFrame({"col": pl.Series([None, 1, 2], dtype=int)})
+    schema = pa.DataFrameSchema(
+        {"col": pa.Column(int, pa.Check.ge(0, ignore_na=False), nullable=True)}
+    )
+
+    with pytest.raises(pa.errors.SchemaError):
+        schema.validate(lf)
+
+    with pytest.raises(pa.errors.SchemaErrors) as exc_info:
+        schema.validate(lf, lazy=True)
+    assert exc_info.value.failure_cases["failure_case"].to_list() == [None]
+
+
 def _df_check_fn_df_out(data: pa.PolarsData) -> pl.LazyFrame:
     return data.lazyframe.select(pl.col("*").ge(0))
 
@@ -91,30 +127,35 @@ def _df_check_fn_scalar_out(data: pa.PolarsData):
     )
 
 
-@pytest.mark.xfail(
-    condition=CONFIG.use_narwhals_backend,
-    reason="Polars-style check functions receive PolarsData but narwhals backend passes different type",
-    strict=True,
-)
 @pytest.mark.parametrize(
     "check_fn, invalid_data, expected_output",
     [
-        [
+        pytest.param(
             _df_check_fn_df_out,
             {
                 "col_1": pl.Series([-1, 2, -3, 4]),
                 "col_2": pl.Series([1, 2, 3, -4]),
             },
             [False, True, False, False],
-        ],
-        [
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Polars-style check functions receive PolarsData but narwhals backend passes different type",
+                strict=True,
+            ),
+        ),
+        pytest.param(
             _df_check_fn_col_out,
             {
                 "col_1": pl.Series([1, 2, 3, 4]),
                 "col_2": pl.Series([2, 1, 2, 5]),
             },
             [False, True, True, False],
-        ],
+            marks=pytest.mark.xfail(
+                condition=CONFIG.use_narwhals_backend,
+                reason="Polars-style check functions receive PolarsData but narwhals backend passes different type",
+                strict=True,
+            ),
+        ),
         [
             _df_check_fn_scalar_out,
             {

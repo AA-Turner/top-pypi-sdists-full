@@ -37,7 +37,7 @@ class Text(Space[str]):
         min_length: int = 1,
         charset: frozenset[str] | str = alphanumeric,
         seed: int | np.random.Generator | None = None,
-    ):
+    ) -> None:
         r"""Constructor of :class:`Text` space.
 
         Both bounds for text length are inclusive.
@@ -46,30 +46,56 @@ class Text(Space[str]):
             min_length (int): Minimum text length (in characters). Defaults to 1 to prevent empty strings.
             max_length (int): Maximum text length (in characters).
             charset (Union[set], str): Character set, defaults to the lower and upper english alphabet plus latin digits.
+                Each element must be a single character.
             seed: The seed for sampling from the space.
+
+        Raises:
+            ValueError: If any element of ``charset`` is not a single character.
         """
-        assert np.issubdtype(type(min_length), np.integer), (
-            f"Expects the min_length to be an integer, actual type: {type(min_length)}"
-        )
-        assert np.issubdtype(type(max_length), np.integer), (
-            f"Expects the max_length to be an integer, actual type: {type(max_length)}"
-        )
-        assert 0 <= min_length, (
-            f"Minimum text length must be non-negative, actual value: {min_length}"
-        )
-        assert min_length <= max_length, (
-            f"The min_length must be less than or equal to the max_length, min_length: {min_length}, max_length: {max_length}"
-        )
+        if not np.issubdtype(type(min_length), np.integer):
+            raise TypeError(
+                f"Expects the min_length to be an integer, actual type: {type(min_length)}"
+            )
+        if not np.issubdtype(type(max_length), np.integer):
+            raise TypeError(
+                f"Expects the max_length to be an integer, actual type: {type(max_length)}"
+            )
+        if min_length < 0:
+            raise ValueError(
+                f"Minimum text length must be non-negative, actual value: {min_length}"
+            )
+        if min_length > max_length:
+            raise ValueError(
+                f"The min_length must be less than or equal to the max_length, min_length: {min_length}, max_length: {max_length}"
+            )
 
         self.min_length: int = int(min_length)
         self.max_length: int = int(max_length)
 
-        self._char_set: frozenset[str] = frozenset(charset)
-        self._char_list: tuple[str, ...] = tuple(charset)
+        if isinstance(charset, (set, frozenset)):
+            # Set iteration order depends on hash randomization (PYTHONHASHSEED),
+            # sort to keep sampling, masks and flattening consistent across processes.
+            char_list = sorted(charset)
+        else:
+            # Preserve the given ordering, dropping duplicate characters
+            char_list = list(dict.fromkeys(charset))
+
+        # Each element of the charset must be a single character, otherwise `sample`
+        # concatenates multi-character elements and produces strings that are longer
+        # than `max_length` and that `contains` rejects.
+        invalid_chars = [char for char in char_list if len(char) != 1]
+        if invalid_chars:
+            raise ValueError(
+                "Expects all charset elements to be a single character, actual invalid "
+                f"elements: {invalid_chars}"
+            )
+
+        self._char_set: frozenset[str] = frozenset(char_list)
+        self._char_list: tuple[str, ...] = tuple(char_list)
         self._char_index: dict[str, np.int32] = {
-            val: np.int32(i) for i, val in enumerate(tuple(charset))
+            val: np.int32(i) for i, val in enumerate(char_list)
         }
-        self._char_str: str = "".join(sorted(tuple(charset)))
+        self._char_str: str = "".join(sorted(char_list))
 
         # As the shape is dynamic (between min_length and max_length) then None
         super().__init__(dtype=str, seed=seed)
@@ -148,7 +174,7 @@ class Text(Space[str]):
     def _validate_mask(
         self,
         mask: tuple[int | None, NDArray[np.int8] | NDArray[np.float64] | None],
-        expected_dtype: np.dtype,
+        expected_dtype: np.dtype | type[np.generic],
         mask_type: str,
     ) -> tuple[int | None, NDArray[np.int8] | NDArray[np.float64] | None]:
         assert isinstance(mask, tuple), (
@@ -190,7 +216,7 @@ class Text(Space[str]):
         """Gives a string representation of this space."""
         return f"Text({self.min_length}, {self.max_length}, charset={self.characters})"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object, /) -> bool:
         """Check whether ``other`` is equivalent to this instance."""
         return (
             isinstance(other, Text)

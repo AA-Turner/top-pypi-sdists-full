@@ -2450,7 +2450,11 @@ def count_landed(client, project: str) -> tuple[int, bool]:
             return total, at_least
 
         def page(exp_id: str):
-            return _rows(client.list_anchored(Anchor.EXPERIMENT, exp_id, limit=RECONCILE_PAGE))
+            return _rows(
+                client.list_anchored(
+                    Anchor.EXPERIMENT, exp_id, project_id=project_id, limit=RECONCILE_PAGE
+                )
+            )
 
         # Bounded: a project with hundreds of experiments must not open
         # hundreds of sockets to print one number.

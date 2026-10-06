@@ -1,7 +1,8 @@
 import regex
 
-from ..parser import Parser, perform_substitutions
 from device_detector.enums import DeviceType
+
+from ..parser import Parser, perform_substitutions
 
 MOBILE_DEVICE_TYPES = {
     DeviceType.Camera.value,
@@ -128,6 +129,7 @@ DEVICE_BRANDS = {
     'AQ': 'Aspera',
     'HJ': 'Aquarius',
     '40': 'Artel',
+    'ART': 'artfone',
     '21': 'Artizlee',
     '59': 'ArtLine',
     '8A': 'Asano',
@@ -137,6 +139,7 @@ DEVICE_BRANDS = {
     'A4': 'Ask',
     'A8': 'Assistant',
     'ASS': 'ASSE',
+    'ASH': 'ASTECH',
     'AU': 'Asus',
     '6A': 'AT&T',
     'ATH': 'Athesi',
@@ -178,6 +181,7 @@ DEVICE_BRANDS = {
     'BO': 'BangOlufsen',
     'BN': 'Barnes & Noble',
     'BAR': 'BARTEC',
+    'BST': 'Bastyon Mobi',
     'BAU': 'BAUHN',
     'BB': 'BBK',
     '0B': 'BB Mobile',
@@ -385,6 +389,7 @@ DEVICE_BRANDS = {
     '7D': 'Datamini',
     '6D': 'Datalogic',
     'D1': 'Datsun',
+    'DAM': 'DAMASCO',
     'DAS': 'DASS',
     'DAW': 'Dawlance',
     'DB': 'Dbtel',
@@ -607,6 +612,7 @@ DEVICE_BRANDS = {
     'FLM': 'Filimo',
     'FIL': 'FILIX',
     'FIN': 'FINIX',
+    'FLO': 'flow',
     'FL': 'Fly',
     'FLX': 'FLEXY',
     'QC': 'FLYCAT',
@@ -740,6 +746,7 @@ DEVICE_BRANDS = {
     'HA': 'Haier',
     'HEC': 'HEC',
     'XH': 'Haipai',
+    'HAI': 'Haitech',
     'XHU': 'Haixu',
     'HAN': 'Handheld',
     'HE': 'HannSpree',
@@ -786,6 +793,7 @@ DEVICE_BRANDS = {
     'H1': 'Hoffmann',
     'HOM': 'Homatics',
     'H0': 'Hometech',
+    'HMZ': 'Homez',
     'HLB': 'HOLLEBERG',
     'HM': 'Homtom',
     'HM1': 'HOMII',
@@ -953,6 +961,7 @@ DEVICE_BRANDS = {
     'KT': 'K-Touch',
     'KLT': 'K-Lite',
     'K4': 'Kaan',
+    'KAI': 'Kaicom',
     'K7': 'Kaiomy',
     'KL': 'Kalley',
     'K6': 'Kanji',
@@ -1046,6 +1055,7 @@ DEVICE_BRANDS = {
     'W9': 'LEMFO',
     'LEM': 'Lemco',
     'LN': 'Lenco',
+    'LEN': 'LENIX',
     'LE': 'Lenovo',
     'LT': 'Leotec',
     'LP': 'Le Pan',
@@ -1068,6 +1078,7 @@ DEVICE_BRANDS = {
     'LNM': 'LNMBBS',
     'LO': 'Loewe',
     'LNG': 'LongTV',
+    'LOO': 'LoopDL',
     'YL': 'Loview',
     'LOV': 'Lovme',
     'LGN': 'LOGAN',
@@ -1230,6 +1241,7 @@ DEVICE_BRANDS = {
     'NEO': 'neoCore',
     'NER': 'Neoregent',
     '08': 'Nabi',
+    'NDC': 'Nadco',
     'N7': 'National',
     'NPR': 'National PRO',
     'NC': 'Navcity',
@@ -1524,6 +1536,7 @@ DEVICE_BRANDS = {
     'RB': 'Readboy',
     'RE': 'Realme',
     'RE1': 'Redbean',
+    'RED': 'redbeat',
     'R8': 'RED',
     'RDX': 'RED-X',
     'REW': 'Redway',
@@ -1630,7 +1643,7 @@ DEVICE_BRANDS = {
     'SGI': 'SGIN',
     'SH': 'Sharp',
     'JU': 'Shanling',
-    '7S': 'Shift Phones',
+    '7S': 'SHIFT',
     '78': 'Shivaki',
     'RS': 'Shtrikh-M',
     '3S': 'Shuttle',
@@ -1699,11 +1712,13 @@ DEVICE_BRANDS = {
     'SPX': 'Sparx',
     'FS': 'SPC',
     '6S': 'Spectrum',
+    'SPE': 'SPECTRA',
     '43': 'Spectralink',
     'SP': 'Spice',
     'SPD': 'Spider',
     'SPU': 'SPURT',
     'QS': 'SQOOL',
+    'STK': 'Star Track',
     'OL': 'Starlight',
     'STA': 'Star-Light',
     '18': 'Starmobile',
@@ -1797,6 +1812,7 @@ DEVICE_BRANDS = {
     'TL': 'Telefunken',
     'TG': 'Telego',
     'T2': 'Telenor',
+    'TZN': 'Telezone',
     'TE': 'Telit',
     '65': 'Telia',
     'TLY': 'Telly',
@@ -1819,6 +1835,7 @@ DEVICE_BRANDS = {
     'TN': 'Thomson',
     'O0': 'Thuraya',
     'TI': 'TIANYU',
+    'TIO': 'TIOK',
     'JY': 'Tigers',
     '8T': 'Time2',
     'TQ': 'Timovi',
@@ -1882,6 +1899,7 @@ DEVICE_BRANDS = {
     'TUR': 'Türksat',
     'TV': 'TVC',
     'TVP': 'TV+',
+    'TWL': 'TWL Mobile',
     'TW': 'TWM',
     'Z1': 'TWZ Corporation',
     'TWN': 'TwinMOS',
@@ -1893,6 +1911,7 @@ DEVICE_BRANDS = {
     'U1': 'Uhans',
     'UH': 'Uhappy',
     'UL': 'Ulefone',
+    'ULX': 'UltraX Privacy',
     'UA': 'Umax',
     'UM': 'UMIDIGI',
     'UM2': 'Umiio',
@@ -1931,6 +1950,7 @@ DEVICE_BRANDS = {
     'VAL': 'VALEM',
     'VA2': 'VALE',
     'VAT': 'VALTECH',
+    'VLV': 'Valve Corporation',
     'VAN': 'VANGUARD',
     'VAW': 'VANWIN',
     'VB': 'VC',
@@ -2001,6 +2021,7 @@ DEVICE_BRANDS = {
     'VOC': 'VOCAL',
     'VF': 'Vodafone',
     '7W': 'VOGA',
+    'VON': 'Von',
     'V2': 'Vonino',
     '1V': 'Vontar',
     'VG': 'Vorago',
@@ -2199,9 +2220,8 @@ class BaseDeviceParser(Parser):
                 )
                 return
 
-        if name := self.ua_data.get('model', ''):
-            if "\\g<" in name:
-                self.ua_data['model'] = perform_model_substitutions(name, self.matched_regex, ' ')
+        if (name := self.ua_data.get('model', '')) and "\\g<" in name:
+            self.ua_data['model'] = perform_model_substitutions(name, self.matched_regex, ' ')
 
     def dtype(self) -> DeviceType | str:
         return self.DEVICE_TYPE
@@ -2250,7 +2270,7 @@ def perform_model_substitutions(
 
 
 __all__ = (
-    'BaseDeviceParser',
     'DEVICE_BRANDS',
     'MOBILE_DEVICE_TYPES',
+    'BaseDeviceParser',
 )

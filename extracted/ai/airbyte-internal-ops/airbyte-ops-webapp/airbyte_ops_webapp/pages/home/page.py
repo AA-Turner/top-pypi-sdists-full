@@ -8,7 +8,6 @@ from prefab_ui.components import (
     CardContent,
     Column,
     Grid,
-    Svg,
     Text,
 )
 from prefab_ui.components.control_flow import If
@@ -47,27 +46,19 @@ from airbyte_ops_webapp.pages.shared_components.layout import (
 )
 from airbyte_ops_webapp.state import OpsPageState
 from airbyte_ops_webapp.theme import (
-    AIRBYTE_LAVENDER,
-    AIRBYTE_PRIMARY,
-    AIRBYTE_SECONDARY,
     PAGE_CLASS,
     AbPage,
     AbPrimaryLink,
     AbToolCard,
-    AbToolIcon,
-    _more_tools_icon_svg,
 )
 
 OPS_HOME_TOOL_NAME = "ops_home"
 CHAT_EMOJI = "💬"
 CHAT_PATH = "/chat/"
+MTX_BUILDER_EMOJI = "🧮"
+MTX_BUILDER_PATH = "/mtx/"
 
 home_app = FastMCPApp("Airbyte Ops Home")
-
-
-def _render_tool_icon(icon_svg: str, *, accent: str = AIRBYTE_PRIMARY) -> None:
-    with AbToolIcon(accent=accent):
-        Svg(icon_svg, width="1.5rem", height="1.5rem")
 
 
 def _render_connector_version_manager_card(connector_query: str) -> None:
@@ -163,29 +154,14 @@ def _render_motherduck_diagnostics_card() -> None:
             )
 
 
-def _render_more_tools_card() -> None:
-    with (
-        AbToolCard(accent=AIRBYTE_LAVENDER),
-        CardContent(),
-        Column(gap=3),
-    ):
-        _render_tool_icon(_more_tools_icon_svg(), accent=AIRBYTE_SECONDARY)
-        H3("More Tools Coming Soon")
-        Text(
-            "This home will expand as more internal operations workflows move into "
-            "Airbyte Ops."
-        )
-        Badge("Coming soon", css_class="w-fit bg-[#CECBF2] text-[#140F43]")
-
-
-def _render_chat_card() -> None:
+def _render_agui_playground_card(
+    *, emoji: str, title: str, description: str, href: str
+) -> None:
+    """Render an AG-UI playground card gated on OAuth sign-in."""
     with AbToolCard(), CardContent(), Column(gap=3):
-        render_emoji_icon(CHAT_EMOJI)
-        H3("Chat")
-        Text(
-            "Chat with Airbyte Ops and Cloud data through the AG-UI agent, "
-            "using your own Airbyte sign-in."
-        )
+        render_emoji_icon(emoji)
+        H3(title)
+        Text(description)
         with If(~STATE.oauth_authenticated):
             Badge(
                 "Sign-in required",
@@ -200,9 +176,33 @@ def _render_chat_card() -> None:
             Badge("Ready", variant="success")
             AbPrimaryLink(
                 "Open tool",
-                href=CHAT_PATH,
+                href=href,
                 target="_top",
             )
+
+
+def _render_chat_card() -> None:
+    _render_agui_playground_card(
+        emoji=CHAT_EMOJI,
+        title="Chat",
+        description=(
+            "Chat with Airbyte Ops and Cloud data through the AG-UI agent, "
+            "using your own Airbyte sign-in."
+        ),
+        href=CHAT_PATH,
+    )
+
+
+def _render_mtx_builder_card() -> None:
+    _render_agui_playground_card(
+        emoji=MTX_BUILDER_EMOJI,
+        title="mtx Builder",
+        description=(
+            "Iterate on metric transform YAML with an agent, validated live "
+            "against the mtx schemas in your browser."
+        ),
+        href=MTX_BUILDER_PATH,
+    )
 
 
 def _render_platform_admin_card() -> None:
@@ -284,7 +284,7 @@ def open_ops_home(
             _render_motherduck_diagnostics_card()
             _render_platform_admin_card()
             _render_chat_card()
-            _render_more_tools_card()
+            _render_mtx_builder_card()
         render_version_footer()
     return app
 

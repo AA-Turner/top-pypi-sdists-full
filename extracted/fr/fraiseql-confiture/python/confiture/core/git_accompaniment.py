@@ -19,6 +19,7 @@ from confiture.core.schema_change import (
     ColumnDefaultChanged,
     ColumnDropped,
     ColumnNullabilityChanged,
+    ColumnOrderChanged,
     ColumnRenamed,
     ColumnTypeChanged,
     EnumTypeAdded,
@@ -33,6 +34,8 @@ from confiture.core.schema_change import (
     ObjectAdded,
     ObjectDropped,
     ObjectReplaced,
+    PrimaryKeyAdded,
+    PrimaryKeyDropped,
     SchemaChange,
     SequenceAdded,
     SequenceDropped,
@@ -74,6 +77,7 @@ def is_body_change(change: SchemaChange) -> bool:
             | ColumnTypeChanged()
             | ColumnNullabilityChanged()
             | ColumnDefaultChanged()
+            | ColumnOrderChanged()
         ):
             return False
         case (
@@ -84,7 +88,9 @@ def is_body_change(change: SchemaChange) -> bool:
             | CheckConstraintAdded()
             | CheckConstraintDropped()
             | UniqueConstraintAdded()
+            | PrimaryKeyAdded()
             | UniqueConstraintDropped()
+            | PrimaryKeyDropped()
             | ExclusionConstraintAdded()
             | ExclusionConstraintDropped()
         ):

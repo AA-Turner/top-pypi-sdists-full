@@ -23,6 +23,7 @@ from anyscale import (
     aggregated_instance_usage as aggregated_instance_usage,
     cloud as cloud,
     compute_config as compute_config,
+    events as events,
     image as image,
     integrations as integrations,
     job as job,
@@ -53,6 +54,7 @@ from anyscale.cluster_compute import (
 )
 from anyscale.compute_config import ComputeConfigSDK
 from anyscale.connect import ClientBuilder
+from anyscale.events import EventsSDK
 from anyscale.image import ImageSDK
 from anyscale.job import JobSDK
 from anyscale.job_queue import JobQueueSDK
@@ -159,6 +161,7 @@ class Anyscale:
         self._job_queue_sdk = JobQueueSDK(client=self._anyscale_client)
         self._service_sdk = ServiceSDK(client=self._anyscale_client)
         self._compute_config_sdk = ComputeConfigSDK(client=self._anyscale_client)
+        self._events_sdk = EventsSDK(client=self._anyscale_client)
         self._cloud_sdk = CloudSDK(client=self._anyscale_client)
         self._schedule_sdk = ScheduleSDK(client=self._anyscale_client)
         self._scheduler_sdk = SchedulerSDK(client=self._anyscale_client)
@@ -196,6 +199,9 @@ class Anyscale:
             client=client, logger=logger, timer=timer
         )
         obj._compute_config_sdk = ComputeConfigSDK(  # noqa: SLF001
+            client=client, logger=logger, timer=timer
+        )
+        obj._events_sdk = EventsSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
         obj._cloud_sdk = CloudSDK(  # noqa: SLF001
@@ -258,6 +264,10 @@ class Anyscale:
     @property
     def compute_config(self) -> ComputeConfigSDK:  # noqa: F811
         return self._compute_config_sdk
+
+    @property
+    def events(self) -> EventsSDK:  # noqa: F811
+        return self._events_sdk
 
     @property
     def cloud(self) -> CloudSDK:  # noqa: F811

@@ -1,7 +1,8 @@
-from ..lazy_regex import RegexLazyIgnore
-from ..yaml_loader import app_custom_details
 from device_detector.enums import AppType
 from device_detector.utils import normalize_app_name
+
+from ..lazy_regex import RegexLazyIgnore
+from ..yaml_loader import app_custom_details
 
 APP_ID_SANS_VERSION = RegexLazyIgnore(r'\b([a-z]{1,5}(?:\.[\w-]+){1,})')
 
@@ -87,10 +88,12 @@ class ApplicationIDExtractor:
         if app_ids := APP_ID_VERSION.findall(self.user_agent):
             return app_ids
 
-        if app_ids := [(app_id, '') for app_id in APP_ID_SANS_VERSION.findall(self.user_agent)]:
-            return app_ids
+        app_ids = []
+        for app_id in APP_ID_SANS_VERSION.findall(self.user_agent):
+            if not app_id.startswith(('build.', 'rev.')):
+                app_ids.append((app_id, ''))
 
-        return []
+        return app_ids
 
     def version(self) -> str:
         return self.details.get('version', '')

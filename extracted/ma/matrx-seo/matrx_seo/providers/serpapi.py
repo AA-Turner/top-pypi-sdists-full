@@ -36,6 +36,7 @@ from ..contracts import (
 )
 from ..rank_matching import RankMatch, RankMatchTarget, canonicalize_domain, match_rank_url
 from ..service import SeoCollectionService
+from ..web_search import SERPAPI_GOOGLE_SEARCH_OPERATION, WebSearchSettings
 from .serpapi_client import (
     SERPAPI_SEARCH_ENDPOINT,
     SerpApiCall,
@@ -47,6 +48,7 @@ SERPAPI_GOOGLE_RANK_OPERATION = SeoProviderOperation(
     name="google_rank",
     capability=SeoCapability.SERP_RANK,
     credential_keys=("SERPAPI_API_KEY",),
+    reuse_family="serp",
 )
 
 _FEATURE_KEYS = (
@@ -245,8 +247,8 @@ class SerpApiRankJob(BaseModel):
 
 class SerpApiGoogleRankAdapter(SeoProviderAdapter):
     provider = "serpapi"
-    capabilities = (SeoCapability.SERP_RANK,)
-    operations = (SERPAPI_GOOGLE_RANK_OPERATION,)
+    capabilities = (SeoCapability.SERP_RANK, SeoCapability.RAW_PROVIDER)
+    operations = (SERPAPI_GOOGLE_RANK_OPERATION, SERPAPI_GOOGLE_SEARCH_OPERATION)
 
     def __init__(
         self,
@@ -316,6 +318,14 @@ class SerpApiGoogleRankAdapter(SeoProviderAdapter):
         self, request: CollectionRequest, execution: ProviderExecutionContext
     ) -> ProviderResponse:
         del execution
+        if request.operation == SERPAPI_GOOGLE_SEARCH_OPERATION.name:
+            # A query-shaped search (matrx_seo.web_search): the raw answer is the result.
+            api_key = self._api_key.get()
+            if not api_key:
+                raise RuntimeError("SerpAPI adapter must be authenticated before collection")
+            search = WebSearchSettings.model_validate(request.settings)
+            call = await self._client.search(search.serpapi_parameters(), api_key=api_key)
+            return self._provider_response(call)
         if request.operation != SERPAPI_GOOGLE_RANK_OPERATION.name:
             raise ValueError(f"unsupported SerpAPI operation {request.operation!r}")
         settings = SerpApiGoogleRankSettings.model_validate(request.settings)
@@ -373,6 +383,8 @@ class SerpApiGoogleRankAdapter(SeoProviderAdapter):
     ) -> list[SeoObservation]:
         if not isinstance(response.raw, dict):
             raise TypeError("SerpAPI Google response must be an object")
+        if context.request.operation == SERPAPI_GOOGLE_SEARCH_OPERATION.name:
+            return []  # raw evidence only; the caller reads the stored payload back
         settings = SerpApiGoogleRankSettings.model_validate(context.request.settings)
         target, target_page_id = await self._resolve_match_target(settings, context)
         identity = await context.resolve_identity(

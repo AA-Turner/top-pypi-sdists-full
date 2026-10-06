@@ -45,12 +45,23 @@ _RESULT_INSERT_BATCH = 500
 _EPOCH = datetime.min.replace(tzinfo=UTC)
 
 
-def severity_for(item: WebAnalysisItem, score: int | None) -> str:
-    """Map a score onto the catalogue row's own severity bands.
+SEVERITY_ORDER = ("info", "low", "med", "high", "critical")
 
-    The item row owns the bands — a provider never invents severity. A scoreless
-    outcome (`n_a`/`error`) is `info`: it carries no judgement about the page.
-    """
+
+def _step(severity: str, by: int) -> str:
+    index = SEVERITY_ORDER.index(severity) if severity in SEVERITY_ORDER else 0
+    return SEVERITY_ORDER[max(0, min(len(SEVERITY_ORDER) - 1, index + by))]
+
+
+def _cap(severity: str, ceiling: str) -> str:
+    if severity not in SEVERITY_ORDER:
+        return ceiling
+    return severity if SEVERITY_ORDER.index(severity) <= SEVERITY_ORDER.index(ceiling) else ceiling
+
+
+def band_severity(item: WebAnalysisItem, score: int | None) -> str:
+    """The catalogue row's own band for a score. A scoreless outcome
+    (`n_a`/`error`) is `info`: it carries no judgement about the page."""
     if score is None:
         return "info"
     bands = ((item.severity_map or {}).get("bands")) or []
@@ -61,6 +72,41 @@ def severity_for(item: WebAnalysisItem, score: int | None) -> str:
         except (KeyError, TypeError, ValueError):
             continue
     return "info"
+
+
+def severity_for(item: WebAnalysisItem, score: int | None, *, on_homepage: bool = False) -> str:
+    """Severity = the check's band, shaped by its TIER (Arman's 2026-10-05
+    check-tier rulings, ``web.analysis_item.tier``) and where it failed.
+
+    * A (blocks being found): one step up, never below ``high`` once failing.
+    * B (hurts rankings): the band, capped at ``high``.
+    * C (polish): the band, capped at ``low``.
+    * D (AI opinion): always ``info`` — an opinion never escalates.
+    * A failure on the homepage moves up one more step (except tier D).
+    A passing or scoreless result stays ``info`` whatever the tier.
+    Plan: common-docs/systems/marketing/seo/projects/fact-before-opinion/REGISTER.md R-04.
+    """
+    base = band_severity(item, score)
+    if base == "info":
+        return "info"
+    tier = getattr(item, "tier", None)
+    if tier == "D":
+        return "info"
+    if tier == "A":
+        severity = _step(base, 1)
+        if SEVERITY_ORDER.index(severity) < SEVERITY_ORDER.index("high"):
+            severity = "high"
+    elif tier == "B":
+        severity = _cap(base, "high")
+    elif tier == "C":
+        severity = _cap(base, "low")
+    else:
+        severity = base
+    if on_homepage:
+        severity = _step(severity, 1)
+        if tier == "C":
+            severity = _cap(severity, "med")
+    return severity
 
 
 async def insert_results(rows: list[dict]) -> list[WebAnalysisResult]:
@@ -85,6 +131,7 @@ async def reconcile_findings(
     computed_at: datetime,
     results: list[tuple[dict, WebAnalysisResult]],
     summary: AnalysisSummary,
+    site_scoped_item_ids: frozenset[str] | set[str] = frozenset(),
 ) -> None:
     """Open/refresh/reopen a finding per warn/fail result; resolve on pass.
 
@@ -123,6 +170,30 @@ async def reconcile_findings(
         else:
             # `finding_open_uniq` guarantees at most one non-resolved row here.
             open_by_key[key] = f
+
+    # A check that moved from one-row-per-page to one-row-per-site leaves its old
+    # page-subject findings behind; nothing will ever pass or fail them again, so
+    # they are resolved here (history kept — the rows stay, status `resolved`).
+    # Only an item that produced a non-error SITE row in this run is retired, so a
+    # crashed check never erases a finding.
+    answered_site_items = {
+        str(row["item_id"])
+        for row, _created in results
+        if row["subject_type"] == "site"
+        and row["status"] != "error"
+        and str(row["item_id"]) in site_scoped_item_ids
+    }
+    retired: list[dict] = [
+        {
+            "id": str(f.id),
+            "status": "resolved",
+            "resolved_at": computed_at,
+        }
+        for f in findings
+        if f.subject_type == "page"
+        and f.status != "resolved"
+        and str(f.item_id) in answered_site_items
+    ]
 
     creates: list[dict] = []
     refreshes: list[dict] = []
@@ -218,6 +289,14 @@ async def reconcile_findings(
                 },
             )
         summary.findings_reopened += len(reopens)
+    if retired:
+        async with transaction(WEB_DB_NAME):
+            await bulk_update_by_pk(
+                WebFinding,
+                retired,
+                casts={"id": "uuid", "status": "text", "resolved_at": "timestamptz"},
+            )
+        summary.findings_resolved += len(retired)
     if resolves:
         async with transaction(WEB_DB_NAME):
             await bulk_update_by_pk(

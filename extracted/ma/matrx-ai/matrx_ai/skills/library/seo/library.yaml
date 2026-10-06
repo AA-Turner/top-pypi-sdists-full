@@ -40,3 +40,4 @@ skills:
   matrx-seo-coach: {parent: seo-coach}
   matrx-seo-site-setup: {parent: seo-project-setup}
   matrx-seo-report: {parent: seo-report}
+  matrx-writing-check: {parent: deslop}

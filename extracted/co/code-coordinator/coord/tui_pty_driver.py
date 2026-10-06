@@ -29,14 +29,29 @@ of ``tui-tuidriver``'s ``tui/tests/acceptance.rs`` entrypoint; see
 is threaded through as the driver's ``entrypoint:``). Steps:
 
 - ``launch`` — spawn the real binary under the pty/ConPTY.
-- ``key: <name>`` — send one key (named: ``enter``, ``esc``, ``tab``,
-  ``backspace``, ``space``, arrow keys, ``home``/``end``, ``pageup``/
-  ``pagedown``, ``delete``, ``insert``, ``f1``-``f12``, ``ctrl+<letter>``; or
-  any single literal character).
+- ``key: <name>`` — send one key, or a space-separated chord sequence
+  (``ctrl+k ctrl+w``). Parsed under the grammar shared by all four drivers
+  (:mod:`coord.key_spec`, #3639): any combination of
+  ``ctrl``/``alt``/``shift`` modifiers (``cmd``/``super``/``meta`` parse but
+  always raise :class:`~coord.key_spec.UnsupportedKey` here — terminals have
+  no such key), a named key (``enter``, ``esc``, ``tab``, ``backspace``,
+  ``delete``, ``insert``, ``space``, arrow keys, ``home``/``end``,
+  ``pageup``/``pagedown``, ``f1``-``f24``) or any single printable
+  character, including punctuation — see :func:`encode_key`/
+  :func:`encode_key_sequence` for exactly how each is encoded.
 - ``click: {row, col, button}`` — an SGR mouse click at 0-indexed
   ``(row, col)``; ``button`` is ``left`` (default), ``middle``, ``right``, or
   ``wheel-up``/``wheel-down`` (single-shot, no release event — mirrors a
   real wheel).
+- ``drag: {row, col, to_row, to_col, button}`` (#3604) — a press at
+  0-indexed ``(row, col)``, one SGR motion event at ``(to_row, to_col)``
+  with the button-held bit set, then a release there; ``button`` is
+  ``left`` (default)/``middle``/``right`` (no wheel — a wheel has no
+  "held" state to drag with). See :func:`encode_drag`.
+- ``resize: {cols, rows}`` (#3604) — live-resize the pty/ConPTY itself to
+  *cols* x *rows* (``TIOCSWINSZ`` on Unix, ``PtyProcess.setwinsize`` on
+  Windows) and resize the VT screen the same way, so a reflow step can run
+  mid-spec rather than only at ``launch``. See :meth:`SmokeRunner._do_resize`.
 - ``wait_idle: {ms, timeout_ms}`` — block until the byte stream has been
   quiet for ``ms`` milliseconds, or fail after ``timeout_ms`` without ever
   reaching that quiet window (default 5000ms) — a precondition step, not an
@@ -97,7 +112,6 @@ from __future__ import annotations
 
 import os
 import queue
-import re
 import signal
 import subprocess
 import sys
@@ -107,6 +121,9 @@ from dataclasses import dataclass
 from typing import Callable, Protocol
 
 import yaml
+
+from coord.key_spec import KeyChord, KeySpecError, UnsupportedKey, parse_key_spec
+from coord.shell_exec_wrap import wrap_launch_command as _wrap_launch_command
 
 
 class TuiPtySpecError(Exception):
@@ -128,6 +145,8 @@ _REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "launch": (),
     "key": ("key",),
     "click": ("row", "col"),
+    "drag": ("row", "col", "to_row", "to_col"),
+    "resize": ("cols", "rows"),
     "wait_idle": (),
     "expect_screen": (),
     "expect_silent": (),
@@ -135,6 +154,9 @@ _REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 _VALID_BUTTONS = ("left", "middle", "right", "wheel-up", "wheel-down")
+#: #3604: a drag has no "release" concept for a wheel notch, so it's
+#: restricted to the buttons that genuinely support press-hold-release.
+_DRAG_BUTTONS = ("left", "middle", "right")
 
 
 @dataclass(frozen=True)
@@ -152,6 +174,8 @@ class SmokeStep:
     key: str = ""
     row: int = 0
     col: int = 0
+    to_row: int = 0
+    to_col: int = 0
     button: str = "left"
     ms: int = 200
     timeout_ms: int = 5000
@@ -159,6 +183,8 @@ class SmokeStep:
     text: str = ""
     region: dict | None = None
     attr: dict | None = None
+    cols: int = 0
+    rows: int = 0
 
     @property
     def step_id(self) -> str:
@@ -244,6 +270,12 @@ def parse_smoke_spec(yaml_text: str) -> SmokeSpec:
                 f"steps[{i}]: unrecognized button {button!r} — expected one "
                 f"of {', '.join(_VALID_BUTTONS)}"
             )
+        if kind == "drag" and button not in _DRAG_BUTTONS:
+            raise TuiPtySpecError(
+                f"steps[{i}]: unrecognized drag button {button!r} — "
+                f"expected one of {', '.join(_DRAG_BUTTONS)} (a wheel has "
+                f"no held state to drag with)"
+            )
         region = entry.get("region")
         if region is not None and not isinstance(region, dict):
             raise TuiPtySpecError(f"steps[{i}].region must be a mapping")
@@ -289,6 +321,8 @@ def parse_smoke_spec(yaml_text: str) -> SmokeSpec:
             key=str(entry.get("key", "") or ""),
             row=_int_default(entry.get("row"), 0),
             col=_int_default(entry.get("col"), 0),
+            to_row=_int_default(entry.get("to_row"), 0),
+            to_col=_int_default(entry.get("to_col"), 0),
             button=button,
             ms=_int_default(entry.get("ms"), 200),
             timeout_ms=_int_default(entry.get("timeout_ms"), 5000),
@@ -296,6 +330,8 @@ def parse_smoke_spec(yaml_text: str) -> SmokeSpec:
             text=str(entry.get("text", "") or ""),
             region=region,
             attr=attr,
+            cols=_int_default(entry.get("cols"), 0),
+            rows=_int_default(entry.get("rows"), 0),
         ))
 
     return SmokeSpec(
@@ -312,11 +348,17 @@ _F_KEYS = {
     "f1": b"\x1bOP", "f2": b"\x1bOQ", "f3": b"\x1bOR", "f4": b"\x1bOS",
     "f5": b"\x1b[15~", "f6": b"\x1b[17~", "f7": b"\x1b[18~", "f8": b"\x1b[19~",
     "f9": b"\x1b[20~", "f10": b"\x1b[21~", "f11": b"\x1b[23~", "f12": b"\x1b[24~",
+    # F13-F20: the same xterm tilde-encoding convention, continued. F21-F24
+    # have no standardized xterm encoding at all — deliberately absent, so
+    # :func:`_encode_tui_chord` raises :class:`~coord.key_spec.UnsupportedKey`
+    # for them rather than guessing (#3639).
+    "f13": b"\x1b[25~", "f14": b"\x1b[26~", "f15": b"\x1b[28~", "f16": b"\x1b[29~",
+    "f17": b"\x1b[31~", "f18": b"\x1b[32~", "f19": b"\x1b[33~", "f20": b"\x1b[34~",
 }
 
 _NAMED_KEYS = {
-    "enter": b"\r", "return": b"\r",
-    "esc": b"\x1b", "escape": b"\x1b",
+    "enter": b"\r",
+    "esc": b"\x1b",
     "tab": b"\t",
     "backspace": b"\x7f",
     "space": b" ",
@@ -327,28 +369,152 @@ _NAMED_KEYS = {
     **_F_KEYS,
 }
 
-_CTRL_KEY_RE = re.compile(r"ctrl\+([a-z])")
+#: xterm's modifyOtherKeys modifier parameter for the CSI forms below
+#: (``CSI 1 ; <code> <letter>`` for arrows/home/end/F1-F4, ``CSI <num> ;
+#: <code> ~`` for pageup/pagedown/delete/insert/F5+) — the same encoding
+#: real terminals (and crossterm/ratatui's own decoder, what vimcode is
+#: built on) use for every modified non-character key.
+_MOD_CODE = {
+    frozenset({"shift"}): 2,
+    frozenset({"alt"}): 3,
+    frozenset({"shift", "alt"}): 4,
+    frozenset({"ctrl"}): 5,
+    frozenset({"shift", "ctrl"}): 6,
+    frozenset({"ctrl", "alt"}): 7,
+    frozenset({"shift", "ctrl", "alt"}): 8,
+}
+
+_ARROW_FINAL = {"up": "A", "down": "B", "right": "C", "left": "D"}
+_HOME_END_FINAL = {"home": "H", "end": "F"}
+_TILDE_CODE = {"pageup": "5", "pagedown": "6", "delete": "3", "insert": "2"}
+_F_LETTER_FINAL = {"f1": "P", "f2": "Q", "f3": "R", "f4": "S"}
+_F_TILDE_NUM = {
+    "f5": "15", "f6": "17", "f7": "18", "f8": "19", "f9": "20", "f10": "21",
+    "f11": "23", "f12": "24", "f13": "25", "f14": "26", "f15": "28",
+    "f16": "29", "f17": "31", "f18": "32", "f19": "33", "f20": "34",
+}
+
+
+#: The canonical modifier order the usage line advertises
+#: (``ctrl+alt+shift``) — used to spell an :class:`UnsupportedKey` message
+#: the same way, rather than alphabetically (#3639 review nit: alphabetical
+#: sort reads ``alt+ctrl+shift``).
+_MOD_ORDER: tuple[str, ...] = ("ctrl", "alt", "shift", "cmd")
+
+
+def _describe_chord(chord: KeyChord) -> str:
+    """A human-readable ``mod+mod+base`` spelling of *chord*, for an
+    :class:`~coord.key_spec.UnsupportedKey` message."""
+    mods = "+".join(m for m in _MOD_ORDER if m in chord.modifiers)
+    return f"{mods}+{chord.base}" if mods else chord.base
+
+
+def _encode_modified_named(chord: KeyChord) -> bytes:
+    """The CSI/ESC-prefixed encoding for a NAMED key with at least one
+    modifier. Raises :class:`~coord.key_spec.UnsupportedKey` for a
+    modifier combination with no terminal encoding at all (``cmd`` — a
+    terminal has no Cmd/Super/Meta key, #3639) or an F-key beyond F20."""
+    base = chord.base
+    if "cmd" in chord.modifiers:
+        raise UnsupportedKey(
+            "tui-pty", _describe_chord(chord),
+            "terminals have no Cmd/Super/Meta key — only Ctrl/Alt/Shift",
+        )
+    mod_code = _MOD_CODE.get(chord.modifiers)
+    if mod_code is not None:
+        if base in _ARROW_FINAL:
+            return f"\x1b[1;{mod_code}{_ARROW_FINAL[base]}".encode("ascii")
+        if base in _HOME_END_FINAL:
+            return f"\x1b[1;{mod_code}{_HOME_END_FINAL[base]}".encode("ascii")
+        if base in _TILDE_CODE:
+            return f"\x1b[{_TILDE_CODE[base]};{mod_code}~".encode("ascii")
+        if base in _F_LETTER_FINAL:
+            return f"\x1b[1;{mod_code}{_F_LETTER_FINAL[base]}".encode("ascii")
+        if base in _F_TILDE_NUM:
+            return f"\x1b[{_F_TILDE_NUM[base]};{mod_code}~".encode("ascii")
+    if chord.modifiers == frozenset({"alt"}) and base in _NAMED_KEYS:
+        # Alt + a named key with no CSI form above (enter/esc/tab/
+        # backspace/space): the universal terminal "meta sends ESC"
+        # convention — an ESC byte followed by the key's own encoding.
+        return b"\x1b" + _NAMED_KEYS[base]
+    raise UnsupportedKey(
+        "tui-pty", _describe_chord(chord),
+        "no terminal encoding for this modifier combination",
+    )
+
+
+def _encode_tui_chord(chord: KeyChord) -> bytes:
+    """The raw terminal bytes for one already-parsed
+    :class:`~coord.key_spec.KeyChord`. Raises
+    :class:`~coord.key_spec.UnsupportedKey` (naming ``"tui-pty"``) for a
+    chord no real terminal byte stream can express: ``cmd``/``super``/
+    ``meta`` (terminals have no such key — the #3639 acceptance example),
+    an F-key beyond F20, or a modifier combination on a plain character
+    with no terminal convention — never a silent no-op."""
+    if not chord.is_char:
+        if not chord.modifiers:
+            encoded = _NAMED_KEYS.get(chord.base)
+            if encoded is None:
+                raise UnsupportedKey(
+                    "tui-pty", chord.base, "no terminal encoding for this named key"
+                )
+            return encoded
+        return _encode_modified_named(chord)
+
+    ch = chord.base
+    mods = chord.modifiers
+    if not mods:
+        return ch.encode("utf-8")
+    if mods == frozenset({"ctrl"}) and len(ch) == 1 and ch.isalpha():
+        # Case-insensitive: Ctrl+c and Ctrl+C are the same physical
+        # keystroke and the same control code on every real terminal.
+        return bytes([ord(ch.lower()) - ord("a") + 1])
+    if mods == frozenset({"alt"}):
+        # The universal terminal "meta sends ESC" convention — case
+        # preserved, so `alt+M` (Alt+Shift+m) differs from `alt+m`.
+        return b"\x1b" + ch.encode("utf-8")
+    if mods == frozenset({"shift"}) and len(ch) == 1 and ch.isalpha():
+        return ch.upper().encode("utf-8")
+    raise UnsupportedKey(
+        "tui-pty", _describe_chord(chord),
+        "no terminal encoding for this modifier combination on a plain character",
+    )
 
 
 def encode_key(key: str) -> bytes:
-    """Encode one spec ``key:`` name into the raw bytes a real terminal
-    would send for it.
+    """Encode one ``key:`` token — a single chord, not a chord sequence —
+    into the raw bytes a real terminal would send for it. Parsed under the
+    grammar shared by all four drivers (:mod:`coord.key_spec`, #3639).
 
-    Named keys (:data:`_NAMED_KEYS`) and ``ctrl+<letter>`` (control-code
-    ``chr(ord(letter) - ord('a') + 1)``) are recognized case-insensitively;
-    any other single character is sent as its own UTF-8 encoding. Raises
-    :class:`TuiPtySpecError` for anything else (an empty string, a
-    multi-character name that isn't a recognized named key).
+    Raises :class:`TuiPtySpecError` for a *key* that doesn't parse under the
+    shared grammar at all (wraps :class:`~coord.key_spec.KeySpecError`) or
+    that parses as more than one chord (use :func:`encode_key_sequence` for
+    a chord sequence like ``ctrl+k ctrl+w``), and
+    :class:`~coord.key_spec.UnsupportedKey` for a chord that parses fine but
+    has no terminal byte encoding (``cmd+c`` — see :func:`_encode_tui_chord`).
     """
-    lowered = key.lower()
-    if lowered in _NAMED_KEYS:
-        return _NAMED_KEYS[lowered]
-    m = _CTRL_KEY_RE.fullmatch(lowered)
-    if m:
-        return bytes([ord(m.group(1)) - ord("a") + 1])
-    if len(key) == 1:
-        return key.encode("utf-8")
-    raise TuiPtySpecError(f"unrecognized key {key!r}")
+    try:
+        event = parse_key_spec(key)
+    except KeySpecError as e:
+        raise TuiPtySpecError(f"unrecognized key {key!r}: {e}") from e
+    if len(event.chords) != 1:
+        raise TuiPtySpecError(
+            f"{key!r} is a chord sequence, not one key — call "
+            f"encode_key_sequence for that"
+        )
+    return _encode_tui_chord(event.chords[0])
+
+
+def encode_key_sequence(key: str) -> list[bytes]:
+    """Encode *key* — one chord, or a space-separated chord sequence
+    (``ctrl+k ctrl+w``) — into the raw bytes for each chord, in order. What
+    :meth:`SmokeRunner._do_key` actually calls, so a single-chord ``key:``
+    value still goes through exactly one :func:`_encode_tui_chord` call."""
+    try:
+        event = parse_key_spec(key)
+    except KeySpecError as e:
+        raise TuiPtySpecError(f"unrecognized key {key!r}: {e}") from e
+    return [_encode_tui_chord(chord) for chord in event.chords]
 
 
 # SGR extended mouse-reporting protocol (`ESC [ < Cb ; Cx ; Cy M` for
@@ -379,6 +545,41 @@ def encode_click(row: int, col: int, button: str = "left") -> bytes:
         return press
     release = f"\x1b[<{code};{x};{y}m".encode("ascii")
     return press + release
+
+
+#: SGR mouse-motion events set bit 32 (``0x20``) on the button code —
+#: "this button is still held while the pointer moves" — the same bit real
+#: terminals set for a press-drag sequence; see ``encode_drag``.
+_SGR_MOTION_BIT = 32
+
+
+def encode_drag(row: int, col: int, to_row: int, to_col: int, button: str = "left") -> bytes:
+    """Encode a press-drag-release gesture (#3604) as three SGR mouse
+    events: a press at 0-indexed ``(row, col)``, one motion event at
+    ``(to_row, to_col)`` with the button-held bit set
+    (:data:`_SGR_MOTION_BIT`) — a real terminal reports every intermediate
+    cell the pointer crosses, but one motion event at the endpoint is
+    enough for an app that reacts to "where did the drag end", which is
+    every selection/resize-handle journey this exists for — and a release
+    there.
+
+    ``button`` is ``left``/``middle``/``right`` only (:data:`_DRAG_BUTTONS`
+    — a wheel notch has no held state to drag with). Raises
+    :class:`TuiPtySpecError` for anything else, including a wheel button.
+    """
+    if button not in _DRAG_BUTTONS:
+        raise TuiPtySpecError(
+            f"unrecognized drag button {button!r} — expected one of "
+            f"{', '.join(_DRAG_BUTTONS)} (a wheel has no held state to "
+            f"drag with)"
+        )
+    code = _BUTTON_CODES[button]
+    x0, y0 = col + 1, row + 1
+    x1, y1 = to_col + 1, to_row + 1
+    press = f"\x1b[<{code};{x0};{y0}M".encode("ascii")
+    motion = f"\x1b[<{code + _SGR_MOTION_BIT};{x1};{y1}M".encode("ascii")
+    release = f"\x1b[<{code};{x1};{y1}m".encode("ascii")
+    return press + motion + release
 
 
 # ── VT screen ────────────────────────────────────────────────────────────────
@@ -421,14 +622,33 @@ class VtScreen:
 
     def text(self, region: dict | None = None) -> str:
         """The rendered lines within *region* (or the whole screen when
-        ``None``), one screen row per output line."""
-        lines = self._screen.display
-        total_rows = len(lines)
-        total_cols = len(lines[0]) if lines else 0
+        ``None``), one screen row per output line.
+
+        Built from the raw cell buffer rather than ``pyte``'s own
+        ``Screen.display`` property. ``display`` *skips* the stub cell
+        that trails a double-width glyph (CJK, emoji, ...) instead of
+        padding it, so any row containing even one wide character
+        renders exactly one character shorter than ``self.columns`` —
+        silently truncating whatever text follows the glyph on that
+        row (e.g. a right-flushed status-bar field). We render each
+        stub cell back as a single space so every returned row is
+        always exactly ``self._screen.columns`` characters wide,
+        regardless of what the row contains.
+        """
+        screen = self._screen
+        total_rows = screen.lines
+        total_cols = screen.columns
         row0, col0, height, width = _region_bounds(region, total_rows, total_cols)
-        return "\n".join(
-            line[col0:col0 + width] for line in lines[row0:row0 + height]
-        )
+
+        def render_row(y: int) -> str:
+            row = screen.buffer[y]
+            # A stub cell (the trailing half of a double-width glyph)
+            # has ``data == ""``; every other cell — including a
+            # genuinely blank one — has at least a space.
+            return "".join(row[x].data or " " for x in range(total_cols))
+
+        lines = [render_row(y) for y in range(row0, row0 + height)]
+        return "\n".join(line[col0:col0 + width] for line in lines)
 
     def cell_attr(self, row: int, col: int, attr: str):
         """One SGR/text attribute (``bold``, ``italics``, ``underscore``,
@@ -441,6 +661,13 @@ class VtScreen:
         """The current cursor position as ``(row, col)``, 0-indexed."""
         cursor = self._screen.cursor
         return cursor.y, cursor.x
+
+    def resize(self, rows: int, cols: int) -> None:
+        """Resize the VT screen to match a real ``resize`` step (#3604) —
+        a thin wrapper over pyte's own ``Screen.resize(lines, columns)``;
+        this module keeps its own parameter order (rows first) to match
+        every other ``resize``-shaped call in this module."""
+        self._screen.resize(rows, cols)
 
 
 # ── pty/ConPTY child process ────────────────────────────────────────────────
@@ -461,6 +688,13 @@ class PtyChild(Protocol):
     def is_alive(self) -> bool: ...
 
     def close(self) -> None: ...
+
+    def resize(self, cols: int, rows: int) -> None:
+        """Live-resize the pty/ConPTY itself to *cols* x *rows* (#3604) —
+        the kernel/ConPTY side of a ``resize`` step; the VT screen side is
+        :meth:`VtScreen.resize`, called separately by
+        :meth:`SmokeRunner._do_resize`."""
+        ...
 
 
 #: Linux's ``prctl(2)`` opcode for ``PR_SET_PDEATHSIG`` — not exposed by the
@@ -485,8 +719,8 @@ def _arm_parent_death_signal() -> None:
     so it still applies to the real compiled binary this ``shell=True``
     command ultimately execs into — **provided** that exec genuinely
     replaces this process rather than a shell forking a fresh grandchild
-    for it (see :data:`_EXEC_PREFIX` on why the launch command is wrapped
-    in ``exec`` to force exactly that).
+    for it (see :data:`coord.shell_exec_wrap.EXEC_PREFIX` on why the launch
+    command is wrapped in ``exec`` to force exactly that).
 
     Linux-only (``prctl`` doesn't exist on macOS/BSD); best-effort — a
     missing/broken ``libc`` symbol must never prevent the pty from
@@ -524,122 +758,6 @@ def _unix_pty_preexec() -> None:
     os.setsid()  # NOTE: order vs the next line doesn't matter today (see
     # docstring) — but a fork inserted between them would break that.
     _arm_parent_death_signal()  # NOTE: see the NOTE above this call.
-
-
-#: Prefix :func:`_wrap_launch_command` adds to the *final simple command* of
-#: every ``UnixPtyChild`` command (#3583). Measured directly against this
-#: machine's ``/bin/sh`` (``dash``): ``Popen("sleep 60", shell=True,
-#: preexec_fn=...)`` leaves TWO processes — ``dash`` (the one
-#: ``preexec_fn``/``PR_SET_PDEATHSIG`` ran in) as a *parent*, and a separate
-#: forked ``sleep`` grandchild that never had a death signal armed on it at
-#: all (``PR_SET_PDEATHSIG`` is cleared on every ``fork()``, including the
-#: shell's own). dash never applies bash's "tail call" exec-optimization for
-#: a ``-c`` simple command, so without this, killing the manager reaps the
-#: shell but **leaks exactly the grandchild this issue's evidence found**
-#: (51 ``vcd``s reparented to ``systemd --user``). ``exec`` is the POSIX
-#: shell builtin that replaces the shell's own process image via
-#: ``execve()`` instead of forking — verified empirically to collapse the
-#: above down to one process (the real binary, same pid throughout), onto
-#: which the armed death signal then actually applies.
-_EXEC_PREFIX = "exec "
-
-#: Matches one leading ``VAR=value`` assignment (plus its trailing
-#: whitespace) at the front of a shell simple command — the shape
-#: ``_wrap_launch_command`` must convert to an ``env VAR=value`` argument
-#: *before* the ``exec`` prefix, because POSIX's assignment-prefix parsing
-#: (where a shell applies ``VAR=value`` only to the one command it
-#: precedes) does not apply to ``exec``'s own argument list: ``exec
-#: FOO=bar ./binary`` tries — and fails — to execve a program literally
-#: named ``FOO=bar``. ``env`` has no such restriction (it's a real
-#: executable, not a builtin with special parsing), and `/usr/bin/env`
-#: itself ``execve()``s straight into its target rather than forking, so
-#: ``exec env FOO=bar ./binary`` still collapses to one process.
-_ENV_ASSIGNMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*=\S*)[ \t]+")
-
-
-def _find_last_top_level_and(command: str) -> int | None:
-    """Return the string index of the ``&`` that starts the *last*
-    top-level ``&&`` operator in *command*, or ``None`` if there isn't one.
-
-    "Top-level" means not inside a single- or double-quoted string (the
-    only nesting a real ``tui-pty`` ``run:`` needs to care about today,
-    e.g. ``cd .smoke && HOME=$PWD/home ../target/release/vcd sample.txt``)
-    — quote state and backslash escapes are tracked so a literal ``&&``
-    living inside a quoted argument is correctly skipped rather than
-    mistaken for a command separator. Subshells (``( ... )``) and command
-    substitution (``$( ... )``/backticks) are out of scope: no real route
-    uses them, and misreading one only costs an extra, harmless shell fork
-    on the mis-split segment — it can never leak a process the way a
-    missed ``exec`` would.
-    """
-    in_single = in_double = escaped = False
-    last_idx = None
-    i, n = 0, len(command)
-    while i < n:
-        ch = command[i]
-        if escaped:
-            escaped = False
-        elif ch == "\\" and not in_single:
-            escaped = True
-        elif ch == "'" and not in_double:
-            in_single = not in_single
-        elif ch == '"' and not in_single:
-            in_double = not in_double
-        elif not in_single and not in_double and ch == "&" and command[i + 1:i + 2] == "&":
-            last_idx = i
-            i += 1  # skip the second '&' of this pair
-        i += 1
-    return last_idx
-
-
-def _wrap_launch_command(command: str) -> str:
-    """Rewrite *command* (#3583) so the ``/bin/sh -c`` this class's
-    ``subprocess.Popen`` runs always ends by collapsing into the real
-    binary via a single ``execve()`` — never a shell forking a grandchild
-    for it — so the parent-death signal armed in :func:`_unix_pty_preexec`
-    actually reaches the real process. See :data:`_EXEC_PREFIX`.
-
-    *command* may be a compound script (``cmd1 && cmd2 && ...``, the real
-    ``vimcode`` ``tui-pty`` route's shape: a leading ``cd`` followed by the
-    launch): only the **final** simple command is rewritten — everything
-    before the last top-level ``&&`` (:func:`_find_last_top_level_and`) is
-    left exactly as the caller wrote it, since ``exec cd ...`` fails
-    outright (``cd`` is a shell builtin, not an executable) and earlier
-    steps genuinely need to run as normal shell commands, not replace the
-    shell.
-
-    That final simple command may itself open with one or more *inline
-    env-var assignments* (``HOME=$PWD/home ./binary``, also a real route's
-    shape) — :data:`_ENV_ASSIGNMENT_RE` peels those off and re-emits them
-    as ``env``'s own arguments instead of ``exec``'s, so the result is
-    ``exec env VAR=val ... binary args`` rather than the broken ``exec
-    VAR=val ... binary args`` (see :data:`_ENV_ASSIGNMENT_RE` for why).
-
-    Idempotent at the whole-*command* level: a caller-supplied command
-    that already starts with ``exec `` (leading/trailing whitespace
-    tolerated) is returned unchanged rather than double-prefixed or
-    re-split.
-    """
-    if command.strip().startswith(_EXEC_PREFIX):
-        return command
-
-    split = _find_last_top_level_and(command)
-    if split is None:
-        head, tail = "", command.strip()
-    else:
-        head, tail = command[:split].strip(), command[split + 2:].strip()
-
-    assignments: list[str] = []
-    while True:
-        m = _ENV_ASSIGNMENT_RE.match(tail)
-        if not m:
-            break
-        assignments.append(m.group(1))
-        tail = tail[m.end():]
-
-    env_prefix = f"env {' '.join(assignments)} " if assignments else ""
-    wrapped_tail = f"{_EXEC_PREFIX}{env_prefix}{tail}"
-    return f"{head} && {wrapped_tail}" if head else wrapped_tail
 
 
 class UnixPtyChild:
@@ -700,14 +818,28 @@ class UnixPtyChild:
         single-simple-command launch, :func:`_wrap_launch_command`'s
         ``exec`` means this ``Popen`` pid IS the real binary's own pid
         (the shell process image was replaced, not forked), so this is
-        safe to re-observe/re-signal directly as the driven app's pid —
-        unlike the native drivers' own ``Calls.launch()``, which has no
-        such exec-wrap and returns a shell pid instead (see
-        :class:`coord.mac_native_driver.MacNativeSession.pid`)."""
+        safe to re-observe/re-signal directly as the driven app's pid.
+        :class:`coord.mac_native_driver.MacOSCalls.launch` shares the exact
+        same :func:`coord.shell_exec_wrap.wrap_launch_command` for the same
+        reason (#3622) — see :class:`coord.mac_native_driver
+        .MacNativeSession.pid`."""
         return self._proc.pid
 
     def is_alive(self) -> bool:
         return self._proc.poll() is None
+
+    def resize(self, cols: int, rows: int) -> None:
+        """Live-resize this pty (#3604) via the same ``TIOCSWINSZ`` ioctl
+        used at launch — issuing it against the (still-open) master fd
+        changes the slave's reported window size and the kernel delivers
+        ``SIGWINCH`` to the slave's foreground process group automatically;
+        no separate signal call is needed, unlike a real terminal emulator
+        which issues both itself for the same reason."""
+        import fcntl  # noqa: PLC0415
+        import struct  # noqa: PLC0415
+        import termios  # noqa: PLC0415
+
+        fcntl.ioctl(self._master_fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
 
     def close(self) -> None:
         if self._closed:
@@ -792,6 +924,13 @@ class WindowsConPtyChild:
 
     def is_alive(self) -> bool:
         return bool(self._proc.isalive())
+
+    def resize(self, cols: int, rows: int) -> None:
+        """Live-resize this ConPTY session (#3604) via ``pywinpty``'s own
+        ``setwinsize`` — the Windows analogue of :meth:`UnixPtyChild.resize`'s
+        ``TIOCSWINSZ`` ioctl; ``pywinpty`` takes the same ``(rows, cols)``
+        order :meth:`__init__` already passes it as ``dimensions``."""
+        self._proc.setwinsize(rows, cols)
 
     def close(self) -> None:
         try:
@@ -914,6 +1053,8 @@ class SmokeRunner:
             "launch": self._do_launch,
             "key": self._do_key,
             "click": self._do_click,
+            "drag": self._do_drag,
+            "resize": self._do_resize,
             "wait_idle": self._do_wait_idle,
             "expect_screen": self._do_expect_screen,
             "expect_silent": self._do_expect_silent,
@@ -921,7 +1062,7 @@ class SmokeRunner:
         }
         try:
             handlers[step.kind](step)
-        except (TuiPtySpecError, TuiPtyRuntimeError, AssertionError) as e:
+        except (TuiPtySpecError, TuiPtyRuntimeError, UnsupportedKey, AssertionError) as e:
             return {"id": step.step_id, "status": "fail", "message": str(e)}
         return {"id": step.step_id, "status": "pass", "message": ""}
 
@@ -957,10 +1098,35 @@ class SmokeRunner:
         return self._child
 
     def _do_key(self, step: SmokeStep) -> None:
-        self._require_child().write(encode_key(step.key))
+        """#3639: *step.key* may be a space-separated chord sequence
+        (``ctrl+k ctrl+w``) — each chord is written as its own byte
+        sequence, in order."""
+        child = self._require_child()
+        for chord_bytes in encode_key_sequence(step.key):
+            child.write(chord_bytes)
 
     def _do_click(self, step: SmokeStep) -> None:
         self._require_child().write(encode_click(step.row, step.col, step.button))
+
+    def _do_drag(self, step: SmokeStep) -> None:
+        self._require_child().write(
+            encode_drag(step.row, step.col, step.to_row, step.to_col, step.button)
+        )
+
+    def _do_resize(self, step: SmokeStep) -> None:
+        """Live-resize both halves #3604 needs kept in sync: the real
+        pty/ConPTY (so the driven app's own ``SIGWINCH``/resize-event
+        handling actually fires) and this runner's :class:`VtScreen` (so
+        the NEXT ``expect_screen``/``expect_within`` step reads the new
+        dimensions rather than the stale launch-time ones) — done under
+        the same lock :meth:`_do_expect_screen` takes, so neither can
+        observe the screen mid-resize."""
+        child = self._require_child()
+        child.resize(step.cols, step.rows)
+        with self._lock:
+            assert self._screen is not None
+            self._screen.resize(step.rows, step.cols)
+        self._cols, self._rows = step.cols, step.rows
 
     def _do_wait_idle(self, step: SmokeStep) -> None:
         idle_for = step.ms / 1000
@@ -1182,13 +1348,33 @@ class TuiPtySession:
         return getattr(self._child, "pid", None)
 
     def send_key(self, key: str) -> None:
-        self._child.write(encode_key(key))
+        """#3639: *key* may be a space-separated chord sequence
+        (``ctrl+k ctrl+w``) — see :meth:`SmokeRunner._do_key`'s own
+        docstring for the same contract against a YAML spec step."""
+        for chord_bytes in encode_key_sequence(key):
+            self._child.write(chord_bytes)
 
     def send_text(self, text: str) -> None:
         self._child.write(text.encode("utf-8"))
 
     def send_click(self, row: int, col: int, button: str = "left") -> None:
         self._child.write(encode_click(row, col, button))
+
+    def send_drag(self, row: int, col: int, to_row: int, to_col: int, button: str = "left") -> None:
+        """#3604: same primitive :meth:`SmokeRunner._do_drag` uses
+        (:func:`encode_drag`) — kept here too so this interactively-driven
+        session doesn't drift from the smoke-spec runner (#2096 "one
+        question, one answer")."""
+        self._child.write(encode_drag(row, col, to_row, to_col, button))
+
+    def resize(self, cols: int, rows: int) -> None:
+        """#3604: same two-sided resize :meth:`SmokeRunner._do_resize`
+        does — the real pty/ConPTY AND this session's own :class:`VtScreen`,
+        under the same lock :meth:`screen_text` takes."""
+        self._child.resize(cols, rows)
+        with self._lock:
+            self._screen.resize(rows, cols)
+        self._cols, self._rows = cols, rows
 
     def wait_idle(self, ms: int = 500, timeout_ms: int = 5000) -> bool:
         """Block until the stream has gone quiet for *ms* milliseconds, or

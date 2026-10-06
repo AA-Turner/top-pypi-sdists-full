@@ -1825,8 +1825,11 @@ def _run_lane(
     """
     from . import capabilities, setup, tui
 
+    # Every agent the registry captures (INGEST_PATH is built from it), so a
+    # new harness is offered here without another edit.
     wanted = list(dict.fromkeys(sources)) if sources is not None else [
-        CLAUDE, *([CODEX] if include_codex else []), *([PI] if include_pi else [])
+        source for source in INGEST_PATH
+        if (include_codex or source != CODEX) and (include_pi or source != PI)
     ]
     unknown = [source for source in wanted if source not in INGEST_PATH]
     if unknown:

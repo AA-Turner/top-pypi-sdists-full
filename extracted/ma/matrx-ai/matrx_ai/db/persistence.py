@@ -54,6 +54,13 @@ if TYPE_CHECKING:
     from matrx_ai.orchestrator.execution_state import ExecutionState
     from matrx_ai.orchestrator.requests import CompletedRequest
 
+#: system_error kind for a STORED run whose history (conversation backfill,
+#: messages) could not be queued or committed. Every stored run keeps its
+#: history — a system run included (Arman, 2026-10-05: "It is NEVER acceptable
+#: for an agent run to have no history") — so a lost history write is an alarm,
+#: never a silent shell.
+RUN_HISTORY_WRITE_FAILURE_KIND = "run_history_write_failure"
+
 
 def _cx_error_text(error: Any) -> str:
     """Serialize structured execution errors for cx_user_request.error TEXT.
@@ -594,6 +601,76 @@ def structural_conversation_update(
     )
 
 
+_HISTORY_FAILURE_RECORDED_ATTR = "_matrx_run_history_failure_recorded"
+
+
+def stored_run_in_context() -> bool:
+    """A stored run (store=True, or no context — the persisting default)."""
+    try:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        _ctx = try_get_app_context()
+        return _ctx is None or bool(getattr(_ctx, "store", True))
+    except Exception:
+        return True
+
+
+async def record_run_history_write_failure(
+    exc: BaseException,
+    *,
+    stage: str,
+    conversation_id: str | None = None,
+    request_id: str | None = None,
+) -> None:
+    """Capture one ``run_history_write_failure`` system_error. Never raises.
+
+    Called when a STORED run's history (conversation backfill / messages)
+    could not be queued (``stage='queue'``) or committed (``stage='commit'``).
+    The persistence contract still propagates the failure (data first); this
+    only guarantees the lost history is a counted alarm with its own kind, for
+    system runs too — which have no streaming handler to record it. Marks the
+    exception so the queue- and commit-level callers never double-count.
+    """
+    if getattr(exc, _HISTORY_FAILURE_RECORDED_ATTR, False):
+        return
+    try:
+        setattr(exc, _HISTORY_FAILURE_RECORDED_ATTR, True)
+    except Exception:
+        pass
+    try:
+        from matrx_ai._ext import get_ext
+
+        record_error = get_ext("record_error")
+    except Exception:
+        record_error = None
+    if record_error is None:
+        return
+    try:
+        from matrx_ai.context.app_context import try_get_app_context
+
+        _ctx = try_get_app_context()
+        payload = {
+            "stage": stage,
+            "conversation_id": conversation_id,
+            "request_id": request_id,
+            "system_run": bool(_ctx is not None and getattr(_ctx, "system_run", False)),
+            "source_feature": getattr(_ctx, "source_feature", None) if _ctx else None,
+        }
+        result = record_error(
+            exc,
+            kind=RUN_HISTORY_WRITE_FAILURE_KIND,
+            error_type=f"{type(exc).__module__}.{type(exc).__qualname__}",
+            error_text=f"run history write failed ({stage}): {exc or type(exc).__name__}",
+            route="persist_completed_request",
+            payload=payload,
+        )
+        if hasattr(result, "__await__"):
+            await result
+    except Exception:
+        # Counting a failure must never become a second failure.
+        pass
+
+
 async def persist_completed_request(
     completed: CompletedRequest,
     conversation_id: str | None = None,
@@ -756,14 +833,13 @@ async def persist_completed_request(
         _should_persist = _ctx is None or _ctx.store
 
         # System-run mode (run_agent(system_run=True)): an internal machine
-        # call whose transcript is throwaway. Persist ONLY the cost spine —
-        # section 3 (cx_request cost rows) + section 4 (cx_user_request
-        # rollup); the gate already wrote the minimal cx_conversation FK
-        # anchor. Sections 1 (conversation config backfill) and 2 (cx_message
-        # rows) are skipped, as are cache-state refresh and the context-state
-        # event. A paid call NEVER loses its cost record — that is the whole
-        # difference from store=False. (2026-07-07 starvation root cause:
-        # ~40 concurrent internal derive calls each ran the full machinery.)
+        # call. It keeps its FULL history exactly like a chat — sections 1
+        # (conversation backfill) and 2 (messages) always run for a stored run;
+        # no flag turns history off (Arman, 2026-10-05). A system run skips only
+        # non-history ceremony below: the cache_state refresh and the
+        # context-state stream event (the LLM title call is skipped upstream in
+        # the executor). Those three were the expensive part of the 2026-07-07
+        # starvation; the history writes ride the one coordinator flush.
         _system_run = bool(_ctx is not None and getattr(_ctx, "system_run", False))
         _execution_kind = getattr(_ctx, "execution_kind", None) if _ctx is not None else None
         _execution_id = getattr(_ctx, "execution_id", None) if _ctx is not None else None
@@ -827,11 +903,7 @@ async def persist_completed_request(
                 "see matrx_graph scheduler _run_one + workflow detached ctx.)"
             )
 
-        if _system_run and db_conversation_id and _is_valid_uuid(db_conversation_id):
-            # Cost-only mode: the gate's minimal row is the FK anchor; skip the
-            # (large) config/system_instruction backfill UPDATE entirely.
-            result["conversation_id"] = db_conversation_id
-        elif _should_persist and db_conversation_id and _is_valid_uuid(db_conversation_id):
+        if _should_persist and db_conversation_id and _is_valid_uuid(db_conversation_id):
             update_kwargs: dict[str, Any] = {
                 "id": db_conversation_id,
                 "last_model_id": primary_ai_model_id,
@@ -954,7 +1026,7 @@ async def persist_completed_request(
         # 2. MESSAGES — write trigger message + messages produced by this execution
         #    Skipped entirely for ephemeral conversations (store=False).
         # ============================================================
-        _should_persist_messages = (_ctx is None or _ctx.store) and not _system_run
+        _should_persist_messages = _ctx is None or _ctx.store
         assistant_message_ids_by_iteration: dict[int, str] = {}
 
         if _should_persist_messages:
@@ -1668,6 +1740,9 @@ async def persist_completed_request(
             # turn's trim can apply the cache-aware gate. Best-effort —
             # never blocks the response.
             # ============================================================
+            # System runs skip it: cache_state only feeds the NEXT turn's
+            # cache-aware trim, and a system run has no next turn (one extra
+            # read + write per call is pure overhead in a fan-out).
             if (
                 _should_persist
                 and not _system_run
@@ -1699,6 +1774,8 @@ async def persist_completed_request(
             # the canonical "this is a sub-agent" marker (set by
             # AppContext.fork_for_child_agent).
             _is_sub_agent = bool(_ctx is not None and getattr(_ctx, "parent_conversation_id", None))
+            # System runs skip it: the event feeds a live Model Context tab, and
+            # a system run's stream is muted (it reads the DB to build it).
             if emitter and db_conversation_id and not _is_sub_agent and not _system_run:
                 try:
                     await _emit_context_state(
@@ -1764,6 +1841,13 @@ async def persist_completed_request(
         import traceback
 
         traceback.print_exc()
+        if stored_run_in_context():
+            await record_run_history_write_failure(
+                e,
+                stage="queue",
+                conversation_id=conversation_id or completed.request.conversation_id,
+                request_id=completed.request.request_id,
+            )
         # Do NOT swallow. The orchestrator's degrade path flushes whatever WAS
         # queued before this failure, and this raise stops the run loudly so a
         # partial persist can never masquerade as success.

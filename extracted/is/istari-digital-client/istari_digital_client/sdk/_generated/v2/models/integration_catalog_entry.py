@@ -21,19 +21,21 @@ from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from istari_digital_client.sdk._generated.v2.models.auth_integration_type import AuthIntegrationType
 from istari_digital_client.sdk._generated.v2.models.function_auth_type import FunctionAuthType
+from istari_digital_client.sdk._generated.v2.models.integration_oauth1_defaults import IntegrationOauth1Defaults
 from istari_digital_client.sdk._generated.v2.models.integration_oidc_defaults import IntegrationOidcDefaults
 from typing import Optional, Set
 from typing_extensions import Self
 
 class IntegrationCatalogEntry(BaseModel):
     """
-    One integration an admin can configure.  ``supported_standards`` is the auth standards installed modules accept for the provider, so an app offers only protocols some installed module can consume. ``oidc_defaults`` is present when the provider has an OAuth2 path.
+    One integration an admin can configure.  ``supported_standards`` is the auth standards installed modules accept for the provider, so an app offers only protocols some installed module can consume. ``oidc_defaults`` / ``oauth1_defaults`` are present when the provider has a path for that standard.
     """ # noqa: E501
     provider: AuthIntegrationType
     label: StrictStr
     supported_standards: Optional[List[FunctionAuthType]] = None
     oidc_defaults: Optional[IntegrationOidcDefaults] = None
-    __properties: ClassVar[List[str]] = ["provider", "label", "supported_standards", "oidc_defaults"]
+    oauth1_defaults: Optional[IntegrationOauth1Defaults] = None
+    __properties: ClassVar[List[str]] = ["provider", "label", "supported_standards", "oidc_defaults", "oauth1_defaults"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -77,10 +79,18 @@ class IntegrationCatalogEntry(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of oidc_defaults
         if self.oidc_defaults:
             _dict['oidc_defaults'] = self.oidc_defaults.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of oauth1_defaults
+        if self.oauth1_defaults:
+            _dict['oauth1_defaults'] = self.oauth1_defaults.to_dict()
         # set to None if oidc_defaults (nullable) is None
         # and model_fields_set contains the field
         if self.oidc_defaults is None and "oidc_defaults" in self.model_fields_set:
             _dict['oidc_defaults'] = None
+
+        # set to None if oauth1_defaults (nullable) is None
+        # and model_fields_set contains the field
+        if self.oauth1_defaults is None and "oauth1_defaults" in self.model_fields_set:
+            _dict['oauth1_defaults'] = None
 
         return _dict
 
@@ -97,6 +107,7 @@ class IntegrationCatalogEntry(BaseModel):
             "provider": obj.get("provider"),
             "label": obj.get("label"),
             "supported_standards": obj.get("supported_standards"),
-            "oidc_defaults": IntegrationOidcDefaults.from_dict(obj["oidc_defaults"]) if obj.get("oidc_defaults") is not None else None
+            "oidc_defaults": IntegrationOidcDefaults.from_dict(obj["oidc_defaults"]) if obj.get("oidc_defaults") is not None else None,
+            "oauth1_defaults": IntegrationOauth1Defaults.from_dict(obj["oauth1_defaults"]) if obj.get("oauth1_defaults") is not None else None
         })
         return _obj

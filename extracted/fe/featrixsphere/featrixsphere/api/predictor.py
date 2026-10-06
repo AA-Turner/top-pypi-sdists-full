@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from .prediction_grid import PredictionGrid
     import pandas as pd
 
-from .http_client import TRAINING_IN_PROGRESS_STATUSES, customer_metadata_headers
+from .http_client import PREDICT_ROUTER_TIMEOUT_SECONDS, TRAINING_IN_PROGRESS_STATUSES, customer_metadata_headers
 from .prediction_result import PredictionResult
 from .api_endpoint import APIEndpoint
 from .exceptions import TrainingStatusUnavailableError, SessionNotFoundError
@@ -231,9 +231,12 @@ class Predictor:
             generate: Generative-string predictors only (see
                 create_generative_string_model). False (default): return the
                 nearest training row's value — fast, free, deterministic.
-                True: few-shot an LLM with the nearest training rows for a
-                non-verbatim answer — slower, costs an LLM call,
-                non-deterministic. Ignored for every other predictor type.
+                True: few-shot Featrix's self-hosted LLM with the nearest
+                training rows for a non-verbatim answer — slower (an LLM
+                round trip), deterministic (same input, same output), and
+                the row data never leaves Featrix. The result's
+                ``generator`` names the model that wrote it. Ignored for
+                every other predictor type.
             customer_metadata: Optional dict of your own ids/labels stored
                 with the prediction for tracing it back later -- never sent
                 to the model.
@@ -305,11 +308,13 @@ class Predictor:
         if generate:
             request_payload["generate"] = True
 
-        # Make request
+        # Make request. generate=True waits on an LLM round trip, so it gets
+        # the router's predict budget instead of the client default.
         response = self._ctx.post_json(
             f"/session/{self.session_id}/predict",
             data=request_payload,
             headers=customer_metadata_headers(customer_metadata),
+            **({"timeout": PREDICT_ROUTER_TIMEOUT_SECONDS} if generate else {}),
         )
 
         training_status = _extract_training_status_from_body(response)
@@ -373,7 +378,8 @@ class Predictor:
         # Make request using predict_table endpoint
         response = self._ctx.post_json(
             f"/session/{self.session_id}/predict_table",
-            data=request_payload
+            data=request_payload,
+            **({"timeout": PREDICT_ROUTER_TIMEOUT_SECONDS} if generate else {}),
         )
 
         training_status = _extract_training_status_from_body(response)

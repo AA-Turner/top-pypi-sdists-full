@@ -424,7 +424,10 @@ def test_paper_citations_says_when_an_older_server_is_not_switched_on(
     monkeypatch, tmp_path
 ) -> None:
     disabled = {"paper_id": PAPER_A, "state": "disabled"}
-    PaperCitationsOut.model_validate(disabled)
+    # Only an OLDER server answers it: the current schema's `PaperCitationsOut.state` no
+    # longer declares `disabled` (C13), and the client reads `state` raw.
+    with pytest.raises(ValueError):
+        PaperCitationsOut.model_validate(disabled)
     _install(
         monkeypatch, tmp_path, {("GET", _citations_path()): httpx.Response(200, json=disabled)}
     )
@@ -558,7 +561,10 @@ def test_paper_graph_lists_unresolved_entries_when_asked(monkeypatch, tmp_path) 
 
 def test_paper_graph_says_when_an_older_server_is_not_switched_on(monkeypatch, tmp_path) -> None:
     disabled = {"project_id": PROJECT_ID, "state": "disabled"}
-    CitationGraphOut.model_validate(disabled)
+    # Only an OLDER server answers it: the current schema's `CitationGraphOut.state` no
+    # longer declares `disabled` (C13), and the client reads `state` raw.
+    with pytest.raises(ValueError):
+        CitationGraphOut.model_validate(disabled)
     _install(monkeypatch, tmp_path, {("GET", _graph_path()): httpx.Response(200, json=disabled)})
 
     result = CliRunner().invoke(cli_main.app, ["paper", "graph", "--project", "review"])

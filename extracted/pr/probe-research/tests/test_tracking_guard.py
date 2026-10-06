@@ -937,10 +937,10 @@ def test_a_claim_is_per_session(guard, monkeypatch, capsys):
 # ---------------------------------------------------------------------------
 
 
-def test_hooks_json_runs_the_guard_on_post_tool_use(guard):
+def test_routes_json_runs_the_guard_on_post_tool_use(guard):
     """The guard cannot fire unregistered, and no test of the module would
     notice -- the same argument the version hook's wiring test makes."""
-    wiring = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())
+    wiring = json.loads((PLUGIN / "hooks" / "routes.json").read_text())
     post = wiring["hooks"]["PostToolUse"]
     rendered = json.dumps(post)
     assert "tracking_guard.py" in rendered
@@ -948,10 +948,10 @@ def test_hooks_json_runs_the_guard_on_post_tool_use(guard):
     assert any("Bash" in m for m in matchers)
 
 
-def test_hooks_json_runs_the_guard_on_user_prompt_submit(guard):
+def test_routes_json_runs_the_guard_on_user_prompt_submit(guard):
     """The typed path produces no tool use, so PostToolUse registration alone
     would leave the most common invocation with no deterministic flip."""
-    wiring = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())
+    wiring = json.loads((PLUGIN / "hooks" / "routes.json").read_text())
     prompt_hooks = wiring["hooks"]["UserPromptSubmit"]
     assert "tracking_guard.py" in json.dumps(prompt_hooks)
 

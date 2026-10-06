@@ -17,11 +17,13 @@ from heylead import __version__
 
 from ..author_identity import parse_author_identity
 from ..constants import UNIPILE_POLL_INTERVAL_SECONDS, UNIPILE_POLL_TIMEOUT_SECONDS
-from ..guardrails import check_message, prepare_outbound_text
+from ..guardrails import check_message, prepare_outbound_text, text_landed
+from ..services.nameless import is_nameless_profile
 from .message_sender import sender_flag
 from .api_metrics import api_metrics
 from .relations import RelationsPage
 from .search_traffic import SearchTraffic
+from .headline_split import company_from_headline, split_headline
 from .unipile import (
     ChatLookupUnavailable,
     detect_reshare,
@@ -1047,12 +1049,7 @@ class BackendClient:
             public_id,
         )
 
-        title = headline
-        company = ""
-        if " at " in headline:
-            parts = headline.rsplit(" at ", 1)
-            title = parts[0]
-            company = parts[1]
+        title, company = split_headline(headline)
 
         from .experience import apply_current_role, experience_from_payload
         experience = experience_from_payload(data)
@@ -1330,19 +1327,16 @@ class BackendClient:
                 if not name and isinstance(item.get("profile"), dict):
                     prof = item.get("profile") or {}
                     name = prof.get("name") or " ".join(filter(None, [prof.get("first_name"), prof.get("last_name")])).strip()
-                if not name:
+                # A private or out-of-network result comes back as "LinkedIn
+                # Member" with its headline intact (D4umak/heylead-api#2164).
+                if is_nameless_profile({"name": name}):
                     continue
 
                 headline_val = item.get("headline") or item.get("headline_text") or ""
                 pub_id = item.get("public_identifier") or item.get("publicIdentifier") or item.get("public_id") or ""
                 prov_id = item.get("provider_id") or item.get("id") or item.get("member_urn") or item.get("urn") or ""
 
-                parsed_title = headline_val
-                parsed_company = ""
-                if " at " in headline_val:
-                    parts = headline_val.rsplit(" at ", 1)
-                    parsed_title = parts[0]
-                    parsed_company = parts[1]
+                parsed_title, parsed_company = split_headline(headline_val)
 
                 loc = item.get("location") or ""
                 if isinstance(loc, dict):
@@ -2016,12 +2010,17 @@ class BackendClient:
 
         Checks the most recent messages in the chat for a match against
         the expected text (first 50 chars). Returns True if found.
+
+        The match is guardrails.text_landed, folded on both sides:
+        send_new_message rewrote the body on the wire (a blank line after
+        each sentence), a raw-prefix comparison never found it, and the
+        engine read False as "not sent" and sent again (5 Oct 2026, one
+        person, three copies; D4umak/heylead-api#2142).
         """
         try:
             messages = await self.get_chat_messages(account_id, chat_id, limit=3)
-            snippet = expected_text[:50]
             for msg in messages:
-                if snippet in (msg.get("text") or ""):
+                if text_landed(expected_text, msg.get("text") or "", prefix=50):
                     return True
             return False
         except Exception as e:
@@ -2401,8 +2400,8 @@ class BackendClient:
 
                     # Extract company/location/profile_url for local search
                     company = item.get("company") or item.get("company_name") or ""
-                    if not company and headline and " at " in headline:
-                        company = headline.rsplit(" at ", 1)[1].strip()
+                    if not company:
+                        company = company_from_headline(headline)
                     location = item.get("location") or ""
                     if isinstance(location, dict):
                         location = location.get("name") or location.get("default") or ""
@@ -3827,6 +3826,9 @@ class BackendClient:
             payload["role_frame"] = role_frame
         if conversation_history:
             payload["conversation_history"] = conversation_history
+            # The api's ImproveRequest names it history_tail; under the old
+            # name alone the thread never reached the refiner (api #2171).
+            payload["history_tail"] = conversation_history
         try:
             resp = await self._post(url, json=payload, headers=self._headers())
         except (httpx.ConnectError, httpx.TimeoutException) as e:
@@ -3845,16 +3847,24 @@ class BackendClient:
         voice: dict[str, Any],
         message_type: str = "invitation",
         max_chars: int = 200,
+        conversation_history: list[dict[str, Any]] | None = None,
     ) -> str:
-        """Fix validation issues in a message via the backend LLM proxy."""
+        """Fix validation issues in a message via the backend LLM proxy.
+
+        ``conversation_history`` is the end of the thread a follow-up or
+        reply continues; a repair that cannot see it rewrites the
+        continuation as a new message (api #2171).
+        """
         url = f"{self.base_url}/api/v1/llm/fix-message"
-        payload = {
+        payload: dict[str, Any] = {
             "message": message,
             "issues": issues,
             "voice": voice,
             "message_type": message_type,
             "max_chars": max_chars,
         }
+        if conversation_history:
+            payload["history_tail"] = conversation_history
         try:
             resp = await self._post(url, json=payload, headers=self._headers())
         except (httpx.ConnectError, httpx.TimeoutException) as e:

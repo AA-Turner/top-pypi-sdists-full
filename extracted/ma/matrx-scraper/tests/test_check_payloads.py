@@ -64,8 +64,14 @@ def _evidence_keys_by_function() -> dict[str, set[str]]:
     return found
 
 
+# Evidence emitters whose names don't follow the check prefixes.
+_EMITTER_ITEM_KEYS = {"local_business_outcome": "local_business_markup"}
+
+
 def _item_key(function_name: str) -> str:
     """``_site_check_hsts_policy`` / ``check_cwv_lcp`` -> the catalog item key."""
+    if function_name in _EMITTER_ITEM_KEYS:
+        return _EMITTER_ITEM_KEYS[function_name]
     for prefix in ("_site_check_", "_check_", "check_"):
         if function_name.startswith(prefix):
             return function_name[len(prefix) :]

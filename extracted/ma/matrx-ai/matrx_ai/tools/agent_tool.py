@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -457,21 +458,43 @@ async def execute_agent_tool(
             # run_agent is THE ONE execution funnel — it forks the child agent
             # context (lifecycle events, reservation isolation, parent restore)
             # and never raises; failures arrive as result.success=False.
-            result = await run_agent(
-                agent,
-                label=tool_def.name,
-                source_feature="agent_tool",
-                user_input=user_input,
-                suppress_stream=tool_def.result_mode == "reference",
-                allow_client_delegation=not (reference_mode or handoff_mode),
-                emit_lifecycle=not handoff_mode,
-                require_complete_output=handoff_mode or reference_mode,
-            )
+            try:
+                result = await run_agent(
+                    agent,
+                    label=tool_def.name,
+                    source_feature="agent_tool",
+                    user_input=user_input,
+                    suppress_stream=tool_def.result_mode == "reference",
+                    allow_client_delegation=not (reference_mode or handoff_mode),
+                    emit_lifecycle=not handoff_mode,
+                    require_complete_output=handoff_mode or reference_mode,
+                )
+            except asyncio.CancelledError as _cancel_exc:
+                # The child was cut off (parent cancel, time limit, disconnect).
+                # This spawner OWNS the child's spine record (run_agent's own
+                # tracker stood down for it), so it must settle the calls the
+                # child really paid for — unsettled, the reaper fails it at $0.
+                if spine_settle is not None:
+                    from matrx_ai.agents.executor import run_usage_from_exception
+
+                    try:
+                        await spine_settle(
+                            success=False,
+                            usage_history=run_usage_from_exception(_cancel_exc),
+                            cancelled=True,
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+                raise
             if spine_settle is not None:
+                # A child the loop STOPPED (budget, deadline, cancel between
+                # calls) is "cancelled" on the spine — never failed/completed.
+                _child_stopped = (result.metadata or {}).get("status") == "cancelled"
                 try:
                     await spine_settle(
                         success=bool(result.success),
                         usage_history=list(result.usage_history or []),
+                        **({"cancelled": True} if _child_stopped else {}),
                     )
                 except Exception:  # noqa: BLE001
                     pass

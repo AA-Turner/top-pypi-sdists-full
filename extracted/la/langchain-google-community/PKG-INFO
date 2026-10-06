@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-google-community
-Version: 5.1.0
+Version: 5.1.1
 Summary: An integration package connecting miscellaneous Google's products and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/google
 Project-URL: Documentation, https://reference.langchain.com/python/integrations/langchain_google_community/
@@ -43,7 +43,7 @@ Requires-Dist: google-auth-httplib2<1.0.0,>=0.2.0; extra == 'drive'
 Requires-Dist: google-auth-oauthlib<2.0.0,>=1.2.0; extra == 'drive'
 Provides-Extra: featurestore
 Requires-Dist: db-dtypes<2.0.0,>=1.2.0; extra == 'featurestore'
-Requires-Dist: google-cloud-aiplatform<2.0.0,>=1.56.0; extra == 'featurestore'
+Requires-Dist: google-cloud-aiplatform<3.0.0,>=1.56.0; extra == 'featurestore'
 Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.6.0; extra == 'featurestore'
 Requires-Dist: pandas<3.0.0,>=2.0.0; (python_version >= '3.12') and extra == 'featurestore'
 Requires-Dist: pandas>=1.0.0; (python_version < '3.12') and extra == 'featurestore'

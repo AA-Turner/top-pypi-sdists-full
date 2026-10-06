@@ -264,3 +264,63 @@ def test_the_import_lane_finds_kimi_main_sessions_only(tmp_path, monkeypatch):
     ids = {bt.session_id_for(p, "kimi_code") for p in files}
     assert "e240efe5-da6a-4407-9c61-91d8a3a53d24" in ids and all(len(i) == 36 for i in ids)
     assert bt.read_cwd(files[0], "kimi_code") == "/home/researcher/kimi-fixture/proj"
+
+
+# --- Probe's MCP in Kimi: a bearer header, not an OAuth login (plan T5) ------
+
+
+def _manifest(home: Path) -> dict:
+    root = Path(_installed(home)["plugins"][0]["root"])
+    return json.loads((root / ".kimi-plugin" / "plugin.json").read_text())
+
+
+def _hold_token(tmp_path: Path, monkeypatch, token: str | None) -> None:
+    path = tmp_path / "probe-config.json"
+    ctx = {"base_url": "https://api.research.prbe.ai"}
+    if token:
+        ctx["mcp_token"] = token
+    path.write_text(json.dumps({"current_context": "default", "contexts": {"default": ctx}}))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(path))
+    monkeypatch.delenv("PROBE_MCP_TOKEN", raising=False)
+
+
+def test_install_sends_the_held_read_token_as_a_bearer(kimi, monkeypatch, tmp_path):
+    """Kimi's OAuth login calls back to localhost on the machine running Kimi,
+    which no laptop browser reaches on a remote box: the installed copy carries
+    the device's read token instead (Kimi 2.1.1 accepts static `headers`)."""
+    _hold_token(tmp_path, monkeypatch, "probe_pat_READ")
+    assert plugin_cli.install("kimi_code", "probe-research").ok
+    server = _manifest(kimi)["mcpServers"]["probe-research"]
+    assert server["headers"] == {"Authorization": "Bearer probe_pat_READ"}
+    assert "auth" not in server
+    root = Path(_installed(kimi)["plugins"][0]["root"])
+    assert (root / ".kimi-plugin" / "plugin.json").stat().st_mode & 0o777 == 0o600
+    mirror = json.loads((AGENT / "plugins" / "probe-research" / ".kimi-plugin" / "plugin.json").read_text())
+    assert mirror["mcpServers"]["probe-research"].get("auth") == "oauth"  # the hand-install fallback
+
+
+def test_no_token_keeps_the_oauth_form(kimi, monkeypatch, tmp_path):
+    _hold_token(tmp_path, monkeypatch, None)
+    assert plugin_cli.install("kimi_code", "probe-research").ok
+    assert _manifest(kimi)["mcpServers"]["probe-research"].get("auth") == "oauth"
+
+
+def test_a_rotated_token_reaches_the_installed_copy(kimi, monkeypatch, tmp_path):
+    _hold_token(tmp_path, monkeypatch, "probe_pat_OLD")
+    assert plugin_cli.install("kimi_code", "probe-research").ok
+    _hold_token(tmp_path, monkeypatch, "probe_pat_NEW")
+    assert kimi_config.mcp_bearer_drifted() is True
+    from probe.cli import setup as wizard
+
+    lines = wizard.sync_mcp_token()
+    assert any("restart Kimi Code" in line for line in lines)
+    assert _manifest(kimi)["mcpServers"]["probe-research"]["headers"]["Authorization"] == "Bearer probe_pat_NEW"
+    assert kimi_config.mcp_bearer_drifted() is False
+    assert wizard.sync_mcp_token() == []  # nothing to do the second time
+
+
+def test_plugins_without_our_server_are_untouched(kimi, tmp_path):
+    root = tmp_path / "copy"
+    (root / ".kimi-plugin").mkdir(parents=True)
+    (root / ".kimi-plugin" / "plugin.json").write_text(json.dumps({"name": "probe-research-tap", "hooks": []}))
+    assert kimi_config.write_mcp_bearer(root, "tok") is False

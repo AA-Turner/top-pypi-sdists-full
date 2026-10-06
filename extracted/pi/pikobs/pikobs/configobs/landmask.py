@@ -18,7 +18,6 @@ the cache each worker would decompress a 0.9 GB array of its own.
 """
 
 import os
-from typing import Optional
 
 import numpy as np
 

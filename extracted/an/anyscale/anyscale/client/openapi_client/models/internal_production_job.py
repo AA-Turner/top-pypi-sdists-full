@@ -55,7 +55,8 @@ class InternalProductionJob(object):
         'healthcheck_url': 'str',
         'archived_at': 'datetime',
         'cloud_id': 'str',
-        'is_imported': 'bool'
+        'is_imported': 'bool',
+        'source_job_id': 'str'
     }
 
     attribute_map = {
@@ -81,10 +82,11 @@ class InternalProductionJob(object):
         'healthcheck_url': 'healthcheck_url',
         'archived_at': 'archived_at',
         'cloud_id': 'cloud_id',
-        'is_imported': 'is_imported'
+        'is_imported': 'is_imported',
+        'source_job_id': 'source_job_id'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, source_job_id=None, local_vars_configuration=None):  # noqa: E501
         """InternalProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -113,6 +115,7 @@ class InternalProductionJob(object):
         self._archived_at = None
         self._cloud_id = None
         self._is_imported = None
+        self._source_job_id = None
         self.discriminator = None
 
         self.id = id
@@ -151,6 +154,8 @@ class InternalProductionJob(object):
         self.cloud_id = cloud_id
         if is_imported is not None:
             self.is_imported = is_imported
+        if source_job_id is not None:
+            self.source_job_id = source_job_id
 
     @property
     def id(self):
@@ -700,6 +705,29 @@ class InternalProductionJob(object):
         """
 
         self._is_imported = is_imported
+
+    @property
+    def source_job_id(self):
+        """Gets the source_job_id of this InternalProductionJob.  # noqa: E501
+
+        The id of the job this job was duplicated from, recorded when the job is created through the duplicate action. Empty for jobs created from scratch.  # noqa: E501
+
+        :return: The source_job_id of this InternalProductionJob.  # noqa: E501
+        :rtype: str
+        """
+        return self._source_job_id
+
+    @source_job_id.setter
+    def source_job_id(self, source_job_id):
+        """Sets the source_job_id of this InternalProductionJob.
+
+        The id of the job this job was duplicated from, recorded when the job is created through the duplicate action. Empty for jobs created from scratch.  # noqa: E501
+
+        :param source_job_id: The source_job_id of this InternalProductionJob.  # noqa: E501
+        :type: str
+        """
+
+        self._source_job_id = source_job_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -114,6 +114,10 @@ class Flags(Enum):
         visible=True,
         description="Enables location-split InField data migration in order to untangle shared legacy instance spaces",
     )
+    CATALOG_DATASET = FlagMetadata(
+        visible=True,
+        description="Enables support for catalog dataset resources",
+    )
     API = FlagMetadata(
         visible=True,
         description="Enables the api command family for calling CDF APIs",
@@ -131,7 +135,7 @@ class FeatureFlag:
     @staticmethod
     @lru_cache(typed=True)
     def is_enabled(flag: Flags) -> bool:
-        return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)
+        return CDFToml.load_module_context().alpha_flags.get(clean_name(flag.name), False)
 
     @staticmethod
     def flush() -> None:

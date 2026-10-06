@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
 from anyscale._private.models.image_uri import ImageURI
@@ -41,6 +41,7 @@ from anyscale.client.openapi_client.models import (
     SessionState,
     SkillsManifestResponse,
     TermsStatusResponse,
+    UnifiedeventListResponse,
     UpdatePolicyRequest,
     UserGroup,
     UsergroupListResponse,
@@ -955,6 +956,32 @@ class AnyscaleClientInterface(ABC):
         hide_progress_bar: bool = False,
     ) -> str:
         """Download the aggregated instance usage csv."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_unified_events(  # noqa: PLR0913
+        self,
+        *,
+        entity_type: str,
+        entity_id: str,
+        origin: Optional[List[str]] = None,
+        level: Optional[List[str]] = None,
+        message: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        ascending_order: bool = False,
+        include_verbose_events: bool = False,
+        instance_id: Optional[str] = None,
+        instance_node_ip: Optional[str] = None,
+        autoscaler_resource_bundles: Optional[List[str]] = None,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> UnifiedeventListResponse:
+        """Fetch one page of events for a job, service, workspace or cluster (session).
+
+        `origin=None` means "all origins". An empty list must never be sent: the backend
+        reads it as "match nothing".
+        """
         raise NotImplementedError
 
     @abstractmethod

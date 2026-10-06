@@ -1805,6 +1805,14 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
         recognizable by name. ``Title`` styles are left out of the latter so
         they keep reaching their own branch; in practice they never carry
         ``w:outlineLvl`` anyway.
+
+        Known limitation: OOXML does not reserve ``w:outlineLvl`` exclusively
+        for structural headings. Some paragraph styles carry it solely for
+        outline/TOC participation (e.g. numbered clause bodies in legal
+        templates). When such a style is encountered, every paragraph that uses
+        it will be classified as a heading. Set
+        ``MsWordBackendOptions.use_outline_level_for_headings`` to ``False`` to
+        disable this behavior for documents where it causes false positives.
         """
         # Resolve the style once: python-docx's ``paragraph.style`` scans all
         # styles on every access, so re-reading it per predicate is costly.
@@ -1859,8 +1867,14 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
         if self._is_code_style(style) or self._is_code_by_font(paragraph, style):
             return "Code", None
 
-        if outline_level is not None and not self._is_title_style(
-            label, name, base_style_label, base_style_name
+        use_outline_level_for_headings = (
+            not isinstance(self.options, MsWordBackendOptions)
+            or self.options.use_outline_level_for_headings
+        )
+        if (
+            use_outline_level_for_headings
+            and outline_level is not None
+            and not self._is_title_style(label, name, base_style_label, base_style_name)
         ):
             return "Heading", outline_level
 
@@ -1995,15 +2009,20 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
             An ``AnyUrl`` for a valid URL, a ``Path`` for a scheme-less address,
             or ``None`` when there is no address or the URL is malformed.
         """
-        if hyperlink.address:
-            if not urlparse(hyperlink.address).scheme:
-                return Path(hyperlink.address)
+        relationship_id = hyperlink._hyperlink.rId
+        if relationship_id and relationship_id not in hyperlink.part.rels:
+            # Fragment-only relationships are removed while loading the archive.
+            # Keep their visible text even though the relationship is now absent.
+            return None
+
+        address = hyperlink.address
+        if address:
+            if not urlparse(address).scheme:
+                return Path(address)
             try:
-                return AnyUrl(hyperlink.address)
+                return AnyUrl(address)
             except ValidationError:
-                _log.warning(
-                    "Skipping malformed hyperlink address: %r", hyperlink.address
-                )
+                _log.warning("Skipping malformed hyperlink address: %r", address)
                 return None
 
         return None
@@ -2056,12 +2075,20 @@ class MsWordDocumentBackend(DeclarativeDocumentBackend):
             )
 
             if isinstance(item, Hyperlink):
+                # Hyperlink.text and Hyperlink.runs only read the direct w:r
+                # children, so also read the runs nested in the same wrappers
+                # as above (e.g. a tracked insertion inside the link).
+                runs = [
+                    Run(r_el, paragraph)
+                    for r_el in _get_children_recursive(child)
+                    if r_el.tag == f"{_W_NS_CLARK}r"
+                ]
                 content.append(
                     (
-                        item.text,
+                        "".join(run.text for run in runs),
                         (
-                            self._get_format_from_run(item.runs[0], paragraph)
-                            if item.runs and len(item.runs) > 0
+                            self._get_format_from_run(runs[0], paragraph)
+                            if runs
                             else None
                         ),
                         self._get_hyperlink_target(item),

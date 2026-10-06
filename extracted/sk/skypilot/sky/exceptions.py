@@ -262,6 +262,24 @@ class ResourcesMismatchError(Exception):
     pass
 
 
+class ProvisionUnsupportedError(Exception):
+    """Raised when a provisioner cannot ever satisfy a request.
+
+    Distinct from ResourcesUnavailableError, which means "not enough room
+    right now" and is worth retrying or failing over for. This means the
+    request itself cannot be served by this target no matter how long we
+    wait: an input shape the provisioner does not implement, a feature the
+    target lacks, a combination it has no way to render.
+
+    Provisioners raise it from their own launch path once they can tell,
+    which is often only after the config has been resolved. Failover treats
+    the candidate as permanently unusable rather than capacity-starved, and
+    a caller that retries until resources appear stops instead of waiting
+    for a condition that will never change.
+    """
+    pass
+
+
 class SkyPilotExcludeArgsBaseException(Exception):
     """Base class for exceptions that don't need args while serialization.
 
@@ -588,6 +606,14 @@ class ServeUserTerminatedError(Exception):
 
 class PortDoesNotExistError(Exception):
     """Raised when the port does not exist."""
+
+
+class PoolDoesNotExistError(Exception):
+    """Raised when the pool a managed job is bound to no longer exists.
+
+    This is unrecoverable for the job: it can never launch into the pool
+    again, so callers should fail the job instead of retrying.
+    """
 
 
 class UserRequestRejectedByPolicy(Exception):

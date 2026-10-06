@@ -376,7 +376,9 @@ class QueryCacheGrpcClient:
 
         raise ValueError(f"Unexpected response type: {which}")
 
-    def confirm_execution(self, request: execution_service_models.ConfirmExecutionRequest) -> None:
+    def confirm_execution(
+        self, request: execution_service_models.ConfirmExecutionRequest
+    ) -> execution_service_models.ConfirmExecutionResponse:
         """Confirm that an execution has completed.
 
         Args:
@@ -387,7 +389,9 @@ class QueryCacheGrpcClient:
         """
         self._check_channel_state("confirm_execution")
 
-        self.execution_stub.ConfirmExecution(request.to_proto(), timeout=self.timeout)
+        response = self.execution_stub.ConfirmExecution(request.to_proto(), timeout=self.timeout)
+
+        return execution_service_models.ConfirmExecutionResponse.from_proto(response)
 
     def record_executions(
         self, request: execution_service_models.RecordExecutionsRequest
@@ -457,6 +461,27 @@ class QueryCacheGrpcClient:
         self._check_channel_state("get_explain_messages")
         response = self.explain_stub.GetExplainMessages(request.to_proto(), timeout=self.timeout)
         return explain_service_models.GetExplainMessagesResponse.from_proto(response)
+
+    def get_upstream_dependency_changes(
+        self, request: explain_service_models.GetUpstreamDependencyChangesRequest
+    ) -> explain_service_models.GetUpstreamDependencyChangesResponse:
+        """Explain which upstream dependencies changed between executions and their predecessors.
+
+        Args:
+            request: GetUpstreamDependencyChangesRequest with the execution IDs to explain.
+
+        Returns:
+            One entry per execution ID, listing the upstream query changes found by comparing
+            its dependency tree with that of its previous execution.
+
+        Raises:
+            grpc.RpcError: If the RPC fails.
+        """
+        self._check_channel_state("get_upstream_dependency_changes")
+        response = self.explain_stub.GetUpstreamDependencyChanges(
+            request.to_proto(), timeout=self.timeout
+        )
+        return explain_service_models.GetUpstreamDependencyChangesResponse.from_proto(response)
 
     def resolve_deferred_relations(
         self, request: execution_service_models.ResolveDeferredRelationsRequest

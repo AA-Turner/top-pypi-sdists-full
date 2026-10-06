@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cisco-ai-skill-scanner
-Version: 2.2.0
+Version: 2.2.1
 Summary: Security scanner for Agent Skills packages - Detects prompt injection, data exfiltration, and malicious code
 Project-URL: Homepage, https://github.com/cisco-ai-defense/skill-scanner
 Project-URL: Documentation, https://github.com/cisco-ai-defense/skill-scanner#readme
@@ -177,6 +177,10 @@ uv tool install cisco-ai-skill-scanner   # or: pipx install cisco-ai-skill-scann
 
 # Using pip
 pip install cisco-ai-skill-scanner
+
+# Using Homebrew (macOS 14+)
+brew tap cisco-ai-defense/skill-scanner https://github.com/cisco-ai-defense/skill-scanner
+brew install cisco-ai-defense/skill-scanner/skill-scanner
 ```
 
 The presets and settings in [Recommended Settings](https://cisco-ai-defense.github.io/docs/skill-scanner/recommended-settings)

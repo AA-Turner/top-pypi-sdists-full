@@ -63,6 +63,12 @@ class RenderedAgentRequest:
     #: item (``WorkItemSpec.answer_contract``) so the answer, hours later, is
     #: conformed and checked against THIS, never the provider's wire copy.
     answer_contract: dict[str, Any] | None = None
+    #: The canonical request this body was translated from (``{"config":
+    #: UnifiedConfig.to_dict()}``). Rides the work item (``WorkItemSpec.
+    #: unified_request``) so the finished unit is kept as a conversation with
+    #: these exact messages (``matrx_ai.agents.batch_history``) and its snapshot
+    #: carries the unified payload beside the provider body.
+    unified_request: dict[str, Any] | None = None
 
 
 async def render_agent_provider_request(agent: Any) -> RenderedAgentRequest:
@@ -125,7 +131,16 @@ async def render_agent_provider_request(agent: Any) -> RenderedAgentRequest:
         payload=payload,
         prefix_group_key=prefix_group_key_for(provider=provider, model=model, payload=payload),
         answer_contract=answer_contract,
+        unified_request=_unified_request_of(agent.config),
     )
+
+
+def _unified_request_of(config: Any) -> dict[str, Any]:
+    """The canonical request as JSON data — what ``AIMatrixRequest.from_dict``
+    reads back when the finished unit is kept as a conversation."""
+    data = json.loads(json.dumps(config.to_dict(), default=str))
+    data.pop("_matrx_message_expansions", None)
+    return {"config": data}
 
 
 def prefix_group_key_for(*, provider: str, model: str, payload: dict[str, Any]) -> str:

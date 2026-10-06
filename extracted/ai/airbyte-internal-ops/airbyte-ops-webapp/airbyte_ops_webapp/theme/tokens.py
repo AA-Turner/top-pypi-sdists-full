@@ -55,7 +55,6 @@ AIRBYTE_LOGO_FOR_DARK_BG_PATH = (
 CONNECTOR_VERSION_MANAGER_ICON_PATH = (
     AIRBYTE_ASSETS_DIR / "connector_version_manager_icon.svg"
 )
-MORE_TOOLS_ICON_PATH = AIRBYTE_ASSETS_DIR / "more_tools_icon.svg"
 AIRBYTE_INK = "#140F43"
 AIRBYTE_PRIMARY = "#5D51D5"
 AIRBYTE_SECONDARY = "#D763EC"
@@ -474,10 +473,6 @@ def _airbyte_logo_svg() -> str:
 
 def _connector_version_manager_icon_svg() -> str:
     return CONNECTOR_VERSION_MANAGER_ICON_PATH.read_text(encoding="utf-8")
-
-
-def _more_tools_icon_svg() -> str:
-    return MORE_TOOLS_ICON_PATH.read_text(encoding="utf-8")
 
 
 def _airbyte_theme() -> Theme:

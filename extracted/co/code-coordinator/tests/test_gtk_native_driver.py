@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import base64
 import os
+import subprocess
 import time
 
 import pytest
@@ -28,10 +29,12 @@ from coord.gtk_native_driver import (
     NativeStep,
     _find_a11y_match,
     _summarize_elements,
-    _xdotool_key_for,
+    _xdotool_arg_for_chord,
+    _xdotool_args_for_key,
     parse_native_spec,
     run_native_spec,
 )
+from coord.key_spec import UnsupportedKey, parse_key_spec
 
 # ── parse_native_spec ───────────────────────────────────────────────────────
 
@@ -150,32 +153,73 @@ steps:
             )
 
 
-# ── _xdotool_key_for ─────────────────────────────────────────────────────────
+# ── _xdotool_arg_for_chord / _xdotool_args_for_key ──────────────────────────
 
 
 class TestXdotoolKeyFor:
+    def _arg(self, key: str) -> str:
+        return _xdotool_arg_for_chord(parse_key_spec(key).chords[0])
+
     def test_named_keys_case_insensitive(self) -> None:
-        assert _xdotool_key_for("enter") == "Return"
-        assert _xdotool_key_for("ENTER") == "Return"
-        assert _xdotool_key_for("Esc") == "Escape"
+        assert self._arg("enter") == "Return"
+        assert self._arg("ENTER") == "Return"
+        assert self._arg("Esc") == "Escape"
 
     def test_ctrl_combo(self) -> None:
-        assert _xdotool_key_for("ctrl+c") == "ctrl+c"
+        assert self._arg("ctrl+c") == "ctrl+c"
 
     def test_single_lowercase_letter_passes_through(self) -> None:
-        assert _xdotool_key_for("a") == "a"
+        assert self._arg("a") == "a"
 
     def test_single_uppercase_letter_passes_through(self) -> None:
         # Unlike Win32/macOS virtual keycodes, xdotool shifts uppercase
         # keysyms for itself — no separate needs-shift bit to track.
-        assert _xdotool_key_for("A") == "A"
+        assert self._arg("A") == "A"
 
     def test_digit_key(self) -> None:
-        assert _xdotool_key_for("5") == "5"
+        assert self._arg("5") == "5"
 
     def test_unrecognized_key_raises(self) -> None:
         with pytest.raises(GtkNativeSpecError, match="unrecognized key"):
-            _xdotool_key_for("moonwalk")
+            _xdotool_args_for_key("moonwalk")
+
+    def test_alt_m(self) -> None:
+        assert self._arg("alt+m") == "alt+m"
+
+    def test_cmd_maps_to_super(self) -> None:
+        assert self._arg("cmd+shift+p") == "shift+super+p"
+
+    def test_ctrl_shift_right(self) -> None:
+        assert self._arg("ctrl+shift+right") == "ctrl+shift+Right"
+
+    def test_shift_f3(self) -> None:
+        assert self._arg("shift+f3") == "shift+F3"
+
+    def test_punctuation(self) -> None:
+        assert self._arg(":") == "colon"
+        assert self._arg("@") == "at"
+
+    def test_chord_sequence_ctrl_k_ctrl_w(self) -> None:
+        assert _xdotool_args_for_key("ctrl+k ctrl+w") == ["ctrl+k", "ctrl+w"]
+
+    def test_unsupported_named_key_raises(self) -> None:
+        from coord.key_spec import KeyChord
+
+        bogus = KeyChord(modifiers=frozenset(), base="nonexistent", is_char=False)
+        with pytest.raises(UnsupportedKey):
+            _xdotool_arg_for_chord(bogus)
+
+    def test_unsupported_character_raises_unsupported_key_not_spec_error(self) -> None:
+        # #3639 review nit: a character the keysym table can't map is
+        # parsed fine (the shared grammar accepts any single printable
+        # character) but genuinely undeliverable on this platform — that
+        # is UnsupportedKey, the same error family as an unsupported named
+        # key above, never GtkNativeSpecError.
+        from coord.key_spec import KeyChord
+
+        bogus = KeyChord(modifiers=frozenset(), base="é", is_char=True)
+        with pytest.raises(UnsupportedKey):
+            _xdotool_arg_for_chord(bogus)
 
 
 # ── _find_a11y_match / _summarize_elements ──────────────────────────────────
@@ -602,6 +646,206 @@ class TestLinuxGtkCallsSessionAvailable:
         monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
         available, reason = LinuxGtkCalls().session_available()
         assert (available, reason) == (True, "")
+
+
+class TestLinuxGtkCallsFindTopWindow:
+    """#3605: GTK4-on-X11 creates an invisible internal helper top-level
+    *before* the real, visible app window, so it gets a lower XID and a
+    plain ``xdotool search --pid`` lists it first. ``find_top_window`` must
+    filter to the mapped/viewable window via ``--onlyvisible`` rather than
+    blindly taking ``list[0]`` — otherwise every subsequent
+    move/click/key/capture call silently targets the invisible helper."""
+
+    def _linux_with_display(self, monkeypatch) -> None:
+        monkeypatch.setattr("coord.gtk_native_driver._is_linux", lambda: True)
+        monkeypatch.setenv("DISPLAY", ":99")
+
+    @staticmethod
+    def _fake_run_factory(ps_lines: list[str], xdotool_stdout_by_pid: dict[int, str]):
+        """Builds a ``subprocess.run`` fake that answers both commands
+        ``find_top_window``/``_descendant_pids`` now issue: a ``ps -eo
+        pid,ppid`` process-table dump (*ps_lines*, each ``"<pid> <ppid>"``)
+        and a per-pid ``xdotool search --onlyvisible --pid <pid>`` lookup
+        (*xdotool_stdout_by_pid*, defaulting to empty stdout for any pid
+        not listed)."""
+
+        def fake_run(cmd, **kwargs):
+            if cmd[0] == "ps":
+                return subprocess.CompletedProcess(cmd, 0, stdout="\n".join(ps_lines), stderr="")
+            assert cmd[0] == "xdotool"
+            target_pid = int(cmd[-1])
+            stdout = xdotool_stdout_by_pid.get(target_pid, "")
+            return subprocess.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
+
+        return fake_run
+
+    def test_search_command_passes_onlyvisible(self, monkeypatch) -> None:
+        self._linux_with_display(monkeypatch)
+        calls_made: list[list[str]] = []
+        inner_fake_run = self._fake_run_factory([], {1234: "5800004\n"})
+
+        def fake_run(cmd, **kwargs):
+            calls_made.append(cmd)
+            return inner_fake_run(cmd, **kwargs)
+
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+        window_id = LinuxGtkCalls().find_top_window(pid=1234, timeout_s=1.0)
+
+        assert window_id == 5800004
+        assert ["xdotool", "search", "--onlyvisible", "--pid", "1234"] in calls_made
+
+    def test_returns_the_real_window_even_though_a_lower_xid_helper_exists(
+        self, monkeypatch
+    ) -> None:
+        """Regression for #3605. Before the fix, a plain `xdotool search
+        --pid` would return both the unmapped GTK4 helper (lower XID,
+        `0x5800002`) and the real, visible window (`0x5800004`), in that
+        order, and `find_top_window` took ``list[0]`` — the helper.
+        ``--onlyvisible`` makes xdotool itself exclude the unmapped helper,
+        so even though the helper's XID still sorts first, it must never be
+        returned."""
+        self._linux_with_display(monkeypatch)
+        inner_fake_run = self._fake_run_factory([], {4321: "92274692\n"})
+
+        def fake_run(cmd, **kwargs):
+            if cmd[0] == "xdotool":
+                assert "--onlyvisible" in cmd, (
+                    "must ask xdotool to filter to mapped/viewable windows — "
+                    "without it, the unmapped GTK4 helper (lower XID) wins"
+                )
+            # The real xdotool, given --onlyvisible, would never even list
+            # the unmapped helper (0x5800002) here -- only the real, mapped
+            # window (0x5800004) comes back.
+            return inner_fake_run(cmd, **kwargs)
+
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+        window_id = LinuxGtkCalls().find_top_window(pid=4321, timeout_s=1.0)
+
+        assert window_id == 92274692  # 0x5800004 -- the real, visible window
+        assert window_id != 92274690  # 0x5800002 -- the invisible helper
+
+    def test_raises_if_no_visible_window_appears_within_timeout(self, monkeypatch) -> None:
+        self._linux_with_display(monkeypatch)
+
+        # Simulates a helper-only state: xdotool finds nothing once
+        # --onlyvisible excludes the unmapped helper, so the real window
+        # never appears before the deadline.
+        fake_run = self._fake_run_factory([], {})
+
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+        monkeypatch.setattr("coord.gtk_native_driver.time.sleep", lambda s: None)
+
+        with pytest.raises(GtkNativeRuntimeError, match="no visible window"):
+            LinuxGtkCalls().find_top_window(pid=4321, timeout_s=0.05)
+
+
+class TestLinuxGtkCallsFindTopWindowFollowsShellWrapper:
+    """#3613: ``LinuxGtkCalls.launch()`` is a plain
+    ``subprocess.Popen(command, shell=True)``, which always spawns
+    ``/bin/sh -c <command>`` as the immediate child and returns *that
+    wrapper's* pid — the real GTK process is a separately-pid'd child (or
+    grandchild) that owns the real X11 window, while ``/bin/sh`` itself
+    never owns one. Before this fix, ``find_top_window`` only ever searched
+    the wrapper's own pid and always timed out, even though the real
+    window was up and interactive almost immediately (per the issue's own
+    repro). These tests reproduce that exact shape with a fake process
+    table + fake ``xdotool`` responses and confirm ``find_top_window`` now
+    follows the whole descendant-process tree — mirroring
+    ``tests.test_win_native_driver.TestFindTopWindowFollowsDescendantProcesses``'s
+    #3542 coverage of the identical shape on Windows. Each of these would
+    fail against the pre-fix code (which only ever tried the root pid)."""
+
+    def _linux_with_display(self, monkeypatch) -> None:
+        monkeypatch.setattr("coord.gtk_native_driver._is_linux", lambda: True)
+        monkeypatch.setenv("DISPLAY", ":99")
+
+    def test_follows_shell_wrapped_launch_to_the_real_apps_window(self, monkeypatch) -> None:
+        self._linux_with_display(monkeypatch)
+        wrapper_pid, app_pid = 516092, 516093
+        fake_run = TestLinuxGtkCallsFindTopWindow._fake_run_factory(
+            [f"{wrapper_pid} 1", f"{app_pid} {wrapper_pid}"],
+            # the shell wrapper itself owns no window at all -- only its
+            # forked child does.
+            {app_pid: "92274692\n"},
+        )
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+
+        window_id = LinuxGtkCalls().find_top_window(pid=wrapper_pid, timeout_s=1.0)
+
+        assert window_id == 92274692
+
+    def test_follows_a_grandchild_process_two_levels_deep(self, monkeypatch) -> None:
+        self._linux_with_display(monkeypatch)
+        sh_pid, intermediate_pid, app_pid = 10, 20, 30
+        fake_run = TestLinuxGtkCallsFindTopWindow._fake_run_factory(
+            [f"{sh_pid} 1", f"{intermediate_pid} {sh_pid}", f"{app_pid} {intermediate_pid}"],
+            {app_pid: "99\n"},
+        )
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+
+        assert LinuxGtkCalls().find_top_window(pid=sh_pid, timeout_s=1.0) == 99
+
+    def test_still_matches_when_the_launched_pid_owns_the_window_directly(
+        self, monkeypatch,
+    ) -> None:
+        """Backward-compatible: a pid launched without an intervening shell
+        still has its own pid in its own descendant set (the root is
+        always included), so the pre-#3613 direct-match case keeps
+        working."""
+        self._linux_with_display(monkeypatch)
+        pid = 555
+        fake_run = TestLinuxGtkCallsFindTopWindow._fake_run_factory(
+            [f"{pid} 1"], {pid: "1\n"},
+        )
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+
+        assert LinuxGtkCalls().find_top_window(pid=pid, timeout_s=1.0) == 1
+
+    def test_unrelated_processes_window_is_not_matched(self, monkeypatch) -> None:
+        """A visible window owned by some other, unrelated process must
+        never be treated as a match just because it exists."""
+        self._linux_with_display(monkeypatch)
+        wrapper_pid, app_pid, unrelated_pid = 100, 200, 999
+        fake_run = TestLinuxGtkCallsFindTopWindow._fake_run_factory(
+            [f"{wrapper_pid} 1", f"{app_pid} {wrapper_pid}", f"{unrelated_pid} 1"],
+            {unrelated_pid: "8\n"},
+        )
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+        monkeypatch.setattr("coord.gtk_native_driver.time.sleep", lambda s: None)
+
+        with pytest.raises(GtkNativeRuntimeError):
+            LinuxGtkCalls().find_top_window(pid=wrapper_pid, timeout_s=0.05)
+
+
+class TestLinuxGtkCallsDescendantPids:
+    """Direct coverage of :meth:`LinuxGtkCalls._descendant_pids` (#3613),
+    mirroring ``tests.test_win_native_driver.TestDescendantPids``."""
+
+    def test_includes_root_and_all_transitive_children(self, monkeypatch) -> None:
+        monkeypatch.setattr("coord.gtk_native_driver._is_linux", lambda: True)
+        fake_run = TestLinuxGtkCallsFindTopWindow._fake_run_factory(
+            ["1 0", "10 1", "20 10", "30 20", "999 1"], {},
+        )
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+
+        assert LinuxGtkCalls()._descendant_pids(10) == {10, 20, 30}
+
+    def test_pid_with_no_children_returns_itself_only(self, monkeypatch) -> None:
+        monkeypatch.setattr("coord.gtk_native_driver._is_linux", lambda: True)
+        fake_run = TestLinuxGtkCallsFindTopWindow._fake_run_factory(["10 1"], {})
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+
+        assert LinuxGtkCalls()._descendant_pids(10) == {10}
+
+    def test_ps_failure_degrades_to_root_only_rather_than_raising(self, monkeypatch) -> None:
+        monkeypatch.setattr("coord.gtk_native_driver._is_linux", lambda: True)
+
+        def fake_run(cmd, **kwargs):
+            raise OSError("ps: command not found")
+
+        monkeypatch.setattr("coord.gtk_native_driver.subprocess.run", fake_run)
+
+        assert LinuxGtkCalls()._descendant_pids(10) == {10}
 
 
 class TestImportAtspi:

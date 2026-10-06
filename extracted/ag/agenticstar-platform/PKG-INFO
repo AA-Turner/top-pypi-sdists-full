@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.0.10
+Version: 3.0.11
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -617,7 +617,7 @@ Pure computation (no I/O, no agent framework): decide **allow / forbid** for a t
 
 - **Layers**: a tenant policy (`L1Policy`: default profile, an unremovable `floor` of forbidden patterns, whether rationale bodies may be retained, version) and a project policy (`ProjectPolicy`: profile, `deny` / `allow` patterns, gate settings). `tighten_merge(l1, project)` combines them with two guarantees: the tenant `floor` can never be removed, and the project profile can never be looser than the tenant default. A `strict` project's `allow` list permits the listed write / destructive tools **only within what the tenant L1 profile permits** (since 1.0.0a3 `l1_profile`: it never re-enables an operation class the L1 profile forbids, e.g. destructive under a `guarded` tenant) — put anything that must stay forbidden regardless of profile into the tenant `floor`.
 - **Profiles**: `open` (everything allowed) < `guarded` (destructive forbidden) < `strict` (allowlist: reads allowed, writes / destructive only when explicitly allowed **and only within what the tenant L1 profile itself permits** — a project `strict` allowlist never re-enables an operation class the L1 profile forbids, e.g. destructive under L1 `guarded`; 1.0.0a3 `l1_profile`).
-- **`evaluate(policy, tool, op_class, ...)`** returns a `Decision(mode, reason, policy_version, unregistered, matched)`. The caller classifies the tool (`op_class` = `read` / `write` / `destructive`, or `None` for unknown); for built-in tools, `dry_run=True` forbids everything but reads; `mcp_server="x"` matches both `mcp:x:<tool>` and `<tool>`.
+- **`evaluate(policy, tool, op_class, ...)`** returns a `Decision(mode, reason, policy_version, unregistered, matched, layer)`. For a forbid, `layer` tells which rule decided it: `project` (the project's settings — deny rules, profile, allowlist, dry run — can change it), `tenant` (the tenant's default profile), `floor` (the tenant's floor, which nobody can relax) or `system` (not a rule: no policy, or the arguments could not be evaluated). It is `None` for an allow. The caller classifies the tool (`op_class` = `read` / `write` / `destructive`, or `None` for unknown); for built-in tools, `dry_run=True` forbids everything but reads; `mcp_server="x"` matches both `mcp:x:<tool>` and `<tool>`.
 - **MCP and A2A calls** (SDK ≥ 3.0.3 / 3.0.4): pass `mcp=True` with the connection's `connection_id`, or `connection_kind="a2a"` with the A2A connection's `connection_id`. These calls are not classified by operation class and are allowed (reason `mcp_unrestricted` / `a2a_unrestricted`) unless the `floor` or an explicit forbid rule matches — an `external` rule for that connection ID, or an unscoped tool-name glob such as `mcp:<server>:<tool>`. An MCP call without `connection_id` while external MCP rules exist, or an A2A call without `connection_id` while A2A rules exist, cannot be identified and is forbidden.
 - **Snapshots**: `EffectivePolicy.to_dict()` / `from_dict()` round-trip and `digest` (SHA-256) let you record which policy a run was evaluated under and verify it later.
 
@@ -857,6 +857,11 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.0.11 (2026-10-06) — policy: which rule layer decided a forbid (`Decision.layer`)
+
+- **New `Decision.layer`.** For a forbid it is `project`, `tenant`, `floor` or `system` (constants `LAYER_PROJECT` / `LAYER_TENANT` / `LAYER_FLOOR` / `LAYER_SYSTEM`); for an allow it is `None`. A forbid is `project` only when the project's settings alone can lift it: a project deny rule that also hits a tenant or system stop below it reports that lower layer (`reason` and `matched` stay those of the deny rule). Use it to tell the user whether the project's settings can change the result: for example, a destructive operation forbidden by `profile` is `tenant` when the tenant's default profile is `guarded`, and `project` when the project chose `guarded` itself. Up to 3.0.10 the reason code alone could not tell these apart.
+- `mode`, `reason` and `matched` do not change. Code that compares whole `Decision` objects with `==` must include `layer` (a forbid without a policy is now `Decision("forbid", "policy_unavailable", 0, layer="system")`).
 
 ### 3.0.10 (2026-10-04) — auth: refresh an MCP token that was rejected before its expiry
 
@@ -1211,4 +1216,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.0.10
+3.0.11

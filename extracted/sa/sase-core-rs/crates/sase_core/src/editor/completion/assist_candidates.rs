@@ -13,11 +13,11 @@ use crate::editor::wire::{
     CompletionList, DirectiveCompletionInventories, DirectiveSyntaxForm,
     EditorRange, EditorTextEdit, MacroAssistEntry, MacroInputHint,
 };
-use crate::{EditorSnippetEntryWire, EditorXpromptCatalogEntryWire};
+use crate::{EditorMacroCatalogEntryWire, EditorSnippetEntryWire};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub fn assist_entries_from_catalog(
-    entries: &[EditorXpromptCatalogEntryWire],
+    entries: &[EditorMacroCatalogEntryWire],
 ) -> Vec<MacroAssistEntry> {
     entries
         .iter()
@@ -49,6 +49,9 @@ pub fn assist_entries_from_catalog(
                         default_display: input.default_display.clone(),
                         position: input.position,
                         repeatable: input.repeatable,
+                        choices: input.choices.clone(),
+                        named_type: input.named_type.clone(),
+                        value_role: input.value_role.clone(),
                     })
                     .collect(),
                 content_preview: entry.content_preview.clone(),
@@ -633,7 +636,8 @@ pub fn build_snippet_completion_candidates(
 fn input_label(input: &MacroInputHint) -> String {
     let suffix = if input.required { "" } else { "?" };
     let repeatable = if input.repeatable { "…" } else { "" };
-    format!("{}{repeatable}{suffix}: {}", input.name, input.r#type)
+    let label = crate::editor::macro_arg_choices::macro_input_type_label(input);
+    format!("{}{repeatable}{suffix}: {}", input.name, label)
 }
 fn input_documentation(input: &MacroInputHint) -> Option<String> {
     let mut parts = Vec::new();

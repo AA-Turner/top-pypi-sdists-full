@@ -36,13 +36,14 @@ InitializationStep = Literal[
     "discovered",
     "url_reconciliation",
     "site_update",
+    "brand_search",
 ]
 InitializationStepStatus = Literal["started", "ok", "failed"]
 
 # The per-step frontend contract for POST .../sites/{site_id}/initialize.
 # The frontend refetches the relevant data slice when each step completes;
 # these names and the event shape are a CONTRACT (see web_crawl/FEATURE.md).
-InitializeStepName = Literal["identity", "screenshots", "sitemaps", "discovered"]
+InitializeStepName = Literal["identity", "screenshots", "sitemaps", "discovered", "brand_search"]
 InitializeStepStatus = Literal["started", "complete", "failed", "skipped"]
 
 INITIALIZATION_SCREENSHOT_KINDS: list[ScreenshotKind] = [
@@ -66,6 +67,9 @@ class SiteInitializationSummary(BaseModel):
     screenshots: dict[str, Any] = Field(default_factory=lambda: {"captured": 0})
     discovered: dict[str, int] = Field(default_factory=dict)
     url_reconciliation: dict[str, int] = Field(default_factory=dict)
+    # Counts only; the queries, result rows and signals live on
+    # web.site.metadata["brand_search"] (written by the host's hook).
+    brand_search: dict[str, Any] = Field(default_factory=dict)
     errors: list[InitializationError] = Field(default_factory=list)
     warnings: list[InitializationError] = Field(default_factory=list)
 

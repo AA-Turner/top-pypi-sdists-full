@@ -288,8 +288,11 @@ def test_project_use_pins_the_owning_workspace(client, monkeypatch, capsys):
 def test_upload_to_each_anchor_puts_bytes_and_confirms(client, app, tmp_path, anchor):
     blob = tmp_path / "weights.bin"
     blob.write_bytes(b"BYTES")
+    # An experiment is placed (`/v1/scopes`) and uploaded to under its project
+    # (X21), so it has to be one the server knows.
+    anchor_id = app.seed_experiment("anchor-exp")["id"] if anchor is Anchor.EXPERIMENT else "anchor-1"
 
-    out = client.upload_file(anchor, "anchor-1", "weights.bin", str(blob))
+    out = client.upload_file(anchor, anchor_id, "weights.bin", str(blob))
 
     assert out["status"] == "complete"
     assert len(app.puts) == 1

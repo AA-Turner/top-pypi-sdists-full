@@ -1480,6 +1480,14 @@ class ToolExecutor:
                             _msg = " ".join(
                                 part for part in (_envelope_problem, _msg, _expected) if part
                             )[:1200]
+                        else:
+                            from matrx_ai.tools._dispatch_util import flat_required_sentence
+
+                            _flat = flat_required_sentence(
+                                arguments or {}, _declared.args_model, _ve
+                            )
+                            if _flat:
+                                _msg = f"{_msg} {_flat}"[:1200]
                         return await self._reject_invalid_arguments(
                             ctx=ctx,
                             tool_name=tool_name,
@@ -2413,13 +2421,40 @@ class ToolExecutor:
             # turn so the notice's promise ("call fetch_tool_result …") is real,
             # without bloating the default toolset. Idempotent — the merge dedups
             # by name, so repeated truncations don't pile up. Best-effort.
-            try:
-                ctx.queue_tool_changes(add=[{"kind": "registered", "name": "fetch_tool_result"}])
-            except Exception as inj_exc:  # noqa: BLE001 — injection must never break dispatch
-                vcprint(
-                    f"[ToolExecutor] fetch_tool_result injection failed: {inj_exc}",
-                    color="yellow",
+            #
+            # The notice names fetch_tool_result, so it must be a step the model
+            # can actually take: the tool must exist in this registry and there
+            # must be a request context for the queued addition to land in (a
+            # direct/MCP/workflow dispatch has none). Otherwise the pointer is
+            # rewritten to a step the model CAN take — call this tool again,
+            # narrower — and the miss is logged.
+            _offered = False
+            if self.registry.get("fetch_tool_result") is not None:
+                from matrx_ai.context.app_context import try_get_app_context
+
+                if try_get_app_context() is not None:
+                    try:
+                        ctx.queue_tool_changes(
+                            add=[{"kind": "registered", "name": "fetch_tool_result"}]
+                        )
+                        _offered = True
+                    except Exception as inj_exc:  # noqa: BLE001 — never break dispatch
+                        vcprint(
+                            f"[ToolExecutor] fetch_tool_result injection failed: {inj_exc}",
+                            color="yellow",
+                        )
+            if not _offered and isinstance(content_dict.get("content"), str):
+                logger.warning(
+                    "[ToolExecutor] %r result was shortened but fetch_tool_result cannot be "
+                    "offered in this run; the notice names a re-call instead",
+                    tool_name,
                 )
+                from matrx_ai.tools.output_caps import without_fetch_pointer
+
+                content_dict["content"] = without_fetch_pointer(
+                    content_dict["content"], tool_name=tool_name
+                )
+                content_dict["output_chars"] = len(content_dict["content"])
         return content_dict, result
 
     # ------------------------------------------------------------------

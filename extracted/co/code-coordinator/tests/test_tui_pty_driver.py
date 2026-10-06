@@ -35,6 +35,14 @@ shell script, and ``exec`` can be applied to neither a leading ``cd``
 shape — the first against the pure string transform, the second end-to-end
 against a real pty — so a regression here fails loudly rather than only
 surfacing against the live fleet config.
+
+:class:`TestVtScreen`'s ``test_*wide_glyph*`` case (#3618) is the
+conformance scenario for a bugbash finding that every ``screen`` capture
+came back ``cols - 1`` wide: the root cause is ``pyte``'s own
+``Screen.display`` skipping the stub cell that trails a double-width
+glyph (CJK, emoji, ...) instead of padding it, fixed in
+``VtScreen.text()`` by rendering from the raw cell buffer instead. It
+fails against the pre-fix implementation and passes against the fix.
 """
 
 from __future__ import annotations
@@ -46,6 +54,7 @@ import time
 
 import pytest
 
+from coord.key_spec import UnsupportedKey
 from coord.tui_pty_driver import (
     SmokeRunner,
     SmokeSpec,
@@ -57,7 +66,9 @@ from coord.tui_pty_driver import (
     VtScreen,
     _wrap_launch_command,
     encode_click,
+    encode_drag,
     encode_key,
+    encode_key_sequence,
     parse_smoke_spec,
     run_smoke_spec,
 )
@@ -171,6 +182,42 @@ steps:
     def test_click_missing_row_col_raises(self) -> None:
         with pytest.raises(TuiPtySpecError, match="row"):
             parse_smoke_spec("steps:\n  - type: click\n")
+
+    def test_drag_step_parses_fields(self) -> None:
+        # #3604: press-drag-release had no step at all before this issue.
+        spec = parse_smoke_spec(
+            "steps:\n  - type: drag\n    row: 1\n    col: 2\n"
+            "    to_row: 5\n    to_col: 9\n    button: left\n"
+        )
+        step = spec.steps[0]
+        assert step.kind == "drag"
+        assert (step.row, step.col, step.to_row, step.to_col, step.button) == (1, 2, 5, 9, "left")
+
+    def test_drag_missing_to_row_to_col_raises(self) -> None:
+        with pytest.raises(TuiPtySpecError, match="to_row"):
+            parse_smoke_spec("steps:\n  - type: drag\n    row: 0\n    col: 0\n")
+
+    def test_drag_wheel_button_raises(self) -> None:
+        # (#2096 a gate must be able to fail) a wheel has no held state to
+        # drag with — this must be rejected at parse time, not silently
+        # produce a meaningless SGR sequence.
+        with pytest.raises(TuiPtySpecError, match="drag"):
+            parse_smoke_spec(
+                "steps:\n  - type: drag\n    row: 0\n    col: 0\n"
+                "    to_row: 1\n    to_col: 1\n    button: wheel-up\n"
+            )
+
+    def test_resize_step_parses_fields(self) -> None:
+        # #3604: the YAML schema had no live-resize action at all before
+        # this issue — only the top-level launch-time cols/rows.
+        spec = parse_smoke_spec("steps:\n  - type: resize\n    cols: 120\n    rows: 40\n")
+        step = spec.steps[0]
+        assert step.kind == "resize"
+        assert (step.cols, step.rows) == (120, 40)
+
+    def test_resize_missing_cols_rows_raises(self) -> None:
+        with pytest.raises(TuiPtySpecError, match="cols"):
+            parse_smoke_spec("steps:\n  - type: resize\n")
 
     def test_expect_within_missing_text_raises(self) -> None:
         with pytest.raises(TuiPtySpecError, match="text"):
@@ -287,6 +334,105 @@ class TestEncodeKey:
         with pytest.raises(TuiPtySpecError, match="unrecognized key"):
             encode_key("moonwalk")
 
+    def test_alt_m_and_its_aliases_all_produce_the_same_meta_escape(self) -> None:
+        # #3604: direct run-spec trials of each of these failed with
+        # 'unrecognized key' before this fix — all are the same physical
+        # Alt+m combo under a different spelling, and must encode
+        # identically to the universal terminal "meta sends ESC" sequence.
+        # #3639: the shared grammar's alt/option aliasing covers this now —
+        # "meta"/"M-m"/"a-m" are no longer Alt spellings (see the dedicated
+        # tests below: "meta" is canonically Cmd/Super under the grammar all
+        # four drivers share, and "M-m"/"a-m" never parsed under it at all).
+        expected = b"\x1bm"
+        for spelling in ("alt+m", "option+m", "opt+m", "Alt+m", "ALT+M".lower()):
+            assert encode_key(spelling) == expected, spelling
+        # "ALT+M" (uppercase base) is the Alt+Shift+m combo, not Alt+m —
+        # case must be preserved on the base character, not folded away.
+        assert encode_key("alt+M") == b"\x1bM"
+
+    def test_meta_is_cmd_not_alt_under_the_shared_grammar(self) -> None:
+        # #3639: unlike tui-pty's own pre-#3639 "meta sends ESC" aliasing,
+        # the grammar SHARED by all four drivers canonicalizes
+        # cmd/super/meta to one modifier distinct from alt/option — a
+        # terminal has no Cmd/Super/Meta key at all, so this must raise
+        # UnsupportedKey, never silently fall back to the old Alt behavior.
+        with pytest.raises(UnsupportedKey, match="tui-pty"):
+            encode_key("meta+m")
+
+    def test_legacy_dash_form_no_longer_parses(self) -> None:
+        # #3639: the pre-#3604 "M-m"/"a-m" emacs-style dash spellings were a
+        # tui-pty-only extension on top of its own ad hoc parser. The
+        # grammar shared by all four drivers only recognizes "+" as the
+        # modifier separator (`ctrl+shift+p`, `Alt+M`, `cmd+option+f`) — a
+        # bare "M-m" is just an unrecognized multi-character key now.
+        with pytest.raises(TuiPtySpecError, match="unrecognized key"):
+            encode_key("M-m")
+        with pytest.raises(TuiPtySpecError, match="unrecognized key"):
+            encode_key("a-m")
+
+    def test_cmd_to_a_terminal_raises_unsupported_key_naming_the_platform(self) -> None:
+        # #3639 acceptance: "a key a platform genuinely can't deliver (e.g.
+        # cmd to a terminal) raises a clear UnsupportedKey naming the
+        # platform" — never a silent no-op.
+        with pytest.raises(UnsupportedKey) as exc_info:
+            encode_key("cmd+c")
+        assert "tui-pty" in str(exc_info.value)
+
+    def test_unsupported_key_message_spells_modifiers_in_canonical_order(self) -> None:
+        # #3639 review nit: `_describe_chord` used to sort modifiers
+        # alphabetically (`alt+ctrl+shift+...`) rather than the canonical
+        # `ctrl+alt+shift` order the usage line advertises.
+        with pytest.raises(UnsupportedKey, match=r"'ctrl\+alt\+shift\+cmd\+c'"):
+            encode_key("shift+cmd+alt+ctrl+c")
+
+    def test_shift_arrow_combos(self) -> None:
+        # #3604: every VS Code-style Shift+-selection journey needs this.
+        assert encode_key("shift+right") == b"\x1b[1;2C"
+        assert encode_key("shift+left") == b"\x1b[1;2D"
+        assert encode_key("shift+up") == b"\x1b[1;2A"
+        assert encode_key("shift+down") == b"\x1b[1;2B"
+
+    def test_ctrl_home_and_ctrl_end(self) -> None:
+        # #3604: both failed with 'unrecognized key' before this fix.
+        assert encode_key("ctrl+home") == b"\x1b[1;5H"
+        assert encode_key("ctrl+end") == b"\x1b[1;5F"
+
+    def test_ctrl_shift_and_ctrl_alt_combos(self) -> None:
+        assert encode_key("ctrl+shift+right") == b"\x1b[1;6C"
+        assert encode_key("ctrl+alt+right") == b"\x1b[1;7C"
+
+    def test_plain_ctrl_letter_combo_unaffected(self) -> None:
+        # The pre-existing ctrl+<letter> control-code path must still win
+        # over the new general modifier parser for the case it already
+        # handled correctly.
+        assert encode_key("ctrl+c") == b"\x03"
+
+    def test_shift_f3(self) -> None:
+        # #3630: `shift+f3` previously raised TuiPtySpecError — F-keys were
+        # only on the Alt+named-key path.
+        assert encode_key("shift+f3") == b"\x1b[1;2R"
+
+    def test_colon_and_at_punctuation(self) -> None:
+        assert encode_key(":") == b":"
+        assert encode_key("@") == b"@"
+
+    def test_delete_and_backspace_are_different_bytes(self) -> None:
+        # #3627 (folded in, mac-only fix — tui-pty already had this right,
+        # asserted here for parity/regression coverage across all drivers).
+        assert encode_key("delete") == b"\x1b[3~"
+        assert encode_key("backspace") == b"\x7f"
+        assert encode_key("delete") != encode_key("backspace")
+
+    def test_chord_sequence_ctrl_k_ctrl_w(self) -> None:
+        assert encode_key_sequence("ctrl+k ctrl+w") == [b"\x0b", b"\x17"]
+
+    def test_encode_key_rejects_a_chord_sequence(self) -> None:
+        # `encode_key` is the single-chord encoder — a chord SEQUENCE must
+        # go through `encode_key_sequence` instead, never silently encode
+        # only the first chord.
+        with pytest.raises(TuiPtySpecError, match="chord sequence"):
+            encode_key("ctrl+k ctrl+w")
+
 
 class TestEncodeClick:
     def test_left_click_is_press_and_release(self) -> None:
@@ -306,6 +452,30 @@ class TestEncodeClick:
     def test_unrecognized_button_raises(self) -> None:
         with pytest.raises(TuiPtySpecError, match="unrecognized mouse button"):
             encode_click(0, 0, "super-click")
+
+
+class TestEncodeDrag:
+    """#3604: press-drag-release had no primitive at all before this
+    issue — every drag-to-select/resize-handle journey needs it."""
+
+    def test_press_motion_release_sequence(self) -> None:
+        data = encode_drag(0, 0, 2, 4, "left")
+        press = b"\x1b[<0;1;1M"
+        motion = b"\x1b[<32;5;3M"  # button code 0 + the 32 motion-held bit
+        release = b"\x1b[<0;5;3m"
+        assert data == press + motion + release
+
+    def test_right_drag_uses_button_code_2(self) -> None:
+        data = encode_drag(1, 1, 3, 3, "right")
+        assert data == b"\x1b[<2;2;2M" + b"\x1b[<34;4;4M" + b"\x1b[<2;4;4m"
+
+    def test_wheel_button_raises(self) -> None:
+        with pytest.raises(TuiPtySpecError, match="drag"):
+            encode_drag(0, 0, 1, 1, "wheel-up")
+
+    def test_unrecognized_button_raises(self) -> None:
+        with pytest.raises(TuiPtySpecError, match="unrecognized drag button"):
+            encode_drag(0, 0, 1, 1, "super-click")
 
 
 # ── VtScreen ─────────────────────────────────────────────────────────────────
@@ -335,6 +505,82 @@ class TestVtScreen:
         screen = VtScreen(cols=20, rows=5)
         screen.feed(b"HI")
         assert screen.cursor() == (0, 2)
+
+    def test_resize_grows_the_screen_so_a_wider_write_is_fully_visible(self) -> None:
+        # #3604: a reflow journey resizes mid-run; the VT screen must track
+        # it or a post-resize `expect_screen` would read stale, truncated
+        # dimensions. Write a string that overflows the original 10-col
+        # width — it must still be entirely present only AFTER resize.
+        screen = VtScreen(cols=10, rows=5)
+        screen.resize(5, 20)
+        screen.feed(b"0123456789ABCDEF")
+        assert "0123456789ABCDEF" in screen.text()
+
+    def test_right_flushed_status_line_keeps_its_last_column_not_cols_minus_one(self) -> None:
+        """#3618: a bugbash finding reported every row of a ``coord
+        app-drive tui-pty screen`` capture as exactly ``cols - 1`` wide,
+        truncating a right-flush-justified status segment's final
+        character (vimcode's own ``Ln N, Col N`` ruler, observed losing
+        its last digit). Reproduce the exact reported shape — a status
+        line whose rightmost character lands on the LAST column, written
+        via cursor positioning rather than a plain feed — against the
+        ONE :class:`VtScreen` both :class:`SmokeRunner` and
+        :class:`TuiPtySession` share (#2096 "one question, one answer"):
+        this must come back the full requested width, last character
+        intact, not ``cols - 1``.
+
+        This pure-ASCII shape already passed before this issue's fix —
+        ``len(line) == cols`` here is a property of ``pyte`` itself, not
+        of anything this repo's driver does, so on its own this case
+        cannot have caught the real regression. See
+        ``test_right_flushed_status_line_survives_a_leading_wide_glyph``
+        below for the case that actually reproduces and guards it.
+        """
+        cols, rows = 100, 10
+        screen = VtScreen(cols=cols, rows=rows)
+        text = "Ln 1, Col 100"
+        # The literal digits are cosmetic; the invariant under test is
+        # the string's LAST character landing exactly on column `cols`.
+        col_start = cols - len(text) + 1  # 1-indexed CUP column of the first char
+        screen.feed(f"\x1b[{rows};{col_start}H{text}".encode())
+        lines = screen.text().split("\n")
+        assert len(lines) == rows
+        assert all(len(line) == cols for line in lines)
+        assert lines[-1].endswith(text)
+
+    def test_right_flushed_status_line_survives_a_leading_wide_glyph(self) -> None:
+        """#3618's actual root cause, isolated and fixed: ``pyte``'s own
+        ``Screen.display`` (which ``VtScreen.text()`` used to return
+        verbatim) *skips* the stub cell that trails a double-width glyph
+        (CJK, emoji, a nerd-font icon, ...) instead of padding it, so any
+        row containing even one such glyph renders exactly one character
+        shorter than ``self.columns`` — collapsing whatever right-flushed
+        text follows it on that row, the reported symptom exactly
+        (vimcode's ruler loses its last digit whenever the status line
+        also carries a wide glyph earlier in the row, e.g. a mode icon).
+
+        This is the one mechanism inside this repo's own capture path
+        that can genuinely produce a short row; the pure-ASCII case
+        above cannot exercise it. Against the pre-fix ``VtScreen.text()``
+        (``"\\n".join(line[...] for line in self._screen.display)``)
+        this fails with every row one character short and the glyph's
+        trailing text shifted left by one; against the fix (rendering
+        from the raw cell buffer and padding the stub cell back to a
+        single column) it passes.
+        """
+        cols, rows = 100, 10
+        screen = VtScreen(cols=cols, rows=rows)
+        glyph = "文"  # East-Asian Wide: occupies 2 display columns.
+        glyph_width = 2
+        text = "Ln 1, Col 100"
+        col_start = cols - glyph_width - len(text) + 1  # 1-indexed CUP column
+        screen.feed(f"\x1b[{rows};{col_start}H{glyph}{text}".encode())
+        lines = screen.text().split("\n")
+        assert len(lines) == rows
+        widths = [(i, len(line)) for i, line in enumerate(lines) if len(line) != cols]
+        assert not widths, f"rows not exactly {cols} wide: {widths}"
+        assert lines[-1].endswith(text)
+        assert glyph in lines[-1]
 
     def test_missing_pyte_raises_actionable_error(self, monkeypatch) -> None:
         import builtins
@@ -369,10 +615,14 @@ class FakePtyChild:
         self._start = time.monotonic()
         self._alive = not dies_immediately
         self.writes: list[bytes] = []
+        self.resizes: list[tuple[int, int]] = []
         self._closed = False
 
     def write(self, data: bytes) -> None:
         self.writes.append(data)
+
+    def resize(self, cols: int, rows: int) -> None:
+        self.resizes.append((cols, rows))
 
     def read(self, timeout: float) -> bytes:
         deadline = time.monotonic() + timeout
@@ -441,6 +691,58 @@ class TestSmokeRunnerActions:
             _step("click", 1, row=3, col=7, button="right"),
         ]))
         assert encode_click(3, 7, "right") in child.writes
+
+    def test_key_step_handles_alt_and_shift_combos(self) -> None:
+        # #3604: this is the exact run-spec shape the issue's own
+        # reproduction describes — `key: 'alt+m'`/`key: 'shift+right'` as
+        # a YAML smoke-spec step, not just a direct `encode_key` call.
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("key", 1, id="alt-m", key="alt+m"),
+            _step("key", 2, id="shift-right", key="shift+right"),
+            _step("key", 3, id="ctrl-home", key="ctrl+home"),
+        ]))
+        assert [r["status"] for r in results] == ["pass", "pass", "pass", "pass"]
+        assert b"\x1bm" in child.writes
+        assert b"\x1b[1;2C" in child.writes
+        assert b"\x1b[1;5H" in child.writes
+
+    def test_key_step_sends_a_chord_sequence_as_separate_writes_in_order(self) -> None:
+        # #3639: `key: 'ctrl+k ctrl+w'` must write BOTH chords, in order —
+        # not just the first.
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("key", 1, id="chord", key="ctrl+k ctrl+w"),
+        ]))
+        assert [r["status"] for r in results] == ["pass", "pass"]
+        ctrl_k_index = child.writes.index(b"\x0b")
+        ctrl_w_index = child.writes.index(b"\x17")
+        assert ctrl_k_index < ctrl_w_index
+
+    def test_drag_step_writes_press_motion_release(self) -> None:
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("drag", 1, row=0, col=0, to_row=2, to_col=4, button="left"),
+        ]))
+        assert results[1]["status"] == "pass"
+        assert encode_drag(0, 0, 2, 4, "left") in child.writes
+
+    def test_resize_step_resizes_both_the_pty_and_the_vt_screen(self) -> None:
+        child = FakePtyChild()
+        runner = SmokeRunner(lambda cols, rows: child)
+        results = runner.run(_spec([
+            _step("launch", 0),
+            _step("resize", 1, cols=120, rows=40),
+        ], cols=80, rows=24))
+        assert results[1]["status"] == "pass"
+        assert child.resizes == [(120, 40)]
+        assert (runner._cols, runner._rows) == (120, 40)
 
 
 class TestSmokeRunnerWaitIdle:
@@ -616,6 +918,99 @@ class TestTuiPtySessionCprAutoReply:
             session.close()
 
 
+class TestTuiPtySessionDragAndResize:
+    """#3604: the interactively-driven session (``coord app-drive tui-pty
+    send --drag``/``resize``) must not drift from :class:`SmokeRunner`'s
+    own drag/resize handling — same primitives, same two-sided resize
+    (#2096 'one question, one answer')."""
+
+    def test_send_drag_writes_the_same_bytes_encode_drag_would(self) -> None:
+        child = FakePtyChild()
+        session = TuiPtySession(
+            "unused", ".", cols=80, rows=24,
+            spawn_child=lambda launch, cwd, cols, rows: child,
+        )
+        try:
+            session.send_drag(1, 1, 3, 3, "right")
+            assert encode_drag(1, 1, 3, 3, "right") in child.writes
+        finally:
+            session.close()
+
+    def test_resize_resizes_both_the_child_and_the_vt_screen(self) -> None:
+        child = FakePtyChild()
+        session = TuiPtySession(
+            "unused", ".", cols=80, rows=24,
+            spawn_child=lambda launch, cwd, cols, rows: child,
+        )
+        try:
+            session.resize(120, 40)
+            # The real pty/ConPTY side.
+            assert child.resizes == [(120, 40)]
+            # The VT screen side — pyte's own Screen tracks its dimensions
+            # as `.columns`/`.lines`; both must reflect the resize, not
+            # just the real pty half.
+            assert (session._screen._screen.columns, session._screen._screen.lines) == (120, 40)
+        finally:
+            session.close()
+
+
+class TestTuiPtySessionScreenWidth:
+    """A :class:`TuiPtySession`-level companion to
+    :class:`TestVtScreen`'s ``VtScreen.text()`` conformance scenario
+    (#3618): calls :meth:`TuiPtySession.screen_text` directly against a
+    scripted :class:`FakePtyChild`, so it exercises this session
+    wrapper's locking/region plumbing on top of ``VtScreen`` — it does
+    NOT drive :func:`coord.app_drive_daemon._dispatch`, the daemon
+    socket, or the CLI's JSON round trip; that real-daemon layer is
+    covered separately by ``tests/test_app_drive.py``'s
+    ``TestTuiPtyAppDriveBlackBox``/``TestOpenSessionCloseSession``
+    real-daemon tests."""
+
+    def test_screen_rows_are_exactly_cols_wide_not_cols_minus_one(self) -> None:
+        cols, rows = 100, 30
+        text = "Ln 1, Col 100"
+        col_start = cols - len(text) + 1
+        child = FakePtyChild(script=[(0.0, f"\x1b[{rows};{col_start}H{text}".encode())])
+        session = TuiPtySession(
+            "unused", ".", cols=cols, rows=rows,
+            spawn_child=lambda launch, cwd, cols, rows: child,
+        )
+        try:
+            session.wait_idle(ms=200, timeout_ms=2000)
+            lines = session.screen_text().split("\n")
+            assert len(lines) == rows
+            widths = [(i, len(line)) for i, line in enumerate(lines) if len(line) != cols]
+            assert not widths, f"rows not exactly {cols} wide: {widths}"
+            assert lines[-1].endswith(text)
+        finally:
+            session.close()
+
+    def test_screen_rows_survive_a_leading_wide_glyph(self) -> None:
+        """The :class:`TuiPtySession` counterpart to
+        ``test_right_flushed_status_line_survives_a_leading_wide_glyph``
+        — confirms the fix holds through this session wrapper's own
+        ``screen_text()``, not just a bare :class:`VtScreen`."""
+        cols, rows = 100, 30
+        glyph = "文"
+        glyph_width = 2
+        text = "Ln 1, Col 100"
+        col_start = cols - glyph_width - len(text) + 1
+        child = FakePtyChild(script=[(0.0, f"\x1b[{rows};{col_start}H{glyph}{text}".encode())])
+        session = TuiPtySession(
+            "unused", ".", cols=cols, rows=rows,
+            spawn_child=lambda launch, cwd, cols, rows: child,
+        )
+        try:
+            session.wait_idle(ms=200, timeout_ms=2000)
+            lines = session.screen_text().split("\n")
+            assert len(lines) == rows
+            widths = [(i, len(line)) for i, line in enumerate(lines) if len(line) != cols]
+            assert not widths, f"rows not exactly {cols} wide: {widths}"
+            assert lines[-1].endswith(text)
+        finally:
+            session.close()
+
+
 class TestSmokeRunnerDeadline:
     def test_overall_timeout_aborts_remaining_steps(self) -> None:
         child = FakePtyChild()
@@ -662,6 +1057,33 @@ steps:
                 spawn_child=lambda cols, rows: spawned.append(1) or FakePtyChild(),
             )
         assert spawned == []
+
+    def test_unsupported_key_fails_only_that_step_not_the_whole_run(self) -> None:
+        # #3639 review finding: `UnsupportedKey` only subclassed `Exception`,
+        # so it escaped `_run_step`'s closed except-tuple and aborted the
+        # whole run instead of failing one step — exactly the issue's own
+        # example (`key: cmd+c` on tui-pty, a very likely copy-paste from a
+        # mac journey). The run must keep going and the later step must
+        # still execute.
+        spec_text = """
+steps:
+  - type: launch
+  - type: key
+    key: cmd+c
+  - type: wait_idle
+    ms: 10
+    timeout_ms: 1000
+"""
+        child = FakePtyChild()
+        results = run_smoke_spec(
+            spec_text, launch_command="unused", cwd=".",
+            spawn_child=lambda cols, rows: child,
+        )
+        assert [r["id"] for r in results] == ["000 launch", "001 key", "002 wait_idle"]
+        assert results[0]["status"] == "pass"
+        assert results[1]["status"] == "fail"
+        assert "tui-pty" in results[1]["message"]
+        assert results[2]["status"] == "pass"
 
 
 # ── a real Unix pty (not the fake) — proves UnixPtyChild itself works ──────

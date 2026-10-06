@@ -9,11 +9,11 @@
 
 from __future__ import annotations
 
-import typing
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Sequence as _PySequence
 from copy import deepcopy
 from functools import singledispatch
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import numpy as np
 
@@ -32,7 +32,9 @@ from gymnasium.spaces import (
     Text,
     Tuple,
 )
-from gymnasium.spaces.space import T_cov
+
+if TYPE_CHECKING:
+    from typing_extensions import Never
 
 __all__ = [
     "batch_space",
@@ -41,6 +43,8 @@ __all__ = [
     "concatenate",
     "create_empty_array",
 ]
+
+_T = TypeVar("_T")
 
 
 @singledispatch
@@ -73,14 +77,14 @@ def batch_space(space: Space[Any], n: int = 1) -> Space[Any]:
 
 
 @batch_space.register(Box)
-def _batch_space_box(space: Box, n: int = 1):
+def _batch_space_box(space: Box, n: int = 1) -> Box:
     repeats = tuple([n] + [1] * space.low.ndim)
     low, high = np.tile(space.low, repeats), np.tile(space.high, repeats)
     return Box(low=low, high=high, dtype=space.dtype, seed=deepcopy(space.np_random))
 
 
 @batch_space.register(Discrete)
-def _batch_space_discrete(space: Discrete, n: int = 1):
+def _batch_space_discrete(space: Discrete, n: int = 1) -> MultiDiscrete:
     return MultiDiscrete(
         np.full((n,), space.n, dtype=space.dtype),
         dtype=space.dtype,
@@ -90,7 +94,7 @@ def _batch_space_discrete(space: Discrete, n: int = 1):
 
 
 @batch_space.register(MultiDiscrete)
-def _batch_space_multidiscrete(space: MultiDiscrete, n: int = 1):
+def _batch_space_multidiscrete(space: MultiDiscrete, n: int = 1) -> Box:
     repeats = tuple([n] + [1] * space.nvec.ndim)
     low = np.tile(space.start, repeats)
     high = low + np.tile(space.nvec, repeats) - 1
@@ -103,7 +107,7 @@ def _batch_space_multidiscrete(space: MultiDiscrete, n: int = 1):
 
 
 @batch_space.register(MultiBinary)
-def _batch_space_multibinary(space: MultiBinary, n: int = 1):
+def _batch_space_multibinary(space: MultiBinary, n: int = 1) -> Box:
     return Box(
         low=0,
         high=1,
@@ -114,7 +118,7 @@ def _batch_space_multibinary(space: MultiBinary, n: int = 1):
 
 
 @batch_space.register(Tuple)
-def _batch_space_tuple(space: Tuple, n: int = 1):
+def _batch_space_tuple(space: Tuple, n: int = 1) -> Tuple:
     return Tuple(
         tuple(batch_space(subspace, n=n) for subspace in space.spaces),
         seed=deepcopy(space.np_random),
@@ -122,10 +126,11 @@ def _batch_space_tuple(space: Tuple, n: int = 1):
 
 
 @batch_space.register(Dict)
-def _batch_space_dict(space: Dict, n: int = 1):
+def _batch_space_dict(space: Dict, n: int = 1) -> Dict:
     return Dict(
         {key: batch_space(subspace, n=n) for key, subspace in space.items()},
         seed=deepcopy(space.np_random),
+        sort_keys=space.sort_keys,
     )
 
 
@@ -134,20 +139,20 @@ def _batch_space_dict(space: Dict, n: int = 1):
 @batch_space.register(Sequence)
 @batch_space.register(OneOf)
 @batch_space.register(Space)
-def _batch_space_custom(space: Graph | Text | Sequence | OneOf, n: int = 1):
+def _batch_space_custom(space: Graph | Text | Sequence | OneOf, n: int = 1) -> Tuple:
     # Without deepcopy, then the space.np_random is batched_space.spaces[0].np_random
     # Which is an issue if you are sampling actions of both the original space and the batched space
     batched_space = Tuple(
         tuple(deepcopy(space) for _ in range(n)), seed=deepcopy(space.np_random)
     )
     space_rng = deepcopy(space.np_random)
-    new_seeds = list(map(int, space_rng.integers(0, 1e8, n)))
+    new_seeds = list(map(int, space_rng.integers(0, int(1e8), n)))
     batched_space.seed(new_seeds)
     return batched_space
 
 
 @singledispatch
-def batch_differing_spaces(spaces: typing.Sequence[Space]) -> Space:
+def batch_differing_spaces(spaces: _PySequence[Space]) -> Space:
     """Batch a Sequence of spaces where subspaces to contain minor differences.
 
     Args:
@@ -162,28 +167,34 @@ def batch_differing_spaces(spaces: typing.Sequence[Space]) -> Space:
         >>> batch_differing_spaces(spaces)
         MultiDiscrete([3 5 4 8])
     """
-    assert len(spaces) > 0, "Expects a non-empty list of spaces"
-    assert all(isinstance(space, type(spaces[0])) for space in spaces), (
-        f"Expects all spaces to be the same shape, actual types: {[type(space) for space in spaces]}"
-    )
-    assert type(spaces[0]) in batch_differing_spaces.registry, (
-        f"Requires the Space type to have a registered `batch_differing_space`, current list: {batch_differing_spaces.registry}"
-    )
+    if len(spaces) == 0:
+        raise ValueError("Expects a non-empty list of spaces")
+    if not all(isinstance(space, type(spaces[0])) for space in spaces):
+        raise TypeError(
+            f"Expects all spaces to be of the same type, actual types: {[type(space) for space in spaces]}"
+        )
+    if type(spaces[0]) not in batch_differing_spaces.registry:
+        raise TypeError(
+            f"Requires the Space type to have a registered `batch_differing_space`, current list: {batch_differing_spaces.registry}"
+        )
 
     return batch_differing_spaces.dispatch(type(spaces[0]))(spaces)
 
 
 @batch_differing_spaces.register(Box)
-def _batch_differing_spaces_box(spaces: list[Box]):
-    assert all(spaces[0].dtype == space.dtype for space in spaces), (
-        f"Expected all dtypes to be equal, actually {[space.dtype for space in spaces]}"
-    )
-    assert all(spaces[0].low.shape == space.low.shape for space in spaces), (
-        f"Expected all Box.low shape to be equal, actually {[space.low.shape for space in spaces]}"
-    )
-    assert all(spaces[0].high.shape == space.high.shape for space in spaces), (
-        f"Expected all Box.high shape to be equal, actually {[space.high.shape for space in spaces]}"
-    )
+def _batch_differing_spaces_box(spaces: _PySequence[Box]) -> Box:
+    if not all(spaces[0].dtype == space.dtype for space in spaces):
+        raise ValueError(
+            f"Expected all dtypes to be equal, actually {[space.dtype for space in spaces]}"
+        )
+    if not all(spaces[0].low.shape == space.low.shape for space in spaces):
+        raise ValueError(
+            f"Expected all Box.low shape to be equal, actually {[space.low.shape for space in spaces]}"
+        )
+    if not all(spaces[0].high.shape == space.high.shape for space in spaces):
+        raise ValueError(
+            f"Expected all Box.high shape to be equal, actually {[space.high.shape for space in spaces]}"
+        )
 
     return Box(
         low=np.array([space.low for space in spaces]),
@@ -194,7 +205,7 @@ def _batch_differing_spaces_box(spaces: list[Box]):
 
 
 @batch_differing_spaces.register(Discrete)
-def _batch_differing_spaces_discrete(spaces: list[Discrete]):
+def _batch_differing_spaces_discrete(spaces: _PySequence[Discrete]) -> MultiDiscrete:
     # select the "largest" to fit others.
     # Assumes all spaces dtype are of int dtype
     dtypes = [space.dtype for space in spaces]
@@ -208,16 +219,19 @@ def _batch_differing_spaces_discrete(spaces: list[Discrete]):
 
 
 @batch_differing_spaces.register(MultiDiscrete)
-def _batch_differing_spaces_multi_discrete(spaces: list[MultiDiscrete]):
-    assert all(spaces[0].dtype == space.dtype for space in spaces), (
-        f"Expected all dtypes to be equal, actually {[space.dtype for space in spaces]}"
-    )
-    assert all(spaces[0].nvec.shape == space.nvec.shape for space in spaces), (
-        f"Expects all MultiDiscrete.nvec shape, actually {[space.nvec.shape for space in spaces]}"
-    )
-    assert all(spaces[0].start.shape == space.start.shape for space in spaces), (
-        f"Expects all MultiDiscrete.start shape, actually {[space.start.shape for space in spaces]}"
-    )
+def _batch_differing_spaces_multi_discrete(spaces: _PySequence[MultiDiscrete]) -> Box:
+    if not all(spaces[0].dtype == space.dtype for space in spaces):
+        raise ValueError(
+            f"Expected all dtypes to be equal, actually {[space.dtype for space in spaces]}"
+        )
+    if not all(spaces[0].nvec.shape == space.nvec.shape for space in spaces):
+        raise ValueError(
+            f"Expects all MultiDiscrete.nvec shape, actually {[space.nvec.shape for space in spaces]}"
+        )
+    if not all(spaces[0].start.shape == space.start.shape for space in spaces):
+        raise ValueError(
+            f"Expects all MultiDiscrete.start shape, actually {[space.start.shape for space in spaces]}"
+        )
 
     return Box(
         low=np.array([space.start for space in spaces]),
@@ -228,8 +242,11 @@ def _batch_differing_spaces_multi_discrete(spaces: list[MultiDiscrete]):
 
 
 @batch_differing_spaces.register(MultiBinary)
-def _batch_differing_spaces_multi_binary(spaces: list[MultiBinary]):
-    assert all(spaces[0].shape == space.shape for space in spaces)
+def _batch_differing_spaces_multi_binary(spaces: _PySequence[MultiBinary]) -> Box:
+    if not all(spaces[0].shape == space.shape for space in spaces):
+        raise ValueError(
+            f"Expected all MultiBinary shapes to be equal, actually {[space.shape for space in spaces]}"
+        )
 
     return Box(
         low=0,
@@ -241,7 +258,7 @@ def _batch_differing_spaces_multi_binary(spaces: list[MultiBinary]):
 
 
 @batch_differing_spaces.register(Tuple)
-def _batch_differing_spaces_tuple(spaces: list[Tuple]):
+def _batch_differing_spaces_tuple(spaces: _PySequence[Tuple]) -> Tuple:
     return Tuple(
         tuple(
             batch_differing_spaces(subspaces)
@@ -252,8 +269,11 @@ def _batch_differing_spaces_tuple(spaces: list[Tuple]):
 
 
 @batch_differing_spaces.register(Dict)
-def _batch_differing_spaces_dict(spaces: list[Dict]):
-    assert all(spaces[0].keys() == space.keys() for space in spaces)
+def _batch_differing_spaces_dict(spaces: _PySequence[Dict]) -> Dict:
+    if not all(spaces[0].keys() == space.keys() for space in spaces):
+        raise ValueError(
+            f"Expected all Dict spaces to have the same keys, actually {[list(space.keys()) for space in spaces]}"
+        )
 
     return Dict(
         {
@@ -261,6 +281,7 @@ def _batch_differing_spaces_dict(spaces: list[Dict]):
             for key in spaces[0].keys()
         },
         seed=deepcopy(spaces[0].np_random),
+        sort_keys=spaces[0].sort_keys,
     )
 
 
@@ -268,14 +289,16 @@ def _batch_differing_spaces_dict(spaces: list[Dict]):
 @batch_differing_spaces.register(Text)
 @batch_differing_spaces.register(Sequence)
 @batch_differing_spaces.register(OneOf)
-def _batch_spaces_undefined(spaces: list[Graph | Text | Sequence | OneOf]):
+def _batch_spaces_undefined(
+    spaces: _PySequence[Graph | Text | Sequence | OneOf],
+) -> Tuple:
     return Tuple(
         [deepcopy(space) for space in spaces], seed=deepcopy(spaces[0].np_random)
     )
 
 
 @singledispatch
-def iterate(space: Space[T_cov], items: T_cov) -> Iterator:
+def iterate(space: Space[_T], items: _T) -> Iterator[Any]:
     """Iterate over the elements of a (batched) space.
 
     Args:
@@ -310,14 +333,16 @@ def iterate(space: Space[T_cov], items: T_cov) -> Iterator:
 
 
 @iterate.register(Discrete)
-def _iterate_discrete(space: Discrete, items: Iterable):
+def _iterate_discrete(space: Discrete, items: Iterable[Any]) -> Never:
     raise TypeError("Unable to iterate over a space of type `Discrete`.")
 
 
 @iterate.register(Box)
 @iterate.register(MultiDiscrete)
 @iterate.register(MultiBinary)
-def _iterate_base(space: Box | MultiDiscrete | MultiBinary, items: np.ndarray):
+def _iterate_base(
+    space: Box | MultiDiscrete | MultiBinary, items: np.ndarray
+) -> Iterator[Any]:
     try:
         return iter(items)
     except TypeError as e:
@@ -327,7 +352,7 @@ def _iterate_base(space: Box | MultiDiscrete | MultiBinary, items: np.ndarray):
 
 
 @iterate.register(Tuple)
-def _iterate_tuple(space: Tuple, items: tuple[Any, ...]):
+def _iterate_tuple(space: Tuple, items: tuple[Any, ...]) -> Iterator[Any]:
     # If this is a tuple of custom subspaces only, then simply iterate over items
     if all(type(subspace) in iterate.registry for subspace in space):
         return zip(
@@ -349,7 +374,7 @@ def _iterate_tuple(space: Tuple, items: tuple[Any, ...]):
 
 
 @iterate.register(Dict)
-def _iterate_dict(space: Dict, items: dict[str, Any]):
+def _iterate_dict(space: Dict, items: Mapping[str, Any]) -> Iterator[dict[str, Any]]:
     keys, values = zip(
         *[
             (key, iterate(subspace, items[key]))
@@ -363,7 +388,7 @@ def _iterate_dict(space: Dict, items: dict[str, Any]):
 
 @singledispatch
 def concatenate(
-    space: Space, items: Iterable, out: tuple[Any, ...] | dict[str, Any] | np.ndarray
+    space: Space, items: Iterable, out: tuple[Any, ...] | Mapping[str, Any] | np.ndarray
 ) -> tuple[Any, ...] | dict[str, Any] | np.ndarray:
     """Concatenate multiple samples from space into a single object.
 
@@ -402,7 +427,7 @@ def _concatenate_base(
     items: Iterable,
     out: np.ndarray,
 ) -> np.ndarray:
-    return np.stack(items, axis=0, out=out)
+    return np.stack(list(items), axis=0, out=out)
 
 
 @concatenate.register(Tuple)
@@ -417,7 +442,7 @@ def _concatenate_tuple(
 
 @concatenate.register(Dict)
 def _concatenate_dict(
-    space: Dict, items: Iterable, out: dict[str, Any]
+    space: Dict, items: Iterable, out: Mapping[str, Any]
 ) -> dict[str, Any]:
     return {
         key: concatenate(subspace, [item[key] for item in items], out[key])
@@ -430,14 +455,14 @@ def _concatenate_dict(
 @concatenate.register(Sequence)
 @concatenate.register(Space)
 @concatenate.register(OneOf)
-def _concatenate_custom(space: Space, items: Iterable, out: None) -> tuple[Any, ...]:
+def _concatenate_custom(space: Space, items: Iterable[_T], out: None) -> tuple[_T, ...]:
     return tuple(items)
 
 
 @singledispatch
 def create_empty_array(
     space: Space, n: int = 1, fn: Callable = np.zeros
-) -> tuple[Any, ...] | dict[str, Any] | np.ndarray:
+) -> tuple[Any, ...] | dict[str, Any] | np.ndarray | None:
     """Create an empty (possibly nested and normally numpy-based) array, used in conjunction with ``concatenate(..., out=array)``.
 
     In most cases, the array will be contained within the batched space, however, this is not guaranteed.
@@ -457,8 +482,9 @@ def create_empty_array(
         >>> from gymnasium.spaces import Box, Dict
         >>> import numpy as np
         >>> space = Dict({
-        ... 'position': Box(low=0, high=1, shape=(3,), dtype=np.float32),
-        ... 'velocity': Box(low=0, high=1, shape=(2,), dtype=np.float32)})
+        ...     'position': Box(low=0, high=1, shape=(3,), dtype=np.float32),
+        ...     'velocity': Box(low=0, high=1, shape=(2,), dtype=np.float32),
+        ... })
         >>> create_empty_array(space, n=2, fn=np.zeros)
         {'position': array([[0., 0., 0.],
                [0., 0., 0.]], dtype=float32), 'velocity': array([[0., 0.],
@@ -475,17 +501,23 @@ def create_empty_array(
 @create_empty_array.register(Discrete)
 @create_empty_array.register(MultiDiscrete)
 @create_empty_array.register(MultiBinary)
-def _create_empty_array_multi(space: Box, n: int = 1, fn=np.zeros) -> np.ndarray:
+def _create_empty_array_multi(
+    space: Box, n: int = 1, fn: Callable = np.zeros
+) -> np.ndarray:
     return fn((n,) + space.shape, dtype=space.dtype)
 
 
 @create_empty_array.register(Tuple)
-def _create_empty_array_tuple(space: Tuple, n: int = 1, fn=np.zeros) -> tuple[Any, ...]:
+def _create_empty_array_tuple(
+    space: Tuple, n: int = 1, fn: Callable = np.zeros
+) -> tuple[Any, ...]:
     return tuple(create_empty_array(subspace, n=n, fn=fn) for subspace in space.spaces)
 
 
 @create_empty_array.register(Dict)
-def _create_empty_array_dict(space: Dict, n: int = 1, fn=np.zeros) -> dict[str, Any]:
+def _create_empty_array_dict(
+    space: Dict, n: int = 1, fn: Callable = np.zeros
+) -> dict[str, Any]:
     return {
         key: create_empty_array(subspace, n=n, fn=fn) for key, subspace in space.items()
     }
@@ -493,36 +525,34 @@ def _create_empty_array_dict(space: Dict, n: int = 1, fn=np.zeros) -> dict[str, 
 
 @create_empty_array.register(Graph)
 def _create_empty_array_graph(
-    space: Graph, n: int = 1, fn=np.zeros
+    space: Graph, n: int = 1, fn: Callable = np.zeros
 ) -> tuple[GraphInstance, ...]:
-    if space.edge_space is not None:
-        return tuple(
-            GraphInstance(
-                nodes=fn((1,) + space.node_space.shape, dtype=space.node_space.dtype),
-                edges=fn((1,) + space.edge_space.shape, dtype=space.edge_space.dtype),
-                edge_links=fn((1, 2), dtype=np.int64),
-            )
-            for _ in range(n)
+    return tuple(
+        GraphInstance(
+            nodes=create_empty_array(space.node_space, n=1, fn=fn),
+            edges=(
+                create_empty_array(space.edge_space, n=1, fn=fn)
+                if space.edge_space is not None
+                else None
+            ),
+            edge_links=(
+                fn((1, 2), dtype=np.int64) if space.edge_space is not None else None
+            ),
         )
-    else:
-        return tuple(
-            GraphInstance(
-                nodes=fn((1,) + space.node_space.shape, dtype=space.node_space.dtype),
-                edges=None,
-                edge_links=None,
-            )
-            for _ in range(n)
-        )
+        for _ in range(n)
+    )
 
 
 @create_empty_array.register(Text)
-def _create_empty_array_text(space: Text, n: int = 1, fn=np.zeros) -> tuple[str, ...]:
+def _create_empty_array_text(
+    space: Text, n: int = 1, fn: Callable = np.zeros
+) -> tuple[str, ...]:
     return tuple(space.characters[0] * space.min_length for _ in range(n))
 
 
 @create_empty_array.register(Sequence)
 def _create_empty_array_sequence(
-    space: Sequence, n: int = 1, fn=np.zeros
+    space: Sequence, n: int = 1, fn: Callable = np.zeros
 ) -> tuple[Any, ...]:
     if space.stack:
         return tuple(
@@ -533,10 +563,14 @@ def _create_empty_array_sequence(
 
 
 @create_empty_array.register(OneOf)
-def _create_empty_array_oneof(space: OneOf, n: int = 1, fn=np.zeros):
+def _create_empty_array_oneof(
+    space: OneOf, n: int = 1, fn: Callable = np.zeros
+) -> tuple[tuple[()], ...]:
     return tuple(tuple() for _ in range(n))
 
 
 @create_empty_array.register(Space)
-def _create_empty_array_custom(space, n=1, fn=np.zeros):
+def _create_empty_array_custom(
+    space: Space, n: int = 1, fn: Callable = np.zeros
+) -> None:
     return None

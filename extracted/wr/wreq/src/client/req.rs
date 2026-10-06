@@ -5,7 +5,7 @@ use std::{
 
 use futures_util::TryFutureExt;
 use http::header::COOKIE;
-use pyo3::{PyResult, prelude::*, pybacked::PyBackedStr};
+use pyo3::{PyResult, exceptions::asyncio::CancelledError, prelude::*, pybacked::PyBackedStr};
 
 use crate::{
     client::{
@@ -156,56 +156,26 @@ pub struct WebSocketRequest {
     /// The query parameters to use for the request.
     query: Option<Query>,
 
-    /// Read buffer capacity. This buffer is eagerly allocated and used for receiving
-    /// messages.
-    ///
-    /// For high read load scenarios a larger buffer, e.g. 128 KiB, improves performance.
-    ///
-    /// For scenarios where you expect a lot of connections and don't need high read load
-    /// performance a smaller buffer, e.g. 4 KiB, would be appropriate to lower total
-    /// memory usage.
-    ///
-    /// The default value is 128 KiB.
+    /// Read buffer capacity, allocated up front; default 128 KiB.
     read_buffer_size: Option<usize>,
 
-    /// The target minimum size of the write buffer to reach before writing the data
-    /// to the underlying stream.
-    /// The default value is 128 KiB.
-    ///
-    /// If set to `0` each message will be eagerly written to the underlying stream.
-    /// It is often more optimal to allow them to buffer a little, hence the default value.
-    ///
-    /// Note: [`flush`](WebSocket::flush) will always fully write the buffer regardless.
+    /// Bytes buffered before writing to the socket; `0` writes each message at once.
+    /// Default 128 KiB.
     write_buffer_size: Option<usize>,
 
-    /// The max size of the write buffer in bytes. Setting this can provide backpressure
-    /// in the case the write buffer is filling up due to write errors.
-    /// The default value is unlimited.
-    ///
-    /// Note: The write buffer only builds up past [`write_buffer_size`](Self::write_buffer_size)
-    /// when writes to the underlying stream are failing. So the **write buffer can not
-    /// fill up if you are not observing write errors even if not flushing**.
-    ///
-    /// Note: Should always be at least [`write_buffer_size + 1 message`](Self::write_buffer_size)
-    /// and probably a little more depending on error handling strategy.
+    /// Write buffer limit. The buffer only grows past `write_buffer_size` while writes fail,
+    /// so keep it above that plus one message. Default unlimited.
     max_write_buffer_size: Option<usize>,
 
-    /// The maximum size of an incoming message. `None` means no size limit. The default value is
-    /// 64 MiB which should be reasonably big for all normal use-cases but small enough to
-    /// prevent memory eating by a malicious user.
+    /// Largest incoming message; `None` means unlimited. Default 64 MiB.
     max_message_size: Option<usize>,
 
-    /// The maximum size of a single incoming message frame. `None` means no size limit. The limit
-    /// is for frame payload NOT including the frame header. The default value is 16 MiB which
-    /// should be reasonably big for all normal use-cases but small enough to prevent memory
-    /// eating by a malicious user.
+    /// Largest incoming frame payload, excluding the header; `None` means unlimited.
+    /// Default 16 MiB.
     max_frame_size: Option<usize>,
 
-    /// When set to `true`, the server will accept and handle unmasked frames
-    /// from the client. According to the RFC 6455, the server must close the
-    /// connection to the client in such cases, however it seems like there are
-    /// some popular libraries that are sending unmasked frames, ignoring the RFC.
-    /// By default this option is set to `false`, i.e. according to RFC 6455.
+    /// Accept unmasked frames. Only a server checks masking
+    /// ([RFC 6455 §5.1](https://www.rfc-editor.org/rfc/rfc6455#section-5.1)).
     accept_unmasked_frames: Option<bool>,
 }
 
@@ -284,6 +254,8 @@ impl FromPyObject<'_, '_> for WebSocketRequest {
     }
 }
 
+/// Build and send a request with `client`, failing with `CancelledError` once the client is
+/// closed. Callers run it on the client's runtime.
 pub async fn execute_request<U>(
     client: Client,
     method: Method,
@@ -293,137 +265,146 @@ pub async fn execute_request<U>(
 where
     U: AsRef<str>,
 {
-    // Create the request builder.
-    let mut builder = client.inner.request(method.into_ffi(), url.as_ref());
+    let future = async {
+        // Create the request builder.
+        let mut builder = client.inner.request(method.into_ffi(), url.as_ref());
 
-    if let Some(mut request) = request {
-        // Emulation options.
-        apply_option!(set_if_some, builder, request.emulation, emulation);
+        if let Some(mut request) = request {
+            // Emulation options.
+            apply_option!(set_if_some, builder, request.emulation, emulation);
 
-        // Version options.
-        apply_option!(
-            set_if_some_map,
-            builder,
-            request.version,
-            version,
-            Version::into_ffi
-        );
+            // Version options.
+            apply_option!(
+                set_if_some_map,
+                builder,
+                request.version,
+                version,
+                Version::into_ffi
+            );
 
-        // Timeout options.
-        apply_option!(set_if_some, builder, request.timeout, timeout);
-        apply_option!(set_if_some, builder, request.read_timeout, read_timeout);
+            // Timeout options.
+            apply_option!(set_if_some, builder, request.timeout, timeout);
+            apply_option!(set_if_some, builder, request.read_timeout, read_timeout);
 
-        // Network options.
-        apply_option!(set_if_some_inner, builder, request.proxy, proxy);
-        apply_option!(set_if_some, builder, request.local_address, local_address);
-        apply_option!(
-            set_if_some_tuple_inner,
-            builder,
-            request.local_addresses,
-            local_addresses
-        );
+            // Network options.
+            apply_option!(set_if_some_inner, builder, request.proxy, proxy);
+            apply_option!(set_if_some, builder, request.local_address, local_address);
+            apply_option!(
+                set_if_some_tuple_inner,
+                builder,
+                request.local_addresses,
+                local_addresses
+            );
 
-        #[cfg(any(
-            target_os = "android",
-            target_os = "fuchsia",
-            target_os = "illumos",
-            target_os = "ios",
-            target_os = "linux",
-            target_os = "macos",
-            target_os = "solaris",
-            target_os = "tvos",
-            target_os = "visionos",
-            target_os = "watchos",
-        ))]
-        apply_option!(set_if_some, builder, request.interface, interface);
+            #[cfg(any(
+                target_os = "android",
+                target_os = "fuchsia",
+                target_os = "illumos",
+                target_os = "ios",
+                target_os = "linux",
+                target_os = "macos",
+                target_os = "solaris",
+                target_os = "tvos",
+                target_os = "visionos",
+                target_os = "watchos",
+            ))]
+            apply_option!(set_if_some, builder, request.interface, interface);
 
-        // Headers options.
-        apply_option!(set_if_some_inner, builder, request.headers, headers);
-        apply_option!(
-            set_if_some_inner,
-            builder,
-            request.orig_headers,
-            orig_headers
-        );
-        apply_option!(
-            set_if_some,
-            builder,
-            request.default_headers,
-            default_headers
-        );
+            // Headers options.
+            apply_option!(set_if_some_inner, builder, request.headers, headers);
+            apply_option!(
+                set_if_some_inner,
+                builder,
+                request.orig_headers,
+                orig_headers
+            );
+            apply_option!(
+                set_if_some,
+                builder,
+                request.default_headers,
+                default_headers
+            );
 
-        // Cookies options.
-        apply_option!(
-            set_if_some_iter_inner_with_key,
-            builder,
-            request.cookies,
-            header,
-            COOKIE
-        );
-        apply_option!(
-            set_if_some_inner,
-            builder,
-            request.cookie_provider,
-            cookie_provider
-        );
+            // Cookies options.
+            apply_option!(
+                set_if_some_iter_inner_with_key,
+                builder,
+                request.cookies,
+                header,
+                COOKIE
+            );
+            apply_option!(
+                set_if_some_inner,
+                builder,
+                request.cookie_provider,
+                cookie_provider
+            );
 
-        // Authentication options.
-        apply_option!(
-            set_if_some_map_ref,
-            builder,
-            request.auth,
-            auth,
-            AsRef::<str>::as_ref
-        );
-        apply_option!(set_if_some, builder, request.bearer_auth, bearer_auth);
-        apply_option!(set_if_some_tuple, builder, request.basic_auth, basic_auth);
+            // Authentication options.
+            apply_option!(
+                set_if_some_map_ref,
+                builder,
+                request.auth,
+                auth,
+                AsRef::<str>::as_ref
+            );
+            apply_option!(set_if_some, builder, request.bearer_auth, bearer_auth);
+            apply_option!(set_if_some_tuple, builder, request.basic_auth, basic_auth);
 
-        // Allow redirects options.
-        apply_option!(set_if_some_inner, builder, request.redirect, redirect);
+            // Allow redirects options.
+            apply_option!(set_if_some_inner, builder, request.redirect, redirect);
 
-        // Compression options.
-        apply_option!(set_if_some, builder, request.gzip, gzip);
-        apply_option!(set_if_some, builder, request.brotli, brotli);
-        apply_option!(set_if_some, builder, request.deflate, deflate);
-        apply_option!(set_if_some, builder, request.zstd, zstd);
+            // Compression options.
+            apply_option!(set_if_some, builder, request.gzip, gzip);
+            apply_option!(set_if_some, builder, request.brotli, brotli);
+            apply_option!(set_if_some, builder, request.deflate, deflate);
+            apply_option!(set_if_some, builder, request.zstd, zstd);
 
-        // Query options.
-        apply_option!(set_if_some_ref, builder, request.query, query);
+            // Query options.
+            apply_option!(set_if_some_ref, builder, request.query, query);
 
-        // Body options.
-        apply_option!(set_if_some_ref, builder, request.form, form);
-        apply_option!(set_if_some_ref, builder, request.json, json);
-        apply_option!(
-            set_if_some,
-            builder,
-            request.multipart.and_then(|form| form.form),
-            multipart
-        );
-        apply_option!(
-            set_if_some_map_try,
-            builder,
-            request.body,
-            body,
-            wreq::Body::try_from
-        );
+            // Body options.
+            apply_option!(set_if_some_ref, builder, request.form, form);
+            apply_option!(set_if_some_ref, builder, request.json, json);
+            apply_option!(
+                set_if_some,
+                builder,
+                request.multipart.and_then(|form| form.form),
+                multipart
+            );
+            apply_option!(
+                set_if_some_map_try,
+                builder,
+                request.body,
+                body,
+                wreq::Body::try_from
+            );
+        }
+
+        // Send request.
+        builder
+            .send()
+            .await
+            .and_then(|r| {
+                if client.raise_for_status {
+                    r.error_for_status()
+                } else {
+                    Ok(r)
+                }
+            })
+            .map(|response| Response::new(response, client.runtime.clone()))
+            .map_err(Error::Library)
+            .map_err(Into::into)
+    };
+
+    tokio::select! {
+        biased;
+        _ = client.cancel.cancelled() => Err(CancelledError::new_err("Operation was cancelled: client has been closed")),
+        result = future => result,
     }
-
-    // Send request.
-    builder
-        .send()
-        .await
-        .and_then(|r| {
-            if client.raise_for_status {
-                r.error_for_status()
-            } else {
-                Ok(r)
-            }
-        })
-        .map(Response::new)
-        .map_err(Error::Library)
-        .map_err(Into::into)
 }
 
+/// Like [`execute_request`], opening a WebSocket.
 pub async fn execute_websocket_request<U>(
     client: Client,
     url: U,
@@ -432,123 +413,131 @@ pub async fn execute_websocket_request<U>(
 where
     U: AsRef<str>,
 {
-    // Create the WebSocket builder.
-    let mut builder = client.inner.websocket(url.as_ref());
+    let future = async {
+        // Create the WebSocket builder.
+        let mut builder = client.inner.websocket(url.as_ref());
 
-    if let Some(mut request) = request {
-        // Emulation options.
-        apply_option!(set_if_some, builder, request.emulation, emulation);
+        if let Some(mut request) = request {
+            // Emulation options.
+            apply_option!(set_if_some, builder, request.emulation, emulation);
 
-        // Version options.
-        apply_option!(
-            set_if_some_map,
-            builder,
-            request.version,
-            version,
-            Version::into_ffi
-        );
+            // Version options.
+            apply_option!(
+                set_if_some_map,
+                builder,
+                request.version,
+                version,
+                Version::into_ffi
+            );
 
-        // Subprotocols options.
-        apply_option!(set_if_some, builder, request.protocols, protocols);
+            // Subprotocols options.
+            apply_option!(set_if_some, builder, request.protocols, protocols);
 
-        // WebSocket config
-        apply_option!(
-            set_if_some,
-            builder,
-            request.read_buffer_size,
-            read_buffer_size
-        );
-        apply_option!(
-            set_if_some,
-            builder,
-            request.write_buffer_size,
-            write_buffer_size
-        );
-        apply_option!(
-            set_if_some,
-            builder,
-            request.max_write_buffer_size,
-            max_write_buffer_size
-        );
-        apply_option!(set_if_some, builder, request.max_frame_size, max_frame_size);
-        apply_option!(
-            set_if_some,
-            builder,
-            request.max_message_size,
-            max_message_size
-        );
-        apply_option!(
-            set_if_some,
-            builder,
-            request.accept_unmasked_frames,
-            accept_unmasked_frames
-        );
+            // WebSocket config
+            apply_option!(
+                set_if_some,
+                builder,
+                request.read_buffer_size,
+                read_buffer_size
+            );
+            apply_option!(
+                set_if_some,
+                builder,
+                request.write_buffer_size,
+                write_buffer_size
+            );
+            apply_option!(
+                set_if_some,
+                builder,
+                request.max_write_buffer_size,
+                max_write_buffer_size
+            );
+            apply_option!(set_if_some, builder, request.max_frame_size, max_frame_size);
+            apply_option!(
+                set_if_some,
+                builder,
+                request.max_message_size,
+                max_message_size
+            );
+            apply_option!(
+                set_if_some,
+                builder,
+                request.accept_unmasked_frames,
+                accept_unmasked_frames
+            );
 
-        // Network options.
-        apply_option!(set_if_some_inner, builder, request.proxy, proxy);
-        apply_option!(set_if_some, builder, request.local_address, local_address);
-        apply_option!(
-            set_if_some_tuple_inner,
-            builder,
-            request.local_addresses,
-            local_addresses
-        );
-        #[cfg(any(
-            target_os = "android",
-            target_os = "fuchsia",
-            target_os = "illumos",
-            target_os = "ios",
-            target_os = "linux",
-            target_os = "macos",
-            target_os = "solaris",
-            target_os = "tvos",
-            target_os = "visionos",
-            target_os = "watchos",
-        ))]
-        apply_option!(set_if_some, builder, request.interface, interface);
+            // Network options.
+            apply_option!(set_if_some_inner, builder, request.proxy, proxy);
+            apply_option!(set_if_some, builder, request.local_address, local_address);
+            apply_option!(
+                set_if_some_tuple_inner,
+                builder,
+                request.local_addresses,
+                local_addresses
+            );
+            #[cfg(any(
+                target_os = "android",
+                target_os = "fuchsia",
+                target_os = "illumos",
+                target_os = "ios",
+                target_os = "linux",
+                target_os = "macos",
+                target_os = "solaris",
+                target_os = "tvos",
+                target_os = "visionos",
+                target_os = "watchos",
+            ))]
+            apply_option!(set_if_some, builder, request.interface, interface);
 
-        // Headers options.
-        apply_option!(set_if_some_inner, builder, request.headers, headers);
-        apply_option!(
-            set_if_some_inner,
-            builder,
-            request.orig_headers,
-            orig_headers
-        );
-        apply_option!(
-            set_if_some,
-            builder,
-            request.default_headers,
-            default_headers
-        );
-        apply_option!(
-            set_if_some_iter_inner_with_key,
-            builder,
-            request.cookies,
-            header,
-            COOKIE
-        );
+            // Headers options.
+            apply_option!(set_if_some_inner, builder, request.headers, headers);
+            apply_option!(
+                set_if_some_inner,
+                builder,
+                request.orig_headers,
+                orig_headers
+            );
+            apply_option!(
+                set_if_some,
+                builder,
+                request.default_headers,
+                default_headers
+            );
+            apply_option!(
+                set_if_some_iter_inner_with_key,
+                builder,
+                request.cookies,
+                header,
+                COOKIE
+            );
 
-        // Authentication options.
-        apply_option!(
-            set_if_some_map_ref,
-            builder,
-            request.auth,
-            auth,
-            AsRef::<str>::as_ref
-        );
-        apply_option!(set_if_some, builder, request.bearer_auth, bearer_auth);
-        apply_option!(set_if_some_tuple, builder, request.basic_auth, basic_auth);
+            // Authentication options.
+            apply_option!(
+                set_if_some_map_ref,
+                builder,
+                request.auth,
+                auth,
+                AsRef::<str>::as_ref
+            );
+            apply_option!(set_if_some, builder, request.bearer_auth, bearer_auth);
+            apply_option!(set_if_some_tuple, builder, request.basic_auth, basic_auth);
 
-        // Query options.
-        apply_option!(set_if_some_ref, builder, request.query, query);
+            // Query options.
+            apply_option!(set_if_some_ref, builder, request.query, query);
+        }
+
+        // Send the WebSocket request.
+        builder
+            .send()
+            .and_then(|response| WebSocket::new(response, client.runtime.clone()))
+            .await
+            .map_err(Error::Library)
+            .map_err(Into::into)
+    };
+
+    tokio::select! {
+        biased;
+        _ = client.cancel.cancelled() => Err(CancelledError::new_err("Operation was cancelled: client has been closed")),
+        result = future => result,
     }
-
-    // Send the WebSocket request.
-    builder
-        .send()
-        .and_then(WebSocket::new)
-        .await
-        .map_err(Error::Library)
-        .map_err(Into::into)
 }

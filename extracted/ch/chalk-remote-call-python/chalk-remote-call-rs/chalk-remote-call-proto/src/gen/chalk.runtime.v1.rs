@@ -57,6 +57,154 @@ pub struct EnqueueRemoteCallResponse {
     #[prost(string, tag="1")]
     pub call_id: ::prost::alloc::string::String,
 }
+/// Open a queue-backed batch of logically independent remote calls. When
+/// batch_id is empty the server creates a new batch. Supplying a prior batch_id
+/// and result_cursor resumes result delivery after a disconnected stream.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OpenRemoteCallBatch {
+    #[prost(string, tag="1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag="2")]
+    pub batch_id: ::prost::alloc::string::String,
+    #[prost(string, tag="3")]
+    pub result_cursor: ::prost::alloc::string::String,
+}
+/// A transport chunk containing consecutive input rows. The server assigns one
+/// call ID and enqueues one independently schedulable work item per row.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SubmitRemoteCallBatchChunk {
+    #[prost(uint64, tag="1")]
+    pub chunk_index: u64,
+    #[prost(uint64, tag="2")]
+    pub first_row_index: u64,
+    #[prost(message, optional, tag="3")]
+    pub args: ::core::option::Option<RemoteCallArgs>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct FinishRemoteCallBatchSubmission {
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CancelRemoteCallBatch {
+    #[prost(string, tag="1")]
+    pub reason: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StreamRemoteCallBatchRequest {
+    #[prost(oneof="stream_remote_call_batch_request::Request", tags="1, 2, 3, 4")]
+    pub request: ::core::option::Option<stream_remote_call_batch_request::Request>,
+}
+/// Nested message and enum types in `StreamRemoteCallBatchRequest`.
+pub mod stream_remote_call_batch_request {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Request {
+        #[prost(message, tag="1")]
+        Open(super::OpenRemoteCallBatch),
+        #[prost(message, tag="2")]
+        Submit(super::SubmitRemoteCallBatchChunk),
+        #[prost(message, tag="3")]
+        Finish(super::FinishRemoteCallBatchSubmission),
+        #[prost(message, tag="4")]
+        Cancel(super::CancelRemoteCallBatch),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteCallBatchOpened {
+    #[prost(string, tag="1")]
+    pub batch_id: ::prost::alloc::string::String,
+    /// True once the server has durably observed FinishRemoteCallBatchSubmission.
+    #[prost(bool, tag="2")]
+    pub submission_finished: bool,
+    /// The next transport chunk the server will accept for this batch.
+    #[prost(uint64, tag="3")]
+    pub next_chunk_index: u64,
+    /// The first row index the server expects in next_chunk_index.
+    #[prost(uint64, tag="4")]
+    pub next_row_index: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteCallBatchCall {
+    #[prost(uint64, tag="1")]
+    pub row_index: u64,
+    #[prost(string, tag="2")]
+    pub call_id: ::prost::alloc::string::String,
+}
+/// Acknowledges that every row in a transport chunk has been durably admitted.
+/// Resubmitting an acknowledged chunk returns the same row-to-call-ID mapping.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteCallBatchChunkAccepted {
+    #[prost(uint64, tag="1")]
+    pub chunk_index: u64,
+    #[prost(message, repeated, tag="2")]
+    pub calls: ::prost::alloc::vec::Vec<RemoteCallBatchCall>,
+}
+/// One incremental or terminal event for a logical row call. Events can arrive
+/// out of row order; sequence is monotonic within an individual call.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteCallBatchResult {
+    #[prost(uint64, tag="1")]
+    pub row_index: u64,
+    #[prost(string, tag="2")]
+    pub call_id: ::prost::alloc::string::String,
+    #[prost(uint64, tag="3")]
+    pub sequence: u64,
+    #[prost(enumeration="RemoteCallStatus", tag="4")]
+    pub status: i32,
+    #[prost(message, optional, tag="5")]
+    pub result: ::core::option::Option<CallFunctionResponse>,
+    #[prost(message, repeated, tag="6")]
+    pub errors: ::prost::alloc::vec::Vec<super::super::common::v1::ChalkError>,
+}
+/// Several independently completed call events carried in one transport
+/// message. cursor can be supplied to OpenRemoteCallBatch when reconnecting.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoteCallBatchResultChunk {
+    #[prost(message, repeated, tag="1")]
+    pub results: ::prost::alloc::vec::Vec<RemoteCallBatchResult>,
+    #[prost(string, tag="2")]
+    pub cursor: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RemoteCallBatchCompleted {
+    #[prost(uint64, tag="1")]
+    pub total_calls: u64,
+    #[prost(uint64, tag="2")]
+    pub completed_calls: u64,
+    #[prost(uint64, tag="3")]
+    pub failed_calls: u64,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StreamRemoteCallBatchResponse {
+    #[prost(oneof="stream_remote_call_batch_response::Response", tags="1, 2, 3, 4")]
+    pub response: ::core::option::Option<stream_remote_call_batch_response::Response>,
+}
+/// Nested message and enum types in `StreamRemoteCallBatchResponse`.
+pub mod stream_remote_call_batch_response {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Response {
+        #[prost(message, tag="1")]
+        Opened(super::RemoteCallBatchOpened),
+        #[prost(message, tag="2")]
+        Accepted(super::RemoteCallBatchChunkAccepted),
+        #[prost(message, tag="3")]
+        Results(super::RemoteCallBatchResultChunk),
+        #[prost(message, tag="4")]
+        Completed(super::RemoteCallBatchCompleted),
+    }
+}
 /// Poll for results of a previously enqueued call.
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -155,12 +303,19 @@ pub struct GetRecentCallsRequest {
     /// Clamped to \[1, 1000\] server-side; defaults to 10 if zero.
     #[prost(uint32, tag="2")]
     pub limit: u32,
+    /// Opaque token returned by a previous request. When set, calls immediately
+    /// older than the token are returned.
+    #[prost(string, tag="3")]
+    pub page_token: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetRecentCallsResponse {
     #[prost(message, repeated, tag="1")]
     pub calls: ::prost::alloc::vec::Vec<FunctionCallInfo>,
+    /// Opaque token for the next page, or empty when there are no older calls.
+    #[prost(string, tag="2")]
+    pub next_page_token: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -211,6 +366,8 @@ pub enum RemoteCallStatus {
     Running = 2,
     Completed = 3,
     Failed = 4,
+    /// The queue's result stream has passed its retention TTL.
+    Expired = 5,
 }
 impl RemoteCallStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -224,6 +381,7 @@ impl RemoteCallStatus {
             RemoteCallStatus::Running => "REMOTE_CALL_STATUS_RUNNING",
             RemoteCallStatus::Completed => "REMOTE_CALL_STATUS_COMPLETED",
             RemoteCallStatus::Failed => "REMOTE_CALL_STATUS_FAILED",
+            RemoteCallStatus::Expired => "REMOTE_CALL_STATUS_EXPIRED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -234,9 +392,115 @@ impl RemoteCallStatus {
             "REMOTE_CALL_STATUS_RUNNING" => Some(Self::Running),
             "REMOTE_CALL_STATUS_COMPLETED" => Some(Self::Completed),
             "REMOTE_CALL_STATUS_FAILED" => Some(Self::Failed),
+            "REMOTE_CALL_STATUS_EXPIRED" => Some(Self::Expired),
             _ => None,
         }
     }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcquireWorkRequest {
+    /// Deployment queue to consume, supplied by the shim's CHALK_FNQ_FUNCTION_NAME.
+    #[prost(string, tag="1")]
+    pub function_name: ::prost::alloc::string::String,
+    /// Identifies an acquisition so retries recover its work instead of leasing more.
+    #[prost(string, tag="2")]
+    pub request_id: ::prost::alloc::string::String,
+    #[prost(uint32, tag="3")]
+    pub max_calls: u32,
+    /// Limits in-flight calls across all consumers of this queue.
+    #[prost(uint32, tag="4")]
+    pub max_concurrent: u32,
+    /// How long acquired work remains leased without renewal.
+    #[prost(uint32, tag="5")]
+    pub lease_duration_seconds: u32,
+    /// Identifies the shim process across acquisition requests.
+    #[prost(string, tag="6")]
+    pub consumer_id: ::prost::alloc::string::String,
+}
+/// A queued call leased to a worker for one execution attempt.
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct FnqWork {
+    /// Identifies this lease attempt for renewal and result reporting.
+    #[prost(string, tag="1")]
+    pub work_handle: ::prost::alloc::string::String,
+    /// Identifies the invocation across execution attempts.
+    #[prost(string, tag="2")]
+    pub call_id: ::prost::alloc::string::String,
+    #[prost(message, optional, tag="3")]
+    pub call: ::core::option::Option<CallFunctionRequest>,
+    /// Tracing headers that link execution to the originating call.
+    #[prost(map="string, string", tag="4")]
+    pub metadata: ::std::collections::HashMap<::prost::alloc::string::String, ::prost::alloc::string::String>,
+    /// Tracks attempts across redelivery so the worker can enforce the retry budget.
+    #[prost(uint64, tag="5")]
+    pub attempt: u64,
+    /// Execution budget, including the initial attempt, used to stop further retries.
+    #[prost(uint64, tag="6")]
+    pub max_attempts: u64,
+    /// Lets the worker detect an expired lease before starting execution.
+    #[prost(message, optional, tag="7")]
+    pub lease_expires_at: ::core::option::Option<::prost_types::Timestamp>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AcquireWorkResponse {
+    #[prost(message, optional, tag="1")]
+    pub work: ::core::option::Option<FnqWork>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenewWorkRequest {
+    #[prost(string, repeated, tag="1")]
+    pub work_handles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RenewWorkResponse {
+    /// Lease attempts this worker no longer owns and must stop renewing or reporting.
+    #[prost(string, repeated, tag="1")]
+    pub lost_work_handles: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(map="string, message", tag="2")]
+    pub lease_expires_at: ::std::collections::HashMap<::prost::alloc::string::String, ::prost_types::Timestamp>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportResultsRequest {
+    /// Lease attempt whose output or outcome is being reported.
+    #[prost(string, tag="1")]
+    pub work_handle: ::prost::alloc::string::String,
+    /// Orders result events and deduplicates retries within this lease attempt.
+    #[prost(uint64, tag="2")]
+    pub sequence: u64,
+    /// Links this execution's trace to the call's history.
+    #[prost(string, tag="3")]
+    pub processing_trace_id: ::prost::alloc::string::String,
+    #[prost(oneof="report_results_request::Result", tags="4, 5, 6, 7")]
+    pub result: ::core::option::Option<report_results_request::Result>,
+}
+/// Nested message and enum types in `ReportResultsRequest`.
+pub mod report_results_request {
+    #[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Oneof)]
+    pub enum Result {
+        /// A serialized Arrow IPC output chunk.
+        #[prost(bytes, tag="4")]
+        Chunk(::prost::bytes::Bytes),
+        /// Marks successful completion after all output has been reported.
+        #[prost(message, tag="5")]
+        End(()),
+        /// Records a terminal execution failure.
+        #[prost(message, tag="6")]
+        Error(super::super::super::common::v1::ChalkException),
+        /// Releases retryable work for a later attempt without publishing a terminal result.
+        #[prost(message, tag="7")]
+        Retry(()),
+    }
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReportResultsResponse {
 }
 include!("chalk.runtime.v1.tonic.rs");
 // @@protoc_insertion_point(module)

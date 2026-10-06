@@ -36,7 +36,10 @@ def wire(monkeypatch, tmp_path):
 @pytest.mark.parametrize('method', ['create_run', 'create_project_run'])
 def test_creation_payload_scrubbed_at_serialized_boundary(wire, redact, method):
     client, _, requests = wire
-    getattr(client(redact), method)(RID, 'benign-run', heartbeat=False, config={'accessToken': SYNTHETIC}, metadata={'nested': {'message': VENDOR}})
+    # An experiment's run is created under its project (X21): naming it saves
+    # the `/v1/scopes` lookup this one-answer fake cannot serve.
+    placed = {'project_id': '22222222-3333-4444-8555-666666666666'} if method == 'create_run' else {}
+    getattr(client(redact), method)(RID, 'benign-run', heartbeat=False, config={'accessToken': SYNTHETIC}, metadata={'nested': {'message': VENDOR}}, **placed)
     body = requests[-1].content.decode()
     assert SYNTHETIC not in body and VENDOR not in body
     assert 'benign-run' in body

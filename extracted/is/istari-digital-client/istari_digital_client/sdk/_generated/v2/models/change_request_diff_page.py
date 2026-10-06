@@ -25,13 +25,13 @@ from typing_extensions import Self
 
 class ChangeRequestDiffPage(BaseModel):
     """
-    ChangeRequestDiffPage
+    Paginated diff between a change request's two tag heads.  ``head_pair_token`` pins the ``(source snapshot, target snapshot)`` pair this page was computed from; send it back as the ``X-Head-Pair-Token`` request header on subsequent pages.
     """ # noqa: E501
-    head_pair_token: StrictStr
     items: List[ChangeRequestDiffPageItemsInner]
     next_cursor: Optional[StrictStr] = None
     has_more: Optional[StrictBool] = False
-    __properties: ClassVar[List[str]] = ["head_pair_token", "items", "next_cursor", "has_more"]
+    head_pair_token: StrictStr
+    __properties: ClassVar[List[str]] = ["items", "next_cursor", "has_more", "head_pair_token"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -96,9 +96,9 @@ class ChangeRequestDiffPage(BaseModel):
             return cls.model_validate(obj)
 
         _obj = cls.model_validate({
-            "head_pair_token": obj.get("head_pair_token"),
             "items": [ChangeRequestDiffPageItemsInner.from_dict(_item) for _item in obj["items"]] if obj.get("items") is not None else None,
             "next_cursor": obj.get("next_cursor"),
-            "has_more": obj.get("has_more") if obj.get("has_more") is not None else False
+            "has_more": obj.get("has_more") if obj.get("has_more") is not None else False,
+            "head_pair_token": obj.get("head_pair_token")
         })
         return _obj

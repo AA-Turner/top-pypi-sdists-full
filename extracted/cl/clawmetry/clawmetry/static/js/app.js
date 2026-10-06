@@ -20039,6 +20039,131 @@ async function removeProjectBudget(budgetId) {
     projectBudgetStatus(t('usage.project_budget_remove_failed', null, 'The budget was not removed.'));
   }
 }
+// Assigning a repository or directory to a project (issue #5941). An
+// assignment is appended, never edited: a later one for the same target takes
+// over and the earlier one stays as history, so the list shows current ones.
+// Only a derived project (prj_) can be a target; a named project (prjn_) is
+// what an assignment produces. Both dates are optional: with them, only
+// sessions that started on or after the start and before the end are moved.
+function projectAssignPeriodText(r) {
+  var parts = [];
+  var from = String((r && r.effective_from) || '').slice(0, 10);
+  var to = String((r && r.effective_to) || '').slice(0, 10);
+  if (from) parts.push(t('usage.project_assign_from', {date: from}, 'from ' + from));
+  if (to) parts.push(t('usage.project_assign_before', {date: to}, 'before ' + to));
+  return parts.join(', ');
+}
+function projectAssignTargets(projects, assignments) {
+  var seen = {};
+  var out = [];
+  (assignments || []).forEach(function(a) {
+    if (a.match_type !== 'project' || a.superseded_by || seen[a.match_value]) return;
+    seen[a.match_value] = true;
+    out.push({id: a.match_value, label: (a.match_label || a.match_value) + ' → ' + (a.project_name || '')});
+  });
+  (projects || []).forEach(function(p) {
+    var id = String(p.project_id || '');
+    if (!/^prj_/.test(id) || seen[id]) return;
+    seen[id] = true;
+    out.push({id: id, label: p.label || id});
+  });
+  return out;
+}
+function renderProjectAssignments(a, projects) {
+  var rows = (a && a.assignments) || [];
+  var current = rows.filter(function(r) { return r.match_type === 'project' && !r.superseded_by; });
+  var sessions = rows.filter(function(r) { return r.match_type === 'session' && !r.superseded_by; }).length;
+  var html = '<div style="margin-top:14px;font-weight:600;font-size:12px;">' + costCardText(t('usage.project_assign_title', null, 'Project assignments')) + '</div>';
+  if (!current.length) {
+    html += '<div style="margin-top:4px;font-size:12px;color:var(--text-muted);">' + costCardText(t('usage.project_assign_none', null, 'No repository or directory is assigned to a project by hand.')) + '</div>';
+  }
+  current.forEach(function(r) {
+    var detail = [projectAssignPeriodText(r), r.reason, r.actor].filter(function(v) { return v; }).join(' \xb7 ');
+    html += '<div style="margin-top:6px;font-size:12px;">'
+      + '<span style="font-weight:500;">' + costCardText(r.match_label || r.match_value || '—') + '</span>'
+      + ' → <span style="font-weight:500;">' + costCardText(r.project_name || '—') + '</span>'
+      + (detail ? ' <span style="color:var(--text-muted);">' + costCardText(detail) + '</span>' : '')
+      + '</div>';
+  });
+  if (sessions > 0) {
+    html += '<div style="margin-top:6px;font-size:11px;color:var(--text-muted);">'
+      + costCardText(t('usage.project_assign_sessions', {sessions: sessions}, 'Sessions assigned to a project on their own: ' + sessions)) + '</div>';
+  }
+  var targets = projectAssignTargets(projects, rows);
+  if (!targets.length) return html;
+  var field = 'font-size:12px;padding:3px 6px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:4px;';
+  var options = targets.map(function(o) {
+    return '<option value="' + costCardText(o.id) + '">' + costCardText(o.label) + '</option>';
+  }).join('');
+  var nameLabel = costCardText(t('usage.project_assign_name', null, 'Project name'));
+  var reasonLabel = costCardText(t('usage.project_assign_reason', null, 'Reason'));
+  var startLabel = costCardText(t('usage.project_assign_start', null, 'Start date (optional)'));
+  var endLabel = costCardText(t('usage.project_assign_end', null, 'End date (optional)'));
+  html += '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;">'
+    + '<select id="project-assign-target" aria-label="' + costCardText(t('usage.project_assign_target', null, 'Repository or directory')) + '" style="' + field + '">' + options + '</select>'
+    + '<input id="project-assign-name" type="text" maxlength="120" placeholder="' + nameLabel + '" aria-label="' + nameLabel + '" style="width:150px;' + field + '">'
+    + '<input id="project-assign-reason" type="text" maxlength="500" placeholder="' + reasonLabel + '" aria-label="' + reasonLabel + '" style="width:200px;' + field + '">'
+    + '<label style="color:var(--text-muted);">' + startLabel + ' <input id="project-assign-from" type="date" style="' + field + '"></label>'
+    + '<label style="color:var(--text-muted);">' + endLabel + ' <input id="project-assign-to" type="date" style="' + field + '"></label>'
+    + '<button type="button" onclick="saveProjectAssignment()" style="' + field + 'cursor:pointer;">' + costCardText(t('usage.project_assign_button', null, 'Assign')) + '</button>'
+    + '<span id="project-assign-status" style="color:var(--text-muted);"></span>'
+    + '</div>'
+    + '<div style="margin-top:6px;font-size:11px;color:var(--text-muted);line-height:1.5;">'
+    + costCardText(t('usage.project_assign_hint', null, 'An assignment lists all spend of that repository or directory, past and future, under the project name. With dates, only sessions that started on or after the start date and before the end date are listed there. An earlier assignment is kept as history.')) + '</div>';
+  return html;
+}
+function projectAssignStatus(text) {
+  var el = document.getElementById('project-assign-status');
+  if (el) el.textContent = text || '';
+}
+async function saveProjectAssignment() {
+  var target = document.getElementById('project-assign-target');
+  var name = document.getElementById('project-assign-name');
+  var reason = document.getElementById('project-assign-reason');
+  if (!target || !name || !reason) return;
+  var projectName = String(name.value || '').trim();
+  var why = String(reason.value || '').trim();
+  if (!projectName) {
+    projectAssignStatus(t('usage.project_assign_name_required', null, 'Enter a project name.'));
+    return;
+  }
+  if (!why) {
+    projectAssignStatus(t('usage.project_assign_reason_required', null, 'Enter a reason. It is kept with the assignment.'));
+    return;
+  }
+  var body = {match_type: 'project', match_value: target.value,
+              project_name: projectName, reason: why};
+  var day = /^\d{4}-\d{2}-\d{2}$/;
+  var fromEl = document.getElementById('project-assign-from');
+  var toEl = document.getElementById('project-assign-to');
+  var from = String((fromEl && fromEl.value) || '').trim();
+  var to = String((toEl && toEl.value) || '').trim();
+  if ((from && !day.test(from)) || (to && !day.test(to))) {
+    projectAssignStatus(t('usage.project_assign_date_invalid', null, 'Enter each date as year, month and day.'));
+    return;
+  }
+  if (from && to && to <= from) {
+    projectAssignStatus(t('usage.project_assign_dates_order', null, 'The end date must be later than the start date.'));
+    return;
+  }
+  // A date with no zone is midnight on this machine's clock, the clock the
+  // store's days follow.
+  if (from) body.effective_from = from + 'T00:00:00';
+  if (to) body.effective_to = to + 'T00:00:00';
+  try {
+    var res = await fetch('/api/projects/assignments', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    }).then(function(r) { return r.json(); });
+    if (!res || !res.ok) {
+      projectAssignStatus((res && res.error) || t('usage.project_assign_failed', null, 'The assignment was not saved.'));
+      return;
+    }
+    loadUsageByProject();
+  } catch (e) {
+    projectAssignStatus(t('usage.project_assign_failed', null, 'The assignment was not saved.'));
+  }
+}
 async function loadUsageByProject() {
   var title = document.getElementById('usage-by-project-title');
   var card = document.getElementById('usage-by-project-card');
@@ -20051,6 +20176,12 @@ async function loadUsageByProject() {
     var named = projects.filter(function(p) { return p.source && p.source !== 'none'; });
     if (!named.length) return;
     var html = renderProjectUsage(d);
+    var a = null;
+    try {
+      var ar = await fetch('/api/projects/assignments');
+      if (ar.ok) a = await ar.json();
+    } catch (e) { a = null; }
+    if (a && a.available !== false) html += renderProjectAssignments(a, projects);
     var b = null;
     try {
       // 402 = budgets are not in this plan: the spend table still renders.
@@ -32181,6 +32312,149 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
     return '<div class="replay-tree-truncated" role="note">' + _escape(msg) + '</div>';
   }
 
+  // Notices above the turns (clawmetry-pro#135). A branched conversation
+  // (Pi) is replayed along its active branch only, and Aider's history
+  // file holds no tool calls. Without the notice both read as complete.
+  function _renderNotes(tree) {
+    var notes = [];
+    var b = tree && tree.branches;
+    if (b && typeof b.branch_points === 'number' && b.branch_points >= 1) {
+      var points = Math.floor(b.branch_points);
+      var off = (typeof b.entries_off_active_path === 'number' && b.entries_off_active_path > 0)
+        ? Math.floor(b.entries_off_active_path) : 0;
+      var text = _tr('trail.branch_note', {n: points},
+                     'Branch points in this conversation: ' + points +
+                     '. The replay follows the active branch.');
+      // Branches the mapper stored can be opened below, so nothing is
+      // counted as left out next to that list.
+      if (off && !_storedBranches(b.stored).length) {
+        text += ' ' + _tr('trail.branch_note_hidden', {n: off},
+                          'Entries on other branches, not shown: ' + off + '.');
+      }
+      notes.push(['branches', text, _renderBranchList(b.stored)]);
+    }
+    if (tree && tree.runtime === 'aider') {
+      notes.push(['aider', _tr('trail.aider_note', null,
+        'Aider keeps prompts, replies, confirmations and applied edits in its ' +
+        'history file. It keeps no tool calls and no reasoning, so the replay lists none.')]);
+    }
+    var html = '';
+    for (var i = 0; i < notes.length; i++) {
+      html += '<div class="replay-tree-note" data-note="' +
+              notes[i][0] + '" role="note">' + _escape(notes[i][1]) +
+              (notes[i][2] || '') + '</div>';
+    }
+    return html;
+  }
+
+  // The other branches a mapper stored (Pi), one button each. A click
+  // replaces the replay with that branch; see _openBranch.
+  function _storedBranches(stored) {
+    var out = [];
+    if (!Array.isArray(stored)) return out;
+    for (var i = 0; i < stored.length; i++) {
+      var s = stored[i];
+      if (s && typeof s.session_id === 'string' && s.session_id) out.push(s);
+    }
+    return out;
+  }
+
+  function _branchName(branch, index) {
+    if (typeof branch.label === 'string' && branch.label) {
+      return branch.label.length > 60 ? branch.label.slice(0, 59) + '\u2026' : branch.label;
+    }
+    return _tr('trail.branch_unnamed', {n: index + 1}, 'Branch ' + (index + 1));
+  }
+
+  function _renderBranchList(stored) {
+    var list = _storedBranches(stored);
+    if (!list.length) return '';
+    var html = '<div class="replay-tree-branches"><span class="replay-tree-branches-label">' +
+               _escape(_tr('trail.branch_open', null, 'Open another branch:')) + '</span>';
+    for (var i = 0; i < list.length; i++) {
+      var entries = (typeof list[i].entries === 'number' && list[i].entries >= 0)
+        ? Math.floor(list[i].entries) : null;
+      html += '<button type="button" class="replay-tree-branch" data-branch-index="' + i + '">' +
+              _escape(_branchName(list[i], i));
+      if (entries != null) {
+        html += ' <span class="replay-tree-branch-count">' +
+                _escape(_tr('trail.branch_entries', {n: entries},
+                            'own entries: ' + entries)) + '</span>';
+      }
+      html += '</button>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  // Shown above a branch that was opened from the list: which branch it
+  // is, how much of it the active branch also holds, and the way back.
+  function _renderBranchView(view) {
+    if (!view) return '';
+    var text = _tr('trail.branch_viewing', {name: view.name},
+                   'Showing another branch: ' + view.name + '.');
+    if (typeof view.shared === 'number' && view.shared > 0) {
+      var shared = Math.floor(view.shared);
+      text += ' ' + _tr('trail.branch_shared', {n: shared},
+                        'Entries it shares with the active branch: ' + shared + '.');
+    }
+    return '<div class="replay-tree-note" data-note="branch-view" role="note">' +
+           _escape(text) +
+           ' <button type="button" class="replay-tree-branch" data-branch-back="1">' +
+           _escape(_tr('trail.branch_back', null, 'Back to the active branch')) +
+           '</button></div>';
+  }
+
+  function _branchError(home, mountEl, name) {
+    var msg = _tr('trail.branch_failed', {name: name},
+                  'The branch "' + name + '" could not be loaded.');
+    var note = '<div class="replay-tree-note replay-tree-note-error" data-note="branch-error" role="alert">' +
+               _escape(msg) + '</div>';
+    renderTree(home, mountEl);
+    mountEl.innerHTML = note + mountEl.innerHTML;
+  }
+
+  // Replace the replay in `mountEl` with one stored branch of `home`.
+  // The home tree stays in memory, so the way back needs no request.
+  async function _openBranch(home, index, mountEl) {
+    var list = _storedBranches(home && home.branches && home.branches.stored);
+    var branch = list[index];
+    if (!branch) return false;
+    var name = _branchName(branch, index);
+    var tree = null;
+    try {
+      tree = await fetchReplayTree(branch.session_id);
+    } catch (e) {
+      tree = null;
+    }
+    if (mountEl._cmReplayHome !== home) return false;
+    if (!tree || !tree.row_count) {
+      _branchError(home, mountEl, name);
+      return false;
+    }
+    return renderTree(tree, mountEl, {home: home, name: name, shared: branch.shared_entries});
+  }
+
+  function _branchClick(mountEl, ev) {
+    var el = ev && ev.target;
+    while (el && el !== mountEl && !(el.getAttribute &&
+           (el.getAttribute('data-branch-index') != null ||
+            el.getAttribute('data-branch-back') != null))) {
+      el = el.parentNode;
+    }
+    if (!el || el === mountEl || !el.getAttribute) return;
+    var home = mountEl._cmReplayHome;
+    if (!home) return;
+    if (el.getAttribute('data-branch-back') != null) {
+      renderTree(home, mountEl);
+      return;
+    }
+    var index = parseInt(el.getAttribute('data-branch-index'), 10);
+    if (!(index >= 0)) return;
+    el.disabled = true;
+    _openBranch(home, index, mountEl);
+  }
+
   // ── Workflow graph (clawmetry-pro#132) ────────────────────────────────
   // A workflow.start whose payload carries `nodes` (and `edges`) is drawn
   // as a graph: one box per node, coloured by the status of its last run.
@@ -32272,7 +32546,127 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
     return pos;
   }
 
-  function _renderWorkflowGraph(wf) {
+  // Model and tool calls made by a workflow's sub-nodes, listed by the node
+  // they served (an n8n Agent node). The mapper puts those calls among the
+  // turn events and names the stage they belong to in `stage_span_id`, so a
+  // call is matched to this workflow by its stage, not by its node name: a
+  // sub-workflow can hold a node with the same name.
+  function _workflowActivity(wf, turns) {
+    var stages = {}, i;
+    var events = (wf && wf.events) || [];
+    for (i = 0; i < events.length; i++) {
+      if (events[i] && events[i].kind === 'workflow.stage' && events[i].span_id) {
+        stages[events[i].span_id] = true;
+      }
+    }
+    var byNode = {}, byCall = {}, byStage = {};
+    function visit(list) {
+      for (var j = 0; j < (list || []).length; j++) {
+        var ev = list[j];
+        var p = (ev && ev.payload && typeof ev.payload === 'object') ? ev.payload : null;
+        if (!p) continue;
+        var entry;
+        if ((ev.kind === 'llm.call' || ev.kind === 'tool.call') && stages[p.stage_span_id]) {
+          var owner = (typeof p.agent_node === 'string' && p.agent_node) ||
+                      (typeof p.node === 'string' && p.node) || '';
+          if (!owner) continue;
+          entry = {kind: ev.kind === 'llm.call' ? 'model' : 'tool',
+                   name: String(p.node || p.tool || ''),
+                   model: p.model || '', input: ev.kind === 'tool.call' ? p.args : '',
+                   output: '', failed: false, usage: null};
+          (byNode[owner] = byNode[owner] || []).push(entry);
+          byStage[p.stage_span_id] = entry;
+          if (ev.span_id) byCall[ev.span_id] = entry;
+        } else if (ev.kind === 'llm.response' && byStage[p.stage_span_id]) {
+          entry = byStage[p.stage_span_id];
+          entry.failed = !!p.is_error;
+          entry.output = p.is_error ? (p.error || '') : '';
+          if (p.model && !entry.model) entry.model = p.model;
+          if (p.usage && typeof p.usage === 'object') entry.usage = p.usage;
+        } else if (ev.kind === 'tool.result' && byCall[p.call_id]) {
+          entry = byCall[p.call_id];
+          entry.failed = !!p.is_error;
+          entry.output = p.output;
+        }
+      }
+    }
+    function visitDelegations(list) {
+      for (var j = 0; j < (list || []).length; j++) {
+        visit(list[j].events);
+        visitDelegations(list[j].delegations);
+      }
+    }
+    for (i = 0; i < (turns || []).length; i++) {
+      visit(turns[i].events);
+      visitDelegations(turns[i].delegations);
+    }
+    return byNode;
+  }
+
+  function _wfSnippet(value) {
+    if (value == null || value === '') return '';
+    var text = (typeof value === 'string') ? value : JSON.stringify(value);
+    return text.length > 200 ? text.slice(0, 199) + '…' : text;
+  }
+
+  // What the graph cannot hold: the error of a failed node and the calls
+  // an agent node made. A tooltip is out of reach on a touch screen.
+  function _renderWorkflowNodeDetails(nodes, runs, activity) {
+    var html = '';
+    nodes.forEach(function(n) {
+      var run = runs[n.name];
+      var calls = activity[n.name] || [];
+      var error = (run && run.error) ? String(run.error) : '';
+      if (!calls.length && !error) return;
+      var models = 0, tools = 0;
+      calls.forEach(function(c) { if (c.kind === 'model') models++; else tools++; });
+      var counts = [];
+      if (models) counts.push(_tr('trail.workflow_model_calls', {n: models}, 'Model calls: ' + models));
+      if (tools) counts.push(_tr('trail.workflow_tool_calls', {n: tools}, 'Tool calls: ' + tools));
+      var status = run ? (run.status || 'unknown') : 'none';
+      html += '<details class="replay-wf-node-detail" data-node="' + _escape(n.name) +
+              '" data-status="' + _escape(status) + '"' + (error ? ' open' : '') + '>' +
+              '<summary><span class="replay-wf-node-name">' + _escape(n.name) + '</span>' +
+              (counts.length ? ' <span class="replay-wf-node-counts">' +
+                               _escape(counts.join(' · ')) + '</span>' : '') +
+              '</summary>';
+      if (error) html += '<div class="replay-wf-node-error">' + _escape(error) + '</div>';
+      calls.forEach(function(c) {
+        var kind = c.kind === 'model'
+          ? _tr('trail.workflow_call_model', null, 'model')
+          : _tr('trail.workflow_call_tool', null, 'tool');
+        var meta = '';
+        if (c.kind === 'model') {
+          var u = c.usage;
+          if (c.model) meta = String(c.model);
+          if (u && (isFinite(u.input_tokens) || isFinite(u.output_tokens))) {
+            var tin = isFinite(u.input_tokens) ? u.input_tokens : 0;
+            var tout = isFinite(u.output_tokens) ? u.output_tokens : 0;
+            meta += (meta ? ' · ' : '') + _tr('trail.workflow_call_tokens',
+              {input: tin, output: tout}, tin + ' tokens in, ' + tout + ' out');
+          }
+        } else {
+          meta = _wfSnippet(c.input);
+        }
+        var out = _wfSnippet(c.output);
+        html += '<div class="replay-wf-call" data-kind="' + c.kind + '" data-error="' +
+                (c.failed ? '1' : '0') + '">' +
+                '<span class="replay-tree-kind">' + _escape(kind) + '</span>' +
+                '<span class="replay-wf-call-name">' + _escape(c.name) + '</span>' +
+                (meta ? '<span class="replay-wf-call-meta">' + _escape(meta) + '</span>' : '') +
+                (c.failed ? '<span class="replay-wf-call-failed">' +
+                            _escape(_tr('trail.workflow_call_failed', null, 'failed')) + '</span>' : '') +
+                (out ? '<div class="replay-wf-call-output">' + _escape(out) + '</div>' : '') +
+                '</div>';
+      });
+      html += '</details>';
+    });
+    if (!html) return '';
+    return '<div class="replay-wf-node-details" aria-label="' +
+           _escape(_tr('trail.workflow_node_details', null, 'Node details')) + '">' + html + '</div>';
+  }
+
+  function _renderWorkflowGraph(wf, turns) {
     var start = _workflowStart(wf);
     var payload = (start && start.payload && typeof start.payload === 'object') ? start.payload : {};
     var nodes = Array.isArray(payload.nodes) ? payload.nodes.filter(function(n) {
@@ -32285,6 +32679,7 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
       return e && known[e.from] && known[e.to];
     });
     var runs = _workflowNodeRuns(wf);
+    var activity = _workflowActivity(wf, turns);
     var pos = _workflowLayout(nodes, edges);
     var width = 0, height = 0, ran = 0;
     nodes.forEach(function(n) {
@@ -32323,6 +32718,7 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
       if (run && isFinite(run.duration_ms)) tip += ' · ' + run.duration_ms + ' ms';
       if (run && run.runs > 1) tip += ' · ×' + run.runs;
       if (run && run.error) tip += ' · ' + run.error;
+      var calls = (activity[n.name] || []).length;
       var label = n.name.length > 20 ? n.name.slice(0, 19) + '…' : n.name;
       var p = pos[n.name];
       svg += '<g class="replay-wf-node" data-node="' + _escape(n.name) +
@@ -32332,7 +32728,14 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
              '<rect x="' + p.x + '" y="' + p.y + '" width="' + _WF_NODE_W +
              '" height="' + _WF_NODE_H + '" rx="6"/>' +
              '<text x="' + (p.x + _WF_NODE_W / 2) + '" y="' + (p.y + _WF_NODE_H / 2 + 4) +
-             '" text-anchor="middle">' + _escape(label) + '</text></g>';
+             '" text-anchor="middle">' + _escape(label) + '</text>' +
+             // The number of model and tool calls made for this node.
+             (calls ? '<circle class="replay-wf-node-count" cx="' + (p.x + _WF_NODE_W - 2) +
+                      '" cy="' + (p.y + 2) + '" r="8"/>' +
+                      '<text class="replay-wf-node-count-text" x="' + (p.x + _WF_NODE_W - 2) +
+                      '" y="' + (p.y + 5.5) + '" text-anchor="middle">' +
+                      (calls > 99 ? '99+' : calls) + '</text>' : '') +
+             '</g>';
     });
     svg += '</svg>';
     var caption = _tr('trail.workflow_nodes_ran', {ran: ran, total: nodes.length},
@@ -32342,10 +32745,11 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
                     'The node runs of this execution are not stored in the database.');
     }
     return '<div class="replay-wf-graph-wrap">' + svg + '</div>' +
-           '<div class="replay-wf-caption">' + _escape(caption) + '</div>';
+           '<div class="replay-wf-caption">' + _escape(caption) + '</div>' +
+           _renderWorkflowNodeDetails(nodes, runs, activity);
   }
 
-  function _renderWorkflows(workflows, runtime) {
+  function _renderWorkflows(workflows, runtime, turns) {
     if (!workflows || !workflows.length) return '';
     var html = '<div class="replay-tree-workflows">';
     for (var i = 0; i < workflows.length; i++) {
@@ -32354,7 +32758,7 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
       var name = (start && start.payload && (start.payload.title ||
                   (start.payload.nodes ? start.payload.workflow : ''))) || '';
       var status = (start && start.payload && start.payload.nodes && start.payload.status) || '';
-      var graph = _renderWorkflowGraph(wf);
+      var graph = _renderWorkflowGraph(wf, turns);
       html += '<details class="replay-tree-workflow" open>';
       html += '<summary>⚙ workflow ' + _escape(name || wf.span_id) +
               (status ? ' <span class="replay-tree-badge" data-status="' + _escape(status) + '">' + _escape(status) + '</span>' : '') +
@@ -32375,18 +32779,23 @@ async function cmRuntimeOpenFile(clickEl, gi, fi) {
     return html;
   }
 
-  function renderTree(tree, mountEl) {
+  // `view` is set only when a stored branch is drawn in place of the
+  // session it belongs to: {home: the session's tree, name, shared}.
+  function renderTree(tree, mountEl, view) {
     if (!mountEl) return false;
     if (!tree || !tree.row_count) {
       // Honest empty state — caller falls back to the flat renderer.
       mountEl.innerHTML = '';
       return false;
     }
+    mountEl._cmReplayHome = (view && view.home) || tree;
+    mountEl.onclick = function(ev) { _branchClick(mountEl, ev); };
     var html = '<div class="replay-tree" data-runtime="' +
                _escape(tree.runtime || 'unknown') + '">';
     html += _renderModeChip(tree.mode);
     html += _renderTruncated(tree);
-    html += _renderWorkflows(tree.workflows, tree.runtime);
+    html += view ? _renderBranchView(view) : _renderNotes(tree);
+    html += _renderWorkflows(tree.workflows, tree.runtime, tree.turns);
     for (var i = 0; i < (tree.turns || []).length; i++) {
       html += _renderTurn(tree.turns[i], tree.runtime);
     }

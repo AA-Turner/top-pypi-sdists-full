@@ -2,6 +2,7 @@ from __future__ import annotations as _annotations
 
 import html
 import json
+import re
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,7 +24,9 @@ from .extensions import (
     parse_extensions_header,
     select_activated_extensions,
 )
+from .jsonrpc_v1 import from_v1_request, to_v1_json, to_v1_sse
 from .schema import (
+    A2ARequest,
     A2AResponse,
     AgentCapabilities,
     AgentCard,
@@ -31,6 +34,8 @@ from .schema import (
     AgentInterface,
     AgentProvider,
     InvalidRequestError,
+    SecurityRequirement,
+    SecurityScheme,
     SendMessageResponse,
     Skill,
     a2a_request_ta,
@@ -57,7 +62,11 @@ class FastA2A(Starlette):
         provider: AgentProvider | None = None,
         skills: list[Skill] | None = None,
         extensions: list[AgentExtension] | None = None,
+        security_schemes: dict[str, SecurityScheme] | None = None,
+        security_requirements: list[SecurityRequirement] | None = None,
         docs_url: str | None = '/docs',
+        default_input_modes: Sequence[str] | None = None,
+        default_output_modes: Sequence[str] | None = None,
         # Starlette
         debug: bool = False,
         routes: Sequence[Route] | None = None,
@@ -83,10 +92,16 @@ class FastA2A(Starlette):
         self.provider = provider
         self.skills = skills or []
         self.extensions = extensions or []
+        # What the card says a caller authenticates with. Said, not enforced:
+        # the server checks it in a middleware of its own (`middleware`).
+        self.security_schemes = security_schemes
+        self.security_requirements = security_requirements
         self.docs_url = docs_url
-        # NOTE: For now, I don't think there's any reason to support any other input/output modes.
-        self.default_input_modes = ['application/json']
-        self.default_output_modes = ['application/json']
+        # The media types the agent takes and gives unless a skill says otherwise. A client
+        # names the ones it accepts in a request (`acceptedOutputModes`), which the worker
+        # reads from its task's params (`accepted_output_modes`).
+        self.default_input_modes = _media_types('default_input_modes', default_input_modes)
+        self.default_output_modes = _media_types('default_output_modes', default_output_modes)
 
         self.task_manager = TaskManager(broker=broker, storage=storage)
 
@@ -121,6 +136,10 @@ class FastA2A(Starlette):
             )
             if self.provider is not None:
                 agent_card['provider'] = self.provider
+            if self.security_schemes:
+                agent_card['security_schemes'] = self.security_schemes
+            if self.security_requirements:
+                agent_card['security_requirements'] = self.security_requirements
             self._agent_card_json_schema = agent_card_ta.dump_json(agent_card, by_alias=True)
         return Response(content=self._agent_card_json_schema, media_type='application/json')
 
@@ -158,7 +177,32 @@ class FastA2A(Starlette):
         3. The server will send a "working" on the first chunk on `tasks/pushNotification/get`.
         """
         data = await request.body()
+        # A request with an A2A 1.0 method name is read as the method it names,
+        # and answered with 1.0's enums (see `jsonrpc_v1`).
+        try:
+            v1_request = from_v1_request(json.loads(data))
+        except ValueError:
+            v1_request = None
+        if v1_request is not None:
+            data = json.dumps(v1_request).encode()
         a2a_request = a2a_request_ta.validate_json(data)
+        response = await self._answer(request, a2a_request)
+        if v1_request is None:
+            return response
+        if isinstance(response, StreamingResponse):
+            return StreamingResponse(
+                to_v1_sse(response.body_iterator),  # type: ignore[arg-type]
+                media_type='text/event-stream',
+                headers={k: v for k, v in response.headers.items() if k.lower() != 'content-type'},
+            )
+        return Response(
+            content=to_v1_json(bytes(response.body)),
+            media_type='application/json',
+            headers={k: v for k, v in response.headers.items() if k.lower() not in ('content-length', 'content-type')},
+        )
+
+    async def _answer(self, request: Request, a2a_request: A2ARequest) -> Response:
+        """Answer one A2A request, as this library names its methods."""
 
         # Extensions are negotiated per request: the client names the ones it
         # wants in the `A2A-Extensions` header, the agent activates those it
@@ -234,3 +278,25 @@ class FastA2A(Starlette):
 async def _default_lifespan(app: FastA2A) -> AsyncIterator[None]:
     async with app.task_manager:
         yield
+
+
+def _media_types(name: str, modes: Sequence[str] | None) -> list[str]:
+    """The media types the card declares, `application/json` when unsaid; a mode that is not one is refused."""
+    if modes is None:
+        return ['application/json']
+    if isinstance(modes, str):
+        raise TypeError(f'{name} is a list of media types, not one string.')
+    declared = list(modes)
+    if not declared:
+        raise ValueError(f'{name} names at least one media type.')
+    for mode in declared:
+        if not isinstance(mode, str) or not _MEDIA_TYPE.fullmatch(mode):
+            raise ValueError(f'{name}: {mode!r} is not a media type (type/subtype).')
+    # Media type names are case-insensitive: `TEXT/PLAIN` is `text/plain`.
+    if len({mode.lower() for mode in declared}) != len(declared):
+        raise ValueError(f'{name} names a media type twice.')
+    return declared
+
+
+# ASCII only: with Unicode case folding, `[a-z]` under IGNORECASE also matches `ı` and `K`.
+_MEDIA_TYPE = re.compile(r'[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*', re.IGNORECASE | re.ASCII)

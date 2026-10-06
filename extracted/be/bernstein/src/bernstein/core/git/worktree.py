@@ -1043,6 +1043,17 @@ class WorktreeManager:
     # Public API
     # ------------------------------------------------------------------
 
+    def _require_inside_base_dir(self, worktree_path: Path) -> None:
+        """Raise unless *worktree_path* resolves to a direct child of the base dir.
+
+        Raises:
+            WorktreeError: If the resolved path is outside the base directory.
+        """
+        base = self._base_dir.resolve()
+        resolved = worktree_path.resolve()
+        if resolved.parent != base:
+            raise WorktreeError(f"Worktree path '{worktree_path}' resolves outside the worktree base '{base}'")
+
     def create(self, session_id: str) -> Path:
         """Create a git worktree for *session_id* and return its path.
 
@@ -1058,13 +1069,21 @@ class WorktreeManager:
             Path to the newly-created worktree directory.
 
         Raises:
-            WorktreeError: If the worktree or branch already exists, or if
+            WorktreeError: If *session_id* is not a valid worktree slug, if
+                the resulting path would fall outside the worktree base
+                directory, if the worktree or branch already exists, or if
                 the ``git worktree add`` command fails for any other reason.
         """
         if self._shutdown_event is not None and self._shutdown_event.is_set():
             raise WorktreeError("Orchestrator shutting down - refusing new worktree")
 
+        # The id becomes a directory name and part of a branch name: validate
+        # it as a slug, then confirm the resolved path stays under the base
+        # directory (a symlink planted at the target would otherwise redirect
+        # the worktree) before anything touches the filesystem.
+        validate_worktree_slug(session_id)
         worktree_path = self._base_dir / session_id
+        self._require_inside_base_dir(worktree_path)
         branch_name = f"agent/{session_id}"
 
         if worktree_path.exists():
@@ -1400,15 +1419,34 @@ class WorktreeManager:
             return []
 
         session_ids: list[str] = []
-        base_str = str(self._base_dir)
 
         for line in output.splitlines():
             if not line.startswith("worktree "):
                 continue
             wt_path = line[len("worktree ") :].strip()
-            if wt_path.startswith(base_str):
-                session_id = Path(wt_path).name
-                session_ids.append(session_id)
+            # Containment, not a prefix. ``cleanup`` can only ever act on
+            # ``self._base_dir / session_id``, one level down, so a worktree
+            # at any other depth is by construction not one this manager
+            # owns. A prefix test admits three things this does not:
+            #
+            # * a sibling - ``.sdd/worktrees-archive/s1`` starts with
+            #   ``.sdd/worktrees``;
+            # * a nested path - ``.sdd/worktrees/session-1/vendor`` yields
+            #   ``vendor``, an id that does not round-trip;
+            # * nothing at all on Windows, where ``git worktree list``
+            #   emits forward slashes and a locally built prefix does not.
+            #
+            # None of those stays in a listing. ``bernstein cleanup`` feeds
+            # this straight into ``cleanup(session_id)``, which removes
+            # ``.sdd/worktrees/<id>`` *and* deletes branch ``agent/<id>`` -
+            # so a harvested name can delete a branch that does exist even
+            # when the worktree it names does not.
+            #
+            # Comparing paths rather than strings also makes the ``.name``
+            # below provably the session id: once the parent is the base, the
+            # name is what ``cleanup`` joins back on.
+            if Path(wt_path).parent == self._base_dir:
+                session_ids.append(Path(wt_path).name)
 
         return session_ids
 

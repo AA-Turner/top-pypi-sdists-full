@@ -20,15 +20,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from authlib.integrations.httpx_client import OAuth2Client
-from oauthlib.oauth2.rfc6749.errors import InvalidGrantError
+from authlib.oauth2.rfc6749.errors import InvalidGrantError
 
 from .constants import CLI_OIDC_CLIENT_ID
 from .keycloak import get_keycloak_oidc_urls
 from .oidc import OidcSessionAuth, OidcUrls
-from .redirect_listener import (
-    complete_login,
-    get_free_network_port,
-)
+from .redirect_listener import complete_login, get_free_network_port
 
 if TYPE_CHECKING:
     from authlib.oauth2.rfc6749 import OAuth2Token

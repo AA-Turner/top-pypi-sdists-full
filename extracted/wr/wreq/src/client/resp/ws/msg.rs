@@ -9,26 +9,27 @@
 
 use std::fmt::Debug;
 
-use bytes::Bytes;
-use pyo3::{
-    prelude::*,
-    pybacked::{PyBackedBytes, PyBackedStr},
-};
+use pyo3::{exceptions::PyValueError, prelude::*};
 use wreq::ws::message::{self, CloseCode, CloseFrame, Utf8Bytes};
 
-use crate::{buffer::PyBuffer, client::body::Json, error::Error};
+use crate::{
+    buffer::PyBuffer,
+    client::body::Json,
+    error::Error,
+    extractor::{Binary, Text},
+};
 
 /// An enum representing either a bytes message or a JSON message.
 #[derive(FromPyObject)]
 pub enum BytesLike {
-    Bytes(PyBackedBytes),
+    Bytes(Binary),
     Json(Json),
 }
 
 /// An enum representing either a text message or a JSON message.
 #[derive(FromPyObject)]
 pub enum TextLike {
-    Text(PyBackedStr),
+    Text(Text),
     Json(Json),
 }
 
@@ -39,7 +40,7 @@ pub struct Message(pub message::Message);
 
 #[pymethods]
 impl Message {
-    /// Returns the data of the message as bytes.
+    /// Returns the message data as a read-only memoryview.
     #[getter]
     pub fn data(&self) -> Option<PyBuffer> {
         let bytes = match &self.0 {
@@ -62,7 +63,7 @@ impl Message {
         }
     }
 
-    /// Returns the binary data of the message if it is a binary message.
+    /// Returns a read-only memoryview if this is a binary message.
     #[getter]
     pub fn binary(&self) -> Option<PyBuffer> {
         if let message::Message::Binary(data) = &self.0 {
@@ -72,7 +73,7 @@ impl Message {
         }
     }
 
-    /// Returns the ping data of the message if it is a ping message.
+    /// Returns a read-only memoryview if this is a ping message.
     #[getter]
     pub fn ping(&self) -> Option<PyBuffer> {
         if let message::Message::Ping(data) = &self.0 {
@@ -82,7 +83,7 @@ impl Message {
         }
     }
 
-    /// Returns the pong data of the message if it is a pong message.
+    /// Returns a read-only memoryview if this is a pong message.
     #[getter]
     pub fn pong(&self) -> Option<PyBuffer> {
         if let message::Message::Pong(data) = &self.0 {
@@ -111,58 +112,56 @@ impl Message {
 
 #[pymethods]
 impl Message {
-    /// Creates a new text message from the JSON representation.
+    /// Creates a text message from a string, or from a JSON value serialized as text.
     #[staticmethod]
     #[pyo3(signature = (like))]
-    pub fn from_text(py: Python, like: TextLike) -> PyResult<Self> {
-        py.detach(|| match like {
-            TextLike::Text(text) => {
-                // If the string is not valid UTF-8, this will panic.
-                let msg = message::Message::text(
-                    Utf8Bytes::try_from(Bytes::from_owner(text)).expect("valid UTF-8"),
-                );
-                Ok(Self(msg))
-            }
+    pub fn from_text(like: TextLike) -> PyResult<Self> {
+        match like {
+            // A Python str is always valid UTF-8.
+            TextLike::Text(text) => Utf8Bytes::try_from(text.0)
+                .map(message::Message::text)
+                .map(Self)
+                .map_err(|err| PyValueError::new_err(err.to_string())),
             TextLike::Json(json) => message::Message::text_from_json(&json)
                 .map(Self)
                 .map_err(Error::Library)
                 .map_err(Into::into),
-        })
+        }
     }
 
-    /// Creates a new binary message from the JSON representation.
+    /// Creates a binary message from bytes, or from a JSON value serialized as binary.
     #[staticmethod]
     #[pyo3(signature = (like))]
-    pub fn from_binary(py: Python, like: BytesLike) -> PyResult<Self> {
-        py.detach(|| match like {
-            BytesLike::Bytes(bytes) => Ok(Self(message::Message::binary(Bytes::from_owner(bytes)))),
+    pub fn from_binary(like: BytesLike) -> PyResult<Self> {
+        match like {
+            BytesLike::Bytes(bytes) => Ok(Self(message::Message::binary(bytes.0))),
             BytesLike::Json(json) => message::Message::binary_from_json(&json)
                 .map(Message)
                 .map_err(Error::Library)
                 .map_err(Into::into),
-        })
+        }
     }
 
     /// Creates a new ping message.
     #[staticmethod]
     #[pyo3(signature = (data))]
-    pub fn from_ping(data: PyBackedBytes) -> Self {
-        Self(message::Message::ping(Bytes::from_owner(data)))
+    pub fn from_ping(data: Binary) -> Self {
+        Self(message::Message::ping(data.0))
     }
 
     /// Creates a new pong message.
     #[staticmethod]
     #[pyo3(signature = (data))]
-    pub fn from_pong(data: PyBackedBytes) -> Self {
-        Self(message::Message::pong(Bytes::from_owner(data)))
+    pub fn from_pong(data: Binary) -> Self {
+        Self(message::Message::pong(data.0))
     }
 
     /// Creates a new close message.
     #[staticmethod]
     #[pyo3(signature = (code, reason=None))]
-    pub fn from_close(code: u16, reason: Option<PyBackedStr>) -> Self {
+    pub fn from_close(code: u16, reason: Option<Text>) -> Self {
         let reason = reason
-            .map(Bytes::from_owner)
+            .map(|reason| reason.0)
             .and_then(|b| Utf8Bytes::try_from(b).ok())
             .unwrap_or_else(|| Utf8Bytes::from_static("Goodbye"));
         let msg = message::Message::close(CloseFrame {

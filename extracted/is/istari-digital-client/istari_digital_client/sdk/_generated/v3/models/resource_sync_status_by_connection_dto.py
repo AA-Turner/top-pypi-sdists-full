@@ -19,7 +19,7 @@ import json
 
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from istari_digital_client.sdk._generated.v3.models.sync_status_type import SyncStatusType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -33,8 +33,9 @@ class ResourceSyncStatusByConnectionDto(BaseModel):
     sync_status_update_id: StrictStr = Field(description="The unique identifier of the sync status update that this resource status belongs to.")
     status: SyncStatusType = Field(description="The most recent sync status reported for this resource on this remote.")
     message: StrictStr = Field(description="A message describing the most recent sync status for this resource on this remote.")
+    file_revision_id: Optional[StrictStr] = None
     created: datetime = Field(description="UTC timestamp of the most recent sync status update for this resource on this remote.")
-    __properties: ClassVar[List[str]] = ["resource_id", "remote_id", "sync_status_update_id", "status", "message", "created"]
+    __properties: ClassVar[List[str]] = ["resource_id", "remote_id", "sync_status_update_id", "status", "message", "file_revision_id", "created"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -75,6 +76,11 @@ class ResourceSyncStatusByConnectionDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if file_revision_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.file_revision_id is None and "file_revision_id" in self.model_fields_set:
+            _dict['file_revision_id'] = None
+
         return _dict
 
     @classmethod
@@ -92,6 +98,7 @@ class ResourceSyncStatusByConnectionDto(BaseModel):
             "sync_status_update_id": obj.get("sync_status_update_id"),
             "status": obj.get("status"),
             "message": obj.get("message"),
+            "file_revision_id": obj.get("file_revision_id"),
             "created": obj.get("created")
         })
         return _obj

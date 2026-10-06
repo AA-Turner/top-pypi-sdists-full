@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import time
 from decimal import Decimal
+from collections.abc import Awaitable, Callable
 from typing import Any, ClassVar
 
 from matrx_orm import (
@@ -141,8 +142,35 @@ async def str_knob(feature: str, key: str) -> str:
     return str(await _raw(feature, key))
 
 
+#: Resolves one knob for one principal: ``(feature, key, organization_id, user_id)``.
+#: The host injects its ladder (platform → organization → person overrides); this
+#: package owns only the platform rows. Without a host the platform row IS the
+#: answer — there is no override table to consult, and never a constant.
+ScopedKnobResolver = Callable[[str, str, str | None, str | None], Awaitable[Any]]
+
+_scoped_resolver: ScopedKnobResolver | None = None
+
+
+def set_scoped_knob_resolver(resolver: ScopedKnobResolver | None) -> None:
+    """Install the host's per-organization / per-person knob ladder (None clears it)."""
+    global _scoped_resolver
+    _scoped_resolver = resolver
+
+
+async def scoped_int_knob(
+    feature: str, key: str, organization_id: str | None, user_id: str | None
+) -> int:
+    """An int knob as THIS organization and person see it."""
+    if _scoped_resolver is None:
+        return await int_knob(feature, key)
+    return int(await _scoped_resolver(feature, key, organization_id, user_id))
+
+
 __all__ = [
     "KNOB_CACHE_TTL_SECONDS",
+    "ScopedKnobResolver",
+    "scoped_int_knob",
+    "set_scoped_knob_resolver",
     "FeatureKnob",
     "KnobNotRegisteredError",
     "clear_knob_cache",

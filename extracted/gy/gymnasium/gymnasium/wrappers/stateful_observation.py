@@ -18,6 +18,7 @@ import numpy as np
 import gymnasium as gym
 import gymnasium.spaces as spaces
 from gymnasium.core import ActType, ObsType, WrapperActType, WrapperObsType
+from gymnasium.error import InvalidBound
 from gymnasium.spaces import Box, Dict, Tuple
 from gymnasium.vector.utils import batch_space, concatenate, create_empty_array
 from gymnasium.wrappers.utils import RunningMeanStd, create_zero_array
@@ -165,6 +166,8 @@ class TimeAwareObservation(
      * v1.0.0 - Remove vector environment support, add ``flatten`` and ``normalize_time`` parameters
     """
 
+    max_timesteps: int
+
     def __init__(
         self,
         env: gym.Env[ObsType, ActType],
@@ -224,9 +227,13 @@ class TimeAwareObservation(
 
         # Find the observation space
         if isinstance(env.observation_space, Dict):
-            assert dict_time_key not in env.observation_space.keys()
+            if dict_time_key in env.observation_space.keys():
+                raise ValueError(
+                    f"The `dict_time_key` ({dict_time_key!r}) already exists in the observation space."
+                )
             observation_space = Dict(
-                {dict_time_key: time_space, **env.observation_space.spaces}
+                {dict_time_key: time_space, **env.observation_space.spaces},
+                sort_keys=env.observation_space.sort_keys,
             )
             self._append_data_func = lambda obs, time: {dict_time_key: time, **obs}
         elif isinstance(env.observation_space, Tuple):
@@ -503,11 +510,26 @@ class NormalizeObservation(
         Args:
             env (Env): The environment to apply the wrapper
             epsilon: A stability parameter that is used when scaling the observations.
+
+        Raises:
+            InvalidBound: If ``epsilon`` is not strictly positive.
         """
+        # `epsilon` is added under the square root to keep the division away from
+        # zero, so a non-positive value defeats its purpose and, once it exceeds
+        # the variance, silently turns every normalized observation into NaN.
+        if epsilon <= 0:
+            raise InvalidBound(
+                f"`epsilon` should be strictly positive. Received {epsilon}"
+            )
+
         gym.utils.RecordConstructorArgs.__init__(self, epsilon=epsilon)
         gym.ObservationWrapper.__init__(self, env)
 
-        assert env.observation_space.shape is not None
+        if env.observation_space.shape is None:
+            raise ValueError(
+                "NormalizeObservation wrapper requires the observation space to have a shape."
+            )
+
         self.observation_space = gym.spaces.Box(
             low=-np.inf,
             high=np.inf,

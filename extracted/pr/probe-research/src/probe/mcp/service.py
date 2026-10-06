@@ -1336,6 +1336,7 @@ _VIEWS: dict[tuple[str, str], str] = {
     (EntityType.EXPERIMENT, View.CARD): "_view_card_with_notes",
     (EntityType.EXPERIMENT, View.NOTES): "_view_experiment_notes",
     (EntityType.EXPERIMENT, View.SUMMARY): "_view_experiment_summary",
+    (EntityType.EXPERIMENT, View.OVERVIEW): "_view_experiment_overview",
     (EntityType.EXPERIMENT, View.ARTIFACTS): "_view_experiment_artifacts",
     # Lineage plan 2 (L12/L18): an experiment's OWN links and its children with
     # their origins -- the same read as a project's (an experiment IS one) --
@@ -1355,6 +1356,7 @@ _VIEWS: dict[tuple[str, str], str] = {
     (EntityType.PROJECT, View.CARD): "_view_project_card",
     (EntityType.PROJECT, View.NOTES): "_view_project_notes",
     (EntityType.PROJECT, View.SUMMARY): "_view_project_summary",
+    (EntityType.PROJECT, View.OVERVIEW): "_view_project_overview",
     # 0134: the attached repositories + the proxied commit timeline. The card
     # carries a bounded `code` block for the same reason it carries notes —
     # a connection an agent has to know to ask for is one it does not see.
@@ -3973,6 +3975,48 @@ class ResearchReadService:
             return _ViewData(payload={"compare": self.source.run_code_compare(run_id, ref)})
         return _ViewData(payload={"code": self.source.run_code(run_id)})
 
+    @staticmethod
+    def _saved_overview(page: dict) -> _ViewData:
+        """Saved page only: live job/ETA/freshness must not invalidate cursors.
+
+        Worker basis is mutable even when the page/version is unchanged and is
+        deliberately excluded. Full HTML includes generated and authored edits. A null
+        HTML value honestly reports that no saved page is available. Generic
+        MCP continuation delivers oversized pages without dropping their tail.
+        """
+        fields = (
+            "anchor_type",
+            "anchor_id",
+            "html",
+            "plan",
+            "blurb",
+            "series",
+            "source",
+            "model",
+            "prompt_version",
+            "generated_at",
+            "version",
+        )
+        saved = {key: page.get(key) for key in fields}
+        if page.get("content") == "absent" and page.get("saved_page_readable") is not True:
+            # Older API pods marked restricted family pages absent while still
+            # returning their bytes. An explicit permission-checked verdict
+            # distinguishes authored-only pages from those old responses.
+            saved = {key: None for key in fields}
+            saved.update(anchor_type=page.get("anchor_type"), anchor_id=page.get("anchor_id"), version=0)
+        return _ViewData(payload={"overview": saved})
+
+    def _view_project_overview(self, entity: dict, request: _Req) -> _ViewData:
+        return self._saved_overview(self.source.project_overview(str(entity["id"])))
+
+    def _view_experiment_overview(self, entity: dict, request: _Req) -> _ViewData:
+        return self._saved_overview(
+            self.source.experiment_overview(
+                str(entity["id"]),
+                project_id=entity.get("project_id") or entity.get("parent_project_id"),
+            )
+        )
+
     def _view_project_summary(self, entity: dict, request: _Req) -> _ViewData:
         """Compatibility-shaped project read for authored Overview Markdown."""
         return self._view_entity_summary(EntityType.PROJECT, entity)
@@ -3980,11 +4024,16 @@ class ResearchReadService:
     def _view_experiment_summary(self, entity: dict, request: _Req) -> _ViewData:
         """The experiment's authored, dashboard-visible Markdown document.
 
-        The experiment API's read carries no `document` (it is a block of the
-        Overview page), so this view reads it on its own -- one request, only
-        when asked for, never on the card."""
+        The experiment detail carries it (`document`, a block of the Overview
+        page; server X21); a row read from a list does not, and this view
+        then reads it on its own -- one request, only when asked for."""
         if "document" not in entity:
-            entity = {**entity, "document": self.source.experiment_document(str(entity["id"]))}
+            entity = {
+                **entity,
+                "document": self.source.experiment_document(
+                    str(entity["id"]), project_id=entity.get("project_id")
+                ),
+            }
         return self._view_entity_summary(EntityType.EXPERIMENT, entity)
 
     @staticmethod
@@ -4199,8 +4248,9 @@ class ResearchReadService:
         `provenance`, and `meta.via` on the daemon's), then "built on" DERIVED
         from its runs' reads (`derived: true`, `meta.basis: runs_read`), so a
         fact never reads like a guess. On an experiment, `run_edges` is the
-        graph AMONG its runs and files (`GET /v1/projects/{id}/edges`, stored
-        edges first). The ROWS are its children (sub-projects and experiments,
+        graph AMONG its runs and files (`GET /v1/projects/{P}/experiments/{E}/edges`,
+        stored edges first), and the read is the experiment API's
+        (`.../experiments/{E}/lineage`). The ROWS are its children (sub-projects and experiments,
         groups, runs filed directly under it), each with its own origin, which
         is what connects the graph.
 
@@ -4211,7 +4261,11 @@ class ResearchReadService:
         over only the newest runs -- is flagged (`*_truncated`) and the view
         reports `partial` with `lineage_beyond_window`, never `complete`.
         """
-        read = self.source.project_lineage(str(entity["id"]))
+        experiment_home = entity.get("project_id") if entity.get("kind") == "experiment" else None
+        if entity.get("kind") == "experiment":
+            read = self.source.experiment_lineage(str(entity["id"]), project_id=experiment_home)
+        else:
+            read = self.source.project_lineage(str(entity["id"]))
         payload: dict[str, Any] = {"origin": read.get("origin")}
         # Present only when true: a flag that is always there stops being read.
         flags: dict[str, bool] = {"nodes_truncated": bool(read.get("truncated"))}
@@ -4225,7 +4279,9 @@ class ResearchReadService:
             if read.get("kind") == "experiment":
                 # One past the cap, so a full window says so rather than passing
                 # for the whole graph.
-                among = self.source.experiment_edges(str(entity["id"]), _LINEAGE_LINKS_CAP + 1)
+                among = self.source.experiment_edges(
+                    str(entity["id"]), _LINEAGE_LINKS_CAP + 1, project_id=experiment_home
+                )
                 payload["run_edges"] = among[:_LINEAGE_LINKS_CAP]
                 flags["run_edges_truncated"] = len(among) > _LINEAGE_LINKS_CAP
         payload.update({flag: True for flag, cut in flags.items() if cut})

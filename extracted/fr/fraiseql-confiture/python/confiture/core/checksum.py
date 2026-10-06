@@ -14,14 +14,10 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING
 
-from psycopg import sql as pgsql
+import psycopg
 
 from confiture.core.ledger import LIVE_ROWS, table_identifier
-
-if TYPE_CHECKING:
-    import psycopg
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +158,7 @@ class MigrationChecksumVerifier:
 
     def __init__(
         self,
-        connection: "psycopg.Connection",
+        connection: psycopg.Connection,
         config: ChecksumConfig | None = None,
         migration_table: str = "tb_confiture",
     ):
@@ -270,9 +266,8 @@ class MigrationChecksumVerifier:
         """
         with self.connection.cursor() as cur:
             cur.execute(
-                pgsql.SQL(
-                    "SELECT version, name, checksum FROM {} AS ledger WHERE {} ORDER BY version"
-                ).format(self._table_ident, LIVE_ROWS)
+                t"SELECT version, name, checksum FROM {self._table_ident:i} AS ledger "
+                t"WHERE {LIVE_ROWS:q} ORDER BY version"
             )
             return {row[0]: (row[1], row[2]) for row in cur.fetchall()}
 
@@ -346,10 +341,8 @@ class MigrationChecksumVerifier:
         """
         with self.connection.cursor() as cur:
             cur.execute(
-                pgsql.SQL("UPDATE {} SET checksum = %s WHERE version = %s").format(
-                    self._table_ident
-                ),
-                (new_checksum, version),
+                t"UPDATE {self._table_ident:i} SET checksum = {new_checksum} "
+                t"WHERE version = {version}"
             )
         self.connection.commit()
         logger.info(f"Updated checksum for migration {version}")
@@ -390,10 +383,8 @@ class MigrationChecksumVerifier:
         with self.connection.cursor() as cur:
             for m in mismatches:
                 cur.execute(
-                    pgsql.SQL("UPDATE {} SET checksum = %s WHERE version = %s").format(
-                        self._table_ident
-                    ),
-                    (m.actual, m.version),
+                    t"UPDATE {self._table_ident:i} SET checksum = {m.actual} "
+                    t"WHERE version = {m.version}"
                 )
         self.connection.commit()
         logger.info(f"Re-stamped {len(mismatches)} checksum(s) in one transaction")

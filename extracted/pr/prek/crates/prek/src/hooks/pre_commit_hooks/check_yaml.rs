@@ -51,12 +51,12 @@ pub(crate) async fn run(hook: &Hook, filenames: &[&Path]) -> Result<HookOutput> 
         hook.project().relative_path(),
         &args.filenames,
         filenames,
-        move |file_path, filename| check_file(file_path, filename, mode),
+        move |file_path, display_path| check_file(file_path, display_path, mode),
     )
     .await
 }
 
-fn check_file(file_path: &Path, filename: &Path, mode: CheckMode) -> Result<HookOutput> {
+fn check_file(file_path: &Path, display_path: &Path, mode: CheckMode) -> Result<HookOutput> {
     let content = fs_err::read(file_path)?;
     if content.is_empty() {
         return Ok(HookOutput::unchanged(0, Vec::new()));
@@ -66,14 +66,14 @@ fn check_file(file_path: &Path, filename: &Path, mode: CheckMode) -> Result<Hook
         CheckMode::Load {
             multiple,
             disallow_unknown_tags,
-        } => check_loaded(filename, &content, multiple, disallow_unknown_tags),
-        CheckMode::SyntaxOnly => check_syntax(filename, &content),
+        } => check_loaded(display_path, &content, multiple, disallow_unknown_tags),
+        CheckMode::SyntaxOnly => check_syntax(display_path, &content),
     };
     Ok(output)
 }
 
 fn check_loaded(
-    filename: &Path,
+    display_path: &Path,
     content: &[u8],
     allow_multi_docs: bool,
     disallow_unknown_tags: bool,
@@ -115,18 +115,23 @@ fn check_loaded(
                 snippets: serde_saphyr::SnippetMode::Off,
                 formatter: &serde_saphyr::UserMessageFormatter,
             });
-            let error_message = format!("{}: Failed to yaml decode ({err})\n", filename.display());
+            let error_message = format!(
+                "{}: Failed to yaml decode ({err})\n",
+                display_path.display()
+            );
             HookOutput::unchanged(1, error_message.into_bytes())
         }
     }
 }
 
-fn check_syntax(filename: &Path, content: &[u8]) -> HookOutput {
+fn check_syntax(display_path: &Path, content: &[u8]) -> HookOutput {
     let content = match simdutf8::compat::from_utf8(content) {
         Ok(content) => content,
         Err(error) => {
-            let error_message =
-                format!("{}: Failed to decode UTF-8 ({error})\n", filename.display());
+            let error_message = format!(
+                "{}: Failed to decode UTF-8 ({error})\n",
+                display_path.display()
+            );
             return HookOutput::unchanged(1, error_message.into_bytes());
         }
     };
@@ -141,7 +146,10 @@ fn check_syntax(filename: &Path, content: &[u8]) -> HookOutput {
     for event in granit_parser::Parser::with_options(granit_parser::StrInput::new(content), options)
     {
         if let Err(error) = event {
-            let error_message = format!("{}: Failed to yaml parse ({error})\n", filename.display());
+            let error_message = format!(
+                "{}: Failed to yaml parse ({error})\n",
+                display_path.display()
+            );
             return HookOutput::unchanged(1, error_message.into_bytes());
         }
     }
@@ -193,7 +201,7 @@ key2: value2
         let file_path = create_test_file(&dir, "valid.yaml", content).await?;
         let result = check_file(&file_path, &file_path, LOAD_SINGLE_DOCUMENT)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -212,7 +220,7 @@ negative_infinity: -.inf
             "{}",
             String::from_utf8_lossy(&result.output)
         );
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -238,7 +246,7 @@ key2: value2: another_value
         let file_path = create_test_file(&dir, "invalid.yaml", content).await?;
         let result = check_file(&file_path, &file_path, LOAD_SINGLE_DOCUMENT)?;
         assert_eq!(result.exit_status, 1);
-        assert!(!result.output.is_empty());
+        assert_ne!(result.output, b"");
         Ok(())
     }
 
@@ -251,7 +259,7 @@ key1: value2
         let file_path = create_test_file(&dir, "duplicate.yaml", content).await?;
         let result = check_file(&file_path, &file_path, LOAD_SINGLE_DOCUMENT)?;
         assert_eq!(result.exit_status, 1);
-        assert!(!result.output.is_empty());
+        assert_ne!(result.output, b"");
         Ok(())
     }
 
@@ -262,7 +270,7 @@ key1: value2
         let file_path = create_test_file(&dir, "empty.yaml", content).await?;
         let result = check_file(&file_path, &file_path, LOAD_SINGLE_DOCUMENT)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -279,11 +287,11 @@ key2: value2
 
         let result = check_file(&file_path, &file_path, LOAD_SINGLE_DOCUMENT)?;
         assert_eq!(result.exit_status, 1);
-        assert!(!result.output.is_empty());
+        assert_ne!(result.output, b"");
 
         let result = check_file(&file_path, &file_path, LOAD_MULTIPLE_DOCUMENTS)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -311,7 +319,7 @@ key2: value2
 
         let result = check_file(&file_path, &file_path, CheckMode::SyntaxOnly)?;
         assert_eq!(result.exit_status, 1);
-        assert!(!result.output.is_empty());
+        assert_ne!(result.output, b"");
         Ok(())
     }
 
@@ -338,7 +346,7 @@ key2: value2
 
         let result = check_file(&file_path, &file_path, CheckMode::SyntaxOnly)?;
         assert_eq!(result.exit_status, 1);
-        assert!(!result.output.is_empty());
+        assert_ne!(result.output, b"");
         Ok(())
     }
 
@@ -401,7 +409,7 @@ response:
         let file_path = create_test_file(&dir, "binary.yaml", content).await?;
         let result = check_file(&file_path, &file_path, LOAD_SINGLE_DOCUMENT)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -425,7 +433,7 @@ response:
             "{}",
             String::from_utf8_lossy(&result.output)
         );
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -447,7 +455,7 @@ response:
                 "{}",
                 String::from_utf8_lossy(&result.output)
             );
-            assert!(result.output.is_empty());
+            assert_eq!(result.output, b"");
         }
         Ok(())
     }

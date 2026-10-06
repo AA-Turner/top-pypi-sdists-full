@@ -1445,3 +1445,27 @@ def test_sync_is_refused_on_the_manifest_path_rather_than_ignored(wired_async, t
 
     assert rc != 0
     assert "always queues" in capsys.readouterr().err
+
+
+def test_an_experiment_reference_is_queued_by_the_experiment_and_placed_at_drain(
+    wired_async, outbox_dir, capsys
+):
+    """`--async artifact add --experiment` (light experiments X21, review of
+    #2286): the reference is queued at `/v1/projects/~/experiments/{E}/artifacts`
+    -- by the experiment alone, never the leaf door (`/v1/projects/{E}/...`) --
+    and the drain files it under the project the experiment is in now."""
+    exp = wired_async.seed_experiment("ref-exp")
+    rc = cli.main(
+        [
+            "--async", "artifact", "add", "--experiment", "ref-exp",
+            "--uri", "s3://b/w.pt", "--name", "w.pt",
+        ]
+    )
+    assert rc == 0, capsys.readouterr()
+    ((_, op),) = Journal(outbox_dir).pending()
+    assert (op["method"], op["path"]) == ("POST", f"/v1/projects/~/experiments/{exp['id']}/artifacts")
+    before = len(wired_async.requests)
+    assert cli_drain(wired_async, outbox_dir).clean
+    posted = [r.url.path for r in wired_async.requests[before:] if r.method == "POST"]
+    assert posted == [f"/v1/projects/{exp['project_id']}/experiments/{exp['id']}/artifacts"]
+    assert not [r for r in wired_async.requests if r.url.path.startswith(f"/v1/projects/{exp['id']}/")]

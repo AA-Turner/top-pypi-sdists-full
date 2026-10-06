@@ -45,6 +45,7 @@ class View(StrEnum):
     TRANSCRIPT = "transcript"
     README = "readme"
     SUMMARY = "summary"
+    OVERVIEW = "overview"
     METRICS = "metrics"
     HANDOFF = "handoff"
     CODE = "code"
@@ -74,6 +75,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.GROUPS,
             View.LINEAGE,
             View.NOTES,
+            View.OVERVIEW,
             View.RECORD,
             View.REPRODUCE,
             View.SESSIONS,
@@ -90,6 +92,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
             View.CODE,
             View.LINEAGE,
             View.NOTES,
+            View.OVERVIEW,
             View.PAPERS,
             View.README,
             View.RECORD,
@@ -137,6 +140,7 @@ VIEW_PURPOSE: dict[View, str] = {
     View.LINEAGE: "what it came from: parents, files read, and who wrote them",
     View.METRICS: "series summaries; view_options.key drills to raw points",
     View.NOTES: "hidden operational notes: decisions, caveats, handoffs",
+    View.OVERVIEW: "the complete saved Overview page: generated content, authored edits and chart data",
     View.PAPERS: "the literature attached to this project",
     View.README: "the repository's README at this grain",
     View.RECORD: "the raw source record, pageable; one field via view_options.field",

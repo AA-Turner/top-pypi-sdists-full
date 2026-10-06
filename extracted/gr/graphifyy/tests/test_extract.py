@@ -48,6 +48,22 @@ def test_extract_python_no_dangling_edges():
         assert edge["source"] in node_ids, f"Dangling source: {edge['source']}"
 
 
+def test_zero_byte_file_keeps_node_without_source_location(tmp_path):
+    """#4041: a 0-byte file has no line 1, so its file node must not claim L1.
+    The node itself stays (an empty __init__.py is still an importable module)."""
+    empty = tmp_path / "empty.py"
+    empty.write_bytes(b"")
+    witness = tmp_path / "witness.py"
+    witness.write_text("VALUE = 1\n")
+
+    result = extract([empty, witness], cache_root=tmp_path / "cache")
+    by_label = {n["label"]: n for n in result["nodes"]}
+
+    assert "empty.py" in by_label
+    assert by_label["empty.py"]["source_location"] is None
+    assert by_label["witness.py"]["source_location"] == "L1"
+
+
 def test_structural_edges_are_extracted():
     """contains / method / inherits / imports edges must always be EXTRACTED."""
     result = extract_python(FIXTURES / "sample.py")
@@ -1186,6 +1202,53 @@ def test_extract_js_arbitrary_member_assignment_not_captured(tmp_path):
     assert "whatever()" not in labels
     assert ".whatever()" not in labels
 
+
+
+def test_extract_js_exported_object_member_assignment_and_calls(tmp_path):
+    """#3778: Member functions assigned to exported objects (like Express res.format = fn)
+    are captured as methods and their call expressions resolved."""
+    from graphify.extract import extract
+    utils = tmp_path / "utils.js"
+    utils.write_text(
+        "exports.normalizeType = function(val) { return val; };\n"
+    )
+    response = tmp_path / "response.js"
+    response.write_text(
+        "var normalizeType = require('./utils').normalizeType;\n"
+        "var res = Object.create(null);\n"
+        "module.exports = res;\n"
+        "res.format = function(obj) {\n"
+        "    return normalizeType(obj);\n"
+        "};\n"
+    )
+    result = extract([utils, response], root=tmp_path)
+    labels = {n["label"] for n in result["nodes"]}
+    assert ".format()" in labels
+    assert "res" in labels
+
+    edges = [(e["source"], e["target"], e["relation"]) for e in result["edges"]]
+    calls = [e for e in edges if e[2] == "calls"]
+    matching_calls = [
+        (s, t) for (s, t, r) in calls
+        if s.endswith("res_format") and t.endswith("normalizetype")
+    ]
+    assert len(matching_calls) == 1
+
+
+def test_extract_js_esm_exported_object_member_assignment(tmp_path):
+    """#3778: ESM exported object declarations (export const app = {}) capture member assignments."""
+    from graphify.extract import extract
+    app = tmp_path / "app.js"
+    app.write_text(
+        "export const app = {};\n"
+        "app.use = function(middleware) {\n"
+        "    return middleware;\n"
+        "};\n"
+    )
+    result = extract([app], root=tmp_path)
+    labels = {n["label"] for n in result["nodes"]}
+    assert ".use()" in labels
+    assert "app" in labels
 
 def test_extract_js_nested_function_declarations(tmp_path):
     """#2653: function declarations nested inside another function emit nodes,
@@ -3149,6 +3212,29 @@ def test_extract_bash_emits_source_imports_from(tmp_path):
     assert import_edges[0].get("context") == "import"
 
 
+@pytest.mark.parametrize("source_form", ["source ./helpers.sh", ". ./helpers.sh"])
+def test_extract_bash_source_forms_are_imports_not_invokes(tmp_path, source_form):
+    """#4081: sourcing a shell file is an import, not script execution."""
+    helpers = tmp_path / "helpers.sh"
+    helpers.write_text("# helper\n", encoding="utf-8")
+    script = tmp_path / "deploy.sh"
+    script.write_text(f"#!/bin/bash\n{source_form}\n", encoding="utf-8")
+
+    result = extract_bash(script)
+    import_edges = [edge for edge in result["edges"] if edge["relation"] == "imports_from"]
+    # A misrouted `source` would land in the script-invocation branch as either a
+    # direct-`.sh` `calls` edge or an interpreter `invokes` edge, so guard on the
+    # context regardless of relation (the `calls` form is the realistic #4081 miss).
+    invocation_edges = [
+        edge for edge in result["edges"]
+        if edge.get("context") == "script_invocation"
+    ]
+
+    assert import_edges
+    assert import_edges[0]["target"] == _make_id(str(helpers.resolve()))
+    assert invocation_edges == []
+
+
 def test_extract_bash_source_via_variable_path_resolves_to_real_file(tmp_path):
     """`source "${DIR}/lib/x.sh"` (the `dirname "${BASH_SOURCE[0]}"` idiom) must
     resolve to the real file node relative to the script dir — never emit a dead
@@ -4944,6 +5030,21 @@ def test_rewire_binds_builtin_named_supertype_stub_within_same_language():
               "source_file": "pkg/FooApiException.php", "weight": 1.0}]
     _rewire_unique_stub_nodes(nodes, edges)
     assert edges[0]["target"] == "pkg_support_Exception"
+
+
+def test_cross_file_inheritance_resolves_across_jvm_languages(tmp_path):
+    """A Kotlin subclass must keep its Java base despite the extension difference."""
+    base = tmp_path / "Base.java"
+    child = tmp_path / "Child.kt"
+    base.write_text("package models;\npublic class Base {}\n", encoding="utf-8")
+    child.write_text("import models.Base\nclass Child : Base()\n", encoding="utf-8")
+    result = extract([base, child], root=tmp_path, cache_root=tmp_path / "cache", parallel=False)
+    base_node = next(n for n in result["nodes"]
+                     if n["label"] == "Base" and n.get("source_file") == "Base.java")
+    child_node = next(n for n in result["nodes"]
+                      if n["label"] == "Child" and n.get("source_file") == "Child.kt")
+    assert any(e["relation"] == "inherits" and e["source"] == child_node["id"]
+               and e["target"] == base_node["id"] for e in result["edges"])
 
 
 def test_rewire_builtin_supertype_guard_folds_case_insensitive_languages():

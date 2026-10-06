@@ -348,9 +348,13 @@ def ask_cmd(
     if state == session_marker.STATE_OFF:
         typer.echo(ASK_SESSION_OFF, err=True)
         raise typer.Exit(1)
-    # `on (daemon)` and `read only (daemon)`: the daemon's reader answers in both.
+    # `on (daemon)`, `read only (daemon)` and `on (inline)` (the agent took Probe
+    # over): the daemon's reader answers in all three.
     reads_only = state == session_marker.STATE_READ_ONLY and session_marker.daemon_session(sid, calling_agent())
-    if (state != session_marker.STATE_DAEMON and not reads_only) or not mailbox.enabled(source=calling_agent()):
+    inline = session_marker.is_inline(sid, state)
+    if (state != session_marker.STATE_DAEMON and not reads_only and not inline) or not mailbox.enabled(
+        source=calling_agent()
+    ):
         typer.echo(ASK_NO_DAEMON, err=True)
         raise typer.Exit(1)
     alive = mailbox.worker_alive(sid)

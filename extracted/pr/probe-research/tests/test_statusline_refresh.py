@@ -132,7 +132,7 @@ def test_the_hook_prints_nothing_and_exits_zero_as_a_subprocess(tmp_path) -> Non
 
 def test_the_hook_is_wired_into_the_shared_hooks_file() -> None:
     """Both flavours load this file, which is why the gate has to exist."""
-    hooks = json.loads((_HOOKS / "hooks.json").read_text())["hooks"]
+    hooks = json.loads((_HOOKS / "routes.json").read_text())["hooks"]
     wired = [
         entry["command"]
         for event in ("SessionStart", "PostToolUse")

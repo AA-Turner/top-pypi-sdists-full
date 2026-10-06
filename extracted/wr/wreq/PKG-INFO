@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wreq
-Version: 0.12.3
+Version: 0.13.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -15,23 +15,17 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
-Requires-Dist: pytest ; extra == 'bench'
-Requires-Dist: pyperf ; extra == 'bench'
-Requires-Dist: starlette ; extra == 'bench'
-Requires-Dist: niquests ; extra == 'bench'
-Requires-Dist: httpx ; extra == 'bench'
-Requires-Dist: requests ; extra == 'bench'
-Requires-Dist: wreq ; extra == 'bench'
-Requires-Dist: curl-cffi ; extra == 'bench'
-Requires-Dist: aiohttp ; extra == 'bench'
-Requires-Dist: pycurl ; extra == 'bench'
-Requires-Dist: uvicorn ; extra == 'bench'
-Requires-Dist: starlette ; extra == 'bench'
-Requires-Dist: typing-extensions ; extra == 'bench'
-Requires-Dist: uvloop ; platform_system != 'Windows' and extra == 'bench'
-Requires-Dist: ry ; extra == 'bench'
-Requires-Dist: zensical ; extra == 'docs'
-Requires-Dist: mkdocs-material>=9.5.0 ; extra == 'docs'
+Requires-Dist: pytest==9.1.1 ; extra == 'bench'
+Requires-Dist: ry==0.0.101 ; extra == 'bench'
+Requires-Dist: pyreqwest==0.14.0 ; extra == 'bench'
+Requires-Dist: httpx[http2]==0.28.1 ; extra == 'bench'
+Requires-Dist: aiohttp==3.14.3 ; extra == 'bench'
+Requires-Dist: niquests==3.21.2 ; extra == 'bench'
+Requires-Dist: curl-cffi==0.16.3 ; extra == 'bench'
+Requires-Dist: requests==2.34.2 ; extra == 'bench'
+Requires-Dist: pycurl==7.48.0 ; extra == 'bench'
+Requires-Dist: zensical>=0.0.67 ; extra == 'docs'
+Requires-Dist: mkdocs-material>=9.7.7 ; extra == 'docs'
 Requires-Dist: mkdocstrings[python]>=1.0.3 ; extra == 'docs'
 Requires-Dist: mike>=2.0.0 ; extra == 'docs'
 Requires-Dist: pytest ; extra == 'test'
@@ -100,17 +94,14 @@ from wreq import Client, Emulation
 
 
 async def main():
-    # Build a client
-    client = Client(emulation=Emulation.Chrome153)
-
-    # Use the API you're already familiar with
-    resp = await client.get("https://pingly.us.kg/api/all")
-    print(await resp.text())
+    async with Client(emulation=Emulation.Chrome154) as c:
+        async with c.get("https://pingly.us.kg/api/all") as r:
+            r.raise_for_status()
+            print(await r.text())
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 ```
 
 Additional learning resources include:
@@ -127,7 +118,7 @@ Due to the complexity of TLS encryption and the widespread adoption of HTTP/2, b
 
 2. **Device Emulation**
 
-**TLS** and **HTTP/2** fingerprints are often identical across various browser models because these underlying protocols evolve slower than browser release cycles. **100+ browser device emulation [profiles](https://python.wreq.org/en/latest/getting-started/introduction/#behavior)** are maintained in **wreq**.
+**TLS** and **HTTP/2** fingerprints are often identical across various browser models because these underlying protocols evolve slower than browser release cycles. **100+ browser device emulation [profiles](https://python.wreq.org/en/latest/api/emulation/#wreq.emulation.Profile)** are maintained in **wreq**.
 
 ## Building
 
@@ -160,7 +151,7 @@ maturin build --release
 
 ## Benchmark
 
-Outperforms `requests`, `httpx`, `aiohttp`, and `curl_cffi` according to our [benchmark](https://github.com/0x676e67/wreq-python/tree/main/bench) suite driven by [pyperf](https://github.com/psf/pyperf), though results are for reference only as they vary by environment.
+Our [benchmark suite](https://github.com/0x676e67/wreq-python/tree/main/bench) compares Python HTTP clients over HTTPS HTTP/1.1 and HTTP/2. It tests complete and streamed uploads, reading every response to the end. The results include client versions and machine details so you can check the conditions behind each measurement. Performance varies by workload and environment.
 
 ## Services
 
@@ -175,6 +166,18 @@ Licensed under either of Apache License, Version 2.0 ([LICENSE](./LICENSE) or ht
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the [Apache-2.0](./LICENSE) license, shall be licensed as above, without any additional terms or conditions.
 
 ## Sponsors
+
+<a href="https://byteful.com/?utm_source=github_python&utm_medium=github-sponsor&utm_campaign=wreq_github_sponsorship" target="_blank"><img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/byteful-logo.svg" width="149" height="47" alt="Byteful"></a>
+
+**35M+ residential IPs with 99.9% success rates**
+
+UK-based **[Byteful](https://byteful.com/?utm_source=github_python&utm_medium=github-sponsor&utm_campaign=wreq_github_sponsorship)** provides ethically sourced residential, mobile, static residential (ISP), and datacenter proxies. Its API-first scraping, data collection, and AI automation tools handle tens of billions of monthly requests.
+
+With free geo-targeting and ~0.5s response times, Byteful helps you collect data at scale. Use code **`WREQ10`** for **10% off residential proxies**.
+
+**[Dashboard](https://dashboard.byteful.com/)** | **[Docs](https://documentation.byteful.com/)** | **[Discord](https://discord.com/invite/ping-proxies-584021352940568578)**
+
+---
 
 <a href="https://go.nodemaven.com/wreqpythonGHaugust" target="_blank">
   <img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/nodemaven.svg" width="165" height="47" alt="NodeMaven">
@@ -195,7 +198,7 @@ Unique free tools include the **Proxy Bandwidth Checker**, **Meta Tag Checker**,
 ---
 
 <a href="https://scrape.do/?utm_source=github&utm_medium=rnet" target="_blank">
-  <img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/scrapedo.svg" width="149" height="47">
+  <img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/scrapedo.svg" width="170" height="47" alt="Scrape.do">
 </a>
 
 **[Scrape.do](https://scrape.do/?utm_source=github&utm_medium=rnet)** is the ultimate toolkit for collecting public data at scale. Unmatched speed, unbeatable prices, unblocked access.
@@ -209,7 +212,7 @@ One line of code. Instant data access
 ---
 
 <a href="https://www.ez-captcha.com" target="_blank">
-  <img src="https://www.ez-captcha.com/siteLogo.png" height="47" width="47">
+  <img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/ezcaptcha-wordmark.svg" height="47" width="149" alt="EzCaptcha">
 </a>
 
 Captcha solving can be slow and unreliable, but **[EzCaptcha](https://www.ez-captcha.com/?r=github-rnet)** delivers fast, reliable solving through a simple API — supporting a wide range of captcha types with no complex integration required.  
@@ -222,7 +225,7 @@ Designed for developers, it offers high accuracy, low price, low latency, and ea
 
 ---
 
-<a href="https://hypersolutions.co/?utm_source=github&utm_medium=readme&utm_campaign=rnet" target="_blank"><img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/hypersolutions.jpg" height="47" width="149"></a>
+<a href="https://hypersolutions.co/?utm_source=github&utm_medium=readme&utm_campaign=rnet" target="_blank"><img src="https://raw.githubusercontent.com/0x676e67/wreq-python/main/.github/assets/hypersolutions.svg" height="47" width="149" alt="Hyper Solutions"></a>
 
 TLS fingerprinting alone isn't enough for modern bot protection. **[Hyper Solutions](https://hypersolutions.co?utm_source=github&utm_medium=readme&utm_campaign=rnet)** provides the missing piece - API endpoints that generate valid antibot tokens for:
 

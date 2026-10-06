@@ -3,9 +3,11 @@
 from typing import Any
 
 from ruamel.yaml import YAML, CommentedMap
+from ruamel.yaml.emitter import Emitter as BaseEmitter
 from ruamel.yaml.nodes import ScalarNode
 from ruamel.yaml.representer import RoundTripRepresenter
 from ruamel.yaml.scalarstring import DoubleQuotedScalarString, LiteralScalarString
+from ruamel.yaml.tokens import CommentToken
 
 from pyrig.core.strings import is_multiline, open_path_with_utf8, read_text_utf8
 from pyrig.rig.configs.base.config_file import ConfigFile, DictConfigFile
@@ -34,7 +36,31 @@ def represent_str(representer: RoundTripRepresenter, data: str) -> ScalarNode:
     )
 
 
+NO_COLUMN = -1
+
+
+class Emitter(BaseEmitter):
+    """Round-trip emitter with pyrig-specific output customizations."""
+
+    def write_comment(self, comment: CommentToken, pre: bool = False) -> None:  # noqa: FBT001, FBT002
+        """Write a comment, resolving `NO_COLUMN` to the current indentation.
+
+        Comments whose column is `NO_COLUMN` are written at the emitter's
+        current indentation, i.e. aligned with the node they precede, instead
+        of at an absolute column. All other comments are written unchanged.
+
+        Args:
+            comment: The comment token to write.
+            pre: Whether the comment is written before a node rather than as
+                an end-of-line comment.
+        """
+        if comment.start_mark.column == NO_COLUMN:
+            comment.start_mark.column = self.indent or 0
+        super().write_comment(comment, pre)
+
+
 YAML_DUMP = YAML()
+YAML_DUMP.Emitter = Emitter
 YAML_DUMP.indent(mapping=2, sequence=4, offset=2)
 YAML_DUMP.explicit_start = True
 YAML_DUMP.explicit_end = True
@@ -133,24 +159,36 @@ class YMLDictConfigFile(YMLConfigFile[dict[str, Any]], DictConfigFile):
     """
 
 
-def commented_map(dict_: dict[str, Any], comments: dict[str, str]) -> CommentedMap:
-    """Return a `CommentedMap` with inline YAML comments for selected keys.
+def commented_map(
+    dict_: dict[str, Any],
+    *,
+    comments: dict[str, str],
+    comments_before: dict[str, str] | None = None,
+) -> CommentedMap:
+    """Return a `CommentedMap` with YAML comments attached to selected keys.
 
-    This mirrors the pattern used by ruamel when preserving comment placement: we
-    build each annotated entry in a temporary single-item `CommentedMap` and then
-    copy its comment metadata into the final map. That keeps the end-of-line
-    comment aligned consistently even when only some entries are annotated.
+    This mirrors the pattern used by ruamel when preserving comment placement:
+    each annotated entry is built in a temporary single-item `CommentedMap`, and
+    its comment metadata is copied into the final map. This preserves alignment
+    for end-of-line comments and placement for standalone comments before keys.
 
     Args:
         dict_: The dictionary to convert.
         comments: Mapping of keys to the end-of-line comment text to attach.
             Any key omitted here is left without a trailing comment.
+        comments_before: Mapping of keys to standalone comment text to place
+            immediately before those keys. Comment text must not include `#`.
+            Comments are indented to match their key when dumped with
+            `YAML_DUMP`.
 
     Returns:
         A `CommentedMap` with the same key/value pairs as `dict_`, preserving
-        insertion order and attaching comments only to keys present in
-        `comments`.
+        insertion order and placing comments from `comments` and
+        `comments_before` on their corresponding keys.
     """
+    if comments_before is None:
+        comments_before = {}
+
     commented = CommentedMap()
     for key, value in dict_.items():
         commented[key] = value
@@ -158,5 +196,13 @@ def commented_map(dict_: dict[str, Any], comments: dict[str, str]) -> CommentedM
         comment = comments.get(key)
         if comment is not None:
             item.yaml_add_eol_comment(comment, key=key)
+            commented.ca.items[key] = item.ca.items[key]
+        comment_before = comments_before.get(key)
+        if comment_before is not None:
+            item.yaml_set_comment_before_after_key(
+                key,
+                before=comment_before,
+                indent=NO_COLUMN,
+            )
             commented.ca.items[key] = item.ca.items[key]
     return commented

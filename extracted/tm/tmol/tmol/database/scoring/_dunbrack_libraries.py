@@ -1,6 +1,8 @@
 import attr
+import cattr
 import torch
-from typing import Tuple
+import yaml
+from typing import Tuple, Optional
 
 from tmol.types import Tensor
 
@@ -19,6 +21,11 @@ class RotamericDataForAA:
     backbone_dihedral_start: Tensor[float][:]
     backbone_dihedral_step: Tensor[float][:]
     rotamer_alias: Tensor[int][:, :]
+    # Probability-order cells are selected in the source grid before reflection.
+    backbone_is_mirrored: bool = False
+    # A reflected grid may have a different origin. Keep its source origin
+    # for source-cell selection; None denotes the stored grid's own origin.
+    backbone_source_start: Optional[Tensor[float][:]] = None
 
     def __repr__(self):
         return "testing __repr__ for RotamericDataForAA"
@@ -70,7 +77,8 @@ class DunbrackRotamerLibrary:
     semi_rotameric_libraries: Tuple[SemiRotamericAADunbrackLibrary, ...]
 
     @classmethod
-    def from_file(cls, fname: str):
+    def from_file(cls, fname: str, lookup: Optional[str] = None):
+        """Load the libraries; a lookup yaml, if given, replaces the stored lookup."""
         _OLD = "tmol.database.scoring.dunbrack_libraries"
         with torch.serialization.safe_globals(
             [
@@ -89,7 +97,20 @@ class DunbrackRotamerLibrary:
                 (RotamericDataForAA, f"{_OLD}.RotamericDataForAA"),
             ]
         ):
-            # Be explicit so application-level
-            # TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD does not bypass the safe-global
-            # aliases for pre-refactor class names stored in this database.
-            return torch.load(fname, mmap=True, weights_only=True)
+            library = torch.load(fname, mmap=True, weights_only=True)
+        # Older binary records predate this field. These are newly loaded,
+        # owned objects; no source file or previously shared record is changed.
+        for entry in (*library.rotameric_libraries, *library.semi_rotameric_libraries):
+            data = entry.rotameric_data
+            if not hasattr(data, "backbone_is_mirrored"):
+                object.__setattr__(data, "backbone_is_mirrored", False)
+            if not hasattr(data, "backbone_source_start"):
+                object.__setattr__(data, "backbone_source_start", None)
+        if lookup is not None:
+            with open(lookup) as infile:
+                raw = yaml.safe_load(infile)["dunbrack_lookup"]
+            library = attr.evolve(
+                library,
+                dun_lookup=cattr.structure(raw, Tuple[DunMappingParams, ...]),
+            )
+        return library

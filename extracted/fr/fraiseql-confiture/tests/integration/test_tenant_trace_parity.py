@@ -34,10 +34,11 @@ import psycopg
 from pglast.stream import RawStream
 
 from confiture.config.project import TenancyConfig
-from confiture.core.linting.inventory import build_inventory
 from confiture.core.linting.tenant.scope import classify
 from confiture.core.linting.tenant.trace import Origin, Unread
 from confiture.core.linting.tenant.views import ViewScopes, view_definitions
+from confiture.core.schema_read import read_text
+from confiture.core.sql_lexer import parse_file
 
 _DDL = """
 CREATE SCHEMA app;
@@ -160,9 +161,9 @@ class _Oracle:
 
 
 def _traced(sql: str) -> dict[str, list[Any]]:
-    inventory = build_inventory(sql)
+    inventory = read_text(sql).inventory
     tables = classify(inventory.tables, TenancyConfig(), declarations={})
-    scopes = ViewScopes(tables, inventory, view_definitions(None, sql), [])
+    scopes = ViewScopes(tables, inventory, view_definitions(parse_file(sql)), [])
     found: dict[str, list[Any]] = {}
     for name in CORPUS:
         columns = scopes.columns("corpus", name)

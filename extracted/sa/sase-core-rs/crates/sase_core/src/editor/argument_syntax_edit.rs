@@ -4,7 +4,9 @@ use super::directive::{
 use super::exclusion::{
     excluded_literal_and_definition_ranges, position_in_ranges,
 };
-use super::macro_args::macro_argument_open_colon_at;
+use super::macro_args::{
+    macro_argument_list_open_paren_for_close, macro_argument_open_colon_at,
+};
 use super::token::{is_macro_like_token, DocumentSnapshot};
 use super::wire::{EditorPosition, EditorRange, EditorTextEdit};
 use serde::{Deserialize, Serialize};
@@ -93,6 +95,71 @@ pub fn plan_argument_double_colon_to_parentheses_edit(
     })
 }
 
+/// Plan reopening a macro's closed parenthesized argument list before `(`.
+///
+/// The caller supplies the pre-insertion document plus the caret position
+/// where `(` is about to be typed. The returned edit's range ends at the
+/// list's closing `)`; frontends place the caret at
+/// `range.start + new_text.len()` (immediately before that `)`), and the
+/// typed `(` is never inserted.
+pub fn plan_argument_list_continuation_edit(
+    document: &DocumentSnapshot,
+    position: EditorPosition,
+) -> Option<EditorTextEdit> {
+    let text = document.text();
+    let cursor = document.position_to_byte_offset(position)?;
+    let bytes = text.as_bytes();
+    let mut delimiter_end = cursor;
+    while delimiter_end > 0 && bytes.get(delimiter_end - 1) == Some(&b' ') {
+        delimiter_end -= 1;
+    }
+
+    let close_idx = if delimiter_end >= 2
+        && bytes.get(delimiter_end - 2..delimiter_end) == Some(b"::")
+    {
+        if bytes.get(delimiter_end) == Some(&b':') {
+            return None;
+        }
+        delimiter_end.checked_sub(3)?
+    } else if delimiter_end == cursor {
+        cursor.checked_sub(1)?
+    } else {
+        return None;
+    };
+    if bytes.get(close_idx) != Some(&b')') {
+        return None;
+    }
+    let open_idx = macro_argument_list_open_paren_for_close(text, close_idx)?;
+    let excluded = excluded_literal_and_definition_ranges(text);
+    if position_in_ranges(open_idx, &excluded)
+        || position_in_ranges(close_idx, &excluded)
+    {
+        return None;
+    }
+
+    let mut content_end = close_idx;
+    while content_end > open_idx + 1
+        && bytes
+            .get(content_end - 1)
+            .is_some_and(u8::is_ascii_whitespace)
+    {
+        content_end -= 1;
+    }
+    if content_end == open_idx + 1 || bytes.get(content_end - 1) == Some(&b',')
+    {
+        return Some(EditorTextEdit {
+            range: document.byte_range_to_range(close_idx, close_idx)?,
+            new_text: String::new(),
+        });
+    }
+
+    let trailing_whitespace = text.get(content_end..close_idx)?;
+    Some(EditorTextEdit {
+        range: document.byte_range_to_range(content_end, close_idx)?,
+        new_text: format!(",{trailing_whitespace}"),
+    })
+}
+
 /// Accepted completion spacer record for consuming an xprompt space before `(`.
 ///
 /// Frontends establish acceptance (manual completion, soft completion, or
@@ -101,7 +168,7 @@ pub fn plan_argument_double_colon_to_parentheses_edit(
 /// regions. Cached acceptance metadata only: no catalog, filesystem, or
 /// provider work on the typing path.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XpromptCompletionSpacerWire {
+pub struct MacroCompletionSpacerWire {
     /// Exact insertion recorded at acceptance (for example `#optional`).
     pub reference_text: String,
     /// Document position of the first reference character at acceptance.
@@ -120,10 +187,10 @@ pub struct XpromptCompletionSpacerWire {
 /// and caret placement remain frontend concerns. This is a completion edit,
 /// not a parser change that permits whitespace between an invocation and its
 /// argument list.
-pub fn plan_xprompt_completion_spacer_to_parentheses_edit(
+pub fn plan_macro_completion_spacer_to_parentheses_edit(
     document: &DocumentSnapshot,
     position: EditorPosition,
-    record: &XpromptCompletionSpacerWire,
+    record: &MacroCompletionSpacerWire,
 ) -> Option<EditorTextEdit> {
     if !record.has_optional_inputs {
         return None;
@@ -287,6 +354,20 @@ mod tests {
             edit.new_text,
             &document.text()[end..]
         ))
+    }
+
+    fn applied_continuation(marked: &str) -> Option<(String, usize)> {
+        let (document, position) = position_for_cursor(marked);
+        let edit = plan_argument_list_continuation_edit(&document, position)?;
+        let start = document.position_to_byte_offset(edit.range.start)?;
+        let end = document.position_to_byte_offset(edit.range.end)?;
+        let text = format!(
+            "{}{}{}",
+            &document.text()[..start],
+            edit.new_text,
+            &document.text()[end..]
+        );
+        Some((text, start + edit.new_text.len()))
     }
 
     #[test]
@@ -496,14 +577,125 @@ mod tests {
         );
     }
 
+    #[test]
+    fn continues_closed_macro_argument_lists() {
+        for (source, expected) in [
+            ("#foo(bar=1)<cursor>", "#foo(bar=1,<cursor>)"),
+            (
+                "#foo(bar=1):: <cursor>Some text.",
+                "#foo(bar=1,<cursor>):: Some text.",
+            ),
+            ("#foo(bar=1)::<cursor>", "#foo(bar=1,<cursor>)::"),
+            (
+                "#foo(bar=1)::   <cursor>body",
+                "#foo(bar=1,<cursor>)::   body",
+            ),
+            ("#foo()<cursor>", "#foo(<cursor>)"),
+            ("#foo(bar=1,)<cursor>", "#foo(bar=1,<cursor>)"),
+            ("#foo(bar=1, )<cursor>", "#foo(bar=1, <cursor>)"),
+            ("#foo(bar=1 )<cursor>", "#foo(bar=1, <cursor>)"),
+            ("#foo(\n  bar=1\n)<cursor>", "#foo(\n  bar=1,\n<cursor>)"),
+            (
+                "#outer(#inner(a=1)<cursor>)",
+                "#outer(#inner(a=1,<cursor>))",
+            ),
+            (
+                "#foo(a=\")\", b=[[x)y]])<cursor>",
+                "#foo(a=\")\", b=[[x)y]],<cursor>)",
+            ),
+        ] {
+            let cursor = expected.find("<cursor>").expect("cursor marker");
+            let expected_text = expected.replace("<cursor>", "");
+            assert_eq!(
+                applied_continuation(source),
+                Some((expected_text, cursor)),
+                "{source}"
+            );
+        }
+    }
+
+    #[test]
+    fn continuation_handles_utf16_and_multiline_positions() {
+        let (document, position) =
+            position_for_cursor("é🙂 #foo(bar=1)<cursor>");
+        let edit = plan_argument_list_continuation_edit(&document, position)
+            .expect("planned edit");
+        assert_eq!(edit.range.start.line, 0);
+        assert_eq!(edit.range.start.character, 14);
+        assert_eq!(edit.range.end.character, 14);
+        assert_eq!(edit.new_text, ",");
+
+        let (document, position) =
+            position_for_cursor("é🙂\nText #foo(bar=1)<cursor>");
+        let edit = plan_argument_list_continuation_edit(&document, position)
+            .expect("planned edit");
+        assert_eq!(edit.range.start.line, 1);
+        assert_eq!(edit.range.start.character, 15);
+        assert_eq!(edit.range.end.character, 15);
+        assert_eq!(edit.new_text, ",");
+    }
+
+    #[test]
+    fn rejects_ineligible_continuation_sources_and_positions() {
+        for source in [
+            "%q(capacity=1)<cursor>",
+            "%wait(ready=true)<cursor>",
+            "%proc(a)::<cursor>",
+            "%(a,b)<cursor>",
+            "%alt(a,b)<cursor>",
+            "(note)<cursor>",
+            "foo(bar)<cursor>",
+            r"\#foo(a)<cursor>",
+            "word#foo(a)<cursor>",
+            "https://x.test/#foo(a)<cursor>",
+            "#foo(a) <cursor>",
+            "#foo(a):<cursor>",
+            "#foo(a): <cursor>",
+            "#foo(a)::\t<cursor>",
+            "#foo(a)::\u{00a0}<cursor>",
+            "#foo(a)::<cursor>:",
+            "#foo(a):::<cursor>",
+            "#foo(a):: body<cursor>",
+            "#foo(a)x<cursor>",
+            "#foo(a<cursor>)",
+            "#foo(a<cursor>",
+            "`#foo(a)<cursor>`",
+            "```\n#foo(a)<cursor>\n```",
+            "%xprompts_enabled:false\n#foo(a)<cursor>\n%xprompts_enabled:true\n",
+            "---\nname: #foo(a)<cursor>\n---\n#foo(a)",
+            "{{ #foo(a)<cursor> }}",
+            "{% set value = '#foo(a)<cursor>' %}",
+        ] {
+            assert_eq!(applied_continuation(source), None, "{source}");
+        }
+
+        let document = DocumentSnapshot::new("🙂 #foo(a)");
+        assert_eq!(
+            plan_argument_list_continuation_edit(
+                &document,
+                EditorPosition {
+                    line: 0,
+                    character: 1,
+                },
+            ),
+            None
+        );
+
+        let (document, position) = position_for_cursor("#foo(a)::<cursor>");
+        assert_eq!(
+            plan_argument_double_colon_to_parentheses_edit(&document, position),
+            None
+        );
+    }
+
     fn spacer_record(
         document: &DocumentSnapshot,
         reference_text: &str,
         reference_byte: usize,
         spacer_byte: usize,
         has_optional_inputs: bool,
-    ) -> XpromptCompletionSpacerWire {
-        XpromptCompletionSpacerWire {
+    ) -> MacroCompletionSpacerWire {
+        MacroCompletionSpacerWire {
             reference_text: reference_text.to_string(),
             reference_start: document
                 .byte_offset_to_position(reference_byte)
@@ -534,7 +726,7 @@ mod tests {
             spacer_byte,
             has_optional_inputs,
         );
-        let edit = plan_xprompt_completion_spacer_to_parentheses_edit(
+        let edit = plan_macro_completion_spacer_to_parentheses_edit(
             &document, position, &record,
         )?;
         let start = document.position_to_byte_offset(edit.range.start)?;
@@ -651,7 +843,7 @@ mod tests {
             .expect("cursor");
         let record =
             spacer_record(&document, "#optional", reference, spacer, true);
-        let edit = plan_xprompt_completion_spacer_to_parentheses_edit(
+        let edit = plan_macro_completion_spacer_to_parentheses_edit(
             &document, cursor, &record,
         )
         .expect("planned edit");
@@ -670,7 +862,7 @@ mod tests {
     #[test]
     fn spacer_rejects_invalid_utf16_positions() {
         let document = DocumentSnapshot::new("🙂 #optional ");
-        let record = XpromptCompletionSpacerWire {
+        let record = MacroCompletionSpacerWire {
             reference_text: "#optional".to_string(),
             reference_start: EditorPosition {
                 line: 0,
@@ -680,7 +872,7 @@ mod tests {
             has_optional_inputs: true,
         };
         assert_eq!(
-            plan_xprompt_completion_spacer_to_parentheses_edit(
+            plan_macro_completion_spacer_to_parentheses_edit(
                 &document,
                 EditorPosition {
                     line: 0,

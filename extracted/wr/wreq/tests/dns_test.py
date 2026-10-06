@@ -6,9 +6,8 @@ from ipaddress import IPv4Address
 import pytest
 
 import wreq
-from wreq import Client, blocking
+from wreq import blocking
 from wreq.dns import DnsOptions, LookupIpStrategy
-from wreq.exceptions import ConnectionError
 
 
 @pytest.fixture
@@ -45,6 +44,7 @@ async def test_dns_options(dns_http_server, blocking_api):
             kwargs["dns_options"] = options
 
         if blocking_api:
+
             def request():
                 with blocking.Client(**kwargs) as client:
                     with client.get(url) as response:
@@ -53,7 +53,7 @@ async def test_dns_options(dns_http_server, blocking_api):
             body = await asyncio.to_thread(request)
         else:
             async with wreq.Client(**kwargs) as client:
-                async with await client.get(url) as response:
+                async with client.get(url) as response:
                     body = await response.text()
         assert body == "DNS resolved"
 
@@ -76,16 +76,11 @@ async def test_dns_options(dns_http_server, blocking_api):
 
 
 @pytest.mark.asyncio
-@pytest.mark.flaky(reruns=3, reruns_delay=2)
-async def test_dns_resolve_override():
+async def test_dns_resolve_override(dns_http_server):
+    # An override wins over the real address of a resolvable host.
     dns_options = DnsOptions(lookup_ip_strategy=LookupIpStrategy.IPV4_ONLY)
-    dns_options.add_resolve("www.google.com", [IPv4Address("192.168.1.1")])
-    client = Client(
-        dns_options=dns_options,
-    )
-
-    try:
-        await client.get("https://www.google.com")
-        assert False, "ConnectionError was expected"
-    except ConnectionError:
-        pass
+    dns_options.add_resolve("www.google.com", [IPv4Address("127.0.0.1")])
+    async with wreq.Client(dns_options=dns_options, no_proxy=True) as client:
+        url = f"http://www.google.com:{dns_http_server}/"
+        async with await asyncio.wait_for(client.get(url), 5) as response:
+            assert await response.text() == "DNS resolved"

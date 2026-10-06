@@ -52,18 +52,10 @@ struct LKBallPoseScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev> pose_stack_min_bond_separation,
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -96,6 +88,7 @@ struct LKBallPoseScoreDispatch {
       TView<LKBallGlobalParams<Real>, 1, Dev> global_params,
       Real max_dis,
       TView<Vec<Real, 3>, 2, Dev> water_coords,
+      TView<Int, 1, Dev> shared_compact_block_neighbors,
       bool output_block_pair_energies)
       -> std::tuple<TPack<Real, 4, Dev>, TPack<Int, 3, Dev>>;
 
@@ -121,18 +114,10 @@ struct LKBallPoseScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev> pose_stack_min_bond_separation,
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -163,8 +148,10 @@ struct LKBallPoseScoreDispatch {
       // LKBall potential parameters
       TView<LKBallGlobalParams<Real>, 1, Dev> global_params,
       TView<Int, 3, Dev> block_neighbors,  // from forward pass
+      TView<Int, 1, Dev> compact_block_neighbors,
       TView<Real, 4, Dev> dTdV,
-      bool block_pair_scoring)
+      bool block_pair_scoring,
+      bool allow_split_pairs = false)
       -> std::tuple<TPack<Vec<Real, 3>, 1, Dev>, TPack<Vec<Real, 3>, 2, Dev>>;
 };
 
@@ -188,6 +175,9 @@ struct LKBallRotamerScoreDispatch {
       TView<Int, 1, Dev> rot_offset_for_pose,
       TView<Int, 2, Dev> n_rots_for_block,
       TView<Int, 2, Dev> rot_offset_for_block,
+      // [n_poses, max_n_blocks]; blocks sharing an id >= 0 move in
+      // lockstep, so only matching rotamer indices ever coexist
+      TView<Int, 2, Dev> lockstep_group_for_block,
       Int max_n_rots_per_pose,
 
       // For determining which atoms to retrieve from neighboring
@@ -195,18 +185,10 @@ struct LKBallRotamerScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev> pose_stack_min_bond_separation,
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties
@@ -239,7 +221,8 @@ struct LKBallRotamerScoreDispatch {
       TView<LKBallGlobalParams<Real>, 1, Dev> global_params,
       Real max_dis,
       TView<Vec<Real, 3>, 2, Dev> water_coords,
-      bool output_block_pair_energies)
+      bool output_block_pair_energies,
+      TPack<Int, 2, Dev> shared_dispatch_indices)
       -> std::tuple<TPack<Real, 2, Dev>, TPack<Int, 2, Dev>>;
 
   static auto backward(
@@ -264,18 +247,10 @@ struct LKBallRotamerScoreDispatch {
       // are connected
       TView<Vec<Int, 2>, 3, Dev> pose_stack_inter_residue_connections,
 
-      // dims: n-poses x max-n-blocks x max-n-blocks
-      // Quick lookup: given the inds of two blocks, ask: what is the minimum
-      // number of chemical bonds that separate any pair of atoms in those
-      // blocks? If this minimum is greater than the crossover, then no further
-      // logic for deciding whether two atoms in those blocks should have their
-      // interaction energies calculated: all should. intentionally small to
-      // (possibly) fit in constant cache
-      TView<Int, 3, Dev> pose_stack_min_bond_separation,
-
-      // dims: n-poses x max-n-blocks x max-n-blocks x
-      // max-n-interblock-connections x max-n-interblock-connections
-      TView<Int, 5, Dev> pose_stack_inter_block_bondsep,
+      // InterBlockBondsep: [pose, block1, slot, (block2, min separation)]
+      // and [pose, block1, slot, conn1, conn2]
+      TView<Int, 4, Dev> pose_stack_near_blocks,
+      TView<int8_t, 5, Dev> pose_stack_inter_block_bondsep,
 
       //////////////////////
       // Chemical properties

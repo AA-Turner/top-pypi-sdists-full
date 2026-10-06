@@ -156,6 +156,9 @@ class PackManifest:
     skill_type: str = "reference"
     product_name: str = ""
     skip_skills: dict[str, str] = field(default_factory=dict)
+    #: A skill in the pack written by someone other than the pack's authors (an
+    #: upstream folder id -> its own authors). Its banner and provenance credit them.
+    skill_authors: dict[str, list[str]] = field(default_factory=dict)
     document_dirs: list[DocumentDir] = field(default_factory=list)
     tool_equivalents: list[ToolEquivalent] = field(default_factory=list)
     tool_equivalents_note: str = ""
@@ -212,6 +215,9 @@ def load_manifest(path: Path | str) -> PackManifest:
             skill_type=str(raw.get("skill_type", "reference")),
             product_name=str(source.get("product_name") or ""),
             skip_skills={str(k): str(v).strip() for k, v in (raw.get("skip_skills") or {}).items()},
+            skill_authors={
+                str(k): [str(a) for a in v] for k, v in (raw.get("skill_authors") or {}).items()
+            },
             document_dirs=[
                 DocumentDir(
                     dir=str(d["dir"]).strip("/"),
@@ -477,18 +483,25 @@ def build_banner(
     tools: tuple[list[ToolEquivalent], list[ToolEquivalent]] = ([], []),
     frontmatter_lifted: bool = False,
     note: str = "",
+    authors_override: list[str] | None = None,
 ) -> str:
+    names = list(authors_override or manifest.authors)
     authors = (
-        " and ".join(manifest.authors)
-        if len(manifest.authors) <= 2
-        else (", ".join(manifest.authors[:-1]) + f", and {manifest.authors[-1]}")
+        " and ".join(names)
+        if len(names) <= 2
+        else (", ".join(names[:-1]) + f", and {names[-1]}")
     )
     what = "outside document" if is_document else "outside skill"
-    solo = len(manifest.authors) == 1
+    solo = len(names) == 1
     whose = "author's" if solo else "authors'"
     lines = [
         f"> **Imported {what} — written by {'an outside expert' if solo else 'outside experts'}, not by AI Matrx.** "
-        f"Part of *{manifest.title}* by {authors} "
+        + (
+            f"Written by {authors}; carried in *{manifest.title}* "
+            if authors_override
+            else f"Part of *{manifest.title}* by {authors} "
+        )
+        + 
         f"([source]({manifest.repo_url}), commit `{manifest.commit}`, file `{source_rel_path}`), "
         f"{manifest.license} License, imported {manifest.imported_on}.",
         ">",
@@ -556,7 +569,11 @@ class PackWalk:
 
 
 def _provenance(
-    manifest: PackManifest, rel_path: str, original_id: str, head: str
+    manifest: PackManifest,
+    rel_path: str,
+    original_id: str,
+    head: str,
+    authors: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "pack_id": manifest.pack_id,
@@ -565,7 +582,7 @@ def _provenance(
         "source_commit_full": head,
         "source_path": rel_path,
         "source_license": manifest.license,
-        "source_authors": list(manifest.authors),
+        "source_authors": list(authors or manifest.authors),
         "original_skill_id": original_id,
         "imported_on": manifest.imported_on,
     }
@@ -610,6 +627,11 @@ def walk_pack(manifest: PackManifest, source_root: Path | str) -> PackWalk:
     for old in manifest.renames:
         if old not in folder_ids:
             errors.append(f"rename {old!r} names no skill folder in {manifest.skills_dir}/")
+    for name, names in manifest.skill_authors.items():
+        if name not in folder_ids:
+            errors.append(f"skill_authors names {name!r}, which is no imported skill folder in {manifest.skills_dir}/")
+        elif not names:
+            errors.append(f"skill_authors {name!r} lists no author")
     for doc in manifest.documents:
         doc_file = (root / doc.repo_path) if doc.repo_path else (skills_root / doc.path)
         if not doc_file.is_file():
@@ -707,6 +729,7 @@ def walk_pack(manifest: PackManifest, source_root: Path | str) -> PackWalk:
             library_id=library_id,
             hits=hits,
             tools=tools,
+            authors_override=manifest.skill_authors.get(folder_id),
         )
         final_body = f"{banner}\n\n{body.strip()}\n"
         description = rewrite_references(parsed.description, manifest, id_map)
@@ -731,7 +754,9 @@ def walk_pack(manifest: PackManifest, source_root: Path | str) -> PackWalk:
                 published_to_web=manifest.published_to_web,
                 ingested_from=OUTSIDE_PACK_SOURCE,
                 extra_config={
-                    **_provenance(manifest, rel_path, folder_id, head),
+                    **_provenance(
+                        manifest, rel_path, folder_id, head, manifest.skill_authors.get(folder_id)
+                    ),
                     "tooling_not_runnable": [label for label, _ in hits],
                     **_tool_config(tools),
                     "support_files": [f.relative_to(folder).as_posix() for f in support],

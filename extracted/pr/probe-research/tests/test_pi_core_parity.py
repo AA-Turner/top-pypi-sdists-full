@@ -107,6 +107,7 @@ def test_the_footer_says_what_the_status_line_says():
         "Tracking": session_marker._LABEL_TRACKING_BARE,
         "Daemon": session_marker._LABEL_DAEMON_BARE,
         "DaemonDegraded": session_marker._LABEL_DAEMON_DEGRADED_BARE,
+        "Inline": session_marker._LABEL_INLINE_BARE,
     }
     source = STATE.read_text(encoding="utf-8")
     assert f'"○ {session_marker._LABEL_NOT_TRACKING}"' in source

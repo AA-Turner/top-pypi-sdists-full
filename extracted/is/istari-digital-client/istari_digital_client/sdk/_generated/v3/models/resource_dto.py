@@ -34,7 +34,7 @@ class ResourceDto(BaseModel):
     """ # noqa: E501
     file_id: StrictStr = Field(description="ID of the underlying `File` record.  The `File` is the storage-level entity that owns all revisions; `resource_id` is the logical identifier exposed to callers.")
     resource_id: StrictStr = Field(description="Stable public identifier for this resource.  Use this ID in all API calls.")
-    resource_type: ResourceTypeDto = Field(description="Category of the resource: `model`, `artifact`, or `file`.")
+    resource_type: ResourceTypeDto = Field(description="Category of the resource: `model`, `artifact`, `file`, or `container`.")
     content_token: TokenDto = Field(description="Object-store token for the content blob of the current active revision.")
     properties_token: TokenDto = Field(description="Object-store token for the properties blob of the **current active revision**.  The properties blob contains structured metadata in a tool-defined JSON schema.")
     created: datetime = Field(description="UTC timestamp when this resource was first created.")
@@ -52,13 +52,15 @@ class ResourceDto(BaseModel):
     external_identifier: Optional[StrictStr] = None
     display_name: Optional[StrictStr] = None
     upstream_remote: Optional[UpstreamRemoteInfoDto] = None
+    connector: Optional[StrictStr] = None
     has_children: Optional[StrictBool] = Field(default=False, description="Whether the Resource has child relationships with other resources.")
     has_parents: Optional[StrictBool] = Field(default=False, description="Whether the Resource has parent relationships with other resources.")
     infosec_level: Optional[InfosecLevel] = None
     control_tags: Optional[List[ControlTag]] = Field(default=None, description="The active control tags assigned to the Resource.")
     tombstoned: Optional[StrictBool] = Field(default=False, description="Whether the resource has been revoked (tombstoned): its content has been deleted and its metadata zeroed. Tombstoned resources are a dead end — content/edit operations return 410 Gone.")
     tombstoned_at: Optional[datetime] = None
-    __properties: ClassVar[List[str]] = ["file_id", "resource_id", "resource_type", "content_token", "properties_token", "created", "created_by_id", "archived", "file_revision_id", "updated", "updated_by_id", "name", "extension", "size", "mime", "description", "version_name", "external_identifier", "display_name", "upstream_remote", "has_children", "has_parents", "infosec_level", "control_tags", "tombstoned", "tombstoned_at"]
+    last_viewed_at: Optional[datetime] = None
+    __properties: ClassVar[List[str]] = ["file_id", "resource_id", "resource_type", "content_token", "properties_token", "created", "created_by_id", "archived", "file_revision_id", "updated", "updated_by_id", "name", "extension", "size", "mime", "description", "version_name", "external_identifier", "display_name", "upstream_remote", "connector", "has_children", "has_parents", "infosec_level", "control_tags", "tombstoned", "tombstoned_at", "last_viewed_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -163,6 +165,11 @@ class ResourceDto(BaseModel):
         if self.upstream_remote is None and "upstream_remote" in self.model_fields_set:
             _dict['upstream_remote'] = None
 
+        # set to None if connector (nullable) is None
+        # and model_fields_set contains the field
+        if self.connector is None and "connector" in self.model_fields_set:
+            _dict['connector'] = None
+
         # set to None if infosec_level (nullable) is None
         # and model_fields_set contains the field
         if self.infosec_level is None and "infosec_level" in self.model_fields_set:
@@ -172,6 +179,11 @@ class ResourceDto(BaseModel):
         # and model_fields_set contains the field
         if self.tombstoned_at is None and "tombstoned_at" in self.model_fields_set:
             _dict['tombstoned_at'] = None
+
+        # set to None if last_viewed_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_viewed_at is None and "last_viewed_at" in self.model_fields_set:
+            _dict['last_viewed_at'] = None
 
         return _dict
 
@@ -205,11 +217,13 @@ class ResourceDto(BaseModel):
             "external_identifier": obj.get("external_identifier"),
             "display_name": obj.get("display_name"),
             "upstream_remote": UpstreamRemoteInfoDto.from_dict(obj["upstream_remote"]) if obj.get("upstream_remote") is not None else None,
+            "connector": obj.get("connector"),
             "has_children": obj.get("has_children") if obj.get("has_children") is not None else False,
             "has_parents": obj.get("has_parents") if obj.get("has_parents") is not None else False,
             "infosec_level": InfosecLevel.from_dict(obj["infosec_level"]) if obj.get("infosec_level") is not None else None,
             "control_tags": [ControlTag.from_dict(_item) for _item in obj["control_tags"]] if obj.get("control_tags") is not None else None,
             "tombstoned": obj.get("tombstoned") if obj.get("tombstoned") is not None else False,
-            "tombstoned_at": obj.get("tombstoned_at")
+            "tombstoned_at": obj.get("tombstoned_at"),
+            "last_viewed_at": obj.get("last_viewed_at")
         })
         return _obj

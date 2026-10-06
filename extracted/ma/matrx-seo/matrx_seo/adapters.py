@@ -18,6 +18,7 @@ from .contracts import (
     SeoObservation,
 )
 from .repository import SeoRepository
+from .reuse import REUSE_FAMILIES
 
 SeoProgressCallback = Callable[[str, dict[str, Any]], Awaitable[None]]
 
@@ -28,7 +29,9 @@ class SeoProviderOperation:
     capabilities: tuple[SeoCapability, ...]
     credential_keys: tuple[str, ...]
     reference_kinds: tuple[CredentialReferenceKind, ...]
-    freshness_ttl_seconds: int
+    #: Which ``seo.reuse_hours.<family>`` knob governs reuse of this operation's
+    #: completed runs (``matrx_seo.reuse``). None = no reuse window.
+    reuse_family: str | None
 
     def __init__(
         self,
@@ -40,18 +43,20 @@ class SeoProviderOperation:
         reference_kinds: tuple[CredentialReferenceKind, ...] = (
             CredentialReferenceKind.PLATFORM_SECRET,
         ),
-        freshness_ttl_seconds: int = 0,
+        reuse_family: str | None = None,
     ) -> None:
         declared = capabilities or ((capability,) if capability is not None else ())
         if not declared:
             raise ValueError("SEO provider operation must declare at least one capability")
-        if freshness_ttl_seconds < 0:
-            raise ValueError("freshness_ttl_seconds cannot be negative")
+        if reuse_family is not None and reuse_family not in REUSE_FAMILIES:
+            raise ValueError(
+                f"unknown reuse family {reuse_family!r}; known: {', '.join(REUSE_FAMILIES)}"
+            )
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "capabilities", declared)
         object.__setattr__(self, "credential_keys", credential_keys)
         object.__setattr__(self, "reference_kinds", reference_kinds)
-        object.__setattr__(self, "freshness_ttl_seconds", freshness_ttl_seconds)
+        object.__setattr__(self, "reuse_family", reuse_family)
 
     @property
     def capability(self) -> SeoCapability | None:

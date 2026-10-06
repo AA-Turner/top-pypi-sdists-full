@@ -150,6 +150,12 @@ class PredictionResult:
     # Feature importance (from leave-one-out ablation)
     feature_importance: Optional[Dict[str, float]] = None
 
+    # Generative-string predictors with generate=True only: which LLM wrote
+    # the value ({"model", "fingerprint"}) and its one-line reasoning. None on
+    # every other prediction.
+    generator: Optional[Dict[str, str]] = None
+    reasoning: Optional[str] = None
+
     # Deep links to Featrix UI (model, foundation, prediction endpoint, etc.)
     links: Optional[Dict[str, str]] = None
 
@@ -239,6 +245,8 @@ class PredictionResult:
             interval_low=response.get('interval_low'),
             interval_high=response.get('interval_high'),
             coverage_level=response.get('coverage_level'),
+            generator=response.get('generator'),
+            reasoning=response.get('reasoning'),
             model_type=response.get('model_type'),
             guardrails=response.get('guardrails'),
             ignored_query_columns=response.get('ignored_query_columns'),

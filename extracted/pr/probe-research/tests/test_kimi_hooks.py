@@ -74,16 +74,16 @@ def _io():
 # --- the rendered manifests ------------------------------------------------
 
 
-def test_the_kimi_manifests_are_rendered_from_hooks_json():
-    """A hook added to hooks.json and not to Kimi's manifest would silently
+def test_the_kimi_manifests_are_rendered_from_the_wiring():
+    """A route added to routes.json and not to Kimi's manifest would silently
     never run under Kimi (it reads only its manifest)."""
     assert kimi_hooks.main(["--check"]) == 0
 
 
 @pytest.mark.parametrize("rel", ["plugins/probe-research", "plugins/probe-research-daemon"])
-def test_every_kimi_hook_matches_its_hooks_json_twin(rel):
+def test_every_kimi_hook_matches_its_routes_json_twin(rel):
     manifest = json.loads((AGENT / rel / ".kimi-plugin" / "plugin.json").read_text())
-    source = json.loads((AGENT / rel / "hooks" / "hooks.json").read_text())["hooks"]
+    source = json.loads((AGENT / rel / "hooks" / "routes.json").read_text())["hooks"]
     twins = [
         (event, group.get("matcher"), hook)
         for event, groups in source.items()
@@ -91,7 +91,9 @@ def test_every_kimi_hook_matches_its_hooks_json_twin(rel):
         for hook in group["hooks"]
         if (event, kimi_hooks._SCRIPT.findall(hook["command"])[-1][0]) not in kimi_hooks.SKIPPED
     ]
-    assert len(manifest["hooks"]) == len(twins)
+    extras = [e for e in manifest["hooks"] if e["event"] in {row[0] for row in kimi_hooks.KIMI_ONLY}]
+    assert len(manifest["hooks"]) == len(twins) + len(extras)
+    assert len(extras) == len(kimi_hooks.KIMI_ONLY)
     for entry, (event, matcher, hook) in zip(manifest["hooks"], twins):
         # Kimi's schema is strict: exactly these keys.
         assert set(entry) <= {"event", "matcher", "command", "timeout"}
@@ -466,3 +468,145 @@ def test_a_kimi_started_inside_an_adopted_job_gets_its_own_session(isolated, mon
     monkeypatch.setattr(session_marker, "process_environ",
                         lambda pid: {"PROBE_KIMI_SESSION_ID": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"})
     assert agent_session.resolve_agent_session() == ("kimi_code", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+
+
+def test_on_macos_kimi_reads_as_its_binary_and_is_still_found(isolated, monkeypatch):
+    """macOS's `ps` keeps the name Kimi was started as (`kimi`), not the
+    `kimi-code` title Linux shows: a hook that looked only for the title wrote
+    no record there, and every `probe` command from Kimi's shell said "no
+    session id" (seen on Darwin, probe 0.215.0, 2026-10-05)."""
+    from probe.sdk import session_marker
+
+    mac = [(45901, "Mon-Oct-5-23:10:02-2026", "/bin/bash"), (35972, "Mon-Oct-5-22:41:13-2026", "kimi"),
+           (34815, "Mon-Oct-5-09:00:00-2026", "-zsh")]
+    monkeypatch.setattr(session_marker, "_ancestors", lambda pid=None: mac)
+
+    assert session_marker.record_harness_process("kimi_code", "659a3020-6ec3-45c7-8f7b-274f811549be", "kimi-code") is None
+    path = session_marker.record_harness_process(
+        "kimi_code", "659a3020-6ec3-45c7-8f7b-274f811549be", ("kimi-code", "kimi")
+    )
+    assert path is not None and path.name.startswith("35972-")
+    assert session_marker.harness_process_session() == ("kimi_code", "659a3020-6ec3-45c7-8f7b-274f811549be")
+
+
+def test_the_hook_offers_kimis_title_and_its_binary(isolated, monkeypatch):
+    io = _io()
+    seen = []
+    monkeypatch.setattr(io._session_marker, "record_harness_process", lambda *args: seen.append(args))
+    row = io._hook_harness.current()  # PROBE_AGENT=kimi_code (the fixture)
+    io._record({"hook_event_name": "SessionStart", "session_id": "659a3020-6ec3-45c7-8f7b-274f811549be"}, row)
+    assert seen == [("kimi_code", "659a3020-6ec3-45c7-8f7b-274f811549be", ("kimi-code", "kimi"))]
+
+
+@pytest.mark.parametrize(
+    ("argv", "title"),
+    [
+        (["kimi-code"], "kimi-code"),
+        (["/Users/r/.kimi-code/bin/kimi"], "/Users/r/.kimi-code/bin/kimi"),
+        (["node", "/opt/homebrew/bin/pi", "--mode", "rpc"], "/opt/homebrew/bin/pi"),
+        (["/usr/local/bin/bun", "/usr/local/bin/claude"], "/usr/local/bin/claude"),
+        (["node", "--inspect"], "node"),
+    ],
+)
+def test_a_script_runtime_reads_as_the_script(argv, title):
+    """On macOS `ps` shows no retitle, so an npm-installed agent reads as
+    `node <script>`: without this a nested pi inside Kimi was not a stop and its
+    commands adopted Kimi's session."""
+    from probe.sdk import session_marker
+
+    assert session_marker._title_of(argv) == title
+
+
+def test_a_nested_agent_run_by_node_stops_the_walk_on_macos(isolated, monkeypatch):
+    from probe.sdk import session_marker
+
+    rows = (
+        "  501 500 Mon Oct  5 23:10:02 2026 /bin/bash -c probe session status\n"
+        "  500 400 Mon Oct  5 23:09:00 2026 node /opt/homebrew/bin/pi\n"
+        "  400 300 Mon Oct  5 22:41:13 2026 kimi\n"
+    )
+    monkeypatch.setattr(session_marker.os.path, "isdir", lambda p: False if p == "/proc/self" else os.path.isdir(p))
+    monkeypatch.setattr(
+        "subprocess.run", lambda *a, **k: subprocess.CompletedProcess(a, 0, rows, "")
+    )
+    chain = session_marker._ancestors(501)
+    assert [title for _pid, _start, title in chain] == ["/bin/bash", "/opt/homebrew/bin/pi", "kimi"]
+    session_marker._publish_atomically(session_marker._process_record_path(400, chain[2][1]),
+                                       json.dumps({"harness": "kimi_code", "session_id": "659a3020-6ec3-45c7-8f7b-274f811549be"}))
+    assert session_marker.harness_process_session(501, stop_titles=("pi",)) is None
+    assert session_marker.harness_process_session(501) == ("kimi_code", "659a3020-6ec3-45c7-8f7b-274f811549be")
+
+
+# --- a skill the person types fires only TurnStarted in Kimi (2.1.1) ---------
+
+_SKILL_TURN = (
+    'User activated the skill "probe". Follow the loaded skill instructions.\n\n'
+    '<skill-loaded name="probe" trigger="{trigger}" source="extra" dir="/x/skills/probe" args="{args}">\n'
+    "# Probe\n...\nARGUMENTS: {args}\n</skill-loaded>"
+)
+
+
+def _turn(trigger="user-slash", args="on", origin="skill_activation", prompt=None):
+    return {"hook_event_name": "TurnStarted", "session_id": "session_bba6ba1d-ca48-4588-8a99-e8112bbd669c",
+            "origin_kind": origin, "turn_id": 0,
+            "prompt": prompt if prompt is not None else _SKILL_TURN.format(trigger=trigger, args=args)}
+
+
+@pytest.mark.parametrize(
+    ("payload", "typed"),
+    [
+        (_turn(), "/probe on"),
+        (_turn(args="read"), "/probe read"),
+        (_turn(args=""), "/probe"),
+        (_turn(trigger="model"), None),  # the model loaded it: not a person's switch
+        (_turn(origin="user"), None),  # an ordinary prompt came through UserPromptSubmit
+        (_turn(prompt="see <skill-loaded name=\"probe\" trigger=\"user-slash\" args=\"on\">"), None),  # quoted, not leading
+        ({"hook_event_name": "UserPromptSubmit", "prompt": "/probe on"}, None),
+    ],
+)
+def test_a_typed_skill_is_read_from_kimis_own_block(payload, typed):
+    assert _io().typed_skill(payload) == typed
+
+
+def test_a_typed_probe_on_reaches_the_switch_as_the_typed_line(isolated, tmp_path):
+    """`/probe on` in Kimi fired no UserPromptSubmit, so the session stayed off
+    while the model reported "on" (seen 2026-10-06). The adapter hands the hook
+    the typed line as UserPromptSubmit and keeps the hook's output out of Kimi;
+    any other TurnStarted never runs the hook."""
+    seen = tmp_path / "seen.json"
+    hook = tmp_path / "echo_hook.py"
+    hook.write_text(
+        "import sys, json\n"
+        f"open({str(seen)!r}, 'w').write(sys.stdin.read())\n"
+        "print(json.dumps({'hookSpecificOutput': {'additionalContext': 'said'}}))\n"
+    )
+    run = lambda payload: subprocess.run(  # noqa: E731
+        [sys.executable, str(HOOKS / "harness_io.py"), str(hook)],
+        input=json.dumps(payload), capture_output=True, text=True, env=os.environ.copy(), check=False,
+    )
+    done = run(_turn())
+    assert done.returncode == 0 and done.stdout == "", done.stderr
+    got = json.loads(seen.read_text())
+    assert got["hook_event_name"] == "UserPromptSubmit" and got["prompt"] == "/probe on"
+    assert got["session_id"] == "bba6ba1d-ca48-4588-8a99-e8112bbd669c"
+
+    seen.unlink()
+    assert run(_turn(origin="user")).returncode == 0
+    assert not seen.exists()
+
+
+def test_the_adapter_knows_exactly_the_switchs_skills():
+    sys.path.insert(0, str(HOOKS))  # the guard imports its siblings by name
+    try:
+        guard = _load("_test_tracking_guard_slugs", HOOKS / "tracking_guard.py")
+    finally:
+        sys.path.remove(str(HOOKS))
+    assert _io()._SWITCH_SLUGS == guard.TOGGLE_SKILL_SLUGS
+
+
+def test_another_typed_skill_never_runs_the_switch():
+    """`/commit` typed in Kimi is not Probe's business: running the switch on it
+    would claim a daemon notice the dropped output never shows."""
+    payload = _turn()
+    payload["prompt"] = payload["prompt"].replace('name="probe"', 'name="commit"')
+    assert _io().typed_skill(payload) is None

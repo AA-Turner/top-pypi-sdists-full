@@ -392,7 +392,12 @@ from ._kernel_moments import (
 )
 from ._stable import expm1_neg_jkR as _expm1_neg_jkR
 from ._junction_rule import JUNCTION_TOL, canonical_groups, grouped
-from ._port_solution import PortSolution, _SweptPortSolutions
+from ._port_solution import (
+    PortSolution,
+    _SweptPortSolutions,
+    port_impedances,
+    refuse_undriven,
+)
 from . import _quadrature
 from ._quadrature import leggauss
 
@@ -1021,6 +1026,13 @@ class _PreparedChunks:
 # evaluates them per term, the in-process reference: the same moment rows.
 _CENTROID_SHARE = True
 
+# A lossy medium's T1/T2 combine is spelled as three ufuncs writing in place
+# (momwire#1290). False is the expression it replaced, the in-process
+# reference: the same three operations, so the same floats. TEST-ONLY.
+_COMBINE_IN_PLACE = True
+# Windows that took that combine, for the gate that it ran.
+_COMBINE_COUNT = [0]
+
 
 class _FusedMoments:
     """The C++ fill's stand-in for a prepared moment chunk list (momwire#742).
@@ -1588,6 +1600,46 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         cancel=None,
         **unsupported,
     ):
+        # momwire#1042: a wire listed twice is solved once. Dropped here,
+        # before anything reads a wire index, and every wire-indexed argument
+        # remapped; the per-wire readouts re-expand through `_wire_dedup`.
+        (
+            wires,
+            n_per_edge_per_wire,
+            _per_wire,
+            _sites,
+            junctions,
+            self._wire_dedup,
+        ) = _wire_spec.drop_duplicated_wires(
+            type(self).__name__,
+            list(wires) if wires is not None else [],
+            n_per_edge_per_wire,
+            per_wire={
+                "wire_radius": wire_radius,
+                "wire_conductivity": wire_conductivity,
+                "insulation_radius": insulation_radius,
+                "insulation_eps_r": insulation_eps_r,
+                "distributed_rlc": distributed_rlc,
+            },
+            sites={
+                "feeds": feeds,
+                "feed_wire_index": [(feed_wire_index,)] if feeds is None else [],
+                "lumped_loads": lumped_loads,
+                "node_gaps": node_gaps,
+            },
+            junctions=junctions,
+            junction_refs=(),
+        )
+        wire_radius = _per_wire["wire_radius"]
+        wire_conductivity = _per_wire["wire_conductivity"]
+        insulation_radius = _per_wire["insulation_radius"]
+        insulation_eps_r = _per_wire["insulation_eps_r"]
+        distributed_rlc = _per_wire["distributed_rlc"]
+        feeds = _sites["feeds"]
+        if feeds is None:
+            feed_wire_index = _sites["feed_wire_index"][0][0]
+        lumped_loads = _sites["lumped_loads"]
+        node_gaps = _sites["node_gaps"]
         for name in unsupported:
             if name in _OUT_OF_SCOPE:
                 raise NotImplementedError(f"{name}: {_OUT_OF_SCOPE[name]}")
@@ -1947,6 +1999,17 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
 
         self.z = None
         self._cached_geometry = None
+        # momwire#959 (a stopgap until #1330): segments below the radius AT A
+        # GAP leave the delta-gap model unreliable. Advisory, once per solver.
+        _wire_spec.advise_gap_mesh_floor(
+            type(self).__name__,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            self._radius_per_wire,
+            self.extended_kernel,
+            _wire_spec.solver_gaps(self),
+            gap_model="knot",
+        )
 
     # ------------------------------------------------------------------
     # geometry
@@ -2669,6 +2732,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             what="site",
             wire=w,
             tap=tap,
+            mirror=lambda a, b: _feed_snap.mirror_images(self, w, a, b),
         )
         return knots[pick], float(target)
 
@@ -2676,6 +2740,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         (placed, _basis, _k_ends), target = self._knot_pick(geom, w, arc, tap=False)
         return _feed_snap.FeedPlacement(int(w), target, float(placed))
 
+    @_wire_spec.reads_input_wires("placements")
     def feed_placements(self):
         """Where each entry of ``feeds`` lands: the nearest basis-carrying
         knot (:meth:`_snap_to_knot`), as one :class:`~momwire.FeedPlacement`
@@ -2684,6 +2749,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         geom = self._build_geometry()
         return tuple(self._knot_placement(geom, w, arc) for w, arc, _v in self.feeds)
 
+    @_wire_spec.reads_input_wires("placements")
     def load_placements(self):
         """Where each entry of ``lumped_loads`` lands, through the same snap
         as the feeds, so a load and a source naming one site report one knot."""
@@ -4065,6 +4131,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             omega=omega,
             mu=self.mu,
             eps=self.eps,
+            cancel=self._cancel,
         )
 
     def _path_test_rows(self, geom, rows, *, halves="both", paths=None, knot=None):
@@ -4098,6 +4165,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             knot = self._knot_points(geom)
         out = []
         for m in rows:
+            self._checkpoint()  # a row's paths: the x32 crossing axis is ~0.6 s of them
             s_a, s_b = int(wing_seg[m, 0]), int(wing_seg[m, 1])
             if halves == "both":
                 sl = slice(0, 2 * q)
@@ -4808,8 +4876,10 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             pts = np.array([np.asarray(e[0], dtype=float) for e in ends])
             sgn = np.array([float(e[1]) for e in ends])
             row = np.array([int(np.flatnonzero(e[2])[0]) for e in ends])
+            self._checkpoint()
             d = pts[:, None, :] - nodes[None, :, :]  # (E, T, 3)
             rho = np.hypot(d[..., 0], d[..., 1])
+            self._checkpoint()  # (E, T) blocks, ~0.2 s at x32: between them
             a = a_half[above]
             R = np.sqrt(np.einsum("etk,etk->et", d, d) + (a * a)[None, :])
             side = "above" if above else "below"
@@ -5449,7 +5519,18 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
                 else:
                     t2 = np.empty((hi - lo, n_basis), dtype=np.complex128)
                     _acc.razor_t2_rows(t2, None, *tabs, *pre)
-                    rows_T1[...] = c_A * t1 - t2 / c_Phi
+                    # `c_A * t1 - t2 / c_Phi`, each ufunc writing into an
+                    # operand it alone owns (momwire#1290): the same three
+                    # elementwise operations on the same operands, so the
+                    # same floats, without the three (rows, n_basis)
+                    # temporaries and the copy into Z's window.
+                    if _COMBINE_IN_PLACE:
+                        np.multiply(c_A, t1, out=t1)
+                        np.divide(t2, c_Phi, out=t2)
+                        np.subtract(t1, t2, out=rows_T1)
+                    else:
+                        rows_T1[...] = c_A * t1 - t2 / c_Phi
+                    _COMBINE_COUNT[0] += 1
                     del t2
                 del M0w, tabs
             else:
@@ -5529,6 +5610,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         one per wire end there, each the current flowing out of the plane
         into that end.
         """
+        refuse_undriven(self._port_voltages())  # momwire#1164
         geom = self._build_geometry()
         self._checkpoint()
         Z = self._assemble_Z(geom, self.k)
@@ -5549,7 +5631,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         coeffs = _bspline._lu_solve(Z, rhs, overwrite_a=True)
         voltages = self._port_voltages()
         port_currents = cols.T @ coeffs
-        z_per_port = voltages / port_currents
+        z_per_port = port_impedances(voltages, port_currents)
         n_ports = cols.shape[1]
         return (z_per_port[0] if n_ports == 1 else z_per_port), coeffs
 
@@ -5658,6 +5740,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
     # ------------------------------------------------------------------
     # field readout
 
+    @_wire_spec.reads_input_wires("per_wire")
     def currents_at_knots(self, coeffs, s_array=None):
         """Per-wire complex current at every mesh knot (momwire#309 unit 3).
 
@@ -5756,6 +5839,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             sampled.append(Ire + 1j * Iim)
         return sampled
 
+    @_wire_spec.reads_input_wires("per_wire")
     def current_slopes(self, coeffs, s_array=None):
         """Per-wire ``dI/ds`` — the solved current's arc-length derivative.
 
@@ -5791,7 +5875,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         """
         coeffs = np.asarray(coeffs)
         per_wire = self._build_geometry()["per_wire"]
-        knot_currents = self.currents_at_knots(coeffs)
+        knot_currents = self.currents_at_knots(coeffs, _solved=True)
 
         out = []
         for w_idx, pw in enumerate(per_wire):
@@ -5816,6 +5900,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
     # ------------------------------------------------------------------
     # swept solve
 
+    @_wire_spec.reads_input_wires("loss")
     def wire_loss_power(self, coeffs, omega=None):
         """Ohmic power dissipated in the wire metal, from a solve's coeffs.
 
@@ -5989,6 +6074,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
         gets its own dense solve.
         """
         k_array = np.asarray(k_array, dtype=np.float64)
+        refuse_undriven(self._port_voltages())  # momwire#1164, before any fill
         geom = self._build_geometry()
         self._refuse_coincident_segments(geom)
         self._checkpoint()
@@ -6006,7 +6092,7 @@ class RazorSolver(_ElementCurrents, _SweptPortSolutions, _Cancelable):
             coeffs = _bspline._lu_solve(Z, rhs, overwrite_a=True)
             feed_currents[i] = cols.T @ coeffs
 
-        z_per_feed = voltages[None, :] / feed_currents
+        z_per_feed = port_impedances(voltages[None, :], feed_currents)
         return z_per_feed[:, 0] if len(self.feeds) == 1 else z_per_feed
 
     def _port_solutions_swept(self, k_array):

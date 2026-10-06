@@ -234,12 +234,13 @@ class MappingQueryMatcher(QueryMatcher):
             key-value mapping where both key and value should be string. If there are multiple
             values specified for the same key in the request, the first element will be used.
             If you want to match multiple values, use a MultiDict object from werkzeug, which
-            represents multiple values for one key.
+            represents multiple values for one key. Empty values are kept, including
+            parameters without an equals sign. An empty value is distinct from a missing key.
         """
         self.query_dict = query_dict
 
     def get_comparing_values(self, request_query_string: bytes) -> tuple[Mapping[str, str], Mapping[str, str]]:
-        query = MultiDict(urllib.parse.parse_qsl(request_query_string.decode("utf-8")))
+        query = MultiDict(urllib.parse.parse_qsl(request_query_string.decode("utf-8"), keep_blank_values=True))
         if isinstance(self.query_dict, MultiDict):
             return (query, self.query_dict)
         else:
@@ -265,7 +266,7 @@ class BooleanQueryMatcher(QueryMatcher):
             return (True, False)
 
 
-def _create_query_matcher(query_string: None | QueryMatcher | str | bytes | Mapping[str, str]) -> QueryMatcher:
+def _create_query_matcher(query_string: QueryMatcher | str | bytes | Mapping[str, str] | None) -> QueryMatcher:
     if isinstance(query_string, QueryMatcher):
         return query_string
 
@@ -300,7 +301,7 @@ class RequestMatcherKwargs(TypedDict, total=False):
     data: str | bytes | None
     data_encoding: str
     headers: Mapping[str, str] | None
-    query_string: None | QueryMatcher | str | bytes | Mapping[str, str]
+    query_string: QueryMatcher | str | bytes | Mapping[str, str] | None
     header_value_matcher: HVMATCHER_T | None
     json: Any
 
@@ -341,7 +342,7 @@ class RequestMatcher:
         data: str | bytes | None = None,
         data_encoding: str = "utf-8",
         headers: Mapping[str, str] | None = None,
-        query_string: None | QueryMatcher | str | bytes | Mapping[str, str] = None,
+        query_string: QueryMatcher | str | bytes | Mapping[str, str] | None = None,
         header_value_matcher: HVMATCHER_T | None = None,
         json: Any = UNDEFINED,
     ) -> None:
@@ -1068,7 +1069,7 @@ class HTTPServer(HTTPServerBase):  # pylint: disable=too-many-instance-attribute
         data: str | bytes | None = None,
         data_encoding: str = "utf-8",
         headers: Mapping[str, str] | None = None,
-        query_string: None | QueryMatcher | str | bytes | Mapping[str, str] = None,
+        query_string: QueryMatcher | str | bytes | Mapping[str, str] | None = None,
         header_value_matcher: HVMATCHER_T | None = None,
         handler_type: HandlerType = HandlerType.PERMANENT,
         json: Any = UNDEFINED,
@@ -1151,7 +1152,7 @@ class HTTPServer(HTTPServerBase):  # pylint: disable=too-many-instance-attribute
         data: str | bytes | None = None,
         data_encoding: str = "utf-8",
         headers: Mapping[str, str] | None = None,
-        query_string: None | QueryMatcher | str | bytes | Mapping[str, str] = None,
+        query_string: QueryMatcher | str | bytes | Mapping[str, str] | None = None,
         header_value_matcher: HVMATCHER_T | None = None,
         json: Any = UNDEFINED,
     ) -> RequestHandler:
@@ -1206,7 +1207,7 @@ class HTTPServer(HTTPServerBase):  # pylint: disable=too-many-instance-attribute
         data: str | bytes | None = None,
         data_encoding: str = "utf-8",
         headers: Mapping[str, str] | None = None,
-        query_string: None | QueryMatcher | str | bytes | Mapping[str, str] = None,
+        query_string: QueryMatcher | str | bytes | Mapping[str, str] | None = None,
         header_value_matcher: HVMATCHER_T | None = None,
         json: Any = UNDEFINED,
     ) -> RequestHandler:

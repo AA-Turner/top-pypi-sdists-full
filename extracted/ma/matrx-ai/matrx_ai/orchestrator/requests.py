@@ -290,6 +290,15 @@ class CompletedRequest:
     result_end_position: int | None = None
     """Last message position produced by this execution"""
 
+    structured_output: Any = field(default=None, repr=False, compare=False)
+    """IN-MEMORY ONLY: the run's parsed structured output (the value the
+    ``structured_output`` event carried when parsing succeeded), else None.
+
+    The one place a host reads the typed answer of a finished run without
+    re-parsing the text (e.g. a mandate run record keeps it as its result).
+    Never serialized: ``to_dict`` does not read it.
+    """
+
     terminal_exception: BaseException | None = field(default=None, repr=False, compare=False)
     """IN-MEMORY ONLY: the exception that ended a ``failed`` run, traceback intact.
 

@@ -11,10 +11,9 @@ from dataclasses import dataclass, field
 from importlib.machinery import ModuleSpec
 from pathlib import Path
 from types import ModuleType
-from typing import cast, get_type_hints
+from typing import TYPE_CHECKING, cast, get_type_hints
 
-from pydantic import ValidationError
-
+from sqlbuild.compiler.compile.constants import COMPILE_INPUT_READS
 from sqlbuild.compiler.discovery._helpers.filesystem.cached_files import (
     parse_source_file_with_cache,
 )
@@ -109,7 +108,6 @@ from sqlbuild.compiler.scopes.constants import (
     SCOPED_DECLARATION_DIRECTORIES,
 )
 from sqlbuild.compiler.scopes.types import DeclarationKind, ScopeKind
-from sqlbuild.provider.classes.provider import Provider
 from sqlbuild.provider.exceptions import ProviderInputError
 from sqlbuild.python_nodes.main.read_asset_definition import read_asset_definition
 from sqlbuild.python_nodes.main.read_audit_factory_definition import (
@@ -137,6 +135,11 @@ from sqlbuild.runtime.event_exporting.main.get_lifecycle_event_sink_definition i
 from sqlbuild.runtime.event_exporting.models import LifecycleEventSinkDefinition
 from sqlbuild.runtime.observability.models import LifecycleEvent
 from sqlbuild.spec.contracts.models import SchemaModelEntry, SchemaSeedEntry
+
+if TYPE_CHECKING:
+    from pydantic import ValidationError
+
+    from sqlbuild.provider.classes.provider import Provider
 
 _PROJECT_PYTHON_PACKAGE_MARKER: str = "__sqlbuild_project_python__"
 _FACTS_MEMO_KEY: str = "declaration_file_facts"
@@ -1002,10 +1005,13 @@ def discover_provider_classes(*, project_dir: Path) -> tuple[DiscoveredProvider,
         | None
     ) = cached_event_exporter_extensions(project_dir=project_dir)
     if cached is not None:
+        for cached_provider in cached[0]:
+            COMPILE_INPUT_READS.settings_class_read(cached_provider.provider_class)
         return cached[0]
     providers_root: Path = project_dir / "providers"
     if not providers_root.is_dir():
         return ()
+    from sqlbuild.provider.classes.provider import Provider
 
     discovered_providers: list[DiscoveredProvider] = []
     seen_names: dict[str, Path] = {}
@@ -1031,6 +1037,7 @@ def discover_provider_classes(*, project_dir: Path) -> tuple[DiscoveredProvider,
                     f"{file_path.relative_to(project_dir)}"
                 )
             seen_names[provider_name] = file_path
+            COMPILE_INPUT_READS.settings_class_read(provider_class)
             discovered_providers.append(
                 DiscoveredProvider(
                     file_path=file_path,
@@ -1289,6 +1296,8 @@ def _provider_name(*, provider_class: type[Provider], file_path: Path, project_d
 def _provider_instance(
     *, provider_class: type[Provider], provider_name: str, file_path: Path, project_dir: Path
 ) -> Provider:
+    from pydantic import ValidationError
+
     try:
         return provider_class()
     except ValidationError as error:
@@ -1327,6 +1336,8 @@ def _provider_usages(
         discovered_provider: DiscoveredProvider | None = provider_by_name.get(parameter.name)
         if discovered_provider is None:
             continue
+        from sqlbuild.provider.classes.provider import Provider
+
         annotation: object = type_hints.get(parameter.name, parameter.annotation)
         annotation_class_name: str | None = None
         annotation_module: str | None = None

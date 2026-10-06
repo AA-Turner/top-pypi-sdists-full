@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from istari_digital_client.sdk._generated.v2.models.system import System
 from typing import Optional, Set
@@ -29,10 +29,10 @@ class PageSystem(BaseModel):
     PageSystem
     """ # noqa: E501
     items: List[System]
-    total: Annotated[int, Field(strict=True, ge=0)]
+    total: Optional[Annotated[int, Field(strict=True, ge=0)]]
     page: Annotated[int, Field(strict=True, ge=1)]
     size: Annotated[int, Field(strict=True, ge=1)]
-    pages: Annotated[int, Field(strict=True, ge=0)]
+    pages: Optional[Annotated[int, Field(strict=True, ge=0)]]
     __properties: ClassVar[List[str]] = ["items", "total", "page", "size", "pages"]
 
     model_config = ConfigDict(
@@ -81,6 +81,16 @@ class PageSystem(BaseModel):
                 if _item_items:
                     _items.append(_item_items.to_dict())
             _dict['items'] = _items
+        # set to None if total (nullable) is None
+        # and model_fields_set contains the field
+        if self.total is None and "total" in self.model_fields_set:
+            _dict['total'] = None
+
+        # set to None if pages (nullable) is None
+        # and model_fields_set contains the field
+        if self.pages is None and "pages" in self.model_fields_set:
+            _dict['pages'] = None
+
         return _dict
 
     @classmethod

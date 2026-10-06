@@ -32,6 +32,7 @@ struct DeviceOperations {
       int32_t& target, int32_t value);
   static EIGEN_DEVICE_FUNC void store_idempotent(
       int64_t& target, int64_t value);
+  static EIGEN_DEVICE_FUNC void bitwise_or(int32_t& target, int32_t value);
 
   template <typename Int, typename Func>
   static void foreach_combination_triple(
@@ -77,11 +78,11 @@ struct DeviceOperations {
   //   - exc_scan_offsets: the result of running exclusive scan on the
   //     the number of work units that each generator produces
   //.  - n_generators: the number of generators / length of exc_scan_offset
-  template <typename launch_t, typename Int>
+  template <typename launch_t, typename Offset, typename Int = int32_t>
   static TPack<Int, 1, D> load_balancing_search(
       ContextManager& mgr,
       int n_work_units_total,  // The count of the total number of work units
-      Int* exc_scan_offsets,
+      Offset* exc_scan_offsets,
       int n_generators);
 
   // Perform a reduction on a given device array and return the result to the

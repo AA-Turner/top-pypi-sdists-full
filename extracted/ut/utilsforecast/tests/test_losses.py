@@ -159,20 +159,32 @@ def coverage_single(y_true, y_pred_lo, y_pred_hi, **kwargs):
     return np.mean((y_true >= y_pred_lo) & (y_true <= y_pred_hi))
 
 
+def winkler_score_single(y_true, y_pred_lo, y_pred_hi, level=80, **kwargs):
+    alpha = (100 - level) / 100
+    width = y_pred_hi - y_pred_lo
+    penalty = np.where(
+        y_true < y_pred_lo,
+        (2 / alpha) * (y_pred_lo - y_true),
+        np.where(y_true > y_pred_hi, (2 / alpha) * (y_true - y_pred_hi), 0.0),
+    )
+    return np.mean(width + penalty)
+
+
 def tweedie_deviance_single(y_true, y_pred, power, **kwargs):
     if power == 0:
         return np.mean((y_true - y_pred) ** 2)
     elif power == 1:
         return np.mean(2 * (y_true * np.log(y_true / y_pred) - (y_true - y_pred)))
     elif power == 2:
-        return np.mean(2 * (np.log(y_pred) - np.log(y_true)) + y_true / y_pred - 1)
+        ratio = y_true / y_pred
+        return np.mean(2 * (ratio - np.log(ratio) - 1))
     else:
         return np.mean(
             2
             * (
                 (y_true ** (2 - power)) / ((1 - power) * (2 - power))
-                - (y_true * (y_pred ** (1 - power))) / (1 - power)
                 + (y_pred ** (2 - power)) / (2 - power)
+                - (y_true * (y_pred ** (1 - power))) / (1 - power)
             )
         )
 
@@ -200,7 +212,9 @@ def linex_single(y_true, y_pred, a=1.0, **kwargs):
         (ufl.msse, msse_single),
         (ufl.rmsse, rmsse_single),
         (ufl.nd, nd_single),
+        (ufl.wape, nd_single),
         (ufl.coverage, coverage_single),
+        (ufl.winkler_score, winkler_score_single),
         (ufl.linex, linex_single),
         (
             partial(ufl.linex, a=2.0),
@@ -268,6 +282,47 @@ def test_loss(engine, utils_fn, single_fn):
     expected = nw.from_native(type(series)(results)).sort("unique_id")
     actual = nw.from_native(actual).sort("unique_id")
     np.testing.assert_allclose(actual[models], expected[models])
+
+
+@pytest.mark.parametrize("engine", ["pandas", "polars"])
+def test_wape_equals_nd(engine):
+    """WAPE is an alias of ND; both must produce identical results."""
+    series, models = setup_series(engine)
+    wape_res = nw.from_native(ufl.wape(series, models)).sort("unique_id")
+    nd_res = nw.from_native(ufl.nd(series, models)).sort("unique_id")
+    np.testing.assert_allclose(wape_res[models], nd_res[models])
+
+
+@pytest.mark.parametrize("engine", ["pandas", "polars"])
+def test_smape_handles_zero_and_missing_forecasts(engine):
+    """SMAPE treats 0/0 as zero but excludes missing forecasts."""
+    data = {
+        "unique_id": ["partial"] * 4 + ["zero"] * 2 + ["missing"] * 2,
+        "y": [10.0, 20.0, 30.0, 40.0, 0.0, 10.0, 10.0, 20.0],
+        "model": [11.0, 18.0, 33.0, None, 0.0, 11.0, None, None],
+    }
+    if engine == "pandas":
+        data["model"] = [
+            float("nan") if value is None else value for value in data["model"]
+        ]
+        df = pd.DataFrame(data)
+    else:
+        import polars as pl
+
+        df = pl.DataFrame(
+            {
+                **data,
+                "model": pl.Series(data["model"], dtype=pl.Float64),
+            }
+        )
+
+    result = nw.from_native(ufl.smape(df, ["model"]))
+    values = dict(zip(result["unique_id"].to_list(), result["model"].to_list()))
+    expected_partial = np.mean([1 / 21, 2 / 38, 3 / 63])
+
+    np.testing.assert_allclose(values["partial"], expected_partial)
+    np.testing.assert_allclose(values["zero"], 1 / 42)
+    assert values["missing"] is None or np.isnan(values["missing"])
 
 
 @pytest.mark.parametrize("engine", ["pandas", "polars"])
@@ -526,6 +581,26 @@ class TestProbabilisticMetrics:
         for col in models:
             assert col in df_nw.columns
 
+    @pytest.mark.parametrize("engine", ["pandas", "polars"])
+    def test_scaled_crps_negative_target(self, engine):
+        # the normalizer is sum(|y|), so negative targets must not flip the sign
+        y = np.array([-2.0, 1.5, -1.0, 3.0, -0.5, -2.5])
+        quantiles = np.array([0.1, 0.5, 0.9])
+        y_hat = np.column_stack([y - 1.0, y + 0.3, y + 1.2])
+        cols = ["model-q10", "model-q50", "model-q90"]
+        df = pd.DataFrame({"unique_id": 0, "ds": np.arange(y.size), "y": y})
+        df[cols] = y_hat
+        if engine == "polars":
+            import polars as pl
+
+            df = pl.from_pandas(df)
+        error = y[:, None] - y_hat
+        ql = np.maximum(quantiles * error, (quantiles - 1) * error).mean(axis=1)
+        expected = 2 * ql.sum() / np.abs(y).sum()
+
+        result = ufl.scaled_crps(df, {"model": cols}, quantiles)
+        np.testing.assert_allclose(nw.from_native(result)["model"].to_numpy(), expected)
+
 
 class TestTweedieDeviance:
     @pytest.mark.parametrize("engine", ["pandas", "polars"])
@@ -567,3 +642,93 @@ class TestTweedieDeviance:
             assert td_nw[col].null_count() == 0, (
                 f"NaNs found in {engine} DataFrame for power {power}"
             )
+
+
+@pytest.mark.parametrize("engine", ["pandas", "polars"])
+def test_scaled_metric_with_cutoffs_respects_id_col(engine):
+    # Cross-validation output carries a `cutoff` column. The scaled metrics
+    # must honour a non-default `id_col` there, and give the same numbers as
+    # they do for the default one.
+    def frames(id_col):
+        df = pd.DataFrame(
+            {
+                id_col: ["a", "a", "b", "b"],
+                "ds": pd.to_datetime(["2024-01-03", "2024-01-04"] * 2),
+                "cutoff": pd.to_datetime(["2024-01-02"] * 4),
+                "y": [10.0, 11.0, 20.0, 21.0],
+                "model": [10.5, 11.5, 20.5, 21.5],
+            }
+        )
+        train_df = pd.DataFrame(
+            {
+                id_col: ["a", "a", "b", "b"],
+                "ds": pd.to_datetime(["2024-01-01", "2024-01-02"] * 2),
+                "y": [8.0, 9.0, 18.0, 19.0],
+            }
+        )
+        if engine == "polars":
+            import polars as pl
+
+            df = pl.from_pandas(df)
+            train_df = pl.from_pandas(train_df)
+        return df, train_df
+
+    default_df, default_train = frames("unique_id")
+    renamed_df, renamed_train = frames("item_id")
+
+    expected = ufl.mase(
+        default_df, models=["model"], seasonality=1, train_df=default_train
+    )
+    actual = ufl.mase(
+        renamed_df,
+        models=["model"],
+        seasonality=1,
+        train_df=renamed_train,
+        id_col="item_id",
+    )
+
+    np.testing.assert_allclose(actual["model"].to_numpy(), expected["model"].to_numpy())
+
+
+TWEEDIE_POWERS = [0.0, 1.0, 1.2, 1.5, 1.8, 2.0, 2.5, 3.0]
+
+
+def tweedie_sample():
+    rng = np.random.default_rng(0)
+    y = rng.uniform(0.5, 10, size=40)
+    pred = rng.uniform(0.5, 10, size=40)
+    return y, pred
+
+
+@pytest.mark.parametrize("engine", ["pandas", "polars"])
+@pytest.mark.parametrize("power", TWEEDIE_POWERS)
+def test_tweedie_deviance_powers(engine, power):
+    y, pred = tweedie_sample()
+    data = {"unique_id": ["id0"] * y.size, "y": y, "model": pred, "perfect": y}
+    if engine == "pandas":
+        df = pd.DataFrame(data)
+    else:
+        import polars as pl
+
+        df = pl.DataFrame(data)
+    res = ufl.tweedie_deviance(df, ["model", "perfect"], power=power)
+    res = res if engine == "pandas" else res.to_pandas()
+    expected = tweedie_deviance_single(y, pred, power=power)
+    np.testing.assert_allclose(res["model"].iloc[0], expected)
+    # a deviance vanishes for a perfect forecast
+    np.testing.assert_allclose(res["perfect"].iloc[0], 0.0, atol=1e-12)
+
+
+@pytest.mark.parametrize("power", TWEEDIE_POWERS)
+def test_tweedie_deviance_vs_sklearn(power):
+    sklearn_metrics = pytest.importorskip("sklearn.metrics")
+    y, pred = tweedie_sample()
+    if power <= 1:
+        # y == 0 is in the domain for these powers
+        y = np.concatenate([y, [0.0, 0.0]])
+        pred = np.concatenate([pred, [1.0, 2.0]])
+    df = pd.DataFrame({"unique_id": "id0", "y": y, "model": pred})
+    np.testing.assert_allclose(
+        ufl.tweedie_deviance(df, ["model"], power=power)["model"].iloc[0],
+        sklearn_metrics.mean_tweedie_deviance(y, pred, power=power),
+    )

@@ -18,13 +18,18 @@ concurrency:
 
 jobs:
   examples:
-    name: Examples smoke
+    name: Examples smoke (PostgreSQL ${{ matrix.postgres }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The floor confiture supports and the newest server (#608).
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['16', '18']
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_USER: confiture
           POSTGRES_PASSWORD: confiture
@@ -43,11 +48,11 @@ jobs:
     - name: Set up Python and uv
       uses: ./.github/actions/python-uv
       with:
-        python-version: '3.11'
+        python-version: '3.14'
 
     - name: Install confiture
       run: |
-        uv venv --python 3.11
+        uv venv --python 3.14
         uv sync --locked --extra dev --extra notifications
 
     - name: Run every example

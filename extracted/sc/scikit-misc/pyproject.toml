@@ -153,7 +153,6 @@ Environments = [
 # Note: the below skip command doesn't do much currently, the platforms to
 # build wheels for in CI are controlled in `.github/workflows/wheels.yml` and
 # `tools/ci/cirrus_wheels.yml`.
-build-frontend = "build"
 before-build = "bash {project}/tools/wheels/cibw_before_build.sh {project}"
 test-command = "bash {project}/tools/wheels/cibw_test_command.sh {project}"
 test-requires = [
@@ -169,6 +168,15 @@ manylinux-aarch64-image = "manylinux_2_28"
 # RUNNER_OS is a GitHub Actions specific env var; define it here so it works on Cirrus CI too
 RUNNER_OS="Linux"
 
+
+[tool.cibuildwheel.pyodide]
+before-build = [
+    "bash {project}/tools/wheels/cibw_before_build.sh {project}",
+    "python {project}/tools/wheels/pyodide_f2c_patch.py {project}",
+]
+
+[tool.cibuildwheel.pyodide.environment]
+RUNNER_OS="Linux"
 
 [tool.cibuildwheel.macos]
 # universal2 wheels are not supported (see gh-21233), use `delocate-fuse` if you need them

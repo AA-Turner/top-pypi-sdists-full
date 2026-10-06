@@ -201,6 +201,11 @@ async def run_agent_assignment_batch(
         if not conversation_id:
             raise RuntimeError("assignment item is missing its durable conversation_id")
         request_id = str(uuid5(NAMESPACE_URL, f"{claim.item.id}:agent-request"))
+        # R38: the item keeps its own request record, but spends against the tree it
+        # runs in — never a fresh cap per item (review 6 N6-4).
+        from matrx_ai.orchestrator.cost_budget import link_tree_request
+
+        link_tree_request(request_id, app.request_id)
         child_ctx = app.fork_for_workflow_step(conversation_id).with_overrides(
             request_id=request_id,
             operation_id=claim.attempt_id,

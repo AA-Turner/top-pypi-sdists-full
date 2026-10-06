@@ -1,8 +1,10 @@
 import re
+
 import regex
+
 from device_detector.enums import AppType
 from device_detector.lazy_regex import RegexLazy
-from . import BaseClientParser
+
 from ...parser.key_value_pairs import key_value_pairs
 from ...settings import BOUNDED_REGEX
 from ..settings import (
@@ -10,11 +12,11 @@ from ..settings import (
     AVAILABLE_ENGINES,
     BROWSER_FAMILIES,
     BROWSER_TO_ABBREV,
-    FAMILY_FROM_ABBREV,
     CHECK_PAIRS,
+    FAMILY_FROM_ABBREV,
     MOBILE_ONLY_BROWSERS,
 )
-
+from . import BaseClientParser
 from .extractor_name_version import NameVersionExtractor
 from .extractor_whole_name import WholeNameExtractor
 
@@ -32,7 +34,7 @@ class EngineVersion:
             return ''
 
         engine_regex = BOUNDED_REGEX.format(
-            r'{engine}\s*\/?\s*((?=\d+\.\d)\d+[.\d]*|\d{{1,7}}(?=(?:\D|$)))'.format(engine=engine)
+            rf'{engine}\s*\/?\s*((?=\d+\.\d)\d+[.\d]*|\d{{1,7}}(?=(?:\D|$)))'
         )
         match = regex.search(engine_regex, self.user_agent, regex.IGNORECASE)
         if match:

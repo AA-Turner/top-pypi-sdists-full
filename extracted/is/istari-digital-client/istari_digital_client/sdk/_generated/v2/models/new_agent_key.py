@@ -17,6 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
@@ -24,12 +25,14 @@ from typing_extensions import Self
 
 class NewAgentKey(BaseModel):
     """
-    Request body for creating an agent from a keypair (Identity-Router mode).  Attributes ---------- public_key_pem (str): The agent's ES384 public key, PEM-encoded. The agent     keeps the matching private key; only the public key is registered. key_id (str): The id to register the public key under. display_name (str): Optional human-friendly label for the agent.
+    Request body for creating an agent from an Access Key keypair (Identity Service mode).  Attributes ---------- public_key_pem (str): The agent's ES384 public key, PEM-encoded. The agent     keeps the matching private key; only the public key is registered. key_id (str): The id to register the public key under. display_name (str): Optional human-friendly label for the agent. key_name (str): Optional human-friendly label for the Access Key. Trimmed by     the Identity Service; a blank value defaults to the key id. expires_at (datetime | None): Optional expiry for the registered key. Must     be timezone-aware. The Identity Service requires it to be in the future     and at most one year out, and applies its default (one year) when     omitted.
     """ # noqa: E501
     public_key_pem: StrictStr
     key_id: StrictStr
     display_name: Optional[StrictStr] = ''
-    __properties: ClassVar[List[str]] = ["public_key_pem", "key_id", "display_name"]
+    key_name: Optional[StrictStr] = ''
+    expires_at: Optional[datetime] = None
+    __properties: ClassVar[List[str]] = ["public_key_pem", "key_id", "display_name", "key_name", "expires_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -70,6 +73,11 @@ class NewAgentKey(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if expires_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.expires_at is None and "expires_at" in self.model_fields_set:
+            _dict['expires_at'] = None
+
         return _dict
 
     @classmethod
@@ -84,6 +92,8 @@ class NewAgentKey(BaseModel):
         _obj = cls.model_validate({
             "public_key_pem": obj.get("public_key_pem"),
             "key_id": obj.get("key_id"),
-            "display_name": obj.get("display_name") if obj.get("display_name") is not None else ''
+            "display_name": obj.get("display_name") if obj.get("display_name") is not None else '',
+            "key_name": obj.get("key_name") if obj.get("key_name") is not None else '',
+            "expires_at": obj.get("expires_at")
         })
         return _obj

@@ -67,6 +67,18 @@ class DataFrameSchemaBackend(PolarsSchemaBackend):
                 "When drop_invalid_rows is True, lazy must be set to True."
             )
 
+        # User-defined parsers are not supported by the polars backend yet:
+        # neither the model builder nor this backend wires them up. Fail
+        # loudly instead of validating un-transformed data (#2472).
+        declared_parsers = list(getattr(schema, "parsers", None) or [])
+        for component in (getattr(schema, "columns", {}) or {}).values():
+            declared_parsers.extend(getattr(component, "parsers", None) or [])
+        if declared_parsers:
+            raise NotImplementedError(
+                "user-defined parsers are not supported by the polars "
+                "backend (see issue #2472)"
+            )
+
         core_parsers: list[tuple[Callable[..., Any], tuple[Any, ...]]] = [
             (self.add_missing_columns, (schema, column_info)),
             (self.strict_filter_columns, (schema, column_info)),
@@ -365,20 +377,32 @@ class DataFrameSchemaBackend(PolarsSchemaBackend):
             if k in column_info.absent_column_names
         }
 
-        # Append missing columns
+        # Append missing columns. Defaults are wrapped in ``pl.lit`` so that a
+        # string default is a literal value, not a reference to a column.
         check_obj = check_obj.with_columns(
-            **{k: v.default for k, v in missing_cols_schema.items()}
+            **{
+                k: (
+                    v.default
+                    if isinstance(v.default, pl.Expr)
+                    else pl.lit(v.default)
+                )
+                for k, v in missing_cols_schema.items()
+            }
         ).cast({k: v.dtype.type for k, v in missing_cols_schema.items()})
 
-        # Get columns present in df but not in schema
-        cols_not_in_schema = [
-            col
-            for col in check_obj.collect_schema().names()
-            if col not in schema.columns
+        # Set column order: schema columns first, then the columns not in the
+        # schema. Optional (``required=False``) columns that are absent are
+        # not added and must not be selected.
+        present_columns = check_obj.collect_schema().names()
+        schema_cols_present = [
+            col for col in schema.columns if col in present_columns
         ]
-
-        # Set column order
-        check_obj = check_obj.select([*schema.columns, *cols_not_in_schema])
+        cols_not_in_schema = [
+            col for col in present_columns if col not in schema.columns
+        ]
+        check_obj = check_obj.select(
+            [*schema_cols_present, *cols_not_in_schema]
+        )
         return check_obj
 
     def strict_filter_columns(

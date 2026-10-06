@@ -105,15 +105,9 @@ struct lk_isotropic_pair {
       Real lk_inv_lambda2_i,
       Real max_dis,
       bool is_cc_pair) -> Real {
-    Real d_min = lj_sigma_ij * .89;
-    if (is_cc_pair)
-      d_min = std::max(d_min, Real(4.2));  // C-C modifypot flatten
-
-    // close-spline knots lie on etable bins spaced 1/20 A^2 apart
-    Real const n = std::floor(Real(20) * d_min * d_min);
-    Real cpoly_close_dmin = std::sqrt(std::max(Real(0), n - 29) / 20);
-    Real cpoly_close_dmax = std::sqrt(std::min(n + 21, Real(405)) / 20);
-
+    if (bonded_path_length < Real(4)) {
+      return 0.0;
+    }
     Real cpoly_far_dmax = max_dis;
     Real cpoly_far_dmin = max_dis - Real(1.5);
 
@@ -123,6 +117,7 @@ struct lk_isotropic_pair {
 
     if (dist > cpoly_far_dmax) {
       lk = 0.0;
+      return weight * lk;
     } else if (dist > cpoly_far_dmin) {
       auto f_desolv_at_dmin = f_desolv<Real>::V_dV_precomputed(
           cpoly_far_dmin,
@@ -137,7 +132,19 @@ struct lk_isotropic_pair {
           f_desolv_at_dmin.V,
           f_desolv_at_dmin.dV_ddist,
           cpoly_far_dmax);
-    } else if (dist > cpoly_close_dmax) {
+      return weight * lk;
+    }
+
+    Real d_min = lj_sigma_ij * .89;
+    if (is_cc_pair)
+      d_min = std::max(d_min, Real(4.2));  // C-C modifypot flatten
+
+    // close-spline knots lie on etable bins spaced 1/20 A^2 apart
+    Real const n = std::floor(Real(20) * d_min * d_min);
+    Real cpoly_close_dmin = std::sqrt(std::max(Real(0), n - 29) / 20);
+    Real cpoly_close_dmax = std::sqrt(std::min(n + 21, Real(405)) / 20);
+
+    if (dist > cpoly_close_dmax) {
       lk = f_desolv<Real>::V_precomputed(
           dist, lj_radius_i, lk_coeff_i, lk_inv_lambda2_i, lk_volume_j);
     } else if (dist > cpoly_close_dmin) {
@@ -175,6 +182,9 @@ struct lk_isotropic_pair {
       Real lk_inv_lambda2_i,
       Real max_dis,
       bool is_cc_pair) -> V_dV_t {
+    if (bonded_path_length < Real(4)) {
+      return {0.0, 0.0};
+    }
     Real d_min = lj_sigma_ij * .89;
     if (is_cc_pair)
       d_min = std::max(d_min, Real(4.2));  // C-C modifypot flatten
@@ -259,21 +269,12 @@ struct lk_isotropic_score {
       LKTypeParams<Real> i,
       LKTypeParams<Real> j,
       LJGlobalParams<Real> global) -> Real {
+    if (bonded_path_length < Real(4)) {
+      return 0.0;
+    }
     if (dist > global.max_dis) {
       return 0.0;
     }
-
-    Real lj_sigma_ij = lj_sigma<Real>(i, j, global);
-
-    bool is_cc_pair = i.is_carbon_lk && j.is_carbon_lk;
-    Real d_min = lj_sigma_ij * .89;
-    if (is_cc_pair)
-      d_min = std::max(d_min, Real(4.2));  // C-C modifypot flatten
-
-    // close-spline knots lie on etable bins spaced 1/20 A^2 apart
-    Real const n = std::floor(Real(20) * d_min * d_min);
-    Real cpoly_close_dmin = std::sqrt(std::max(Real(0), n - 29) / 20);
-    Real cpoly_close_dmax = std::sqrt(std::min(n + 21, Real(405)) / 20);
 
     Real cpoly_far_dmax = global.max_dis;
     Real cpoly_far_dmin = global.max_dis - Real(1.5);
@@ -306,7 +307,22 @@ struct lk_isotropic_score {
           f_desolv_at_dmin.V,
           f_desolv_at_dmin.dV_ddist,
           cpoly_far_dmax);
-    } else if (dist > cpoly_close_dmax) {
+      return weight * lk;
+    }
+
+    Real lj_sigma_ij = lj_sigma<Real>(i, j, global);
+
+    bool is_cc_pair = i.is_carbon_lk && j.is_carbon_lk;
+    Real d_min = lj_sigma_ij * .89;
+    if (is_cc_pair)
+      d_min = std::max(d_min, Real(4.2));  // C-C modifypot flatten
+
+    // close-spline knots lie on etable bins spaced 1/20 A^2 apart
+    Real const n = std::floor(Real(20) * d_min * d_min);
+    Real cpoly_close_dmin = std::sqrt(std::max(Real(0), n - 29) / 20);
+    Real cpoly_close_dmax = std::sqrt(std::min(n + 21, Real(405)) / 20);
+
+    if (dist > cpoly_close_dmax) {
       lk = f_desolv<Real>::V_precomputed(
                dist, i.lj_radius, i.lk_coeff, i.lk_inv_lambda2, j.lk_volume)
            + f_desolv<Real>::V_precomputed(
@@ -358,6 +374,9 @@ struct lk_isotropic_score {
       LKTypeParams<Real> i,
       LKTypeParams<Real> j,
       LJGlobalParams<Real> global) -> V_dV_t {
+    if (bonded_path_length < Real(4)) {
+      return {0.0, 0.0};
+    }
     Real sigma = lj_sigma<Real>(i, j, global);
     bool is_cc_pair = i.is_carbon_lk && j.is_carbon_lk;
 

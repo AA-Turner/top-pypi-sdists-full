@@ -769,6 +769,8 @@ async def test_initialization_records_root_fetch_failure_once_and_skips_dependen
         ("sitemaps", "started"),
         ("sitemaps", "complete"),
         ("discovered", "skipped"),
+        # No host hook in the package's own tests: the step says so, never silent.
+        ("brand_search", "skipped"),
     ]
     identity_error = next(
         event.error for event in events if event.step == "identity" and event.status == "failed"

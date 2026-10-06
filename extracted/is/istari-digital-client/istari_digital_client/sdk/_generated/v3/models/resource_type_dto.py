@@ -20,7 +20,7 @@ from typing_extensions import Self
 
 class ResourceTypeDto(str, Enum):
     """
-    Broad category of a Resource, used for filtering and display.  - **model** — A simulation or analysis model file (e.g. FEM, CAD, STL). - **artifact** — A derived output produced by running a model (e.g. results, reports, images). - **file** — A generic file that does not fit the model or artifact categories.
+    Broad category of a Resource, used for filtering and display.  - **model** — A simulation or analysis model file (e.g. FEM, CAD, STL). - **artifact** — A derived output produced by running a model (e.g. results, reports, images). - **file** — A generic file that does not fit the model or artifact categories. - **connected_container** — A folder-like resource holding other resources rather than content   of its own. Its revisions are manifests: the list of what it held at that point. - **connected_resource** — A resource whose content lives at a connected source and is observed   there rather than uploaded.
     """
 
     """
@@ -29,6 +29,8 @@ class ResourceTypeDto(str, Enum):
     MODEL = 'model'
     ARTIFACT = 'artifact'
     FILE = 'file'
+    CONNECTED_CONTAINER = 'connected_container'
+    CONNECTED_RESOURCE = 'connected_resource'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

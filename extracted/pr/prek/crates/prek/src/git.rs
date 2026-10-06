@@ -234,28 +234,6 @@ fn path_to_git_bytes(path: &Path) -> std::io::Result<&[u8]> {
     })
 }
 
-/// Return intent-to-add paths under `root`, relative to the repository root.
-///
-/// `root` must be absolute. If it is a subdirectory, its repository-relative prefix
-/// is retained in the returned paths.
-pub(crate) async fn intent_to_add_files(root: &Path) -> Result<Vec<PathBuf>, Error> {
-    let output = git_cmd()?
-        .current_dir(root)
-        .arg("diff")
-        .hidden_args(["--no-ext-diff", "--ignore-submodules"])
-        // Callers resolve these paths from the repository root, regardless of `diff.relative`.
-        .arg("--no-relative")
-        .arg("--diff-filter=A")
-        .arg("--name-only")
-        .arg("-z")
-        .arg("--")
-        .arg(root)
-        .check(true)
-        .output()
-        .await?;
-    Ok(zsplit(&output.stdout)?)
-}
-
 /// Return newly staged paths under `root`, relative to `root` (the hook's working directory).
 ///
 /// For example, with `root = <repo>/project`, `<repo>/project/file.rs` is returned as `file.rs`.
@@ -429,39 +407,54 @@ pub(crate) async fn staged_files(
     parse_diff_files(&output.stdout)
 }
 
-/// Return unstaged paths relative to the repository root.
-///
-/// Relative input paths are interpreted relative to the process's current working
-/// directory. The returned paths remain repository-relative, even for absolute inputs.
-pub(crate) async fn files_not_staged(files: &[&Path]) -> Result<Vec<PathBuf>> {
-    let output = git_cmd()?
-        .arg("diff")
-        .arg("--exit-code")
-        .arg("--name-only")
-        .arg("--no-relative")
-        .hidden_args(["--no-ext-diff"])
-        .arg("-z")
-        .arg("--")
-        .file_args(files)
-        .check(false)
-        .output()
-        .await?;
-
-    if output.status.code().is_some_and(|code| code == 1) {
-        return Ok(zsplit(&output.stdout)?);
-    }
-
-    Ok(vec![])
+pub(crate) struct WorktreeStatus {
+    pub(crate) unmerged: bool,
+    pub(crate) unstaged: Vec<PathBuf>,
+    pub(crate) intent_to_add: Vec<PathBuf>,
 }
 
-pub(crate) async fn has_unmerged_paths() -> Result<bool, Error> {
+/// Check conflicts and unstaged changes together. Paths are relative to the repository root.
+pub(crate) async fn worktree_status(cwd: &Path) -> Result<WorktreeStatus, Error> {
     let output = git_cmd()?
-        .arg("ls-files")
-        .arg("--unmerged")
+        .current_dir(cwd)
+        .args([
+            "diff",
+            "--name-status",
+            "-z",
+            "--no-renames",
+            "--no-relative",
+            "--no-ext-diff",
+            "--ignore-submodules",
+        ])
         .check(true)
         .output()
         .await?;
-    Ok(!output.stdout.trim_ascii().is_empty())
+    parse_worktree_status(&output.stdout)
+}
+
+fn parse_worktree_status(output: &[u8]) -> Result<WorktreeStatus, Error> {
+    let mut status = WorktreeStatus {
+        unmerged: false,
+        unstaged: Vec::new(),
+        intent_to_add: Vec::new(),
+    };
+    // Disabling renames gives each status exactly one NUL-terminated, unquoted path.
+    let mut fields = output.split(|&byte| byte == b'\0');
+    while let Some(change) = fields.next().filter(|field| !field.is_empty()) {
+        let path = fields
+            .next()
+            .filter(|path| !path.is_empty())
+            .ok_or(Error::InvalidDiffFile)?;
+        let path = path_from_git_bytes(path)?;
+        match change {
+            b"U" => status.unmerged = true,
+            // Unstaged additions are intent-to-add entries; untracked files are omitted.
+            b"A" => status.intent_to_add.push(path.clone()),
+            _ => {}
+        }
+        status.unstaged.push(path);
+    }
+    Ok(status)
 }
 
 /// Check for changes against `rev` anywhere in the repository containing `path`.
@@ -537,32 +530,6 @@ async fn parse_merge_msg_for_conflicts() -> Result<Vec<PathBuf>> {
     Ok(conflicts)
 }
 
-/// Check for unstaged changes under the absolute directory `path`, ignoring submodules.
-#[instrument(level = "trace")]
-pub(crate) async fn has_worktree_diff(path: &Path) -> Result<bool, Error> {
-    let mut cmd = git_cmd()?;
-    let status = cmd
-        .current_dir(path)
-        .arg("diff-files")
-        .arg("--quiet")
-        .hidden_args(["--no-ext-diff", "--no-textconv", "--ignore-submodules"])
-        .arg("--")
-        .arg(path)
-        .check(false)
-        .status()
-        .await?;
-
-    if status.success() {
-        return Ok(false);
-    }
-    if status.code() == Some(1) {
-        return Ok(true);
-    }
-
-    cmd.check_status(status)?;
-    Ok(true)
-}
-
 /// Return a patch for unstaged changes under the absolute directory `path`.
 ///
 /// File names are repository-relative by default, or relative to `path` when
@@ -603,8 +570,8 @@ pub(crate) async fn diff_worktree(path: &Path) -> Result<Vec<u8>, Error> {
 ///
 /// The name of the new tree object is printed to standard output.
 /// The index must be in a fully merged state.
-pub(crate) async fn write_tree() -> Result<String, Error> {
-    let output = git_cmd()?.arg("write-tree").check(true).output().await?;
+pub(crate) fn write_tree() -> Result<String, Error> {
+    let output = git_cmd()?.arg("write-tree").check(true).output_sync()?;
     Ok(str::from_utf8(output.stdout.trim_ascii())?.to_string())
 }
 
@@ -1221,6 +1188,57 @@ mod tests {
         command.current_dir(path).args(args);
 
         command.assert().success();
+    }
+
+    #[tokio::test]
+    async fn worktree_status_with_staged_and_unstaged_changes() -> anyhow::Result<()> {
+        let tmp = tempfile::tempdir()?;
+        let root = tmp.path();
+        run_git(root, &["init"]);
+        for name in ["staged.txt", "modified.txt", "deleted.txt"] {
+            fs_err::write(root.join(name), "staged\n")?;
+        }
+        run_git(root, &["add", "."]);
+
+        // A new repository has no HEAD but can still have a clean worktree.
+        let status = super::worktree_status(root).await?;
+        assert!(!status.unmerged);
+        assert_eq!(status.unstaged, Vec::<PathBuf>::new());
+
+        fs_err::write(root.join("modified.txt"), "unstaged\n")?;
+        fs_err::remove_file(root.join("deleted.txt"))?;
+        fs_err::write(root.join("intent.txt"), "")?;
+        fs_err::write(root.join("untracked.txt"), "untracked\n")?;
+        run_git(root, &["add", "--intent-to-add", "intent.txt"]);
+
+        let status = super::worktree_status(root).await?;
+        assert!(!status.unmerged);
+        assert_eq!(
+            status.unstaged,
+            ["deleted.txt", "intent.txt", "modified.txt"].map(PathBuf::from)
+        );
+        assert_eq!(status.intent_to_add, [PathBuf::from("intent.txt")]);
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn worktree_status_preserves_unquoted_path_bytes() -> anyhow::Result<()> {
+        use std::os::unix::ffi::OsStrExt as _;
+
+        let status =
+            super::parse_worktree_status(b"M\0 leading\nname-\xff.txt \0D\0deleted.txt\0")?;
+        assert!(!status.unmerged);
+        let paths = status
+            .unstaged
+            .iter()
+            .map(|path| path.as_os_str().as_bytes())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            paths,
+            [b" leading\nname-\xff.txt ".as_slice(), b"deleted.txt"]
+        );
+        Ok(())
     }
 
     #[cfg(unix)]

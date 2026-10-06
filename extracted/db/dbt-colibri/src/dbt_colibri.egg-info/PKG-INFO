@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-colibri
-Version: 0.3.6
+Version: 0.3.7
 Summary: A column lineage parser and dashboarding tool
 Author: bned
 License: MIT
@@ -142,6 +142,7 @@ Gitlab has similar functionality. Other options are writing the file to a bucket
    - Redshift, 
    - duckDB, 
    - Postgres
+   - Vertica (**not fully supported: SQLGlot has no Vertica dialect, so Colibri falls back to PostgreSQL parsing and lineage may be incomplete or incorrect**)
    - Databricks (**limited to SQL models**)
    - Athena
    - Trino
@@ -157,6 +158,9 @@ Gitlab has similar functionality. Other options are writing the file to a bucket
 | 1.8.x           | ✅ Tested |
 | 1.9.x           | ✅ Tested |
 | 1.10.x          | ✅ Tested |
+| 1.11.x          | ✅ Tested |
+| 1.12.x          | ✅ Tested |
+| 2.0 (Fusion)    | ✅ Tested (preview; generate `catalog.json` with `dbt compile --write-catalog`) |
 
 ### Architecture
 

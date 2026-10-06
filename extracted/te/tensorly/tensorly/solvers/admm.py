@@ -12,6 +12,7 @@ def admm(
     order=None,
     non_negative=None,
     l1_reg=None,
+    group_lasso=None,
     l2_reg=None,
     l2_square_reg=None,
     unimodality=None,
@@ -53,6 +54,9 @@ def admm(
         If it is True, non-negative constraint is applied to all modes.
     l1_reg : float or list or dictionary, optional
         Penalizes the factor with the l1 norm using the input value as regularization parameter.
+    group_lasso : float or list or dictionary, optional
+        Penalizes each row of the factor with the given group lasso regularization parameter,
+        following Yuan and Lin [2]_.
     l2_reg : float or list or dictionary, optional
         Penalizes the factor with the l2 norm using the input value as regularization parameter.
     l2_square_reg : float or list or dictionary, optional
@@ -96,7 +100,7 @@ def admm(
 
     .. math:: x_{split} = argmin_{x_{split}}~ f(x_{split}) + (\\rho/2)\\|Ax_{split} + Bx - c\\|_2^2
     .. math:: x = argmin_x~ g(x) + (\\rho/2)\\|Ax_{split} + Bx - c\\|_2^2
-    .. math:: dual\_var = dual\_var + (Ax + Bx_{split} - c)
+    .. math:: dual\\_var = dual\\_var + (Ax + Bx_{split} - c)
 
     where rho is a constant defined by the user.
 
@@ -104,18 +108,21 @@ def admm(
 
     ADMM can be adapted to this least square problem as following
 
-    .. math:: x_{split} = (UtU + \\rho\\times I)\\times(UtM + \\rho\\times(x + dual\_var)^T)
-    .. math:: x = argmin_{x}~ r(x) + (\\rho/2)\\|x - x_{split}^T + dual\_var\\|_2^2
-    .. math:: dual\_var = dual\_var + x - x_{split}^T
+    .. math:: x_{split} = (UtU + \\rho\\times I)\\times(UtM + \\rho\\times(x + dual\\_var)^T)
+    .. math:: x = argmin_{x}~ r(x) + (\\rho/2)\\|x - x_{split}^T + dual\\_var\\|_2^2
+    .. math:: dual\\_var = dual\\_var + x - x_{split}^T
 
     where r is the regularization operator. Here, x can be updated by using proximity operator
-    of :math:`x_{split}^T - dual\_var`.
+    of :math:`x_{split}^T - dual\\_var`.
 
     References
     ----------
     .. [1] Huang, Kejun, Nicholas D. Sidiropoulos, and Athanasios P. Liavas.
        "A flexible and efficient algorithmic framework for constrained matrix and tensor factorization."
        IEEE Transactions on Signal Processing 64.19 (2016): 5052-5065.
+    .. [2] Yuan, M. and Lin, Y. (2006). Model selection and estimation in
+       regression with grouped variables. Journal of the Royal Statistical
+       Society: Series B, 68(1), 49-67.
     """
     rho = tl.trace(UtU) / tl.shape(x)[1]
     for iteration in range(n_iter_max):
@@ -128,6 +135,7 @@ def admm(
             tl.transpose(x_split) - dual_var,
             non_negative=non_negative,
             l1_reg=l1_reg,
+            group_lasso=group_lasso,
             l2_reg=l2_reg,
             l2_square_reg=l2_square_reg,
             unimodality=unimodality,

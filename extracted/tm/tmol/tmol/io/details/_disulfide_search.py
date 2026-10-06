@@ -19,7 +19,7 @@ def find_disulfides(
     find_additional_disulfides: Optional[bool] = True,
     cutoff_dis: float = 2.5,
 ):
-    if canonical_ordering.cys_inds.cys_co_aa_ind == -1:
+    if not canonical_ordering.cys_inds.cys_co_aa_inds:
         # nothing to do: CYS is not a valid residue type
         # in the ChemicalDatabase
         return (
@@ -27,9 +27,23 @@ def find_disulfides(
             torch.zeros_like(res_types),
         )
 
-    cys_res = res_types == canonical_ordering.cys_inds.cys_co_aa_ind
+    cys_res = torch.isin(
+        res_types,
+        torch.tensor(
+            canonical_ordering.cys_inds.cys_co_aa_inds,
+            dtype=res_types.dtype,
+            device=res_types.device,
+        ),
+    )
     restype_variants = torch.full_like(res_types, 0)
     if disulfides is not None:
+        endpoints = torch.cat((disulfides[:, :2], disulfides[:, (0, 2)]))
+        endpoints, counts = torch.unique(endpoints, dim=0, return_counts=True)
+        if torch.any(counts > 1):
+            raise ValueError(
+                "Each cysteine may occur in only one declared disulfide; "
+                f"repeated (pose, residue) endpoints: {endpoints[counts > 1].tolist()}"
+            )
         # mark the disulfide-bonded residues
         restype_variants[disulfides[:, 0], disulfides[:, 1]] = 1
         restype_variants[disulfides[:, 0], disulfides[:, 2]] = 1
@@ -55,7 +69,6 @@ def find_disulfides(
             restype_variants,
         )
 
-    res_types_n = res_types.cpu().numpy()
     coords_n = coords.detach().cpu().numpy()
     cys_pose_ind_n = cys_pose_ind.cpu().numpy()
     cys_res_ind_n = cys_res_ind.cpu().numpy()
@@ -63,14 +76,12 @@ def find_disulfides(
     n_cys = cys_pose_ind.shape[0]
     found_disulfides = numpy.zeros((n_cys, 3), dtype=numpy.int64)
 
-    if disulfides is not None and disulfides.shape[0] != 0:
-        input_disulfides_n = disulfides.cpu().numpy()
-        n_input_dslf = input_disulfides_n.shape[0]
-        found_disulfides[:n_input_dslf] = input_disulfides_n
-        restype_variants = restype_variants.cpu().numpy()
-    else:
-        n_input_dslf = 0
-        restype_variants = numpy.full_like(res_types_n, 0)
+    # without declared disulfides the variants are still all zero
+    restype_variants = restype_variants.cpu().numpy()
+    n_input_dslf = 0
+    if disulfides is not None:
+        n_input_dslf = disulfides.shape[0]
+        found_disulfides[:n_input_dslf] = disulfides.cpu().numpy()
 
     found_disulfides = find_disulf_numba(
         coords_n,

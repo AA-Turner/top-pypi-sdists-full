@@ -24,14 +24,15 @@ from typing_extensions import Self
 
 class NewCredentialLink(BaseModel):
     """
-    Request to complete an OIDC link after the browser returns from the provider.  ``handle`` is the opaque session id from :class:`AuthorizeUrl`; ``code`` and ``state`` are what the provider sent back to the browser. The backend looks up the session by ``handle`` to recover the PKCE verifier and redirect URI, so the browser holds no security-critical material.
+    Request to complete a browser link after the browser returns from the provider.  ``handle`` is the opaque session id from :class:`AuthorizeUrl`; ``code`` and ``state`` are what the provider sent back to the browser -- the authorization code and CSRF state for OIDC, the ``oauth_verifier`` and ``oauth_token`` for OAuth 1.0a. The backend looks up the session by ``handle`` to recover the link secret and redirect URI, so the browser holds no security-critical material. ``reconnect_credential_id`` marks the link as refreshing that existing connection: the backend reseals the named row (ownership- and integration-checked) instead of relying on account-identity dedup, which some providers cannot supply.
     """ # noqa: E501
     handle: StrictStr
     code: StrictStr
     state: StrictStr
     name: Optional[StrictStr] = None
     org_owned: Optional[StrictBool] = False
-    __properties: ClassVar[List[str]] = ["handle", "code", "state", "name", "org_owned"]
+    reconnect_credential_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["handle", "code", "state", "name", "org_owned", "reconnect_credential_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -77,6 +78,11 @@ class NewCredentialLink(BaseModel):
         if self.name is None and "name" in self.model_fields_set:
             _dict['name'] = None
 
+        # set to None if reconnect_credential_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.reconnect_credential_id is None and "reconnect_credential_id" in self.model_fields_set:
+            _dict['reconnect_credential_id'] = None
+
         return _dict
 
     @classmethod
@@ -93,6 +99,7 @@ class NewCredentialLink(BaseModel):
             "code": obj.get("code"),
             "state": obj.get("state"),
             "name": obj.get("name"),
-            "org_owned": obj.get("org_owned") if obj.get("org_owned") is not None else False
+            "org_owned": obj.get("org_owned") if obj.get("org_owned") is not None else False,
+            "reconnect_credential_id": obj.get("reconnect_credential_id")
         })
         return _obj

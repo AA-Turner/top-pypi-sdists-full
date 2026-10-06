@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class ShareableSendingConnectionDto(BaseModel):
     """
-    Slim view of a sending connection a user may share a resource to.  Deliberately omits connection configuration that only admins should see (``shared_id``, ``object_store_id``, ``infosec_level_id``, ``transformations``): a resource sharer needs only enough to pick a connection and see its access ceiling. The share endpoint enforces the infosec/tag/level policy server-side, so none of that config has to cross the wire to a non-admin sharer.  Serves as the base for ``SendingConnectionDto``, which extends it with the admin-only connection configuration.
+    Slim view of a sending connection a user may share a resource to.  Deliberately omits connection configuration that only admins should see (``shared_id``, ``object_store_id``, ``infosec_level_id``, ``tag_rules``): a resource sharer needs only enough to pick a connection and see its access ceiling. The share endpoint enforces the infosec/tag/level policy server-side, so none of that config has to cross the wire to a non-admin sharer.  Serves as the base for ``SendingConnectionDto``, which extends it with the admin-only connection configuration.
     """ # noqa: E501
     id: StrictStr = Field(description="The unique identifier of the sending connection.")
     label: StrictStr = Field(description="Human-readable label for the connection.")

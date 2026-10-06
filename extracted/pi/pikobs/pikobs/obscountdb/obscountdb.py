@@ -70,7 +70,7 @@ A run prints its phases and finishes with the address of the report:
              ln -s /home/dlo001/sites8/pikobs_obscountdb_cont_exp /home/dlo001/public_html/
            then: https://goc-dx-u3.science.gc.ca/~dlo001/pikobs_obscountdb_cont_exp/pikobs_obscountdb_viewer.html
 
-`A live reference instance <https://goc-dx-u3.science.gc.ca/~dlo001/sites8/pikobs_doc_obscountdb/pikobs_obscountdb_viewer.html>`__.
+:live:`A live reference instance <pikobs_doc_obscountdb/pikobs_obscountdb_viewer.html>`.
 
 How long a run takes, and how big a node to ask for: :doc:`runtime`.
 
@@ -247,9 +247,7 @@ Bugs and feature requests:
 import json
 import os
 import re
-import shutil
 import sys
-import tempfile
 import time
 import traceback
 import uuid
@@ -270,12 +268,12 @@ from pikobs.obscountdb.obscountdb_plot import (
 
 warnings.filterwarnings("ignore", ".*ShapelyDeprecationWarning.*")
 
-import dask
-from dask.distributed import Client
 
 # a region is a box or a polygon; the module does not need to know
 from pikobs.configobs import regionsobs
 import pikobs
+from pikobs.obsdb import fmt_bytes as _fmt_bytes
+from pikobs.parallel import start_workers, stop_workers
 
 CYCLE_HOURS = 6
 
@@ -352,13 +350,6 @@ def _norm_agr(agr) -> List[str]:
         if a in AGR_METRICS and a not in out:
             out.append(a)
     return out
-
-
-def _fmt_bytes(n: float) -> str:
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if n < 1024 or unit == "TB":
-            return f"{n:.1f} {unit}"
-        n /= 1024.0
 
 
 def db_path(work_path: str, family: str, name: str,
@@ -701,18 +692,7 @@ def make_obscountdb(files_in: List[str], names_in: List[str], pathwork: str,
                              regions, flags, agr_list)
     skipped: Dict[tuple, List[str]] = {}
 
-    parallel = n_cpu > 1
-    client = None
-    dask_dir = None
-    if parallel:
-        os.environ["DASK_LOGGING__DISTRIBUTED"] = "error"
-        base = os.environ.get("TMPDIR") or None
-        dask_dir = tempfile.mkdtemp(prefix="pikobs_obscount_dask_", dir=base)
-        os.environ["DASK_TEMPORARY_DIRECTORY"] = dask_dir
-        dask.config.set({"temporary-directory": dask_dir,
-                         "logging.distributed": "error"})
-        client = Client(processes=True, threads_per_worker=1, n_workers=n_cpu,
-                        silence_logs=50, dashboard_address=None)
+    client, dask_dir = start_workers(n_cpu, "obscount")
     try:
         t0 = time.time()
         print(f"[obscountdb] extraction: {len(tasks)} tasks, "
@@ -761,17 +741,7 @@ def make_obscountdb(files_in: List[str], names_in: List[str], pathwork: str,
               f"({sum(c is not None for c in cells)}/{len(fig_tasks)})",
               flush=True)
     finally:
-        if client is not None:
-            try:
-                client.close(timeout=30)
-            except Exception:
-                pass
-            try:
-                client.shutdown()
-            except Exception:
-                pass
-        if dask_dir:
-            shutil.rmtree(dask_dir, ignore_errors=True)
+        stop_workers(client, dask_dir)
 
     t0 = time.time()
     obscountdb_report(

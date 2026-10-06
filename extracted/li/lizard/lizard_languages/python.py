@@ -359,11 +359,31 @@ class PythonStates(CodeStateMachine):  # pylint: disable=R0903
             self._state = self._function
 
     def _function(self, token):
-        if token != '(':
+        if token == '[':
+            # PEP 695 `def f[T](...)`. Do not restart on each token, or ']'
+            # becomes the name. Defer '(' so [T] appears in long_name.
+            self.br_count = 0
+            self.next(self._state_type_parameters, token)
+        elif token != '(':
             self.context.restart_new_function(token)
-            self.context.add_to_long_function_name("(")
         else:
+            self.context.add_to_long_function_name("(")
             self._state = self._dec
+
+    def _state_type_parameters(self, token):
+        # Consume a type param list, tracking nesting so bounds like
+        # `def f[T: list[int]](x)` work.
+        if token in ('def', 'class'):
+            # Unbalanced '[': truncated or invalid source. Neither keyword can
+            # appear inside a type param list, so treat this as the next
+            # definition instead of swallowing the rest of the file.
+            self.br_count = 0
+            self.next(self._state_global, token)
+            return
+        self.context.add_to_long_function_name(" " + token)
+        self.br_count += {'[': 1, ']': -1}.get(token, 0)
+        if self.br_count == 0:
+            self._state = self._function
 
     def _dec(self, token):
         if token == ')':

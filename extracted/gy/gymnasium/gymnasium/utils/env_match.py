@@ -1,5 +1,7 @@
 """A set of tests to help the designer of gymnasium environments verify that they work correctly."""
 
+import numpy as np
+
 import gymnasium as gym
 from gymnasium.utils.env_checker import data_equivalence
 
@@ -15,7 +17,7 @@ def check_environments_match(
     skip_truncated: bool = False,
     skip_render: bool = False,
     info_comparison: str = "equivalence",
-):
+) -> None:
     """Checks if the environments `env_a` & `env_b` are identical.
 
     Args:
@@ -23,11 +25,10 @@ def check_environments_match(
         env_b: Second environment to check.
         num_steps: number of timesteps to test for, setting to 0 tests only resetting.
         seed: used the seed the reset & actions.
-        skip_obs: If `True` it does not check for equivalence of the observation.
-        skip_rew: If `True` it does not check for equivalence of the observation.
-        skip_terminal: If `True` it does not check for equivalence of the observation.
-        skip_truncated: If `True` it does not check for equivalence of the observation.
-        skip_info: If `True` it does not check for equivalence of the observation.
+        skip_obs: If `True` it does not check for equivalence of the observation space or the observations.
+        skip_rew: If `True` it does not check for equivalence of the rewards.
+        skip_terminal: If `True` it does not check for equivalence of the terminated signals.
+        skip_truncated: If `True` it does not check for equivalence of the truncated signals.
         skip_render: If `True` it does not check for equivalent renders. note:the render checked are automatically skipped if `render_mode` is not set or is "human".
         info_comparison: The options are
             If "equivalence" then checks if the `info`s are identical,
@@ -39,7 +40,7 @@ def check_environments_match(
     skip_render = (
         skip_render
         or env_a.unwrapped.render_mode in [None, "human"]
-        or env_b.unwrapped.render in [None, "human"]
+        or env_b.unwrapped.render_mode in [None, "human"]
     )
 
     assert info_comparison in [
@@ -51,7 +52,7 @@ def check_environments_match(
     ]
 
     assert env_a.action_space == env_b.action_space
-    assert skip_obs or env_b.observation_space == env_b.observation_space
+    assert skip_obs or env_a.observation_space == env_b.observation_space
 
     env_a.action_space.seed(seed)
     obs_a, info_a = env_a.reset(seed=seed)
@@ -69,7 +70,7 @@ def check_environments_match(
             assert data_equivalence(info_a[key], info_b[key]), (
                 f"resetting info is not a superset, key {key} present in info_a with value = {info_a[key]}, in info_b with value = {info_b[key]}"
             )
-    elif info_comparison == "keys-equivalance":
+    elif info_comparison == "keys-equivalence":
         assert info_a.keys() == info_b.keys(), (
             f"resetting info keys are not equivalent, info_a's keys are {info_a.keys()}, info_b's keys are {info_b.keys()}"
         )
@@ -79,7 +80,7 @@ def check_environments_match(
         )
 
     if not skip_render:
-        assert (env_a.render() == env_b.render()).all(), (
+        assert np.all(env_a.render() == env_b.render()), (
             "resetting render is not equivalent"
         )
 
@@ -108,7 +109,7 @@ def check_environments_match(
                 assert data_equivalence(info_a[key], info_b[key]), (
                     f"stepping info is not a superset in step = {step}, key {key} present in info_a with value = {info_a[key]}, in info_b with value = {info_b[key]}"
                 )
-        elif info_comparison == "keys-equivalance":
+        elif info_comparison == "keys-equivalence":
             assert info_a.keys() == info_b.keys(), (
                 f"stepping info keys are not equivalent in step = {step}, info_a's keys are {info_a.keys()}, info_b's keys are {info_b.keys()}"
             )
@@ -117,8 +118,8 @@ def check_environments_match(
                 f"stepping info keys are not a superset in step = {step}, keys not present in info_b are: {info_b.keys() - info_a.keys()}"
             )
         if not skip_render:
-            assert (env_a.render() == env_b.render()).all(), (
-                "stepping render is not equivalent in step = {step}"
+            assert np.all(env_a.render() == env_b.render()), (
+                f"stepping render is not equivalent in step = {step}"
             )
 
         if terminal_a or truncated_a or terminal_b or truncated_b:
@@ -136,7 +137,7 @@ def check_environments_match(
                     assert data_equivalence(info_a[key], info_b[key]), (
                         f"resetting info is not a superset in step = {step}, key {key} present in info_a with value = {info_a[key]}, in info_b with value = {info_b[key]}"
                     )
-            elif info_comparison == "keys-equivalance":
+            elif info_comparison == "keys-equivalence":
                 assert info_a.keys() == info_b.keys(), (
                     f"resetting info keys are not equivalent in step = {step}, info_a's keys are {info_a.keys()}, info_b's keys are {info_b.keys()}"
                 )
@@ -145,6 +146,6 @@ def check_environments_match(
                     f"resetting info keys are not a superset in step = {step}, keys not present in info_b are: {info_b.keys() - info_a.keys()}"
                 )
             if not skip_render:
-                assert (env_a.render() == env_b.render()).all(), (
-                    "resetting render is not equivalent in step = {step}"
+                assert np.all(env_a.render() == env_b.render()), (
+                    f"resetting render is not equivalent in step = {step}"
                 )

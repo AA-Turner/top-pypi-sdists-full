@@ -27,6 +27,7 @@
 #include <mujoco/experimental/studio/ux/gui.h>
 #include <mujoco/experimental/studio/ux/gui_helpers.h>
 #include <mujoco/experimental/studio/ux/interaction.h>
+#include <mujoco/experimental/studio/ux/picture_gui.h>
 #include "specs_wrapper.h"
 #include "structs.h"
 #include <pybind11/pybind11.h>
@@ -87,6 +88,16 @@ PYBIND11_MODULE(ux, m, pybind11::mod_gil_not_used()) {
           "sim_head_time",
           [](const UxState& self) { return self.timeline.sim_head_time; },
           [](UxState& self, double val) { self.timeline.sim_head_time = val; }
+      )
+      .def_property(
+          "history_size",
+          [](const UxState& self) { return self.timeline.history_size; },
+          [](UxState& self, int val) { self.timeline.SetHistorySize(val); }
+      )
+      .def_property(
+          "history_index",
+          [](const UxState& self) { return self.timeline.history_index; },
+          [](UxState& self, int val) { self.timeline.SetHistoryIndex(val); }
       )
       .def_property(
           "watch_field_name",
@@ -195,8 +206,7 @@ PYBIND11_MODULE(ux, m, pybind11::mod_gil_not_used()) {
   m.def(
       "simulation_gui",
       [](py::object model_obj, py::object data_obj,
-         mujoco::studio::StepControl* step_control,
-         mujoco::studio::SimHistory* history, UxState& ux_state,
+         mujoco::studio::StepControl* step_control, UxState& ux_state,
          py::function reset, py::function reload, py::function align) {
         mjModel* model =
             py::cast<mujoco::python::MjModelWrapper&>(model_obj).get();
@@ -206,24 +216,37 @@ PYBIND11_MODULE(ux, m, pybind11::mod_gil_not_used()) {
         ctx.model = model;
         ctx.data = data;
         ctx.step_control = step_control;
-        ctx.history = history;
         ctx.timeline = &ux_state.timeline;
         ctx.speed_index = &ux_state.speed_index;
         ctx.key_idx = &ux_state.key_idx;
         ctx.nthread = &ux_state.nthread;
         ctx.update_threadpool = &ux_state.update_threadpool;
-        ctx.load_history_locally = false;
         ctx.reset = [&reset]() { reset(); };
         ctx.reload = [&reload]() { reload(); };
         ctx.align = [&align]() { align(); };
         mujoco::studio::SimulationGui(ctx);
       },
       py::arg("model"), py::arg("data"), py::arg("step_control"),
-      py::arg("history"), py::arg("ux_state"), py::arg("reset"),
-      py::arg("reload"), py::arg("align"),
+      py::arg("ux_state"), py::arg("reset"), py::arg("reload"),
+      py::arg("align"),
       "Render the full Simulation panel: reset/reload/align, run/pause, speed, "
       "the history scrubber, keyframes and thread count. The three callbacks "
       "are invoked for the corresponding buttons.");
+
+  m.def(
+      "timeline_scrubber_gui",
+      [](py::object model_obj, py::object data_obj,
+         mujoco::studio::StepControl* step_control, UxState& ux_state) {
+        mjModel* model =
+            py::cast<mujoco::python::MjModelWrapper&>(model_obj).get();
+        mjData* data = py::cast<mujoco::python::MjDataWrapper&>(data_obj).get();
+        py::gil_scoped_release no_gil;
+        mujoco::studio::TimelineScrubberGui(model, data, *step_control,
+                                            ux_state.timeline);
+      },
+      py::arg("model"), py::arg("data"), py::arg("step_control"),
+      py::arg("ux_state"),
+      "Render the timeline scrubber widget (spine + draggable knob).");
 
   m.def(
       "theme_select_gui",
@@ -581,4 +604,28 @@ PYBIND11_MODULE(ux, m, pybind11::mod_gil_not_used()) {
       },
       py::arg("data"), py::arg("camera"),
       "Returns an XML string representation of the camera.");
+
+  // Picture-in-picture state and GUI binding for Python viewer plugins.
+  py::class_<mujoco::studio::PipSource>(m, "PipSource")
+      .def(py::init<std::string, ImTextureID, float>(), py::arg("name") = "",
+           py::arg("texture") = ImTextureID_Invalid,
+           py::arg("aspect_ratio") = 1.0f)
+      .def_readwrite("name", &mujoco::studio::PipSource::name)
+      .def_readwrite("texture", &mujoco::studio::PipSource::texture)
+      .def_readwrite("aspect_ratio", &mujoco::studio::PipSource::aspect_ratio);
+
+  py::class_<mujoco::studio::PipState>(m, "PipState")
+      .def(py::init<>())
+      .def_readwrite("camera", &mujoco::studio::PipState::camera)
+      .def_readwrite("texture", &mujoco::studio::PipState::texture);
+
+  m.def(
+      "pip_gui",
+      [](const std::vector<mujoco::studio::PipSource>& sources,
+         std::vector<mujoco::studio::PipState> pips) {
+        py::gil_scoped_release no_gil;
+        mujoco::studio::PipGui(sources, &pips);
+        return pips;
+      },
+      py::arg("sources"), py::arg("pips"));
 }

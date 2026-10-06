@@ -308,6 +308,34 @@ RECOGNIZERS: tuple[Recognizer, ...] = (
         shape="above_max",
         example="temperature must be within [0, 1], got 2",
     ),
+    # Live 2026-10-04 — each reached the safety net unrecognised.
+    Recognizer(
+        id="together.unavailable_without_tokenizer",
+        providers=("together",),
+        pattern=_rx(r"\b(?P<param>[a-z_]+)=\[.*?\] is unavailable when skip_tokenizer_init"),
+        shape="unsupported",
+        example=(
+            "Failed to start generation: stop=['zz0', 'zz1', 'zz2', 'zz3'] is unavailable when "
+            "skip_tokenizer_init=True (requires tokenizer to decode tokens to text for matching)."
+        ),
+    ),
+    Recognizer(
+        id="together.stop_empty",
+        providers=("together",),
+        pattern=_rx(r"(?P<param>[\w.]+): Validation error: stop sequences cannot be empty"),
+        shape="invalid_item",
+        example='stop: Validation error: stop sequences cannot be empty [{"value": Array [String("")]}]',
+    ),
+    Recognizer(
+        id="google.must_be_positive",
+        providers=("google",),
+        pattern=_rx(r"(?:GenerateContentRequest\.)?(?P<param>[\w.]+): [\w.]+ must be positive"),
+        shape="invalid_value",
+        example=(
+            "* GenerateContentRequest.generation_config.max_output_tokens: max_output_tokens "
+            "must be positive."
+        ),
+    ),
     # Google's opaque 400: no param anywhere. A settings rejection we cannot
     # pin to a field — the record carries ``suspect_params`` instead.
     Recognizer(
@@ -1372,7 +1400,9 @@ _NET_NOT_A_SETTING = _rx(
     r"\b(?:messages?|contents?|prompt|input|image|images|file|files|audio|video|document|pdf|"
     r"tools?|functions?|tool_use|tool_result|function_call|response_format|json_schema|schema|"
     r"context(?:_| )length|context window|too many tokens|token limit|safety|moderation|policy|"
-    r"api key|credit|billing|quota|balance)\b"
+    r"api key|credit|billing|quota|balance|"
+    # Availability, not a setting: a paused/stopped self-hosted endpoint.
+    r"endpoint is paused|ask a maintainer to restart)\b"
 )
 
 #: UnifiedConfig attribute -> (canonical key, value meaning "not set").

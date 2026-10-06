@@ -30,6 +30,7 @@ class InfosecLevelObjectType(str, Enum):
     ARTIFACT = 'artifact'
     SYSTEM = 'system'
     USER = 'user'
+    CONNECTEDRESOURCE = 'connectedresource'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

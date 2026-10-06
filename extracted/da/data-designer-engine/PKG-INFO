@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: data-designer-engine
-Version: 0.9.3
+Version: 0.9.4
 Summary: Generation engine for DataDesigner synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
@@ -15,10 +15,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Requires-Dist: anyascii<1,>=0.3.3
+Requires-Dist: anyio<5,>=4.14.2
 Requires-Dist: asciichartpy<2,>=1.5.25
 Requires-Dist: chardet<6,>=3.0.2
-Requires-Dist: cryptography<=49,>=48.0.1
-Requires-Dist: data-designer-config==0.9.3
+Requires-Dist: cryptography<51,>=50.0.0
+Requires-Dist: data-designer-config==0.9.4
 Requires-Dist: duckdb<2,>=1.5.0
 Requires-Dist: faker<21,>=20.1.0
 Requires-Dist: fsspec<2026,>=2025.3.0
@@ -34,10 +35,10 @@ Requires-Dist: marko<3,>=2.1.2
 Requires-Dist: mcp<2,>=1.29.0
 Requires-Dist: networkx<4,>=3.0
 Requires-Dist: numpy<3,>=1.23.5
-Requires-Dist: pandas<3,>=2.3.3
+Requires-Dist: pandas<4,>=2.3.3
 Requires-Dist: pyarrow<25,>=24
 Requires-Dist: pydantic<3,>=2.9.2
-Requires-Dist: pyjwt[crypto]<3,>=2.13.0
+Requires-Dist: pyjwt[crypto]<3,>=2.15.0
 Requires-Dist: python-multipart<1,>=0.0.32
 Requires-Dist: rich<15,>=13.7.1
 Requires-Dist: ruff<1,>=0.14.10

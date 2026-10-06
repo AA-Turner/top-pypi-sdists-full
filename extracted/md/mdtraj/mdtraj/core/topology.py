@@ -206,7 +206,7 @@ class Topology:
     3       3   H3       H       1     CYS        0
     4       4    C       C       1     CYS        0
     >>> # rename residue "CYS" to "CYSS"
-    >>> table[table['residue'] == 'CYS']['residue'] = 'CYSS'
+    >>> table.loc[table["resName"] == "CYS", "resName"] = "CYSS"
     >>> print(table.head())
        serial name element  resSeq resName   chainID
     0       0   H1       H       1     CYSS        0
@@ -264,7 +264,7 @@ class Topology:
 
         for bond in self.bonds:
             a1, a2 = bond
-            out.add_bond(a1, a2, type=bond.type, order=bond.order)
+            out.add_bond(out.atom(a1.index), out.atom(a2.index), type=bond.type, order=bond.order)
 
         return out
 
@@ -312,7 +312,7 @@ class Topology:
 
         atom_mapping: dict[Atom, Atom] = {}
         for chain in other.chains:
-            c = out.add_chain()
+            c = out.add_chain(chain_id=chain.chain_id)
             for residue in chain.residues:
                 if keep_resSeq:
                     out_resSeq = residue.resSeq

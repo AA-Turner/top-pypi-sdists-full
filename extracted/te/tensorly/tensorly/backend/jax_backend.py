@@ -23,7 +23,6 @@ from .core import (
     backend_array,
 )
 
-
 if Version(jax.__version__) < Version("0.3.0"):
     raise RuntimeError("TensorLy only supports JAX v0.3.0 and above.")
 
@@ -67,6 +66,10 @@ class JaxBackend(Backend, backend_name="jax"):
     def index_update(tensor, indices, values):
         return tensor.at[indices].set(values)
 
+    @staticmethod
+    def clip(tensor, a_min=None, a_max=None):
+        return np.clip(tensor, a_min, a_max)
+
 
 for name in (
     backend_types
@@ -90,7 +93,6 @@ for name in (
         "sign",
         "conj",
         "diag",
-        "clip",
         "log2",
         "tensordot",
         "argsort",
@@ -103,6 +105,3 @@ for name in (
 
 for name in ["solve", "qr", "svd", "eigh"]:
     JaxBackend.register_method(name, getattr(np.linalg, name))
-
-for name in ["gamma"]:
-    JaxBackend.register_method(name, getattr(jax.random, name))

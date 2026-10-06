@@ -25,9 +25,9 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <map>
 #include <set>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -47,8 +47,10 @@
 #include "meshioplusplus/region.hpp"
 #include "meshioplusplus/detail/fast_number.hpp"
 #include "meshioplusplus/detail/classic_stream.hpp"
+#include "../detail/text_cursor.hpp"
 #include "face_cells_common.hpp"
 #include "../detail/open_source.hpp"
+#include "../detail/typed_view.hpp"
 
 // ANSYS Fluent `.msh` (also TGrid and GAMBIT meshes). A face row lists its
 // nodes and the two cells it separates, `n0 .. nk c0 c1` (hexadecimal in
@@ -367,8 +369,7 @@ Mesh read_ansys(const std::string& rPath) {
             if (!rd.Eof() && rd.At() == '(') {
                 const std::size_t q = data.find_first_of("()", rd.mP + 1);
                 if (q != std::string::npos) {
-                    auto iss = detail::make_classic_istringstream(
-                        std::string(data.substr(rd.mP + 1, q - rd.mP - 1)));
+                    detail::TextStream iss(data.substr(rd.mP + 1, q - rd.mP - 1));
                     std::int64_t id = 0;
                     std::string type, name;
                     if (iss >> id >> type >> name)
@@ -547,7 +548,10 @@ Mesh read_ansys(const std::string& rPath) {
         std::int64_t mZone;
         std::string mType;
         std::vector<face_cells::Face> mConn;
-        std::vector<std::vector<face_cells::Face>> mPoly;
+        // Polyhedra as the CSR triple the mesh backends store.
+        std::vector<std::int64_t> mFlat;
+        std::vector<std::int64_t> mRows{0};
+        std::vector<std::int64_t> mFaces{0};
     };
     std::vector<Bucket> volume, surface;
     auto bucket = [](std::vector<Bucket>& rList, std::int64_t Zone,
@@ -555,7 +559,7 @@ Mesh read_ansys(const std::string& rPath) {
         for (auto& b : rList)
             if (b.mZone == Zone && b.mType == rType)
                 return b;
-        rList.push_back({Zone, rType, {}, {}});
+        rList.push_back({Zone, rType, {}, {}, {0}, {0}});
         return rList.back();
     };
     auto face_type_name = [](std::size_t N, bool Surface) -> std::string {
@@ -593,7 +597,12 @@ Mesh read_ansys(const std::string& rPath) {
         if (type == "polyhedron") {
             const std::string key =
                 "polyhedron" + std::to_string(face_cells::unique_node_count(cf));
-            bucket(volume, zone, key).mPoly.push_back(cf);
+            Bucket& poly = bucket(volume, zone, key);
+            for (const auto& face : cf) {
+                poly.mFlat.insert(poly.mFlat.end(), face.begin(), face.end());
+                poly.mRows.push_back(static_cast<std::int64_t>(poly.mFlat.size()));
+            }
+            poly.mFaces.push_back(static_cast<std::int64_t>(poly.mRows.size() - 1));
         } else if (conn.empty()) {
             ++skipped;
         } else {
@@ -627,8 +636,9 @@ Mesh read_ansys(const std::string& rPath) {
         for (auto& b : *pGroup) {
             std::size_t n;
             if (b.mType.rfind("polyhedron", 0) == 0) {
-                n = b.mPoly.size();
-                mesh.AddPolyhedronBlock(b.mType, std::move(b.mPoly));
+                n = b.mFaces.size() - 1;
+                mesh.AddPolyhedronBlock(b.mType, std::move(b.mFlat), std::move(b.mRows),
+                                        std::move(b.mFaces));
             } else {
                 n = b.mConn.size();
                 const std::size_t k = n ? b.mConn[0].size() : 0;
@@ -760,6 +770,7 @@ std::string fl_name(std::string rName) {
 void write_ansys(const std::string& rPath, const Mesh& rMesh, bool binary) {
     const std::size_t npoints = rMesh.NumPoints();
     const NDArray& points = rMesh.Points();
+    const detail::DoubleView point_values(points);
     const std::size_t pdim = rMesh.PointDim();
     if (pdim != 2 && pdim != 3)
         throw WriteError("Fluent: can only write points of dimension 2 or 3");
@@ -776,19 +787,23 @@ void write_ansys(const std::string& rPath, const Mesh& rMesh, bool binary) {
     // A 2-D Fluent mesh lies in the xy plane: z is dropped only when it is 0.
     if (dim == 2 && pdim == 3)
         for (std::size_t i = 0; i < npoints; ++i)
-            if (detail::read_double(points, i * 3 + 2) != 0.0)
+            if (point_values[i * 3 + 2] != 0.0)
                 throw WriteError("Fluent: a 2-D mesh must lie in the z = 0 plane (point " +
                                  std::to_string(i) +
                                  " has z != 0); Fluent has no 3-D surface meshes");
     const std::vector<std::int64_t> bases = detail::block_bases(rMesh);
     const bool has_zone = rMesh.HasCellData("ansys:zone");
+    // One view per block of `ansys:zone`, made on first use.
+    std::vector<std::optional<detail::Int64View>> zone_views(rMesh.NumCellBlocks());
     auto zone_value = [&](std::size_t Block, std::size_t Cell, std::int64_t& rOut) {
         if (!has_zone)
             return false;
         const NDArray& z = rMesh.CellData("ansys:zone", Block);
         if (Cell >= z.Size())
             return false;
-        rOut = detail::read_int(z, Cell);
+        if (!zone_views[Block])
+            zone_views[Block].emplace(z);
+        rOut = (*zone_views[Block])[Cell];
         return rOut > 0;
     };
 
@@ -842,10 +857,8 @@ void write_ansys(const std::string& rPath, const Mesh& rMesh, bool binary) {
                 for (std::size_t k = 0; k < ring.size(); ++k) {
                     const std::size_t p = static_cast<std::size_t>(ring[k]);
                     const std::size_t q = static_cast<std::size_t>(ring[(k + 1) % ring.size()]);
-                    area += detail::read_double(points, p * pdim) *
-                                detail::read_double(points, q * pdim + 1) -
-                            detail::read_double(points, q * pdim) *
-                                detail::read_double(points, p * pdim + 1);
+                    area += point_values[p * pdim] * point_values[q * pdim + 1] -
+                            point_values[q * pdim] * point_values[p * pdim + 1];
                 }
                 if (area < 0.0)
                     std::reverse(ring.begin(), ring.end());
@@ -1052,7 +1065,7 @@ void write_ansys(const std::string& rPath, const Mesh& rMesh, bool binary) {
     if (binary) {
         for (std::size_t i = 0; i < npoints; ++i)
             for (std::size_t c = 0; c < odim; ++c) {
-                const double v = detail::read_double(points, i * pdim + c);
+                const double v = point_values[i * pdim + c];
                 fh.write(reinterpret_cast<const char*>(&v), 8);
             }
         fh << ")\nEnd of Binary Section 3010)\n";
@@ -1061,8 +1074,7 @@ void write_ansys(const std::string& rPath, const Mesh& rMesh, bool binary) {
         char buf[32];
         for (std::size_t i = 0; i < npoints; ++i) {
             for (std::size_t c = 0; c < odim; ++c) {
-                detail::snprintf_c(buf, sizeof(buf), "%.16e",
-                                   detail::read_double(points, i * pdim + c));
+                detail::snprintf_c(buf, sizeof(buf), "%.16e", point_values[i * pdim + c]);
                 fh << buf << (c + 1 == odim ? "\n" : " ");
             }
         }
@@ -1096,6 +1108,8 @@ void write_ansys(const std::string& rPath, const Mesh& rMesh, bool binary) {
     std::int64_t first = 1;
     for (const FlZone& z : cell_zones) {
         std::vector<int> types;
+        // Membership comes from the in-memory mesh, not an unchecked file count.
+        types.reserve(z.mMembers.size());
         for (std::size_t c : z.mMembers)
             types.push_back(fl_element_type(rMesh.Cells(cell_block[c]).Type()));
         const bool mixed =
@@ -1107,6 +1121,7 @@ void write_ansys(const std::string& rPath, const Mesh& rMesh, bool binary) {
             fh << "(12 (" << head << "))\n";
         } else {
             std::vector<std::vector<std::int64_t>> rows;
+            rows.reserve(types.size());
             for (int t : types)
                 rows.push_back({t});
             write_ints("12", head, rows);

@@ -3,6 +3,7 @@
 # that we can easily switch to a s3-based storage.
 import asyncio
 import collections
+import dataclasses
 import datetime
 import enum
 import json
@@ -26,7 +27,9 @@ from sky import sky_logging
 from sky.adaptors import common as adaptors_common
 from sky.dag import DagExecution
 from sky.skylet import constants
+from sky.utils import asyncio_utils
 from sky.utils import common_utils
+from sky.utils import infra_utils
 from sky.utils.db import db_utils
 from sky.utils.db import migration_utils
 from sky.utils.db import retries as db_retries
@@ -68,6 +71,24 @@ Base = declarative.declarative_base()
 # to identify the job.
 # TODO(zhwu): schema migration may be needed.
 
+# The daemon's two "not processed yet" predicates, used by both the index
+# definitions and the migration so an index cannot drift from the query it
+# exists to serve.
+#
+# Both are built from _MEASURABLE rather than spelled out, because the first
+# version of this spelled them out and the second one lost a clause: without
+# the origin columns the never-ran index kept every pre-upgrade row forever --
+# 1078 unmatchable rows against 0 real candidates on the tenant it was measured
+# on, which is the very thing partial indexes were introduced here to stop.
+#
+# Each predicate must stay implied by its query's WHERE or the planner cannot
+# use the index. Every clause here is one the corresponding query already has.
+_MEASURABLE = 'created_at IS NOT NULL AND eligible_at IS NOT NULL'
+
+PENDING_TIMELINE_PREDICATE = f't_time_to_running IS NULL AND {_MEASURABLE}'
+NEVER_RAN_PREDICATE = (f't_controller_queue IS NULL AND start_at IS NULL AND '
+                       f'{_MEASURABLE}')
+
 spot_table = sqlalchemy.Table(
     'spot',
     Base.metadata,
@@ -107,6 +128,19 @@ spot_table = sqlalchemy.Table(
     sqlalchemy.Column('is_primary_in_job_group',
                       sqlalchemy.Boolean,
                       server_default=None),
+    # For a RECOVERING task, whether the current recovery episode carries
+    # "failure credit": TRUE iff a genuine preemption/failure (recovery
+    # source FAILURE) is involved in this episode; FALSE for purely
+    # system-driven episodes (EMERGENCY / RESTART). Deliberately a separate
+    # fact from the per-occurrence causes in job_events.recovery_source: a
+    # system-driven interruption of a failure recovery neither grants nor
+    # erases the credit. Set when the episode opens, cleared (NULL) on every
+    # exit from recovery, and read by set_recovered_async to decide whether
+    # the completed episode increments recovery_count (NULL — rows written
+    # before this column existed — is treated as credited for back-compat).
+    sqlalchemy.Column('recovering_from_failure',
+                      sqlalchemy.Boolean,
+                      server_default=None),
     # Optional plugin-provided override for the user-facing status. The core
     # state machine never reads this column; it always uses `status`. Read
     # paths (status counts, status filter, returned status) may surface this
@@ -115,6 +149,113 @@ spot_table = sqlalchemy.Table(
     # PENDING while it waits in an external scheduler queue) without altering
     # the underlying job lifecycle. NULL means "no override".
     sqlalchemy.Column('status_override', sqlalchemy.Text, server_default=None),
+    # When the job was accepted, as epoch seconds. T0 of the launch timeline.
+    #
+    # A separate column rather than reusing the PENDING job_events row, whose
+    # timestamp is written as a naive local datetime while every other
+    # timestamp here is time.time(). Subtracting the two is wrong by the UTC
+    # offset on any non-UTC deployment and can come out negative -- and a
+    # negative observation lands silently in a histogram's lowest bucket, so
+    # the metric would look healthy while being wrong.
+    sqlalchemy.Column('created_at', sqlalchemy.Float, server_default=None),
+    # When this task could first have started, as epoch seconds. The origin the
+    # startup breakdown is measured from.
+    #
+    # Equal to created_at for a single task and for every task of a job group,
+    # whose tasks all begin waiting together. A pipeline runs its tasks one
+    # after another, so task N is not waiting on anything of ours until task
+    # N-1 finishes -- measuring from submission would fold every upstream
+    # task's runtime into t_controller_queue, which claims to mean "the
+    # scheduler was saturated". Unbounded, and indistinguishable downstream:
+    # the histogram is labelled by workspace only.
+    #
+    # Recording the moment rather than special-casing the formula keeps one
+    # meaning for every task.
+    #
+    # Written on the consolidation path only: of the three set_pending callers,
+    # just the one in jobs/server/core.py passes it -- the skylet service and
+    # the generated remote-controller code do not. So on a remote controller
+    # this is NULL for every task and the correction above does not apply
+    # there. Deliberate rather than overlooked: that path keeps its own
+    # database, the metrics daemon never reads these rows, and the breakdown is
+    # scoped to consolidation. Readers require it NOT NULL, so a row without it
+    # is skipped rather than measured from the wrong origin.
+    sqlalchemy.Column('eligible_at', sqlalchemy.Float, server_default=None),
+    # The launch timeline, denormalized once the job first reaches RUNNING, so
+    # the jobs list renders from one indexed row read instead of a per-job scan
+    # of launch_attempts.
+    #
+    # Only two of these are read today. t_time_to_running and
+    # t_controller_queue are the conditional-UPDATE targets that make recording
+    # exactly-once across replicas, one for a task that ran and one for a task
+    # that never did. The other six have no reader: the Prometheus series are
+    # observed from the in-memory breakdown in the same call that computes it,
+    # not from these columns. They are stored for the job-detail view, which
+    # lands separately -- so if that view is dropped, these should go with it
+    # rather than linger as a table that nothing consults.
+    #
+    # Write-once: they describe how long the job took to
+    # start, which a preemption three hours later does not redefine.
+    #
+    # Together they partition the wall clock from created_at to RUNNING:
+    #   controller_queue  accepted -> a controller claimed the job
+    #   retry_overhead    launch attempts that were thrown away, plus backoff
+    #   provision_setup   the final attempt's provision start -> instances asked
+    #   queue_wait        asked for -> admitted by an external scheduler
+    #   node_startup      admitted -> instances up
+    #   runtime_setup     instances up -> the job is RUNNING
+    sqlalchemy.Column('t_controller_queue',
+                      sqlalchemy.Float,
+                      server_default=None),
+    sqlalchemy.Column('t_retry_overhead', sqlalchemy.Float,
+                      server_default=None),
+    # Time that belongs to no phase we can name: a job placed on a warm pool
+    # never provisions, and one launched before these milestones has no
+    # attempt to break down. Kept apart from retry_overhead so such a job does
+    # not read as "99% retried launches", which is the misdiagnosis this
+    # breakdown exists to prevent.
+    sqlalchemy.Column('t_unattributed', sqlalchemy.Float, server_default=None),
+    sqlalchemy.Column('t_provision_setup',
+                      sqlalchemy.Float,
+                      server_default=None),
+    sqlalchemy.Column('t_queue_wait', sqlalchemy.Float, server_default=None),
+    sqlalchemy.Column('t_node_startup', sqlalchemy.Float, server_default=None),
+    sqlalchemy.Column('t_runtime_setup', sqlalchemy.Float, server_default=None),
+    # The headline: accepted -> RUNNING. Measured directly rather than summed,
+    # because histogram quantiles are not additive.
+    sqlalchemy.Column('t_time_to_running',
+                      sqlalchemy.Float,
+                      server_default=None),
+    # The metrics daemon's pending-timeline query, once a minute. Without it
+    # that query full-scans spot and sorts the result to return the handful of
+    # jobs that just started -- and in the steady state, to return nothing.
+    # The predicate selects the rows without a timeline; start_at then serves
+    # the ordering from the index rather than a temp b-tree.
+    #
+    # Partial, and that is the whole point rather than a refinement. A full
+    # index stores one entry per task ever run and keeps it forever: a
+    # pre-upgrade row has no created_at, so it can never satisfy the query,
+    # is never given a timeline, and never leaves the unprocessed group it
+    # sorts to the front of. Every tick then walks the entire history to reach
+    # the few rows with work in them -- 9156 dead entries against 9 live ones
+    # on the dev tenant this was measured on. Restricted to what the query can
+    # return, the index holds the pending work instead, and a row drops out of
+    # it the moment its timeline is recorded.
+    #
+    # Safe to restrict because the marker column is only ever asked IS NULL --
+    # both selects and both conditional updates -- so no query wants the rows
+    # this leaves out. The predicates must keep matching those queries or the
+    # planner will quietly stop using the index, which is what the EXPLAIN
+    # tests are for.
+    sqlalchemy.Index(
+        'ix_spot_pending_timeline',
+        'start_at',
+        postgresql_where=sqlalchemy.text(PENDING_TIMELINE_PREDICATE),
+        sqlite_where=sqlalchemy.text(PENDING_TIMELINE_PREDICATE)),
+    sqlalchemy.Index('ix_spot_never_ran',
+                     'end_at',
+                     postgresql_where=sqlalchemy.text(NEVER_RAN_PREDICATE),
+                     sqlite_where=sqlalchemy.text(NEVER_RAN_PREDICATE)),
 )
 
 job_info_table = sqlalchemy.Table(
@@ -125,7 +266,10 @@ job_info_table = sqlalchemy.Table(
                       primary_key=True,
                       autoincrement=True),
     sqlalchemy.Column('name', sqlalchemy.Text),
-    sqlalchemy.Column('schedule_state', sqlalchemy.Text),
+    # Indexed: every scheduling attempt filters on schedule_state (e.g.
+    # get_waiting_job_async, get_num_launching_jobs, get_num_alive_jobs),
+    # and active-state rows are a tiny fraction of the table.
+    sqlalchemy.Column('schedule_state', sqlalchemy.Text, index=True),
     sqlalchemy.Column('controller_pid', sqlalchemy.Integer,
                       server_default=None),
     sqlalchemy.Column('controller_pid_started_at',
@@ -189,6 +333,53 @@ job_info_table = sqlalchemy.Table(
     sqlalchemy.Column('file_mounts_blob_id',
                       sqlalchemy.Text,
                       server_default=None),
+    # Emergency recovery attempts used in the current episode (bounded retry
+    # budget for unexpected controller errors). NULL means 0.
+    sqlalchemy.Column('emergency_recovery_count',
+                      sqlalchemy.Integer,
+                      server_default=None),
+    # Timestamp of the most recent emergency recovery attempt; used for
+    # retry backoff and budget decay.
+    sqlalchemy.Column('last_emergency_recovery_at',
+                      sqlalchemy.Float,
+                      server_default=None),
+    # Where a job launched from inside another managed job came from (e.g.
+    # an eval job launched by a job group's watcher task). All NULL for
+    # top-level jobs. Written once on the child's row; parent rows are never
+    # mutated.
+    #   root_job_id: the top-level job of the tree. Load-bearing: the group
+    #     the job is shown under and the lifecycle it shares (cancelled with
+    #     the root, swept when the root's primary tasks finish).
+    #   parent_job_id: the job that launched this one (== root for a direct
+    #     member).
+    #   parent_task_id: the task within the parent that launched this one.
+    #     Display only.
+    sqlalchemy.Column('root_job_id',
+                      sqlalchemy.Integer,
+                      server_default=None,
+                      index=True),
+    sqlalchemy.Column('parent_job_id',
+                      sqlalchemy.Integer,
+                      server_default=None,
+                      index=True),
+    sqlalchemy.Column('parent_task_id', sqlalchemy.Integer,
+                      server_default=None),
+    #   dynamic_task_index: a dynamic task's ordinal within its root's tree
+    # (the root's declared tasks are 0..n-1, dynamic tasks number on from n in
+    #     attach order); `<root>-<index>` names it on the CLI. NULL for
+    #     top-level jobs.
+    #   dynamic_task_count: on the root's row, how many dynamic tasks have
+    #     attached; incremented atomically to hand out the next index.
+    sqlalchemy.Column('dynamic_task_index',
+                      sqlalchemy.Integer,
+                      server_default=None),
+    sqlalchemy.Column('dynamic_task_count',
+                      sqlalchemy.Integer,
+                      server_default=None),
+    sqlalchemy.Index('ux_job_info_root_dynamic_task_index',
+                     'root_job_id',
+                     'dynamic_task_index',
+                     unique=True),
 )
 
 # Separate table for API access token IDs associated with managed jobs.
@@ -225,6 +416,12 @@ job_events_table = sqlalchemy.Table(
     sqlalchemy.Column('timestamp',
                       sqlalchemy.DateTime(timezone=True),
                       index=True),
+    # For new_status='RECOVERING' events only: a RecoverySource value
+    # (FAILURE / EMERGENCY / HA) recording why the job is recovering, so
+    # consumers can count only failure-driven recoveries. NULL on all other
+    # events and on RECOVERING events written before this column existed
+    # (treated as FAILURE for back-compat).
+    sqlalchemy.Column('recovery_source', sqlalchemy.Text, server_default=None),
 )
 
 batch_state_table = sqlalchemy.Table(
@@ -469,6 +666,13 @@ def _get_jobs_dict(r: 'row.RowMapping') -> Dict[str, Any]:
         'batch_total_batches': r.get('batch_total_batches'),
         'batch_completed_batches': r.get('batch_completed_batches'),
         'node_names': common_utils.get_display_node_names(r.get('node_names')),
+        # The job/task that launched this job, when launched from inside
+        # another managed job. NULL for top-level jobs.
+        'root_job_id': r.get('root_job_id'),
+        'parent_job_id': r.get('parent_job_id'),
+        'parent_task_id': r.get('parent_task_id'),
+        'dynamic_task_index': r.get('dynamic_task_index'),
+        'dynamic_task_count': r.get('dynamic_task_count'),
     }
 
 
@@ -524,8 +728,14 @@ class ManagedJobStatus(enum.Enum):
     # WINDING_DOWN: All batches are done; the coordinator is waiting for
     # worker threads to finish and merging per-batch output files.
     WINDING_DOWN = 'WINDING_DOWN'
-    # RECOVERING: The cluster is preempted, and the controller process is
-    # recovering the cluster (relaunching/failover).
+    # RECOVERING: The job is being recovered. This covers preemption/failure
+    # recovery (the cluster was preempted or failed), controller-restart
+    # recovery (upgrade/rollout resume), and emergency recovery (the
+    # controller hit an unexpected internal error and is restarting job
+    # management). The cause of each occurrence is recorded as a
+    # RecoverySource on the RECOVERING job event; whether the episode as a
+    # whole carries failure credit (and so increments recovery_count when it
+    # completes) is tracked separately on spot.recovering_from_failure.
     RECOVERING = 'RECOVERING'
     # CANCELLING: The job is requested to be cancelled by the user, and the
     # controller is cleaning up the cluster.
@@ -692,6 +902,39 @@ _SPOT_STATUS_TO_COLOR = {
     ManagedJobStatus.DEPRECATED_SUBMITTED: colorama.Fore.BLUE,
 }
 
+# Machine-readable code stored on RECOVERING job events that were triggered
+# by the user job exiting non-zero (as opposed to preemption / infra failures,
+# whose codes come from ExternalClusterFailure). Consumed by dashboard event
+# styling; do not rename without updating consumers.
+USER_JOB_FAILURE_EVENT_CODE = 'USER_JOB_FAILURE'
+
+
+class RecoverySource(enum.Enum):
+    """Why a managed job entered the RECOVERING status.
+
+    Recorded on the RECOVERING job event (job_events.recovery_source) so that
+    consumers can distinguish failure-driven recoveries (which reflect real
+    value delivered to the user) from system-driven ones. Only FAILURE counts
+    toward recovery ROI; EMERGENCY and RESTART are SkyPilot-internal.
+
+    Old RECOVERING events written before this column existed have a NULL
+    recovery_source; consumers should treat NULL as FAILURE for back-compat.
+    """
+    # Preemption, node failure, or user-code failure that triggers recovery.
+    # This is the default and the only source counted toward recovery ROI.
+    FAILURE = 'FAILURE'
+    # The controller hit an unexpected internal error and is retrying job
+    # management in place (see emergency recovery in sky/jobs/controller.py).
+    EMERGENCY = 'EMERGENCY'
+    # The controller process restarted (e.g. an API-server upgrade/rollout in
+    # consolidation mode) and is forcing recovery on resume because it cannot
+    # know the cluster's state. Note: the code path that resumes jobs after a
+    # restart is historically called "HA recovery"
+    # (ha_recovery_for_consolidation_mode) because it originally only applied
+    # to controllers deployed in HA mode; it now runs on any controller
+    # restart, hence RESTART.
+    RESTART = 'RESTART'
+
 
 class ManagedJobScheduleState(enum.Enum):
     """Captures the state of the job from the scheduler's perspective.
@@ -819,6 +1062,69 @@ ControllerPidRecord = collections.namedtuple('ControllerPidRecord', [
 
 
 # === Status transition functions ===
+def _check_parent_accepts_attachment(session: orm.Session,
+                                     parent_job_id: int) -> None:
+    """Refuse to attach a job under a parent that is not running, atomically.
+
+    The launch path checks the parent up front, but the row is written much
+    later (after file mounts are uploaded). A cancel in between would expand
+    the tree before this row exists and never see it: an orphan under a
+    CANCELLING root. So the rows are locked and re-read here, inside the
+    transaction that inserts the child (``session`` is the insert's).
+
+    Two jobs matter: the direct parent (cancelling it takes its subtree)
+    and the tree's root (cancelling it, or its finishing, takes everything
+    under it, and an intermediate parent can still be RUNNING while the
+    root is being cancelled). The root is read from the parent's own row
+    here rather than trusted from the caller, so the guard cannot be
+    weakened by a caller that passes none. Both are locked with a no-op
+    UPDATE of their task rows: it takes SQLite's write lock and
+    PostgreSQL's row locks, which a concurrent CANCELLING write on either
+    must wait for. Either that write committed first and this raises, or
+    this row commits first and the controller, which expands descendants
+    right after writing CANCELLING, finds it.
+
+    A job's status is not a column: it is derived from its task rows, the
+    same way ``get_status`` does (first non-terminal task, else the last).
+
+    Raises:
+        ValueError: the parent (or root) does not exist, or is finished or
+            being cancelled (the wording matches the launch path's check).
+    """
+    parent_root = session.execute(
+        sqlalchemy.select(job_info_table.c.root_job_id).where(
+            job_info_table.c.spot_job_id == parent_job_id)).fetchone()
+    if parent_root is None:
+        raise ValueError(f'Cannot attach to job {parent_job_id}: no such '
+                         'managed job.')
+    root_job_id = parent_root[0]
+    job_ids = [parent_job_id]
+    if root_job_id is not None and root_job_id != parent_job_id:
+        job_ids.append(root_job_id)
+    # One lock statement for both, in a fixed order, so two attaches never
+    # take the two locks in opposite orders.
+    session.execute(
+        sqlalchemy.update(spot_table).where(
+            spot_table.c.spot_job_id.in_(
+                sorted(job_ids))).values(spot_job_id=spot_table.c.spot_job_id))
+    for job_id in job_ids:
+        rows = session.execute(
+            sqlalchemy.select(spot_table.c.task_id, spot_table.c.status).where(
+                spot_table.c.spot_job_id == job_id).order_by(
+                    spot_table.c.task_id.asc())).fetchall()
+        if not rows:
+            raise ValueError(
+                f'Cannot attach to job {job_id}: no such managed job.')
+        _, status = get_latest_task_id_from_statuses([
+            (task_id, ManagedJobStatus(status)) for task_id, status in rows
+        ])
+        assert status is not None, rows
+        if status.is_terminal() or status == ManagedJobStatus.CANCELLING:
+            raise ValueError(f'Cannot attach to job {job_id}: it is '
+                             f'{status.value}; only a running job group '
+                             'accepts new tasks.')
+
+
 def set_job_info_without_job_id(
         name: str,
         workspace: str,
@@ -828,7 +1134,11 @@ def set_job_info_without_job_id(
         user_hash: Optional[str],
         execution: Optional[str] = None,
         is_batch: bool = False,
-        file_mounts_blob_id: Optional[str] = None) -> int:
+        file_mounts_blob_id: Optional[str] = None,
+        parent_job_id: Optional[int] = None,
+        parent_task_id: Optional[int] = None,
+        root_job_id: Optional[int] = None,
+        dynamic_task_index: Optional[int] = None) -> int:
     engine = _db_manager.get_engine()
     with orm.Session(engine) as session:
         if engine.dialect.name == db_utils.SQLAlchemyDialect.SQLITE.value:
@@ -838,6 +1148,12 @@ def set_job_info_without_job_id(
             insert_func = postgresql.insert
         else:
             raise ValueError('Unsupported database dialect')
+
+        if parent_job_id is not None:
+            # Same transaction as the insert below, so a cancel of the parent
+            # or of the tree's root cannot slip between this check and the
+            # row landing.
+            _check_parent_accepts_attachment(session, parent_job_id)
 
         insert_stmt = insert_func(job_info_table).values(
             name=name,
@@ -850,6 +1166,10 @@ def set_job_info_without_job_id(
             execution=execution,
             is_batch=is_batch,
             file_mounts_blob_id=file_mounts_blob_id,
+            root_job_id=root_job_id,
+            parent_job_id=parent_job_id,
+            parent_task_id=parent_task_id,
+            dynamic_task_index=dynamic_task_index,
         )
 
         if engine.dialect.name == db_utils.SQLAlchemyDialect.SQLITE.value:
@@ -875,8 +1195,15 @@ def set_pending(
     resources_str: str,
     metadata: str,
     is_primary_in_job_group: Optional[bool] = None,
+    eligible_at: Optional[float] = None,
 ):
-    """Set the task to pending state."""
+    """Set the task to pending state.
+
+    ``eligible_at`` is when this task could first have started. The caller
+    passes the submission instant for a task that is waiting from now -- task 0
+    of anything, and every task of a job group -- and None for a pipeline's
+    later tasks, whose origin is not known yet and is written at the handoff.
+    """
     add_job_event(job_id, task_id, ManagedJobStatus.PENDING,
                   'Job submitted to queue')
 
@@ -891,18 +1218,24 @@ def set_pending(
                 metadata=metadata,
                 status=ManagedJobStatus.PENDING.value,
                 is_primary_in_job_group=is_primary_in_job_group,
+                created_at=time.time(),
+                eligible_at=eligible_at,
             ))
         session.commit()
 
 
-async def set_backoff_pending_async(job_id: int, task_id: int):
-    """Set the task to PENDING state if it is in backoff.
+async def set_backoff_pending_async(job_id: int,
+                                    task_id: int,
+                                    reason: str = 'Job is in backoff'):
+    """Set the task to PENDING state if its launch is waiting to continue.
+
+    This is used while the launch is in retry backoff, or while the launch
+    request is parked waiting to resume (e.g. waiting for external admission).
 
     This should only be used to transition from STARTING or RECOVERING back to
     PENDING.
     """
-    await add_job_event_async(job_id, task_id, ManagedJobStatus.PENDING,
-                              'Job is in backoff')
+    await add_job_event_async(job_id, task_id, ManagedJobStatus.PENDING, reason)
 
     async def _op(session: sql_async.AsyncSession) -> int:
         result = await session.execute(
@@ -995,6 +1328,8 @@ def set_failed(
     fields_to_set: Dict[str, Any] = {
         spot_table.c.status: failure_type.value,
         spot_table.c.failure_reason: failure_reason,
+        # Close any open recovery episode on reaching a terminal state.
+        spot_table.c.recovering_from_failure: None,
     }
     updated = False
     with orm.Session(engine) as session:
@@ -1242,6 +1577,65 @@ def get_all_task_ids_names_statuses_logs(
 
 def get_num_tasks(job_id: int) -> int:
     return len(_get_all_task_ids_statuses(job_id))
+
+
+def next_dynamic_task_index(root_job_id: int) -> int:
+    """Reserve the next dynamic task index under ``root_job_id``.
+
+    The root's declared tasks are 0..n-1; the k-th dynamic task to attach gets
+    n + k - 1. The counter lives on the root's row and is bumped with one
+    UPDATE, which the database serializes (row lock on PostgreSQL, the
+    single writer on SQLite), so concurrent attaches never get the same
+    index and nothing has to retry. The unique index on
+    (root_job_id, dynamic_task_index) is only a safety net.
+
+    Raises:
+        ValueError: no such managed job.
+    """
+    num_tasks = get_num_tasks(root_job_id)
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        bump = sqlalchemy.update(job_info_table).where(
+            job_info_table.c.spot_job_id == root_job_id).values(
+                dynamic_task_count=sqlalchemy.func.coalesce(
+                    job_info_table.c.dynamic_task_count, 0) + 1)
+        if engine.dialect.name == db_utils.SQLAlchemyDialect.POSTGRESQL.value:
+            count = session.execute(
+                bump.returning(job_info_table.c.dynamic_task_count)).scalar()
+        else:
+            # The UPDATE takes SQLite's write lock for the transaction, so
+            # the SELECT reads this transaction's own value.
+            session.execute(bump)
+            count = session.execute(
+                sqlalchemy.select(job_info_table.c.dynamic_task_count).where(
+                    job_info_table.c.spot_job_id == root_job_id)).scalar()
+        session.commit()
+    if count is None:
+        raise ValueError(f'No such managed job: {root_job_id}')
+    return num_tasks + count - 1
+
+
+def get_dynamic_task_job_id(root_job_id: int,
+                            task: Union[str, int]) -> Optional[int]:
+    """The job id of the dynamic task shown as ``task`` under ``root_job_id``.
+
+    An int is a dynamic task index (the numbering that continues from the
+    root's declared tasks); a str is the launched job's name. Grandchildren
+    carry the same root and draw from the same counter, so both lookups
+    cover the whole tree. Names are not unique; the newest match wins.
+    Returns None when nothing matches.
+    """
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        query = sqlalchemy.select(job_info_table.c.spot_job_id).where(
+            job_info_table.c.root_job_id == root_job_id)
+        if isinstance(task, int):
+            query = query.where(job_info_table.c.dynamic_task_index == task)
+        else:
+            query = query.where(job_info_table.c.name == task)
+        row = session.execute(
+            query.order_by(job_info_table.c.spot_job_id.desc())).fetchone()
+    return None if row is None else int(row[0])
 
 
 def get_latest_task_id_from_statuses(
@@ -1497,13 +1891,27 @@ def get_managed_jobs_highest_priority() -> int:
             0] is not None else constants.MIN_PRIORITY
 
 
+def _tree_root_expr() -> 'sqlalchemy.ColumnElement':
+    """The top-level job of a row's tree: its root_job_id, else itself.
+
+    A job launched from inside another managed job (a dynamic job group
+    member) has its own spot_job_id but belongs, for listing purposes, to
+    the tree of its root. The queue pages and counts by this expression so
+    a group and everything launched under it stay on one page.
+    """
+    return sqlalchemy.func.coalesce(job_info_table.c.root_job_id,
+                                    spot_table.c.spot_job_id)
+
+
 def build_managed_jobs_with_filters_no_status_query(
     fields: Optional[List[str]] = None,
     job_ids: Optional[List[int]] = None,
+    tree_root_ids: Optional[List[int]] = None,
     accessible_workspaces: Optional[List[str]] = None,
     workspace_match: Optional[str] = None,
     name_match: Optional[str] = None,
     pool_match: Optional[str] = None,
+    infra_match: Optional[str] = None,
     user_hashes: Optional[List[Optional[str]]] = None,
     skip_finished: bool = False,
     submitted_after: Optional[float] = None,
@@ -1511,6 +1919,7 @@ def build_managed_jobs_with_filters_no_status_query(
     count_only: bool = False,
     count_unique_jobs: bool = False,
     status_count: bool = False,
+    infra_options: bool = False,
     status_expr: Optional['sqlalchemy.ColumnElement'] = None,
 ) -> sqlalchemy.Select:
     """Build a query to get managed jobs from the database with filters.
@@ -1537,10 +1946,12 @@ def build_managed_jobs_with_filters_no_status_query(
     # global_user_state.get_user() on it. This runs on the controller, which may
     # not have the user info. Prefer to do it on the API server side.
     if count_unique_jobs:
-        # Count unique jobs (by spot_job_id), not tasks
+        # Count unique top-level jobs (tree roots), not tasks and not the
+        # jobs launched from inside another job: those are listed under
+        # their root and must not take a page slot of their own.
         query = sqlalchemy.select(
             sqlalchemy.func.count(  # pylint: disable=not-callable
-                sqlalchemy.distinct(spot_table.c.spot_job_id)).label('count'))
+                sqlalchemy.distinct(_tree_root_expr())).label('count'))
     elif count_only:
         query = sqlalchemy.select(sqlalchemy.func.count().label('count'))  # pylint: disable=not-callable
     elif status_count:
@@ -1548,6 +1959,9 @@ def build_managed_jobs_with_filters_no_status_query(
                       if status_expr is not None else spot_table.c.status)
         query = sqlalchemy.select(status_col.label('status'),
                                   sqlalchemy.func.count().label('count'))  # pylint: disable=not-callable
+    elif infra_options:
+        query = sqlalchemy.select(job_info_table.c.cloud,
+                                  job_info_table.c.region).distinct()
     else:
         query = sqlalchemy.select(
             spot_table,
@@ -1578,13 +1992,23 @@ def build_managed_jobs_with_filters_no_status_query(
                 )).distinct())
         query = query.where(
             spot_table.c.spot_job_id.in_(non_terminal_job_ids_subquery))
-    if not count_only and not status_count and fields:
+    if not count_only and not status_count and not infra_options and fields:
         # Resolve requested field names to explicit ColumnElements from
         # the joined tables.
         selected_columns = [_map_response_field_to_db_column(f) for f in fields]
         query = query.with_only_columns(*selected_columns)
     if job_ids is not None:
         query = query.where(spot_table.c.spot_job_id.in_(job_ids))
+    if tree_root_ids is not None:
+        # Every row in these trees: the roots' declared tasks and the jobs
+        # launched under them, at any depth. Spelled as two indexed
+        # membership tests rather than COALESCE(...) IN (...): PostgreSQL
+        # cannot use the primary key or the root_job_id index through the
+        # COALESCE, and this runs on every page fetch the dashboard polls.
+        # (A member's own id is never a tree root, so the OR is exact.)
+        query = query.where(
+            sqlalchemy.or_(spot_table.c.spot_job_id.in_(tree_root_ids),
+                           job_info_table.c.root_job_id.in_(tree_root_ids)))
     if accessible_workspaces is not None:
         query = query.where(
             job_info_table.c.workspace.in_(accessible_workspaces))
@@ -1595,6 +2019,32 @@ def build_managed_jobs_with_filters_no_status_query(
         query = query.where(job_info_table.c.name.like(f'%{name_match}%'))
     if pool_match is not None:
         query = query.where(job_info_table.c.pool.like(f'%{pool_match}%'))
+    if infra_match is not None:
+        # `infra_match` is an `--infra` spec -- `cloud`, `cloud/region` or
+        # `cloud/region/zone`, with `*` for any component -- parsed by the same
+        # `InfraInfo.from_str` the CLI launches with, so the queue is filtered
+        # on exactly what a user would name to run there. A component that
+        # parses to None (absent, or `*`) constrains nothing.
+        #
+        # The cloud is matched whole: it names one of a closed set, and a
+        # prefix over that set is ambiguous (`s` is Slurm and SSH). Region and
+        # zone match by prefix, so a half-typed name still narrows the queue as
+        # the dashboard filter box is typed into. `autoescape` keeps a literal
+        # `_` in a Kubernetes context name (`gke_proj_zone_cluster`) from
+        # standing in as a LIKE wildcard.
+        infra = infra_utils.InfraInfo.from_str(infra_match)
+        if infra.cloud is not None:
+            query = query.where(
+                sqlalchemy.func.lower(job_info_table.c.cloud) ==
+                infra.cloud.lower())
+        if infra.region is not None:
+            query = query.where(
+                sqlalchemy.func.lower(job_info_table.c.region).startswith(
+                    infra.region.lower(), autoescape=True))
+        if infra.zone is not None:
+            query = query.where(
+                sqlalchemy.func.lower(job_info_table.c.zone).startswith(
+                    infra.zone.lower(), autoescape=True))
     if user_hashes is not None:
         query = query.where(job_info_table.c.user_hash.in_(user_hashes))
     if submitted_after is not None or submitted_before is not None:
@@ -1623,10 +2073,12 @@ def build_managed_jobs_with_filters_no_status_query(
 def build_managed_jobs_with_filters_query(
     fields: Optional[List[str]] = None,
     job_ids: Optional[List[int]] = None,
+    tree_root_ids: Optional[List[int]] = None,
     accessible_workspaces: Optional[List[str]] = None,
     workspace_match: Optional[str] = None,
     name_match: Optional[str] = None,
     pool_match: Optional[str] = None,
+    infra_match: Optional[str] = None,
     user_hashes: Optional[List[Optional[str]]] = None,
     statuses: Optional[List[str]] = None,
     skip_finished: bool = False,
@@ -1645,10 +2097,12 @@ def build_managed_jobs_with_filters_query(
     query = build_managed_jobs_with_filters_no_status_query(
         fields=fields,
         job_ids=job_ids,
+        tree_root_ids=tree_root_ids,
         accessible_workspaces=accessible_workspaces,
         workspace_match=workspace_match,
         name_match=name_match,
         pool_match=pool_match,
+        infra_match=infra_match,
         user_hashes=user_hashes,
         skip_finished=skip_finished,
         submitted_after=submitted_after,
@@ -1671,6 +2125,7 @@ def get_status_count_with_filters(
     workspace_match: Optional[str] = None,
     name_match: Optional[str] = None,
     pool_match: Optional[str] = None,
+    infra_match: Optional[str] = None,
     user_hashes: Optional[List[Optional[str]]] = None,
     skip_finished: bool = False,
     submitted_after: Optional[float] = None,
@@ -1689,6 +2144,7 @@ def get_status_count_with_filters(
         workspace_match=workspace_match,
         name_match=name_match,
         pool_match=pool_match,
+        infra_match=infra_match,
         user_hashes=user_hashes,
         skip_finished=skip_finished,
         submitted_after=submitted_after,
@@ -1707,6 +2163,60 @@ def get_status_count_with_filters(
             # status_value is already a string (enum value)
             results[str(status_value)] = int(count)
     return results
+
+
+def get_infra_options_with_filters(
+    job_ids: Optional[List[int]] = None,
+    accessible_workspaces: Optional[List[str]] = None,
+    workspace_match: Optional[str] = None,
+    name_match: Optional[str] = None,
+    pool_match: Optional[str] = None,
+    user_hashes: Optional[List[Optional[str]]] = None,
+    skip_finished: bool = False,
+    submitted_after: Optional[float] = None,
+    submitted_before: Optional[float] = None,
+) -> List[str]:
+    """The distinct `--infra` specs of the jobs a filter set selects.
+
+    These are the values the dashboard's Infra filter offers, and they are
+    computed here, over the whole selected set, for the same reason the status
+    counts are: the queue is paginated, so a list the page derived from its own
+    rows would name only the infra that happens to be on the current page.
+
+    Deliberately takes no `infra_match`. The list has to keep naming the other
+    infra once one is picked, or the filter could not be changed without being
+    cleared first. Every other filter is applied, so an option never names an
+    empty result.
+
+    The spec is `cloud/region`: the region is matched by prefix, so a zone
+    would only narrow what the option already selects. A job that never got
+    placed has no cloud and contributes nothing.
+    """
+    query = build_managed_jobs_with_filters_no_status_query(
+        job_ids=job_ids,
+        accessible_workspaces=accessible_workspaces,
+        workspace_match=workspace_match,
+        name_match=name_match,
+        pool_match=pool_match,
+        user_hashes=user_hashes,
+        skip_finished=skip_finished,
+        submitted_after=submitted_after,
+        submitted_before=submitted_before,
+        infra_options=True,
+    )
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        rows = session.execute(query).fetchall()
+    options = set()
+    for cloud, region in rows:
+        if not cloud:
+            continue
+        # The same formatter `--infra` round-trips through, so an option can be
+        # handed straight back as a filter (and typed at the CLI unchanged).
+        spec = infra_utils.InfraInfo(cloud=cloud, region=region).to_str()
+        if spec is not None:
+            options.add(spec)
+    return sorted(options)
 
 
 def get_status_counts() -> Dict[str, int]:
@@ -1769,6 +2279,99 @@ def get_status_counts_by_workspace_user_cloud(
     return [(row[0], row[1], row[2], str(row[3]), int(row[4])) for row in rows]
 
 
+def get_recovery_event_counts_by_source_workspace(
+) -> List[Tuple[str, Optional[str], int]]:
+    """Return RECOVERING job_events counts grouped by source/workspace.
+
+    Each tuple is (recovery_source, workspace, count). Counts the
+    RECOVERING events currently retained in ``job_events``; the table
+    has a retention window (see the job-event retention daemon), so the
+    numbers are NOT monotone — rows aging out decrease them. Consumers
+    that want rates must window with ``delta`` and clamp, never
+    ``increase``.
+
+    Rows written before the ``recovery_source`` column existed carry
+    NULL and are excluded: user-facing consumers treat NULL as FAILURE
+    for back-compat, but the metric only counts classified recoveries
+    (the ambiguity ages out with the retention window anyway).
+
+    Used by the Prometheus collector to emit per-source labeled gauges.
+    """
+    query = sqlalchemy.select(
+        job_events_table.c.recovery_source,
+        job_info_table.c.workspace,
+        sqlalchemy.func.count().label('cnt'),  # pylint: disable=not-callable
+    ).select_from(
+        job_events_table.outerjoin(
+            job_info_table,
+            job_events_table.c.spot_job_id == job_info_table.c.spot_job_id,
+        )).where(
+            job_events_table.c.new_status == ManagedJobStatus.RECOVERING.value,
+            job_events_table.c.recovery_source.isnot(None),
+        ).group_by(
+            job_events_table.c.recovery_source,
+            job_info_table.c.workspace,
+        )
+
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        rows = session.execute(query).fetchall()
+    return [(str(row[0]), row[1], int(row[2])) for row in rows]
+
+
+def get_active_emergency_recovery_episodes(
+    now: float,
+    window_seconds: float,
+    limit: int,
+) -> List[Tuple[int, Optional[str], Optional[str], int]]:
+    """Return jobs currently inside an active emergency-recovery episode.
+
+    Each tuple is (spot_job_id, job_name, workspace,
+    emergency_recovery_count). A job qualifies while its most recent
+    emergency attempt is younger than *window_seconds* (the same window
+    the controller uses to reset the retry budget — an episode "ends"
+    after that much quiet) AND at least one of its tasks is
+    non-terminal: a job that reached a terminal status should stop
+    reporting immediately instead of lingering for the rest of the
+    window.
+
+    Ordered by attempt count (highest first) with a deterministic
+    tiebreak (oldest last-attempt first, then job id) so that when a
+    caller truncates to *limit*, the surviving set is stable across
+    calls — an unstable order would rotate which jobs a capped metric
+    reports, flapping alerts built on it.
+    """
+    cutoff = now - window_seconds
+    terminal_values = [
+        status.value for status in ManagedJobStatus.terminal_statuses()
+    ]
+    non_terminal_exists = sqlalchemy.exists().where(
+        spot_table.c.spot_job_id == job_info_table.c.spot_job_id,
+        spot_table.c.status.notin_(terminal_values),
+    )
+    query = sqlalchemy.select(
+        job_info_table.c.spot_job_id,
+        job_info_table.c.name,
+        job_info_table.c.workspace,
+        job_info_table.c.emergency_recovery_count,
+    ).where(
+        job_info_table.c.last_emergency_recovery_at.isnot(None),
+        job_info_table.c.last_emergency_recovery_at >= cutoff,
+        job_info_table.c.emergency_recovery_count.isnot(None),
+        job_info_table.c.emergency_recovery_count > 0,
+        non_terminal_exists,
+    ).order_by(
+        job_info_table.c.emergency_recovery_count.desc(),
+        job_info_table.c.last_emergency_recovery_at.asc(),
+        job_info_table.c.spot_job_id.asc(),
+    ).limit(limit)
+
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        rows = session.execute(query).fetchall()
+    return [(int(row[0]), row[1], row[2], int(row[3])) for row in rows]
+
+
 def get_managed_jobs_with_filters(
     fields: Optional[List[str]] = None,
     job_ids: Optional[List[int]] = None,
@@ -1776,6 +2379,7 @@ def get_managed_jobs_with_filters(
     workspace_match: Optional[str] = None,
     name_match: Optional[str] = None,
     pool_match: Optional[str] = None,
+    infra_match: Optional[str] = None,
     user_hashes: Optional[List[Optional[str]]] = None,
     statuses: Optional[List[str]] = None,
     skip_finished: bool = False,
@@ -1795,8 +2399,10 @@ def get_managed_jobs_with_filters(
     rows still carry the raw ``status``; callers that want the refined value in
     the result should surface it separately.
 
-    Pagination is by unique jobs (spot_job_id), not by tasks. This means
-    if you request page 1 with limit 10, you get all tasks for 10 unique jobs.
+    Pagination is by top-level job (tree root), not by tasks and not by the
+    jobs launched from inside another job: page 1 with limit 10 is every
+    task of 10 top-level jobs plus every job launched under them, at any
+    depth, so a job group and its members are always on the same page.
 
     Args:
         sort_by: Field to sort by. Valid values: 'job_id', 'id', 'job_name',
@@ -1834,7 +2440,7 @@ def get_managed_jobs_with_filters(
 
     engine = _db_manager.get_engine()
 
-    # Count unique jobs (by spot_job_id), not tasks
+    # Count unique top-level jobs (tree roots), not tasks
     count_query = build_managed_jobs_with_filters_query(
         fields=None,
         job_ids=job_ids,
@@ -1842,6 +2448,7 @@ def get_managed_jobs_with_filters(
         workspace_match=workspace_match,
         name_match=name_match,
         pool_match=pool_match,
+        infra_match=infra_match,
         user_hashes=user_hashes,
         statuses=statuses,
         skip_finished=skip_finished,
@@ -1853,13 +2460,15 @@ def get_managed_jobs_with_filters(
     with orm.Session(engine) as session:
         total = session.execute(count_query).fetchone()[0]
 
-    # For pagination, first get the unique job_ids for the current page,
-    # then fetch all tasks for those jobs
+    # For pagination, first get the tree roots for the current page, then
+    # fetch every row in those trees (the roots' tasks and the jobs launched
+    # under them).
     if page is not None and limit is not None:
-        # Get paginated unique job IDs with ordering
+        # Get paginated unique root ids with ordering
         # Use GROUP BY instead of DISTINCT to allow ORDER BY on different
         # columns (PostgreSQL requires ORDER BY columns to be in SELECT list
         # when using DISTINCT).
+        tree_root = _tree_root_expr()
         job_ids_subquery = build_managed_jobs_with_filters_query(
             fields=None,
             job_ids=job_ids,
@@ -1867,51 +2476,56 @@ def get_managed_jobs_with_filters(
             workspace_match=workspace_match,
             name_match=name_match,
             pool_match=pool_match,
+            infra_match=infra_match,
             user_hashes=user_hashes,
             statuses=statuses,
             skip_finished=skip_finished,
             submitted_after=submitted_after,
             submitted_before=submitted_before,
             status_expr=status_expr,
-        ).with_only_columns(spot_table.c.spot_job_id).group_by(
-            spot_table.c.spot_job_id)
+        ).with_only_columns(tree_root.label('tree_root')).group_by(tree_root)
 
-        # Apply sorting to pagination query - this determines which jobs appear
-        # on each page. Use MAX aggregate for columns not in GROUP BY to ensure
-        # PostgreSQL compatibility.
+        # Apply sorting to pagination query - this determines which trees
+        # appear on each page. Use MAX aggregate for columns not in GROUP BY
+        # to ensure PostgreSQL compatibility; a tree sorts by its newest or
+        # largest value.
         if sort_by and sort_by in sort_field_map:
             sort_column = sort_field_map[sort_by]
-            # Use MAX aggregate for columns that aren't the grouped column
-            if sort_column != spot_table.c.spot_job_id:
+            # A tree's id is its root's id; every other column is aggregated
+            # over the tree's rows.
+            if sort_column == spot_table.c.spot_job_id:
+                sort_column = tree_root
+            else:
                 sort_column = sqlalchemy.func.max(sort_column)
             if sort_order == 'asc':
                 job_ids_subquery = job_ids_subquery.order_by(sort_column.asc())
             else:
                 job_ids_subquery = job_ids_subquery.order_by(sort_column.desc())
         else:
-            # Default sort: job_id desc (newest first)
-            job_ids_subquery = job_ids_subquery.order_by(
-                spot_table.c.spot_job_id.desc())
+            # Default sort: root id desc (newest top-level job first)
+            job_ids_subquery = job_ids_subquery.order_by(tree_root.desc())
 
         job_ids_subquery = job_ids_subquery.offset(
             (page - 1) * limit).limit(limit)
 
         with orm.Session(engine) as session:
-            paginated_job_ids = [
+            paginated_root_ids = [
                 row[0] for row in session.execute(job_ids_subquery).fetchall()
             ]
 
-        if not paginated_job_ids:
+        if not paginated_root_ids:
             return [], total
 
-        # Now get all tasks for those job IDs
+        # Now get every row in those trees
         query = build_managed_jobs_with_filters_query(
             fields=fields,
-            job_ids=paginated_job_ids,  # Filter to only paginated jobs
+            job_ids=job_ids,
+            tree_root_ids=paginated_root_ids,  # Only the paginated trees
             accessible_workspaces=accessible_workspaces,
             workspace_match=workspace_match,
             name_match=name_match,
             pool_match=pool_match,
+            infra_match=infra_match,
             user_hashes=user_hashes,
             statuses=statuses,
             skip_finished=skip_finished,
@@ -1926,6 +2540,7 @@ def get_managed_jobs_with_filters(
             workspace_match=workspace_match,
             name_match=name_match,
             pool_match=pool_match,
+            infra_match=infra_match,
             user_hashes=user_hashes,
             statuses=statuses,
             skip_finished=skip_finished,
@@ -1934,19 +2549,32 @@ def get_managed_jobs_with_filters(
             status_expr=status_expr,
         )
 
-    # Apply sorting
+    # Apply sorting. Within a tree the rows always read the way the table
+    # shows them: the root's declared tasks first, then the jobs launched under
+    # it by dynamic task index (rows from before the index existed last),
+    # then task id. Every surface (CLI, dashboard, API) gets this order.
+    within_tree = [
+        sqlalchemy.case((job_info_table.c.root_job_id.is_(None), 0),
+                        else_=1).asc(),
+        sqlalchemy.case((job_info_table.c.dynamic_task_index.is_(None), 1),
+                        else_=0).asc(),
+        job_info_table.c.dynamic_task_index.asc(),
+        spot_table.c.spot_job_id.desc(),
+        spot_table.c.task_id.asc(),
+    ]
     if sort_by and sort_by in sort_field_map:
         sort_column = sort_field_map[sort_by]
+        if sort_column == spot_table.c.spot_job_id:
+            # A tree's id is its root's id, so an id sort keeps each tree
+            # together (the members' own, higher ids do not pull them out).
+            sort_column = _tree_root_expr()
         if sort_order == 'asc':
-            query = query.order_by(sort_column.asc(),
-                                   spot_table.c.task_id.asc())
+            query = query.order_by(sort_column.asc(), *within_tree)
         else:
-            query = query.order_by(sort_column.desc(),
-                                   spot_table.c.task_id.asc())
+            query = query.order_by(sort_column.desc(), *within_tree)
     else:
-        # Default sort: job_id desc, task_id asc
-        query = query.order_by(spot_table.c.spot_job_id.desc(),
-                               spot_table.c.task_id.asc())
+        # Default sort: newest tree first (a tree sorts by its root's id).
+        query = query.order_by(_tree_root_expr().desc(), *within_tree)
     rows = None
     with orm.Session(engine) as session:
         rows = session.execute(query).fetchall()
@@ -2870,12 +3498,60 @@ async def set_started_async(job_id: int, task_id: int, start_time: float,
                     spot_table.c.status: ManagedJobStatus.RUNNING.value,
                     spot_table.c.start_at: start_time,
                     spot_table.c.last_recovered_at: start_time,
+                    # Defensive: no recovery episode is open once RUNNING.
+                    spot_table.c.recovering_from_failure: None,
                 }))
         return result.rowcount
 
     await _retry_task_status_update(job_id, task_id, ManagedJobStatus.RUNNING,
                                     _op, 'Failed to set the task to started.')
     await callback_func('STARTED')
+
+
+async def set_eligible_at_async(job_id: int, task_id: int,
+                                eligible_at: float) -> None:
+    """Record when a pipeline's task became able to start.
+
+    Called at the handoff, once the task before this one has finished. Only
+    a pipeline needs it: task 0 and every task of a job group are waiting from
+    submission, and the submission path writes theirs.
+
+    Write-once. A controller that restarts mid-pipeline re-enters the loop and
+    would otherwise stamp the restart instead of the handoff, shrinking every
+    phase measured from it. Best-effort besides: this is a measurement, and it
+    must not be able to fail the task it is measuring.
+    """
+
+    async def _op(session: sql_async.AsyncSession) -> int:
+        result = await session.execute(
+            sqlalchemy.update(spot_table).where(
+                sqlalchemy.and_(
+                    spot_table.c.spot_job_id == job_id,
+                    spot_table.c.task_id == task_id,
+                    spot_table.c.eligible_at.is_(None),
+                )).values({spot_table.c.eligible_at: eligible_at}))
+        # _retry_session opens the session and closes it; it does not commit.
+        # Without this the UPDATE is rolled back on exit, the row keeps a NULL
+        # origin, and -- because the queries require one -- the task silently
+        # gets no timeline at all. Every other caller of _retry_session commits
+        # inside its own _op for the same reason.
+        await session.commit()
+        return result.rowcount
+
+    try:
+        await _retry_session(_op)
+    except Exception as e:  # pylint: disable=broad-except
+        # Logged with the consequence, because it is not a loss of precision.
+        # Both timeline queries require an origin, so a task without one is
+        # selected by neither: it gets no breakdown *and* does not appear in
+        # the never-ran counts. This warning is the only trace it leaves. An
+        # earlier version of this message promised a fallback to the
+        # submission time -- that fallback was removed, precisely because
+        # measuring a pipeline's later task from submission folds every
+        # upstream task's runtime into its controller-queue wait.
+        logger.warning(f'Could not record when job {job_id} task {task_id} '
+                       f'became eligible to start, so it will have no '
+                       f'start-up breakdown and will not be counted: {e}')
 
 
 def get_job_status_with_task_id(job_id: int,
@@ -2910,8 +3586,22 @@ async def set_recovering_async(
     callback_func: AsyncCallbackType,
     external_failures: Optional[List[ExternalClusterFailure]] = None,
     cluster_event_reason: Optional[str] = None,
+    user_job_failure_reason: Optional[str] = None,
+    recovery_source: RecoverySource = RecoverySource.FAILURE,
 ):
-    """Set the task to recovering state, and update the job duration."""
+    """Set the task to recovering state, and update the job duration.
+
+    user_job_failure_reason is set when the recovery was triggered by the
+    user job exiting non-zero on a healthy cluster (max_restarts_on_errors /
+    recover_on_exit_codes), so the event tells the user their program
+    failed instead of claiming the cluster was preempted.
+
+    recovery_source records why the job is recovering (defaults to FAILURE,
+    i.e. preemption/failure). It is stored on the RECOVERING job event so
+    consumers can count only failure-driven recoveries, and on the spot row
+    for the duration of the episode so set_recovered_async can decide
+    whether the completed recovery counts toward recovery_count.
+    """
     # Build code and reason from external failures for the event log.
     # Prefer external_failures over cluster_event_reason to avoid
     # duplicating the same message when a plugin writes the same reason
@@ -2920,14 +3610,21 @@ async def set_recovering_async(
     if external_failures:
         code = '; '.join(f.code for f in external_failures)
         reason = '; '.join(f.reason for f in external_failures)
+    elif user_job_failure_reason:
+        code = USER_JOB_FAILURE_EVENT_CODE
+        reason = user_job_failure_reason
     elif cluster_event_reason:
         reason = cluster_event_reason
     else:
         assert code is None, 'Code should be None if there are no reasons.'
         reason = 'Cluster preempted or failed, recovering'
 
-    await add_job_event_async(job_id, task_id, ManagedJobStatus.RECOVERING,
-                              reason, code)
+    await add_job_event_async(job_id,
+                              task_id,
+                              ManagedJobStatus.RECOVERING,
+                              reason,
+                              code,
+                              recovery_source=recovery_source)
     logger.info('=== Recovering... ===')
     current_time = time.time()
 
@@ -2960,6 +3657,8 @@ async def set_recovering_async(
                     spot_table.c.end_at.is_(None),
                 )).values({
                     spot_table.c.status: ManagedJobStatus.RECOVERING.value,
+                    spot_table.c.recovering_from_failure:
+                        recovery_source == RecoverySource.FAILURE,
                     spot_table.c.job_duration: sqlalchemy.case(
                         (should_accumulate_duration, spot_table.c.job_duration +
                          current_time - spot_table.c.last_recovered_at),
@@ -2977,11 +3676,31 @@ async def set_recovering_async(
     await callback_func('RECOVERING')
 
 
-async def set_recovered_async(job_id: int, task_id: int, recovered_time: float,
-                              callback_func: AsyncCallbackType):
-    """Set the task to recovered."""
+async def set_recovered_async(job_id: int,
+                              task_id: int,
+                              recovered_time: float,
+                              callback_func: AsyncCallbackType,
+                              count_recovery: bool = True):
+    """Set the task to recovered.
+
+    recovery_count only counts genuine failure recoveries: the increment is
+    gated on the episode's failure credit (spot.recovering_from_failure;
+    NULL, i.e. a row written before the column existed, is treated as
+    credited). Purely system-driven episodes (EMERGENCY / RESTART) complete
+    without inflating the user-visible count. Callers pass
+    count_recovery=False when completing a RECOVERING status that never was
+    a recovery episode at all (e.g. a kept-STARTING resume whose relaunch
+    retry moved the row to RECOVERING).
+    """
     await add_job_event_async(job_id, task_id, ManagedJobStatus.RUNNING,
                               'Job has recovered')
+    if count_recovery:
+        count_expr = spot_table.c.recovery_count + sqlalchemy.case(
+            (sqlalchemy.or_(spot_table.c.recovering_from_failure.is_(None),
+                            spot_table.c.recovering_from_failure.is_(True)), 1),
+            else_=0)
+    else:
+        count_expr = spot_table.c.recovery_count
 
     async def _op(session: sql_async.AsyncSession) -> int:
         result = await session.execute(
@@ -2991,18 +3710,199 @@ async def set_recovered_async(job_id: int, task_id: int, recovered_time: float,
                     spot_table.c.task_id == task_id,
                     spot_table.c.status == ManagedJobStatus.RECOVERING.value,
                     spot_table.c.end_at.is_(None),
-                )).values({
-                    spot_table.c.status: ManagedJobStatus.RUNNING.value,
-                    spot_table.c.last_recovered_at: recovered_time,
-                    spot_table.c.recovery_count: spot_table.c.recovery_count +
-                                                 1,
-                }))
+                )).
+            values({
+                spot_table.c.status: ManagedJobStatus.RUNNING.value,
+                spot_table.c.last_recovered_at: recovered_time,
+                spot_table.c.recovery_count: count_expr,
+                # Close the episode: this task has left RECOVERING, so a
+                # future recovery must open a fresh episode.
+                spot_table.c.recovering_from_failure: None,
+            }))
         return result.rowcount
 
     await _retry_task_status_update(job_id, task_id, ManagedJobStatus.RUNNING,
                                     _op, 'Failed to set the task to recovered.')
     logger.info('==== Recovered. ====')
     await callback_func('RECOVERED')
+
+
+async def set_emergency_recovering_async(job_id: int,
+                                         task_id: int,
+                                         reason: str,
+                                         callback_func: AsyncCallbackType,
+                                         emit_event: bool = True) -> bool:
+    """Set the task to RECOVERING due to an unexpected controller error.
+
+    Used when the controller hits an unexpected internal error and will
+    retry managing the job in place (the retry tears down and relaunches
+    the cluster, like any other forced recovery). The visible status is the
+    normal RECOVERING; the emergency cause is recorded on the RECOVERING
+    job event. The episode's failure credit (spot.recovering_from_failure)
+    is set to FALSE only when no episode is already open: an emergency is a
+    system-driven interruption, so it neither grants failure credit nor
+    erases the credit of an in-flight failure recovery it interrupts — that
+    recovery must still count toward recovery_count when it eventually
+    completes.
+
+    A PENDING task is deliberately left untouched: it never initialized
+    (set_starting_async has not run), so marking it RECOVERING would make
+    the retry treat it as a resume and skip initialization forever. The
+    caller relaunches it fresh instead.
+
+    emit_event controls whether the RECOVERING job event and the callback
+    are emitted. The caller passes emit_event=False when it has already
+    emitted the event for this emergency occurrence, so re-running the
+    bookkeeping (outer retry) does not append a duplicate event.
+
+    Returns True if the task is now RECOVERING; False if it was left
+    untouched because it is PENDING, CANCELLING, or terminal (those paths
+    own the task and must complete normally).
+    """
+    current_time = time.time()
+
+    async def _op(session: sql_async.AsyncSession) -> int:
+        # Same accumulation rule as set_recovering_async: RUNNING and
+        # WINDING_DOWN are the "still doing job work" states.
+        should_accumulate_duration = sqlalchemy.and_(
+            spot_table.c.status.in_([
+                ManagedJobStatus.RUNNING.value,
+                ManagedJobStatus.WINDING_DOWN.value,
+            ]),
+            spot_table.c.last_recovered_at >= 0,
+        )
+        result = await session.execute(
+            sqlalchemy.update(spot_table).where(
+                sqlalchemy.and_(
+                    spot_table.c.spot_job_id == job_id,
+                    spot_table.c.task_id == task_id,
+                    # processing_statuses excludes CANCELLING and terminal
+                    # statuses, and includes RECOVERING so that re-running
+                    # this bookkeeping after a transient failure is a no-op
+                    # rather than an error. PENDING is excluded on purpose:
+                    # an uninitialized task must be relaunched fresh, not
+                    # resumed as RECOVERING (see the docstring).
+                    spot_table.c.status.in_([
+                        s.value
+                        for s in ManagedJobStatus.processing_statuses()
+                        if s != ManagedJobStatus.PENDING
+                    ]),
+                    spot_table.c.end_at.is_(None),
+                )).
+            values({
+                spot_table.c.status: ManagedJobStatus.RECOVERING.value,
+                # An emergency grants no failure credit, but must not erase
+                # existing credit either: set FALSE only when no episode is
+                # already open. A re-run of this bookkeeping, or an emergency
+                # hitting a task mid-preemption-recovery, leaves the existing
+                # credit so that recovery still counts on completion.
+                spot_table.c.recovering_from_failure: sqlalchemy.case(
+                    (spot_table.c.recovering_from_failure.isnot(None),
+                     spot_table.c.recovering_from_failure),
+                    else_=False),
+                spot_table.c.job_duration: sqlalchemy.case(
+                    (should_accumulate_duration, spot_table.c.job_duration +
+                     current_time - spot_table.c.last_recovered_at),
+                    else_=spot_table.c.job_duration),
+                spot_table.c.last_recovered_at: sqlalchemy.case(
+                    (spot_table.c.last_recovered_at < 0, current_time),
+                    else_=spot_table.c.last_recovered_at),
+            }))
+        await session.commit()
+        return result.rowcount
+
+    count = await _retry_session(_op)
+    if count == 0:
+        # The task is PENDING, CANCELLING, or already terminal. Emit the
+        # event only for transitions that actually applied.
+        return False
+    if emit_event:
+        await add_job_event_async(job_id,
+                                  task_id,
+                                  ManagedJobStatus.RECOVERING,
+                                  reason,
+                                  recovery_source=RecoverySource.EMERGENCY)
+        logger.info('=== Emergency recovering... ===')
+        # Best-effort: a callback failure must not fail the bookkeeping
+        # round, or the outer retry would re-run this and (with emit_event
+        # still True) append a duplicate RECOVERING event.
+        try:
+            await callback_func('RECOVERING')
+        except Exception as e:  # pylint: disable=broad-except
+            logger.warning('Emergency recovery callback failed '
+                           f'(continuing): {common_utils.format_exception(e)}')
+    return True
+
+
+@db_retries.retry_async
+async def get_emergency_recovery_budget_async(
+        job_id: int) -> Tuple[int, Optional[float]]:
+    """Return (attempts used, timestamp of the most recent attempt)."""
+    engine = await _db_manager.get_async_engine()
+    async with sql_async.AsyncSession(engine) as session:
+        result = await session.execute(
+            sqlalchemy.select(
+                job_info_table.c.emergency_recovery_count,
+                job_info_table.c.last_emergency_recovery_at).where(
+                    job_info_table.c.spot_job_id == job_id))
+        row = result.fetchone()
+        if row is None:
+            return 0, None
+        return (row[0] or 0), row[1]
+
+
+@db_retries.retry_async
+async def record_emergency_recovery_attempt_async(job_id: int,
+                                                  attempt_count: int,
+                                                  attempt_time: float) -> None:
+    """Record an emergency recovery attempt.
+
+    Writes absolute values rather than incrementing, so that re-running the
+    emergency bookkeeping after a transient failure cannot double-spend the
+    retry budget.
+    """
+    engine = await _db_manager.get_async_engine()
+    async with sql_async.AsyncSession(engine) as session:
+        await session.execute(
+            sqlalchemy.update(job_info_table).where(
+                job_info_table.c.spot_job_id == job_id).values({
+                    job_info_table.c.emergency_recovery_count: attempt_count,
+                    job_info_table.c.last_emergency_recovery_at: attempt_time,
+                }))
+        await session.commit()
+
+
+@db_retries.retry_async
+async def normalize_schedule_state_for_emergency_retry_async(
+        job_id: int) -> None:
+    """Reset launch-adjacent schedule states to ALIVE for an emergency retry.
+
+    If the unexpected error escaped mid-launch (or while waiting or backing
+    off for a launch), the job may be left in LAUNCHING, ALIVE_WAITING, or
+    ALIVE_BACKOFF for the whole emergency backoff (up to 30 minutes).
+    Besides LAUNCHING's launch-slot accounting, all three states make the
+    job look like an active launcher to the scheduler's
+    highest-blocking-priority computation, which would block lower-priority
+    jobs from scheduling until the retry runs. Reset them to ALIVE; the
+    retry's scheduled_launch re-enters LAUNCHING cleanly when it actually
+    launches.
+    """
+    engine = await _db_manager.get_async_engine()
+    async with sql_async.AsyncSession(engine) as session:
+        await session.execute(
+            sqlalchemy.update(job_info_table).where(
+                sqlalchemy.and_(
+                    job_info_table.c.spot_job_id == job_id,
+                    job_info_table.c.schedule_state.in_([
+                        ManagedJobScheduleState.LAUNCHING.value,
+                        ManagedJobScheduleState.ALIVE_WAITING.value,
+                        ManagedJobScheduleState.ALIVE_BACKOFF.value,
+                    ]),
+                )).values({
+                    job_info_table.c.schedule_state:
+                        ManagedJobScheduleState.ALIVE.value,
+                }))
+        await session.commit()
 
 
 def set_winding_down(job_id: int, task_id: int) -> None:
@@ -3046,10 +3946,14 @@ async def set_succeeded_async(job_id: int, task_id: int, end_time: float,
                         ManagedJobStatus.WINDING_DOWN.value,
                     ]),
                     spot_table.c.end_at.is_(None),
-                )).values({
-                    spot_table.c.status: ManagedJobStatus.SUCCEEDED.value,
-                    spot_table.c.end_at: end_time,
-                }))
+                )).
+            values({
+                spot_table.c.status: ManagedJobStatus.SUCCEEDED.value,
+                spot_table.c.end_at: end_time,
+                # Close any open recovery episode on reaching a terminal
+                # state.
+                spot_table.c.recovering_from_failure: None,
+            }))
         return result.rowcount
 
     await _retry_task_status_update(job_id, task_id, ManagedJobStatus.SUCCEEDED,
@@ -3068,8 +3972,15 @@ async def set_failed_async(
     override_terminal: bool = False,
 ):
     """Set an entire job or task to failed."""
+    # FAILED / FAILED_SETUP mean the user's own program (or setup command)
+    # failed, as opposed to controller / infra / resource failures. Stamp the
+    # machine-readable code so consumers (e.g. dashboard event styling) can
+    # attribute the failure without parsing the reason text.
+    code = (USER_JOB_FAILURE_EVENT_CODE
+            if failure_type in (ManagedJobStatus.FAILED,
+                                ManagedJobStatus.FAILED_SETUP) else None)
     await add_job_event_async(job_id, task_id, failure_type,
-                              f'Job failed: {failure_reason}')
+                              f'Job failed: {failure_reason}', code)
     assert failure_type.is_failed(), failure_type
     end_time = time.time() if end_time is None else end_time
 
@@ -3077,6 +3988,8 @@ async def set_failed_async(
         fields_to_set: Dict[str, Any] = {
             spot_table.c.status: failure_type.value,
             spot_table.c.failure_reason: failure_reason,
+            # Close any open recovery episode on reaching a terminal state.
+            spot_table.c.recovering_from_failure: None,
         }
         # Get previous status
         result = await session.execute(
@@ -3166,11 +4079,41 @@ async def update_links_async(job_id: int, task_id: int,
             # Transaction commits automatically when exiting the context
 
 
+@db_retries.retry
+def update_links(job_id: int, task_id: Optional[int], links: Dict[str,
+                                                                  str]) -> None:
+    """Synchronous version of update_links_async.
+
+    Merges ``links`` into the existing ``spot.links`` JSON for the given task.
+    Used by the controller's terminal-state log scan, which runs in a worker
+    thread (no running event loop) via ``asyncio.to_thread``.
+    """
+    if task_id is None or not links:
+        return
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        select_query = sqlalchemy.select(spot_table.c.links).where(
+            sqlalchemy.and_(spot_table.c.spot_job_id == job_id,
+                            spot_table.c.task_id == task_id))
+        # Row-level locking for PostgreSQL; SQLite relies on database-level
+        # write locking. Mirrors update_links_async.
+        if engine.dialect.name == db_utils.SQLAlchemyDialect.POSTGRESQL.value:
+            select_query = select_query.with_for_update()
+        existing_links_row = session.execute(select_query).fetchone()
+        existing_links = {}
+        if existing_links_row and existing_links_row[0]:
+            existing_links = existing_links_row[0]
+        existing_links.update(links)
+        session.query(spot_table).filter(
+            sqlalchemy.and_(spot_table.c.spot_job_id == job_id,
+                            spot_table.c.task_id == task_id)).update(
+                                {spot_table.c.links: existing_links})
+        session.commit()
+
+
 async def set_cancelling_async(job_id: int, callback_func: AsyncCallbackType):
     """Set tasks in the job as cancelling, if they are in non-terminal
     states."""
-    await add_job_event_async(job_id, None, ManagedJobStatus.CANCELLING,
-                              'Job is cancelling')
 
     async def _op(session):
         result = await session.execute(
@@ -3186,6 +4129,13 @@ async def set_cancelling_async(job_id: int, callback_func: AsyncCallbackType):
 
     updated = await _retry_session(_op)
     if updated:
+        # Only record the event when a task actually transitioned; the
+        # controller also calls this on already-terminal jobs (e.g. right
+        # after a task fails), and unconditionally writing the event made
+        # every failed job's event log end with a spurious
+        # CANCELLING/CANCELLED pair.
+        await add_job_event_async(job_id, None, ManagedJobStatus.CANCELLING,
+                                  'Job is cancelling')
         logger.info('Cancelling the job...')
         await callback_func('CANCELLING')
     else:
@@ -3194,8 +4144,6 @@ async def set_cancelling_async(job_id: int, callback_func: AsyncCallbackType):
 
 async def set_cancelled_async(job_id: int, callback_func: AsyncCallbackType):
     """Set tasks in the job as cancelled, if they are in CANCELLING state."""
-    await add_job_event_async(job_id, None, ManagedJobStatus.CANCELLED,
-                              'Job has been cancelled')
 
     async def _op(session):
         result = await session.execute(
@@ -3203,16 +4151,24 @@ async def set_cancelled_async(job_id: int, callback_func: AsyncCallbackType):
                 sqlalchemy.and_(
                     spot_table.c.spot_job_id == job_id,
                     spot_table.c.status == ManagedJobStatus.CANCELLING.value,
-                )).values({
-                    spot_table.c.status: ManagedJobStatus.CANCELLED.value,
-                    spot_table.c.end_at: time.time(),
-                }))
+                )).
+            values({
+                spot_table.c.status: ManagedJobStatus.CANCELLED.value,
+                spot_table.c.end_at: time.time(),
+                # Close any open recovery episode on reaching a terminal
+                # state.
+                spot_table.c.recovering_from_failure: None,
+            }))
         count = result.rowcount
         await session.commit()
         return count > 0
 
     updated = await _retry_session(_op)
     if updated:
+        # Only record the event when a task actually transitioned; see
+        # set_cancelling_async for why.
+        await add_job_event_async(job_id, None, ManagedJobStatus.CANCELLED,
+                                  'Job has been cancelled')
         logger.info('Job cancelled.')
         await callback_func('CANCELLED')
     else:
@@ -3278,7 +4234,10 @@ def set_job_info(job_id: int,
                  pool_hash: Optional[str],
                  user_hash: Optional[str] = None,
                  execution: Optional[str] = None,
-                 is_batch: bool = False):
+                 is_batch: bool = False,
+                 parent_job_id: Optional[int] = None,
+                 parent_task_id: Optional[int] = None,
+                 root_job_id: Optional[int] = None):
     engine = _db_manager.get_engine()
     with orm.Session(engine) as session:
         if engine.dialect.name == db_utils.SQLAlchemyDialect.SQLITE.value:
@@ -3288,6 +4247,10 @@ def set_job_info(job_id: int,
             insert_func = postgresql.insert
         else:
             raise ValueError('Unsupported database dialect')
+        if parent_job_id is not None:
+            # The controller-side submission path (codegen): same guard as
+            # set_job_info_without_job_id, same transaction as the insert.
+            _check_parent_accepts_attachment(session, parent_job_id)
         insert_stmt = insert_func(job_info_table).values(
             spot_job_id=job_id,
             name=name,
@@ -3299,9 +4262,102 @@ def set_job_info(job_id: int,
             user_hash=user_hash,
             execution=execution,
             is_batch=is_batch,
+            root_job_id=root_job_id,
+            parent_job_id=parent_job_id,
+            parent_task_id=parent_task_id,
         )
         session.execute(insert_stmt)
         session.commit()
+
+
+@dataclasses.dataclass(frozen=True)
+class JobInfoRow:
+    """The job-level row of a managed job (``job_info``), typed.
+
+    ``workspace`` is already resolved: a row from before workspaces existed
+    has none stored and counts as the default workspace, the same way
+    ``get_workspace`` and cancel treat it. ``root_job_id`` /
+    ``parent_job_id`` / ``parent_task_id`` are None for a top-level job.
+    """
+    job_id: int
+    name: Optional[str]
+    workspace: str
+    user_hash: Optional[str]
+    root_job_id: Optional[int]
+    parent_job_id: Optional[int]
+    parent_task_id: Optional[int]
+    # The job's ``execution`` mode; 'parallel' marks a job group (the same
+    # derivation the queue uses for ``is_job_group``).
+    execution: Optional[str] = None
+
+    @property
+    def tree_root_job_id(self) -> int:
+        """The top-level job of this job's tree: its root, else itself."""
+        return self.root_job_id if self.root_job_id is not None else self.job_id
+
+    @property
+    def is_job_group(self) -> bool:
+        return self.execution == 'parallel'
+
+
+def get_job_info_row(job_id: int) -> Optional[JobInfoRow]:
+    """The typed ``job_info`` row of a managed job, or None if there is none.
+
+    Task status is not here (it lives per task in ``spot``); use
+    ``get_status`` for that.
+    """
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        row = session.execute(
+            sqlalchemy.select(
+                job_info_table.c.spot_job_id, job_info_table.c.name,
+                job_info_table.c.workspace, job_info_table.c.user_hash,
+                job_info_table.c.root_job_id, job_info_table.c.parent_job_id,
+                job_info_table.c.parent_task_id,
+                job_info_table.c.execution).where(
+                    job_info_table.c.spot_job_id == job_id)).fetchone()
+    if row is None:
+        return None
+    workspace = row[2]
+    if workspace is None:
+        workspace = constants.SKYPILOT_DEFAULT_WORKSPACE
+    return JobInfoRow(job_id=row[0],
+                      name=row[1],
+                      workspace=workspace,
+                      user_hash=row[3],
+                      root_job_id=row[4],
+                      parent_job_id=row[5],
+                      parent_task_id=row[6],
+                      execution=row[7])
+
+
+def get_jobs_launched_from(
+        job_ids: List[int]) -> List[Tuple[int, Optional[int]]]:
+    """(job_id, parent_job_id) for every job in the trees ``job_ids`` live in.
+
+    Each given id is first resolved to the top-level job of its tree: its
+    ``root_job_id``, or itself when that is NULL (``COALESCE``). The result is
+    then every row under those roots, so passing a descendant returns the
+    whole tree it belongs to, not just the jobs under it. Callers walk the
+    parent edges in memory to pick out the subtree they want (see
+    ``utils._jobs_launched_from``); the roots themselves are not included.
+    One query regardless of depth.
+    """
+    if not job_ids:
+        return []
+    engine = _db_manager.get_engine()
+    roots = sqlalchemy.select(
+        sqlalchemy.func.coalesce(job_info_table.c.root_job_id,
+                                 job_info_table.c.spot_job_id)).where(
+                                     job_info_table.c.spot_job_id.in_(job_ids))
+    with orm.Session(engine) as session:
+        rows = session.execute(
+            sqlalchemy.select(
+                job_info_table.c.spot_job_id,
+                job_info_table.c.parent_job_id).where(
+                    job_info_table.c.root_job_id.in_(roots)).order_by(
+                        job_info_table.c.spot_job_id.asc())).fetchall()
+    return [(row[0], row[1]) for row in rows]
 
 
 def reset_jobs_for_recovery() -> None:
@@ -3539,6 +4595,7 @@ async def add_job_event_async(
         new_status: ManagedJobStatus,
         reason: str,
         code: Optional[str] = None,
+        recovery_source: Optional['RecoverySource'] = None,
         timestamp: Optional[datetime.datetime] = None) -> None:
     """Add a job event record to the audit log (async version).
 
@@ -3550,6 +4607,8 @@ async def add_job_event_async(
             ManagedJobStatus enum.
         reason: A description of why the event occurred.
         code: Optional error category code for failures.
+        recovery_source: For RECOVERING events, why the job is recovering
+            (FAILURE / EMERGENCY / HA). NULL on all other events.
         timestamp: The timestamp of the event. If None, uses current time.
     """
     if timestamp is None:
@@ -3565,6 +4624,8 @@ async def add_job_event_async(
             new_status=status_value,
             code=code,
             reason=reason,
+            recovery_source=(recovery_source.value
+                             if recovery_source is not None else None),
             timestamp=timestamp,
         ))
         await session.commit()
@@ -3631,7 +4692,9 @@ def _get_latest_event_reasons(
     single batched query, to stay off the per-job path and avoid extra DB
     round trips when several statuses are needed at once. Each job_id is
     matched only against the status it was requested under, so a job's
-    historical events of other statuses are ignored.
+    historical events of other statuses are ignored. For RECOVERING jobs the
+    reason covers any recovery cause (preemption/failure, emergency, or
+    restart resume), surfaced in the `details` column.
     """
     result: Dict['ManagedJobStatus',
                  Dict[int, str]] = {status: {} for status in job_ids_by_status}
@@ -3658,6 +4721,56 @@ def _get_latest_event_reasons(
         reasons = result[ManagedJobStatus(new_status)]
         if spot_job_id not in reasons and reason:
             reasons[spot_job_id] = reason
+    return result
+
+
+# Prefix of the CANCELLING job-event reason written when a cancellation is
+# requested, naming who asked and under which API request (see
+# utils.CancelRequestInfo.event_reason):
+#   'Cancellation requested by user alice (request ID: 9b6e6396-...)'
+# The controller writes its own generic CANCELLING event ('Job is cancelling')
+# once it acts on the request, so the queue looks the attributed event up by
+# this prefix rather than taking the latest CANCELLING reason.
+CANCEL_REQUESTED_EVENT_REASON_PREFIX = 'Cancellation requested'
+
+
+def get_cancel_request_reasons(job_ids: List[int]) -> Dict[int, str]:
+    """Return {job_id: reason} naming who requested each job's cancellation.
+
+    The reason is the *first* CANCELLING event whose text starts with
+    ``CANCEL_REQUESTED_EVENT_REASON_PREFIX``, e.g. 'Cancellation requested by
+    user alice (request ID: ...)': the request that caused the cancellation.
+    A later request (e.g. a fleet-wide ``sky jobs cancel --all --all-users``
+    arriving while the job was already CANCELLING) is also recorded in the
+    event log but did not cancel the job. A job cancelled without an
+    attributed request (an old controller, or a controller-internal cancel
+    such as a job group tearing down its auxiliary jobs) has no entry. One
+    batched query so the queue stays off the per-job path.
+
+    These events are exempt from job-event retention
+    (cleanup_job_events_with_retention_async), so the requester stays with
+    the job for as long as the job record does.
+    """
+    result: Dict[int, str] = {}
+    if not job_ids:
+        return result
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        rows = session.execute(
+            sqlalchemy.select(
+                job_events_table.c.spot_job_id,
+                job_events_table.c.reason,
+            ).where(
+                job_events_table.c.new_status ==
+                ManagedJobStatus.CANCELLING.value,
+                job_events_table.c.spot_job_id.in_(job_ids),
+                job_events_table.c.reason.like(
+                    f'{CANCEL_REQUESTED_EVENT_REASON_PREFIX}%'),
+            ).order_by(job_events_table.c.timestamp.asc())).fetchall()
+    # rows are oldest-first; keep the first attributed request per job.
+    for spot_job_id, reason in rows:
+        if spot_job_id not in result and reason:
+            result[spot_job_id] = reason
     return result
 
 
@@ -3692,10 +4805,24 @@ async def cleanup_job_events_with_retention_async(
     cutoff_time = datetime.datetime.now() - datetime.timedelta(
         hours=retention_hours)
 
+    # The attributed cancel-request event ('Cancellation requested by user
+    # ...', see get_cancel_request_reasons) is the record of who cancelled a
+    # job and is surfaced in the job's details for as long as the job itself
+    # is kept, so it is exempt from retention: one small row per cancelled
+    # job. Spelled out NULL-safely, since NOT (a AND b) over a NULL reason
+    # would keep every CANCELLING event with no reason.
+    cancel_prefix = f'{CANCEL_REQUESTED_EVENT_REASON_PREFIX}%'
+    not_cancel_request = sqlalchemy.or_(
+        job_events_table.c.new_status.is_(None),
+        job_events_table.c.new_status != ManagedJobStatus.CANCELLING.value,
+        job_events_table.c.reason.is_(None),
+        sqlalchemy.not_(job_events_table.c.reason.like(cancel_prefix)),
+    )
+
     async with sql_async.AsyncSession(engine) as session:
         result = await session.execute(
             sqlalchemy.delete(job_events_table).where(
-                job_events_table.c.timestamp < cutoff_time))
+                job_events_table.c.timestamp < cutoff_time, not_cancel_request))
         count = result.rowcount
         if count > 0:
             logger.debug(f'Deleted {count} job events older than '
@@ -3705,6 +4832,7 @@ async def cleanup_job_events_with_retention_async(
 
 async def job_event_retention_daemon():
     """Garbage collect job events periodically."""
+    await asyncio_utils.sleep_startup_jitter('job event retention daemon')
     while True:
         logger.info('Running job event retention daemon...')
         try:
@@ -3717,3 +4845,172 @@ async def job_event_retention_daemon():
             logger.error(f'Error running job event retention daemon: {e}')
 
         await asyncio.sleep(JOB_EVENT_DAEMON_INTERVAL_SECONDS)
+
+
+# --- Launch timeline ---------------------------------------------------------
+#
+# See the spot table's t_* columns for what these durations mean and why they
+# are denormalized here.
+
+
+@db_retries.retry
+def get_jobs_pending_launch_timeline(limit: int = 200) -> List[Dict[str, Any]]:
+    """Tasks that have first reached RUNNING but have no timeline recorded yet.
+
+    A task that never reaches RUNNING is deliberately not returned: it has no
+    time-to-running to report, and its individual launch attempts are already
+    accounted for on their own. Leaving it out also means no extra marker is
+    needed to avoid rescanning it forever -- there simply is no timeline to
+    write.
+    """
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        rows = session.execute(
+            sqlalchemy.select(
+                spot_table.c.spot_job_id,
+                spot_table.c.task_id,
+                spot_table.c.task_name,
+                spot_table.c.created_at,
+                # Where this task's clock starts.
+                spot_table.c.eligible_at,
+                spot_table.c.submitted_at,
+                spot_table.c.start_at,
+                job_info_table.c.workspace,
+                # Distinguishes a job placed on a warm pool, which skips
+                # provisioning, from one that provisioned its own cluster.
+                job_info_table.c.pool,
+            ).select_from(
+                spot_table.join(
+                    job_info_table,
+                    spot_table.c.spot_job_id == job_info_table.c.spot_job_id,
+                    isouter=True)).
+            where(
+                sqlalchemy.and_(
+                    spot_table.c.start_at.is_not(None),
+                    # Implied by the eligible_at guard below -- set_pending
+                    # writes created_at on every row -- and kept because the
+                    # two are independent columns whose writers could diverge.
+                    spot_table.c.created_at.is_not(None),
+                    # Every timestamp the breakdown subtracts, so the
+                    # computation cannot meet a NULL. Without this the
+                    # row still gets counted -- the caller parks a
+                    # total-only timeline when the split raises -- but
+                    # it reports its whole wait as unattributed, which
+                    # is the misdiagnosis this breakdown exists to
+                    # prevent. The sibling query for jobs that never
+                    # ran already guards it.
+                    #
+                    # The trade, chosen rather than inherited: such a
+                    # task is then returned by neither query -- the
+                    # other one wants start_at IS NULL -- so it drops
+                    # out of the counts too, which is the very thing
+                    # those counts exist to prevent. Accepted because a
+                    # task that started without a submission time
+                    # should not exist, and if one does, losing it
+                    # moves no distribution while a fabricated
+                    # all-unattributed breakdown moves two. Counting it
+                    # would mean widening the never-ran query, whose
+                    # whole shape says otherwise.
+                    spot_table.c.submitted_at.is_not(None),
+                    # Not coalesced to created_at, which would look like the
+                    # forgiving choice and is the harmful one. A task reaches
+                    # here without an origin only when its best-effort write
+                    # failed, and that is a pipeline's later task -- for which
+                    # created_at is the submission of the whole job, so the
+                    # fallback would charge every upstream task's runtime to
+                    # this one's controller wait. That is the distortion this
+                    # column was added to remove, reappearing on the failure
+                    # path. Same rule as the guard above: skip it.
+                    #
+                    # It cannot be NULL merely for being old -- 027 adds this
+                    # column and created_at together, so a pre-column row has
+                    # neither and is already excluded.
+                    spot_table.c.eligible_at.is_not(None),
+                    spot_table.c.t_time_to_running.is_(None),
+                )).order_by(spot_table.c.start_at).limit(limit)).all()
+        return [dict(row._mapping) for row in rows]  # pylint: disable=protected-access
+
+
+@db_retries.retry
+def record_launch_timeline(job_id: int, task_id: int,
+                           durations: Dict[str, float]) -> bool:
+    """Write a task's launch timeline, once.
+
+    Returns whether this writer was the one that recorded it. The update is
+    conditional on the timeline still being absent, so concurrent API server
+    replicas write it exactly once and only the winner emits the metrics --
+    otherwise every rate would be multiplied by the replica count.
+    """
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        result = session.execute(spot_table.update().where(
+            sqlalchemy.and_(
+                spot_table.c.spot_job_id == job_id,
+                spot_table.c.task_id == task_id,
+                spot_table.c.t_time_to_running.is_(None),
+            )).values({
+                spot_table.c[name]: value for name, value in durations.items()
+            }))
+        session.commit()
+        return bool(result.rowcount)
+
+
+@db_retries.retry
+def get_jobs_that_never_ran(limit: int = 200) -> List[Dict[str, Any]]:
+    """Finished tasks that never reached RUNNING and are not yet accounted for.
+
+    They have no time-to-running, but leaving them out of the counts entirely
+    is how a fleet that mostly fails to start comes to look fast. They did wait
+    for a controller, so that phase is still a real measurement -- and having
+    written it is what marks the task as counted.
+    """
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        rows = session.execute(
+            sqlalchemy.select(
+                spot_table.c.spot_job_id,
+                spot_table.c.task_id,
+                spot_table.c.created_at,
+                spot_table.c.eligible_at,
+                spot_table.c.submitted_at,
+                job_info_table.c.workspace,
+                job_info_table.c.pool,
+            ).select_from(
+                spot_table.join(
+                    job_info_table,
+                    spot_table.c.spot_job_id == job_info_table.c.spot_job_id,
+                    isouter=True)).
+            where(
+                sqlalchemy.and_(
+                    spot_table.c.end_at.is_not(None),
+                    spot_table.c.start_at.is_(None),
+                    spot_table.c.created_at.is_not(None),
+                    spot_table.c.submitted_at.is_not(None),
+                    # See the sibling query: an absent origin is a
+                    # failed write, not an old row, and measuring from
+                    # created_at would be wrong rather than merely
+                    # imprecise.
+                    spot_table.c.eligible_at.is_not(None),
+                    spot_table.c.t_controller_queue.is_(None),
+                )).order_by(spot_table.c.end_at).limit(limit)).all()
+        return [dict(row._mapping) for row in rows]  # pylint: disable=protected-access
+
+
+@db_retries.retry
+def record_controller_queue_only(job_id: int, task_id: int,
+                                 duration: float) -> bool:
+    """Record the controller wait of a task that never ran, once.
+
+    Returns whether this writer recorded it, so concurrent replicas count the
+    task exactly once.
+    """
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        result = session.execute(spot_table.update().where(
+            sqlalchemy.and_(
+                spot_table.c.spot_job_id == job_id,
+                spot_table.c.task_id == task_id,
+                spot_table.c.t_controller_queue.is_(None),
+            )).values({spot_table.c.t_controller_queue: duration}))
+        session.commit()
+        return bool(result.rowcount)

@@ -142,6 +142,9 @@ class IDTypes(Enum):
     skills = "skl"
     skills_versions = "sklv"
     skills_terms_acceptances = "sklta"
+    # Permission label only: lineage artifact and workload ids are minted by
+    # the lineage service, never here.
+    lineage = "lng"
     # API keys are minted as server_sessions ("sss"); this label exists only to
     # carry the api_keys RBAC resource-proxy (admin api-key revoke endpoints),
     # whose check resolves to the caller's organization and ignores this id.

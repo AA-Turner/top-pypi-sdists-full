@@ -49,7 +49,8 @@ polyline arrays rather than a fresh rounding of the same walk.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import warnings
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import Any
@@ -57,6 +58,7 @@ from typing import Any
 import numpy as np
 
 from .._constants import C_LIGHT
+from .._ground_spec import ground_touch_tol
 from ..array_block import ArrayBlockSolver
 from ..bspline import BSplineSolver
 from ..harrington import HarringtonSolver
@@ -69,11 +71,14 @@ from ._polylines import Mesh, to_polylines
 from .model import DeckModel, Environment, LoadSpec
 
 __all__ = [
+    "ExtendedKernelDefault",
+    "extended_kernel_default_refusal",
     "BuiltSolver",
     "PortPlan",
     "PortSite",
     "PreparedMesh",
     "build_solver",
+    "construct_solver",
     "prepare_mesh",
     "BASES",
 ]
@@ -194,6 +199,66 @@ NEC2_BASES = MappingProxyType(
 # rather than keeping its own list of which bases load natively — a second
 # list is a second thing to forget when a family is added here.
 _NATIVE_LOADING = (RazorSolver,)
+
+
+class ExtendedKernelDefault(UserWarning):
+    """A dialect's default extended kernel fell back to the reduced kernel
+    (momwire#1326).
+
+    NEC-4 and NEC-5 decks solve with the extended kernel by default, because
+    both engines' thin-wire models behave as EK-on (NEC-5 has no ``EK`` card;
+    NEC-4.2 prints that its ``EK`` card has no effect).  Where the basis or
+    the deck cannot take it — a basis without the kernel, singular
+    enrichment, a wire below the ground plane, a radius step at a junction —
+    the solve uses the reduced kernel and says so with this warning, rather
+    than refusing a deck for a choice the deck never made.
+    """
+
+
+def extended_kernel_default_refusal(
+    solver_class: type,
+    basis_kwargs: Mapping[str, Any],
+    polylines: Sequence[Any],
+    radii: Sequence[float],
+    junctions: Sequence[Sequence[tuple[int, str]]],
+    ground_z: float | None,
+) -> str | None:
+    """Why ``solver_class`` cannot take the extended kernel AS A DEFAULT on
+    this geometry, in the solver's own declared words, or ``None``.
+
+    Asked before construction rather than caught from it, because two of the
+    refusals fire inside the fill (a buried wire) or not at all on some
+    families: the declaration is the one place every family states them
+    (`Capabilities.refusal`).  The same four cases antennaknobs asks of its
+    own engine (antennaknobs#1891): the basis itself, singular enrichment, a
+    wire below the ground plane, and a radius step at a junction.
+    """
+    caps = solver_class.capabilities
+    reason = caps.refusal("extended_kernel")
+    if reason is None and basis_kwargs.get("use_singular_enrichment"):
+        reason = caps.refusal("extended_kernel", "singular_enrichment")
+    if reason is None and ground_z is not None:
+        buried = any(
+            float(np.asarray(pl, dtype=float)[:, 2].min())
+            < ground_z - ground_touch_tol(np.asarray(pl, dtype=float))
+            for pl in polylines
+        )
+        if buried:
+            reason = caps.refusal("buried", "extended_kernel")
+    if reason is None and len(set(radii)) > 1:
+        if any(len({radii[w] for w, _end in members}) > 1 for members in junctions):
+            reason = caps.refusal("extended_kernel", "stepped_radius_junction")
+    return reason
+
+
+def _warn_kernel_fallback(basis: str, reason: str, stacklevel: int = 3) -> str:
+    message = (
+        f"basis {basis!r}: this deck's dialect solves with the extended kernel "
+        f"by default, which this basis cannot serve here, so it solved with "
+        f"the reduced kernel: {reason} (momwire#1326)"
+    )
+    warnings.warn(message, ExtendedKernelDefault, stacklevel=stacklevel)
+    return message
 
 
 def basis_entry(basis: str) -> tuple[type, Mapping[str, Any]]:
@@ -525,6 +590,11 @@ class BuiltSolver:
     wavelength: float
     group: int | None
     extended_kernel: bool
+    # What the build said that is not a refusal (momwire#1326): today the one
+    # entry is the extended-kernel fallback, also raised as an
+    # `ExtendedKernelDefault` warning. Last and defaulted for the reason
+    # `PortPlan.network_ports` gives.
+    advisories: tuple[str, ...] = ()
 
 
 def _first_armed_group(model: DeckModel) -> int | None:
@@ -551,6 +621,10 @@ def _sites(model: DeckModel) -> tuple[list[PortSite], list[int], list[int]]:
     at: dict[tuple[int, float], int] = {}
     feed_ports: list[int] = []
     load_ports: list[int] = []
+    # Which loads share a group (momwire#1069).  Two loads at one position
+    # that are never in force together — one before an `LD -1`, one after —
+    # are one gap stamped differently per group, not two loads on a segment.
+    together = [set(live) for live in group_loads(model)]
 
     for index, (wire, arclength, _volts) in enumerate(model.feeds):
         key = (wire, arclength)
@@ -575,10 +649,19 @@ def _sites(model: DeckModel) -> tuple[list[PortSite], list[int], list[int]]:
             continue
         site = sites[existing]
         if site.load is not None:
-            raise ValueError(
-                f"load {index} shares its position with load {site.load} — "
-                f"one gap cannot carry two loads"
-            )
+            others = [
+                k for k, entry in enumerate(model.loads[:index]) if entry[:2] == key
+            ]
+            if any(index in live and k in live for live in together for k in others):
+                raise ValueError(
+                    f"load {index} shares its position with load {site.load} — "
+                    f"one gap cannot carry two loads"
+                )
+            # The site keeps its first load's spec: `PortSite.load_spec` is
+            # what `loaded_ports` and a natively-loading fill read, and a
+            # per-group consumer reads the spec off `DeckModel.loads` instead.
+            load_ports.append(existing)
+            continue
         load_ports.append(existing)
         sites[existing] = PortSite(
             wire=site.wire,
@@ -604,6 +687,18 @@ def _sites(model: DeckModel) -> tuple[list[PortSite], list[int], list[int]]:
             network=True,
         )
     return sites, feed_ports, load_ports
+
+
+def group_loads(model: DeckModel) -> tuple[tuple[int, ...], ...]:
+    """Per execute group that ran, the indices into ``model.loads`` in force
+    there (momwire#1069); a group whose :attr:`ExecuteGroup.loads` is
+    ``None`` has every load.  A model with no group at all answers one entry,
+    every load, which is what :func:`build_solver` solves it with."""
+    every = tuple(range(len(model.loads)))
+    ran = [group for group in model.groups if group is not None]
+    if not ran:
+        return (every,)
+    return tuple(every if group.loads is None else group.loads for group in ran)
 
 
 def _wire_loading(materials) -> dict[str, object]:
@@ -786,6 +881,103 @@ def prepare_mesh(model: DeckModel) -> PreparedMesh:
     )
 
 
+def construct_solver(
+    solver_class: type,
+    basis_kwargs: Mapping[str, Any],
+    *,
+    polylines: Sequence[Any],
+    edge_elements: Sequence[Sequence[int]],
+    feeds: list[tuple[int, float, complex]],
+    radii: Sequence[float],
+    wavelength: float,
+    junctions: Any = None,
+    node_gaps: Any = None,
+    lumped_loads: Any = None,
+    loading: Mapping[str, object] | None = None,
+    ground: Mapping[str, object],
+    extended_kernel: bool = False,
+    extended_kernel_default: bool = False,
+    basis: str = "",
+    advisories: list[str] | None = None,
+    before_construct: Callable[[], None] | None = None,
+    warn_depth: int = 1,
+    cancel: Any = None,
+) -> tuple[Any, bool]:
+    """One roster solver, constructed from a mesh a dialect already built.
+
+    The second half of :func:`build_solver`, and the whole of it for a
+    dialect that meshes its own way: the NEC-5 seam addresses NODES and cuts
+    its own pieces (``momwire.eznec._serve.build_mesh``), so it cannot use
+    :func:`prepare_mesh`, but it constructs exactly this solver (momwire#1336
+    — it kept its own copy of this call until then).  Every front end hands
+    over polylines, element counts, ports, a wavelength, wire loading and
+    the ground kwargs; what this owns is how those become a constructor
+    call:
+
+    * which port and topology KEYS the family takes (:func:`port_kwargs`);
+    * the radius spelling — one scalar for a uniform census, the per-wire
+      list otherwise, which is what every family was built against;
+    * ``extended_kernel`` passed only when asked, so a reduced-kernel solve
+      is the call every family was gated with;
+    * the extended kernel AS A DIALECT DEFAULT (momwire#1326): with
+      ``extended_kernel_default`` set, an ``extended_kernel`` request this
+      basis or geometry cannot take (:func:`extended_kernel_default_refusal`)
+      falls back to the reduced kernel with an ``ExtendedKernelDefault``
+      advisory, appended to ``advisories`` — never a refusal.
+
+    Returns ``(solver, extended_kernel)``, the second being the kernel the
+    solver was actually built with.  ``before_construct`` is a front end's
+    hook for a refusal it owes AFTER the kernel is resolved and before the
+    fill (the nec2 front end's wire-loading sentence); ``warn_depth`` is how
+    many frames sit between this function and the caller the advisory should
+    name (1 for :func:`build_solver`).
+
+    ``ground`` is the caller's because the DIALECTS read grounds differently
+    (nec2's ``GN 0`` is a reflection-coefficient solve, NEC-5's is
+    Sommerfeld); ``loading`` likewise, because the cards that set it differ.
+    Neither is refused here: each front end asks the capability row first
+    and refuses in its own card vocabulary.
+    """
+    kwargs = port_kwargs(
+        solver_class,
+        junctions=junctions,
+        node_gaps=node_gaps,
+        lumped_loads=lumped_loads,
+    )
+    radii = list(radii)
+    if extended_kernel and extended_kernel_default:
+        reason = extended_kernel_default_refusal(
+            solver_class,
+            basis_kwargs,
+            polylines,
+            radii,
+            junctions or (),
+            ground.get("ground_z"),
+        )
+        if reason is not None:
+            extended_kernel = False
+            advisory = _warn_kernel_fallback(basis, reason, stacklevel=3 + warn_depth)
+            if advisories is not None:
+                advisories.append(advisory)
+    if extended_kernel:
+        kwargs["extended_kernel"] = True
+    if before_construct is not None:
+        before_construct()
+    solver = solver_class(
+        wires=list(polylines),
+        n_per_edge_per_wire=[list(counts) for counts in edge_elements],
+        feeds=feeds,
+        wavelength=wavelength,
+        wire_radius=radii[0] if len(set(radii)) == 1 else radii,
+        cancel=cancel,
+        **kwargs,
+        **(loading or {}),
+        **ground,
+        **basis_kwargs,
+    )
+    return solver, bool(extended_kernel)
+
+
 def build_solver(
     model: DeckModel,
     *,
@@ -876,9 +1068,6 @@ def build_solver(
     def _voltage(index: int) -> complex:
         return complex(drive[index]) if drive is not None else 0j
 
-    radii = list(built_mesh.radii)
-    wire_radius = radii[0] if len(set(radii)) == 1 else radii
-
     node_gaps = [
         (polyline, end, complex(volts))
         for (polyline, end), (_w, _v, volts) in zip(
@@ -887,6 +1076,14 @@ def build_solver(
     ]
     loads = None
     if issubclass(solver_class, _NATIVE_LOADING):
+        if any(len(live) != len(model.loads) for live in group_loads(model)):
+            # The fill carries every load; per-group scoping (momwire#1069)
+            # is port algebra this family does not do.
+            raise ValueError(
+                f"basis {basis!r} carries a deck's loads inside the fill, so "
+                f"it cannot answer a deck whose loads change between execute "
+                f"cards (momwire#1069)"
+            )
         # A load-only site needs no port of its own here: the fill carries
         # the Z_s bump directly through `lumped_loads`, at the exact knot
         # `_lumped_loads` reads off the mesh, so only genuine EX sites
@@ -905,56 +1102,62 @@ def build_solver(
         if _has_port[index]
     ]
 
-    kwargs = port_kwargs(
+    loading_kwargs = _wire_loading(built_mesh.materials)
+
+    def _refuse_wire_loading() -> None:
+        # Asked after the kernel resolution and before construction, which is
+        # the order momwire#1326 put the two in.
+        if loading_kwargs and not solver_class.capabilities.wire_loading:
+            # Asked of the CAPABILITY rather than left to the constructor
+            # (momwire#1087, the nec2 seam's half of #1086): a family with no
+            # `wire_conductivity` parameter at all dies with a bare `TypeError`
+            # from the constructor, and one that happens to catch it its own way
+            # names itself rather than this deck's card. `refusal("wire_loading")`
+            # is asked of the ROW for the same reason `centre_feeds` is above.
+            cards = []
+            if "wire_conductivity" in loading_kwargs:
+                cards.append("LD 5")
+            if "insulation_radius" in loading_kwargs:
+                cards.append("IS")
+            if "distributed_rlc" in loading_kwargs:
+                # Named per KIND, not as one entry: `LD 2` and `LD 3` are
+                # different cards and a deck carrying only one of them should
+                # hear its own back (momwire#1088).
+                kinds = {
+                    entry.kind
+                    for entry in loading_kwargs["distributed_rlc"]
+                    if entry is not None
+                }
+                cards += sorted(
+                    "LD 2" if kind == "series" else "LD 3" for kind in kinds
+                )
+            names = " and ".join(cards)
+            raise ValueError(
+                f"{names} set{'s' if len(cards) == 1 else ''} wire loading on this "
+                f"deck and basis {basis!r} does not serve it: "
+                f"{solver_class.capabilities.refusal('wire_loading')}"
+            )
+
+    advisories: list[str] = []
+    solver, extended_kernel = construct_solver(
         solver_class,
+        basis_kwargs,
+        polylines=built_mesh.polylines,
+        edge_elements=built_mesh.edge_elements,
+        feeds=feeds,
+        radii=built_mesh.radii,
+        wavelength=_C_LIGHT / (frequency_mhz * 1e6),
         junctions=[list(entry) for entry in built_mesh.junctions],
         node_gaps=node_gaps,
         lumped_loads=loads,
-    )
-    if extended_kernel:
-        kwargs["extended_kernel"] = True
-
-    loading_kwargs = _wire_loading(built_mesh.materials)
-    if loading_kwargs and not solver_class.capabilities.wire_loading:
-        # Asked of the CAPABILITY rather than left to the constructor
-        # (momwire#1087, the nec2 seam's half of #1086): a family with no
-        # `wire_conductivity` parameter at all dies with a bare `TypeError`
-        # from the constructor, and one that happens to catch it its own way
-        # names itself rather than this deck's card. `refusal("wire_loading")`
-        # is asked of the ROW for the same reason `centre_feeds` is above.
-        cards = []
-        if "wire_conductivity" in loading_kwargs:
-            cards.append("LD 5")
-        if "insulation_radius" in loading_kwargs:
-            cards.append("IS")
-        if "distributed_rlc" in loading_kwargs:
-            # Named per KIND, not as one entry: `LD 2` and `LD 3` are
-            # different cards and a deck carrying only one of them should
-            # hear its own back (momwire#1088).
-            kinds = {
-                entry.kind
-                for entry in loading_kwargs["distributed_rlc"]
-                if entry is not None
-            }
-            cards += sorted("LD 2" if kind == "series" else "LD 3" for kind in kinds)
-        names = " and ".join(cards)
-        raise ValueError(
-            f"{names} set{'s' if len(cards) == 1 else ''} wire loading on this "
-            f"deck and basis {basis!r} does not serve it: "
-            f"{solver_class.capabilities.refusal('wire_loading')}"
-        )
-
-    solver = solver_class(
-        wires=list(built_mesh.polylines),
-        n_per_edge_per_wire=[list(counts) for counts in built_mesh.edge_elements],
-        feeds=feeds,
-        wavelength=_C_LIGHT / (frequency_mhz * 1e6),
-        wire_radius=wire_radius,
+        loading=loading_kwargs,
+        ground=_ground(environment),
+        extended_kernel=extended_kernel,
+        extended_kernel_default=model.extended_kernel_default,
+        basis=basis,
+        advisories=advisories,
+        before_construct=_refuse_wire_loading,
         cancel=cancel,
-        **kwargs,
-        **loading_kwargs,
-        **_ground(environment),
-        **basis_kwargs,
     )
     # Renumber onto the rows that were just built, from the same flags the
     # `feeds` list was filtered by, so the plan cannot drift from the matrix
@@ -976,4 +1179,5 @@ def build_solver(
         wavelength=_C_LIGHT / (frequency_mhz * 1e6),
         group=group,
         extended_kernel=bool(extended_kernel),
+        advisories=tuple(advisories),
     )

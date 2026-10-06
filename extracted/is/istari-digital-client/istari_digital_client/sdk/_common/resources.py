@@ -6,6 +6,7 @@ comments / relationships child-collection sub-managers.
 """
 
 from __future__ import annotations
+from enum import Enum
 
 from functools import cached_property
 from pathlib import Path
@@ -14,6 +15,7 @@ from typing import Any, List
 from istari_digital_client.sdk._base import Page, coerce_enum
 from istari_digital_client.sdk._generated.v3.models.archive_status import ArchiveStatus
 from istari_digital_client.sdk._generated.v3.models.resource_create_dto import ResourceCreateDto
+from istari_digital_client.sdk._generated.v3.models.resource_create_type_dto import ResourceCreateTypeDto
 from istari_digital_client.sdk._generated.v3.models.resource_type_dto import ResourceTypeDto
 from istari_digital_client.sdk._generated.v3.models.token_create_dto import TokenCreateDto
 from istari_digital_client.sdk._common._capabilities import (
@@ -141,7 +143,7 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
     def create(
         self,
         path: str | Path,
-        resource_type: ResourceTypeDto | str,
+        resource_type: ResourceCreateTypeDto | ResourceTypeDto | str,
         *,
         description: str | None = None,
         version_name: str | None = None,
@@ -156,7 +158,8 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
 
         ``path`` is the local filesystem path to the file to upload.
         ``resource_type`` accepts "model" | "artifact" | "file" (case-insensitive,
-        or the equivalent ResourceTypeDto enum value). All other parameters are
+        or the equivalent ResourceCreateTypeDto enum value). A container cannot be
+        created here; it comes from connecting a source. All other parameters are
         optional metadata.
 
         Returns a Resource with fields: resource_id, file_revision_id,
@@ -169,17 +172,15 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
         Readable: call read_bytes(), read_text(), or read_json()
         to fetch content from storage. Archivable: call archive() or restore().
         """
-        if isinstance(resource_type, str):
-            try:
-                rt = ResourceTypeDto(resource_type.lower())
-            except ValueError:
-                valid = ", ".join(m.value for m in ResourceTypeDto)
-                raise ValueError(
-                    f"resource_type must be one of {valid} (case-insensitive); "
-                    f"got {resource_type!r}"
-                ) from None
-        else:
-            rt = resource_type
+        raw = resource_type.value if isinstance(resource_type, Enum) else resource_type
+        try:
+            rt = ResourceCreateTypeDto(raw.lower())
+        except ValueError:
+            valid = ", ".join(m.value for m in ResourceCreateTypeDto)
+            raise ValueError(
+                f"resource_type must be one of {valid} (case-insensitive); "
+                f"got {resource_type!r}"
+            ) from None
         rev = self._engine.storage.upload(
             path,
             display_name=display_name,

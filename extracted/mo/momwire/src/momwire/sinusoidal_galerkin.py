@@ -348,6 +348,9 @@ the readout write the basis at it), but no longer touches `self.eta`.
 """
 
 import collections
+import concurrent.futures
+import functools
+import math
 
 import numpy as np
 import scipy.linalg
@@ -358,8 +361,9 @@ from . import _below_interface, _crossing_fill, _field_ground, _ground_mirror
 from . import _medium_spec, _wire_loading, _wire_spec
 from ._accel import acc as _acc
 from ._bspline_kernels import _ek_axis_groups
+from ._bspline_kernels import _reg_cplx_pool as _piece_pool
 from .bspline import SINGULAR_ENRICHMENT_NEVER
-from ._port_solution import PortSolution
+from ._port_solution import PortSolution, port_impedances, refuse_undriven
 from .sinusoidal import (
     _COINCIDENT_CROSSING_MEMBERS_REFUSAL,  # noqa: F401 - re-export, hoisted by momwire#1223 U1
     SinusoidalBasisSampler,  # noqa: F401 - re-export, hoisted by momwire#1223 U1
@@ -391,14 +395,9 @@ from .sinusoidal import (
 # shares), so that deck drove nothing; the junction-port serve itself was
 # never involved (driven at 1 V it agrees with BSplineSolver to ~1e-5). The
 # drive-independent answer, Y, is served for such a deck, so the refusal
-# names it.
-_NO_DRIVEN_PORT_REFUSAL = (
-    "compute_impedance: no port is driven -- every port voltage is 0, so the "
-    "solve's current is identically zero and Z = V/I is 0/0. A plain-int "
-    "junction_ports entry drives 0 V; give it a voltage, e.g. "
-    "junction_ports=[(j, 1)], or read the drive-independent admittance from "
-    "compute_port_solution().y or compute_y_matrix()"
-)
+# names it. momwire#1164 moved the sentence and its backstop to
+# `_port_solution` (`refuse_undriven` / `port_impedances`), shared by every
+# family.
 
 _HAVE_GALERKIN_FAR_FILL = _acc is not None and hasattr(
     _acc, "sinusoidal_galerkin_far_fill"
@@ -475,6 +474,22 @@ _HAVE_GALERKIN_FAR_FILL_EK = _acc is not None and hasattr(
 _HAVE_GALERKIN_FAR_FILL_CPLX = _acc is not None and hasattr(
     _acc, "sinusoidal_galerkin_far_fill_cplx"
 )
+
+# The reduced real fill's staged body (perf item 9): bit-identical to the
+# per-pair reference body, which `False` selects so the uint64 gate
+# (tests/test_sg_real_far_fill_staged_1290.py) can compare whole solves. A
+# build without the flag's symbol has only the reference body.
+_SG_REAL_STAGED = True
+_HAVE_SG_REAL_STAGED = _acc is not None and hasattr(_acc, "sg_real_far_fill_calls")
+
+# The graded near cells' blocks on the shared pool when collected for the
+# banded fill (perf item 9); `False` runs them in order on this thread.
+_NEAR_THREADS = True
+
+# The Sommerfeld remainder's per-chunk test fold, overlapped with the next
+# chunk's projection on one worker thread (`_OverlappedFold`); `False` folds
+# inline.
+_REMAINDER_OVERLAP = True
 
 # Pairs are corrected in blocks so the (P, G, n_qp_const) source-quadrature
 # scratch inside the field kernel stays bounded regardless of model size. It
@@ -887,6 +902,96 @@ def _graded_endpoint_rule(eps, n_per_panel, leggauss):
 _plain_projection = _field_ground.plain_projection
 
 
+def _loading_integrals(k, h):
+    """``(∫(cos kξ − 1), ∫sin² kξ, ∫(cos kξ − 1)²)`` over ξ ∈ [−h/2, h/2],
+    each to full relative precision (momwire#1283).
+
+    The literal forms — (2/k)sin(kh/2) − h, h/2 − sin(kh)/2k and
+    3h/2 − (4/k)sin(kh/2) + sin(kh)/2k — subtract terms that agree to
+    O((kh)², (kh)², (kh)⁴), so on a short segment they return rounding. With
+    x = kh/2 and S(u) = sin u − u (`_sin_minus_arg`, exact at every u):
+
+        ∫(cos kξ − 1)    = (2/k)·S(x)
+        ∫sin² kξ         = −S(2x)/(2k)
+        ∫(cos kξ − 1)²   = (1/k)·[½·S(2x) − 4·S(x)]
+
+    The last still cancels — both S terms are O(x³) and the answer O(x⁵) —
+    so below |x| = 0.25 it is its own Taylor series, Σ_{m≥2} (−1)^m
+    (4^m − 4)/(2m+1)!·x^(2m+1), whose first omitted term (m = 8) is 3e-16 of
+    the answer there; above it the S form gives up at most 1/(0.15·x²) =
+    2 decades. Complex-safe, for the buried shapes' k_m.
+    """
+    x = 0.5 * np.asarray(k) * np.asarray(h)
+    s1 = _sin_minus_arg(x)
+    s2 = _sin_minus_arg(2.0 * x)
+    i_g = (2.0 / k) * s1
+    i_ss = -s2 / (2.0 * k)
+    x2 = x * x
+    series = 0.0
+    for m in range(7, 1, -1):  # Horner over x², highest order first
+        coef = (-1) ** m * (4.0**m - 4.0) / math.factorial(2 * m + 1)
+        series = series * x2 + coef
+    series = series * x2 * x2 * x
+    i_gg = np.where(np.abs(x) < 0.25, series, 0.5 * s2 - 4.0 * s1) / k
+    return i_g, i_ss, i_gg
+
+
+@functools.lru_cache(maxsize=1)
+def _fold_worker():
+    """The one thread the remainder folds run on while the next chunk's
+    projection runs (`_OverlappedFold`)."""
+    return concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+
+class _OverlappedFold:
+    """Runs a remainder replay's `consume` calls on `_fold_worker`, one chunk
+    behind the replay loop, so a chunk's numpy fold overlaps the next chunk's
+    C++ projection (perf item 9).
+
+    Exact by construction: each call runs the same expressions on the same
+    arrays it would run inline, so numpy takes the same loop for every product
+    (the momwire#392 elision note), and two chunks' folds touch disjoint
+    destination rows (a chunk is whole test segments, and an entry belongs to
+    one segment), so the order they land in is immaterial. One fold is in
+    flight at a time — the next call waits for it — which bounds the extra
+    residency at one chunk's block. Leaving the context waits for the last
+    fold and re-raises a worker's exception; it also waits when the replay
+    itself raised, so no fold is still writing when the caller sees the
+    error. `_REMAINDER_OVERLAP = False` calls `consume` inline
+    (tests/test_sg_remainder_overlap_1290.py)."""
+
+    def __init__(self):
+        self._pending = None
+
+    def __enter__(self):
+        return self
+
+    def _drain(self):
+        if self._pending is not None:
+            pending, self._pending = self._pending, None
+            pending.result()
+
+    def wrap(self, consume):
+        if not _REMAINDER_OVERLAP:
+            return consume
+
+        def overlapped(i0, i1, block):
+            self._drain()
+            self._pending = _fold_worker().submit(consume, i0, i1, block)
+
+        return overlapped
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self._drain()
+        elif self._pending is not None:
+            # The replay's own error wins; wait for the fold in flight and
+            # drop what it raised.
+            concurrent.futures.wait([self._pending])
+            self._pending = None
+        return False
+
+
 class SinusoidalGalerkinSolver(SinusoidalSolver):
     """Piecewise-sinusoidal Galerkin MoM. Same constructor surface as
     `SinusoidalSolver`, plus the test-quadrature controls:
@@ -1161,6 +1266,18 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
     Galerkin overlap term of `_apply_loading`, closed-form on the shapes.
     """
 
+    # momwire#1333: two coincident wires left in place because they are
+    # joined to different wires. The Galerkin fill has no answer for them in
+    # free space: on the split rise fan it read 61.89 - 0.88j ohm where
+    # BSplineSolver read 32.95 - 337.2j. Over a ground the crossing serve already refuses the spelling
+    # (`_COINCIDENT_CROSSING_MEMBERS_REFUSAL`).
+    _KEPT_COINCIDENT_REFUSAL = (
+        "this family cannot solve coincident conductors: its Galerkin fill "
+        "answers them from rounding (momwire#1333). Solve the deck with "
+        "BSplineSolver, or join both copies to the same wires at each end so "
+        "they merge as one"
+    )
+
     # momwire#396: differs from `SinusoidalSolver.capabilities` in exactly
     # the two axes this class's docstring describes — junction_ports and
     # node_gaps are served here (M5b / #305) — plus the three combination
@@ -1269,6 +1386,10 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             "buried+refl-coef": _medium_spec.BURIED_REFL_REFUSAL,
             "buried+crossing": _medium_spec.CROSSING_REFUSAL,
             "buried+contact": _medium_spec.CONTACT_WITH_BURIED_REFUSAL,
+            # Raised by `_below_interface.refuse_out_of_scope` at the fill, the
+            # same sentence every buried family declares; undeclared here
+            # until momwire#1326's default-kernel check asked this row first.
+            "buried+extended_kernel": _below_interface.BURIED_EXTENDED_KERNEL_REFUSAL,
             "extended_kernel+stepped_radius_junction": (
                 _EK_STEPPED_RADIUS_JUNCTION_REFUSAL
             ),
@@ -1393,6 +1514,17 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         self._cached_ek_groups = None
         # geom → {mirror: (bad_lo, bad_hi)} for the EK end-bracket node rule.
         self._cached_ek_bad_ends = None
+        # momwire#959 (a stopgap until #1330): segments below the radius AT A
+        # GAP leave the delta-gap model unreliable. Advisory, once per solver.
+        _wire_spec.advise_gap_mesh_floor(
+            type(self).__name__,
+            self.wires_polylines,
+            self.n_per_edge_per_wire,
+            self._radius_per_wire,
+            self.extended_kernel,
+            _wire_spec.solver_gaps(self, junctions_are_gaps=self.extended_kernel),
+            gap_model="point",
+        )
 
     # ------------------------------------------------------------------
     # Node ports (M5b formulation (a)) — a delta-gap EMF AT a junction node
@@ -1712,6 +1844,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
 
         m_parts, n_parts = [], []
         for i0 in range(0, n_test, chunk_rows):
+            self._checkpoint()  # per test-row chunk of the prefilter
             i1 = min(i0 + chunk_rows, n_test)
             reach_blk = hh[i0:i1, None] + hh[None, :]
             # cdist rather than an explicit (rows, N_src, 3) difference:
@@ -3135,6 +3268,8 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                 return _acc.sinusoidal_galerkin_far_fill_cplx(
                     *args, self._cancel_flag, **fold
                 )
+            if _HAVE_SG_REAL_STAGED and not _SG_REAL_STAGED:
+                fold["reference"] = True
             return _acc.sinusoidal_galerkin_far_fill(*args, self._cancel_flag, **fold)
         # The EK twin takes the payload at the shapes the kernel indexes: one
         # radius per SOURCE segment, the pair rule's group labels — one per
@@ -3461,12 +3596,13 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                 np.subtract(dest[e0:e1], rows, out=dest[e0:e1])
 
         if obs_mask is None:
-            fg.remainder("cos-1").replay(
-                obs_centers=ctx["obs_c"],
-                obs_tangents=ctx["obs_t"],
-                consume=_reduce,
-                row_group=nq,
-            )
+            with _OverlappedFold() as overlap:
+                fg.remainder("cos-1").replay(
+                    obs_centers=ctx["obs_c"],
+                    obs_tangents=ctx["obs_t"],
+                    consume=overlap.wrap(_reduce),
+                    row_group=nq,
+                )
             return
         # A CLASS block (momwire#980 D2): this ground models ONE medium, so
         # its remainder is only defined at that medium's observers — handing
@@ -3518,12 +3654,13 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                     dest[np.ix_(ent, src_cols)] -= rows
 
         _ = sub_starts
-        fg.remainder("cos-1").replay(
-            obs_centers=np.asarray(ctx["obs_c"])[obs_rows],
-            obs_tangents=np.asarray(ctx["obs_t"])[obs_rows],
-            consume=_reduce_masked,
-            row_group=nq,
-        )
+        with _OverlappedFold() as overlap:
+            fg.remainder("cos-1").replay(
+                obs_centers=np.asarray(ctx["obs_c"])[obs_rows],
+                obs_tangents=np.asarray(ctx["obs_t"])[obs_rows],
+                consume=overlap.wrap(_reduce_masked),
+                row_group=nq,
+            )
 
     # ---------------------------------------------------------------
     # Below-interface plumbing (momwire#980 D1). Thin wrappers over
@@ -4384,6 +4521,23 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
                       + Q_eQ_f·(h/2 − sin(kh)/2k)
                       + R_eR_f·(h/2 + sin(kh)/2k).
 
+        EVALUATED in a cancellation-free spelling of that same integral
+        (momwire#1283). On a short segment A and C grow like 1/(kh)² with
+        opposite signs while A + C stays O(1) — #606's mechanism — so the
+        literal sum above adds four terms of size (1/kh)⁴·h to return one of
+        size h. A crossing node's wing on a 9.46 µm sliver (kh = 2.8e-6) has
+        A = −C = 2.6e11 with A + C = 0.25: the literal L_s read −256 against
+        an exact 1.89e-6, and Dan's through deck answered 460 Ω instead of
+        71. Rewriting the shape as U + Q·sin kξ + R·(cos kξ − 1), U = σ·AC
+        (the closed-form `AC`, never σA + σC), leaves no term larger than
+        the answer:
+
+            L_s[e, f] = U_eU_f·h + (U_eR_f + R_eU_f)·∫(cos kξ − 1)
+                      + Q_eQ_f·∫sin² kξ + R_eR_f·∫(cos kξ − 1)²
+
+        with each integral itself spelled without subtraction
+        (`_loading_integrals`).
+
         That is the bilinear (unconjugated) sibling of the |I|² family
         `SinusoidalSolver.wire_loss_power` integrates for the power readout,
         which this family inherits unchanged — a physical integral does not
@@ -4416,17 +4570,16 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             k = np.asarray(seg_view["k_entry"])[left]
 
         sig = seg_view["sigma"].astype(np.complex128)
-        P = sig * seg_view["A"]
+        U = sig * seg_view["AC"]
         Q = seg_view["B"]
         R = sig * seg_view["C"]
         h = np.asarray(geom["seg_h"], dtype=float)[m_of_pair]
-        w_pr = (2.0 / k) * np.sin(0.5 * k * h)
-        half_sin = np.sin(k * h) / (2.0 * k)
+        i_g, i_ss, i_gg = _loading_integrals(k, h)
         vals = (
-            P[left] * P[right] * h
-            + (P[left] * R[right] + R[left] * P[right]) * w_pr
-            + Q[left] * Q[right] * (0.5 * h - half_sin)
-            + R[left] * R[right] * (0.5 * h + half_sin)
+            U[left] * U[right] * h
+            + (U[left] * R[right] + R[left] * U[right]) * i_g
+            + Q[left] * Q[right] * i_ss
+            + R[left] * R[right] * i_gg
         )
         # The loading is read at the solve's REAL angular frequency. `k` is
         # the SHAPES' wavenumber — k_m, complex, on a buried segment — and
@@ -4460,9 +4613,12 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             #
             # `zq_seg` is None on every deck without a jacketed wire below
             # the interface, so every other fill is structurally untouched.
+            #
+            # The R·R term's h/2 − sin(kh)/2k is `i_ss`, spelled without the
+            # subtraction for the same reason as the series term (#1283).
             dvals = (k * k) * (
-                Q[left] * Q[right] * (0.5 * h + half_sin)
-                + R[left] * R[right] * (0.5 * h - half_sin)
+                Q[left] * Q[right] * (0.5 * h + np.sin(k * h) / (2.0 * k))
+                + R[left] * R[right] * i_ss
             )
             vals = vals * spec.z_seg[m_of_pair] + dvals * spec.zq_seg[m_of_pair]
         else:
@@ -5391,7 +5547,21 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         # `_folded_ek_delta_fields`' (P, G, n_d) quadrature, 4.9 MB per pair
         # at this rule, and 512 of those was 2.6 GB of fixed working set.
         blk = _near_block(xg.shape[0], self.n_qp_const, self.extended_kernel)
-        for p0 in range(0, mm.size, blk):
+        # Pooled (collecting for the banded fill, perf item 9), up to `live`
+        # blocks run at once. Their scratch together has to fit where the
+        # fill has room for it: the near cells are collected before any
+        # observer band exists, so a band's budget (`_band_budget_bytes`) is
+        # free then, and `live` blocks of `_NEAR_WORKSPACE_BYTES` each stay
+        # inside it — the fill's peak does not move. A deck whose band budget
+        # is under two blocks collects serially.
+        live = 1
+        if collect is not None and _NEAR_THREADS:
+            band = self._band_budget_bytes(int(ctx["N"]) + self._n_extra_cols())
+            live = max(
+                1, min(_piece_pool()._max_workers, band // _NEAR_WORKSPACE_BYTES)
+            )
+
+        def block(p0):
             p1 = min(p0 + blk, mm.size)
             mi, ni = mm[p0:p1], nn[p0:p1]
 
@@ -5440,12 +5610,52 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             w = (wg[None, :] * hh[mi][lp][:, None]) * fval  # (E, G)
 
             col = ni[lp]
+            # The block's tables ride along to the caller, which holds them
+            # until the next block exists, as the serial loop's own locals
+            # always lived: freed at the block's end instead, they leave the
+            # top of the heap free, glibc trims it, and the next block
+            # page-faults it back (measured: 5x the minor faults and +30 %
+            # on the near cells of free x32).
+            return ei, col, w, lp, Phi, (xi, obs, cm, xi_e, fval)
+
+        starts_p = range(0, mm.size, blk)
+        if collect is not None:
+            # Collecting, a block's cells are a function of its pairs alone
+            # and nothing is written, so the blocks run on the shared pool
+            # (perf item 9) and are appended in block order. Each block runs
+            # the serial loop's expressions on the same arrays — the same
+            # blocks, so numpy takes the same loop for every product
+            # (`_field_components_bcast`'s momwire#392 note).
+            # `_NEAR_THREADS = False` is the serial loop
+            # (tests/test_sg_near_threads_1290.py).
+            def cells(p0):
+                ei, col, w, lp, Phi, _tables = block(p0)
+                return ei, col, tuple(np.einsum("eg,eg->e", w, Ph[lp]) for Ph in Phi)
+
+            # The cancel poll stays on this thread, once per block before
+            # it is handed out; at most `live` blocks are in flight, and the
+            # cells come back in block order.
+            pending = collections.deque()
+            held = None
+            for p0 in starts_p:
+                self._checkpoint()  # per block of near pairs
+                if live < 2:
+                    held = block(p0)
+                    ei, col, w, lp, Phi, _tables = held
+                    collect.append(
+                        (ei, col, tuple(np.einsum("eg,eg->e", w, Ph[lp]) for Ph in Phi))
+                    )
+                    continue
+                if len(pending) >= live:
+                    collect.append(pending.popleft().result())
+                pending.append(_piece_pool().submit(cells, p0))
+            while pending:
+                collect.append(pending.popleft().result())
+            return None
+        for p0 in starts_p:
+            self._checkpoint()  # per block of near pairs
+            ei, col, w, lp, Phi, _tables = block(p0)
             row = ei
-            if collect is not None:
-                collect.append(
-                    (ei, col, tuple(np.einsum("eg,eg->e", w, Ph[lp]) for Ph in Phi))
-                )
-                continue
             if cls is not None:
                 row, col = cls.row_of_entry[ei], cls.col_of_seg[col]
             for contrib, Ph in zip((contrib_c, contrib_s, contrib_co), Phi):
@@ -5668,8 +5878,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         model has exactly one port of any kind.
         """
         self._refuse_junction_port_solve()
-        if not np.any(self._port_voltages()):
-            raise ValueError(_NO_DRIVEN_PORT_REFUSAL)
+        refuse_undriven(self._port_voltages())
         geom = self._build_geometry()
         self._checkpoint()  # after geometry, before the field fill
         # The medium wraps the WHOLE solve, not the matrix alone: the drive
@@ -5691,19 +5900,9 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
             # Inside the medium too (momwire#1159): an off-centre point gap's
             # readout writes the shapes at `self.k`, which is k_m only here.
             currents = self._port_currents(alpha, geom, seg_view, U)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            z_per_port = voltages / currents
-        bad = np.flatnonzero(~np.isfinite(z_per_port))
-        if bad.size:
-            # The backstop behind the up-front refusal (momwire#1162): a port
-            # whose current reads exactly zero has no V/I. Refuse by name
-            # rather than hand back a NaN or an inf as if it were a Z.
-            raise FloatingPointError(
-                f"compute_impedance: port(s) {bad.tolist()} (ordered [gap "
-                "feeds, junction ports, node ports]) read a current of exactly "
-                "0, so V/I is not a number there. Read the drive-independent "
-                "admittance from compute_port_solution().y instead"
-            )
+        # The backstop behind the up-front refusal (momwire#1162): a port
+        # whose current reads exactly zero has no V/I, and is refused by name.
+        z_per_port = port_impedances(voltages, currents)
         Z_drive = z_per_port[0] if self.n_ports == 1 else z_per_port
         return Z_drive, alpha
 
@@ -5810,8 +6009,7 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
         """
         self._refuse_junction_port_solve()
         # Up front, so an undriven deck refuses even at an empty sweep.
-        if not np.any(self._port_voltages()):
-            raise ValueError(_NO_DRIVEN_PORT_REFUSAL)
+        refuse_undriven(self._port_voltages())
         k_array = np.asarray(k_array, dtype=float)
         n_p = self.n_ports
         z_out = np.zeros(

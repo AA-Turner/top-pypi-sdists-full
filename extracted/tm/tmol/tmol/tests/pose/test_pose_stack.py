@@ -140,16 +140,10 @@ def test_round_trip_irregular_pose_stack_and_split(
         )
 
         torch.testing.assert_close(
-            split_pose_stack.inter_block_bondsep[
+            split_pose_stack.inter_block_bondsep.to_dense()[
                 :, : i_pose.max_n_blocks, : i_pose.max_n_blocks
             ],
-            i_pose.inter_block_bondsep,
-        )
-        torch.testing.assert_close(
-            split_pose_stack.inter_block_bondsep64[
-                :, : i_pose.max_n_blocks, : i_pose.max_n_blocks
-            ],
-            i_pose.inter_block_bondsep64,
+            i_pose.inter_block_bondsep.to_dense(),
         )
         torch.testing.assert_close(
             split_pose_stack.block_type_ind[:, : i_pose.max_n_blocks],
@@ -165,3 +159,50 @@ def test_round_trip_irregular_pose_stack_and_split(
         torch.testing.assert_close(
             split_pose_stack.chain_id64[:, : i_pose.max_n_blocks], i_pose.chain_id64
         )
+
+
+def test_clone_sharing_topology_aliases_only_immutable_tensors(
+    default_database, ubq_pdb, torch_device
+):
+    """Coordinates are independently owned; bond topology is shared."""
+    pose_stack = pose_stack_from_pdb(
+        ubq_pdb, torch_device, residue_start=0, residue_end=20
+    )
+    shared = pose_stack.clone_sharing_topology()
+
+    # The connection tensors alias rather than duplicate.
+    assert shared.inter_block_bondsep is pose_stack.inter_block_bondsep
+    for name in (
+        "inter_residue_connections",
+        "inter_residue_connections64",
+    ):
+        assert (
+            getattr(shared, name).data_ptr() == getattr(pose_stack, name).data_ptr()
+        ), name
+
+    # Per-pose state is owned, so writing the copy cannot disturb the original.
+    for name in (
+        "coords",
+        "block_coord_offset",
+        "block_coord_offset64",
+        "block_type_ind",
+        "block_type_ind64",
+        "chain_id",
+        "chain_id64",
+    ):
+        assert (
+            getattr(shared, name).data_ptr() != getattr(pose_stack, name).data_ptr()
+        ), name
+
+    torch.testing.assert_close(shared.coords, pose_stack.coords)
+    original_coords = pose_stack.coords.detach().clone()
+    shared.coords[:] += 1.0
+    torch.testing.assert_close(pose_stack.coords, original_coords)
+
+    # A full clone still deep-copies everything, including the topology.
+    deep = pose_stack.clone()
+    for name in ("near_blocks", "bondsep"):
+        copied = getattr(deep.inter_block_bondsep, name)
+        original = getattr(pose_stack.inter_block_bondsep, name)
+        assert copied.data_ptr() != original.data_ptr(), name
+        torch.testing.assert_close(copied, original)

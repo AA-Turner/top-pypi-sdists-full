@@ -14,13 +14,12 @@ already folded an unquoted name and kept a quoted one's case, so
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
-from psycopg import sql
+from dataclasses import dataclass
+from string.templatelib import Template
 
 from confiture.core.introspection.dependency_graph import dependency_order
 from confiture.core.linting import references
-from confiture.core.schema_sources import SchemaRead
+from confiture.core.schema_read import SchemaRead
 from confiture.core.seed.validation.prep_seed import final_tables
 from confiture.core.seed.validation.prep_seed.final_tables import FinalTables
 from confiture.exceptions import SchemaError
@@ -44,9 +43,8 @@ class Resolver:
         name: Its name as PostgreSQL holds it.
         file: The file it is written in; empty for DDL handed in as text.
         line: The line of that file its ``CREATE`` begins on.
-        body: Its body, read by :func:`~confiture.core.linting.references.read_body`.
-            The body's lines count the schema's joined text; :meth:`where`
-            places one on :attr:`file`.
+        body: Its body, read by :func:`~confiture.core.linting.references.read_body`
+            from the file it is written in, so a body line is a line of :attr:`file`.
     """
 
     schema: str | None
@@ -54,7 +52,6 @@ class Resolver:
     file: str
     line: int
     body: references.RoutineBody
-    _shift: int = field(default=0, repr=False)
 
     @property
     def table(self) -> str:
@@ -62,10 +59,11 @@ class Resolver:
         return self.name.lower().removeprefix(TABLE_PREFIX)
 
     @property
-    def identifier(self) -> sql.Identifier:
+    def identifier(self) -> Template:
         """The routine as SQL names it: schema-qualified when its ``CREATE`` was."""
-        parts = (self.schema, self.name) if self.schema else (self.name,)
-        return sql.Identifier(*parts)
+        if self.schema:
+            return t"{self.schema:i}.{self.name:i}"
+        return t"{self.name:i}"
 
     def where(self, line: int | None = None) -> tuple[str, int]:
         """``(file, line)`` for a finding at *line* of the body, or at the ``CREATE``.
@@ -77,7 +75,7 @@ class Resolver:
         """
         if line is None or not self.body.exact:
             return self.file, self.line
-        return self.file, line - self._shift
+        return self.file, line
 
 
 @dataclass(frozen=True)
@@ -131,8 +129,7 @@ def read_resolution(
                 name=obj.folded_name,
                 file="" if definition.file is None else str(definition.file),
                 line=definition.line,
-                body=references.read_body(read.text, definition.statement, obj),
-                _shift=obj.statement_line - definition.line,
+                body=references.read_body(definition.source.text, definition.statement, obj),
             )
         )
     finals = final_tables.decide(

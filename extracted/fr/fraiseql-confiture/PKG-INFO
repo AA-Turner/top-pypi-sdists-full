@@ -1,13 +1,11 @@
 Metadata-Version: 2.4
 Name: fraiseql-confiture
-Version: 1.29.0
+Version: 1.30.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: typer>=0.12.0
@@ -16,7 +14,7 @@ Requires-Dist: pydantic>=2.5.0
 Requires-Dist: pyyaml>=6.0.1
 Requires-Dist: psycopg[binary,pool]>=3.1.0
 Requires-Dist: sqlglot>=28.0
-Requires-Dist: pglast>=6.0
+Requires-Dist: pglast>=8.1
 Requires-Dist: pytest>=8.0.0 ; extra == 'testing'
 Requires-Dist: pytest-asyncio>=0.23.0 ; extra == 'testing'
 Requires-Dist: pytest-cov>=4.1.0 ; extra == 'testing'
@@ -56,7 +54,7 @@ Keywords: postgresql,migration,database,schema,ddl,schema-diff,drift-detection,s
 Home-Page: https://github.com/fraiseql/confiture
 Author-email: evoludigit <lionel.hamayon@evolution-digitale.fr>
 License: MIT
-Requires-Python: >=3.11
+Requires-Python: >=3.14
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/fraiseql/confiture
 Project-URL: Documentation, https://github.com/fraiseql/confiture
@@ -74,8 +72,8 @@ Build from DDL. Adopt on day one against a database that already has migrations 
 [![Quality Gate](https://github.com/fraiseql/confiture/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/fraiseql/confiture/actions/workflows/quality-gate.yml)
 [![Python Version Matrix](https://github.com/fraiseql/confiture/actions/workflows/python-version-matrix.yml/badge.svg)](https://github.com/fraiseql/confiture/actions/workflows/python-version-matrix.yml)
 [![Examples](https://github.com/fraiseql/confiture/actions/workflows/examples.yml/badge.svg)](https://github.com/fraiseql/confiture/actions/workflows/examples.yml)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
-[![PostgreSQL 14+](https://img.shields.io/badge/PostgreSQL-14%2B-blue)](https://www.postgresql.org/)
+[![Python 3.14+](https://img.shields.io/badge/Python-3.14%2B-blue)](https://www.python.org/)
+[![PostgreSQL 16+](https://img.shields.io/badge/PostgreSQL-16%2B-blue)](https://www.postgresql.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---

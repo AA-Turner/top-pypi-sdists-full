@@ -2011,6 +2011,21 @@ class FakeApp:
     #: id is a known experiment, so a genuine project route is untouched and a
     #: typo still 404s instead of being quietly absorbed.
     def _experiment_alias(self, method, path, body, params):
+        # An experiment's CHILD routes on the experiment API (server X21):
+        # `/v1/projects/{P}/experiments/{E}/<child>` is the same body as the
+        # leaf door's `/v1/projects/{E}/<child>` -- which this fake serves at
+        # `/v1/experiments/{E}/<child>` -- once {E} is filed under {P}. Writes
+        # take uuids only. Anything else is left for `_experiment_api` to refuse.
+        child = re.fullmatch(r"/v1/projects/([^/]+)/experiments/([^/]+)/(.+)", path)
+        if child:
+            project_id, ref, tail = child.groups()
+            if method != "GET" and not (_is_uuid_text(project_id) and _is_uuid_text(ref)):
+                return path, body
+            row = self._experiment_of_project(project_id, ref)
+            if row is None:
+                return path, body
+            self.experiment_api_requests.append(f"{method} {path}")
+            return f"/v1/experiments/{row['id']}/{tail}", body
         if path.startswith("/v1/projects/"):
             entity_id, _, tail = path[len("/v1/projects/") :].partition("/")
             if entity_id in self.experiments:
@@ -2063,7 +2078,17 @@ class FakeApp:
 
     _EXPERIMENT_CREATE_FIELDS = frozenset({"slug", "name", "question", "authored_by"})
     _EXPERIMENT_PATCH_FIELDS = frozenset(
-        {"name", "question", "notes", "base_version", "project_id", "authored_by"}
+        {
+            "name",
+            "question",
+            "notes",
+            "base_version",
+            "force",
+            "document",
+            "expected_document",
+            "project_id",
+            "authored_by",
+        }
     )
 
     def _experiment_out(self, row: dict) -> dict:
@@ -2129,6 +2154,16 @@ class FakeApp:
                     "id": ident, "kind": "run", "project_id": run.get("project_id"),
                     "experiment_id": run.get("experiment_id"), "run_id": ident})
             return httpx.Response(404, json={"detail": "nothing with this id"})
+        child = re.fullmatch(r"/v1/projects/([^/]+)/experiments/([^/]+)/(.+)", path)
+        if child:
+            # Not mapped by `_experiment_alias`: a slug in a write, or {E} not
+            # filed under {P}.
+            self.experiment_api_requests.append(f"{method} {path}")
+            if method != "GET" and not all(_is_uuid_text(v) for v in child.groups()[:2]):
+                return httpx.Response(422, json={"detail": [
+                    {"loc": ["path", "experiment_ref"], "type": "uuid_parsing",
+                     "msg": "Input should be a valid UUID"}]})
+            return httpx.Response(404, json={"detail": "experiment not found in this project"})
         m = re.fullmatch(r"/v1/projects/([^/]+)/experiments(?:/([^/]+))?", path)
         if not m:
             return None
@@ -2202,6 +2237,8 @@ class FakeApp:
                 "notes": row.get("notes"),
                 "notes_version": row.get("notes_version", 0),
                 "notes_updated_at": None,
+                # The page's authored block (server X21), as the leaf door reads it.
+                "document": row.get("document"),
                 "summary": {"content": "absent", "job": "idle", "blurb": None, "version": 0},
             })
         if method == "PATCH":
@@ -2209,10 +2246,27 @@ class FakeApp:
             if extra:
                 return httpx.Response(422, json={"detail": [
                     {"loc": ["body", k], "type": "extra_forbidden"} for k in extra]})
+            if body.get("notes") is not None and body.get("base_version") is None and not body.get(
+                "force"
+            ):
+                return httpx.Response(422, json={"detail": (
+                    "a whole-document notes replace must carry base_version")})
+            if body.get("force") and body.get("base_version") is not None:
+                return httpx.Response(422, json={"detail": "send base_version or force, not both"})
+            if "expected_document" in body and body.get("document") is None:
+                return httpx.Response(422, json={"detail": "expected_document requires document"})
+            if "expected_document" in body and (body["expected_document"] or "") != (
+                row.get("document") or ""
+            ):
+                return httpx.Response(409, json={"detail": "the document moved since you read it"})
             if "notes" in body:
                 refused = self._apply_notes_write(row, body, self.document_notes_cap)
                 if refused is not None:
                     return refused
+            echoed = None
+            if body.get("document") is not None:
+                echoed = body["document"] if body["document"].strip() else ""
+                row["document"] = echoed
             target = body.get("project_id")
             if "project_id" in body and target is None:
                 return httpx.Response(422, json={"detail": "an experiment is always filed under a project"})
@@ -2224,7 +2278,13 @@ class FakeApp:
             if target is not None:
                 row["project_id"] = target
             return httpx.Response(200, json={**self._experiment_out(row),
-                                             "notes_version": row.get("notes_version", 0)})
+                                             "notes_version": row.get("notes_version", 0),
+                                             # The headroom, never the text (`ExperimentWritten`).
+                                             "notes_remaining_chars": max(0, (
+                                                 self.notes_cap if self.notes_cap is not None
+                                                 else self.document_notes_cap
+                                             ) - len(row.get("notes") or "")),
+                                             "document": echoed})
         if method == "DELETE":
             if params.get("dry_run") == "true":
                 return httpx.Response(200, json={
@@ -2372,6 +2432,23 @@ class FakeApp:
         # 404 for an unknown entity or a tenant without the lane
         # (`overview_lane_enabled`), 422 naming the fault for a page the frame
         # would block, and the OverviewOut shape on success.
+        overview_read = re.match(r"^/v1/projects/([^/]+)/overview$", path)
+        experiment_overview_read = re.match(r"^/v1/experiments/([^/]+)/overview$", path)
+        if method == "GET" and (overview_read or experiment_overview_read):
+            kind = "experiment" if experiment_overview_read else "project"
+            entity_id = experiment_overview_read[1] if experiment_overview_read else overview_read[1]
+            if not self._sub_note_parent_exists(kind, entity_id):
+                return httpx.Response(404, json={"detail": "Not Found"})
+            saved = self.__dict__.setdefault("overviews", {}).get((kind, entity_id), {})
+            return httpx.Response(200, json={
+                "anchor_type": kind, "anchor_id": entity_id,
+                "content": "fresh" if saved.get("html") else "absent", "job": "idle",
+                "failed_reason": None, "skip_reason": None, "version": 0,
+                "generated_at": None, "prompt_version": None, "source": None,
+                "html": None, "plan": None, "blurb": None, "series": None,
+                "model": None, "basis": None, "refresh_queued": False,
+                "eta_seconds": None, **saved,
+            })
         m = re.match(r"^/v1/(projects|experiments)/([^/]+)/overview$", path)
         if m and method == "PUT":
             plural, entity_id = m.groups()
@@ -4725,6 +4802,11 @@ class FakeApp:
                     continue
                 if k == "foreign_keys":  # per-key new-wins merge (mirrors the backend)
                     row["foreign_keys"] = {**(row.get("foreign_keys") or {}), **v}
+                elif k == "experiment_id" and v in self.experiments:
+                    # X21b: a move into an experiment named as one lands in it,
+                    # under the project it is filed in (the new shape).
+                    row["experiment_id"] = v
+                    row["project_id"] = self.experiments[v].get("project_id")
                 elif k == "config_merge":
                     # #2017: `config = config || $n::jsonb` -- shallow, new wins,
                     # a null value stored as null; a non-object is a 422; an

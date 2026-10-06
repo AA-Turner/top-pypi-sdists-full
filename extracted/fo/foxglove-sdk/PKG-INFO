@@ -1,12 +1,22 @@
 Metadata-Version: 2.4
 Name: foxglove-sdk
-Version: 0.28.0
+Version: 0.29.0
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Rust
 Requires-Dist: anywidget ; extra == 'notebook'
 Requires-Dist: mcap ; extra == 'notebook'
 Requires-Dist: traitlets ; extra == 'notebook'
+Requires-Dist: foxglove-client>=0.20.0 ; extra == 'ray'
+Requires-Dist: ray[data]>=2.49,<3 ; extra == 'ray'
+Requires-Dist: foxglove-client>=0.20.0 ; extra == 'torch'
+Requires-Dist: torch>=2.5,<3 ; extra == 'torch'
+Requires-Dist: av>=16,<17 ; extra == 'video'
+Requires-Dist: numpy>=1.23,<3 ; extra == 'video'
+Requires-Dist: mcap>=1.3,<2 ; extra == 'video'
 Provides-Extra: notebook
+Provides-Extra: ray
+Provides-Extra: torch
+Provides-Extra: video
 Summary: Foxglove Python SDK
 Author-email: Foxglove <support@foxglove.dev>
 License-Expression: MIT

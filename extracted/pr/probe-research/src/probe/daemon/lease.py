@@ -1,7 +1,10 @@
 """The write lease, in the tap's own file format (`tap/companion_lease.py`).
 
-While the lease is live the `probe` CLI refuses the coding agent's ambient
-writes: the daemon records. When the daemon is down, hung or unauthorized the
+While the lease is live and the switch reads `daemon`, the `probe` CLI refuses
+the coding agent's ambient writes: the daemon records. A session the agent took
+over from `on (daemon)` (`probe session inline`, state `full`) keeps the lease
+so the writer can finish what came before the takeover (`records`); there the
+CLI gates nothing, since `full` is the agent recording. When the daemon is down, hung or unauthorized the
 lease lapses or is released with a reason, and the agent records again. v2
 renews it on PROGRESS -- after every model round and every write -- and checks it
 before every write (R11), so a long healthy bite never loses it mid-way. The
@@ -110,17 +113,46 @@ def reads_only(session_id: str, state: str | None = None) -> bool:
 
 
 def state_changed_at(session_id: str) -> float | None:
-    """When the session's switch was last written (`<sid>.state`'s mtime), or None."""
+    """When the session's switch was last written (`<sid>.state`'s mtime), or None.
+    The agent's takeover and hand-back (`probe session inline|daemon`) write it
+    too: read only, then `on`, then a takeover inside one poll dates the end of
+    read only at the takeover."""
     try:
         return (sessions_dir() / (session_id + ".state")).stat().st_mtime
     except OSError:
         return None
 
 
-def worker_wanted(session_id: str, state: str | None = None) -> bool:
-    """Does this session want a worker: `daemon`, or `read only (daemon)`?"""
+def inline_from(session_id: str, state: str | None = None) -> str | None:
+    """`probe session inline` (Richard 2026-10-05): the state the agent took
+    Probe over from (`daemon` or `read-only`), or None when it has not. The
+    format is `session_marker`'s; this only asks it."""
+    from probe.sdk import session_marker
+
+    return session_marker.inline_from(session_id, session_state(session_id) if state is None else state)
+
+
+def records(session_id: str, state: str | None = None) -> bool:
+    """Does the WRITER record this session: `daemon`, or a session the agent took
+    over from `on (daemon)`? There the writer keeps its lease and finishes what
+    came before the takeover; the events inside it are left to the agent
+    (`inline_intervals`)."""
     state = session_state(session_id) if state is None else state
-    return state == STATE_DAEMON or reads_only(session_id, state)
+    return state == STATE_DAEMON or inline_from(session_id, state) == STATE_DAEMON
+
+
+def writer_paused(session_id: str, state: str | None = None) -> bool:
+    """`read only (daemon)`, or a session the agent took over from it: the reader
+    keeps reading, the writer records nothing."""
+    state = session_state(session_id) if state is None else state
+    return reads_only(session_id, state) or inline_from(session_id, state) == STATE_READ_ONLY
+
+
+def worker_wanted(session_id: str, state: str | None = None) -> bool:
+    """Does this session want a worker: `daemon`, `read only (daemon)`, or the
+    agent holding Probe (`on (inline)`) -- whose reader still answers `probe ask`?"""
+    state = session_state(session_id) if state is None else state
+    return records(session_id, state) or writer_paused(session_id, state)
 
 
 def may_write(session_id: str, *, now: float | None = None) -> str | None:
@@ -128,11 +160,12 @@ def may_write(session_id: str, *, now: float | None = None) -> str | None:
 
     Every condition is read fresh from disk, nothing is renewed here: the lease
     file names this process, carries no release reason, has not expired, AND the
-    session's switch still reads `daemon`. A tool checks this before it acts; a
-    renew-then-check would undo the very release it is meant to notice.
+    writer still records the session (`records`: `daemon`, or taken over from it).
+    A tool checks this before it acts; a renew-then-check would undo the very
+    release it is meant to notice.
     """
     state = session_state(session_id)
-    if state != STATE_DAEMON:
+    if not records(session_id, state):
         return (f"the researcher moved the switch to `{state}`" if state else
                 "the session's switch cannot be read") + ", so the daemon no longer records it"
     try:

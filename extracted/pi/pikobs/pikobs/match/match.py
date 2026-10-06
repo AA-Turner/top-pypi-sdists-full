@@ -123,6 +123,49 @@ def parse_match(value: Union[None, str, Sequence[str]]) -> MatchSpec:
     return MatchSpec(True, tuple(seen))
 
 
+#: the modes of a comparison, in the order they are drawn
+MODES: Tuple[str, ...] = ("on", "off", "no")
+
+
+def parse_modes(value) -> Tuple[List[str], MatchSpec]:
+    """MATCH as written -> (the modes asked, the key of the pairs).
+
+    on    the observations both runs hold, compared pair by pair
+    off   each run with all its observations
+    no    each run with all its observations, and no statistical test
+    ""    the same as no
+
+    Several at once ("on off", "on off no") draw each of them; field names
+    ("lat lon date ...") mean on, with that key. None or True is on, False
+    is off: what a caller that never heard of the modes means.
+    """
+    if value is None or value is True:
+        return ["on"], MatchSpec(True, DEFAULT_KEY)
+    if value is False:
+        return ["off"], MatchSpec(False, ())
+    if isinstance(value, str):
+        tokens = value.replace(",", " ").replace("(", " ").replace(")", " ").split()
+    else:
+        tokens = [t for v in value
+                  for t in str(v).replace(",", " ").replace("(", " ").replace(")", " ").split()]
+    tokens = [t.strip().strip("'\"").lower() for t in tokens if t.strip().strip("'\"")]
+    if not tokens:
+        return ["no"], MatchSpec(False, ())
+    fields = [t for t in tokens if t not in MODES]
+    unknown = [t for t in fields if t not in FIELDS]
+    if unknown:
+        raise ValueError(f"MATCH: unknown word(s) {unknown}; allowed: on, off, no, "
+                         f"or the fields of the key ({', '.join(FIELDS)})")
+    modes = [m for m in MODES if m in tokens or (m == "on" and fields)]
+    if "on" not in modes:
+        return modes, MatchSpec(False, ())
+    key: List[str] = []
+    for t in fields:
+        if t not in key:
+            key.append(t)
+    return modes, MatchSpec(True, tuple(key) if key else DEFAULT_KEY)
+
+
 def key_aliases(spec: MatchSpec, with_rank: bool = True,
                 prefix: str = 'k_') -> List[str]:
     """Column names of the key in a side table: k_<field> (+ k_rank).

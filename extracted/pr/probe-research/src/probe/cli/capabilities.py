@@ -95,6 +95,42 @@ class Capability(StrEnum):
     """Knowledge-search and tracking guidance in the selected agent's global rules."""
 
 
+class McpState(StrEnum):
+    """Whether Probe's read-only MCP works in ONE coding agent, and if not, why.
+
+    One answer per agent for every surface (the wizard header, `probe doctor`),
+    resolved from that agent's registry row (`Capabilities.mcp_state`), so a new
+    harness gets it by declaring its `mcp` kind. About MCP only: whether the CLI
+    is signed in stays on its own Account row (the MCP connects with its own
+    read token)."""
+
+    ON = "on"
+    LOGIN_NEEDED = "login-needed"  # installed; the credential its provider uses is missing or rejected
+    DAEMON = "daemon"  # the daemon profile carries no MCP: the daemon reads for the agent
+    NOT_INSTALLED = "not-installed"  # tracking plugin absent (or pi's tracking switched off)
+    UNKNOWN = "unknown"  # an input that decides the answer could not be read
+    NOT_OFFERED = "not-offered"  # Probe offers no MCP for this agent (registry `mcp: null`)
+
+
+class McpCredential(StrEnum):
+    """What one agent's MCP credential check found (`MCP_RESOLVERS`)."""
+
+    PRESENT = "present"
+    MISSING = "missing"
+    REJECTED = "rejected"  # present, and the server refused it (`probe doctor`, the wizard)
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class McpCheck:
+    """One credential check: what it found, the command that fixes it, and,
+    for UNKNOWN, what could not be read."""
+
+    credential: McpCredential
+    fix: str = "probe wizard"
+    what: str = ""
+
+
 class TokenSource(StrEnum):
     """WHERE a capture credential resolves from.
 
@@ -178,6 +214,12 @@ class Capabilities:
     #: PROBE_MCP_TOKEN). Separate from `logged_in_as`: a token pasted into
     #: `probe wizard --action login --token` signs in with no MCP token.
     mcp_token_held: bool = False
+    #: This agent's registry `mcp` kind (`probe.harness.registry.MCP_*`), or
+    #: None where Probe offers no MCP. Set by `doctor.collect`.
+    mcp_kind: str | None = None
+    #: The credential check for that kind (`MCP_RESOLVERS`), or None when
+    #: nothing was checked (no MCP offered, or not collected).
+    mcp_check: McpCheck | None = None
 
     agent_rules_installed: bool = False
     agent_rules_stale: bool = False
@@ -226,6 +268,49 @@ class Capabilities:
             and self.capture_credential_valid is not False
             and not self.capture_killswitched
         )
+
+    @property
+    def mcp_state(self) -> McpState:
+        """THE per-agent MCP answer, precedence NOT_OFFERED > NOT_INSTALLED >
+        DAEMON > LOGIN_NEEDED > ON; UNKNOWN only where a deciding input could
+        not be read (never shown as "on")."""
+        if self.mcp_kind is None:
+            return McpState.NOT_OFFERED
+        if not self.tracking_plugin_installed:
+            # pi's answer is a settings read (verified=False by design, see
+            # `installed_plugins`); elsewhere an unanswered plugin list is unknown.
+            if not self.plugins_verified and not _settings_package(self.agent_source):
+                return McpState.UNKNOWN
+            return McpState.NOT_INSTALLED
+        if tracking_plugin_name(self.agent_source) == DAEMON_PLUGIN_NAME:
+            return McpState.DAEMON
+        check = self.mcp_check
+        if check is None or check.credential == McpCredential.UNKNOWN:
+            return McpState.UNKNOWN
+        if check.credential == McpCredential.PRESENT:
+            return McpState.ON
+        return McpState.LOGIN_NEEDED
+
+    def mcp_status(self) -> str:
+        """`mcp_state` in the words every surface prints."""
+        state = self.mcp_state
+        check = self.mcp_check
+        if state == McpState.ON:
+            return "on"
+        if state == McpState.LOGIN_NEEDED:
+            why = "token rejected; " if check is not None and check.credential == McpCredential.REJECTED else ""
+            return f"login needed: {why}run `{check.fix if check else 'probe wizard'}`"
+        if state == McpState.DAEMON:
+            return "off: the daemon reads for this agent"
+        if state == McpState.NOT_INSTALLED:
+            return "off: not installed"
+        if state == McpState.NOT_OFFERED:
+            return "not offered for this agent"
+        if check is not None and check.what:
+            return f"unknown: {check.what}"
+        if not self.tracking_plugin_installed:
+            return "unknown: the agent's plugin list could not be read"
+        return "unknown"
 
     @property
     def tracking_on(self) -> bool:
@@ -1058,8 +1143,16 @@ def installed_plugins(*, source: str | None = None) -> PluginState:
     """
     selected = source or agent_source()
     if selected == "pi":
-        names = frozenset({TAP_PLUGIN_NAME}) if pi_config.package_entry_installed() else frozenset()
-        return PluginState(names=names, verified=False)
+        # One package carries both halves. Capture rides on the entry; tracking
+        # too unless the entry switches it off (`probeTracking: false`). Read as
+        # pi resolves it, project over global, from the current folder.
+        merged = pi_config.merged_package_entry(cwd=Path.cwd())
+        if not merged.installed:
+            return PluginState(verified=False)
+        names = {TAP_PLUGIN_NAME}
+        if not merged.tracking_off:
+            names.add(tracking_plugin_name(selected))
+        return PluginState(names=frozenset(names), verified=False)
     result = plugin_cli.list_plugins(selected)
     if not result.reachable:
         return PluginState(verified=False)
@@ -1102,3 +1195,169 @@ def capture_device_id(source: str | None = None) -> str | None:
     except sqlite3.Error:
         return None
     return str(row[0]) if row and row[0] else None
+
+
+# --- MCP credential resolvers, one per registry `mcp` kind ------------------
+
+
+def cli_mcp_token() -> str | None:
+    """The read token an agent's MCP sends, resolved as Claude Code's
+    `bin/probe-mcp-headers` and pi's `src/core/mcpAuth.ts` resolve it:
+    `PROBE_MCP_TOKEN` first, then the config's `mcp_token`."""
+    env = (os.environ.get("PROBE_MCP_TOKEN") or "").strip()
+    if env:
+        return env
+    from probe.sdk.config import load_context
+
+    try:
+        return (load_context() or {}).get("mcp_token") or None
+    except Exception:  # noqa: BLE001 - an unreadable config holds no token we can name
+        return None
+
+
+def _token_check(_source: str, _codex_auth: bool | None) -> McpCheck:
+    if cli_mcp_token():
+        return McpCheck(McpCredential.PRESENT)
+    return McpCheck(McpCredential.MISSING)
+
+
+def _codex_check(_source: str, codex_auth: bool | None) -> McpCheck:
+    if codex_auth is None:
+        return McpCheck(McpCredential.UNKNOWN, what="`codex mcp list` did not answer")
+    if not codex_auth:
+        return McpCheck(McpCredential.MISSING)
+    # `codex mcp list` answers `bearer_token` for ANY header, a dead one too:
+    # a bearer this device has since replaced is a login needed, not "on".
+    from probe.cli.setup import codex_mcp_token_drifted
+
+    if codex_mcp_token_drifted():
+        return McpCheck(McpCredential.MISSING)
+    return McpCheck(McpCredential.PRESENT)
+
+
+def _pi_check(_source: str, _codex_auth: bool | None) -> McpCheck:
+    """pi has two providers: pi-mcp-adapter serves our manifest with ITS OWN
+    OAuth login when installed (our extension stands down); otherwise our
+    extension's bridge sends the CLI's read token."""
+    if pi_config.mcp_adapter_installed(cwd=Path.cwd()):
+        return McpCheck(McpCredential.UNKNOWN, what="served by pi-mcp-adapter, which keeps its own login")
+    if pi_config.merged_package_entry(cwd=Path.cwd()).extension_filtered_out:
+        # The bridge IS the extension: filtered out, nothing serves our MCP.
+        return McpCheck(
+            McpCredential.UNKNOWN,
+            what="pi's settings filter out Probe's extension (`extensions` on probe-research-pi)",
+        )
+    return _token_check(_source, _codex_auth)
+
+
+def _kimi_check(_source: str, _codex_auth: bool | None) -> McpCheck:
+    """Kimi Code sends the bearer the wizard wrote into its installed manifest
+    (`kimi_config.sync_mcp_bearer`); it has to be the token this device holds."""
+    from probe.cli import kimi_config
+    from probe.cli.setup import current_mcp_token
+
+    try:
+        sent = kimi_config.installed_mcp_bearer()
+    except kimi_config.ManifestUnreadable as exc:
+        return McpCheck(McpCredential.UNKNOWN, what=str(exc))
+    if not sent and not kimi_config.mcp_server_same_deployment():
+        return McpCheck(McpCredential.UNKNOWN,
+                        what="Kimi's plugin points at another Probe deployment than this device")
+    held = current_mcp_token()  # what the wizard writes (`kimi_config.sync_mcp_bearer`)
+    if sent and held and sent == held:
+        return McpCheck(McpCredential.PRESENT)
+    return McpCheck(McpCredential.MISSING)
+
+
+def _mcp_resolvers() -> dict:
+    from probe.harness import registry as reg
+
+    return {
+        reg.MCP_PLUGIN_FILE: _token_check,
+        reg.MCP_CONFIG_TOML: _codex_check,
+        reg.MCP_EXTENSION_BRIDGE: _pi_check,
+        reg.MCP_PLUGIN_MANIFEST: _kimi_check,
+    }
+
+
+#: One credential resolver per registry `mcp` kind (`test_mcp_state.py` fails
+#: when a kind has none).
+MCP_RESOLVERS = _mcp_resolvers()
+
+
+#: The API's verdict on this device's read token, for this process:
+#: (token, "ok" | "rejected" | "unreachable"), or None when nobody asked.
+#: Only `probe doctor` and the wizard ask (`refresh_mcp_token_verdict`), so a
+#: status read anywhere else never touches the network.
+_MCP_TOKEN_VERDICT: tuple[str, str] | None = None
+
+
+def refresh_mcp_token_verdict() -> str | None:
+    """Ask the API once whether the read token is still accepted (`/v1/me`, the
+    check `probe mcp status` makes). None when there is no token to ask about."""
+    global _MCP_TOKEN_VERDICT
+    token = cli_mcp_token()
+    if not token:
+        _MCP_TOKEN_VERDICT = None
+        return None
+    from probe.cli.main import _verify
+    from probe.sdk.config import resolve
+
+    try:
+        state, _identity = _verify(token, resolve().base_url)
+    except Exception:  # noqa: BLE001 - a failed check is "unknown", never "rejected"
+        state = "unreachable"
+    _MCP_TOKEN_VERDICT = (token, state)
+    return state
+
+
+def mcp_token_rejected() -> bool:
+    """The API refused the token this device holds now (asked this process)."""
+    token = cli_mcp_token()
+    return bool(token) and _MCP_TOKEN_VERDICT == (token, "rejected")
+
+
+def _sends_held_token(source: str, kind: str) -> bool:
+    """Whether this agent's MCP sends the device's held read token, so a
+    rejection of that token is ITS rejection. Codex may hold its own OAuth
+    login instead; only its synced bearer counts."""
+    from probe.harness import registry as reg
+
+    if kind != reg.MCP_CONFIG_TOML:
+        return True
+    try:
+        from probe.cli import codex_config
+
+        return codex_config.configured_bearer(CODEX_MCP_NAME) == cli_mcp_token()
+    except Exception:  # noqa: BLE001 - unreadable config: do not claim a rejection
+        return False
+
+
+def check_mcp(source: str, *, codex_auth: bool | None = None) -> tuple[str | None, McpCheck | None]:
+    """(registry mcp kind, credential check) for one agent. Never raises."""
+    from probe.harness import get_registry
+
+    try:
+        kind = get_registry().get(source).mcp
+    except Exception:  # noqa: BLE001 - an unknown source offers no MCP
+        return None, None
+    if kind is None:
+        return None, None
+    try:
+        check = MCP_RESOLVERS[kind](source, codex_auth)
+    except Exception as exc:  # noqa: BLE001 - a status must never crash the wizard
+        return kind, McpCheck(McpCredential.UNKNOWN, what=f"check failed ({type(exc).__name__})")
+    if check.credential == McpCredential.PRESENT and mcp_token_rejected() and _sends_held_token(source, kind):
+        return kind, McpCheck(McpCredential.REJECTED)
+    return kind, check
+
+
+def _settings_package(source: str | None) -> bool:
+    """The agent's Probe package is a settings entry (pi): one package for
+    tracking and capture, read from a settings file rather than a plugin CLI."""
+    from probe.harness import get_registry
+
+    try:
+        return get_registry().get(source or agent_source()).lean_profile == "settings-filter"
+    except Exception:  # noqa: BLE001 - an unknown agent is not one
+        return False

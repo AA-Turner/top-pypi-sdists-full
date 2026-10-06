@@ -13,7 +13,7 @@ import gc
 import os
 from collections.abc import Callable
 from copy import deepcopy
-from typing import Any, Generic, SupportsFloat
+from typing import Any, Generic, SupportsFloat, cast
 
 import numpy as np
 
@@ -114,8 +114,12 @@ class RenderCollection(
         )
         gym.Wrapper.__init__(self, env)
 
-        assert env.render_mode is not None
-        assert not env.render_mode.endswith("_list")
+        if env.render_mode is None:
+            raise ValueError("Expected env.render_mode to be not None")
+        if env.render_mode.endswith("_list"):
+            raise ValueError(
+                f"Expected env.render_mode to not end with '_list', got '{env.render_mode}'"
+            )
 
         self.frame_list: list[RenderFrame] = []
         self.pop_frames = pop_frames
@@ -267,14 +271,16 @@ class RecordVideo(
             step_trigger=step_trigger,
             video_length=video_length,
             name_prefix=name_prefix,
+            fps=fps,
             disable_logger=disable_logger,
+            gc_trigger=gc_trigger,
         )
         gym.Wrapper.__init__(self, env)
 
         if env.render_mode in {None, "human", "ansi"}:
             raise ValueError(
-                f"Render mode is {env.render_mode}, which is incompatible with RecordVideo.",
-                "Initialize your environment with a render_mode that returns an image, such as rgb_array.",
+                f"Render mode is {env.render_mode}, which is incompatible with RecordVideo. "
+                "Initialize your environment with a render_mode that returns an image, such as rgb_array."
             )
 
         if episode_trigger is None and step_trigger is None:
@@ -429,7 +435,11 @@ class RecordVideo(
 
     def __del__(self):
         """Warn the user in case last video wasn't saved."""
-        if len(self.recorded_frames) > 0:
+        # `__init__` can raise before `recorded_frames` is assigned, and `__del__`
+        # still runs on the half-built wrapper. Reading the attribute directly
+        # raised an AttributeError that Python reports as "Exception ignored in",
+        # on top of the error that actually stopped construction.
+        if getattr(self, "recorded_frames", None):
             logger.warn("Unable to save last video! Did you call close()?")
 
 
@@ -494,12 +504,14 @@ class HumanRendering(
         self.window = None  # Has to be initialized before asserts, as self.window is used in auto close
         self.clock = None
 
-        assert self.env.render_mode in self.ACCEPTED_RENDER_MODES, (
-            f"Expected env.render_mode to be one of {self.ACCEPTED_RENDER_MODES} but got '{env.render_mode}'"
-        )
-        assert "render_fps" in self.env.metadata, (
-            "The base environment must specify 'render_fps' to be used with the HumanRendering wrapper"
-        )
+        if self.env.render_mode not in self.ACCEPTED_RENDER_MODES:
+            raise ValueError(
+                f"Expected env.render_mode to be one of {self.ACCEPTED_RENDER_MODES} but got '{self.env.render_mode}'"
+            )
+        if "render_fps" not in self.env.metadata:
+            raise ValueError(
+                "The base environment must specify 'render_fps' to be used with the HumanRendering wrapper"
+            )
 
         if "human" not in self.metadata["render_modes"]:
             self.metadata = deepcopy(self.env.metadata)
@@ -558,7 +570,6 @@ class HumanRendering(
         )
 
         if self.window is None:
-            pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode(self.screen_size)
 
@@ -626,9 +637,9 @@ class AddWhiteNoise(
         self.probability_of_noise_per_pixel = probability_of_noise_per_pixel
         self.is_noise_grayscale = is_noise_grayscale
 
-    def render(self) -> RenderFrame:
+    def render(self) -> np.ndarray:
         """Compute the render frames as specified by render_mode attribute during initialization of the environment, then add white noise."""
-        render_out = super().render()
+        render_out = cast(np.ndarray, super().render())
 
         if self.is_noise_grayscale:
             noise = (
@@ -715,7 +726,7 @@ class ObstructView(
 
     def render(self) -> RenderFrame:
         """Compute the render frames as specified by render_mode attribute during initialization of the environment, then add white noise patches."""
-        render_out = super().render()
+        render_out = cast(np.ndarray, super().render())
 
         render_shape = render_out.shape
         n_pixels = render_shape[0] * render_shape[1]

@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from istari_digital_client.sdk._generated.v2.models.new_tracked_container import NewTrackedContainer
 from istari_digital_client.sdk._generated.v2.models.new_tracked_file import NewTrackedFile
 from istari_digital_client.sdk._generated.v2.models.new_tracked_system import NewTrackedSystem
 from typing import Optional, Set
@@ -31,7 +32,9 @@ class NewSystemConfiguration(BaseModel):
     name: StrictStr
     tracked_files: Optional[List[NewTrackedFile]] = None
     tracked_systems: Optional[List[NewTrackedSystem]] = None
-    __properties: ClassVar[List[str]] = ["name", "tracked_files", "tracked_systems"]
+    empty_folders: Optional[List[StrictStr]] = None
+    tracked_containers: Optional[List[NewTrackedContainer]] = None
+    __properties: ClassVar[List[str]] = ["name", "tracked_files", "tracked_systems", "empty_folders", "tracked_containers"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,6 +89,13 @@ class NewSystemConfiguration(BaseModel):
                 if _item_tracked_systems:
                     _items.append(_item_tracked_systems.to_dict())
             _dict['tracked_systems'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in tracked_containers (list)
+        _items = []
+        if self.tracked_containers:
+            for _item_tracked_containers in self.tracked_containers:
+                if _item_tracked_containers:
+                    _items.append(_item_tracked_containers.to_dict())
+            _dict['tracked_containers'] = _items
         return _dict
 
     @classmethod
@@ -100,6 +110,8 @@ class NewSystemConfiguration(BaseModel):
         _obj = cls.model_validate({
             "name": obj.get("name"),
             "tracked_files": [NewTrackedFile.from_dict(_item) for _item in obj["tracked_files"]] if obj.get("tracked_files") is not None else None,
-            "tracked_systems": [NewTrackedSystem.from_dict(_item) for _item in obj["tracked_systems"]] if obj.get("tracked_systems") is not None else None
+            "tracked_systems": [NewTrackedSystem.from_dict(_item) for _item in obj["tracked_systems"]] if obj.get("tracked_systems") is not None else None,
+            "empty_folders": obj.get("empty_folders"),
+            "tracked_containers": [NewTrackedContainer.from_dict(_item) for _item in obj["tracked_containers"]] if obj.get("tracked_containers") is not None else None
         })
         return _obj

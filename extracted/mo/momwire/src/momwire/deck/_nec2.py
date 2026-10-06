@@ -16,7 +16,7 @@ arclengths and ports and has never heard of a tag.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from types import MappingProxyType
 
 from ._cards import Card, DeckError, parse_card
@@ -70,16 +70,17 @@ _ARMING_CARDS = frozenset({"EX", "FR", "LD", "GN", "EK", "TL", "NT"})
 # reprints the LOADING / ENVIRONMENT / MATRIX TIMING preamble with no
 # FREQUENCY block and the impedance moves with the new half-space; an ``EK``
 # prints the same shape; an ``EX`` prints no preamble at all, because moving
-# the drive does not move the matrix.  ``LD`` is deliberately ABSENT from
-# this set and present in `_ARMING_CARDS`: an ``LD`` between two execute
-# cards makes the LOADING TABLE itself per group, which is a second change
-# with its own fixture, and the flag alone would announce a table that had
-# not moved.
+# the drive does not move the matrix.  ``LD`` prints the same shape as ``GN``
+# and ``EK`` (probes ``ld_after_xq`` / ``ld_cleared_between_runs``,
+# momwire#1069): the LOADING table it reprints is the one in force at that
+# execute card, which is why the loads are scoped per group
+# (`ExecuteGroup.loads`) and why the card joined this set only once they were.
 #
 # The test is the CARD, not the value it carries: NEC rebuilds because a
-# ground or kernel card arrived, so ``EK`` at the kernel already in force
-# refills exactly as a change does.
-_OPERATOR_CARDS = frozenset({"GN", "EK"})
+# ground, kernel or load card arrived, so ``EK`` at the kernel already in
+# force refills exactly as a change does, and so does ``LD -1`` on a deck
+# that carried no load.
+_OPERATOR_CARDS = frozenset({"GN", "EK", "LD"})
 
 # NX ends the deck; EN ends it and additionally ends the run.
 _TERMINATORS = frozenset({"NX", "EN"})
@@ -158,6 +159,14 @@ _NETWORK_TRANSPARENT = frozenset({"PT", "PQ", "MP"})
 # bare ground would be a wrong answer rather than a refusal.
 _RP_MODES = frozenset({0, 2, 3})
 
+# `NE`/`NH` over `GN 0` (spec `#ne--near-electric-field`). One sentence for
+# the parser and for the portal's runtime guard on the same cell.
+REFUSE_NEAR_FIELD_REFL_COEF = (
+    "{card} over the GN 0 reflection-coefficient ground is not supported by "
+    "this engine (a reflection coefficient is a far-field construction); "
+    "GN 2, the Sommerfeld ground, serves the near field"
+)
+
 
 def _directive(text: str, keyword: str) -> int | None:
     """``QQ n`` / ``FF n`` out of a comment body."""
@@ -214,6 +223,10 @@ class _PendingGroup:
     environment: Environment
     refilled: bool
     refilled_partial: bool
+    # Indices into the parser's load log of the loads in force at this
+    # execute card, and the wire materials in force there (momwire#1069).
+    loads: tuple[int, ...] = ()
+    materials: tuple = ()
 
 
 class _Nec2Parser:
@@ -271,12 +284,13 @@ class _Nec2Parser:
         self._extended_kernel = False
 
         # LD / IS (spec ``#ld--loading`` / ``#is--insulated-sheath``).
-        # `_loads` are the per-segment port loads (types 0, 1, 4); `_loaded`
-        # is their (model wire, element) dedup set, so a second load on one
-        # segment refuses rather than merges.  `LD -1` clears both, and also
-        # the LD-family conductivity state (type 5 is read under the LD
-        # mnemonic too) — but never `_wire_insulation`, which is IS's own
-        # card and a wire property, not a load (spec: "and *only* loads").
+        # `_load_log` / `_live` (below) are the per-segment port loads (types
+        # 0, 1, 4); `_loaded` is their (model wire, element) dedup set, so a
+        # second load on one segment refuses rather than merges.  `LD -1`
+        # clears `_live` and `_loaded`, and also the LD-family conductivity
+        # state (type 5 is read under the LD mnemonic too) — but never
+        # `_wire_insulation`, which is IS's own card and a wire property, not
+        # a load (spec: "and *only* loads").
         # TL / NT (spec ``#tl--transmission-line``, ``#nt--two-port-network``).
         # `_networks` is the deck's network cards with their endpoints already
         # resolved; `_network_destroyer` is the mnemonic of the first card of
@@ -285,7 +299,13 @@ class _Nec2Parser:
         self._networks: list[NetworkCard] = []
         self._network_destroyer: str | None = None
 
-        self._loads: list[tuple[int, float, LoadSpec]] = []
+        # `_load_log` is every distinct load the deck has put in force, in
+        # first-appearance order, and `_live` the indices of the ones in force
+        # NOW: each execute card snapshots `_live`, because an `LD` arms and
+        # its loads are the execute card's, not the deck's (momwire#1069).
+        # A load re-stated after an `LD -1` reuses its log entry.
+        self._load_log: list[tuple[int, float, LoadSpec]] = []
+        self._live: list[int] = []
         self._loaded: set[tuple[int, int]] = set()
         # What each loaded element carries, for the cell rule's restatement
         # test (momwire#471). `_loaded` answers "is this taken", which the
@@ -535,7 +555,7 @@ class _Nec2Parser:
             # Nullify every load read so far — and only loads: type 5's
             # conductivity is read under this same mnemonic, so it clears
             # too, but IS's insulation (a different card) never does.
-            self._loads = []
+            self._live = []
             self._loaded = set()
             self._load_spec_at = {}
             self._global_conductivity = None
@@ -591,7 +611,13 @@ class _Nec2Parser:
             self._loaded.add(key)
             self._load_spec_at[key] = spec
             _, arclength = self.structure.resolve_of(wire, seg)
-            self._loads.append((piece_index, arclength, spec))
+            entry = (piece_index, arclength, spec)
+            if entry in self._load_log:
+                index = self._load_log.index(entry)
+            else:
+                index = len(self._load_log)
+                self._load_log.append(entry)
+            self._live.append(index)
 
     def _ld23(self, ldtyp: int, tag: int, first: int, last: int, card: Card) -> None:
         """``LD 2`` / ``LD 3`` — a DISTRIBUTED series or parallel RLC per unit
@@ -610,53 +636,50 @@ class _Nec2Parser:
         :meth:`_cell_rule` so a GX/GR cell address widens the way every other
         LD card's does.
 
-        **The CAPACITANCE field refuses.**  Measured 2026-09-16 on nec2c and
-        on our licensed NEC-5 materials, on a 1 m wire at 30 MHz at 4, 8 and
-        16 segments: the resistance and inductance fields are genuinely per
-        unit length — a segment of length d gets R'd and jw L' d, and the
-        answer converges as the mesh refines — but the capacitance field is
-        scaled BY the segment length rather than divided by it.  ``LD 2``
-        with C' alone reproduces ``LD 0`` with a LUMPED C = C'*d on the same
-        range, to every printed digit on nec2c; so the card's contribution to
-        the wire's per-metre impedance is 1/(jw C' d^2), which is a property
-        of the DECK'S SEGMENTATION rather than of the wire.
+        **The CAPACITANCE field is folded with the segment length**
+        (momwire#1091).  Measured 2026-09-16 on nec2c and on our licensed
+        NEC-5 materials, on a 1 m wire at 30 MHz at 4, 8 and 16 segments: the
+        resistance and inductance fields are genuinely per unit length — a
+        segment of length d gets R'd and jw L'd, and the answer converges as
+        the mesh refines — but the capacitance field is scaled BY the segment
+        length rather than divided by it.  ``LD 2`` with C' alone reproduces
+        ``LD 0`` with a LUMPED C = C'*d on the same range, to every printed
+        digit on nec2c; so the card's contribution to the wire's per-metre
+        impedance is 1/(jw C' d^2), a property of the DECK'S SEGMENTATION
+        rather than of the wire, and it grows without bound as the deck is
+        re-segmented.  That is NEC's answer, so it is this dialect's:
+        :meth:`_material_for` folds the field into a per-metre series
+        capacitance C'*d^2 [F*m] with each wire's own d, which the seam's
+        ``DistributedRLC.c`` already takes.
 
-        That number cannot be folded into this seam honestly.  ``z_wire`` is
-        formulation-independent on purpose — four different testing schemes
-        integrate it, and only a point-matched one would reproduce NEC's
-        chain-of-lumped-capacitors from a per-metre value — so a capacitance
-        laundered through it would come out as a basis artifact rather than
-        as the deck's physics.  Refusing costs nothing observed: the two
-        ``LD 2`` cards antennaknobs emits (the jacket's equivalent-radius
-        pair, its issue #1523) write ``0.`` in this field, and no deck in
-        either repo's corpus carries a nonzero one.
+        Measured against nec2c 1.3.1 (2026-10-04, a 5 m dipole of 1 mm wire
+        at 30 MHz, 5/9/17/33 segments): with ``LD 2`` C' = 1e-9 the card
+        moves X by -13.8 / -44.8 / -153.7 / -495.9 ohm on nec2c, and the fold
+        lands within 0.07-0.22 ohm of nec2c's whole Z on the point-matched
+        sinusoidal basis and within 0.5-3.3 ohm (0.7 % of the card's own
+        effect at 33 segments) on bspline.  ``LD 3`` R' = 100, C' = 1e-11
+        lands within 0.21 ohm on sinusoidal and 1.8-5.4 ohm on bspline.  The
+        sinusoidal row is NEC-2's own basis and agrees to its bare-deck gap;
+        bspline's extra is its usual basis difference, larger here because a
+        capacitor per segment concentrates the load at the segment scale.
         """
         r, l, c = card.f(4), card.f(5), card.f(6)  # noqa: E741 — NEC's field name
-        if c != 0.0:
-            raise DeckError(
-                f"LD {ldtyp} asks for a capacitance of {c:g} in its per-unit-"
-                f"length RLC, which this engine does not serve: NEC scales that "
-                f"field BY the segment length rather than per unit length (an "
-                f"LD {ldtyp} with C alone reproduces a LUMPED C x segment-length "
-                f"on nec2c and on our licensed NEC-5 materials), so the wire's "
-                f"per-metre impedance would carry a 1/(jw C d^2) term that "
-                f"changes when the deck is re-segmented — the resistance and "
-                f"inductance fields ARE per unit length and are served "
-                f"(momwire#1088)"
+        if r < 0.0 or l < 0.0 or c < 0.0:
+            name = (
+                "resistance" if r < 0.0 else "inductance" if l < 0.0 else "capacitance"
             )
-        if r < 0.0 or l < 0.0:
             raise DeckError(
-                f"LD {ldtyp} asks for a negative per-unit-length "
-                f"{'resistance' if r < 0.0 else 'inductance'} "
-                f"({r:g}, {l:g}); a passive distributed loading is "
+                f"LD {ldtyp} asks for a negative per-unit-length {name} "
+                f"({r:g}, {l:g}, {c:g}); a passive distributed loading is "
                 f"non-negative and this engine refuses it at the card"
             )
-        if r == 0.0 and l == 0.0:
+        if r == 0.0 and l == 0.0 and c == 0.0:
             # The same no-op rule `_load_spec` applies to a zero-valued
             # lumped card: a deck byte-identical to omitting the card is
             # not refused for a range rule it never trips.
             return
-        spec = DistributedRLC("series" if ldtyp == 2 else "parallel", r=r, l=l)
+        # `c` is the card's RAW field here, folded per wire at model time.
+        spec = DistributedRLC("series" if ldtyp == 2 else "parallel", r=r, l=l, c=c)
         if tag == 0 and first == 0:
             self._global_distributed = spec
             return
@@ -902,24 +925,38 @@ class _Nec2Parser:
             range_m=card.f(8),
         )
 
-    def _near_field(self, card: Card) -> NearFieldRequest:
+    def _near_coordinates(self, card: Card) -> int:
+        """An ``NE``/``NH`` card's coordinate system, or the refusal.
+
+        Rectangular only in this dialect.  nec2c reads ``I1 = 1`` as a
+        spherical grid, but its table of the same card walks a different
+        point order from the one NEC-4.2 and NEC-5 print (checked on a
+        ``2, 4, 3`` grid, 2026-10-05) and no capture pins its layout, so the
+        nec2 door keeps refusing it.  The nec4 dialect overrides this
+        (momwire#1352).
+        """
         if card.i(0) != 0:
             raise DeckError(
                 f"{card.mnemonic} coordinate system {card.i(0)} (spherical) is "
                 f"not supported by this engine; rectangular (0) only"
             )
-        if isinstance(self._ground, tuple):
-            # A finite ground ("finite-fast" or "finite"): the near field of
-            # a lossy half-space is not an image, and a reflection
-            # coefficient is a far-field construction. PEC and free space
-            # are fine — PEC's near field IS an image.
-            raise DeckError(
-                f"{card.mnemonic} over a finite ground is not supported by "
-                f"this engine (the near field of a Sommerfeld half-space is "
-                f"not an image)"
-            )
+        return 0
+
+    def _near_field(self, card: Card) -> NearFieldRequest:
+        coordinates = self._near_coordinates(card)
+        if isinstance(self._ground, tuple) and self._ground[0] == "finite-fast":
+            # GN 0's reflection-coefficient model is a far-field construction
+            # and no near field has been measured against it (momwire#550's
+            # scope note). GN 2 is served since momwire#1336: the near field
+            # over the Sommerfeld ground is the NEC-5 seam's composition,
+            # direct + C2*image + remainder, through `momwire._near_readout`.
+            # The cells a finite-ground composition cannot answer (a point in
+            # the soil, a point on a ground contact, a buried deck) need the
+            # geometry and refuse at the portal.
+            raise DeckError(REFUSE_NEAR_FIELD_REFL_COEF.format(card=card.mnemonic))
         return NearFieldRequest(
             magnetic=card.mnemonic == "NH",
+            coordinates=coordinates,
             counts=(max(card.i(1), 1), max(card.i(2), 1), max(card.i(3), 1)),
             origin=(card.f(4), card.f(5), card.f(6)),
             step=(card.f(7), card.f(8), card.f(9)),
@@ -1018,6 +1055,8 @@ class _Nec2Parser:
                 ),
                 refilled=refilled,
                 refilled_partial=self._operator_dirty and not refilled,
+                loads=tuple(self._live),
+                materials=self._material_state(),
             )
         )
         self._executed += 1
@@ -1119,10 +1158,32 @@ class _Nec2Parser:
 
     # -- the model ---------------------------------------------------------
 
-    def _material_for(self, wire: int) -> WireMaterial | None:
-        conductivity = self._wire_conductivity.get(wire, self._global_conductivity)
+    def _material_state(self) -> tuple:
+        """The ``LD 5`` / ``LD 2`` / ``LD 3`` wire materials in force now —
+        compared across execute cards, so dicts are frozen into sorted
+        tuples.  ``IS`` is absent: it refuses after an execute card."""
+        return (
+            self._global_conductivity,
+            tuple(sorted(self._wire_conductivity.items())),
+            self._global_distributed,
+            tuple(sorted(self._wire_distributed.items())),
+        )
+
+    def _material_for(self, wire: int, state: tuple) -> WireMaterial | None:
+        global_conductivity, wire_conductivity, global_distributed, wire_distributed = (
+            state
+        )
+        conductivity = dict(wire_conductivity).get(wire, global_conductivity)
         insulation = self._wire_insulation.get(wire)
-        distributed = self._wire_distributed.get(wire, self._global_distributed)
+        distributed = dict(wire_distributed).get(wire, global_distributed)
+        if distributed is not None and distributed.c:
+            # The card's capacitance field, folded with THIS wire's segment
+            # length (momwire#1091, `_ld23`): C'·d² farad-metres is the
+            # per-metre series capacitance whose integral over one segment
+            # is NEC's lumped C'·d.
+            piece = self.structure.wires[wire]
+            d = piece.length / piece.n_seg
+            distributed = replace(distributed, c=distributed.c * d * d)
         if conductivity is None and insulation is None and distributed is None:
             return None
         if insulation is not None:
@@ -1135,8 +1196,44 @@ class _Nec2Parser:
             )
         return WireMaterial(conductivity=conductivity, distributed_rlc=distributed)
 
+    def _loads_and_materials(
+        self,
+    ) -> tuple[tuple[tuple[int, float, LoadSpec], ...], dict[int, int], tuple]:
+        """The model's load union, each log index's place in it, and the wire
+        materials every group solves with (momwire#1069).
+
+        The union is the loads in force at SOME execute card, in log order,
+        so a load cleared by ``LD -1`` before any card ran it never cuts a
+        gap.  A deck with no execute card keeps what is in force at its end.
+
+        The materials enter the FILL rather than the port algebra, and the
+        fill is one per operating point, not per group.  So a deck whose
+        ``LD 5`` / ``LD 2`` / ``LD 3`` state differs between two of its
+        execute cards refuses rather than answer one group with the other's
+        metal.  A material card after the last execute card reaches no run,
+        exactly as in NEC, so the groups' common state is used, not the
+        deck's final one.
+        """
+        ran = [pending for pending in self.groups if pending is not None]
+        if not ran:
+            used = sorted(set(self._live))
+            states = [self._material_state()]
+        else:
+            used = sorted({index for pending in ran for index in pending.loads})
+            states = [pending.materials for pending in ran]
+        if any(state != states[0] for state in states[1:]):
+            raise DeckError(
+                "LD 2 / LD 3 / LD 5 wire loading that changes between execute "
+                "cards is not supported by this engine (momwire#1069): a "
+                "material enters the matrix fill, which is shared by every "
+                "group at one frequency — run each loading as its own deck"
+            )
+        place = {index: k for k, index in enumerate(used)}
+        loads = tuple(self._load_log[index] for index in used)
+        return loads, place, states[0]
+
     def _feeds_and_groups(
-        self, structure: Nec2Structure
+        self, structure: Nec2Structure, place: dict[int, int] | None = None
     ) -> tuple[tuple[tuple[int, float, complex], ...], tuple[ExecuteGroup | None, ...]]:
         """The union feed set and the final :class:`ExecuteGroup` tuple.
 
@@ -1186,6 +1283,9 @@ class _Nec2Parser:
                     refilled=pending.refilled,
                     refilled_partial=pending.refilled_partial,
                     environment=pending.environment,
+                    loads=None
+                    if place is None
+                    else tuple(sorted(place[index] for index in pending.loads)),
                 )
             )
         return feeds, tuple(groups)
@@ -1194,16 +1294,17 @@ class _Nec2Parser:
         if not self._saw_ex:
             raise DeckError("deck has no EX card — nothing drives the structure")
         structure = self.structure
+        loads, place, materials = self._loads_and_materials()
         wires = tuple(
             DeckWire(
                 vertices=(piece.p1, piece.p2),
                 radius=structure.wires[piece.wire].radius,
                 edge_elements=(piece.n_seg,),
-                material=self._material_for(piece.wire),
+                material=self._material_for(piece.wire, materials),
             )
             for piece in structure.pieces
         )
-        feeds, groups = self._feeds_and_groups(structure)
+        feeds, groups = self._feeds_and_groups(structure, place)
         # momwire#489: GE's SIGN, at the one combination where ignoring it
         # would serve a silently different answer than the oracle.  A negative
         # GE declares the plane while asking for NO ground-contact current
@@ -1247,7 +1348,7 @@ class _Nec2Parser:
         return DeckModel(
             wires=wires,
             feeds=feeds,
-            loads=tuple(self._loads),
+            loads=loads,
             ground=self._ground,
             ground_z=0.0,
             second_medium=self._second_medium,

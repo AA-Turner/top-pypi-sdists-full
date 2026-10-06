@@ -8,8 +8,8 @@ are separate identities, so a pending attach cannot pretend to have succeeded.
 from __future__ import annotations
 
 import time
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Self, cast
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Self, cast
 
 from rich.segment import Segment
 from rich.style import Style
@@ -76,8 +76,26 @@ _ROW_PREFIX_CELLS = 4 + PIN_CELL_WIDTH
 #: and the one cell `_advance_spinner` patches in place on its fast path.
 _ROW_MARK_COLUMN = 2 + PIN_CELL_WIDTH
 
-#: The locality mark's column. A peer section's heading is indented to it so
-#: the heading's `⇄` stacks with the rows it governs (see `_peer_heading_text`).
+#: The locality marks: the glyphs a REMOTE row paints in the slot the caret run
+#: reserved, after the pin cell and the caret — one cell, in every state.
+#:
+#: WHY `↗` AND NOT `⇄` (design round 1, D5; operator convergence 2026-10-05):
+#: `⇄` reads as exchange/sync — two-way transfer between equals — while the fact
+#: is "this session runs ELSEWHERE", a direction, not a swap. `↗` is the
+#: external/opened-elsewhere convention, crisp at one cell, and present in more
+#: monospace fonts than `⇄` (SF Mono carries it; `⇄` it does not); it also keeps
+#: clear of the state column beside it, whose delegating mark `⇉` an `⇢` would
+#: visually collide with. `↛` — the rightwards arrow WITH STROKE, "does not get
+#: there" — is the UNREACHABLE state (design round 1, D2): Textual tooltips are
+#: mouse-only, so a dead remote may not be decodable only by hover; the stroke
+#: in the same cell, same ink, says it AT REST with no layout shift between the
+#: two states. The pair carries the same meaning on the desktop sibling, in its
+#: own glyph register (the sibling names no glyph of its own).
+REMOTE_MARK = "↗"
+UNREACHABLE_REMOTE_MARK = "↛"
+
+#: The locality mark's column — where a remote row paints `REMOTE_MARK` (or its
+#: `UNREACHABLE_REMOTE_MARK` variant), after the pin cell and the caret.
 _LOCALITY_COLUMN = PIN_CELL_WIDTH + 1
 
 #: The widest the list may grow on a roomy terminal, in the same units as
@@ -275,48 +293,19 @@ def _strip_dangling_separator(title: str) -> str:
     return title
 
 
-#: Section RANK to the name a TIER header row carries. One mapping so
+#: Section RANK to the name a section header carries. One mapping so
 #: `_display_rows` and `render` can never disagree about which sections exist.
 #:
-#: The PEER sections are absent from this table on purpose: their rank is shared
-#: and their heading is per-device, so `_section_key` builds both and `render`
-#: reads the heading back out of the row kind. Everything else here is unchanged,
-#: which is what keeps a device with no peers painting byte-identically.
+#: Remote rows are absent from this table as a CATEGORY on purpose, in the
+#: sense that matters: they have no rank of their own and no key of their own.
+#: They file through `_unpinned_rank`'s ordinary rule like every local row, so
+#: a device with no peers paints byte-identically and a device with peers paints
+#: one list — see `_unpinned_rank` for the SHARED CONVENTION and its sentence.
+#:
+#: ``subagent`` keeps rank 4 rather than closing the gap the retired peer axis
+#: (rank 3) left: the rank is this widget's own sort key, and renumbering it
+#: would churn every test and comment for a hole nothing reads.
 _SECTION_NAMES = {0: "pinned", 1: "active", 2: "previous", 4: "subagent"}
-
-#: The rank a PEER's rows take: after `previous`, before `subagent`. Another
-#: device's sessions are colder than anything you are doing here and warmer than
-#: an expired agent run (``mesh-ui.md`` §1.3 decision 1). This is why
-#: ``subagent`` moved from 3 to 4: the ranks are an ORDER, and inserting a tier
-#: between two of them means renumbering the one below rather than sharing a
-#: number with it — two tiers on one rank would sort through each other.
-_SECTION_PEER_RANK = 3
-
-
-def _peer_heading_text(label: str, reachable: bool) -> str:
-    """The ONE spelling of a peer section's heading, for both of its sources.
-
-    Split out because the heading is now DERIVED from two different things: a
-    peer's rows (which carry the device's label and its reachability) and a
-    peer that answered NOTHING (``SessionSidebar._silent_peer_tiers``, which
-    carries the relay's own report). A second ``f" ⇄ …"`` beside this one is how
-    the two would drift into two vocabularies for one state — and the reader has
-    to be able to tell a live section from a silent one by that suffix alone.
-
-    The indent aligns the heading's `⇄` with the rows' locality cell
-    (`_LOCALITY_COLUMN`), the same property the round-1 fix installed when the
-    mark was one cell in: the heading has no caret and no pin, and a heading
-    whose glyph starts at a different x from the cells it governs reads as a
-    separate column rather than a label for the block under it.
-    """
-    return f"{' ' * _LOCALITY_COLUMN}⇄ {label}" + ("" if reachable else " (unreachable)")
-
-
-#: Prefix a peer section's heading carries in its row kind, so `render` can tell
-#: a device's heading from the four tier names WITHOUT the heading having to be a
-#: key in a table (`header:peer:⇄ damian-mbp`). The label itself is derived once,
-#: by `_section_key`, and read back here.
-_PEER_HEADER_PREFIX = "peer:"
 
 
 class SessionSidebar(Widget, can_focus=True):
@@ -416,7 +405,10 @@ class SessionSidebar(Widget, can_focus=True):
         self._press_chip_hit = self._chip_hit(
             position.x - self.region.x, position.y - self.region.y
         )
-        if self._press_chip_hit:
+        self._press_asks_hit = self._asks_hit(
+            position.x - self.region.x, position.y - self.region.y
+        )
+        if self._press_chip_hit or self._press_asks_hit:
             return False
         return super().focus_on_click() and not focus_is_claimed(self.app)
 
@@ -467,7 +459,54 @@ class SessionSidebar(Widget, can_focus=True):
         # this, so nothing it displaces becomes stale — and the footer ladder
         # reranks it as the primary pin route (`f10` stays as compatibility).
         Binding("ctrl+k", "toggle_pin", show=False),
+        # `ctrl+f` — THE FLEET DOOR'S KEYBOARD ROUTE (review round 2, U2), the
+        # fourth chord of the same sidebar-scoped family as the three above and
+        # safe HERE for their measured reason: in F9 mode the sidebar owns the
+        # focus chain and the composer is not in it. Before this the fleet scope
+        # had exactly ONE way in — open the sidebar with f9, then press a
+        # footnote with the mouse — which made a mouse a requirement for a
+        # keyboard-driven TUI, and left the picker's own `asks: N` (the only
+        # fleet surface a user sees under the default `tui.sidebar_visible =
+        # False`) a statement with no door.
+        #
+        # THE SHADOW, stated because it is real and bounded: at APP level
+        # `ctrl+f` is `fork_aside`, and a widget-level binding only outranks it
+        # while this list holds focus. So outside F9 mode the key still forks an
+        # aside as it always did — and with no aside open that action is already
+        # a stated refusal, not a silent no-op, which is why the shadow costs
+        # nothing: from the default state the footer teaches `f9 focus` first,
+        # and `f9` → `ctrl+f` is a complete keyboard route to the fleet queue.
+        #
+        # AND WITH AN ASIDE OPEN IT COSTS THE ADVERTISED FOLD (review round 2,
+        # F15): the aside's own copy says `ctrl+f` folds it, so with the sidebar
+        # focused that route was unreachable until the user left the sidebar.
+        # `check_action` below declines the action in exactly that state, which
+        # is Textual's own fall-through — a declined binding is skipped and the
+        # app's `fork_aside` runs, i.e. the behaviour the aside advertises.
+        Binding("ctrl+f", "fleet_asks", show=False),
     ]
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Decline the fleet door while an aside is open, so `ctrl+f` folds it.
+
+        The ONE state where this widget's shadow of the app's `fork_aside`
+        binding changes an existing gesture's meaning rather than overriding a
+        refusal (review round 2, F15). ``None`` is Textual's own answer for
+        "disabled and visible" (`DOMNode.check_action`'s docstring, 8.2.8), and
+        the DISPATCH consequence is what this relies on: `App.run_action` treats
+        a falsy answer as not-handled and `_check_bindings` moves on to the next
+        candidate for that key — the app's `fork_aside` — which is what the
+        aside's own copy promises. (The binding here is ``show=False``, so
+        "visible" costs nothing.) Narrow on purpose: every other action this
+        widget declares stays enabled, and the check reads the panel through the
+        app rather than caching a flag that could go stale against it.
+        """
+        if action == "fleet_asks":
+            panel_reader = getattr(self.app, "_aside_panel", None)
+            panel = panel_reader() if callable(panel_reader) else None
+            if panel is not None and getattr(panel, "is_open", False):
+                return None
+        return True
 
     class Selected(Message):
         def __init__(self, session_id: str) -> None:
@@ -501,6 +540,15 @@ class SessionSidebar(Widget, can_focus=True):
         def __init__(self, session_id: str) -> None:
             super().__init__()
             self.session_id = session_id
+
+    class FleetAsksRequested(Message):
+        """A press on the footer's fleet-ask note: open the FLEET ask list.
+
+        The door the memo put on a "sidebar header" this widget does not have
+        (amendment A2). It carries nothing: which sessions hold outstanding asks
+        is the app's to read from the index, and the widget keeps no warehouse
+        of queues — it paints a total and a mark, both of the app's supplying.
+        """
 
     def __init__(self) -> None:
         super().__init__(id="session-sidebar")
@@ -549,6 +597,11 @@ class SessionSidebar(Widget, can_focus=True):
         #: `_pressed_chip`. The asymmetry is recorded so the next reader does
         #: not have to rebuild that analysis.
         self._press_chip_hit = False
+        #: The same press-time stash for the footer's FLEET ASK note (A2's
+        #: door). Kept apart from the chip's so the two gestures cannot swap
+        #: places when the ladder changes length under a press.
+        self._press_asks_hit = False
+        self._pressed_asks = False
         self._deferred: tuple[CatalogEntry, ...] | None = None
         #: Row under the pointer, by identity rather than by row index: a
         #: catalog refresh reorders rows beneath a stationary pointer, and a
@@ -566,12 +619,6 @@ class SessionSidebar(Widget, can_focus=True):
         #: never touch `rank_entries`, which is the partition the mobile relay
         #: shares.
         self._pins: tuple[str, ...] = ()
-        #: Peers that did NOT answer the last listing read, as ``(name, reason)``.
-        #: Handed in by the app's poll from the relay's own answer
-        #: (`peer_rows.unanswered_peers`), and painted as a HEADING-ONLY section —
-        #: see `_silent_peer_rows` for why one line with no rows under it is the
-        #: honest shape rather than a bug in the section machinery.
-        self._silent_peers: tuple[tuple[str, str], ...] = ()
         #: Startup default from `tui.sidebar_show_subagents`; flipped by
         #: `ctrl+a` for THIS session only, never written back to config.
         self.show_subagents: bool = False
@@ -583,7 +630,13 @@ class SessionSidebar(Widget, can_focus=True):
         #: the user can answer, so its row must keep its mark. See
         #: :meth:`set_asking` for why the count is
         #: live-only rather than read out of the catalogue.
-        self._asking: tuple[str, int] = ("", 0)
+        self._asking: dict[str, int] = {}
+        #: The FLEET ask total — the SUM of every session's outstanding asks
+        #: (amendment A4), painted on the footer only while it is > 0. It is not
+        #: a second affordance beside `_asking`: it is what the marks add up to,
+        #: and it is the one place a reader with no marked row on screen can see
+        #: that questions are outstanding somewhere.
+        self._asks_total: int = 0
         #: Hidden-population size for the footer chip, from `subagent_population`.
         self._subagent_total: int = 0
         #: Whether the pointer rests on that chip. The chip is a CONTROL (issue
@@ -593,6 +646,10 @@ class SessionSidebar(Widget, can_focus=True):
         #: painted as a STYLE on the chip's cells — never new text — so the
         #: count keeps its place in the ladder.
         self._chip_hover: bool = False
+        #: The ask note's own hover affordance, on the same press-event-repaint
+        #: discipline as the chip's (round 2: U11). Separate state because the
+        #: two are different controls a few cells apart.
+        self._asks_hover: bool = False
         #: The pointer's last position, kept so `set_entries` can re-derive
         #: `_chip_hover` under a RESTING pointer: the ladder can move the
         #: chip's cells when the count, the paging facts or focus change.
@@ -703,11 +760,6 @@ class SessionSidebar(Widget, can_focus=True):
         if not window:
             return 0
         tiers = {self._section_key(entry) for entry in window}
-        # The row-less peer sections are ALWAYS painted, whatever the window is
-        # (design round 4, D27), so they are charged unconditionally — a heading
-        # the page size did not reserve is an overrun, which is the one thing
-        # this accounting exists to prevent.
-        tiers |= self._silent_peer_tiers()
         chrome = len(tiers) * 2 + (len(tiers) - 1)
         # The `+N more pinned` note is chrome too, and the charge must follow
         # the PAINT: `_display_rows` emits the note whenever a pinned row is not
@@ -740,15 +792,8 @@ class SessionSidebar(Widget, can_focus=True):
         """
         if not self.entries:
             return 0
-        # The SECTION KEY, not the rank: every peer is its own section with its
-        # own heading, so counting distinct ranks would charge one heading for
-        # two peers and the frame would overrun its height by a line — the same
-        # fault this accounting exists to prevent.
+        # The SECTION KEY: one heading per distinct section actually painted.
         tiers = {self._section_key(entry) for entry in self.entries}
-        # The silent peers are sections too (design round 4, D27) and cost the
-        # same chrome, so they are charged here as well — `_chrome_for` asks the
-        # same question of a window and must get the same shape of answer.
-        tiers |= self._silent_peer_tiers()
         # Per section: its heading, the blank beneath it, and a blank above
         # every heading after the first. The leading blank is load-bearing:
         # without it a heading sits flush against the previous group's last
@@ -813,13 +858,31 @@ class SessionSidebar(Widget, can_focus=True):
         Ink is the BAR's, not the gate's (``accent``, not ``warning``), so the
         two marks cannot be read as one state in two colours; see
         ``widgets/ask_queue`` for the glyph's own provenance.
+
+        EVERY session with a pending ask is marked, not only the current one
+        (amendments A3/A5): the count for each comes from the index tally, and
+        the app unions the current session's live wire count in. One glyph cell
+        per row is what makes doubling structurally impossible — the painter
+        picks exactly one mark.
         """
-        session_id, count = self._asking
-        if not count or not session_id or entry.id != session_id:
+        count = self._asking.get(entry.id, 0)
+        if not count:
             return None
         if entry.row.pending:
             return None
-        return ASK_MARKER, "accent"
+        # `chip-live`, NOT `accent` (review round 2, D12). The round-1 remedy
+        # moved the panel's marker to the derived family for one reason: on the
+        # LIGHT ramp the raw hue does not clear the ground it is painted on. The
+        # SIDEBAR's marker has the same defect and one extra ground — a focused
+        # cursor row paints `tint-select-hi`, which is in neither `accent`'s
+        # derivation (bg/surface) nor the derived family's (overlay/tint-select).
+        # MEASURED across the 54 ramps: raw `accent` on that ground is 3.96:1 on
+        # the light ramp, under the repo's own 4.0 state-hue floor, 14 ramps are
+        # under it and 2 under the 3:1 non-text floor (duskfox 2.78,
+        # kanagawa-lotus 2.91) — where a meaning-carrying glyph stops being
+        # reliably there. The derived ink clears ALL FOUR grounds on every ramp
+        # (`test_the_ask_marker_reads_on_every_sidebar_ground` is the pin).
+        return ASK_MARKER, "chip-live"
 
     def _special_mark(self, entry: CatalogEntry) -> tuple[str, str] | None:
         """``(glyph, ink)`` for a row whose mark is NOT its live state, else None.
@@ -850,7 +913,7 @@ class SessionSidebar(Widget, can_focus=True):
         return None
 
     def _section_of(self, entry: CatalogEntry) -> int:
-        """0 pinned, 1 active, 2 previous, 3 peer, 4 subagent.
+        """0 pinned, 1 active, 2 previous, 4 subagent.
 
         A THREE-way key over ``active``, not a widening of it:
         ``CatalogEntry.active`` is ``pending or unseen or live_state``, and the
@@ -860,9 +923,6 @@ class SessionSidebar(Widget, can_focus=True):
 
         Pinned outranks subagent, which is what makes a pinned subagent row
         appear in ``★ Pinned`` even while the layer is off.
-
-        A REMOTE row takes the peer rank here but its SECTION is per device —
-        see :meth:`_section_key`, which is what the sort and the paint both use.
 
         This is the PAINT the pin lifts into: :meth:`_unpinned_rank` is the rank
         without it, and the scroll axis uses that one (see `_axis_key`).
@@ -874,6 +934,19 @@ class SessionSidebar(Widget, can_focus=True):
     def _unpinned_rank(self, entry: CatalogEntry) -> int:
         """Where the row files when nothing is pinned — the SCROLL AXIS' rank.
 
+        SHARED CONVENTION (the sidebar-UI sibling ``feat/sidebar-remote-rows``
+        names the same sentence): remote rows are first-class: they file into
+        the same bins as local rows under the same ordering rule, carry a
+        per-row indicator, and their hover reads the owning device and its
+        network; there is no separate remote section.
+
+        Every row that is not a subagent files by ``CatalogEntry.active`` —
+        pending, unseen or live is ACTIVE, everything else is PREVIOUS — whether
+        the runtime behind it is on this machine or another one. A per-device
+        axis existed (``mesh-ui.md`` §1.3 decision 1 drew it); the operator's
+        convergence report retired it: a device's sessions, split by their OWN
+        state beside this device's, is the one list.
+
         Split out of `_section_of` so the two orders that read it cannot drift:
         the axis (`_axis_key`, and through it `_presentation_order`) places a
         row by the section it belongs to with NO pin, and the paint
@@ -884,55 +957,28 @@ class SessionSidebar(Widget, can_focus=True):
         """
         if entry.subagent:
             return 4
-        if entry.row.is_remote and entry.row.owner_device:
-            return _SECTION_PEER_RANK
         return 1 if entry.active else 2
 
-    @staticmethod
-    def _peer_heading(row: Any) -> str:
-        """The heading a peer's section carries: `` ⇄ <label>``, plus its state.
-
-        The label is the peer's NAME — a 32-hex device id is not something a user
-        recognises their own laptop by — and the suffix is the design's two-word
-        case (``mesh-ui.md`` §1.3): ``(unreachable)`` when the owning device did
-        not answer the read that stamped these rows. Nothing claims staleness of
-        the ROWS here; that is ``placement_stale``'s business and the tooltip's,
-        because a heading that stacked both would be a sentence, not a label.
-
-        THE LEADING INDENT IS THE LOCALITY COLUMN (design round 2, D18, moved
-        by issue #1357 slice 2a). Rows paint the locality glyph in
-        `_LOCALITY_COLUMN` (after the pin cell and the caret), and this heading
-        used to paint it at the start of the line — so the one glyph that says
-        "everything under this line is another device" started at a different x
-        from every mark it governed and the column did not stack. A heading has
-        no pin and no caret, so those columns are empty on it by definition, and
-        indenting it costs no row its width: the tier headings above
-        (``★ Pinned``, ``Active Sessions``) keep the star column and stay put.
-        """
-        return _peer_heading_text(row.owner_label or UNNAMED_DEVICE, bool(row.reachable))
-
     def _section_key(self, entry: CatalogEntry) -> tuple[int, str]:
-        """``(rank, section heading)`` — the ONE key the PAINT's sort uses.
+        """``(rank, section name)`` — the ONE key the PAINT's sort uses.
 
-        The heading is the section's IDENTITY here, not a label looked up later:
-        a peer's rows form their own contiguous section per DEVICE, so two peers
-        are two sections rather than one rank sorted through each other. That is
-        why the pair (and not :meth:`_section_of`) is what `_display_rows` and
-        `render` both call — the two cannot disagree about a heading they each
-        derive from one function.
+        The name is the section's IDENTITY here, not a label looked up later:
+        one rank is one section, and the pair is what `_display_rows` and
+        `render` both call, so the two cannot disagree about which sections
+        exist.
 
         :meth:`_axis_key` is its pin-blind sibling — the key the WINDOW slides
-        over (`_presentation_order`). Both read the heading through
-        :meth:`_peer_heading`, so the axis and the paint cannot disagree about
-        which rows are one peer's section either.
+        over (`_presentation_order`) — and both derive the name from
+        `_SECTION_NAMES`, so the axis and the paint cannot disagree about the
+        section a row belongs to. (The mesh's per-device peer sections made
+        this key ``(rank, "peer:<device>")``; a remote row now takes the
+        ordinary rank — see `_unpinned_rank`.)
         """
         rank = self._section_of(entry)
-        if rank == _SECTION_PEER_RANK:
-            return rank, _PEER_HEADER_PREFIX + self._peer_heading(entry.row)
         return rank, _SECTION_NAMES[rank]
 
     def _axis_key(self, entry: CatalogEntry) -> tuple[int, str]:
-        """`(rank, section heading)` for the SCROLL AXIS — the pin is not a section.
+        """`(rank, section name)` for the SCROLL AXIS — the pin is not a section.
 
         See `_unpinned_rank` for why the axis is pin-blind: a pinned row that
         jumped to the head of the axis would be LIFTED INTO VIEW, and the
@@ -940,31 +986,27 @@ class SessionSidebar(Widget, can_focus=True):
         (`_pinned_overflow`).
         """
         rank = self._unpinned_rank(entry)
-        if rank == _SECTION_PEER_RANK:
-            return rank, _PEER_HEADER_PREFIX + self._peer_heading(entry.row)
         return rank, _SECTION_NAMES[rank]
 
     def _presentation_order(self, ranked: Sequence[CatalogEntry]) -> tuple[CatalogEntry, ...]:
         """The order the list presents — and therefore the order it SCROLLS.
 
         `rank_entries` has decided the ranking; this only regroups it so each
-        section is one block in the order the frame paints them (active,
-        previous, one block per peer device, subagents — the placement
-        ``mesh-ui.md`` decision 1 specifies: "a peer's rows form one contiguous
-        section each, placed after `previous` and before `subagent`"). Within a
-        section the ranking's own order survives: the sort is stable.
+        section is one block in the order the frame paints them (pinned, active,
+        previous, subagents — ONE RANK, ONE SECTION, for every row whether it is
+        local or remote; see `_unpinned_rank` for the SHARED CONVENTION). Within
+        a section the ranking's own order survives: the sort is stable.
 
         WHY THE WINDOW SLIDES OVER THIS ORDER (operator report, 2026-09-29:
         remote sessions "disappear when scrolling down ... among previous
-        sessions"). The window used to slide over the RANK order — where a
-        peer's rows sit interleaved with `previous` by birth — while the frame
-        painted them regrouped into their own per-device sections. The two
-        orders disagreed, so the frame's edges and the window's edges disagreed:
-        a remote row left the window while it was drawn in the MIDDLE of the
-        frame (the rows below it stayed put), and rows near it slid DOWN while
-        the user scrolled down. With one order, a window's edges are the frame's
-        edges: rows leave and enter at the top and bottom of the list, in the
-        order they are shown.
+        sessions"). The window and the frame must agree about the order — the
+        report's frame used to slide over the RANK order while the paint
+        REGROUPED (the mesh's per-device peer sections), so a remote row left
+        the window while it was drawn in the MIDDLE of the frame (the rows
+        below it stayed put), and rows near it slid DOWN while the user
+        scrolled down. With one order, a window's edges are the frame's edges:
+        rows leave and enter at the top and bottom of the list, in the order
+        they are shown.
         """
         return tuple(sorted(ranked, key=self._axis_key))
 
@@ -1021,21 +1063,13 @@ class SessionSidebar(Widget, can_focus=True):
         # paints under `★ Pinned` at the top. A pinned row the window does NOT
         # carry is not visible until the page reaches its slot — the pin never
         # reaches the axis — which is what the `+N more pinned` note is for.
-        #
-        # A SECTION WITHOUT ROWS IS STILL A SECTION (design round 4, D27). The
-        # silent peers are put through the SAME key as the live ones inside this
-        # one pass, so a peer's place in the list is a property of its NAME and
-        # not of whether it answered: built at the end of the list instead, its
-        # section sat below `⌥ Subagent Runs` while it was unreachable and JUMPED
-        # above it the moment it recovered — the peer axis' rank (mesh-ui.md
-        # decision 1: after `previous`, before `subagent`) is not conditional on
-        # liveness. They also interleave with the live peer sections by heading,
-        # so two devices do not re-order themselves when one of them comes back.
         sections: dict[tuple[int, str], list[CatalogEntry]] = {}
         for entry in sorted(self.visible_entries, key=self._section_key):
             sections.setdefault(self._section_key(entry), []).append(entry)
-        for key in self._silent_peer_tiers():
-            sections.setdefault(key, [])
+        # Sections are built FROM rows, so a section with no rows contributes
+        # no header — and a remote row's key is its ordinary rank, so a
+        # device's sessions split by their own state and interleave with this
+        # device's (see `_unpinned_rank` for the SHARED CONVENTION).
         for key, entries in sorted(sections.items()):
             self._append_section(rows, key[1])
             rows.extend(("entry", entry) for entry in entries)
@@ -1081,64 +1115,20 @@ class SessionSidebar(Widget, can_focus=True):
         the last active row and the two groups ran together. The first heading
         takes no leading blank: nothing sits above it to separate from.
 
-        AND NEVER TWO BREAKS IN A ROW (design round 4, D28). A row-less section
-        ends on the blank it just emitted, so the section after it may not emit
-        another one: two unreachable peers were separated by TWO blank rows where
-        every other boundary in the list is one, which is the frame a user with
-        two lost devices actually gets. Every section goes through here — the
-        live ones, the peer ones and the silent ones — so "one blank per
-        boundary" is a property of the builder rather than of each call site.
+        AND NEVER TWO BREAKS IN A ROW. The guard is one condition and stays
+        one: a section must not open on the back of another blank, so "one
+        blank per boundary" is a property of the builder rather than of each
+        call site. (The row-less peer sections this was measured on — design
+        round 4, D28 — are retired; the guard is now simply the builder's
+        invariant, not a case.)
         """
         if rows and rows[-1][0] != "blank":
             rows.append(("blank", None))
         rows.append((f"header:{heading}", None))
         rows.append(("blank", None))
 
-    def _silent_peer_tiers(self) -> set[tuple[int, str]]:
-        """The section KEY of every peer that did not answer.
-
-        WHY A HEADING WITH NOTHING UNDER IT. ``mesh-ui.md`` §8.3 says a peer that
-        does not answer contributes NO ROWS rather than stale ones — dropping the
-        rows is right, and it is not what UX round 3's U16 filed. What it also
-        did was drop the FACT: the section was built from rows, so a peer that
-        stopped answering lost its heading too, and the sidebar then read as a
-        complete list. "My peer has no sessions" and "my peer is gone" became
-        one picture, and the six sessions the user was looking at a minute ago
-        vanished and came back with nothing said either way.
-
-        The heading keeps §8.3's promise (no row claims a state the peer did not
-        send) and restores the one sentence that explains the frame. It is the
-        SAME string a live section would carry with ``reachable`` false, because
-        the state is the same state — see :func:`_peer_heading_text` — and it is
-        built from the SAME key (`_section_key`) so it takes the peer rank's
-        place in the list rather than the end of it (design round 4, D27).
-
-        Chrome, never entries: these sections contribute no ``CatalogEntry``, so
-        they stay out of ``self.entries`` — which is what `action_move`,
-        `_cursor_index` and `_switch_session_from` index — and `_entry_at`
-        already answers ``None`` for a row whose entry is ``None``.
-
-        The relay's ``reason`` is deliberately NOT painted. It is the machine
-        token ``connect_failed:ConnectionRefusedError`` that UX round 3 filed as
-        U23 on the listing surface; the tooltip on a real row shows it, and a
-        heading is not the place to grow a second, unlocalised spelling of it.
-
-        Shared by the three places that must agree about these sections: the
-        paint (`_display_rows`, which builds them) and the two chrome counts
-        (`_header_lines`, `_chrome_for`, which reserve their height). A second
-        derivation of the heading text is how a heading gets painted without
-        being charged, and an uncharged line is an overrun.
-        """
-        return {
-            (
-                _SECTION_PEER_RANK,
-                _PEER_HEADER_PREFIX + _peer_heading_text(name or UNNAMED_DEVICE, False),
-            )
-            for name, _reason in self._silent_peers
-        }
-
-    def set_asking(self, session_id: str, count: int) -> None:
-        """Mark a row as holding OUTSTANDING ASKS the user has not answered.
+    def set_asking(self, marks: Mapping[str, int]) -> None:
+        """Mark every row that holds OUTSTANDING ASKS the user has not answered.
 
         The sidebar's own state for the queued-ask feature (design §5.1):
         distinct from ``pending``, which means a GATE — a turn that cannot
@@ -1147,24 +1137,43 @@ class SessionSidebar(Widget, can_focus=True):
         it an answer rather than that anything is blocked. Two facts, two
         marks, which is why this does not simply feed ``pending``.
 
-        ``count`` is the OUTSTANDING tally (open + timed-out-and-answerable, the
-        same set the wire's ``asks_open`` publishes): a timed-out ask is still
-        one the user can answer, so a queue of nothing but those must keep the
-        mark rather than dropping it to absence.
+        ``marks`` maps ``session_id -> count``, and each count is the OUTSTANDING
+        tally (open + timed-out-and-answerable, the same set the wire's
+        ``asks_open`` publishes): a timed-out ask is still one the user can
+        answer, so a queue of nothing but those must keep the mark rather than
+        dropping it to absence.
 
-        Only the CURRENT session is marked, and the count is painted rather
-        than the sessions': a sidebar row's queue depth lives on that session's
-        own runtime, and the list is a durable catalogue that a cooled session
-        is read out of. Marking a row we have no live count for would be
-        inventing one.
+        A MAPPING rather than one pair, because the mark is no longer only the
+        current session's (amendment A3): the index tally covers every session
+        whose queue is still answerable, which is exactly what the operator's
+        report asked for — "if I wasn't at my desk I wouldn't have been able to
+        see you had a question." The app unions the current session's live wire
+        count into this map before calling, so a just-queued ask marks before
+        any index write lands.
 
-        Display only, and best-effort by contract — the caller passes "" for
-        "no session" and 0 for "nothing outstanding".
+        Display only, and best-effort by contract — an empty mapping is "no
+        session owes an answer".
         """
-        pair = (str(session_id or ""), int(count or 0))
-        if pair == self._asking:
+        clean = {
+            str(key): int(value) for key, value in (marks or {}).items() if int(value or 0) > 0
+        }
+        if clean == self._asking:
             return
-        self._asking = pair
+        self._asking = clean
+        self.refresh()
+
+    def set_asks_total(self, total: int) -> None:
+        """The FLEET ask total, for the footer's own note (amendments A2/A4).
+
+        The SUM of every session's outstanding asks. It is deliberately NOT a
+        chip with a gesture of its own (amendment A2 forbids a second
+        affordance beside the marks): it is the marks' own arithmetic, painted
+        on the footer only while it is > 0, and the door to the fleet list.
+        """
+        total = int(total or 0)
+        if total == self._asks_total:
+            return
+        self._asks_total = max(0, total)
         self.refresh()
 
     def set_entries(self, entries: Sequence[CatalogEntry]) -> None:
@@ -1214,6 +1223,7 @@ class SessionSidebar(Widget, can_focus=True):
         # refreshes, and the paint-state check below carries the flag) — but
         # the flag must tell the truth about the NEXT painted frame.
         self._set_chip_hover(self._hover_x, self._hover_y)
+        self._set_asks_hover(self._hover_x, self._hover_y)
         self._sync_animation()
         # Polling must still adopt fresh summaries (including tooltip-only
         # status), but an unchanged frame must not invalidate Rich's content
@@ -1261,20 +1271,6 @@ class SessionSidebar(Widget, can_focus=True):
         if pins == self._pins:
             return
         self._pins = pins
-        self.refresh()
-
-    def set_silent_peers(self, peers: Sequence[tuple[str, str]]) -> None:
-        """Replace the peers that did not answer. ``(name, reason)`` per peer.
-
-        Display-only, and refreshes only on an actual change for the same reason
-        `set_pins` does: this runs on every catalog poll, and un-inking the list
-        every two seconds in every open terminal is a cost the user pays without
-        seeing anything move. See `_silent_peer_rows` for what it paints and why.
-        """
-        silent = tuple((str(name), str(reason)) for name, reason in peers)
-        if silent == self._silent_peers:
-            return
-        self._silent_peers = silent
         self.refresh()
 
     def set_subagent_total(self, total: int) -> None:
@@ -1398,7 +1394,9 @@ class SessionSidebar(Widget, can_focus=True):
             self._pins,
             self.show_subagents,
             self._subagent_total,
+            self._asks_total,
             self._chip_hover,
+            self._asks_hover,
         )
 
     def refresh(
@@ -1591,10 +1589,11 @@ class SessionSidebar(Widget, can_focus=True):
         IT FIXED (operator report, 2026-09-29): paging by moving the CURSOR and
         revealing it is contiguous only while the page size is constant, and
         this list's page size varies with the sections a window carries (each
-        peer device's section spends three chrome lines, and the pinned note
-        appears and disappears). When the window shrank across the move, the
-        reveal walk advanced the offset PAST rows the move never showed — a full
-        pagedown sweep skipped four peer rows in one fixture and a pinned row in
+        section spends its heading, a blank and the leading break, and the
+        pinned note appears and disappears). When the window shrank across the
+        move, the reveal walk advanced the offset PAST rows the move never
+        showed — a full
+        pagedown sweep skipped four remote rows in one fixture and a pinned row in
         another — and a wheel-scrolled viewport, whose cursor the wheel
         deliberately leaves behind, teleported back to the cursor on the first
         page key, dropping every remote row it was showing.
@@ -1752,6 +1751,17 @@ class SessionSidebar(Widget, can_focus=True):
         # the one a delegated run first appears in.
         self._pending_jump_until = time.monotonic() + PENDING_SUBAGENT_JUMP_S if revealed else 0.0
 
+    def action_fleet_asks(self) -> None:
+        """`ctrl+f` — open the ONE ask list on the FLEET scope (round 2: U2).
+
+        The same destination and the same message as the footer note's press:
+        one door, two gestures, and the app's `action_open_fleet_asks` behind
+        both — so the scope seam, its kill-switch gate and its idempotence are
+        stated once. Inert under the kill switch, exactly as the note is (A8):
+        the app's action returns without mounting anything.
+        """
+        self.post_message(self.FleetAsksRequested())
+
     def action_toggle_pin(self) -> None:
         """`ctrl+k` — pin/unpin through the app's ONE pin path.
 
@@ -1883,6 +1893,14 @@ class SessionSidebar(Widget, can_focus=True):
             self._pressed_pin = False
             self._pressed_chip = True
             self.capture_mouse()
+        elif event.button == 1 and self._press_asks_hit:
+            # A press on the footer's fleet-ask note. Same shape as the chip's
+            # branch: no row id is recorded, the gesture fires on the CLICK,
+            # and a press dragged off the list is cancelled by `on_mouse_up`.
+            self._pressed_pin = False
+            self._pressed_chip = False
+            self._pressed_asks = True
+            self.capture_mouse()
         event.stop()
 
     def on_mouse_up(self, event: events.MouseUp) -> None:
@@ -1891,6 +1909,7 @@ class SessionSidebar(Widget, can_focus=True):
             self._pressed_id = None
             self._pressed_pin = False
             self._pressed_chip = False
+            self._pressed_asks = False
             if self._deferred is not None:
                 deferred, self._deferred = self._deferred, None
                 self.set_entries(deferred)
@@ -1905,10 +1924,21 @@ class SessionSidebar(Widget, can_focus=True):
         target = (self._pressed_id or (entry.id if entry else "")) if entry is not None else ""
         pin_press = self._pressed_pin
         chip_press = self._pressed_chip
+        asks_press = self._pressed_asks
         self._pressed_id = None
         self._pressed_pin = False
         self._pressed_chip = False
-        if chip_press:
+        self._pressed_asks = False
+        if asks_press:
+            # The fleet total's OWN gesture (amendment A2): a press on the
+            # footer note opens the ONE list on the fleet scope. Like the
+            # chip's, it moves no cursor and posts no `Selected`, so a press
+            # meant for the note can never open or switch the row under it.
+            # The hit was resolved at PRESS time (`_press_asks_hit`) for the
+            # chip's own reason: re-testing here would read a ladder the press
+            # may have just repainted.
+            self.post_message(self.FleetAsksRequested())
+        elif chip_press:
             # The chip's press runs the ONE flip `ctrl+a` runs, on the same
             # per-session discipline: never a config write, because a write
             # would fan out through the config watcher to every running `lop`
@@ -2056,26 +2086,38 @@ class SessionSidebar(Widget, can_focus=True):
         status = entry.status
         if entry.status_code == "wedged":
             status = f"{status} · {WEDGED_REMEDY}"
-        # WHERE IT LIVES, and only when there is something to say: this is the
-        # peer's NAME readable after the user has scrolled past the heading (the
-        # heading is one line of chrome, the tooltip travels with the row), plus
-        # the reason when the link is down. Local rows gain no clause — "on this
-        # device" on every row is the noise the mark's absence already avoids.
+        # WHERE IT LIVES, and only when there is something to say. This is the
+        # one place the device is readable now that remote rows carry no section
+        # of their own: the row is width-bound and the tooltip travels with it.
+        # The network rides WITH the device — a device can sit in more than one
+        # network, and "damian-mbp" alone does not say which one the row came
+        # through — and it is omitted rather than guessed when the membership
+        # name could not be read (no name is no claim). Local rows gain no
+        # clause — "on this device" on every row is the noise the mark's
+        # absence already avoids.
         location = ""
+        unreachable = ""
         if entry.row.is_remote or entry.row.owner_device:
             location = f"on {entry.row.owner_label or UNNAMED_DEVICE}"
-            if not entry.row.reachable:
-                # THE WORDS, NOT THE TOKEN (design round 1, D3; UX round 3, U23).
-                # This tooltip used to print the relay's raw reason —
-                # ``connect_failed:ConnectionRefusedError`` — on a line a user
-                # reads, while the panel beside it said the same fact in words.
-                # One gloss, shared, so the sibling surfaces read as one voice.
-                location += f" — unreachable: {peer_reason_words(entry.row.unreachable_reason)}"
+            if entry.row.owner_network_name:
+                location += f" · {entry.row.owner_network_name}"
             if entry.row.placement_stale:
                 location += " (last known state)"
+            if not entry.row.reachable:
+                # THE WORDS, NOT THE TOKEN (design round 1, D3; UX round 3, U23),
+                # and ITS OWN LINE, NOT A SUFFIX (design round 1, D4): the device
+                # clause stays a terse noun phrase like the rest of the
+                # family — `Working`, `on <device> · <network>` — while the
+                # reason keeps the same `·` separator and the SAME shared gloss
+                # (`peer_reason_words` — what the panel and the listing print,
+                # so the sibling surfaces read as one voice). See
+                # `UNREACHABLE_REMOTE_MARK` for the at-rest half of this state.
+                unreachable = f"unreachable · {peer_reason_words(entry.row.unreachable_reason)}"
         lines = [entry.row.name, status]
         if location:
             lines.append(location)
+        if unreachable:
+            lines.append(unreachable)
         # An AGENT-OPENED row names its opener here, the one TUI place with room
         # for it: the row itself is width-bound and otherwise identical to the
         # operator's own (PR #1436 design review round 1, D2). Same vocabulary
@@ -2133,6 +2175,19 @@ class SessionSidebar(Widget, can_focus=True):
         self._chip_hover = hovered
         return True
 
+    def _set_asks_hover(self, x: int | None, y: int | None) -> bool:
+        """Point the ask note's affordance at the pointer, reporting any change.
+
+        The chip's own rule (round 2: U11 extends it to this control): the
+        affordance is painted on the HOVER event, so it is seen before it is
+        pressed, and only the footer line is repainted.
+        """
+        hovered = x is not None and y is not None and self._asks_hit(x, y)
+        if hovered == self._asks_hover:
+            return False
+        self._asks_hover = hovered
+        return True
+
     def _refresh_rows(self, *rows: int | None) -> None:
         """Repaint just these row lines, skipping any outside the widget.
 
@@ -2154,6 +2209,8 @@ class SessionSidebar(Widget, can_focus=True):
         # painted on the hover event, so it is seen before it is pressed — and
         # only its own line is repainted, not the list.
         if self._set_chip_hover(event.x, event.y):
+            self._refresh_rows(self.size.height - 1)
+        if self._set_asks_hover(event.x, event.y):
             self._refresh_rows(self.size.height - 1)
         if row_changed:
             # Only the two rows whose ground changes, not all 38: a hover move
@@ -2296,25 +2353,17 @@ class SessionSidebar(Widget, can_focus=True):
                 result.append(" " * width)
                 continue
             if kind.startswith("header:"):
-                # A PEER heading carries its own label after the prefix, so a
-                # section whose text depends on a device is not in the table at
-                # all. The table below stays the TIER vocabulary — the four
-                # names every device with no peers still paints — and the
-                # fallback reads the label `_section_key` already derived, which
-                # is why the two can never disagree about what a section is
-                # called.
-                if kind.startswith("header:" + _PEER_HEADER_PREFIX):
-                    label = kind[len("header:" + _PEER_HEADER_PREFIX) :]
-                else:
-                    label = {
-                        "header:pinned": "★ Pinned",
-                        "header:active": "Active Sessions",
-                        "header:previous": "Previous Sessions",
-                        "header:subagent": "⌥ Subagent Runs",
-                    }[kind]
-                # Same treatment as the "Sessions" title above: `muted`, no
-                # rule, no new palette entry. Mirrors the mobile relay's two
-                # headings so the surfaces read the same.
+                # The four section names, and nothing else: sections are built
+                # from rows and named by `_SECTION_NAMES` alone, so the kind IS
+                # the lookup key. (Peer sections used to smuggle a per-device
+                # label through this branch; remote rows now file under an
+                # ordinary section — see `_unpinned_rank`.)
+                label = {
+                    "header:pinned": "★ Pinned",
+                    "header:active": "Active Sessions",
+                    "header:previous": "Previous Sessions",
+                    "header:subagent": "⌥ Subagent Runs",
+                }[kind]
                 result.append(
                     truncate_cells(label, width).ljust(width),
                     style=theme_mod.semantic_color("muted"),
@@ -2402,22 +2451,31 @@ class SessionSidebar(Widget, can_focus=True):
             #
             # THE SLOT HOLDS TWO FACTS, NOT ONE (design round 1, D4). Taking both
             # cells for the caret was the defect: the one row the user is
-            # deciding about was the one row that stopped saying it was remote,
-            # and the peer heading that carries the fact independently is only
-            # two lines above it, on a screen the user is scrolling. The slot's
-            # first cell is the caret, its second is the locality mark; a local
-            # row still paints two blanks, so the mark grows no row
-            # (mesh-ui.md §1.3 decision 2, which this keeps).
+            # deciding about was the one row that stopped saying it was remote.
+            # The slot's first cell is the caret, its second is the locality mark;
+            # a local row still paints two blanks, so the mark grows no row
+            # (mesh-ui.md §1.3 decision 2, which this keeps). The mark IS the
+            # row's remoteness statement — with the peer sections retired it is
+            # the ONLY statement on the frame — and the device and its network
+            # are one hover away (`_describe`).
             if requested or cursor:
                 line.append("»" if requested else "›")
             else:
                 line.append(" ")
             if entry.row.is_remote:
-                # The LOCALITY mark: `⇄` occupies one cell of the slot the
-                # caret run reserved, and it never displaces the caret. Muted,
-                # like the other prefixes: it is a durable property, never a
-                # state — it does not spin and never turns `danger`.
-                line.append("⇄", style=theme_mod.semantic_color("muted"))
+                # The LOCALITY mark: `↗` (or `↛` when unreachable) occupies one
+                # cell of the slot the caret run reserved, and it never
+                # displaces the caret. Muted, like the other prefixes: it is a
+                # durable property, never a state — it does not spin and never
+                # turns `danger`. The unreachable variant is the AT-REST half of
+                # that state (design round 1, D2): the tooltip needs a mouse, so
+                # the row itself must carry the fact, in the same cell and ink
+                # so nothing reflows or shouts (see the marks' own rationale at
+                # `REMOTE_MARK`).
+                line.append(
+                    UNREACHABLE_REMOTE_MARK if not entry.row.reachable else REMOTE_MARK,
+                    style=theme_mod.semantic_color("muted"),
+                )
             else:
                 # Nothing to say: this row is a session on THIS machine, which is
                 # what the list has always shown. The blank keeps the title at
@@ -2501,20 +2559,30 @@ class SessionSidebar(Widget, can_focus=True):
             result.append("\n")
         footer, chip_span = self._footer_line(width)
         footer_style = theme_mod.semantic_color("warning" if self.error else "dim")
+        # THE UNDERLINED SPAN IS WHICHEVER CONTROL THE POINTER IS ON (round 2:
+        # U11): the chip's own measured rationale extends to the ask note, which
+        # is a control too — and until now the one control on this line that was
+        # reachable by mouse ALONE, painted in the same `dim` ink as the key
+        # hints beside it with no affordance at all. Same mechanism (a style on
+        # its own cells, never new text), same reason (accent means "a turn is
+        # live" and the focus ground is near-iso-luminance, so no ink is the
+        # pointer's to spend). `footer[end:]` is appended rather than dropped:
+        # with the note in the tail, the chip is no longer the line's last span,
+        # and the resting bytes are unchanged because the underline branch only
+        # fires under the pointer.
+        underlined: tuple[int, int] | None = None
         if chip_span is not None and self._chip_hover:
-            # The chip's affordance is a STYLE on its own cells, never new
-            # text: the count stays on the frame in every state — a hover must
-            # not steal it — and the ladder's arithmetic is untouched (`f9
-            # focus · ctrl+b hide · ⌥1k+` still measures 29). Underline rather
-            # than an ink step: the accent already means "a turn is live" and
-            # the focus ground sits at near-iso-luminance, so neither ink is
-            # the pointer's to spend. The resting path appends the SAME single
-            # span it always did, so an un-hovered frame's bytes are unchanged.
-            start, end = chip_span
+            underlined = chip_span
+        note_span = self._asks_span_in(footer)
+        if note_span is not None and self._asks_hover:
+            underlined = note_span
+        if underlined is not None:
+            start, end = underlined
             result.append("\n" + footer[:start], style=footer_style)
             result.append(
                 footer[start:end], style=Style(color=footer_style) + Style(underline=True)
             )
+            result.append(footer[end:], style=footer_style)
         else:
             result.append("\n" + footer, style=footer_style)
         return result
@@ -2566,7 +2634,17 @@ class SessionSidebar(Widget, can_focus=True):
         chip = ""
         if self._subagent_total > 0:
             chip = f"⌥{'1k+' if self._subagent_total > 999 else self._subagent_total}"
-        tail = f" · {chip}" if chip else ""
+        # THE FLEET ASK NOTE (amendment A2/A4). The sidebar has no header row
+        # (its first line is the first section heading), so the fleet total
+        # rides the footer it does have, beside the other whole-process facts
+        # — and only while it is > 0, so a machine with nothing outstanding
+        # paints exactly the footer it painted before this feature existed.
+        # It is a PARTICIPANT in the ladder like the chip, never an append
+        # after it: appended text would void the fit tests above and the final
+        # `truncate_cells` would crop it mid-word.
+        ask_note = self._asks_note()
+        tail_parts = [part for part in (ask_note, chip) if part]
+        tail = f" · {' · '.join(tail_parts)}" if tail_parts else ""
         # THE FOCUSED LADDER (issue #1357 slice 2a; reranked by #1944). When the
         # list holds the keyboard its footer teaches the action set the keyboard
         # now owns: `ctrl+k pin` from 30 cells of list width up — pinning was
@@ -2611,16 +2689,56 @@ class SessionSidebar(Widget, can_focus=True):
         if self.has_focus:
             pin = f"{lead} · ctrl+k pin"
             layer = " · ctrl+a ⌥" if chip else ""
+            # THE FLEET DOOR'S KEY (round 2: U2), spent like every other fact on
+            # this line — whole or not at all, and only while the note it teaches
+            # about is on screen. It costs 14 cells and is tried AFTER the pin's
+            # own rung, before the pin: the pin and the note are facts, this is
+            # the ROUTE to one of them, and the mouse already has that route.
+            #
+            # THE ROUTE OUTLIVES THE PIN (round 2: U13). The rung above is 46
+            # cells and this footer's content width saturates at 43, so the
+            # teacher rendered NOWHERE — the chord U2 added was taught at no
+            # width a sidebar can reach, and `/help`'s only `ctrl+f` line names
+            # the ASIDE fold (the opposite meaning in this state). Verified
+            # rather than assumed: the candidate below is 34 cells at the
+            # saturated width and renders from a 100-column terminal, where the
+            # door's own path (f9 docks the sidebar) is what a user is walking.
+            # The pin yields to it because the pin has a second teacher on this
+            # frame's own help (`/help`'s f9 row names `ctrl+k`) and the ask
+            # chord has none anywhere else.
+            # Two lengths of the same fact, because the ladder spends whole
+            # rungs: at the sidebar's 29-cell floor there is room for the chord
+            # but not for its object, and the note it sits beside carries the
+            # object (`ctrl+f   asks: 4` reads as one statement). MEASURED: 34
+            # cells with the object, 29 without, and 29 is exactly the floor a
+            # 100-column terminal gives this panel.
+            key = " · ctrl+f asks" if ask_note else ""
+            key_short = " · ctrl+f" if ask_note else ""
             candidates: list[str] = []
             if len(self.entries) > self.page_size:
                 last = min(len(self.entries), self._offset + self.page_size)
                 position = f"{self._offset + 1}–{last}/{len(self.entries)}"
                 if chip:
+                    candidates.append(f"{position} · {pin}{key}{layer}{tail}")
+                candidates.append(f"{position} · {pin}{key}{tail}")
+                if chip:
                     candidates.append(f"{position} · {pin}{layer}{tail}")
                 candidates.append(f"{position} · {pin}{tail}")
             if chip:
-                candidates.append(f"{pin}{layer}{tail}")
-            candidates += [f"{pin}{tail}", f"{lead}{tail}", lead]
+                candidates.append(f"{pin}{key}{layer}{tail}")
+            candidates += [
+                f"{pin}{key}{tail}",
+                # The ask door's teacher outranks the pin's rung (U13): both are
+                # whole-or-nothing facts, and this one is the only teacher the
+                # chord has. Inserted BEFORE the pin-only candidate, so at a
+                # width where the pin cannot ride beside it the pin is what
+                # yields — never the note or the lead.
+                f"{lead}{key}{tail}",
+                f"{lead}{key_short}{tail}",
+                f"{pin}{tail}",
+                f"{lead}{tail}",
+                lead,
+            ]
         else:
             if len(self.entries) > self.page_size:
                 last = min(len(self.entries), self._offset + self.page_size)
@@ -2631,6 +2749,16 @@ class SessionSidebar(Widget, can_focus=True):
                 ]
             else:
                 candidates = [f"{base}{tail}"]
+                if tail:
+                    # THE NOTE AND THE CHIP OUTLIVE THE HINT THEY REPLACE (round
+                    # 2: U3). At 80x24 an unfocused sidebar has 29 content cells
+                    # and `f9 focus · ctrl+b hide · asks: 4` is 32, so the
+                    # ladder used to fall all the way to `f9 focus · ctrl+b hide`
+                    # — dropping the total, the only fleet surface on the frame,
+                    # while keeping a hint about hiding a panel. `ctrl+b hide`
+                    # is discovered by pressing ctrl+b and is also on the frame
+                    # that toggles it; the count is discovered from nowhere else.
+                    candidates.append(f"{lead}{tail}")
             if chip:
                 candidates.append(f"{lead} · {chip}")
         hint = next(
@@ -2653,3 +2781,48 @@ class SessionSidebar(Widget, can_focus=True):
         if chip and painted.endswith(chip):
             span = (len(painted) - len(chip), len(painted))
         return painted, span
+
+    def _asks_note(self) -> str:
+        """The fleet total's footer note, or "" when there is nothing to state.
+
+        Absence is not emptiness (design §2): an empty index renders NOTHING —
+        no zero, no dash — because a machine with no queued asks has no fleet
+        surface at all, and a `0` would be a statement this footer never made
+        before the feature and cannot substantiate for a queue it is not
+        watching.
+        """
+        return f"asks: {self._asks_total}" if self._asks_total > 0 else ""
+
+    def _asks_hit(self, x: int, y: int) -> bool:
+        """Whether a point lands on the footer's fleet-ask note.
+
+        The fleet list's DOOR. The memo put it on a "sidebar header" that this
+        widget does not have, so it is the note's own press target — resolved
+        against the same painted line the chip's hit test reads, so the target
+        cannot drift from the bytes.
+        """
+        note = self._asks_note()
+        if not note or y != self.size.height - 1:
+            return False
+        painted = self._footer_line(max(1, self.size.width))[0]
+        span = self._asks_span_in(painted)
+        if span is None:
+            return False
+        column = x - self.styles.padding.left
+        return span[0] <= column < span[1]
+
+    def _asks_span_in(self, painted: str) -> tuple[int, int] | None:
+        """The note's painted cell span, or ``None`` when it is not on the line.
+
+        ONE resolution shared by the press target, the hover affordance and the
+        paint itself, so the three can never disagree about where the door is.
+        Only a note the ladder actually PAINTED counts: a truncated line that
+        happens to contain the words is not a target.
+        """
+        note = self._asks_note()
+        if not note:
+            return None
+        at = painted.rfind(note)
+        if at < 0 or not painted[:at].endswith(" · "):
+            return None
+        return (at, at + len(note))

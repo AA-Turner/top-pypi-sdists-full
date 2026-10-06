@@ -123,7 +123,7 @@ def _op(
     pricing_key: str,
     *,
     raw_only: bool = False,
-    freshness_ttl_seconds: int | None = None,
+    reuse_family: str | None = None,
 ) -> DataForSeoOperation:
     capabilities = capability if isinstance(capability, tuple) else (capability,)
     if SeoCapability.RAW_PROVIDER not in capabilities:
@@ -133,10 +133,8 @@ def _op(
             name=name.value,
             capabilities=capabilities,
             credential_keys=DATAFORSEO_CREDENTIAL_KEYS,
-            freshness_ttl_seconds=(
-                freshness_ttl_seconds
-                if freshness_ttl_seconds is not None
-                else _freshness_ttl_seconds(family, capabilities)
+            reuse_family=(
+                reuse_family if reuse_family is not None else _reuse_family(family, capabilities)
             ),
         ),
         family=family,
@@ -147,22 +145,20 @@ def _op(
     )
 
 
-def _freshness_ttl_seconds(
-    family: str,
-    capabilities: tuple[SeoCapability, ...],
-) -> int:
+def _reuse_family(family: str, capabilities: tuple[SeoCapability, ...]) -> str:
+    """Which ``seo.reuse_hours.<family>`` knob governs this operation. The
+    windows themselves are knobs (``matrx_seo.reuse``), never numbers here."""
     if family == "backlinks":
-        return 30 * 24 * 60 * 60
-    # Matches the seo.keyword_market staleness policy: metrics refresh at 30
-    # days (or explicit force_refresh), never sooner.
+        return "backlinks"
+    # Matches the seo.keyword_market staleness policy (same knob).
     if SeoCapability.KEYWORD_METRICS in capabilities:
-        return 30 * 24 * 60 * 60
-    if family in {"serp", "on_page"}:
-        return 24 * 60 * 60
-    return 7 * 24 * 60 * 60
+        return "keyword_metrics"
+    if family == "serp":
+        return "serp"
+    if family == "on_page":
+        return "onpage"
+    return "default"
 
-
-_THIRTY_DAYS = 30 * 24 * 60 * 60
 
 _LIVE = (DataForSeoWorkflow.LIVE,)
 _STANDARD = (DataForSeoWorkflow.STANDARD,)
@@ -310,7 +306,7 @@ APPROVED_OPERATIONS = (
         _LIVE,
         "free_list",
         raw_only=True,
-        freshness_ttl_seconds=_THIRTY_DAYS,
+        reuse_family="reference",
     ),
     _op(
         DataForSeoOperationName.LABS_GOOGLE_KEYWORD_OVERVIEW,

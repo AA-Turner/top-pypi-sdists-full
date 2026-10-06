@@ -278,7 +278,7 @@ class DataFrameSchema(Generic[TDataObject], BaseSchema):
             )
         return {n: c.dtype for n, c in self.columns.items() if not c.regex}
 
-    def get_metadata(self) -> dict | None:
+    def get_metadata(self) -> dict[Any, Any]:
         """Provide metadata for columns and schema level"""
         res: dict[Any, Any] = {"columns": {}}
         for k in self.columns.keys():
@@ -1165,7 +1165,7 @@ class DataFrameSchema(Generic[TDataObject], BaseSchema):
         :class:`~pandera.api.dataframe.container.DataFrameSchema`
 
         :param level: list of labels
-        :param drop: bool, default True
+        :param drop: bool, default False
         :return: a new :class:`~pandera.api.dataframe.container.DataFrameSchema`
             with specified column(s) in the index.
         :raises: :class:`~pandera.errors.SchemaInitError` if no index set in

@@ -75,6 +75,7 @@ from typing import TYPE_CHECKING
 # serialize_ax_tree only READS attributes, so no node class import is needed.
 # FRAME_ROLE / FRAME_DEPTH_BACKSTOP live in _constants.py / _frame_capture.py
 # — imported here so both walkers share a single source (no duplication/drift).
+from ._actionable import PROMOTABLE_ROLES
 from ._constants import FRAME_ROLE
 from ._frame_capture import FRAME_DEPTH_BACKSTOP
 
@@ -89,6 +90,26 @@ logger = logging.getLogger(__name__)
 # the skipped node (it consumes neither a ref nor an indent level). Mirrors
 # full_flat_dom.py's _SKIP_ROLES (spec section 2).
 _SKIP_ROLES = frozenset({"none", "generic", "rootwebarea", "webarea", "inlinetextbox"})
+
+# A skipped-role node the DOM says is clickable (``AxNode.clickable``, set by
+# ``_actionable.annotate_tree``) is not skipped: it renders under this role,
+# with its ``display_name``, so it gets a ref like any other target.
+CLICKABLE_ROLE = "clickable"
+
+# The serializer duck-types its nodes (the runner's own AccessibilityNode is
+# still fed to it), so the actionable annotation is read with defaults: a node
+# type that predates it renders exactly as before.
+def _clickable(node: "AxNode") -> bool:
+    return bool(getattr(node, "clickable", False))
+
+
+def _display_name(node: "AxNode") -> str:
+    return getattr(node, "display_name", "") or ""
+
+
+def _dom_hint(node: "AxNode") -> str:
+    return getattr(node, "dom_hint", "") or ""
+
 
 AX_DOC_MAX_CHARS = 500_000
 TEXT_TRUNCATE_CHARS = 200
@@ -157,11 +178,22 @@ def _render_states(node: "AxNode") -> list[str]:
     return states
 
 
-def _render_line(ref: str, depth: int, role: str, node: "AxNode") -> str:
-    """Render one doc line for an already-normalized (non-skipped) role."""
+def _render_line(
+    ref: str, depth: int, role: str, node: "AxNode", name: str | None = None,
+) -> str:
+    """Render one doc line for an already-normalized (non-skipped) role.
+
+    ``name`` overrides ``node.name`` (a promoted ``clickable`` line renders
+    its ``display_name``). A non-interactive-role node the DOM says is
+    clickable gains a ``[clickable]`` tag; ``node.dom_hint`` renders last as
+    ``{dom=…}``. Nodes without an actionable annotation render exactly as
+    before.
+    """
     gap = " " * (_BASE_GAP + _INDENT_PER_DEPTH * depth)
-    name = _truncate(node.name or "")
+    name = _truncate((node.name or "") if name is None else name)
     extras = _render_states(node)
+    if _clickable(node) and role != CLICKABLE_ROLE:
+        extras.append("[clickable]")
 
     if role == "heading" and node.level is not None:
         extras.append(f"level={node.level}")
@@ -170,6 +202,9 @@ def _render_line(ref: str, depth: int, role: str, node: "AxNode") -> str:
 
     if node.value:
         extras.append(f"{{value={_truncate(node.value)}}}")
+
+    if _dom_hint(node):
+        extras.append(f"{{dom={_dom_hint(node)}}}")
 
     line = f'{ref}{gap}{role} "{name}"'
     if extras:
@@ -298,7 +333,11 @@ def serialize_ax_tree(
             return
 
         role = (node.role or "").strip().lower()
-        if not role or role in _SKIP_ROLES:
+        ax_role = role
+        promoted = _clickable(node) and role in PROMOTABLE_ROLES
+        if promoted:
+            role = CLICKABLE_ROLE
+        elif not role or role in _SKIP_ROLES:
             for child in node.children:
                 walk(child, depth, frame_id, frame_children_by_owner)
                 if state["truncated"]:
@@ -325,7 +364,8 @@ def serialize_ax_tree(
             state["frame_num"] += 1
             frame_num = state["frame_num"]
 
-        line = _render_line(ref, depth, role, node)
+        display_name = _display_name(node) if (promoted or _display_name(node)) else (node.name or "")
+        line = _render_line(ref, depth, role, node, display_name)
         if fc is not None:
             line += " [frame ?]" if fc.status == "unresolved" else f" [frame f{frame_num}]"
 
@@ -340,9 +380,25 @@ def serialize_ax_tree(
             # accessible name, so storing it unstripped here caused a
             # raw-vs-stripped mismatch — fix it at the root instead of on
             # the comparison side.
-            "name": (node.name or "").strip(),
+            "name": display_name.strip(),
             "frame_id": frame_id,
         }
+        if _clickable(node):
+            # IDENTITY vs DISPLAY. ``role``/``name`` stay the node's AX truth,
+            # exactly what a live ``Accessibility.getPartialAXTree`` reads for
+            # it (an AX-ignored node reads as role "" / name ""), so every
+            # guard comparing a ref against the live page — the single-action
+            # identity check, the queue gate, the stability ledger — keeps
+            # comparing like with like. What the model was shown lives in
+            # ``display_role``/``display_name``; ``clickable`` marks the
+            # DOM-proven target.
+            ref_table[ref].update({
+                "role": "" if getattr(node, "ignored", False) else ax_role,
+                "name": "" if getattr(node, "ignored", False) else (node.name or "").strip(),
+                "display_role": role,
+                "display_name": display_name.strip(),
+                "clickable": True,
+            })
 
         if fc is not None:
             render_frame(fc, depth + 1, frame_num)

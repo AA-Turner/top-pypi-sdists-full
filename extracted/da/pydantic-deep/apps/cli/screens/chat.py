@@ -30,6 +30,7 @@ from pydantic_ai.messages import (
     TextPartDelta,
     ThinkingPartDelta,
 )
+from pydantic_ai.workspaces import WorkspaceError
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
@@ -67,7 +68,6 @@ from apps.cli.widgets.input_area import InputArea
 from apps.cli.widgets.message_list import MessageList
 from apps.cli.widgets.notification import notify_error, notify_success, notify_warning
 from apps.cli.widgets.queued_panel import QueuedWidget
-from apps.cli.widgets.shells_panel import ShellsWidget
 from apps.cli.widgets.status_bar import StatusBar
 from apps.cli.widgets.subagents_panel import SubagentsWidget
 from apps.cli.widgets.todos_panel import TodosWidget
@@ -98,6 +98,9 @@ async def _stream_branch_via_iter(  # noqa: C901
         kwargs: dict[str, Any] = {
             "message_history": message_history,
             "deps": deps,
+            # The branch's overlay, not the session's workspace: without it every
+            # branch wrote straight into the project.
+            "workspace": runtime.workspace,
         }
         if deferred_tool_results is not None:
             kwargs["deferred_tool_results"] = deferred_tool_results
@@ -106,7 +109,11 @@ async def _stream_branch_via_iter(  # noqa: C901
     try:
         msg_list = panel.query_one(MessageList)
     except Exception:  # pragma: no cover
-        kwargs = {"message_history": message_history, "deps": deps}
+        kwargs = {
+            "message_history": message_history,
+            "deps": deps,
+            "workspace": runtime.workspace,
+        }
         if deferred_tool_results is not None:
             kwargs["deferred_tool_results"] = deferred_tool_results
         return await agent.run(prompt, **kwargs)
@@ -115,6 +122,7 @@ async def _stream_branch_via_iter(  # noqa: C901
         "deps": deps,
         "message_history": message_history,
         "usage_limits": DEFAULT_USAGE_LIMITS,
+        "workspace": runtime.workspace,
     }
     if deferred_tool_results is not None:
         iter_kwargs["deferred_tool_results"] = deferred_tool_results
@@ -298,7 +306,6 @@ class ChatScreen(Screen):
         with Vertical(id="bottom-bar"):
             with Vertical(id="activity-dock"):
                 yield SubagentsWidget()
-                yield ShellsWidget()
                 yield ForkBadgeWidget()
                 yield TodosWidget()
                 yield QueuedWidget()
@@ -329,7 +336,6 @@ class ChatScreen(Screen):
             dock = self.query_one("#activity-dock")
             panels = (
                 self.query_one(SubagentsWidget),
-                self.query_one(ShellsWidget),
                 self.query_one(ForkBadgeWidget),
                 self.query_one(TodosWidget),
                 self.query_one(QueuedWidget),
@@ -635,17 +641,22 @@ class ChatScreen(Screen):
         # Mid-run: route to queue. `>>` prefix = steering, plain text = follow-up.
         # `!` keeps meaning "shell command" regardless of agent state.
         if is_running and queue is not None and not text.startswith("!"):
-            if text.startswith(">>"):
-                steer_text = text[2:].strip()
-                if steer_text:
-                    await queue.steer(steer_text)
-                    preview = steer_text[:40] + ("…" if len(steer_text) > 40 else "")
-                    app.notify(f"steering queued: {preview}")
-                    self._increment_queue_badge(steering=True)
-            else:
-                await queue.follow_up(text)
-                app.notify("follow-up queued")
-                self._increment_queue_badge(steering=False)
+            from pydantic_deep.features.message_queue import QueueFullError
+
+            try:
+                if text.startswith(">>"):
+                    steer_text = text[2:].strip()
+                    if steer_text:
+                        await queue.steer(steer_text)
+                        preview = steer_text[:40] + ("…" if len(steer_text) > 40 else "")
+                        app.notify(f"steering queued: {preview}")
+                        self._increment_queue_badge(steering=True)
+                else:
+                    await queue.follow_up(text)
+                    app.notify("follow-up queued")
+                    self._increment_queue_badge(steering=False)
+            except QueueFullError as exc:
+                app.notify(str(exc), severity="error", timeout=8)
             return
 
         if text.startswith("!"):
@@ -851,14 +862,6 @@ class ChatScreen(Screen):
                 "dissolve_team",
             }
         )
-        _SHELL_TOOLS = frozenset(
-            {
-                "run_in_background",
-                "read_output",
-                "kill_shell",
-                "list_shells",
-            }
-        )
         _subagent_tasks: dict[str, dict[str, Any]] = {}  # task_id -> info
         _turn_started = _time.monotonic()
         _turn_counts: dict[str, int] = {}
@@ -882,7 +885,13 @@ class ChatScreen(Screen):
             history = patch_tool_calls_processor(list(history))
 
             async with agent.iter(
-                text, deps=deps, message_history=history, usage_limits=DEFAULT_USAGE_LIMITS
+                text,
+                deps=deps,
+                message_history=history,
+                usage_limits=DEFAULT_USAGE_LIMITS,
+                # The session's workspace, over any ref the history names - one
+                # saved by another process, or before a model switch.
+                workspace=getattr(agent, "_cli_workspace", None),
             ) as run:
                 async for node in run:
                     if isinstance(node, UserPromptNode):
@@ -942,7 +951,7 @@ class ChatScreen(Screen):
                                     # real -/+ diff. FunctionToolCallEvent fires in the
                                     # validation pass before the tool executes, so this
                                     # read is race-free.
-                                    self._capture_old_content(tool_name, args)
+                                    await self._capture_old_content(tool_name, args)
                                     if tool_name not in _TODO_TOOLS:
                                         assistant.add_tool_call(tool_name, args, call_id)
                                         msg_list.scroll_end(animate=False)
@@ -1036,9 +1045,6 @@ class ChatScreen(Screen):
                                             "error" if is_error else "completed"
                                         )
                                         self._update_subagents_panel(_subagent_tasks)
-
-                                    if tool_name in _SHELL_TOOLS:
-                                        self._refresh_shells_panel()
 
                                     if tool_name == "fork_run":
                                         from apps.cli.forking import reconcile_active_fork
@@ -1144,6 +1150,7 @@ class ChatScreen(Screen):
                         message_history=result.all_messages(),
                         deferred_tool_results=DeferredToolResults(approvals=approvals),
                         usage_limits=DEFAULT_USAGE_LIMITS,
+                        workspace=getattr(agent, "_cli_workspace", None),
                     ) as cont_run:
                         async for node in cont_run:
                             if isinstance(node, UserPromptNode):
@@ -1178,7 +1185,7 @@ class ChatScreen(Screen):
                                             tool_name = event.part.tool_name
                                             t_args = dict(_parse_args(event.part.args))
                                             call_id = getattr(event.part, "tool_call_id", tool_name)
-                                            self._capture_old_content(tool_name, t_args)
+                                            await self._capture_old_content(tool_name, t_args)
                                             if tool_name not in _TODO_TOOLS:
                                                 assistant_cont.add_tool_call(
                                                     tool_name, t_args, call_id
@@ -1325,12 +1332,21 @@ class ChatScreen(Screen):
                             severity="warning",
                             timeout=6,
                         )
-                # When the run was cancelled, follow-ups referring to the cancelled
-                # task are likely stale too. Discard with a count-only notification.
+                from pydantic_deep.features.message_queue import (
+                    format_follow_up as _fmt_fu,
+                )
+                from pydantic_deep.features.message_queue import (
+                    queued_source,
+                )
+
+                # Follow-ups a human typed for the cancelled task are stale; one
+                # submitted from outside was not, and its sender cannot see a silent drop.
                 if _run_cancelled:
-                    stale_fu = await _stale_queue.drain_follow_up()
-                    if stale_fu:
-                        n = len(stale_fu)
+                    discarded = await _stale_queue.discard_follow_up(
+                        keep=lambda m: queued_source(m) is not None
+                    )
+                    if discarded:
+                        n = len(discarded)
                         label = "follow-up" if n == 1 else "follow-ups"
                         with contextlib.suppress(Exception):
                             app.notify(
@@ -1338,6 +1354,25 @@ class ChatScreen(Screen):
                                 severity="warning",
                                 timeout=6,
                             )
+
+                # A message queued after the post-run drain still saw the run as
+                # active, so it landed as a follow-up nothing else will deliver.
+                if not _follow_up_scheduled:
+                    stranded = await _stale_queue.drain_follow_up()
+                    if stranded:
+                        stranded_text = _fmt_fu(stranded)
+                        msg_list.append_user_message(stranded_text)
+                        self._decrement_queue_badge(len(stranded))
+                        _follow_up_scheduled = True
+                        self.call_later(self._run_agent, stranded_text)
+                        if _run_cancelled:
+                            n = len(stranded)
+                            label = "follow-up" if n == 1 else "follow-ups"
+                            with contextlib.suppress(Exception):
+                                app.notify(
+                                    f"{n} external {label} kept - starting a new turn",
+                                    timeout=6,
+                                )
             if not _follow_up_scheduled:
                 self._reset_queue_badge()
             else:
@@ -1448,35 +1483,28 @@ class ChatScreen(Screen):
                 timeout=8,
             )
 
-    def _capture_old_content(self, tool_name: str, args: dict[str, Any]) -> None:
+    async def _capture_old_content(self, tool_name: str, args: dict[str, Any]) -> None:
         """Stash a file's pre-write content under ``args["_old_content"]``.
 
         Lets the write_file tool-call widget render a real ``-``/``+`` diff for
-        overwrites. Best-effort: silently skipped if the backend can't read, the
-        file is too large, or the read returns a sandbox error sentinel.
+        overwrites. Best-effort: skipped when there is no file to read in the
+        session's workspace or it is too large to diff.
         """
         if tool_name != "write_file":
             return
         path = args.get("file_path") or args.get("path")
         if not path:
             return
-        deps = self.app.deps
-        backend = getattr(deps, "backend", None)
-        if backend is None:
+        workspace = getattr(self.app.agent, "_cli_workspace", None)
+        if workspace is None:
             return
         try:
-            if not backend.exists(path):
-                return
-            data = backend.read_bytes(path)
-            if len(data) > self._MAX_DIFF_READ_BYTES:
-                return  # too big to diff meaningfully; skip
-            # Some sandbox backends return an "[Error: ...]" sentinel instead of
-            # raising; don't treat that as real file content.
-            if data.startswith(b"[Error:"):
-                return
-            args["_old_content"] = data.decode("utf-8", "replace")
-        except Exception:
-            pass
+            data = await workspace.read_bytes(path)
+        except (OSError, WorkspaceError):
+            return  # a new file, or one the workspace cannot read: no diff to show
+        if len(data) > self._MAX_DIFF_READ_BYTES:
+            return  # too big to diff meaningfully; skip
+        args["_old_content"] = data.decode("utf-8", "replace")
 
     # Image extensions that `@file` references attach as multimodal content.
     _IMAGE_EXTS: dict[str, str] = {
@@ -1664,24 +1692,6 @@ class ChatScreen(Screen):
             self._sync_activity_dock()
         except Exception:
             pass  # Panel may not be mounted yet
-
-    def _refresh_shells_panel(self) -> None:
-        """Pull the live background-shell registry from the backend and push it
-        into the pinned ShellsWidget. Safe to call from any shell tool result —
-        a backend without background support just yields an empty list."""
-        try:
-            shells_widget = self.query_one(ShellsWidget)
-        except Exception:
-            return  # Panel may not be mounted yet
-        deps = getattr(self.app, "deps", None)
-        backend = getattr(deps, "backend", None)
-        lister = getattr(backend, "list_background", None)
-        shells: list[Any] = []
-        if callable(lister):
-            with contextlib.suppress(Exception):
-                shells = list(lister())
-        shells_widget.shells = shells
-        self._sync_activity_dock()
 
     # Actions
 

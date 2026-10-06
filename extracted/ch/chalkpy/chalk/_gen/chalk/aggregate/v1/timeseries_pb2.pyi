@@ -13,17 +13,26 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class AggregateTimeSeriesRule(_message.Message):
-    __slots__ = ("aggregation", "bucket_duration", "dependent_features", "retention", "datetime_feature")
+    __slots__ = (
+        "aggregation",
+        "bucket_duration",
+        "dependent_features",
+        "retention",
+        "datetime_feature",
+        "materialization_key_hash",
+    )
     AGGREGATION_FIELD_NUMBER: _ClassVar[int]
     BUCKET_DURATION_FIELD_NUMBER: _ClassVar[int]
     DEPENDENT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     RETENTION_FIELD_NUMBER: _ClassVar[int]
     DATETIME_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    MATERIALIZATION_KEY_HASH_FIELD_NUMBER: _ClassVar[int]
     aggregation: str
     bucket_duration: _duration_pb2.Duration
     dependent_features: _containers.RepeatedScalarFieldContainer[str]
     retention: _duration_pb2.Duration
     datetime_feature: str
+    materialization_key_hash: str
     def __init__(
         self,
         aggregation: _Optional[str] = ...,
@@ -31,6 +40,7 @@ class AggregateTimeSeriesRule(_message.Message):
         dependent_features: _Optional[_Iterable[str]] = ...,
         retention: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         datetime_feature: _Optional[str] = ...,
+        materialization_key_hash: _Optional[str] = ...,
     ) -> None: ...
 
 class AggregateTimeSeries(_message.Message):
@@ -42,6 +52,8 @@ class AggregateTimeSeries(_message.Message):
         "filters_description",
         "bucket_feature",
         "aggregate_on_features",
+        "filter_features",
+        "projection_features",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_ON_FIELD_NUMBER: _ClassVar[int]
@@ -50,6 +62,8 @@ class AggregateTimeSeries(_message.Message):
     FILTERS_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     BUCKET_FEATURE_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_ON_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    FILTER_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    PROJECTION_FEATURES_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     aggregate_on: str
     group_by: _containers.RepeatedScalarFieldContainer[str]
@@ -57,6 +71,8 @@ class AggregateTimeSeries(_message.Message):
     filters_description: str
     bucket_feature: str
     aggregate_on_features: _containers.RepeatedScalarFieldContainer[str]
+    filter_features: _containers.RepeatedScalarFieldContainer[str]
+    projection_features: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -66,4 +82,6 @@ class AggregateTimeSeries(_message.Message):
         filters_description: _Optional[str] = ...,
         bucket_feature: _Optional[str] = ...,
         aggregate_on_features: _Optional[_Iterable[str]] = ...,
+        filter_features: _Optional[_Iterable[str]] = ...,
+        projection_features: _Optional[_Iterable[str]] = ...,
     ) -> None: ...

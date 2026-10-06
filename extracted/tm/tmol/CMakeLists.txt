@@ -343,7 +343,7 @@ endfunction()
 # Common compile options for CUDA extensions
 function(tmol_set_cuda_flags TARGET)
   target_compile_options(${TARGET} PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:-O3 -w -DWITH_CUDA -DWITH_NVTX>
+    $<$<COMPILE_LANGUAGE:CXX>:-O3 -w -fno-math-errno -DWITH_CUDA -DWITH_NVTX>
     $<$<COMPILE_LANGUAGE:CUDA>:
       -O3 -w
       --expt-extended-lambda
@@ -362,7 +362,7 @@ endfunction()
 # Common compile options for CPU-only extensions
 function(tmol_set_cpp_flags TARGET)
   target_compile_options(${TARGET} PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:-O3 -w -DWITH_NVTX>
+    $<$<COMPILE_LANGUAGE:CXX>:-O3 -w -fno-math-errno -DWITH_NVTX>
   )
   target_include_directories(${TARGET} PRIVATE ${TMOL_INCLUDE_DIRS})
   tmol_set_portable_link_flags(${TARGET})
@@ -400,6 +400,9 @@ endfunction()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set(_C_SOURCES
+  # optimization
+  tmol/optimization/armijo_compiled.ops.cpp
+  tmol/optimization/armijo_compiled.cpu.cpp
   # io/details/compiled
   tmol/io/details/compiled/compiled.ops.cpp
   tmol/io/details/compiled/gen_pose_leaf_atoms.cpu.cpp
@@ -413,9 +416,6 @@ set(_C_SOURCES
   # pack/rotamer/dunbrack
   tmol/pack/rotamer/dunbrack/compiled.ops.cpp
   tmol/pack/rotamer/dunbrack/compiled.cpu.cpp
-  # pose/compiled/apsp
-  tmol/pose/compiled/apsp_vestibule.ops.cpp
-  tmol/pose/compiled/apsp.cpu.cpp
   # score/backbone_torsion
   tmol/score/backbone_torsion/potentials/compiled.ops.cpp
   tmol/score/backbone_torsion/potentials/backbone_torsion_pose_score.cpu.cpp
@@ -444,22 +444,27 @@ set(_C_SOURCES
   # score/ljlk
   tmol/score/ljlk/potentials/compiled.ops.cpp
   tmol/score/ljlk/potentials/ljlk_pose_score.cpu.cpp
+  tmol/score/ljlk/potentials/ljlk_elec_pose_score.cpu.cpp
   # score/lk_ball
   tmol/score/lk_ball/potentials/compiled.ops.cpp
   tmol/score/lk_ball/potentials/lk_ball_pose_score.cpu.cpp
   tmol/score/lk_ball/potentials/gen_pose_waters.cpu.cpp
+  # score/metal
+  tmol/score/metal/potentials/compiled.ops.cpp
+  tmol/score/metal/potentials/metal_coordination_pose_score.cpu.cpp
   # score/na_torsion (CUDA implementation registered separately below)
   tmol/score/na_torsion/potentials/compiled.ops.cpp
 )
 
 if(TMOL_HAS_CUDA)
   list(APPEND _C_SOURCES
+    tmol/score/common/whole_pose_scoring.cuda.cu
+    tmol/optimization/armijo_compiled.cuda.cu
     tmol/io/details/compiled/gen_pose_leaf_atoms.cuda.cu
     tmol/io/details/compiled/resolve_his_taut.cuda.cu
     tmol/kinematics/compiled/compiled.cuda.cu
     tmol/pack/compiled/compiled.cuda.cu
     tmol/pack/rotamer/dunbrack/compiled.cuda.cu
-    tmol/pose/compiled/apsp.cuda.cu
     tmol/score/backbone_torsion/potentials/backbone_torsion_pose_score.cuda.cu
     tmol/score/cartbonded/potentials/cartbonded_pose_score.cuda.cu
     tmol/score/genbonded/potentials/genbonded_pose_score.cuda.cu
@@ -470,8 +475,10 @@ if(TMOL_HAS_CUDA)
     tmol/score/hbond/potentials/hbond_pose_score.cuda.cu
     tmol/score/hbond/potentials/gen_hbond_bases.cuda.cu
     tmol/score/ljlk/potentials/ljlk_pose_score.cuda.cu
+    tmol/score/ljlk/potentials/ljlk_elec_pose_score.cuda.cu
     tmol/score/lk_ball/potentials/lk_ball_pose_score.cuda.cu
     tmol/score/lk_ball/potentials/gen_pose_waters.cuda.cu
+    tmol/score/metal/potentials/metal_coordination_pose_score.cuda.cu
     tmol/score/na_torsion/potentials/na_torsion_pose_score.cuda.cu
   )
   # Approximate CUDA math is accurate for the pairwise nonbonded terms and
@@ -481,6 +488,7 @@ if(TMOL_HAS_CUDA)
     tmol/score/elec/potentials/elec_pose_score.cuda.cu
     tmol/score/hbond/potentials/hbond_pose_score.cuda.cu
     tmol/score/ljlk/potentials/ljlk_pose_score.cuda.cu
+    tmol/score/ljlk/potentials/ljlk_elec_pose_score.cuda.cu
     tmol/score/lk_ball/potentials/lk_ball_pose_score.cuda.cu
     PROPERTIES COMPILE_OPTIONS "--use_fast_math"
   )
@@ -593,6 +601,11 @@ if(TMOL_BUILD_TESTS)
   # --- mixed-backend and CUDA-only test extensions ---
 
   if(TMOL_HAS_CUDA)
+    tmol_add_pybind_cuda_ext(
+      test_bspline_cuda "tmol/tests/numeric" "_bspline_cuda"
+      tmol/tests/numeric/bspline.cuda.cu
+    )
+
     tmol_add_pybind_cuda_ext(
       test_geom_cuda "tmol/tests/score/common/geom" "_ext_cuda"
       tmol/tests/score/common/geom/geom.cu

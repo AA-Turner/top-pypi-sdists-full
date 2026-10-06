@@ -695,14 +695,21 @@ class ResearchOSSource:
         return self.client.artifact_lineage(artifact_id)
 
     def project_lineage(self, project_id: str) -> dict:
-        """A project's or experiment's own links, its origin, and its children
-        with theirs (server 0278, lineage plan 2 L12/L18)."""
+        """A project's own links, its origin, and its children with theirs
+        (server 0278, lineage plan 2 L12/L18)."""
         return self.client.project_lineage(project_id)
 
-    def experiment_edges(self, experiment_id: str, limit: int) -> list[dict]:
+    def experiment_lineage(self, experiment_id: str, *, project_id: str | None = None) -> dict:
+        """An experiment's own links, its origin and its children, in the
+        project lineage's shape, through the experiment API (server X21)."""
+        return self.client.experiment_lineage(experiment_id, project_id=project_id)
+
+    def experiment_edges(
+        self, experiment_id: str, limit: int, *, project_id: str | None = None
+    ) -> list[dict]:
         """The graph AMONG an experiment's runs and files, stored edges first,
         at most ``limit``."""
-        return self.client.experiment_edges(experiment_id, limit=limit)
+        return self.client.experiment_edges(experiment_id, limit=limit, project_id=project_id)
 
     def server_records_reads(self) -> bool:
         """Whether the server has the read lineage routes (0255). An older or
@@ -1033,14 +1040,18 @@ class ResearchOSSource:
                 pass  # not filed there after all: ask where it is
         return self.client.get_experiment(experiment_id)
 
-    def experiment_document(self, experiment_id: str) -> str | None:
-        """The experiment's authored Markdown, as its Overview page holds it.
+    def project_overview(self, project_id: str) -> dict:
+        return self.client.get_project_overview(project_id)
 
-        Read at the experiment's PROJECT address, deliberately and for now: the
-        experiment API serves the page (HTML) but not the authored block, which
-        the server cuts out of the page for the project-address read. The server
-        keeps that read working for this client until R6."""
-        return self.client.get_experiment_document(experiment_id)
+    def experiment_overview(self, experiment_id: str, *, project_id: str | None = None) -> dict:
+        return self.client.get_experiment_overview(experiment_id, project_id=project_id)
+
+    def experiment_document(
+        self, experiment_id: str, *, project_id: str | None = None
+    ) -> str | None:
+        """The experiment's authored Markdown, as its Overview page holds it:
+        the experiment detail's ``document`` (server X21)."""
+        return self.client.get_experiment_document(experiment_id, project_id=project_id)
 
     # -- versioned note documents ---------------------------------------------
 
@@ -1064,11 +1075,14 @@ class ResearchOSSource:
                 if kind == "project":
                     saved = self.client.transport.get(f"/v1/projects/{entity_id}/notes/versions/{version}")
                 elif kind == "experiment":
-                    # The PROJECT address. An experiment and its project twin share one
-                    # uuid and the notes routes are mounted on both, so this is the
-                    # same document read from the address that survives the route cut.
+                    # The experiment API's note history (server X21), under the
+                    # project the experiment is filed in -- which its row names.
+                    project_id = entity.get("project_id") or entity.get("parent_project_id")
+                    if not project_id:
+                        project_id = self.client.get_scope(str(entity_id))["project_id"]
                     saved = self.client.transport.get(
-                        f"/v1/projects/{entity_id}/notes/versions/{version}"
+                        f"/v1/projects/{project_id}/experiments/{entity_id}"
+                        f"/notes/versions/{version}"
                     )
                 elif kind == "run":
                     saved = self.client.transport.get(f"/v1/runs/{entity_id}/notes/versions/{version}")

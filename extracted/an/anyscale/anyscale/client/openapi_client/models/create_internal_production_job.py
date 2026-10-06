@@ -39,7 +39,8 @@ class CreateInternalProductionJob(object):
         'config': 'CreateProductionJobConfig',
         'job_queue_config': 'CreateJobQueueConfig',
         'tags': 'dict(str, str)',
-        'workspace_id': 'str'
+        'workspace_id': 'str',
+        'source_job_id': 'str'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class CreateInternalProductionJob(object):
         'config': 'config',
         'job_queue_config': 'job_queue_config',
         'tags': 'tags',
-        'workspace_id': 'workspace_id'
+        'workspace_id': 'workspace_id',
+        'source_job_id': 'source_job_id'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, workspace_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, config=None, job_queue_config=None, tags=None, workspace_id=None, source_job_id=None, local_vars_configuration=None):  # noqa: E501
         """CreateInternalProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class CreateInternalProductionJob(object):
         self._job_queue_config = None
         self._tags = None
         self._workspace_id = None
+        self._source_job_id = None
         self.discriminator = None
 
         self.name = name
@@ -79,6 +82,8 @@ class CreateInternalProductionJob(object):
             self.tags = tags
         if workspace_id is not None:
             self.workspace_id = workspace_id
+        if source_job_id is not None:
+            self.source_job_id = source_job_id
 
     @property
     def name(self):
@@ -242,6 +247,29 @@ class CreateInternalProductionJob(object):
         """
 
         self._workspace_id = workspace_id
+
+    @property
+    def source_job_id(self):
+        """Gets the source_job_id of this CreateInternalProductionJob.  # noqa: E501
+
+        The id of the job to record as this job's source. Set when duplicating an existing job so the new job links back to it. The source job is resolved within the caller's organization and against their read access; the request fails with 404 when it does not resolve.  # noqa: E501
+
+        :return: The source_job_id of this CreateInternalProductionJob.  # noqa: E501
+        :rtype: str
+        """
+        return self._source_job_id
+
+    @source_job_id.setter
+    def source_job_id(self, source_job_id):
+        """Sets the source_job_id of this CreateInternalProductionJob.
+
+        The id of the job to record as this job's source. Set when duplicating an existing job so the new job links back to it. The source job is resolved within the caller's organization and against their read access; the request fails with 404 when it does not resolve.  # noqa: E501
+
+        :param source_job_id: The source_job_id of this CreateInternalProductionJob.  # noqa: E501
+        :type: str
+        """
+
+        self._source_job_id = source_job_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -21,6 +21,7 @@ from istari_digital_client.sdk._client import Istari, IstariIntegrations, Istari
 
 # Configuration
 from istari_digital_client.sdk._configuration import Configuration
+from istari_digital_client.sdk._identity.auth.identity_service import IdentityApiVersion
 
 # Domain types - Resources
 from istari_digital_client.sdk._common.resource_types import (
@@ -90,6 +91,7 @@ __all__ = [
     "IstariAdmin",
     # Configuration
     "Configuration",
+    "IdentityApiVersion",
     # Domain types - Resources
     "Resource",
     "ResourceRevision",
@@ -133,3 +135,13 @@ __all__ = [
     "InternalServerError",
     "PATsDeprecatedError",
 ]
+
+
+# ``istari_digital_client.sdk._auth`` is a deprecated shim; resolve it lazily so a plain
+# ``import istari_digital_client.sdk`` does not raise its DeprecationWarning.
+def __getattr__(name: str):
+    if name == "_auth":
+        import importlib
+
+        return importlib.import_module(f"{__name__}._auth")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

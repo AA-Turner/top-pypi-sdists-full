@@ -74,7 +74,6 @@ def _create_iov_result(iov: sspilib.raw.SecBufferDesc) -> tuple[IOVResBuffer, ..
 
 
 def _get_sspi_credential(
-    principal: str | None,
     protocol: str,
     usage: str,
     credentials: list[Credential],
@@ -85,7 +84,6 @@ def _get_sspi_credential(
     supports Password or CredentialCache credential types.
 
     Args:
-        principal: The principal to use for the AcquireCredentialsHandle call
         protocol: The protocol of the credential.
         usage: Either `initiate` for a client context or `accept` for a server
             context.
@@ -94,9 +92,13 @@ def _get_sspi_credential(
     Returns:
         sspilib.raw.CredHandle: The handle to the SSPI credential to use.
     """
+    # The principal is never set, SSPI does not use it to select the acceptor
+    # identity and setting it alongside an explicit credential with a UPN
+    # username (user@REALM) makes the Kerberos acceptor fail with
+    # SEC_E_LOGON_DENIED before the KDC is contacted.
     credential_kwargs: dict[str, t.Any] = {
         "package": protocol,
-        "principal": principal,
+        "principal": None,
         "credential_use": (
             sspilib.raw.CredentialUse.SECPKG_CRED_OUTBOUND
             if usage == "initiate"
@@ -185,8 +187,7 @@ class SSPIProxy(ContextProxy):
         sspi_credential = kwargs.get("_sspi_credential", None)
         if not sspi_credential:
             try:
-                principal = self.spn if usage == "accept" else None
-                sspi_credential = _get_sspi_credential(principal, protocol, usage, credentials)
+                sspi_credential = _get_sspi_credential(protocol, usage, credentials)
             except NativeError as win_err:
                 raise SpnegoError(base_error=win_err, context_msg="Getting SSPI credential") from win_err
 
@@ -216,10 +217,14 @@ class SSPIProxy(ContextProxy):
 
     @property
     def negotiated_protocol(self) -> str | None:
-        # FIXME: Try and replicate GSSAPI. Will return None for acceptor until the first token is returned. Negotiate
-        # for both iniator and acceptor until the context is established.
+        # FIXME: Try and replicate GSSAPI. Will return Negotiate for both initiator and acceptor until the context is
+        # established.
+        if not self._context:
+            # Kerberos and NTLM are known up front, Negotiate only once a token has been processed.
+            return None if self.protocol == "negotiate" else self.protocol
+
         package_info = sspilib.raw.query_context_attributes(
-            t.cast(sspilib.raw.CtxtHandle, self._context),
+            self._context,
             sspilib.raw.SecPkgContextPackageInfo,
         )
         return package_info.name.lower()
@@ -227,8 +232,11 @@ class SSPIProxy(ContextProxy):
     @property
     @wrap_system_error(NativeError, "Retrieving session key")
     def session_key(self) -> bytes:
+        if not self._context:
+            raise NoContextError(context_msg="Retrieving session key failed as no context was initialized")
+
         session_key = sspilib.raw.query_context_attributes(
-            t.cast(sspilib.raw.CtxtHandle, self._context),
+            self._context,
             sspilib.raw.SecPkgContextSessionKey,
         )
         return session_key.session_key

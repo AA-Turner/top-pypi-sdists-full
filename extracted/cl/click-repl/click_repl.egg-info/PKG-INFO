@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: click-repl
-Version: 0.4.0
+Version: 0.4.1
 Summary: REPL plugin for Click
 Home-page: https://github.com/click-contrib/click-repl
 Author: Markus Unterwaditzer

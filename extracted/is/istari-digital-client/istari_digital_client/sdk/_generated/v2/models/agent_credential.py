@@ -24,13 +24,14 @@ from typing_extensions import Self
 
 class AgentCredential(BaseModel):
     """
-    Identifiers returned when an agent is provisioned in Identity-Router mode.  Returned by ``UserManager.create_agent_with_key``. The caller hands these to the agent, which already holds the matching private key.  Attributes ---------- client_id (str): The agent's Identity-Router principal id / OAuth client_id.     The agent uses it as the ``iss``/``sub`` of its client_assertion and it     becomes the ``sub`` of every JWT the agent is issued. user_uuid (str): The agent's stable Identity-Router user id (carried as the     ``user_id`` claim of issued JWTs). tenant_id (str): The Identity-Router tenant the agent belongs to. key_id (str): The id of the registered public key.
+    Identifiers returned when an agent is provisioned in Identity Service mode.  Returned by ``UserManager.create_agent_with_key``. The caller hands these to the agent, which already holds the matching private key (its Access Key).  Attributes ---------- client_id (str): The agent's Identity Service principal id / OAuth client_id.     The agent uses it as the ``iss``/``sub`` of its client_assertion and it     becomes the ``sub`` of every JWT the agent is issued. user_uuid (str): The agent's stable Identity Service user id (carried as the     ``user_id`` claim of issued JWTs). tenant_id (str): The Identity Service tenant the agent belongs to. key_id (str): The id of the registered public key. key_name (str): The Identity Service-resolved name of the registered Access Key.     Equals the key id when the caller left the name blank.
     """ # noqa: E501
     client_id: StrictStr
     user_uuid: StrictStr
     tenant_id: StrictStr
     key_id: StrictStr
-    __properties: ClassVar[List[str]] = ["client_id", "user_uuid", "tenant_id", "key_id"]
+    key_name: StrictStr
+    __properties: ClassVar[List[str]] = ["client_id", "user_uuid", "tenant_id", "key_id", "key_name"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,6 +87,7 @@ class AgentCredential(BaseModel):
             "client_id": obj.get("client_id"),
             "user_uuid": obj.get("user_uuid"),
             "tenant_id": obj.get("tenant_id"),
-            "key_id": obj.get("key_id")
+            "key_id": obj.get("key_id"),
+            "key_name": obj.get("key_name")
         })
         return _obj

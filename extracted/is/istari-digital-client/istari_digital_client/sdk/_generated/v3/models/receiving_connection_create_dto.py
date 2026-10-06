@@ -30,7 +30,7 @@ class ReceivingConnectionCreateDto(BaseModel):
     """ # noqa: E501
     label: StrictStr = Field(description="Human-readable label for the connection.")
     description: StrictStr = Field(description="Description of the connection.")
-    shared_id: Annotated[str, Field(min_length=1, strict=True, max_length=255)] = Field(description="The shared identifier used to pair the connection.")
+    shared_id: Annotated[str, Field(min_length=1, strict=True, max_length=255)] = Field(description="The shared identifier used to pair the connection. Slashes nest the share under subfolders in the share bucket; dot-only segments such as `.` and `..` are rejected.")
     shared_secret: Annotated[str, Field(min_length=8, strict=True)] = Field(description="The shared secret used to authenticate the connection.")
     object_store_id: StrictStr = Field(description="The object store to use for this connection.")
     transformations: Optional[List[RemoteTransformationCreateDto]] = Field(default=None, description="The set of control tag transformations.")
@@ -39,8 +39,8 @@ class ReceivingConnectionCreateDto(BaseModel):
     @field_validator('shared_id')
     def shared_id_validate_regular_expression(cls, value):
         """Validates the regular expression"""
-        if not re.match(r"^[a-zA-Z0-9._-]+$", value):
-            raise ValueError(r"must validate the regular expression /^[a-zA-Z0-9._-]+$/")
+        if not re.match(r"^\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*(\/\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)*$", value):
+            raise ValueError(r"must validate the regular expression /^\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*(\/\.*[a-zA-Z0-9_-][a-zA-Z0-9._-]*)*$/")
         return value
 
     model_config = ConfigDict(

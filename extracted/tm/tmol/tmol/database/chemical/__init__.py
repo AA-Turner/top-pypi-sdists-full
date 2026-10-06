@@ -21,6 +21,77 @@ def _parse_acceptor_hybridization(v, t):
 
 cattr.register_structure_hook(AcceptorHybridization, _parse_acceptor_hybridization)
 
+CoordinationGeometry = NewType("CoordinationGeometry", str)
+
+# vertices per coordination geometry; "irregular" is untemplated: only metal-ligand
+#    distances are restrained, and the structure sets how many sites are filled
+GEOMETRY_SITE_COUNT = {
+    "linear": 2,
+    "trigonal": 3,
+    "tetrahedral": 4,
+    "square_planar": 4,
+    "trigonal_bipyramidal": 5,
+    "square_pyramidal": 5,
+    "octahedral": 6,
+    "irregular": None,
+}
+
+
+# the geometries' order on the res_type_variant axis
+GEOMETRY_NAMES = tuple(GEOMETRY_SITE_COUNT)
+
+# res_type_variant, per io class: 0-2 CYD and histidine tautomers, 3 an unresolved
+#    tautomer (selects nothing), 4 deprotonated donors, then one per metal geometry
+HIS_UNRESOLVED_VAR_IND = 3
+DEPROTONATED_VAR_IND = 4
+METAL_GEOMETRY_VAR_BASE = 5
+
+# protonation_state of the forms a residue takes without its titratable hydrogen
+DEPROTONATED_STATE = "negatively_charged"
+
+# display name of the neutral amino terminus, whose forms sit on the variant
+#    axis past the metal geometries, each at this base plus its sidechain index
+NEUTRAL_TERMINUS = "nterm_neutral"
+NEUTRAL_TERMINUS_VAR_BASE = METAL_GEOMETRY_VAR_BASE + len(GEOMETRY_NAMES)
+N_VARIANT_INDICES = NEUTRAL_TERMINUS_VAR_BASE + DEPROTONATED_VAR_IND + 1
+
+
+def metal_geometry_variant_index(geometry: str) -> int:
+    """The res_type_variant index selecting this coordination geometry."""
+    return METAL_GEOMETRY_VAR_BASE + GEOMETRY_NAMES.index(geometry)
+
+
+_METAL_TABLE = None
+
+
+def metal_table() -> dict:
+    """The metal reference table in chemical/metals.yaml, loaded once."""
+    global _METAL_TABLE
+    if _METAL_TABLE is None:
+        path = os.path.join(
+            os.path.dirname(__file__), "..", "default", "chemical", "metals.yaml"
+        )
+        with open(path) as infile:
+            _METAL_TABLE = safe_load(infile)
+    return _METAL_TABLE
+
+
+def ideal_distances(ion: dict, donor_radii: dict) -> dict:
+    """Measured metal-ligand distances, completed by ionic_radius + donor_radius."""
+    out = dict(ion["distances"])
+    for donor, radius in donor_radii.items():
+        out.setdefault(donor, round(ion["ionic_radius"] + radius, 3))
+    return out
+
+
+def _parse_coordination_geometry(v, t):
+    if v in GEOMETRY_SITE_COUNT:
+        return v
+    raise ValueError(f"Invalid CoordinationGeometry value: {v}")
+
+
+cattr.register_structure_hook(CoordinationGeometry, _parse_coordination_geometry)
+
 
 def normalize_bond_tuples(raw: Any) -> Any:  # noqa: C901
     """Normalize legacy 2-field bond entries to include bond order.
@@ -81,6 +152,16 @@ class AtomType:
     is_hydroxyl: bool = False
     is_polarh: bool = False
     acceptor_hybridization: Optional[AcceptorHybridization] = None
+    # Metals are typed per oxidation state, because the state sets both the
+    # electrostatic charge and the Lennard-Jones radius: Fe2p is not Fe3p.
+    is_metal: bool = False
+    oxidation_state: Optional[int] = None
+    # donates a lone pair to a metal; not is_acceptor, which follows Rosetta's hbond
+    #    typing and excludes thiolate and thioether sulfur
+    is_metal_donor: bool = False
+    # the type this atom takes when a covalent bond replaces its hydrogen:
+    #    a hydroxyl becomes an ether, a thiol a thioether
+    conjugated_type: Optional[str] = None
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -89,6 +170,23 @@ class Atom:
 
     name: str = attr.ib()
     atom_type: str = attr.ib()
+    # Generic bonded lookup can describe a changed local environment without
+    # changing nonbonded typing or transferring Rosetta torsion ownership.
+    #
+    # This is deliberately per atom rather than a wider genbonded hierarchy.
+    # The hierarchy is a property of an atom type and is global: it fixes gaps
+    # like Nbb reaching NG2 without passing through Nad, and that fix belongs
+    # in scoring/genbonded.yaml. Conjugation is different -- it changes one
+    # atom's chemistry as a function of what became bonded to it, while the
+    # base residue keeps the Rosetta type that owns its canonical torsions.
+    # ASN:conj_ND2 is the worked example: ND2 stays Nglyc for the Rosetta
+    # terms and looks up generic parameters as the amide Nad it has become.
+    # No per-type hierarchy can express that, because it depends on the
+    # partner, not on the atom type.
+    genbonded_type: Optional[str] = None
+    # Fallback peptide role for cross-residue Cartesian parameter lookup.
+    # Authored atom names and explicitly supplied parameters retain priority.
+    cartbonded_reference: Optional[str] = None
 
 
 @attr.s(frozen=True, slots=True)
@@ -97,6 +195,19 @@ class AtomAlias:
 
     name: str = attr.ib()
     alt_name: str = attr.ib()
+
+
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class Name3Alias:
+    """An input residue name that is read as another residue's.
+
+    The residue is read, scored and written as ``read_as``; its own name does
+    not survive. Reserved for a component the database deliberately does not
+    describe, where the substitute is chemically the same molecule.
+    """
+
+    name3: str
+    read_as: str
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -119,6 +230,15 @@ class Connection:
     name: str
     atom: str
     type: str = "SINGLE"
+    # Whether the bond this connection completes closes a ring. Generic bonded
+    # lookup bins a bond by order *and* ring membership, and the two sets are
+    # disjoint, so a connection that defaults to False can never match a rule
+    # written for a ring bond. Only a cut that splits a ring sets this: a
+    # polymer up/down bond and an ordinary attachment do not close one.
+    in_ring: bool = False
+    # False for a bond outside the kinematic tree and packing groups (a disulfide,
+    #    a metal-ligand bond); it still counts for count-pair
+    kinematic: bool = True
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -143,11 +263,17 @@ class Torsion:
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class ChiSamples:
-    """Discrete samples and expansions for one chi dihedral."""
+    """Discrete values a torsion is sampled at, where no library supplies them.
+
+    A proton chi turns a hydrogen and is optH's to place as well as the
+    packer's; any other sampled chi moves heavy atoms and is the packer's
+    alone.
+    """
 
     chi_dihedral: str
     samples: Tuple[float, ...]
     expansions: Tuple[float, ...]
+    is_proton: bool = True
 
 
 @attr.s(auto_attribs=True, frozen=True, slots=True)
@@ -191,6 +317,31 @@ class ChemicalProperties:
     virtual: Tuple[str, ...]
 
 
+@attr.s(auto_attribs=True, frozen=True, slots=True)
+class MetalSite:
+    """The coordination sites on one metal atom of a residue type."""
+
+    metal_atom: str
+    geometry: CoordinationGeometry
+    # in-block atoms filling sites (heme nitrogens, a cluster's bridging sulfurs,
+    #    listed by every metal they bridge); detection fills only the rest
+    internal_satisfiers: Tuple[str, ...] = ()
+    # free-site directions, where lk_ball builds waters; a free ion's are placed
+    #    when its sites are assigned
+    site_virts: Tuple[str, ...] = ()
+    # connections a donor fills, parallel to site_virts (an untemplated ion has
+    #    no virtuals); an unfilled one is an open site
+    site_connections: Tuple[str, ...] = ()
+
+    @property
+    def n_free_sites(self) -> Optional[int]:
+        """Sites detection may fill; None when the geometry is untemplated."""
+        n_total = GEOMETRY_SITE_COUNT[self.geometry]
+        if n_total is None:
+            return None
+        return n_total - len(self.internal_satisfiers)
+
+
 @attr.s(auto_attribs=True)
 class RawResidueType:
     """Unpatched residue definition loaded from the chemical database."""
@@ -216,9 +367,23 @@ class RawResidueType:
     hydrogens_regenerated: bool = False
     # True only for blocks produced by user-defined ligand fragmentation.
     is_ligand_fragment: bool = False
+    # reference restype supplying each torsion potential; None = no reference
+    rama_reference: Optional[str] = None
+    dunbrack_reference: Optional[str] = None
+    na_base_reference: Optional[str] = None
+    # D-AAs: residue is mirror image of reference
+    reference_mirrored: bool = False
     # One-letter sequence code; unique only within a backbone type ...
     #   "a" is both DA and RA.
     one_letter_code: Optional[str] = None
+    # Attachment atom, partner equivalence class, partner atom. Equal atom
+    # inventories can need different parameters (e.g. ester vs thioester).
+    conjugation_context: Tuple[Tuple[str, str, str], ...] = ()
+    # One entry per metal atom this residue carries; empty for everything else.
+    metal_sites: Tuple[MetalSite, ...] = ()
+    # Output only, never read by scoring: the chemical (Lewis) order of each
+    # bond whose `bonds` order is a topology order, as (atom, atom, order).
+    io_bond_orders: Tuple[Tuple[str, str, str], ...] = ()
 
     def atom_name(self, index: int) -> str:
         """Return the name of the atom at ``index``."""
@@ -231,9 +396,10 @@ class IcoorVariant:
 
     name: str
     source: Optional[str] = None
-    phi: Optional[DihedralAngle] = 0.0
-    theta: Optional[BondAngle] = 0.0
-    d: Optional[float] = 0.0
+    # absent means "take the source's", so 0.0 can be asked for outright
+    phi: Optional[DihedralAngle] = None
+    theta: Optional[BondAngle] = None
+    d: Optional[float] = None
     parent: Optional[str] = None
     grand_parent: Optional[str] = None
     great_grand_parent: Optional[str] = None
@@ -292,6 +458,66 @@ class VariantType:
     applies_to: VariantScope = VariantScope()
 
 
+def l_base_name(restype) -> str:
+    """The L residue type a block type's base name corresponds to.
+
+    A d-amino acid is named after the L form it mirrors. Tautomer and disulfide
+    states belong to the sidechain, which a mirror image shares, so code keying
+    on those states must see the same name for both forms.
+    """
+    base = restype.base_name
+    if restype.properties.polymer.sidechain_chirality == "d":
+        return base[1:]
+    return base
+
+
+def site_connections(restype) -> Tuple[str, ...]:
+    """Every free-site connection of a residue's metals; a site's index everywhere
+    is its position here, so a cluster's sites run on across its metals."""
+    return tuple(name for site in restype.metal_sites for name in site.site_connections)
+
+
+def is_metal_cluster(restype) -> bool:
+    """Whether a residue's metals are a cluster: several, or bonded in-residue."""
+    sites = restype.metal_sites
+    return len(sites) > 1 or any(site.internal_satisfiers for site in sites)
+
+
+def site_metal(restype, index: int) -> Tuple["MetalSite", int]:
+    """The metal site owning a residue's ``index``-th free site, and its position."""
+    for site in restype.metal_sites:
+        if index < len(site.site_connections):
+            return site, index
+        index -= len(site.site_connections)
+    raise IndexError(f"{restype.name} has no free site {index}")
+
+
+def special_case_variant_index(restype) -> int:
+    """Where a residue type sits on the res_type_variant axis of its class."""
+    if restype.metal_sites:
+        return metal_geometry_variant_index(restype.metal_sites[0].geometry)
+    offset = (
+        NEUTRAL_TERMINUS_VAR_BASE
+        if NEUTRAL_TERMINUS in restype.name.split(":")[1:]
+        else 0
+    )
+    if restype.properties.protonation.protonation_state == DEPROTONATED_STATE:
+        return offset + DEPROTONATED_VAR_IND
+    base = l_base_name(restype)
+    if base in ("CYD", "HIS_D"):
+        return offset + 1
+    if base == "HIS_POS":
+        return offset + 2
+    return offset
+
+
+GENERATED_RESIDUE_FILES = (
+    "d_amino_acids.yaml",
+    "metal_ions.yaml",
+    "metal_clusters.yaml",
+)
+
+
 @attr.s(auto_attribs=True, frozen=True, slots=True)
 class ChemicalDatabase:
     """Immutable collection of chemical types, residues, and patches."""
@@ -302,6 +528,7 @@ class ChemicalDatabase:
     atom_types: Tuple[AtomType, ...]
     residues: Tuple[RawResidueType, ...]
     variants: Tuple[VariantType, ...]
+    name3_aliases: Tuple[Name3Alias, ...] = ()
 
     @classmethod
     def get_default(cls) -> "ChemicalDatabase":
@@ -314,10 +541,17 @@ class ChemicalDatabase:
 
     @classmethod
     def from_file(cls, path: str | os.PathLike[str]) -> "ChemicalDatabase":
-        """Load a chemical database from a directory containing YAML data."""
-        path = os.path.join(path, "chemical.yaml")
-        with open(path, "r") as infile:
+        """Load chemical definitions and their generated residue tables."""
+        with open(os.path.join(path, "chemical.yaml"), "r") as infile:
             raw = safe_load(infile)
+        # residue sets written by a support script live in their own files so
+        #    regenerating one does not rewrite the hand-maintained database
+        for generated in GENERATED_RESIDUE_FILES:
+            generated_path = os.path.join(path, generated)
+            if not os.path.exists(generated_path):
+                continue
+            with open(generated_path, "r") as infile:
+                raw["residues"].extend(safe_load(infile)["residues"])
         raw = normalize_bond_tuples(raw)
 
         return cattr.structure(raw, cls)

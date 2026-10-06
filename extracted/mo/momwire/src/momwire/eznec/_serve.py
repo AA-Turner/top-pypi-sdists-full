@@ -85,9 +85,12 @@ structure is described or relied on.
 The basis, and why it is the one
 --------------------------------
 ``BSplineSolver`` at the repo's own default configuration — ``degree=2``,
-``feed_model="point"``, no extended kernel, no enrichment — which is what
+``feed_model="point"``, no enrichment — which is what
 ``momwire.deck.build_solver``'s ``"bspline"`` entry constructs and what the
-portal solves every NEC-2 deck with.
+portal solves every NEC-2 deck with, plus the EXTENDED KERNEL (momwire#1326):
+NEC-5's own kernel behaves as EK-on and this dialect has no card to say
+otherwise, so every basis here takes it unless it or the deck cannot, and
+then solves reduced with an ``ExtendedKernelDefault`` advisory.
 
 The family used to be no choice at all, and that claim was wrong.  NEC-5
 addresses NODES and ``node_gaps`` (momwire#305, the apex-feed arc) is the only
@@ -388,9 +391,10 @@ mnemonic changed and their tables agree to 4.4 % worst-cell, INCLUDING the
 1.7342E-02, the same Sommerfeld interpolation dust in both, in a column a PEC
 image makes exactly zero.  So the MININEC-type ground reflects off its medium
 in the far field and SOLVES its near field in it, and the far-field rung's
-``GD``/``GN 1`` identity says nothing about this table.  :func:`_near_medium`
-is that sentence in code: ``GN 0``'s ε̃ comes off its own Sommerfeld solve and
-``GD``'s is folded from the deck's medium, because its solver never saw one.
+``GD``/``GN 1`` identity says nothing about this table.
+:func:`momwire._near_readout.near_ground` is that sentence in code: ``GN 0``'s
+ε̃ comes off its own Sommerfeld solve and ``GD``'s is folded from the deck's
+medium (which :func:`_near_field` hands it), because its solver never saw one.
 The seam reproduces the captures' own cross-agreement with its own numbers —
 1.54 % of table scale between the served 0108 and the served 0110, well inside
 the 4.4 % the two engine tables sit apart at.
@@ -417,9 +421,10 @@ Over a PERFECT ground the same point is ordinary, which is why the refusal is
 finite-ground-only: ``C2 = 1`` there, the image cancels the contact charge
 EXACTLY, and there is no residual to diverge on.
 
-The nec2 half of this tree still refuses ``NE``/``NH`` over its own finite
-grounds by name (``momwire.portal._portal._near_field_lines``, momwire#388) —
-same evaluator, different seam, and a follow-up rather than a disagreement.
+The nec2 half of this tree serves the same composition over its own
+Sommerfeld ground (``GN 2``) since momwire#1336 made it one function
+(:mod:`momwire._near_readout`, momwire#550), with the same two cells refused;
+its reflection-coefficient ``GN 0`` still refuses by name, unmeasured.
 
 The budget's own arithmetic
 ---------------------------
@@ -471,9 +476,8 @@ from collections.abc import Mapping
 import numpy as np
 
 from ..bspline import BSplineSolver
-from ..razor import RazorSolver
 from ..deck._cards import tokenize
-from .. import _field_point, _ground_refl, _ground_spec, _medium_spec
+from .. import _ground_spec, _medium_spec
 from ..deck._nec5 import (
     Nec5Conductivity,
     Nec5Deck,
@@ -501,10 +505,10 @@ from ..deck._nec5 import (
 # per-reader, semantics once*).  This module resolves the ADDRESSING, which is
 # the dialect's own, and hands the semantics a record with its fields already
 # in NEC's order.
-from ..deck._networks import card_branches, port_name
-from ..deck._solver import _NATIVE_LOADING, basis_entry, port_kwargs
+from ..deck._networks import flat_network, reduced_ports
+from ..deck._solver import _NATIVE_LOADING, basis_entry, construct_solver
 from ..deck.model import NetworkCard
-from ..networks import Driven, Network, NetworkReducer, PortOnWire
+from ..networks import NetworkReducer
 
 # The far-field readout has ONE owner, and since momwire#719 U1 it is a
 # neutral module: element currents to E(THETA)/E(PHI), the gain columns and
@@ -513,14 +517,23 @@ from ..networks import Driven, Network, NetworkReducer, PortOnWire
 # cross-seam import. (The ranked extraction backlog, momwire#429, is the
 # audit that named this reach as debt; U1 is where it was paid off.)
 from .._far_readout import (
-    ETA0,
     Ground,
-    _element_fields,
-    _far_moments,
     _FIELD_FLOOR2,
     _gain_db,
-    _image_moments,
     _polarisation,
+    average_gain,
+    pattern_fields,
+)
+
+# The near field has ONE owner too (momwire#1336): the element sum, the
+# image, the finite-ground composition and the grid walk are every seam's,
+# so a deck asks the same question of the same arithmetic on either door.
+from .._near_readout import (
+    NEAR_FIELD_SUBDIV as _NEAR_FIELD_SUBDIV,
+    grid_points,
+    near_field_at,
+    near_ground,
+    near_point_refusal,
 )
 
 from ._printout import (
@@ -1272,59 +1285,15 @@ def _grid_points(request: Nec5NearFieldRequest) -> np.ndarray:
     which is all either consumer ever sees: the table prints X, Y, Z for a
     spherical grid too.  θ is from the zenith and φ from +x (see
     :class:`~momwire.deck._nec5.Nec5NearFieldRequest`).  An angle on a
-    multiple of 90° places its zero EXACTLY (:func:`_cos_sin_deg`), so a
-    horizon sample sits at z = 0 and prints ``0.0000E+00``; the licensed
-    engine prints ~1e-13 of R there instead.
+    multiple of 90° places its zero EXACTLY, so a horizon sample sits at
+    z = 0 and prints ``0.0000E+00``; the licensed engine prints ~1e-13 of R
+    there instead.  The walk itself is
+    :func:`momwire._near_readout.grid_points`, every seam's since the NEC-4.2
+    slot learned ``NE 1`` too (momwire#1352).
     """
-    n_x, n_y, n_z = request.counts
-    start = np.asarray(request.origin, dtype=float)
-    step = np.asarray(request.step, dtype=float)
-    samples = [
-        start + np.array([ix, iy, iz]) * step
-        for iz in range(n_z)
-        for iy in range(n_y)
-        for ix in range(n_x)
-    ]
-    if request.coordinates == 0:
-        return np.array(samples)
-    points = []
-    for r, theta, phi in samples:
-        cos_t, sin_t = _cos_sin_deg(float(theta))
-        cos_p, sin_p = _cos_sin_deg(float(phi))
-        points.append((r * sin_t * cos_p, r * sin_t * sin_p, r * cos_t))
-    return np.array(points, dtype=float)
-
-
-def _cos_sin_deg(angle_deg: float) -> tuple[float, float]:
-    """``(cos, sin)`` of an angle in degrees, exact on the four axes.
-
-    ``math.cos(math.radians(90.0))`` is 6.1e-17, not 0, and a spherical
-    grid's horizon row would otherwise sit a hair above or below the ground
-    plane it names.  Off the axes this is the ordinary library trig.
-    """
-    quarter, rest = divmod(angle_deg, 90.0)
-    if rest == 0.0:
-        return ((1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0))[int(quarter) % 4]
-    rad = math.radians(angle_deg)
-    return math.cos(rad), math.sin(rad)
-
-
-def _contact_ends(deck: Nec5Deck) -> list[tuple[int, np.ndarray, float]]:
-    """``(tag, point, tolerance)`` for every wire END standing in the plane.
-
-    The tolerance is the SOLVER's own, per wire — `_ground_spec.
-    ground_touch_tol`, 1e-6 of the wire's length, the same spelling
-    :func:`_geometry_refusal` uses — so "this end stands on the ground" means
-    here exactly what it means to the basis that will grow an image off it.
-    """
-    ends: list[tuple[int, np.ndarray, float]] = []
-    for wire in deck.wires:
-        pl = np.array([wire.end1, wire.end2], dtype=float)
-        tol = _ground_spec.ground_touch_tol(pl)
-        for point in pl:
-            if abs(float(point[2])) <= tol:
-                ends.append((wire.tag, point, tol))
-    return ends
+    return grid_points(
+        request.coordinates, request.counts, request.origin, request.step
+    )
 
 
 def _near_field_refusal(deck: Nec5Deck, request: Nec5NearFieldRequest) -> str | None:
@@ -1366,29 +1335,24 @@ def _near_field_refusal(deck: Nec5Deck, request: Nec5NearFieldRequest) -> str | 
     """
     if not isinstance(deck.ground, (Nec5MininecGround, Nec5SommerfeldGround)):
         return None
-    points = _grid_points(request)
-    for point in points:
-        if float(point[2]) < 0.0:
-            return _REFUSE_NEAR_FIELD_BELOW.format(
-                card=_near_field_card(request),
-                x=point[0],
-                y=point[1],
-                z=point[2],
-            )
-    contacts = _contact_ends(deck)
-    if not contacts:
+    verdict = near_point_refusal(
+        _grid_points(request),
+        [np.array([wire.end1, wire.end2], dtype=float) for wire in deck.wires],
+        0.0,
+    )
+    if verdict is None:
         return None
-    for point in points:
-        for tag, contact, tol in contacts:
-            if float(np.linalg.norm(point - contact)) <= tol:
-                return _REFUSE_NEAR_FIELD_CONTACT.format(
-                    card=_near_field_card(request),
-                    x=point[0],
-                    y=point[1],
-                    z=point[2],
-                    tag=tag,
-                )
-    return None
+    kind, point, wire = verdict
+    template = (
+        _REFUSE_NEAR_FIELD_BELOW if kind == "below" else _REFUSE_NEAR_FIELD_CONTACT
+    )
+    return template.format(
+        card=_near_field_card(request),
+        x=point[0],
+        y=point[1],
+        z=point[2],
+        tag=None if wire is None else deck.wires[wire].tag,
+    )
 
 
 def _load_probe_refusal(deck: Nec5Deck) -> str | None:
@@ -2462,10 +2426,17 @@ def _crossing_spelling(solver_class: type) -> str:
       there, which is what makes the two spellings one port;
     * a family with neither (the point-matched sinusoidal one) gets the gap,
       which :func:`_check_basis_can_host` refuses by name.
+
+    Asked of the capability ROW, not of the class (momwire#1336): "carries
+    one tent across a junction node" is exactly what a False
+    ``junction_ports`` cell says — razor's own refusal for it reads "a
+    junction basis is already a through-current unknown" — so the node port
+    is the spelling only where a family has BOTH a node port and junction
+    ports, and a future family is answered by its row instead of by an
+    ``issubclass`` nobody remembered to extend.
     """
-    if issubclass(solver_class, RazorSolver):
-        return "gap"
-    return "node" if solver_class.capabilities.node_gaps else "gap"
+    caps = solver_class.capabilities
+    return "node" if caps.node_gaps and caps.junction_ports else "gap"
 
 
 def _crossing_site(
@@ -2709,8 +2680,18 @@ def _solver_for(
     medium: GroundMedium | None,
     solver_class: type = BSplineSolver,
     basis_kwargs: Mapping[str, object] = MappingProxyType({}),
+    extended_kernel: bool = False,
+    extended_kernel_default: bool = False,
+    basis_name: str = "",
 ):
     """The constructed solver, one port per declared site.
+
+    ``extended_kernel`` with ``extended_kernel_default`` is this dialect's
+    default (momwire#1326): on, unless the basis or the deck cannot take it,
+    which :func:`~momwire.deck._solver.construct_solver` resolves — the same
+    resolution the nec2 front end's ``build_solver`` asks it for.
+    Off passes no kwarg at all, so a reduced-kernel solve is the constructor
+    call this seam always made.
 
     A "cut" until momwire#603 U1, which is no longer the word: under the
     delta-gap spelling nothing is cut, and the ports are a ground contact, an
@@ -2719,8 +2700,10 @@ def _solver_for(
     Two kwargs carry the deck's ports and momwire orders their rows
     ``[gap feeds…, junction ports…, node gaps…]`` — the order
     :func:`_assign_columns` already wrote down.  WHICH of them the family
-    takes is ``momwire.deck._solver.port_kwargs``' to decide and not this
-    module's (momwire#603 U3): the roster's differences are refusals by the
+    takes, and how the call is spelled, is
+    ``momwire.deck._solver.construct_solver``'s to decide and not this
+    module's (momwire#603 U3, momwire#1336): the nec2 front end constructs
+    through the same function, and the roster's differences are refusals by the
     presence of a keyword rather than by its value, so a seam that spelled
     its own rule here would be a second copy of a list that has to stay
     exactly the first one.  ``basis_kwargs`` is the roster entry's own —
@@ -2748,7 +2731,6 @@ def _solver_for(
     :func:`_far_ground` and reach nothing else.  A ``GD`` routed down the
     branch above it would be ``GN 0``, which is 34 % wrong in R.
     """
-    radii = [piece.radius for piece in mesh.pieces]
     # Arclength 0 is the grounded end of the piece that starts there; the "end"
     # spelling is the mirror case — a wire whose END stands in the plane —
     # which no capture writes, and which is served because leaving it out would
@@ -2786,17 +2768,24 @@ def _solver_for(
             deck.wire_distributed_rlc.get(piece.tag) for piece in mesh.pieces
         ]
 
-    return solver_class(
-        wires=[piece.points for piece in mesh.pieces],
-        n_per_edge_per_wire=[[piece.n_elements] for piece in mesh.pieces],
+    return construct_solver(
+        solver_class,
+        basis_kwargs,
+        polylines=[piece.points for piece in mesh.pieces],
+        edge_elements=[[piece.n_elements] for piece in mesh.pieces],
         feeds=feeds,
-        wire_radius=radii[0] if len(set(radii)) == 1 else radii,
+        radii=[piece.radius for piece in mesh.pieces],
         wavelength=wavelength,
-        **port_kwargs(solver_class, junctions=mesh.junctions, node_gaps=gaps),
-        **ground,  # type: ignore[arg-type]
-        **loading,
-        **basis_kwargs,
-    )
+        junctions=mesh.junctions,
+        node_gaps=gaps,
+        loading=loading,
+        ground=ground,
+        extended_kernel=extended_kernel,
+        extended_kernel_default=extended_kernel_default,
+        basis=basis_name,
+        # construct_solver -> _solver_for -> serve -> serve's caller
+        warn_depth=2,
+    )[0]
 
 
 # --------------------------------------------------------------------------
@@ -3018,23 +3007,16 @@ def _reducer_for(
     solve would be two different circuits superposed, which is not superposition
     at all.
     """
-    branches: list[object] = []
-    endpoints: set[int] = set()
-    for entry in cards:
-        # `wires=()` is safe and is the point of resolving the length above:
-        # the zero-length rule is the only thing `card_branches` would reach
-        # for geometry for, and this dialect's rule measures something else.
-        branches += card_branches(entry.card, entry.site_a, entry.site_b, ())
-        endpoints.update((entry.site_a, entry.site_b))
-    held = frozenset(driven)
-    sources = [
-        Driven(port_name(k), complex(voltages[k]))
-        for k in range(n_sites)
-        if k not in endpoints or k in held or voltages[k] != 0
-    ]
-    ports = {port_name(k): PortOnWire(name=port_name(k)) for k in range(n_sites)}
-    network = Network(ports=ports, branches=branches, sources=sources)
-    return NetworkReducer(network, {port_name(k): k for k in range(n_sites)}, n_sites)
+    # `wires=()` is safe and is the point of resolving the length above: the
+    # zero-length rule is the only thing `card_branches` would reach for
+    # geometry for, and this dialect's rule measures something else.
+    network, port_to_idx = flat_network(
+        [(entry.card, (entry.site_a, entry.site_b)) for entry in cards],
+        n_sites,
+        voltages,
+        held=tuple(driven),
+    )
+    return NetworkReducer(network, port_to_idx, n_sites)
 
 
 def _reduced_state(
@@ -3067,23 +3049,7 @@ def _reduced_state(
     transmission lines).
     """
     reducer = _reducer_for(cards, n_sites, voltages, driven)
-    system = reducer.apply_branches(y_eff, wavelength)
-    v, j = system.solve()
-    v_applied = np.asarray(v[:n_sites], dtype=np.complex128).copy()
-    # A pinned port's voltage is a boundary condition, not a result: reading it
-    # back out of the solve only adds round-off to a number that was exact going
-    # in, and it decides the sign of a zero — which is a byte the printout shows
-    # (the portal restores its driven port voltages for the same reason,
-    # momwire#456 phase C).
-    for port, volts in zip(reducer.driven_port_idx, reducer.driven_voltages):
-        v_applied[port] = volts
-    i_port = y_eff @ v_applied
-    i_source = i_port.copy()
-    # At a driven port the reducer's termination branch carries antenna PLUS
-    # network, which is what the source actually delivered.
-    for index in driven:
-        i_source[index] = j[system.terminations[index][0]]
-    return v_applied, i_port, i_source
+    return reduced_ports(reducer, y_eff, wavelength, n_sites, driven)
 
 
 def _series_loads(mesh: _Mesh, y: np.ndarray, z_load: np.ndarray) -> np.ndarray:
@@ -3910,22 +3876,18 @@ def _pattern(
     phis = request.phi0_deg + request.d_phi_deg * np.arange(request.n_phi)
     k = 2.0 * math.pi / wavelength
     mid, moment, _nodes, _delta = solver.element_currents(coeffs)
-    m_theta, m_phi = _far_moments(
+    e_theta, e_phi, g_v, g_h = pattern_fields(
         mid,
         moment,
         k,
-        np.radians(thetas),
-        np.radians(phis),
+        thetas,
+        phis,
         ground,
         ground_z,
         frequency_mhz * 1e6,
+        p_in,
         cliff=cliff,
     )
-    e_theta = -1j * ETA0 * k / (4.0 * math.pi) * m_theta
-    e_phi = -1j * ETA0 * k / (4.0 * math.pi) * m_phi
-    norm = ETA0 * k * k / (8.0 * math.pi * p_in) if p_in > 0 else 0.0
-    g_v = norm * np.abs(m_theta) ** 2
-    g_h = norm * np.abs(m_phi) ** 2
     # Over ANY ground a direction below the horizon (θ > 90°) is not computed:
     # the licensed engine prints the row as all zeros, gains at the -999.99
     # floor and phases 0.00, with or without a range (momwire#1237, captured
@@ -4040,65 +4002,16 @@ def _pattern(
         # XNDA's A digit asks for the average gain; 1000 (0010, 0044) does
         # not and 1001 (0013, 0035) does.
         return PatternBlock(rows=tuple(rows), **ranged)
-    average, solid = _average_gain(
+    average, solid = average_gain(
         g_v + g_h, thetas, request.d_theta_deg, request.d_phi_deg, request.n_phi
     )
     return PatternBlock(
         rows=tuple(rows),
         **ranged,
         average_power_gain=average,
-        solid_angle_pi=solid / math.pi,
+        solid_angle_pi=abs(solid) / math.pi,
         power_radiated_4pi=average * p_in,
     )
-
-
-# How finely the solved current is resampled before it is summed at an
-# observation point.  The far field never needs it — every mesh element is
-# already electrically small and only the radiation-zone limit survives — but
-# a point a metre from a metre-long element resolves the variation along it.
-# The portal's own near-field constant, and MEASURED to be converged here:
-# 0115 reads 1.33 % worst-cell magnitude at ``subdiv = 1``, 1.92 % at 4,
-# 1.9479 % at 8 and 1.9572 % at 32, and 0109 reads 10.34 / 5.02 / 5.4494 /
-# 5.5834 %.  Everything past 8 moves the answer by less than a tenth of a
-# percent, so what is left at 8 is the formulation difference and not the
-# sampling — which is what a subdivision constant has to be able to say.
-_NEAR_FIELD_SUBDIV = 8
-
-
-def _near_medium(
-    deck: Nec5Deck, solver: BSplineSolver, medium: GroundMedium | None
-) -> tuple[complex, complex] | None:
-    """``(ε̃, C₂)`` for the medium a near field is EVALUATED in, or ``None``
-    when the ground has no medium to evaluate in (free space, ``GN 1``).
-
-    Both finite cards land here and they arrive by different roads, which is
-    the whole content of the function.  ``GN 0`` solved IN its medium, so
-    `_solver_for` gave the solver a ``ground_eps`` and
-    :func:`~momwire._ground_spec.ground_config` — the one owner of ``C₂`` in
-    this tree — reads it straight back off the solve.  The bare ``GD`` solved
-    over a PERFECT image and its solver never saw the medium at all, so the
-    same call would hand back the PEC row (``eps_tilde=None``,
-    ``image_coefficient=1.0``): right for its CURRENTS (the ``Z ≡ GN 1``
-    identity) and wrong for its near field, which the engine solves in the
-    medium (module docstring, "One near field, four grounds and one point").
-    So ``GD``'s ε̃ is folded here from the deck's own medium instead, through
-    :func:`~momwire._ground_refl.eps_tilde` — the same function
-    ``ground_config`` would have called, given the same ``(εr, σ)`` — and
-    ``C₂`` is written out in the one expression ``ground_config`` writes it
-    in.  Two roads, one arithmetic; a ``GD`` near field that came back with
-    ``C₂ = 1`` and no remainder would be the aliasing bug, and it is gated as
-    one (``tests/test_field_point.py``).
-    """
-    if medium is None:
-        return None
-    config = _ground_spec.ground_config(solver, solver.omega)
-    if config is not None and config.mode == "compose":
-        assert config.eps_tilde is not None
-        return config.eps_tilde, complex(config.image_coefficient)
-    eps_t = _ground_refl.eps_tilde(
-        (medium.eps_r, medium.sigma), solver.omega, solver.eps
-    )
-    return eps_t, (eps_t - 1.0) / (eps_t + 1.0)
 
 
 def _near_field(
@@ -4112,37 +4025,20 @@ def _near_field(
 ) -> NearFieldBlock:
     """One ``NE``/``NH`` card's answer, over all four ground cards.
 
-    The readout is the PORTAL's — ``_element_fields``, the mixed-potential
-    form the nec2 front end already answers ``NE``/``NH`` with — for the same
-    reason the far-field readout is: one owner per readout.  The ground
-    REMAINDER at a point is :mod:`momwire._field_point`'s, for the same reason
-    again.  What this function owns is the grid, the composition and the units.
+    The readout, the composition and the ground remainder are the ones every
+    seam shares (:mod:`momwire._near_readout`, momwire#1336): this function
+    owns the grid, which ground the composition is over, and the units.
 
     THE GRID is :func:`_grid_points`', shared with the refusal so that the
     points a table prints and the points a refusal inspects are one list.
 
-    THE COMPOSITION is one line with four spellings, and which one a deck gets
-    is its ground card's:
+    THE GROUND is the solve's, with one dialect exception:
 
       ``GN -1``  the elements alone
       ``GN 1``   the elements plus their geometric mirror
       ``GN 0``   ``direct + C₂·image + remainder``, ε̃ off the Sommerfeld solve
       ``GD``     the same, ε̃ off the deck's medium (the currents are the
                  PEC-image solve's; the near field is still in the medium)
-
-    The IMAGE is the same one the far field uses — the geometric mirror with
-    the horizontal moments flipped and the continuity charge NEGATED, which is
-    one statement twice over (reversing a horizontal current reverses dI/ds,
-    and mirroring a vertical one reverses the arc direction).  Over the two
-    finite grounds that image is scaled by ``C₂ = (ε̃−1)/(ε̃+1)`` and a smooth
-    REMAINDER is added to it, which is NEC's own decomposition of the
-    half-space Green's function (theory manual eqs 136-147) evaluated at a
-    point rather than between two wire elements.
-
-    The association is `_field_ground.FieldGround`'s ``"compose"`` contract and
-    not a style: the coefficient goes on the LEFT of the block and ``coef·img
-    + rem`` is associated before the outer sum, because that contract is about
-    float64 evaluation order.
 
     THE UNITS.  Volts and amps per metre at the point, PEAK, in whatever basis
     the deck's own ``EX`` card set — nothing is scaled.  EZNEC writes
@@ -4162,36 +4058,28 @@ def _near_field(
     points = _grid_points(request)
     k = 2.0 * math.pi / wavelength
     radius = min(piece.radius for piece in mesh.pieces)
-    mid, moment, nodes, delta = solver.element_currents(
-        coeffs, subdiv=_NEAR_FIELD_SUBDIV
+    elements = solver.element_currents(coeffs, subdiv=_NEAR_FIELD_SUBDIV)
+    # `GD` evaluates its near field IN its medium though its currents were
+    # solved over a PERFECT image; that medium is handed over here and only
+    # here (module docstring, "One near field, four grounds and one point").
+    ground = near_ground(
+        solver,
+        medium=(medium.eps_r, medium.sigma)
+        if isinstance(deck.ground, Nec5MininecGround)
+        else None,
     )
-    elements = (mid, moment, nodes, delta)
-    field = _element_fields(points, elements, k, radius, request.magnetic)
-    near = _near_medium(deck, solver, medium)
-    if isinstance(deck.ground, Nec5PerfectGround) or near is not None:
-        mid_img, moment_img = _image_moments(mid, moment, 0.0)
-        nodes_img = nodes.copy()
-        nodes_img[:, 2] = -nodes[:, 2]
-        image = _element_fields(
-            points,
-            (mid_img, moment_img, nodes_img, -delta),
-            k,
-            radius,
-            request.magnetic,
-        )
-        if near is None:
-            field = field + image
-        else:
-            eps_t, coef = near
-            evaluate = (
-                _field_point.reflected_h_field_at
-                if request.magnetic
-                else _field_point.reflected_field_at
-            )
-            remainder = evaluate(points, mid, moment, eps_t, 0.0, k, solver.omega)
-            np.multiply(coef, image, out=image)
-            field = field + (image + remainder)
+    field = near_field_at(
+        points, elements, k, radius, request.magnetic, ground, solver.omega
+    )
 
+    return near_field_block(points, field, request.magnetic)
+
+
+def near_field_block(points, field, magnetic: bool) -> NearFieldBlock:
+    """The rows both EZNEC slots print a near field as (NEC-5's layout, which
+    NEC-4.2 shares to the byte): one row per point, each component floored
+    at ``_FIELD_FLOOR2`` before its magnitude and phase are read, because the
+    angle of a zero is not a number."""
     rows = []
     for point, value in zip(points, field, strict=True):
         cells = [complex(component) for component in value]
@@ -4207,25 +4095,7 @@ def _near_field(
                 ),
             )
         )
-    return NearFieldBlock(rows=tuple(rows), magnetic=request.magnetic)
-
-
-def _average_gain(gain, thetas, d_theta, d_phi, n_phi) -> tuple[float, float]:
-    """``(average power gain, solid angle)`` over the sampled directions.
-
-    The quadrature is the portal's, which recovered it from nec2c fixtures:
-    each theta sample owns the band between its half-step neighbours, clipped
-    to the requested range, so the bands telescope and a full sphere comes
-    out at exactly ``4*PI`` — which is what 0013 and 0035 print.
-    """
-    lo = np.radians(np.maximum(thetas - 0.5 * d_theta, thetas[0]))
-    hi = np.radians(np.minimum(thetas + 0.5 * d_theta, thetas[-1]))
-    band = np.cos(lo) - np.cos(hi)
-    columns = max(n_phi - 1, 1)
-    step = math.radians(d_phi) if d_phi else 2.0 * math.pi
-    total = float(np.sum(gain[:, :columns] * band[:, None])) * step
-    solid = float(np.sum(band)) * columns * step
-    return (total / solid if solid else 0.0), abs(solid)
+    return NearFieldBlock(rows=tuple(rows), magnetic=magnetic)
 
 
 # --------------------------------------------------------------------------
@@ -4480,16 +4350,21 @@ def serve(deck: Nec5Deck, *, basis: str = BASIS) -> RunData:
         solver_class, basis_kwargs = basis_entry(basis)
     except ValueError as exc:
         raise ServeRefusal(str(exc)) from None
-    if not hasattr(solver_class, "current_slopes"):
-        # Asked of the CLASS rather than kept as a list of which families
-        # have one, because the list would be the second thing to update.
-        # The three sinusoidal entries are what this catches today; razor
-        # was here too until momwire#603 U2 gave it one.
+    if not set(solver_class.capabilities.axes.get("charge_support", ())) - {"point"}:
+        # The printout carries a CHARGE DENSITY table, read from the basis at
+        # each element centre through `current_slopes`.  Asked of the ROW's
+        # charge support (momwire#1336) rather than of the method's presence:
+        # a family that leaves its charge as POINT charges at the segment
+        # ends (`PulseSolver`) has no density at a centre to print, and one
+        # whose row says nothing has not been checked against this table.
+        # Every roster entry declares a support with a density today, so
+        # this is a refusal waiting for a family, not one a deck can reach;
+        # `test_eznec_basis_choice.py` holds the row and the method equal.
         raise ServeRefusal(
             f"basis {basis!r} cannot answer this dialect: its printout "
-            f"carries a CHARGE DENSITY table, q = -(1/jw)*dI/ds is read "
-            f"from the basis through current_slopes, and this family has "
-            f"no such method to read it from"
+            f"carries a CHARGE DENSITY table, q = -(1/jw)*dI/ds at each "
+            f"element centre, and this family's charge support has no "
+            f"density there to read"
         )
     if deck.wire_conductivity or deck.wire_distributed_rlc:
         # Asked of the ROW rather than left to the constructor: an
@@ -4538,8 +4413,22 @@ def serve(deck: Nec5Deck, *, basis: str = BASIS) -> RunData:
     medium = _medium(deck.ground, wavelength)
     _check_basis_can_host(mesh, _ground_kwargs(deck, medium), basis, solver_class)
     cards = _cards(deck, structure, mesh)
+    # The extended kernel by default (momwire#1326): NEC-5's kernel behaves as
+    # EK-on and the dialect has no card for it, so this seam solves EK-on
+    # unless the basis or the deck cannot take it, and then falls back to the
+    # reduced kernel with an `ExtendedKernelDefault` advisory, not a refusal.
     try:
-        solver = _solver_for(deck, mesh, wavelength, medium, solver_class, basis_kwargs)
+        solver = _solver_for(
+            deck,
+            mesh,
+            wavelength,
+            medium,
+            solver_class,
+            basis_kwargs,
+            extended_kernel=True,
+            extended_kernel_default=True,
+            basis_name=basis,
+        )
     except NotImplementedError as exc:
         # The crossing serve's scope (momwire#524 phase 2: one above member,
         # no other junction on the above side) is stated by the solver as

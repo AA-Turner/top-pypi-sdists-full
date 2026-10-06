@@ -94,6 +94,8 @@ from matrx_ai.tools.implementations.kind_skill_generation import (
     RefreshDecision,
     decide_refresh,
     generated_metadata,
+    reach_changes,
+    reach_of,
     render_skill_body,
     skill_description,
 )
@@ -1301,9 +1303,9 @@ async def create_generated_skill(
             icon_name="Shapes",
             category_id=await _render_block_category_id(),
             is_active=True,
-            is_system=False,
             organization_id=str(kd.organization_id),
             created_by=created_by,
+            **{k: v for k, v in reach_of(kd, system_organization_id()).items() if v is not None},
             metadata=generated_metadata(
                 kd,
                 body,
@@ -1317,20 +1319,30 @@ async def create_generated_skill(
 
 async def refresh_generated_skill(
     existing: Any, kd: Any, canonical_data: Any, ctx: ToolContext | None, *, system_job: bool = False
-) -> RefreshDecision:
-    """Apply the regeneration rule to one existing skill; writes only when it may."""
+) -> tuple[RefreshDecision, list[str]]:
+    """Apply the regeneration rule to one existing skill. Body/description only when the rule
+    allows; REACH (mirror of the shape's) and the ``kind_definition_id`` link are synced for
+    every skill that is ours or curated -- neither is body content. One write per skill."""
     decision = decide_refresh(existing, kd, canonical_data)
+    values: dict[str, Any] = {}
+    synced: list[str] = []
+    meta = dict(decision.metadata or existing.metadata or {})
     if decision.action in ("regenerate", "stamp"):
+        values.update(body=decision.body, description=decision.description)
+    reach = reach_changes(existing, kd, system_organization_id())
+    if reach:
+        values.update(reach)
+        synced.append("reach")
+    if not meta.get("kind_definition_id"):
+        meta["kind_definition_id"] = str(kd.id)
+        synced.append("link")
+    if decision.metadata or "link" in synced:
+        values["metadata"] = meta
+    if values:
         await update_as_the_person(
-            get_db_model("SklDefinition"),
-            str(existing.id),
-            ctx,
-            system_job=system_job,
-            body=decision.body,
-            description=decision.description,
-            metadata=decision.metadata,
+            get_db_model("SklDefinition"), str(existing.id), ctx, system_job=system_job, **values
         )
-    return decision
+    return decision, synced
 
 
 async def kind_create_skill(args: dict[str, Any], ctx: ToolContext) -> ToolResult:

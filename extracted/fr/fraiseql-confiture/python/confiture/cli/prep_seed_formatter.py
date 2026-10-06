@@ -6,16 +6,11 @@ severity-based grouping.
 
 from __future__ import annotations
 
-import csv
-from io import StringIO
 from pathlib import Path
 
-from rich.console import Console
-from rich.console import Console as _Console
-from rich.table import Table
-
+from confiture.cli.formatters.common import print_csv, save_csv
 from confiture.cli.helpers import emit
-from confiture.cli.markup import verbatim
+from confiture.cli.markup import Printer, Table, markup
 from confiture.core.seed.validation.prep_seed.models import (
     PrepSeedReport,
     ViolationSeverity,
@@ -26,7 +21,7 @@ def format_prep_seed_report(
     report: PrepSeedReport,
     format_type: str,
     output: Path | None,
-    console: Console,
+    console: Printer,
 ) -> None:
     """Format and output prep-seed validation report.
 
@@ -48,7 +43,7 @@ def format_prep_seed_report(
 def output_table(
     report: PrepSeedReport,
     output: Path | None,
-    console: Console,
+    console: Printer,
 ) -> None:
     """Format report as rich table grouped by severity.
 
@@ -58,13 +53,13 @@ def output_table(
         console: Rich console for output
     """
     if output is not None:
-        recorder = _Console(record=True, width=120)
+        recorder = Printer.recording(width=120)
         output_table(report, None, recorder)
         output.write_text(recorder.export_text())
     console.print("\nPrep-Seed Validation Report")
     console.print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    console.print(f"Files scanned: {len(report.scanned_files)}")
-    console.print(f"Violations found: {verbatim(report.violation_count)}")
+    console.print(t"Files scanned: {len(report.scanned_files)}")
+    console.print(t"Violations found: {report.violation_count}")
 
     if report.has_violations:
         console.print("\n[red]Issues found:[/red]")
@@ -94,7 +89,7 @@ def output_table(
             }.get(severity, "white")
 
             console.print(
-                f"\n[{severity_color}]{verbatim(severity.name)}[/{severity_color}] ({len(violations)} found)"
+                t"\n[{markup(severity_color)}]{severity.name}[/{markup(severity_color)}] ({len(violations)} found)"
             )
 
             table = Table(show_header=True, header_style="bold")
@@ -110,10 +105,10 @@ def output_table(
                     pattern_text += " ✓"
 
                 table.add_row(
-                    violation.file_path,
-                    str(violation.line_number),
-                    pattern_text,
-                    violation.message,
+                    t"{violation.file_path}",
+                    t"{violation.line_number}",
+                    t"{pattern_text}",
+                    t"{violation.message}",
                 )
 
             console.print(table)
@@ -124,7 +119,7 @@ def output_table(
 def output_json(
     report: PrepSeedReport,
     output: Path | None,
-    console: Console,
+    console: Printer,
 ) -> None:
     """Format report as JSON.
 
@@ -139,7 +134,7 @@ def output_json(
 def output_csv(
     report: PrepSeedReport,
     output: Path | None,
-    console: Console,
+    console: Printer,
 ) -> None:
     """Format report as CSV.
 
@@ -148,43 +143,23 @@ def output_csv(
         output: Optional file path to write CSV
         console: Rich console for output
     """
-    # Create CSV content
-    csv_output = StringIO()
-    writer = csv.writer(csv_output)
-
-    # Write header
-    writer.writerow(
+    headers = ["File", "Line", "Severity", "Pattern", "Message", "Fix Available", "Suggestion"]
+    rows = [
         [
-            "File",
-            "Line",
-            "Severity",
-            "Pattern",
-            "Message",
-            "Fix Available",
-            "Suggestion",
+            violation.file_path,
+            violation.line_number,
+            violation.severity.name,
+            violation.pattern.name,
+            violation.message,
+            "Yes" if violation.fix_available else "No",
+            violation.suggestion or "",
         ]
-    )
-
-    # Write violations
-    for violation in sorted(
-        report.violations, key=lambda v: (v.severity.name, v.file_path, v.line_number)
-    ):
-        writer.writerow(
-            [
-                violation.file_path,
-                violation.line_number,
-                violation.severity.name,
-                violation.pattern.name,
-                violation.message,
-                "Yes" if violation.fix_available else "No",
-                violation.suggestion or "",
-            ]
+        for violation in sorted(
+            report.violations, key=lambda v: (v.severity.name, v.file_path, v.line_number)
         )
-
-    csv_content = csv_output.getvalue()
-
+    ]
     if output:
-        output.write_text(csv_content)
-        console.print(f"[green]✓ Report saved to {verbatim(output)}[/green]")
+        save_csv(headers, rows, output)
+        console.print(t"[green]✓ Report saved to {output}[/green]")
     else:
-        console.print(csv_content)
+        print_csv(headers, rows)

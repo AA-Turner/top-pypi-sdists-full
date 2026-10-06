@@ -3,10 +3,12 @@
 import inspect
 from collections.abc import Callable
 from functools import partial
+from typing import Any, SupportsFloat, TypeVar, cast, overload
 
 import numpy as np
 
-from gymnasium import Space, error, logger, spaces
+from gymnasium import Env, Space, error, logger, spaces
+from gymnasium.core import RenderFrame
 
 __all__ = [
     "env_render_passive_checker",
@@ -16,8 +18,11 @@ __all__ = [
     "check_observation_space",
 ]
 
+_ObsT = TypeVar("_ObsT")
+_ActT = TypeVar("_ActT")
 
-def _check_box_observation_space(observation_space: spaces.Box):
+
+def _check_box_observation_space(observation_space: spaces.Box) -> None:
     """Checks that a :class:`Box` observation space is defined in a sensible way.
 
     Args:
@@ -36,7 +41,7 @@ def _check_box_observation_space(observation_space: spaces.Box):
         logger.warn("A Box observation space low value is greater than a high value.")
 
 
-def _check_box_action_space(action_space: spaces.Box):
+def _check_box_action_space(action_space: spaces.Box) -> None:
     """Checks that a :class:`Box` action space is defined in a sensible way.
 
     Args:
@@ -55,7 +60,7 @@ def _check_box_action_space(action_space: spaces.Box):
 
 def check_space(
     space: Space, space_type: str, check_box_space_fn: Callable[[spaces.Box], None]
-):
+) -> None:
     """A passive check of the environment action space that should not affect the environment."""
     if not isinstance(space, spaces.Space):
         if str(space.__class__.__base__) == "<class 'gym.spaces.space.Space'>":
@@ -101,17 +106,29 @@ def check_space(
             check_space(subspace, space_type, check_box_space_fn)
 
 
-check_observation_space = partial(
+check_observation_space: Callable[[Space], None] = partial(
     check_space,
     space_type="observation",
     check_box_space_fn=_check_box_observation_space,
 )
-check_action_space = partial(
+check_action_space: Callable[[Space], None] = partial(
     check_space, space_type="action", check_box_space_fn=_check_box_action_space
 )
 
 
-def check_obs(obs, observation_space: spaces.Space, method_name: str):
+@overload
+def check_obs(
+    obs: int | np.int64, observation_space: spaces.Discrete, method_name: str
+) -> None: ...
+@overload
+def check_obs(
+    obs: np.generic | np.ndarray, observation_space: spaces.Box, method_name: str
+) -> None: ...
+@overload
+def check_obs(
+    obs: _ObsT, observation_space: spaces.Space[_ObsT], method_name: str
+) -> None: ...
+def check_obs(obs: Any, observation_space: spaces.Space[Any], method_name: str) -> None:
     """Check that the observation returned by the environment correspond to the declared one.
 
     Args:
@@ -159,7 +176,80 @@ def check_obs(obs, observation_space: spaces.Space, method_name: str):
         logger.warn(f"{pre} is not within the observation space with exception: {e}")
 
 
-def env_reset_passive_checker(env, **kwargs):
+def data_shares_objects(data_1: Any, data_2: Any) -> bool:
+    """Check if data 1 and 2 share a mutable object, i.e. observations, actions, info.
+
+    Where :func:`data_equivalence` compares the values of two data structures, this compares their
+    identity. Immutable and unknown data is ignored.
+
+    Args:
+        data_1: data structure 1 (expects equivalent data shape to data_2)
+        data_2: data structure 2
+
+    Returns:
+        If data 1 and 2 share a mutable object
+    """
+    if type(data_1) is not type(data_2):
+        return False
+    elif isinstance(data_1, dict):
+        return data_1 is data_2 or any(
+            data_shares_objects(data_1[key], data_2[key])
+            for key in data_1.keys() & data_2.keys()
+        )
+    elif isinstance(data_1, tuple):
+        # A tuple is immutable, however the data within it might not be.
+        #   Differing lengths simply means fewer positions to compare, so `strict=False`.
+        return any(
+            data_shares_objects(o_1, o_2)
+            for o_1, o_2 in zip(data_1, data_2, strict=False)
+        )
+    elif isinstance(data_1, np.ndarray):
+        if data_1.dtype == object:
+            return data_1 is data_2 or any(
+                data_shares_objects(o_1, o_2)
+                for o_1, o_2 in zip(data_1.flat, data_2.flat, strict=False)
+            )
+        else:
+            # `shares_memory` additionally catches a new view of a reused buffer, e.g. `buffer[:]`
+            return bool(np.shares_memory(data_1, data_2))
+    else:
+        # Immutable data (e.g. `int`) is commonly interned, such that `is` would spuriously
+        #   match equal values, and an unknown object is not treated as timestep data.
+        return False
+
+
+def env_data_reuse_passive_checker(
+    previous_data: tuple[Any, dict[str, Any]],
+    data: tuple[Any, dict[str, Any]],
+    previous_source: str,
+    source: str,
+) -> None:
+    """Warns if two calls returned observation or info data that share an object.
+
+    Users commonly keep the data from every timestep, most obviously in a replay or rollout buffer,
+    so an environment that modifies and returns the same buffer corrupts data the user still holds.
+    See :meth:`gymnasium.Env.step` and :func:`gymnasium.utils.env_checker.check_env`.
+    """
+    previous_obs, previous_info = previous_data
+    obs, info = data
+
+    if data_shares_objects(previous_obs, obs):
+        logger.warn(
+            f"The observations returned by `{previous_source}` and the following `{source}` share "
+            "an object, therefore, modifying one will modify the other. Environments should return "
+            "new observation data on every call as users commonly keep the data returned to them."
+        )
+    if data_shares_objects(previous_info, info):
+        logger.warn(
+            f"The infos returned by `{previous_source}` and the following `{source}` share an "
+            "object, therefore, modifying one will modify the other. Environments should return "
+            "new info data on every call as users commonly keep the data returned to them."
+        )
+
+
+def env_reset_passive_checker(
+    env: Env[_ObsT, Any], **kwargs: Any
+) -> tuple[_ObsT, dict[str, Any]]:
     """A passive check of the `Env.reset` function investigating the returning reset information and returning the data unchanged."""
     signature = inspect.signature(env.reset)
     if "seed" not in signature.parameters and "kwargs" not in signature.parameters:
@@ -200,7 +290,9 @@ def env_reset_passive_checker(env, **kwargs):
     return result
 
 
-def env_step_passive_checker(env, action):
+def env_step_passive_checker(
+    env: Env[_ObsT, _ActT], action: _ActT
+) -> tuple[_ObsT, SupportsFloat, bool, bool, dict[str, Any]]:
     """A passive check for the environment step, investigating the returning data then returning the data unchanged."""
     # We don't check the action as for some environments then out-of-bounds values can be given
     result = env.step(action)
@@ -245,6 +337,7 @@ def env_step_passive_checker(env, action):
             f"The reward returned by `step()` must be a float, int, np.integer or np.floating, actual type: {type(reward)}"
         )
     else:
+        reward = cast("float | np.integer | np.floating", reward)
         if np.isnan(reward):
             logger.warn("The reward is a NaN value.")
         if np.isinf(reward):
@@ -309,7 +402,7 @@ def _check_render_return(render_mode, render_return):
                 )  # Check that each item of the list matches the base render mode
 
 
-def env_render_passive_checker(env):
+def env_render_passive_checker(env: Env) -> RenderFrame | list[RenderFrame] | None:
     """A passive check of the `Env.render` that the declared render modes/fps in the metadata of the environment is declared."""
     render_modes = env.metadata.get("render_modes")
     if render_modes is None:

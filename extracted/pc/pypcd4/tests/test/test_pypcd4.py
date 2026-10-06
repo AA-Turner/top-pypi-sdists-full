@@ -8,6 +8,12 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 from pypcd4 import Encoding, MetaData, PointCloud
+from pypcd4.pointcloud2 import (
+    builtin_interfaces__msg__Time,
+    sensor_msgs__msg__PointCloud2,
+    sensor_msgs__msg__PointField,
+    std_msgs__msg__Header,
+)
 
 
 def test_parse_pcd_header(pcd_header):
@@ -242,6 +248,9 @@ def test_load_xyzrgb_ascii_with_empty_points_pcd(xyzrgb_ascii_with_empty_points_
     assert pc.metadata.data == "ascii"
     assert pc.pc_data.dtype.names == pc.metadata.fields
     assert len(pc.pc_data) == pc.metadata.points
+    # pc_data must stay a 1-D structured array, matching PointCloud.from_points()
+    # with zero points, instead of the (0, len(fields)) shape it used to have.
+    assert pc.pc_data.shape == (0,)
 
 
 def test_load_xyzintensity_ascii_organized_pcd(xyzintensity_ascii_organized_path):
@@ -652,8 +661,7 @@ def test_encode_rgb():
     g = np.array([230, 230, 230])
     b = np.array([206, 206, 206])
 
-    expect = np.array((r << 16) | (g << 8) | (b << 0), np.uint32)
-    expect.dtype = np.float32
+    expect = np.array((r << 16) | (g << 8) | (b << 0), np.uint32).view(np.float32)
 
     output = PointCloud.encode_rgb((r, g, b))
 
@@ -665,8 +673,7 @@ def test_decode_rgb():
     g = np.array([230, 230, 230])
     b = np.array([206, 206, 206])
 
-    input = np.array((r << 16) | (g << 8) | (b << 0), np.uint32)
-    input.dtype = np.float32
+    input = np.array((r << 16) | (g << 8) | (b << 0), np.uint32).view(np.float32)
 
     expect = np.array([r, g, b], dtype=np.uint8)
     output = PointCloud.decode_rgb(input)
@@ -743,7 +750,7 @@ def test_save_as_ascii():
         assert pc2.fields == pc.fields
         assert pc2.types == pc.types
         assert pc2.points == pc.points
-        assert pc2.metadata.data == pc.metadata.data
+        assert pc2.metadata.data == Encoding.ASCII
 
 
 def test_save_as_binary():
@@ -763,7 +770,7 @@ def test_save_as_binary():
         assert pc2.fields == pc.fields
         assert pc2.types == pc.types
         assert pc2.points == pc.points
-        assert pc2.metadata.data == pc.metadata.data
+        assert pc2.metadata.data == Encoding.BINARY
 
 
 def test_save_as_binary_compressed():
@@ -783,7 +790,25 @@ def test_save_as_binary_compressed():
         assert pc2.fields == pc.fields
         assert pc2.types == pc.types
         assert pc2.points == pc.points
-        assert pc2.metadata.data == pc.metadata.data
+        assert pc2.metadata.data == Encoding.BINARY_COMPRESSED
+
+
+def test_save_as_binary_compressed_falls_back_without_mutating_metadata():
+    # A tiny point cloud is too small to compress, so save() falls back to a
+    # plain binary write internally. That fallback must not change what
+    # encoding the original PointCloud's own metadata reports.
+    pc = PointCloud.from_xyz_points(np.random.rand(1, 3).astype(np.float32))
+    assert pc.metadata.data == Encoding.BINARY_COMPRESSED
+
+    with TemporaryDirectory() as dirname:
+        path = dirname / Path("test.pcd")
+
+        pc.save(path, Encoding.BINARY_COMPRESSED)
+        assert pc.metadata.data == Encoding.BINARY_COMPRESSED
+
+        pc2 = PointCloud.from_path(path)
+        assert pc2.metadata.data == Encoding.BINARY
+        assert np.allclose(pc2.numpy(), pc.numpy())
 
 
 def test_save_with_empty_points():
@@ -823,7 +848,7 @@ def test_save_to_file_buffer():
         assert pc2.fields == pc.fields
         assert pc2.types == pc.types
         assert pc2.points == pc.points
-        assert pc2.metadata.data == pc.metadata.data
+        assert pc2.metadata.data == Encoding.BINARY
 
 
 def test_save_to_bytes_io():
@@ -841,7 +866,7 @@ def test_save_to_bytes_io():
     assert pc2.fields == pc.fields
     assert pc2.types == pc.types
     assert pc2.points == pc.points
-    assert pc2.metadata.data == pc.metadata.data
+    assert pc2.metadata.data == Encoding.BINARY
 
 
 def test_pointcloud_concatenation():
@@ -871,6 +896,40 @@ def test_pointcloud_concatenation():
     pc5 = PointCloud.from_points(in_points, fields, (np.float32, np.int8, np.float32))
     with pytest.raises(ValueError):
         pc + pc5
+
+
+def test_pointcloud_concatenation_metadata():
+    in_points = np.random.randint(0, 1000, (100, 3))
+    fields = ("x", "y", "z")
+    types = (np.float32, np.float32, np.float32)
+
+    pc = PointCloud.from_points(in_points, fields, types)
+    pc.metadata.viewpoint = (1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0)
+    pc.metadata.height = 5
+
+    # viewpoint carries over when both sides agree
+    pc2 = PointCloud.from_points(in_points, fields, types)
+    pc2.metadata.viewpoint = pc.metadata.viewpoint
+    result = pc + pc2
+    assert result.metadata.viewpoint == pc.metadata.viewpoint
+    assert result.metadata.height == 1
+
+    # viewpoint resets to the default when the two sides disagree
+    pc3 = PointCloud.from_points(in_points, fields, types)
+    result = pc + pc3
+    assert result.metadata.viewpoint == (0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
+    assert result.metadata.height == 1
+
+
+def test_pointcloud_concatenation_with_multi_count_fields(xyzintensity_ascii_multi_count_path):
+    pc = PointCloud.from_path(xyzintensity_ascii_multi_count_path)
+
+    result = pc + pc
+    assert result.points == pc.points * 2
+    assert result.fields == pc.fields
+    assert result.metadata.count == pc.metadata.count
+    assert np.array_equal(result.pc_data[: pc.points], pc.pc_data)
+    assert np.array_equal(result.pc_data[pc.points :], pc.pc_data)
 
 
 def test_pointcloud_getitem_with_slice():
@@ -934,7 +993,118 @@ def test_pointcloud_getitem_with_field_names():
     # Cannot filter by fields names since the field name "a" is invalid
     with pytest.raises(ValueError):
         pc[("x", "y", "a")]
-        
+
+
+def test_pointcloud_getitem_metadata():
+    in_points = np.random.randint(0, 1000, (100, 3))
+    fields = ("x", "y", "z")
+    types = (np.float32, np.float32, np.float32)
+    pc = PointCloud.from_points(in_points, fields, types)
+    pc.metadata.viewpoint = (1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0)
+    pc.metadata.height = 5
+    pc.metadata.data = Encoding.ASCII
+
+    # Slicing/masking a PointCloud returns points from the same scan, so
+    # viewpoint and encoding must carry over; height can't since an
+    # arbitrary subset isn't guaranteed to form a valid 2D grid.
+    sliced = pc[10:30]
+    assert sliced.metadata.viewpoint == pc.metadata.viewpoint
+    assert sliced.metadata.data == pc.metadata.data
+    assert sliced.metadata.height == 1
+
+    mask = pc.pc_data["x"] > 500
+    masked = pc[mask]
+    assert masked.metadata.viewpoint == pc.metadata.viewpoint
+    assert masked.metadata.data == pc.metadata.data
+    assert masked.metadata.height == 1
+
+    # Selecting by field name doesn't change which points exist, so height
+    # (and everything else) carries over unchanged too.
+    selected = pc[("x", "y")]
+    assert selected.metadata.viewpoint == pc.metadata.viewpoint
+    assert selected.metadata.data == pc.metadata.data
+    assert selected.metadata.height == pc.metadata.height
+    assert selected.points == pc.points
+
+
+def test_pointcloud_getitem_with_multi_count_fields(xyzintensity_ascii_multi_count_path):
+    pc = PointCloud.from_path(xyzintensity_ascii_multi_count_path)
+
+    sliced = pc[0:4]
+    assert sliced.points == 4
+    assert sliced.fields == pc.fields
+    assert np.array_equal(sliced.pc_data, pc.pc_data[0:4])
+
+    mask = np.ones(pc.points, dtype=bool)
+    masked = pc[mask]
+    assert masked.points == pc.points
+    assert np.array_equal(masked.pc_data, pc.pc_data)
+
+    # Select one of the expanded sub-fields of the multi-count "intensity" field
+    selected = pc[("x", "intensity__0000")]
+    assert selected.fields == ("x", "intensity__0000")
+    assert selected.points == pc.points
+    assert np.array_equal(selected.pc_data["x"], pc.pc_data["x"])
+    assert np.array_equal(selected.pc_data["intensity__0000"], pc.pc_data["intensity__0000"])
+
+
+def test_from_msg_with_multi_count_fields():
+    n = 5
+    points = np.random.rand(n, 3).astype(np.float32)
+    descriptors = np.random.rand(n, 4).astype(np.float32)
+    point_step = points.itemsize * 3 + descriptors.itemsize * 4
+
+    data = bytearray()
+    for i in range(n):
+        data += points[i].tobytes()
+        data += descriptors[i].tobytes()
+
+    msg = sensor_msgs__msg__PointCloud2(
+        header=std_msgs__msg__Header(
+            stamp=builtin_interfaces__msg__Time(sec=0, nanosec=0),
+            frame_id="map",
+        ),
+        height=1,
+        width=n,
+        fields=[
+            sensor_msgs__msg__PointField(
+                name="x", offset=0, datatype=sensor_msgs__msg__PointField.FLOAT32, count=1
+            ),
+            sensor_msgs__msg__PointField(
+                name="y", offset=4, datatype=sensor_msgs__msg__PointField.FLOAT32, count=1
+            ),
+            sensor_msgs__msg__PointField(
+                name="z", offset=8, datatype=sensor_msgs__msg__PointField.FLOAT32, count=1
+            ),
+            sensor_msgs__msg__PointField(
+                name="descriptor",
+                offset=12,
+                datatype=sensor_msgs__msg__PointField.FLOAT32,
+                count=4,
+            ),
+        ],
+        is_bigendian=False,
+        point_step=point_step,
+        row_step=point_step * n,
+        data=np.frombuffer(bytes(data), dtype=np.uint8),
+        is_dense=True,
+    )
+
+    pc = PointCloud.from_msg(msg)
+
+    assert pc.fields == (
+        "x",
+        "y",
+        "z",
+        "descriptor__0000",
+        "descriptor__0001",
+        "descriptor__0002",
+        "descriptor__0003",
+    )
+    assert pc.pc_data.dtype.itemsize == point_step
+    assert np.allclose(pc.numpy(("x", "y", "z")), points)
+
+
 def test_pointcloud_tomsg():
     in_points = np.random.randint(0, 1000, (100, 3))
     fields = ("x", "y", "z")
@@ -962,7 +1132,43 @@ def test_list_pointcloud():
     assert concatenated_pc.points == pc.points * num_pcs
     assert concatenated_pc.fields == pc.fields
     assert concatenated_pc.types == pc.types
-    
+
+
+def test_from_list_metadata():
+    in_points = np.random.randint(0, 1000, (100, 3))
+    fields = ("x", "y", "z")
+    types = (np.float32, np.float32, np.float32)
+
+    viewpoint = (1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0)
+
+    # viewpoint carries over when every PointCloud in the list agrees
+    same_viewpoint_pcs = []
+    for _ in range(3):
+        pc = PointCloud.from_points(in_points, fields, types)
+        pc.metadata.viewpoint = viewpoint
+        same_viewpoint_pcs.append(pc)
+    result = PointCloud.from_list(same_viewpoint_pcs)
+    assert result.metadata.viewpoint == viewpoint
+    assert result.metadata.height == 1
+
+    # viewpoint resets to the default when any one of them disagrees
+    mixed_viewpoint_pcs = list(same_viewpoint_pcs)
+    mixed_viewpoint_pcs.append(PointCloud.from_points(in_points, fields, types))
+    result = PointCloud.from_list(mixed_viewpoint_pcs)
+    assert result.metadata.viewpoint == (0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0)
+
+
+def test_from_list_with_multi_count_fields(xyzintensity_ascii_multi_count_path):
+    pc = PointCloud.from_path(xyzintensity_ascii_multi_count_path)
+
+    result = PointCloud.from_list([pc, pc])
+    assert result.points == pc.points * 2
+    assert result.fields == pc.fields
+    assert result.metadata.count == pc.metadata.count
+    assert np.array_equal(result.pc_data[: pc.points], pc.pc_data)
+    assert np.array_equal(result.pc_data[pc.points :], pc.pc_data)
+
+
 if __name__ == "__main__":
     print("Testing PointCloud msg functionality...")
     test_pointcloud_tomsg()

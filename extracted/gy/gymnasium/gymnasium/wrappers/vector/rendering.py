@@ -6,7 +6,7 @@ import gc
 import os
 from collections.abc import Callable, Sequence
 from copy import deepcopy
-from typing import Any, SupportsFloat
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -18,8 +18,14 @@ from gymnasium.logger import warn
 from gymnasium.vector import VectorEnv, VectorWrapper
 from gymnasium.vector.vector_env import ArrayType
 
+if TYPE_CHECKING:
+    import pygame
 
-class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
+
+class HumanRendering(
+    VectorWrapper[ObsType, ActType, ObsType, ActType, ArrayType],
+    gym.utils.RecordConstructorArgs,
+):
     """Adds support for Human-based Rendering for Vector-based environments."""
 
     ACCEPTED_RENDER_MODES = [
@@ -29,7 +35,19 @@ class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
         "depth_array_list",
     ]
 
-    def __init__(self, env: VectorEnv, screen_size: tuple[int, int] | None = None):
+    screen_size: tuple[int, int] | None
+    scaled_subenv_size: tuple[int, int] | None
+    num_rows: int | None
+    num_cols: int | None
+    window: pygame.Surface | None
+    clock: pygame.time.Clock | None
+    metadata: dict[str, Any]
+
+    def __init__(
+        self,
+        env: VectorEnv[ObsType, ActType, ArrayType],
+        screen_size: tuple[int, int] | None = None,
+    ):
         """Constructor for Human Rendering of Vector-based environments.
 
         Args:
@@ -44,12 +62,14 @@ class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
         self.window = None  # Has to be initialized before asserts, as self.window is used in auto close
         self.clock = None
 
-        assert self.env.render_mode in self.ACCEPTED_RENDER_MODES, (
-            f"Expected env.render_mode to be one of {self.ACCEPTED_RENDER_MODES} but got '{env.render_mode}'"
-        )
-        assert "render_fps" in self.env.metadata, (
-            "The base environment must specify 'render_fps' to be used with the HumanRendering wrapper"
-        )
+        if self.env.render_mode not in self.ACCEPTED_RENDER_MODES:
+            raise ValueError(
+                f"Expected env.render_mode to be one of {self.ACCEPTED_RENDER_MODES} but got '{self.env.render_mode}'"
+            )
+        if "render_fps" not in self.env.metadata:
+            raise ValueError(
+                "The base environment must specify 'render_fps' to be used with the HumanRendering wrapper"
+            )
 
         if "human" not in self.metadata["render_modes"]:
             self.metadata = deepcopy(self.env.metadata)
@@ -71,7 +91,7 @@ class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
     def reset(
         self,
         *,
-        seed: int | list[int] | None = None,
+        seed: int | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[ObsType, dict[str, Any]]:
         """Reset the base environment and render a frame to the screen."""
@@ -134,8 +154,8 @@ class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
                 num_cols * subenv_size[0] * scaling_factor == self.screen_size[0]
             ) or (num_rows * subenv_size[1] * scaling_factor == self.screen_size[1])
 
-            self.num_rows = num_rows
-            self.num_cols = num_cols
+            self.num_rows: int = num_rows
+            self.num_cols: int = num_cols
             self.scaled_subenv_size = (
                 int(subenv_size[0] * scaling_factor),
                 int(subenv_size[1] * scaling_factor),
@@ -155,6 +175,8 @@ class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
             ) from e
 
         merged_rgb_array = np.zeros(self.screen_size + (3,), dtype=np.uint8)
+        assert self.num_cols is not None
+        assert self.num_rows is not None
         cols, rows = np.meshgrid(np.arange(self.num_cols), np.arange(self.num_rows))
 
         for i, col, row in zip(range(self.num_envs), cols.flatten(), rows.flatten()):  # noqa: B905
@@ -168,7 +190,6 @@ class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
             ] = scaled_render
 
         if self.window is None:
-            pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode(self.screen_size)
 
@@ -181,18 +202,18 @@ class HumanRendering(VectorWrapper, gym.utils.RecordConstructorArgs):
         self.clock.tick(self.metadata["render_fps"])
         pygame.display.flip()
 
-    def close(self):
+    def close(self, **kwargs: Any) -> None:
         """Close the rendering window."""
         if self.window is not None:
             import pygame
 
             pygame.display.quit()
             pygame.quit()
-        super().close()
+        super().close(**kwargs)
 
 
 class RecordVideo(
-    gym.vector.VectorWrapper,
+    VectorWrapper[ObsType, ActType, ObsType, ActType, np.ndarray],
     gym.utils.RecordConstructorArgs,
 ):
     """Adds support for video recording for Vector-based environments.
@@ -223,9 +244,30 @@ class RecordVideo(
     2
     """
 
+    autoreset_mode: gym.vector.AutoresetMode
+    has_autoreset: bool
+    episode_trigger: Callable[[int], bool] | None
+    step_trigger: Callable[[int], bool] | None
+    gc_trigger: Callable[[int], bool] | None
+    disable_logger: bool
+    record_first_only: bool
+    video_aspect_ratio: tuple[int, int]
+    frame_cols: int
+    frame_rows: int
+    video_folder: str
+    frames_per_sec: int
+    name_prefix: str
+    _video_name: str | None
+    video_length: float
+    recording: bool
+    recorded_frames: list[np.ndarray]
+    render_history: list[np.ndarray]
+    step_id: int
+    episode_id: int
+
     def __init__(
         self,
-        env: gym.vector.VectorEnv,
+        env: VectorEnv[ObsType, ActType, np.ndarray],
         video_folder: str,
         video_aspect_ratio: tuple[int, int] = (1, 1),
         record_first_only: bool = False,
@@ -272,8 +314,8 @@ class RecordVideo(
 
         if env.render_mode in {None, "human", "ansi"}:
             raise ValueError(
-                f"Render mode is {env.render_mode}, which is incompatible with RecordVideo.",
-                "Initialize your environment with a render_mode that returns an image, such as rgb_array.",
+                f"Render mode is {env.render_mode}, which is incompatible with RecordVideo. "
+                "Initialize your environment with a render_mode that returns an image, such as rgb_array."
             )
 
         if episode_trigger is None and step_trigger is None:
@@ -315,13 +357,13 @@ class RecordVideo(
 
         if fps is None:
             fps = self.metadata.get("render_fps", 30)
-        self.frames_per_sec: int = fps
-        self.name_prefix: str = name_prefix
-        self._video_name: str | None = None
-        self.video_length: int = video_length if video_length != 0 else float("inf")
-        self.recording: bool = False
-        self.recorded_frames: list[np.ndarray] = []
-        self.render_history: list[np.ndarray] = []
+        self.frames_per_sec = fps
+        self.name_prefix = name_prefix
+        self._video_name = None
+        self.video_length = video_length if video_length != 0 else float("inf")
+        self.recording = False
+        self.recorded_frames = []
+        self.render_history = []
 
         self.step_id = -1
         self.episode_id = -1
@@ -353,7 +395,7 @@ class RecordVideo(
         self.frame_rows = best_rows
         self.frame_cols = best_cols
 
-    def _concat_frames(self, frames):
+    def _concat_frames(self, frames: np.typing.ArrayLike) -> np.ndarray:
         """Concatenates a list of frames into one large frame."""
         frames = np.array(frames)
         n_frames, h, w, c = frames.shape
@@ -366,7 +408,7 @@ class RecordVideo(
             grid[r * h : (r + 1) * h, c_ * w : (c_ + 1) * w] = frames[idx]
         return grid
 
-    def _capture_frame(self):
+    def _capture_frame(self) -> None:
         assert self.recording, "Cannot capture a frame, recording wasn't started."
 
         envs_frame = self.env.render()
@@ -410,7 +452,7 @@ class RecordVideo(
 
     def step(
         self, actions: ActType
-    ) -> tuple[ObsType, SupportsFloat, bool, bool, dict[str, Any]]:
+    ) -> tuple[ObsType, np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
         """Steps through the environment using action, recording observations if :attr:`self.recording`."""
         obs, rewards, terminations, truncations, info = self.env.step(actions)
         self.step_id += 1
@@ -460,13 +502,13 @@ class RecordVideo(
         else:
             return render_out
 
-    def close(self):
+    def close(self, **kwargs: Any) -> None:
         """Closes the wrapper then the video recorder."""
-        super().close()
+        super().close(**kwargs)
         if self.recording:
             self.stop_recording()
 
-    def start_recording(self, video_name: str):
+    def start_recording(self, video_name: str) -> None:
         """Start a new recording. If it is already recording, stops the current recording before starting the new one."""
         if self.recording:
             self.stop_recording()
@@ -474,7 +516,7 @@ class RecordVideo(
         self.recording = True
         self._video_name = video_name
 
-    def stop_recording(self):
+    def stop_recording(self) -> None:
         """Stop current recording and saves the video."""
         assert self.recording, "stop_recording was called, but no recording was started"
         if len(self.recorded_frames) == 0:
@@ -501,7 +543,11 @@ class RecordVideo(
         if self.gc_trigger and self.gc_trigger(self.episode_id):
             gc.collect()
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Warn the user in case last video wasn't saved."""
-        if len(self.recorded_frames) > 0:
+        # `__init__` can raise before `recorded_frames` is assigned, and `__del__`
+        # still runs on the half-built wrapper. Reading the attribute directly
+        # raised an AttributeError that Python reports as "Exception ignored in",
+        # on top of the error that actually stopped construction.
+        if getattr(self, "recorded_frames", None):
             logger.warn("Unable to save last video! Did you call close()?")

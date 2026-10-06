@@ -42,7 +42,6 @@ from confiture.cli.formatters.validate_formatter import (
     render_signature_drift,
     render_view_drift,
 )
-from confiture.cli.markup import verbatim
 from confiture.core import migrator as _core_migrator
 from confiture.core.import_checker import ImportChecker
 from confiture.core.migrator import find_duplicate_migration_versions
@@ -71,6 +70,7 @@ _FLAG_DEPENDENCIES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("--missing-is-drift", ("--check-signatures",)),
     ("--show-diff", ("--check-body", "--check-body-views", "--check-body-replay")),
     ("--fail-on-unanalyzable", ("--idempotent",)),
+    ("--extra-objects", ("--check-live-drift",)),
 )
 
 
@@ -115,6 +115,7 @@ class ValidateOptions:
     check_imports: bool = False
     check_live_drift: bool = False
     ignore_column_order: bool = False
+    extra_objects: str | None = None
     check_signatures: bool = False
     check_body_views: bool = False
     check_body_replay: bool = False
@@ -170,6 +171,8 @@ def validate_flag_dependencies(opts: ValidateOptions) -> None:
         "--show-diff": opts.show_diff,
         "--fail-on-unanalyzable": opts.fail_on_unanalyzable,
         "--idempotent": opts.idempotent,
+        "--extra-objects": opts.extra_objects is not None,
+        "--check-live-drift": opts.check_live_drift,
     }
     for modifier, required in _FLAG_DEPENDENCIES:
         if not on[modifier]:
@@ -318,7 +321,7 @@ def _resolve_grant_dir(opts: ValidateOptions, ctx: ValidationContext) -> str:
         configured = (
             cfg_data.get("migration", {}).get("grant_dir") if isinstance(cfg_data, dict) else None
         )
-    except (AttributeError, KeyError, TypeError):
+    except AttributeError, KeyError, TypeError:
         return "db/7_grant"
     return str(configured) if configured else "db/7_grant"
 
@@ -393,8 +396,8 @@ def _run_security_definer(opts: ValidateOptions, ctx: ValidationContext) -> Chec
     if opts.emit_remediation is not None and report.has_violations:
         count = _security_definer.emit_remediation(report, opts.emit_remediation)
         console.print(
-            f"[dim]Remediation script ({verbatim(count)} statement(s)) written to "
-            f"{verbatim(opts.emit_remediation)}[/dim]"
+            t"[dim]Remediation script ({count} statement(s)) written to "
+            t"{opts.emit_remediation}[/dim]"
         )
     return CheckOutcome("security_definer", passed=not report.has_errors, payload=payload)
 
@@ -455,7 +458,11 @@ DEFAULT_SIGNATURE_SCHEMAS = "public"
 def _run_live_drift(opts: ValidateOptions, ctx: ValidationContext) -> CheckOutcome:
 
     report = check_live_drift(
-        opts.config, opts.schema_file, ctx, ignore_column_order=opts.ignore_column_order
+        opts.config,
+        opts.schema_file,
+        ctx,
+        ignore_column_order=opts.ignore_column_order,
+        extra_objects=opts.extra_objects,
     )
     payload = render_live_drift(report, json_mode=opts.json_mode)
     return CheckOutcome("live_drift", passed=not report.has_critical_drift, payload=payload)
@@ -476,9 +483,7 @@ def _run_signatures(opts: ValidateOptions, ctx: ValidationContext) -> CheckOutco
         if result.auto_built:
             console.print("[dim]  (schema auto-built from DDL files)[/dim]")
         if result.ssh_target:
-            console.print(
-                f"[dim]  (connecting via SSH tunnel to {verbatim(result.ssh_target)})[/dim]"
-            )
+            console.print(t"[dim]  (connecting via SSH tunnel to {result.ssh_target})[/dim]")
     payload = render_signature_drift(
         result.drift_report,
         result.body_report,
@@ -504,9 +509,7 @@ def _run_body_views(opts: ValidateOptions, ctx: ValidationContext) -> CheckOutco
         if result.auto_built:
             console.print("[dim]  (schema auto-built from DDL files)[/dim]")
         if result.ssh_target:
-            console.print(
-                f"[dim]  (connecting via SSH tunnel to {verbatim(result.ssh_target)})[/dim]"
-            )
+            console.print(t"[dim]  (connecting via SSH tunnel to {result.ssh_target})[/dim]")
     payload = render_view_drift(
         result.view_report, json_mode=opts.json_mode, show_diff=opts.show_diff
     )
@@ -524,7 +527,7 @@ def _run_body_replay(opts: ValidateOptions, ctx: ValidationContext) -> CheckOutc
         ctx=ctx,
     )
     if not opts.json_mode and result.ssh_target:
-        console.print(f"[dim]  (connecting via SSH tunnel to {verbatim(result.ssh_target)})[/dim]")
+        console.print(t"[dim]  (connecting via SSH tunnel to {result.ssh_target})[/dim]")
     payload = render_replay_drift(
         result.body_report, json_mode=opts.json_mode, show_diff=opts.show_diff
     )

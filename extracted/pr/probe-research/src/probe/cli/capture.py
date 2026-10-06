@@ -524,6 +524,11 @@ def _uninstall_plugin() -> tuple[bool, list[str]]:
         # resolved pi's binary as "claude" and ran the uninstall against the
         # user's real Claude Code (the audited bug class; binary_name now
         # raises on pi so a regression here fails loud instead of silently).
+        # One package, two halves: while Probe's tracking is on, the entry
+        # stays (its skills and MCP) and capture is off by the credential and
+        # killswitch this teardown already cleared.
+        if pi_config.entry_profile() not in (None, pi_config.PROFILE_TRACKING_OFF):
+            return True, []
         removal = pi_config.remove_package_entry()
         if not removal.ok:
             return False, [f"pi package-entry removal failed: {removal.detail}"]

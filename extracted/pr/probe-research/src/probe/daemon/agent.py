@@ -349,7 +349,7 @@ async def keep_lease(deps: tools.Deps, every_s: float | None = None):
     LEASE_RENEW_IN_CALL_S: one model call may take 30 minutes, and so may the
     compaction's summary call (which pydantic-ai makes before any model-request
     hook), while the lease lives 240 s. Renews only a lease this process still
-    holds for a switch at `daemon` (`_renew_after`)."""
+    holds while the writer records the session (`_renew_after`)."""
     import asyncio
 
     every = LEASE_RENEW_IN_CALL_S if every_s is None else every_s
@@ -450,10 +450,11 @@ def mcp_url(base_url: str) -> str | None:
 
 def _renew_after(deps: tools.Deps) -> None:
     """A finished tool call is progress: extend the lease (R11) -- but only one this
-    process still holds for a switch still at `daemon`. Never BEFORE the tool: its
+    process still holds while the writer still records the session (`lease.records`:
+    `daemon`, or taken over from it). Never BEFORE the tool: its
     own lease check must see a lease that lapsed, was released with a reason or
     went to another daemon, not one renewed a moment earlier."""
-    if deps.replay is None and lease.held(deps.session_id) and lease.session_state(deps.session_id) == "daemon":
+    if deps.replay is None and lease.held(deps.session_id) and lease.records(deps.session_id):
         lease.renew(deps.session_id)
 
 

@@ -97,6 +97,10 @@ EXTERNAL_ONLY: dict[str, str] = {
     "gsc_ctr_opportunity": "Search Console page statistics (web.gsc_page_stat)",
     "gsc_performance_decay": "Search Console page statistics across three windows",
     "gsc_keyword_cannibalization": "Search Console query x page performance",
+    "internal_link_equity": (
+        "fails only on prioritized pages (a target keyword from the keyword plane, "
+        "never from a crawl); proven on real link_edge rows in test_finding_noise_truth.py"
+    ),
 }
 
 

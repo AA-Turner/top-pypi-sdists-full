@@ -12,6 +12,7 @@ from pytest_gremlins.control_run import (
     build_diagnostic,
     chunk_node_ids,
     run_control,
+    run_unmutated,
 )
 
 
@@ -54,12 +55,52 @@ class DescribeBuildDiagnostic:
     @pytest.mark.parametrize(
         ('output', 'hint'),
         [
-            pytest.param("AttributeError: module 'sample' has no attribute '__file__'", 'issues/525', id='dunder-file'),
             pytest.param('import file mismatch:\nimported module', '--import-mode', id='import-mode'),
             pytest.param('ERROR: not found: x.py::test_a[abc]', 'parametrize', id='parametrize-ids'),
+            pytest.param(
+                'collected 1 item\nERROR: not found: test_x.py::test_y[3f9a]\n(no match in any of [<Module>])',
+                'make the ids deterministic',
+                id='parametrize-ids-real-shape',
+            ),
         ],
     )
     def it_adds_a_hint_for_the_common_causes(self, output: str, hint: str) -> None:
+        assert hint in build_diagnostic(output)
+
+    def it_does_not_blame_the_dunder_file_issue_for_an_import_file_mismatch(self) -> None:
+        output = (
+            "import file mismatch:\nimported module 'test_same_name' has this __file__ attribute:\n"
+            '  /p/first/test_same_name.py\nwhich is not the same as the test file we want to collect:'
+        )
+
+        assert 'issues/525' not in build_diagnostic(output)
+
+    @pytest.mark.parametrize(
+        'output',
+        [
+            pytest.param("    raise ImportError('required module not found: helperlib')", id='source-line'),
+            pytest.param('E   ImportError: required module not found: helperlib', id='exception-message'),
+        ],
+    )
+    def it_ignores_not_found_text_that_is_not_pytests_own_error_line(self, output: str) -> None:
+        assert 'make the ids deterministic' not in build_diagnostic(output)
+
+    @pytest.mark.parametrize(
+        ('output', 'hint'),
+        [
+            pytest.param(
+                '\x1b[0m\n\x1b[31mERROR: not found: t.py::test_a[3f9a]\n(no match in any of [<Module>])\n\x1b[0m\n',
+                'make the ids deterministic',
+                id='parametrize-ids',
+            ),
+            pytest.param(
+                '\x1b[31mimport file mismatch:\x1b[0m\nimported module',
+                'put it in addopts',
+                id='import-mode',
+            ),
+        ],
+    )
+    def it_adds_a_hint_even_when_pytest_colors_its_output(self, output: str, hint: str) -> None:
         assert hint in build_diagnostic(output)
 
     def it_adds_no_hint_for_an_unrecognized_cause(self) -> None:
@@ -98,7 +139,16 @@ class DescribeRunControl:
 
         outcome = run_control([sys.executable, str(script)], ['a.py::t1', 'b.py::t2'], tmp_path, {}, timeout=30)
 
-        assert outcome.output.strip() == '--collect-only a.py::t1 b.py::t2'
+        assert outcome.output.strip() == '--collect-only --tb=short a.py::t1 b.py::t2'
+
+    def it_overrides_an_earlier_tb_no_so_collection_errors_keep_their_cause(self, tmp_path: Path) -> None:
+        code = 'import sys; print(*sys.argv[1:]); sys.exit(4)'
+        script = tmp_path / 'echo_args.py'
+        script.write_text(code)
+
+        outcome = run_control([sys.executable, str(script), '--tb=no', '-q'], [], tmp_path, {}, timeout=30)
+
+        assert outcome.output.split()[-1] == '--tb=short'
 
     def it_stops_at_the_first_failing_chunk(self, tmp_path: Path) -> None:
         marker = tmp_path / 'runs.txt'
@@ -121,3 +171,35 @@ class DescribeRunControl:
         outcome = run_control(self._command('import time; time.sleep(0.2)'), [], tmp_path, {}, timeout=30)
 
         assert outcome.seconds >= 0.2
+
+
+@pytest.mark.medium
+class DescribeRunUnmutated:
+    def it_reports_a_run_that_outlasts_the_timeout(self, tmp_path: Path) -> None:
+        command = [sys.executable, '-c', 'import time; time.sleep(30)']
+
+        outcome = run_unmutated(command, [], tmp_path, {}, timeout=1)
+
+        assert outcome.timed_out
+
+    @pytest.mark.parametrize('exit_code', [0, 1])
+    def it_reports_a_run_that_finishes_in_time_whatever_its_exit_code(self, tmp_path: Path, exit_code: int) -> None:
+        command = [sys.executable, '-c', f'raise SystemExit({exit_code})']
+
+        outcome = run_unmutated(command, [], tmp_path, {}, timeout=30)
+
+        assert not outcome.timed_out
+
+    def it_reports_a_launch_error_instead_of_a_timeout_when_the_run_cannot_be_launched(self, tmp_path: Path) -> None:
+        outcome = run_unmutated([str(tmp_path / 'no-such-python')], [], tmp_path, {}, timeout=30)
+
+        assert not outcome.timed_out
+        assert outcome.launch_error
+
+    def it_passes_the_node_ids_after_the_command(self, tmp_path: Path) -> None:
+        recorded = tmp_path / 'argv.txt'
+        code = f'import sys, pathlib; pathlib.Path({str(recorded)!r}).write_text(" ".join(sys.argv[1:]))'
+
+        run_unmutated([sys.executable, '-c', code], ['a.py::t', 'b.py::t'], tmp_path, {}, timeout=30)
+
+        assert recorded.read_text() == 'a.py::t b.py::t'

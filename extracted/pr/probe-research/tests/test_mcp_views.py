@@ -1418,11 +1418,16 @@ def test_a_cut_lineage_window_is_partial_and_its_links_ride_the_first_page_only(
             "edges_truncated": False, "derived_truncated": True, "nodes": nodes, "truncated": True}
     among_calls: list[int] = []
 
-    def experiment_edges(self, eid, limit):
+    def experiment_edges(self, eid, limit, *, project_id=None):
         among_calls.append(limit)
         return among[:limit]
 
-    monkeypatch.setattr(service_module.ResearchOSSource, "project_lineage", lambda self, pid: body)
+    # An experiment's own lineage is the experiment API's read (X21).
+    monkeypatch.setattr(
+        service_module.ResearchOSSource,
+        "experiment_lineage",
+        lambda self, eid, *, project_id=None: body,
+    )
     monkeypatch.setattr(service_module.ResearchOSSource, "experiment_edges", experiment_edges)
     service = _service(client)
 

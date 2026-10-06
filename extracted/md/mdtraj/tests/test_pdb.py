@@ -27,7 +27,6 @@ import tempfile
 
 import numpy as np
 import pytest
-from conftest import flaky_pdb_dl
 
 from mdtraj import Topology, load, load_pdb
 from mdtraj.core.topology import float_to_bond_type
@@ -209,22 +208,24 @@ def test_pdbstructure_3():
         eq(expected[i], c)
 
 
-@flaky_pdb_dl
+@pytest.mark.default_cassette("4ZUO.yaml")
+@pytest.mark.vcr(allow_playback_repeats=True)
 def test_load_pdb_from_url():
     # load pdb from URL
-    t1 = load_pdb("https://www.rcsb.org/pdb/files/4ZUO.pdb.gz")
-    t2 = load_pdb("https://www.rcsb.org/pdb/files/4ZUO.pdb")
+    t1 = load_pdb("https://files.rcsb.org/download/4ZUO.pdb.gz")
+    t2 = load_pdb("https://files.rcsb.org/download/4ZUO.pdb")
     eq(t1.n_frames, 1)
     eq(t2.n_frames, 1)
     eq(t1.n_atoms, 6200)
     eq(t2.n_atoms, 6200)
 
 
-@flaky_pdb_dl
+@pytest.mark.default_cassette("4ZUO.yaml")
+@pytest.mark.vcr(allow_playback_repeats=True)
 def test_load_from_url():
     # load pdb from URL
-    t1 = load("https://www.rcsb.org/pdb/files/4ZUO.pdb.gz")
-    t2 = load("https://www.rcsb.org/pdb/files/4ZUO.pdb")
+    t1 = load("https://files.rcsb.org/download/4ZUO.pdb.gz")
+    t2 = load("https://files.rcsb.org/download/4ZUO.pdb")
     eq(t1.n_frames, 1)
     eq(t2.n_frames, 1)
     eq(t1.n_atoms, 6200)
@@ -269,10 +270,11 @@ def test_1ncw(get_fn):
     load_pdb(get_fn("1ncw.pdb.gz"))
 
 
-@flaky_pdb_dl
+@pytest.mark.default_cassette("1VII.yaml")
+@pytest.mark.vcr(allow_playback_repeats=True)
 def test_1vii_url_and_gz(get_fn):
-    t1 = load_pdb("https://www.rcsb.org/pdb/files/1vii.pdb.gz")
-    t2 = load_pdb("https://www.rcsb.org/pdb/files/1vii.pdb")
+    t1 = load_pdb("https://files.rcsb.org/download/1vii.pdb.gz")
+    t2 = load_pdb("https://files.rcsb.org/download/1vii.pdb")
     t3 = load_pdb(get_fn("1vii.pdb.gz"))
     t4 = load_pdb(get_fn("1vii.pdb"))
     eq(t1.n_frames, 1)
@@ -285,12 +287,13 @@ def test_1vii_url_and_gz(get_fn):
     eq(t1.n_atoms, t4.n_atoms)
 
 
-@flaky_pdb_dl
+@pytest.mark.default_cassette("1VII.yaml")
+@pytest.mark.vcr(allow_playback_repeats=True)
 def test_1vii_load_from_mixture(get_fn):
     # load pdb from URL and locally
-    t1 = load(["https://www.rcsb.org/pdb/files/1vii.pdb.gz", get_fn("1vii.pdb.gz")])
+    t1 = load(["https://files.rcsb.org/download/1vii.pdb.gz", get_fn("1vii.pdb.gz")])
     t2 = load_pdb(get_fn("1vii.pdb"))
-    t3 = load([get_fn("1vii.pdb"), "https://www.rcsb.org/pdb/files/1vii.pdb", get_fn("1vii.pdb")])
+    t3 = load([get_fn("1vii.pdb"), "https://files.rcsb.org/download/1vii.pdb", get_fn("1vii.pdb")])
 
     eq(t1.n_frames, 2)
     eq(t2.n_frames, 1)
@@ -629,3 +632,31 @@ def test_bond_order_conect_priority(get_fn, bond_orders, ref_orders):
 
     bond = [str(traj.top._bonds[0].type), traj.top._bonds[0].order]
     eq(bond, ref_orders, err_msg="Inconsistent bond type, bond order read")
+
+
+def test_ala3_CRYST1_read(get_fn, tmp_path):
+    """Test that a pdb reads properly when CRYST1 key exists but none of the angles or lengths are specified"""
+
+    new_file_path = tmp_path / "ala3_patched.pdb"
+
+    with open(get_fn("ala_ala_ala.pdb")) as ref_file, open(new_file_path, "w") as new_file:
+        new_file.write("CRYST1                                                               1          \n")
+        for line in ref_file.readlines()[2:]:
+            new_file.write(line)
+
+    traj = load(new_file_path)
+    ref_traj = load(get_fn("ala_ala_ala.pdb"))
+
+    assert traj.unitcell_lengths is None
+    assert traj.unitcell_angles is None
+
+    eq(
+        traj._xyz,
+        ref_traj.xyz,
+        err_msg="Coordinates mismatch between file with empty CRYST1 line and file without that line at all",
+    )
+    eq(
+        traj.top,
+        ref_traj.top,
+        err_msg="Topology mismatch between file with empty CRYST1 line and file without that line at all",
+    )

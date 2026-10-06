@@ -96,6 +96,48 @@ def _log_progress(futures, label: str, every: float) -> None:
                   f"{_short(now - t0)} elapsed" + left, flush=True)
 
 
+def start_workers(n_cpus: int, name: str):
+    """A dask cluster of n_cpus single-threaded worker processes, when
+    there is more than one CPU; (None, None) otherwise.
+
+    Its temporary files -- dask's and SQLite's -- go in a folder of its own
+    under $TMPDIR, so nothing is left behind for the next run to purge.
+    Returns (client, folder); hand both to stop_workers, in a finally.
+    """
+    if n_cpus <= 1:
+        return None, None
+    import tempfile
+    import dask
+    from dask.distributed import Client
+    # the worker processes inherit the environment: their logging too
+    os.environ["DASK_LOGGING__DISTRIBUTED"] = "error"
+    folder = tempfile.mkdtemp(prefix=f"pikobs_{name}_dask_",
+                              dir=os.environ.get("TMPDIR") or None)
+    os.environ["DASK_TEMPORARY_DIRECTORY"] = folder
+    os.environ["SQLITE_TMPDIR"] = folder
+    dask.config.set({"temporary-directory": folder,
+                     "logging.distributed": "error"})
+    client = Client(processes=True, threads_per_worker=1, n_workers=n_cpus,
+                    silence_logs=50, dashboard_address=None)
+    return client, folder
+
+
+def stop_workers(client, folder) -> None:
+    """Close the cluster and remove its folder; never raises."""
+    import shutil
+    if client is not None:
+        try:
+            client.close(timeout=30)
+        except Exception:
+            pass
+        try:
+            client.shutdown()
+        except Exception:
+            pass
+    if folder:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def run_tasks(func: Callable, arg_tuples: Sequence[Tuple], client,
               label: Optional[str] = None,
               progress_every: float = LOG_PROGRESS_EVERY) -> List[Any]:

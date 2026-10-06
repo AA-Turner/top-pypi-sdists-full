@@ -86,7 +86,10 @@ class Client(KeyManagementMixin, V2Api):
             raise ConfigurationError(
                 "Registry auth token is not set! It must be specified either via an ISTARI_REGISTRY_AUTH_TOKEN env "
                 "variable or by explicitly setting the registry_auth_token attribute in the (optional) config object "
-                "on client initialization."
+                "on client initialization. To authenticate through identity-service instead, set "
+                "one of ISTARI_CLIENT_IDENTITY_SERVICE_SECRET or ISTARI_CLIENT_IDENTITY_SERVICE_SECRET_FILE, plus one of "
+                "ISTARI_DIGITAL_API_URL or ISTARI_IDENTITY_URL, and do not set "
+                "ISTARI_DIGITAL_IDENTITY_SERVICE_ENABLED=false."
             )
 
         self.configuration: Configuration = config

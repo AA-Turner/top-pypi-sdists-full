@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.236.2
+Version: 0.236.3
 Summary: Next-generation data transformation framework
 Author: SQLMesh Contributors
 License:                                  Apache License
@@ -310,6 +310,9 @@ Provides-Extra: dbt
 Requires-Dist: dbt-core<2; extra == "dbt"
 Provides-Extra: dlt
 Requires-Dist: dlt; extra == "dlt"
+Provides-Extra: db2
+Requires-Dist: ibm_db; extra == "db2"
+Requires-Dist: db2-sqlglot-dialect; python_version >= "3.10" and extra == "db2"
 Provides-Extra: duckdb
 Provides-Extra: fabric
 Requires-Dist: pyodbc>=5.0.0; extra == "fabric"

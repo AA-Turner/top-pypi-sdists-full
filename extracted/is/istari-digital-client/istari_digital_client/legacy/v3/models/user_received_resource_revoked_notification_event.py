@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from istari_digital_client.legacy.v3.models.resource_type_dto import ResourceTypeDto
 from typing import Optional, Set
@@ -26,7 +26,7 @@ from typing_extensions import Self
 
 class UserReceivedResourceRevokedNotificationEvent(BaseModel):
     """
-    A received resource on a connection the recipient owns was revoked by its sender.  The snapshot is all that is left of the resource: the tombstone zeroes its metadata and content.
+    A received resource on a connection the recipient owns was revoked by its sender.  The reference only — connection, local resource id and type, when — and by shape rather than by nulling: the tombstone zeroes the resource's metadata and content, and this notification must not be the one place the file's name, extension or size survive. An inbox row persisted with those fields before this shape existed is read back without them (pydantic drops unknown fields).
     """ # noqa: E501
     event_id: Optional[StrictStr] = Field(default=None, description="Stable per-event identifier used as an idempotency key by downstream consumers.")
     event_type: Optional[StrictStr] = 'notification.user.received_resource.revoked'
@@ -35,11 +35,8 @@ class UserReceivedResourceRevokedNotificationEvent(BaseModel):
     receiving_connection_label: StrictStr
     resource_id: StrictStr
     resource_type: ResourceTypeDto
-    file_name: Optional[StrictStr]
-    file_extension: Optional[StrictStr]
-    file_size: Optional[StrictInt]
     occurred_at: datetime
-    __properties: ClassVar[List[str]] = ["event_id", "event_type", "created_at", "receiving_connection_id", "receiving_connection_label", "resource_id", "resource_type", "file_name", "file_extension", "file_size", "occurred_at"]
+    __properties: ClassVar[List[str]] = ["event_id", "event_type", "created_at", "receiving_connection_id", "receiving_connection_label", "resource_id", "resource_type", "occurred_at"]
 
     @field_validator('event_type')
     def event_type_validate_enum(cls, value):
@@ -90,21 +87,6 @@ class UserReceivedResourceRevokedNotificationEvent(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # set to None if file_name (nullable) is None
-        # and model_fields_set contains the field
-        if self.file_name is None and "file_name" in self.model_fields_set:
-            _dict['file_name'] = None
-
-        # set to None if file_extension (nullable) is None
-        # and model_fields_set contains the field
-        if self.file_extension is None and "file_extension" in self.model_fields_set:
-            _dict['file_extension'] = None
-
-        # set to None if file_size (nullable) is None
-        # and model_fields_set contains the field
-        if self.file_size is None and "file_size" in self.model_fields_set:
-            _dict['file_size'] = None
-
         return _dict
 
     @classmethod
@@ -124,9 +106,6 @@ class UserReceivedResourceRevokedNotificationEvent(BaseModel):
             "receiving_connection_label": obj.get("receiving_connection_label"),
             "resource_id": obj.get("resource_id"),
             "resource_type": obj.get("resource_type"),
-            "file_name": obj.get("file_name"),
-            "file_extension": obj.get("file_extension"),
-            "file_size": obj.get("file_size"),
             "occurred_at": obj.get("occurred_at")
         })
         return _obj

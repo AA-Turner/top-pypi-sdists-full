@@ -455,14 +455,18 @@ async def apply_backfill_plans(
 
     updated = 0
     for plan in plans:
-        patch_metadata = {CONVERSATION_STEP_LABEL_KEY: plan.step_label}
-        existing = await cxm.conversation.load_conversation_by_id(plan.conversation_id)
-        metadata = dict(getattr(existing, "metadata", None) or {})
-        metadata.update(patch_metadata)
+        # ONE key written atomically in the database (jsonb_set) — never a
+        # whole-object copy read earlier, which would erase a concurrent
+        # writer's keys (run_configuration, last_request_context, ...).
+        await cxm.conversation.patch_jsonb_path(
+            plan.conversation_id,
+            "metadata",
+            [CONVERSATION_STEP_LABEL_KEY],
+            plan.step_label,
+        )
         await cxm.conversation.update_conversation(
             plan.conversation_id,
             title=plan.new_title,
-            metadata=metadata,
         )
         updated += 1
     return updated

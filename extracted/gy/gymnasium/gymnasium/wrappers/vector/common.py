@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 
 from gymnasium.core import ActType, ObsType
 from gymnasium.logger import warn
 from gymnasium.vector.vector_env import (
-    ArrayType,
     AutoresetMode,
     VectorEnv,
     VectorWrapper,
@@ -19,7 +20,9 @@ from gymnasium.vector.vector_env import (
 __all__ = ["RecordEpisodeStatistics"]
 
 
-class RecordEpisodeStatistics(VectorWrapper):
+class RecordEpisodeStatistics(
+    VectorWrapper[ObsType, ActType, ObsType, ActType, np.ndarray]
+):
     """This wrapper will keep track of cumulative rewards and episode lengths.
 
     At the end of any episode within the vectorized env, the statistics of the episode
@@ -64,12 +67,24 @@ class RecordEpisodeStatistics(VectorWrapper):
                      't': array([0.007812, 0.      , 0.      ], dtype=float32)},
     """
 
+    episode_count: int
+
+    # 1-d arrays
+    episode_start_times: np.ndarray[tuple[int], np.dtype[np.float64]]
+    episode_returns: np.ndarray[tuple[int], np.dtype[np.float64]]
+    episode_lengths: np.ndarray[tuple[int], np.dtype[np.int_]]
+    prev_dones: np.ndarray[tuple[int], np.dtype[np.bool_]]
+
+    time_queue: deque[np.float64]
+    return_queue: deque[np.float64]
+    length_queue: deque[np.int_]
+
     def __init__(
         self,
-        env: VectorEnv,
+        env: VectorEnv[ObsType, ActType, np.ndarray],
         buffer_length: int = 100,
         stats_key: str = "episode",
-    ):
+    ) -> None:
         """This wrapper will keep track of cumulative rewards and episode lengths.
 
         Args:
@@ -85,15 +100,18 @@ class RecordEpisodeStatistics(VectorWrapper):
             )
             self._autoreset_mode = AutoresetMode.NEXT_STEP
         else:
-            assert isinstance(self.env.metadata["autoreset_mode"], AutoresetMode)
+            if not isinstance(self.env.metadata["autoreset_mode"], AutoresetMode):
+                raise TypeError(
+                    f"Expected env.metadata['autoreset_mode'] to be an AutoresetMode, got {type(self.env.metadata['autoreset_mode'])}"
+                )
             self._autoreset_mode = self.env.metadata["autoreset_mode"]
 
         self.episode_count = 0
 
-        self.episode_start_times: np.ndarray = np.zeros((self.num_envs,))
-        self.episode_returns: np.ndarray = np.zeros((self.num_envs,))
-        self.episode_lengths: np.ndarray = np.zeros((self.num_envs,), dtype=int)
-        self.prev_dones: np.ndarray = np.zeros((self.num_envs,), dtype=bool)
+        self.episode_start_times = np.zeros((self.num_envs,))
+        self.episode_returns = np.zeros((self.num_envs,))
+        self.episode_lengths = np.zeros((self.num_envs,), dtype=int)
+        self.prev_dones = np.zeros((self.num_envs,), dtype=bool)
 
         self.time_queue = deque(maxlen=buffer_length)
         self.return_queue = deque(maxlen=buffer_length)
@@ -101,26 +119,30 @@ class RecordEpisodeStatistics(VectorWrapper):
 
     def reset(
         self,
-        seed: int | list[int] | None = None,
-        options: dict | None = None,
-    ):
+        seed: int | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> tuple[ObsType, dict[str, Any]]:
         """Resets the environment using kwargs and resets the episode returns and lengths."""
         obs, info = super().reset(seed=seed, options=options)
 
         if options is not None and "reset_mask" in options:
             reset_mask = options.pop("reset_mask")
-            assert isinstance(reset_mask, np.ndarray), (
-                f"`options['reset_mask': mask]` must be a numpy array, got {type(reset_mask)}"
-            )
-            assert reset_mask.shape == (self.num_envs,), (
-                f"`options['reset_mask': mask]` must have shape `({self.num_envs},)`, got {reset_mask.shape}"
-            )
-            assert reset_mask.dtype == np.bool_, (
-                f"`options['reset_mask': mask]` must have `dtype=np.bool_`, got {reset_mask.dtype}"
-            )
-            assert np.any(reset_mask), (
-                f"`options['reset_mask': mask]` must contain a boolean array, got reset_mask={reset_mask}"
-            )
+            if not isinstance(reset_mask, np.ndarray):
+                raise TypeError(
+                    f"`options['reset_mask']` must be a numpy array, got {type(reset_mask)}"
+                )
+            if reset_mask.shape != (self.num_envs,):
+                raise ValueError(
+                    f"`options['reset_mask']` must have shape `({self.num_envs},)`, got {reset_mask.shape}"
+                )
+            if reset_mask.dtype != np.bool_:
+                raise TypeError(
+                    f"`options['reset_mask']` must have `dtype=np.bool_`, got {reset_mask.dtype}"
+                )
+            if not np.any(reset_mask):
+                raise ValueError(
+                    f"`options['reset_mask']` must contain a boolean array with at least one True value, got reset_mask={reset_mask}"
+                )
 
             self.episode_start_times[reset_mask] = time.perf_counter()
             self.episode_returns[reset_mask] = 0
@@ -136,7 +158,13 @@ class RecordEpisodeStatistics(VectorWrapper):
 
     def step(
         self, actions: ActType
-    ) -> tuple[ObsType, ArrayType, ArrayType, ArrayType, dict]:
+    ) -> tuple[
+        ObsType,
+        npt.NDArray[np.float64],
+        npt.NDArray[np.bool_],
+        npt.NDArray[np.bool_],
+        dict[str, Any],
+    ]:
         """Steps through the environment, recording the episode statistics."""
         (
             observations,
@@ -150,15 +178,24 @@ class RecordEpisodeStatistics(VectorWrapper):
             f"`vector.RecordEpisodeStatistics` requires `info` type to be `dict`, its actual type is {type(infos)}. This may be due to usage of other wrappers in the wrong order."
         )
 
-        self.episode_returns[self.prev_dones] = 0
-        self.episode_returns[np.logical_not(self.prev_dones)] += rewards[
-            np.logical_not(self.prev_dones)
-        ]
+        if self._autoreset_mode == AutoresetMode.SAME_STEP:
+            # Sub-environments reset within the same step as they terminate or
+            # truncate, therefore, every step counts towards an episode.
+            self.episode_returns += rewards
+            self.episode_lengths += 1
+        else:
+            # For `NEXT_STEP` autoreset, the step after a termination or
+            # truncation resets the sub-environment and doesn't count towards
+            # the next episode's statistics.
+            self.episode_returns[self.prev_dones] = 0
+            self.episode_returns[np.logical_not(self.prev_dones)] += rewards[
+                np.logical_not(self.prev_dones)
+            ]
 
-        self.episode_lengths[self.prev_dones] = 0
-        self.episode_lengths[~self.prev_dones] += 1
+            self.episode_lengths[self.prev_dones] = 0
+            self.episode_lengths[~self.prev_dones] += 1
 
-        self.episode_start_times[self.prev_dones] = time.perf_counter()
+            self.episode_start_times[self.prev_dones] = time.perf_counter()
 
         self.prev_dones = dones = np.logical_or(terminations, truncations)
         num_dones = np.sum(dones)
@@ -180,11 +217,17 @@ class RecordEpisodeStatistics(VectorWrapper):
                 infos[f"_{self._stats_key}"] = dones
 
             self.episode_count += num_dones
-
             for i in np.where(dones):
                 self.time_queue.extend(episode_time_length[i])
                 self.return_queue.extend(self.episode_returns[i])
                 self.length_queue.extend(self.episode_lengths[i])
+
+            if self._autoreset_mode == AutoresetMode.SAME_STEP:
+                # The done sub-environments have already been reset, restart
+                # their statistics immediately rather than on the next step.
+                self.episode_returns[dones] = 0
+                self.episode_lengths[dones] = 0
+                self.episode_start_times[dones] = time.perf_counter()
 
         return (
             observations,

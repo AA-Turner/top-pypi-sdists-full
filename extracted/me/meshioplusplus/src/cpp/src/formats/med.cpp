@@ -36,6 +36,7 @@
 #endif
 
 // Project includes
+#include "../detail/library_lock.hpp"
 #include "meshioplusplus/formats/med.hpp"
 #include "meshioplusplus/detail/classic_stream.hpp"
 #include "meshioplusplus/detail/cell_index.hpp"
@@ -49,6 +50,7 @@
 #include "meshioplusplus/region.hpp"
 #include "meshioplusplus/operations/data_common.hpp"
 #include "meshioplusplus/types.hpp"
+#include "../detail/typed_view.hpp"
 
 namespace meshioplusplus {
 
@@ -215,11 +217,11 @@ NDArray med_concat_conn_rows(const Mesh& rMesh, const std::vector<std::size_t>& 
         T* dst = out.As<T>();
         std::size_t row = 0;
         for (std::size_t bi : rBlockIdx) {
-            const NDArray& conn = rMesh.Cells(bi).Conn();
+            const detail::Int64View conn(rMesh.Cells(bi).Conn());
             const std::size_t nb = rMesh.Cells(bi).NumCells();
             for (std::size_t i = 0; i < nb; ++i)
                 for (std::size_t c = 0; c < k; ++c)
-                    dst[(row + i) * k + c] = static_cast<T>(detail::read_int(conn, i * k + c));
+                    dst[(row + i) * k + c] = static_cast<T>(conn[i * k + c]);
             row += nb;
         }
     });
@@ -345,8 +347,9 @@ NDArray med_field_widen(const NDArray& rArr) {
             break;
     }
     NDArray out(DType::Int64, rArr.Shape());
+    const detail::Int64View values(rArr);
     for (std::size_t i = 0; i < rArr.Size(); ++i)
-        out.As<std::int64_t>()[i] = detail::read_int(rArr, i);
+        out.As<std::int64_t>()[i] = values[i];
     return out;
 }
 
@@ -652,8 +655,9 @@ void med_attach_point_regions(Mesh& rMesh, const MedInfo& rInfo) {
     matches_of.reserve(rInfo.mPointTags.size());
     for (const auto& kv : rInfo.mPointTags)
         matches_of.try_emplace(kv.first);
+    const detail::Int64View fam_values(fam);
     for (std::size_t i = 0; i < fam.Size(); ++i) {
-        auto it = matches_of.find(detail::read_int(fam, i));
+        auto it = matches_of.find(fam_values[i]);
         if (it != matches_of.end())
             it->second.push_back(static_cast<std::int64_t>(i));
     }
@@ -697,8 +701,9 @@ void med_attach_cell_regions(Mesh& rMesh, const MedInfo& rInfo) {
             matches_of.try_emplace(kv.first);
     for (std::size_t b = 0; b < rMesh.NumCellBlocks(); ++b) {
         const NDArray& fam = rMesh.CellData("cell_tags", b);
+        const detail::Int64View fam_values(fam);
         for (std::size_t i = 0; i < fam.Size(); ++i) {
-            auto it = matches_of.find(detail::read_int(fam, i));
+            auto it = matches_of.find(fam_values[i]);
             if (it == matches_of.end())
                 continue;
             const std::int64_t g =
@@ -831,10 +836,11 @@ bool med_cell_regions_to_tags(const Mesh& rMesh, std::vector<NDArray>& rFamBlock
             std::min(rMesh.NumCellBlocks(), rMesh.CellDataNumBlocks("gmsh:physical"));
         for (std::size_t b = 0; b < nblocks; ++b) {
             const NDArray& phys = rMesh.CellData("gmsh:physical", b);
+            const detail::Int64View phys_values(phys);
             const std::int64_t base = bases[b];
             const std::size_t ncells = static_cast<std::size_t>(bases[b + 1] - bases[b]);
             for (std::size_t c = 0; c < ncells && c < phys.Size(); ++c) {
-                const std::int64_t pid = detail::read_int(phys, c);
+                const std::int64_t pid = phys_values[c];
                 if (pid == 0)
                     continue;  // family 0 -- no group
                 auto nit = id_to_name.find(pid);
@@ -963,13 +969,15 @@ NDArray read_cha_support_data(hid_t file, hid_t support, std::int64_t ncomponent
         NDArray out(DType::Float64,
                     k == 1 ? std::vector<std::size_t>{rows} : std::vector<std::size_t>{rows, k});
         std::fill_n(out.As<double>(), out.Size(), std::numeric_limits<double>::quiet_NaN());
+        const detail::Int64View index_values(indices);
+        const detail::DoubleView value_values(values);
         for (std::size_t i = 0; i < indices.Size(); ++i) {
-            const auto index = detail::read_int(indices, i);
+            const auto index = index_values[i];
             if (index <= 0 || static_cast<std::uint64_t>(index) > rows)
                 throw ReadError("MED: profile index is out of range");
             for (std::size_t c = 0; c < k; ++c)
                 out.As<double>()[(static_cast<std::size_t>(index) - 1) * k + c] =
-                    detail::read_double(values, i * k + c);
+                    value_values[i * k + c];
         }
         return out;
     }
@@ -1299,21 +1307,21 @@ Mesh med_read_impl(const std::string& rPath, MedInfo& rInfo, const ReadOptions& 
             };
             std::vector<std::int64_t> nfaces(ncells), nnodes(ncells);
             std::vector<std::size_t> node_counts(ncells, 0);
+            const detail::Int64View ind_v(ind), inn_v(inn), nod_v(nod);
             parallel_for(ncells, [&](std::size_t c) {
-                const std::int64_t f0 = detail::read_int(ind, c) - 1;
-                const std::int64_t f1 = detail::read_int(ind, c + 1) - 1;
+                const std::int64_t f0 = ind_v[c] - 1;
+                const std::int64_t f1 = ind_v[c + 1] - 1;
                 if (f0 < 0 || f1 < f0 || static_cast<std::uint64_t>(f1) + 1 > inn.Size())
                     throw bad();
                 static thread_local std::vector<std::int64_t> uniq;
                 uniq.clear();
                 for (std::int64_t f = f0; f < f1; ++f) {
-                    const std::int64_t na = detail::read_int(inn, static_cast<std::size_t>(f)) - 1;
-                    const std::int64_t nb =
-                        detail::read_int(inn, static_cast<std::size_t>(f) + 1) - 1;
+                    const std::int64_t na = inn_v[static_cast<std::size_t>(f)] - 1;
+                    const std::int64_t nb = inn_v[static_cast<std::size_t>(f) + 1] - 1;
                     if (na < 0 || nb < na || static_cast<std::uint64_t>(nb) > nod.Size())
                         throw bad();
                     for (std::int64_t j = na; j < nb; ++j)
-                        uniq.push_back(detail::read_int(nod, static_cast<std::size_t>(j)) - 1);
+                        uniq.push_back(nod_v[static_cast<std::size_t>(j)] - 1);
                 }
                 nfaces[c] = f1 - f0;
                 nnodes[c] = static_cast<std::int64_t>(uniq.size());
@@ -1346,17 +1354,15 @@ Mesh med_read_impl(const std::string& rPath, MedInfo& rInfo, const ReadOptions& 
                     static_cast<std::size_t>(face_offsets[cnt]) + 1, 0);
                 parallel_for(cnt, [&](std::size_t k) {
                     const std::size_t c = members[k];
-                    const std::int64_t f0 = detail::read_int(ind, c) - 1;
+                    const std::int64_t f0 = ind_v[c] - 1;
                     std::int64_t node = node_at[k];
                     std::int64_t row = face_offsets[k];
                     for (std::int64_t f = f0; f < f0 + nfaces[c]; ++f) {
-                        const std::int64_t na =
-                            detail::read_int(inn, static_cast<std::size_t>(f)) - 1;
-                        const std::int64_t nb =
-                            detail::read_int(inn, static_cast<std::size_t>(f) + 1) - 1;
+                        const std::int64_t na = inn_v[static_cast<std::size_t>(f)] - 1;
+                        const std::int64_t nb = inn_v[static_cast<std::size_t>(f) + 1] - 1;
                         for (std::int64_t j = na; j < nb; ++j)
                             flat[static_cast<std::size_t>(node++)] =
-                                detail::read_int(nod, static_cast<std::size_t>(j)) - 1;
+                                nod_v[static_cast<std::size_t>(j)] - 1;
                         row_offsets[static_cast<std::size_t>(++row)] = node;
                     }
                 });
@@ -1373,19 +1379,20 @@ Mesh med_read_impl(const std::string& rPath, MedInfo& rInfo, const ReadOptions& 
             // Straight into the CSR the mesh stores: row i is NOD[INN[i] ..
             // INN[i+1]), both 1-based.
             std::vector<std::int64_t> row_offsets(npoly + 1, 0);
+            const detail::Int64View inn_v(inn), nod_v(nod);
             for (std::size_t i = 0; i < npoly; ++i) {
-                const std::int64_t na = detail::read_int(inn, i) - 1;
-                const std::int64_t nb = detail::read_int(inn, i + 1) - 1;
+                const std::int64_t na = inn_v[i] - 1;
+                const std::int64_t nb = inn_v[i + 1] - 1;
                 if (na < 0 || nb < na || static_cast<std::uint64_t>(nb) > nod.Size())
                     throw ReadError("MED: a polygon's INN offsets are out of range");
                 row_offsets[i + 1] = row_offsets[i] + (nb - na);
             }
             std::vector<std::int64_t> flat(static_cast<std::size_t>(row_offsets[npoly]));
             parallel_for(npoly, [&](std::size_t i) {
-                const std::int64_t na = detail::read_int(inn, i) - 1;
+                const std::int64_t na = inn_v[i] - 1;
                 std::int64_t* out = flat.data() + row_offsets[i];
                 for (std::int64_t j = 0; j < row_offsets[i + 1] - row_offsets[i]; ++j)
-                    out[j] = detail::read_int(nod, static_cast<std::size_t>(na + j)) - 1;
+                    out[j] = nod_v[static_cast<std::size_t>(na + j)] - 1;
             });
             mesh.AddPolygonBlock(it->second, std::move(flat), std::move(row_offsets));
             cell_types.push_back(it->second);
@@ -1497,10 +1504,12 @@ Mesh read_med(const std::string& rPath, MedInfo& rInfo) {
 }
 
 Mesh read_med(const std::string& rPath, MedInfo& rInfo, const ReadOptions& rOptions) {
+    detail::LibraryLock lock;
     return med_read_impl(rPath, rInfo, rOptions);
 }
 
 std::vector<std::string> med_mesh_names(const std::string& rPath) {
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     auto file = h5::open_file_read(rPath);
     auto meshes = h5::open_group(file, "ENS_MAA");
@@ -1509,10 +1518,12 @@ std::vector<std::string> med_mesh_names(const std::string& rPath) {
 
 Mesh read_med_named(const std::string& rPath, const std::string& rName, MedInfo& rInfo,
                     const ReadOptions& rOptions) {
+    detail::LibraryLock lock;
     return med_read_impl(rPath, rInfo, rOptions, &rName);
 }
 
 MeshMetadata read_med_metadata(const std::string& rPath, const ReadOptions& /*rOptions*/) {
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     h5::Hid f = h5::open_file_read(rPath);
 
@@ -1625,12 +1636,14 @@ h5::Hid med_create_file(const std::string& rPath) {
         H5Pset_link_creation_order(props, H5P_CRT_ORDER_TRACKED | H5P_CRT_ORDER_INDEXED) < 0)
         throw WriteError("MED: cannot enable root link creation order");
     h5::Hid file(H5Fcreate(rPath.c_str(), H5F_ACC_TRUNC, props, H5P_DEFAULT), H5Fclose);
-    if (!file.Valid()) throw WriteError("MED: cannot create file '" + rPath + "'");
+    if (!file.Valid())
+        throw WriteError("MED: cannot create file '" + rPath + "'");
     return file;
 }
 
 h5::Hid med_open_or_create_group(hid_t file, const char* pName) {
-    return h5::exists(file, pName) ? h5::open_group(file, pName) : h5::create_group_crt(file, pName);
+    return h5::exists(file, pName) ? h5::open_group(file, pName)
+                                   : h5::create_group_crt(file, pName);
 }
 
 void med_write_mesh(hid_t f, const Mesh& rMesh, const MedInfo& rInfo,
@@ -2056,6 +2069,7 @@ void med_write_mesh(hid_t f, const Mesh& rMesh, const MedInfo& rInfo,
 
 void write_med(const std::string& rPath, const Mesh& rMesh, const MedInfo& rInfo,
                const std::string& rMedVersion) {
+    detail::LibraryLock lock;
     h5::SilenceErrors silence;
     auto file = med_create_file(rPath);
     med_write_mesh(file, rMesh, rInfo, rMedVersion, {});
@@ -2063,6 +2077,7 @@ void write_med(const std::string& rPath, const Mesh& rMesh, const MedInfo& rInfo
 
 void write_med_multi(const std::string& rPath, const std::vector<const Mesh*>& rMeshes,
                      const std::vector<MedInfo>& rInfos, const std::string& rMedVersion) {
+    detail::LibraryLock lock;
     if (rMeshes.empty() || rMeshes.size() != rInfos.size())
         throw WriteError("MED: provide one name/info per mesh and at least one mesh");
     std::set<std::string> names, collisions, disk_names;

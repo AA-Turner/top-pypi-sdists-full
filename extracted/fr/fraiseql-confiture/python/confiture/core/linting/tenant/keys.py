@@ -41,6 +41,7 @@ from confiture.core.linting.tenant.scope import (
 from confiture.core.schema_identity import quote_identifier
 
 if TYPE_CHECKING:
+    from confiture.core.linting.inventory import SchemaColumn
     from confiture.core.schema_model import Constraint, Index
 
 #: The scopes whose rows belong to one tenant.
@@ -71,10 +72,10 @@ def _carries_tenant(
     )
 
 
-def _line(source: TableScope, fk: Constraint) -> int | None:
-    """Where the key's first column is written, else ``None`` (the table's own line)."""
+def _first_column(source: TableScope, fk: Constraint) -> SchemaColumn | None:
+    """The key's first column other than the discriminator, where a finding points."""
     first = next((c for c in fk.columns if c != source.key), None)
-    return next((c.line for c in source.table.columns if c.folded == first), None)
+    return next((c for c in source.table.columns if c.folded == first), None)
 
 
 def _crossing(
@@ -98,7 +99,7 @@ def _crossing(
         f"{target.named} ({_columns(refs)}) can point at another tenant's row: "
         f"it does not carry {source_key} on both sides"
     )
-    return finding(source.table, message, fix, _line(source, fk))
+    return finding(source.table, message, fix, column=_first_column(source, fk))
 
 
 def _root_crossing(
@@ -132,7 +133,7 @@ def _root_crossing(
         f"{tenancy_column}; a counterparty: a tenant table of its own "
         f"({tenancy_column}, id, …) over a global directory of companies, referenced "
         f"as ({tenancy_column}, fk_…)",
-        _line(source, fk),
+        column=_first_column(source, fk),
     )
 
 
@@ -142,7 +143,7 @@ def _global_to_tenant(source: TableScope, target: TableScope, fk: Constraint) ->
         f"{source.table.qualified} is global, yet its foreign key ({_columns(fk.columns)}) "
         f"→ {target.named} points at one tenant's row",
         f"move the reference to a tenant table, or make {spelled(source.table)} tenant-scoped",
-        _line(source, fk),
+        column=_first_column(source, fk),
     )
 
 
@@ -192,19 +193,38 @@ def _leading(entry: TableScope, keys: tuple[str, ...]) -> tuple[str, ...]:
     return (key, *(k for k in keys if k != key))
 
 
+def _cannot_collide(entry: TableScope, keys: tuple[str, ...]) -> bool:
+    """Whether a key on *entry* keeps each tenant's rows apart, whatever is written.
+
+    It does when it **contains** the discriminator — uniqueness is set-wise, and
+    the order of its columns is an index's concern, not a tenant's (#559) — or
+    when its one column is a value no other row has whoever writes the row: an
+    identity, a sequence, a generated uuid (``ValueSource``).
+    """
+    if entry.key in keys:
+        return True
+    if len(keys) != 1:
+        return False
+    column = next((c for c in entry.table.columns if c.folded == keys[0]), None)
+    return column is not None and column.value_source.unique_without_author_input
+
+
 def _constraint_findings(entry: TableScope) -> Iterator[TenancyFinding]:
     for constraint in entry.table.constraints:
         if constraint.kind not in ("primary_key", "unique") or not constraint.columns:
             continue
-        if constraint.columns[0] == entry.key:
+        if _cannot_collide(entry, constraint.columns):
             continue
         kind = "PRIMARY KEY" if constraint.kind == "primary_key" else "UNIQUE"
         yield finding(
             entry.table,
-            f"{entry.table.qualified}'s {kind} ({_key_text(entry, constraint.columns)}) does "
-            f"not lead with {entry.key}: one tenant's row can collide with another's",
+            f"{entry.table.qualified}'s {kind} ({_key_text(entry, constraint.columns)}) is a "
+            f"natural key that does not contain {entry.key}: one tenant's row can collide "
+            "with another's",
             f"{kind} ({_key_text(entry, _leading(entry, constraint.columns))})",
-            next((c.line for c in entry.table.columns if c.folded == constraint.columns[0]), None),
+            column=next(
+                (c for c in entry.table.columns if c.folded == constraint.columns[0]), None
+            ),
         )
 
 
@@ -216,10 +236,10 @@ def _index_finding(
     reason = scopes.declarations.get(site)
     name = index.name or f"the unique index on ({_key_text(entry, index.columns)})"
     directive = f"-- confiture:{GLOBAL_DIRECTIVE}"
-    if index.columns[:1] == (entry.key,):
+    if _cannot_collide(entry, index.columns):
         if not declared:
             return None
-        message = f"`{directive}` on {name} is stale: it already leads with {entry.key}"
+        message = f"`{directive}` on {name} is stale: it already keeps tenants apart"
         fix = "drop the directive"
     elif declared and reason:
         return None
@@ -228,11 +248,11 @@ def _index_finding(
         fix = f"write why: `{directive} <reason>`"
     else:
         message = (
-            f"{name} on {entry.table.qualified} does not lead with {entry.key}: one "
+            f"{name} on {entry.table.qualified} does not contain {entry.key}: one "
             "tenant's row can collide with another's"
         )
         fix = (
-            f"lead with it: ({_key_text(entry, _leading(entry, index.columns))}); or, for a "
+            f"add it: ({_key_text(entry, _leading(entry, index.columns))}); or, for a "
             f"uniqueness that is platform-wide on purpose, write `{directive} <reason>` "
             "above the CREATE UNIQUE INDEX"
         )
@@ -243,15 +263,14 @@ def _index_findings(scopes: TenantScopes, entry: TableScope) -> Iterator[Tenancy
     for index in entry.table.indexes:
         if not index.unique or index.backs_constraint or not index.columns:
             continue
-        line = entry.table.index_lines.get(index)
-        site = scopes.locate(line) if line is not None else (entry.table.file, entry.table.line)
+        site = entry.table.index_sites.get(index, (entry.table.file, entry.table.line))
         verdict = _index_finding(scopes, entry, index, site)
         if verdict is not None:
             yield verdict
 
 
 def unique_key_findings(scopes: TenantScopes) -> Iterator[TenancyFinding]:
-    """``tenant_005``: every key of a tenant table that does not lead with the discriminator."""
+    """``tenant_005``: every key of a tenant table that can let one tenant's row collide with another's."""
     for entry in scopes:
         if entry.scope is Scope.TENANT and entry.key is not None:
             yield from _constraint_findings(entry)

@@ -241,6 +241,6 @@ def test_garbage_stdin_exits_zero_silently(tmp_path) -> None:
 def test_the_notice_is_wired_to_stop() -> None:
     """Stop is the end of an agent turn — the moment the reader is looking, and
     the one event both agents support."""
-    hooks = json.loads((_HOOKS / "hooks.json").read_text())["hooks"]
+    hooks = json.loads((_HOOKS / "routes.json").read_text())["hooks"]
     commands = [entry["command"] for group in hooks["Stop"] for entry in group["hooks"]]
     assert any("statusline_notify.py" in command for command in commands)

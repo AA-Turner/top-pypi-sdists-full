@@ -678,8 +678,10 @@ class RateLimitError(APIError):
     """Mixpanel API rate limit exceeded (HTTP 429).
 
     Raised when the API returns a 429 status. The retry_after property
-    indicates when the request can be retried. Inherits from APIError
-    to provide full request context for debugging.
+    indicates when the request can be retried. The client's retry loops
+    report at most 3600 seconds there: Mixpanel rate limits over a rolling
+    one-hour window, so a larger server ``Retry-After`` is clamped. Inherits
+    from APIError to provide full request context for debugging.
 
     Example:
         ```python
@@ -743,7 +745,11 @@ class RateLimitError(APIError):
 
     @property
     def retry_after(self) -> int | None:
-        """Seconds until retry is allowed, or None if unknown."""
+        """Seconds until retry is allowed, or None if unknown.
+
+        When the client's retry loops raise this error, the value is the
+        server's ``Retry-After``, clamped to at most 3600 seconds.
+        """
         return self._retry_after
 
     @property
@@ -1997,6 +2003,14 @@ CODED_GUARD_REGISTRY: Final[frozenset[str]] = frozenset(
         "ES11_BETWEEN_LOWER_NOT_NUMBER",
         "ES12_BETWEEN_UPPER_NOT_NUMBER",
         "ES13_UNSUPPORTED_OPERATOR",
+        # -- user_builders.py: date and inclusive-number filters -----------
+        "ES14_NO_SELECTOR_EQUIVALENT",
+        "ES15_DATE_EXPECTS_STR",
+        "ES16_DATE_RANGE_EXPECTS_PAIR",
+        "ES17_RELATIVE_QUANTITY_INVALID",
+        "ES18_RELATIVE_UNIT_INVALID",
+        "ES19_AT_LEAST_EXPECTS_NUMBER",
+        "ES20_AT_MOST_EXPECTS_NUMBER",
         "WR1_TOO_MANY_EVENT_PROPERTIES",
         "WR2_LIMIT_TOO_SMALL",
         "WR3_LIMIT_TOO_LARGE",
@@ -2018,6 +2032,45 @@ CODED_GUARD_REGISTRY: Final[frozenset[str]] = frozenset(
         "RL4_REPORT_TYPE_CONFLICT",
         "RL5_RESOLVED_REPORT_INCONSISTENT",
         "RL6_INVALID_ID",
+        # -- saved metrics and saved behaviors: write and delete guards ------
+        "SM1_EMPTY_NAME",
+        "SM2_NAME_TOO_LONG",
+        "SM3_KIND_CHANGE",
+        "SM4_SCHEMA",
+        "SM5_NOT_FOUND_FOR_DELETE",
+        "SM6_DELETE_NOT_PERMITTED",
+        "SM7_FORMULA_WITHOUT_OPERANDS",
+        "FM6_OPERAND_ATTRIBUTION",
+        "MR3_WAREHOUSE_INLINE",
+        "BH4_DELETE_NOT_PERMITTED",
+        # -- saved-entity references: MetricRef, BehaviorRef, formula operands
+        "MR1_FILTER_OVERRIDE",
+        "MR2_OPERAND_OVERRIDE",
+        "MR4_INVALID_ID",
+        "MR5_INVALID_TYPE",
+        "MR6_OVERRIDE_NOT_APPLICABLE",
+        "MR7_INVALID_OVERRIDE",
+        "BR1_INVALID_ID",
+        "BR2_INVALID_TYPE",
+        # -- formula expressions: _internal/query/formula.py ----------------
+        "FM2_UNKNOWN_LETTER",
+        "FM4_SYNTAX",
+        "FM5_UPPER_E",
+        # -- inline behaviors and behavior metrics: types.py ------------------
+        "BH1_STEP_COUNT",
+        "BH2_EMPTY_EVENT",
+        "BH3_PROPERTY_MATH",
+        # -- formula operands and metrics over several events: types.py ------
+        "FM3_NESTED_FORMULA",
+        "FM7_WAREHOUSE_OPERAND",
+        "MT3_FILTERS_WITH_BEHAVIOR",
+        # -- saved behaviors inside inline metrics: types.py ------------------
+        "BH5_BEHAVIOR_REF_TYPE",
+        # -- custom event ids and metric indexes: types.py -------------------
+        "CE1_INVALID_ID",
+        "MT4_INVALID_INDEX",
+        # -- items of a list of events in a Metric: types.py ----------------
+        "MT5_INVALID_EVENT_TYPE",
     }
 )
 """Every full error code minted by the E2 uncoded-raise coding pass.
@@ -2040,6 +2093,14 @@ CODED_GUARD_TWIN_CODES: Final[frozenset[str]] = frozenset(
         "V18_BUCKET_ORDER",
         "FL3_FORWARD_RANGE",
         "FL4_REVERSE_RANGE",
+        # MetricRef measurement rules twin the per-Metric query validator rules.
+        "V3_PER_USER_INCOMPATIBLE",
+        "V14_METRIC_REJECTS_PROPERTY",
+        # FunnelMetric property rules twin the query_funnel validator rules.
+        "F10_MATH_MISSING_PROPERTY",
+        "F11_MATH_REJECTS_PROPERTY",
+        # A formula with operands and no letter twins the query validator rule.
+        "V16_FORMULA_SYNTAX",
     }
 )
 """Pre-existing registry codes reused by dual-enforcement guard twins.

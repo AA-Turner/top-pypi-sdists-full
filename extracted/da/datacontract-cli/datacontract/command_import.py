@@ -317,6 +317,26 @@ def import_jsonschema(
 
 
 @import_app.command(
+    name="xsd",
+    epilog="Example: datacontract import xsd --source schema.xsd --output datacontract.yaml",
+)
+def import_xsd(
+    source: Annotated[Optional[str], typer.Option(help="Path to the XML Schema (XSD) file.")] = None,
+    output: output_option = None,
+    schema: schema_option = None,
+    owner: owner_option = None,
+    id: id_option = None,
+    debug: debug_option = None,
+):
+    """Import a data contract from an XML Schema (XSD) file."""
+    enable_debug_logging(debug)
+    result = DataContract.import_from_source(
+        config=cli_config(), format="xsd", source=source, schema=schema, owner=owner, id=id
+    )
+    _write_result(result, output)
+
+
+@import_app.command(
     name="json",
     epilog="Example: datacontract import json --source data.json --output datacontract.yaml",
 )
@@ -836,6 +856,70 @@ def import_mysql(
 
 
 @import_app.command(
+    name="clickhouse",
+    epilog="Example: datacontract import clickhouse --source localhost --database default --output datacontract.yaml",
+)
+def import_clickhouse(
+    source: Annotated[Optional[str], typer.Option(help="The host of the ClickHouse server.")] = None,
+    port: Annotated[Optional[int], typer.Option(help="The ClickHouse HTTP port (default 8123).")] = None,
+    database: database_option = None,
+    table: Annotated[
+        Optional[List[str]],
+        typer.Option(help="Name of a table to import (repeat for multiple tables, omit for all tables)."),
+    ] = None,
+    output: output_option = None,
+    owner: owner_option = None,
+    id: id_option = None,
+    debug: debug_option = None,
+):
+    """Import a data contract from a ClickHouse database."""
+    enable_debug_logging(debug)
+    result = DataContract.import_from_source(
+        config=cli_config(),
+        format="clickhouse",
+        source=source,
+        port=port,
+        database=database,
+        clickhouse_table=table,
+        owner=owner,
+        id=id,
+    )
+    _write_result(result, output)
+
+
+@import_app.command(
+    name="hive",
+    epilog="Example: datacontract import hive --source localhost --database default --output datacontract.yaml",
+)
+def import_hive(
+    source: Annotated[Optional[str], typer.Option(help="The host of the HiveServer2.")] = None,
+    port: Annotated[Optional[int], typer.Option(help="The HiveServer2 port (default 10000).")] = None,
+    database: database_option = None,
+    table: Annotated[
+        Optional[List[str]],
+        typer.Option(help="Name of a table to import (repeat for multiple tables, omit for all tables)."),
+    ] = None,
+    output: output_option = None,
+    owner: owner_option = None,
+    id: id_option = None,
+    debug: debug_option = None,
+):
+    """Import a data contract from a Hive database."""
+    enable_debug_logging(debug)
+    result = DataContract.import_from_source(
+        config=cli_config(),
+        format="hive",
+        source=source,
+        port=port,
+        database=database,
+        hive_table=table,
+        owner=owner,
+        id=id,
+    )
+    _write_result(result, output)
+
+
+@import_app.command(
     name="s3",
     epilog="Example: datacontract import s3 --source s3://my-bucket/orders/*.json --output datacontract.yaml",
 )
@@ -956,5 +1040,31 @@ def import_odata(
         odata_metadata_file=metadata_file,
         owner=owner,
         id=id,
+    )
+    _write_result(result, output)
+
+
+@import_app.command(
+    name="openapi",
+    epilog="Example: datacontract import openapi --source openapi.yaml --operation listOrders --output datacontract.yaml",
+)
+def import_openapi(
+    source: Annotated[Optional[str], typer.Option(help="Path to the OpenAPI 3.x document (YAML or JSON).")] = None,
+    operation: Annotated[
+        Optional[str],
+        typer.Option(
+            help="The GET operation to import, by operationId or path (e.g. listOrders or /orders). "
+            "Required when the document has more than one GET operation."
+        ),
+    ] = None,
+    output: output_option = None,
+    owner: owner_option = None,
+    id: id_option = None,
+    debug: debug_option = None,
+):
+    """Import a data contract from the response of a GET operation in an OpenAPI 3.x document."""
+    enable_debug_logging(debug)
+    result = DataContract.import_from_source(
+        config=cli_config(), format="openapi", source=source, openapi_operation=operation, owner=owner, id=id
     )
     _write_result(result, output)

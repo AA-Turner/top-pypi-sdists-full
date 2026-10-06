@@ -21,8 +21,13 @@ This driver launches the driven repo's real compiled GTK binary under a real
   window is covered by another one, unlike a full-screen grab), attached as
   evidence to every *failing* step (see
   :meth:`NativeRunner._attach_capture_if_possible`).
-- ``xdotool search --pid`` — finding the launched process's real window and
-  polling whether it still exists (``expect_closed``).
+- ``xdotool search --onlyvisible --pid`` — finding the launched process's
+  real, *mapped* window (``--onlyvisible`` matters: GTK4-on-X11 also creates
+  an invisible internal helper top-level with a lower XID than the real
+  window — see :meth:`LinuxGtkCalls.find_top_window`, #3605), searched
+  across the launched pid's whole descendant-process tree since ``launch``
+  returns a ``/bin/sh -c`` wrapper pid that never owns the real window
+  itself (#3613), and polling whether it still exists (``expect_closed``).
 
 **Headless by construction.** Unlike ``win-native``/``mac-native`` (which
 drive a real, already-running desktop session), a Linux fleet host has no
@@ -81,6 +86,11 @@ and ``mac-native`` rely on (#966/#3241), not a new one.
   deterministically via ``xdotool windowmove``/``windowsize``.
 - ``key: <name>`` / ``click: {x, y, button}`` — real input at *window-local*
   pixel coordinates, via :meth:`GtkCalls.send_key`/:meth:`GtkCalls.send_click`.
+  ``key:`` is parsed under the grammar shared by all four drivers
+  (:mod:`coord.key_spec`, #3639): any combination of
+  ``ctrl``/``alt``/``shift``/``cmd``(``super``) modifiers, a named key or any
+  single printable character (including punctuation), and a space-separated
+  chord sequence (``ctrl+k ctrl+w``) — see :func:`_xdotool_args_for_key`.
 - ``wait: {ms}`` — a plain deterministic pause.
 - ``capture`` — an explicit ``xwd -id <windowid>`` evidence snapshot,
   attached to this step's own result (pass or fail) as ``capture_b64``.
@@ -132,6 +142,8 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import yaml
+
+from coord.key_spec import KeyChord, KeySpecError, UnsupportedKey, parse_key_spec
 
 
 class GtkNativeSpecError(Exception):
@@ -298,11 +310,29 @@ class GtkCalls(Protocol):
     def launch(self, command: str, cwd: str) -> int: ...
 
     def find_top_window(self, pid: int, timeout_s: float) -> int:
-        """Poll for the launched process's real window, returning its X11
-        window id once found. Raises :class:`GtkNativeRuntimeError` if none
-        appears within *timeout_s* — this is the "launch" step's own
-        confirmation that the process didn't just start, but actually
-        produced a window (#2096)."""
+        """Poll for the launched process's real, *visible* top-level window,
+        returning its X11 window id once found. Raises
+        :class:`GtkNativeRuntimeError` if none appears within *timeout_s* —
+        this is the "launch" step's own confirmation that the process didn't
+        just start, but actually produced a window (#2096).
+
+        Must filter to windows that are actually mapped/viewable (#3605):
+        GTK4-on-X11 creates an internal, invisible helper top-level before
+        the real app window, with a lower XID, so a plain
+        ``xdotool search --pid`` lists it first. Returning that helper
+        corrupts every subsequent ``move_window``/``send_click``/
+        ``send_key``/``capture`` call against this window id — clicks land
+        nowhere a user can see, and ``capture`` fails outright
+        (``xwd``/``XGetImage`` can't read an unmapped window).
+
+        Must also search *pid*'s whole descendant-process tree, not just
+        *pid* itself (#3613): :meth:`LinuxGtkCalls.launch` is a plain
+        ``subprocess.Popen(command, shell=True)``, which always spawns
+        ``/bin/sh -c <command>`` as the immediate child and returns that
+        wrapper's pid — the real GTK process is a separately-pid'd child
+        that owns the real window, while ``/bin/sh`` itself never owns
+        one. Searching only *pid* makes this method time out even while
+        the real window is already up and interactive."""
         ...
 
     def move_window(self, window_id: int, x: int, y: int, width: int, height: int) -> None: ...
@@ -435,7 +465,7 @@ class NativeRunner:
             extra = handlers[step.kind](step)
             if extra:
                 entry.update(extra)
-        except (GtkNativeSpecError, GtkNativeRuntimeError, AssertionError) as e:
+        except (GtkNativeSpecError, GtkNativeRuntimeError, UnsupportedKey, AssertionError) as e:
             entry["status"] = "fail"
             entry["message"] = str(e)
             self._attach_capture_if_possible(entry)
@@ -554,35 +584,88 @@ _NAMED_KEYSYMS: dict[str, str] = {
     # X11 keysym names a spec author can reference by the same lowercase
     # vocabulary :mod:`coord.mac_native_driver`/:mod:`coord.win_native_driver`
     # already use — translated to xdotool's own (mostly self-explanatory)
-    # keysym spelling.
-    "enter": "Return", "return": "Return", "esc": "Escape", "escape": "Escape",
+    # keysym spelling. F13-F24 are standard X11 keysyms too — no formula
+    # needed, "F" + the number IS the keysym name.
+    "enter": "Return", "esc": "Escape",
     "tab": "Tab", "backspace": "BackSpace", "delete": "Delete", "space": "space",
     "up": "Up", "down": "Down", "left": "Left", "right": "Right",
     "home": "Home", "end": "End", "pageup": "Prior", "pagedown": "Next",
-    "f1": "F1", "f2": "F2", "f3": "F3", "f4": "F4", "f5": "F5", "f6": "F6",
-    "f7": "F7", "f8": "F8", "f9": "F9", "f10": "F10", "f11": "F11", "f12": "F12",
+    "insert": "Insert",
+    **{f"f{n}": f"F{n}" for n in range(1, 25)},
 }
 
 _BUTTON_NUMBERS: dict[str, int] = {"left": 1, "middle": 2, "right": 3}
 
+#: X11 keysym names for printable-ASCII punctuation that isn't its own
+#: keysym name (unlike letters/digits, which xdotool accepts verbatim).
+_PUNCT_KEYSYMS: dict[str, str] = {
+    "`": "grave", "~": "asciitilde", "!": "exclam", "@": "at",
+    "#": "numbersign", "$": "dollar", "%": "percent", "^": "asciicircum",
+    "&": "ampersand", "*": "asterisk", "(": "parenleft", ")": "parenright",
+    "-": "minus", "_": "underscore", "=": "equal", "+": "plus",
+    "[": "bracketleft", "]": "bracketright", "{": "braceleft", "}": "braceright",
+    "\\": "backslash", "|": "bar", ";": "semicolon", ":": "colon",
+    "'": "apostrophe", '"': "quotedbl", ",": "comma", "<": "less",
+    ".": "period", ">": "greater", "/": "slash", "?": "question",
+}
 
-def _xdotool_key_for(key: str) -> str:
-    """The ``xdotool key``/``keydown`` argument for one spec ``key:`` name.
-    Raises :class:`GtkNativeSpecError` for anything unrecognized. Mirrors
-    :func:`coord.mac_native_driver._vkey_for`'s/
-    :func:`coord.win_native_driver._vkey_for`'s contract, just against
-    xdotool's own (mostly pass-through) keysym naming — ``xdotool`` already
-    accepts ``ctrl+c``-style modifier combos and single-character keysyms
-    (including uppercase, which it shifts for automatically) verbatim, so
-    there is no separate needs-shift bit to track here."""
-    lowered = key.lower()
-    if lowered in _NAMED_KEYSYMS:
-        return _NAMED_KEYSYMS[lowered]
-    if lowered.startswith("ctrl+") and len(lowered) == 6:
-        return f"ctrl+{lowered[5]}"
-    if len(key) == 1:
-        return key
-    raise GtkNativeSpecError(f"unrecognized key {key!r}")
+#: :class:`~coord.key_spec.KeyChord` modifier token -> the xdotool/X11
+#: modifier name, emitted in this fixed order for a deterministic argument
+#: string (xdotool itself doesn't care about order).
+_XDOTOOL_MODS: tuple[tuple[str, str], ...] = (
+    ("ctrl", "ctrl"), ("alt", "alt"), ("shift", "shift"), ("cmd", "super"),
+)
+
+
+def _xdotool_keysym_for_char(ch: str) -> str:
+    """The xdotool/X11 keysym name for one printable character. Letters and
+    digits are already valid keysym names as themselves — xdotool shifts
+    uppercase for itself, so there is no separate needs-shift bit to track
+    here (unlike the vkey-based mac/win encoders). Punctuation goes through
+    :data:`_PUNCT_KEYSYMS` (#3639: `:`/`@`/etc. have no keysym name that is
+    just the character itself). *ch* always comes from an already-PARSED
+    :class:`~coord.key_spec.KeyChord` (the grammar only ever accepts a
+    single printable character as a char base) — so a char this table
+    can't map is parsed fine but genuinely undeliverable on X11, i.e.
+    :class:`UnsupportedKey`, never :class:`GtkNativeSpecError` (#3639
+    review: two error classes for the same condition, split only by
+    whether the base happened to be a named key or a character)."""
+    if ch in _PUNCT_KEYSYMS:
+        return _PUNCT_KEYSYMS[ch]
+    if len(ch) == 1 and ch.isascii() and (ch.isalnum()):
+        return ch
+    raise UnsupportedKey("gtk-native", ch, "no X11 keysym name for this character")
+
+
+def _xdotool_arg_for_chord(chord: KeyChord) -> str:
+    """The one ``xdotool key``/``keydown`` argument for an already-parsed
+    :class:`~coord.key_spec.KeyChord` — e.g. ``"ctrl+shift+Return"``.
+    Raises :class:`UnsupportedKey` (naming ``"gtk-native"``) for a named key
+    with no X11 keysym at all — never a silent no-op (#3639)."""
+    if not chord.is_char:
+        keysym = _NAMED_KEYSYMS.get(chord.base)
+        if keysym is None:
+            raise UnsupportedKey("gtk-native", chord.base, "no X11 keysym for this named key")
+    else:
+        keysym = _xdotool_keysym_for_char(chord.base)
+    prefix = "".join(f"{xdotool_name}+" for token, xdotool_name in _XDOTOOL_MODS if token in chord.modifiers)
+    return f"{prefix}{keysym}"
+
+
+def _xdotool_args_for_key(key: str) -> list[str]:
+    """Parse *key* — one chord, or a space-separated chord sequence
+    (``ctrl+k ctrl+w``) — under the shared grammar
+    (:mod:`coord.key_spec`) and encode each chord in order. ``xdotool key``
+    natively accepts multiple space-separated arguments as a chord sequence,
+    so :meth:`LinuxGtkCalls.send_key` passes this list straight through as
+    its own argv. Raises :class:`GtkNativeSpecError` for a spec that
+    doesn't parse under the grammar at all, :class:`UnsupportedKey` for a
+    chord this driver genuinely cannot deliver."""
+    try:
+        event = parse_key_spec(key)
+    except KeySpecError as e:
+        raise GtkNativeSpecError(f"unrecognized key {key!r}: {e}") from e
+    return [_xdotool_arg_for_chord(chord) for chord in event.chords]
 
 
 class LinuxGtkCalls:
@@ -645,19 +728,88 @@ class LinuxGtkCalls:
             pass
 
     def find_top_window(self, pid: int, timeout_s: float) -> int:
+        # #3605: `--onlyvisible` is load-bearing. GTK4-on-X11 creates an
+        # invisible internal helper top-level *before* the real app window,
+        # so it gets a lower XID and a plain `xdotool search --pid` lists it
+        # first — `list[0]` would then be the helper, not the real, visible
+        # app window, and every subsequent move/click/key/capture call
+        # against that window id silently targets an unmapped window
+        # (xwd/XGetImage can't even read one). `--onlyvisible` makes
+        # xdotool itself filter to windows that are actually mapped
+        # (IsViewable), which is exactly the distinction that failed here.
+        #
+        # #3613: `pid` itself is frequently not the real app's own pid.
+        # `launch()` is `subprocess.Popen(command, shell=True)`, which
+        # always spawns `/bin/sh -c <command>` as the immediate child and
+        # returns *that wrapper's* pid — the real GTK process is a
+        # separately-pid'd child (or grandchild, through further wrapper
+        # layers) that owns the actual X11 window, while `/bin/sh` itself
+        # never owns one. Searching only `pid` therefore always timed out
+        # even though the real window was up and interactive within
+        # ~0.2s. Walking the whole descendant-process tree (mirroring
+        # :meth:`coord.win_native_driver.Win32Calls.find_top_window`'s own
+        # #3542 fix for the identical shape on Windows) finds the real
+        # window regardless of how many shell layers sit between the
+        # returned pid and it.
         deadline = time.monotonic() + timeout_s
         while time.monotonic() < deadline:
-            proc = subprocess.run(
-                ["xdotool", "search", "--pid", str(pid)],
-                capture_output=True, text=True, timeout=10,
-            )
-            ids = [int(tok) for tok in proc.stdout.split() if tok.strip().isdigit()]
-            if ids:
-                return ids[0]
+            for candidate in sorted(self._descendant_pids(pid)):
+                proc = subprocess.run(
+                    ["xdotool", "search", "--onlyvisible", "--pid", str(candidate)],
+                    capture_output=True, text=True, timeout=10,
+                )
+                ids = [int(tok) for tok in proc.stdout.split() if tok.strip().isdigit()]
+                if ids:
+                    return ids[0]
             time.sleep(0.1)
         raise GtkNativeRuntimeError(
-            f"no window appeared for pid={pid} within {timeout_s}s"
+            f"no visible window appeared for pid={pid} or any of its child "
+            f"processes within {timeout_s}s"
         )
+
+    def _descendant_pids(self, root_pid: int) -> set[int]:
+        """*root_pid* plus every process it transitively spawned (child,
+        grandchild, ...) — the Linux analogue of
+        :meth:`coord.win_native_driver.Win32Calls._descendant_pids`
+        (#3542), read fresh from the live process table (``ps -eo
+        pid,ppid``) every call rather than a cached snapshot, since the
+        real app may not have forked yet the first time this is polled.
+
+        #3613: ``launch()`` is a plain ``subprocess.Popen(command,
+        shell=True)``, so the pid it returns is ``/bin/sh -c``'s own pid,
+        not the real GTK app's — the real process is a child (or deeper
+        descendant) that owns the real X11 window, while the shell itself
+        never does. Searching the whole descendant tree finds the real
+        window regardless of how many shell layers sit between the
+        returned pid and it. A ``ps`` failure (missing binary, transient
+        error) degrades to "no descendants" rather than raising — the
+        caller still gets to search *root_pid* itself."""
+        children: dict[int, list[int]] = {}
+        try:
+            proc = subprocess.run(
+                ["ps", "-eo", "pid,ppid", "--no-headers"],
+                capture_output=True, text=True, timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return {root_pid}
+        for line in proc.stdout.splitlines():
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            try:
+                child_pid, parent_pid = int(parts[0]), int(parts[1])
+            except ValueError:
+                continue
+            children.setdefault(parent_pid, []).append(child_pid)
+        result = {root_pid}
+        frontier = [root_pid]
+        while frontier:
+            current = frontier.pop()
+            for child in children.get(current, ()):
+                if child not in result:
+                    result.add(child)
+                    frontier.append(child)
+        return result
 
     def is_window_alive(self, window_id: int) -> bool:
         proc = subprocess.run(
@@ -689,11 +841,28 @@ class LinuxGtkCalls:
         )
 
     def send_key(self, window_id: int, key: str) -> None:
-        xdotool_key = _xdotool_key_for(key)
-        subprocess.run(
-            ["xdotool", "key", "--window", str(window_id), xdotool_key],
-            capture_output=True, timeout=10,
+        """#3639: *key* is parsed under the shared grammar
+        (:func:`_xdotool_args_for_key`) and may be a space-separated chord
+        sequence (``ctrl+k ctrl+w``) — ``xdotool key`` natively sends
+        multiple arguments as separate keystrokes in order, so the whole
+        list is passed through in one call."""
+        xdotool_args = _xdotool_args_for_key(key)
+        proc = subprocess.run(
+            ["xdotool", "key", "--window", str(window_id), *xdotool_args],
+            capture_output=True, text=True, timeout=10,
         )
+        if proc.returncode != 0:
+            # #3639 review: `send_click`/`move_window` already check
+            # `proc.returncode` (pre-existing elsewhere in this class) —
+            # this call was the one exception, and this PR widened the
+            # keysym surface considerably (`_PUNCT_KEYSYMS`, F13-F24), so
+            # "No such key name" (or a dead window) must not still record
+            # a pass.
+            raise GtkNativeRuntimeError(
+                f"xdotool key failed for window_id={window_id}, "
+                f"args={xdotool_args}: "
+                f"{proc.stderr.strip() if proc.stderr else '(no stderr)'}"
+            )
 
     # -- AT-SPI --
 

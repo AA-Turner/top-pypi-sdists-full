@@ -24,7 +24,9 @@ def _page(
 
 
 def test_internal_link_equity_uses_inclusive_site_percentiles() -> None:
-    pages = [_page(1, 1), _page(2, 2), _page(3, 3), _page(4, 4)]
+    # Prioritized pages: the only ones the check judges by rank (the catalogue
+    # contract). Unprioritized pages never open a finding — see the test below.
+    pages = [_page(n, n, target_keyword="kw") for n in (1, 2, 3, 4)]
     site = SiteAggregates()
 
     index_page_facts(pages, site)
@@ -86,3 +88,15 @@ def test_internal_link_equity_missing_score_is_honest_na() -> None:
 
 def test_internal_link_equity_is_registered_as_cross_page() -> None:
     assert CROSS_PAGE_CHECKS["internal_link_equity"] is _check_internal_link_equity
+
+
+def test_unprioritized_low_rank_page_is_not_a_finding() -> None:
+    """Real data: 1,483 of 1,488 open findings were unprioritized pages at the
+    6th-33rd percentile — a rank, not a defect."""
+    pages = [_page(n, n) for n in (1, 2, 3, 4)]
+    site = SiteAggregates()
+    index_page_facts(pages, site)
+    for page in pages:
+        outcome = _check_internal_link_equity(page, site)
+        assert outcome.status == "pass"
+        assert outcome.evidence["pagerank_percentile"] == site.link_equity_percentile_by_page[page.page_id]

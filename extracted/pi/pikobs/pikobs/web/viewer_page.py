@@ -378,6 +378,9 @@ function draw(changed) {
   const box = document.getElementById('controls'); box.innerHTML = '';
   KEYS.forEach((k, i) => {
     let vals = uniq(upTo(i), k);
+    // a key these figures do not have (a single run has no MATCH mode):
+    // no selector, rather than one blank button
+    if (vals.every(v => v === '' || v === null || v === undefined)) return;
     // a figure that holds every value of the key ("*"): every button,
     // all of them on, none to press
     const every = vals.length === 1 && vals[0] === '*';
@@ -447,7 +450,7 @@ function buildSrc(m) { return SUBDIR_KEY ? m[SUBDIR_KEY] + '/' + m.filename : m.
 // rectangles in pixels of the PNG and a text for each
 const MAPS = {};
 const TIP = document.createElement('div');
-TIP.style.cssText = 'position:fixed;display:none;pointer-events:none;z-index:1000;' +
+TIP.style.cssText = 'position:fixed;display:none;pointer-events:none;z-index:10000;' +
   'background:#1f2933;color:#fff;font-size:12px;line-height:1.35;padding:6px 9px;' +
   'border-radius:5px;max-width:460px;white-space:pre-line;box-shadow:0 2px 6px rgba(0,0,0,.25)';
 document.body.appendChild(TIP);
@@ -471,7 +474,8 @@ function hover(e) {
   TIP.style.left = Math.min(e.clientX + 14, window.innerWidth - TIP.offsetWidth - 8) + 'px';
   TIP.style.top = Math.min(e.clientY + 14, window.innerHeight - TIP.offsetHeight - 8) + 'px';
 }
-['imgA', 'imgB'].forEach(id => {
+// the zoom shows the same figure: the same map under the mouse
+['imgA', 'imgB', 'lightboxImg'].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener('mousemove', hover);

@@ -58,10 +58,10 @@ pub(crate) async fn run(hook: &Hook, filenames: &[&Path]) -> Result<HookOutput> 
 /// For example, if one read ends with `BEGIN RSA PRIV` and the next read starts
 /// with `ATE KEY`, we keep the tail of the first read, prepend it to the second
 /// read, and search the combined window so `BEGIN RSA PRIVATE KEY` is still found.
-fn check_file(file_path: &Path, filename: &Path) -> Result<HookOutput> {
+fn check_file(file_path: &Path, display_path: &Path) -> Result<HookOutput> {
     let found = check_file_sync(file_path)?;
     if found {
-        let error_message = format!("Private key found: {}\n", filename.display());
+        let error_message = format!("Private key found: {}\n", display_path.display());
         Ok(HookOutput::unchanged(1, error_message.into_bytes()))
     } else {
         Ok(HookOutput::unchanged(0, Vec::new()))
@@ -120,7 +120,7 @@ mod tests {
         let file_path = create_test_file(&dir, "clean.txt", content).await?;
         let result = check_file(&file_path, &file_path)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -155,7 +155,7 @@ mod tests {
         let file_path = create_test_file(&dir, "false_positive.txt", content).await?;
         let result = check_file(&file_path, &file_path)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 
@@ -166,7 +166,7 @@ mod tests {
         let file_path = create_test_file(&dir, "empty.txt", content).await?;
         let result = check_file(&file_path, &file_path)?;
         assert_eq!(result.exit_status, 0);
-        assert!(result.output.is_empty());
+        assert_eq!(result.output, b"");
         Ok(())
     }
 

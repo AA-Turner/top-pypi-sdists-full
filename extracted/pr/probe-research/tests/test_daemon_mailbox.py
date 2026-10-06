@@ -203,6 +203,16 @@ def _ask(*args):
     return CliRunner().invoke(app, ["ask", *args])
 
 
+def test_ask_is_answered_while_the_agent_holds_probe(daemon_session):
+    """`on (inline)`: the agent took Probe over, and the daemon's reader still
+    answers it (review: `probe ask` refused every state but daemon/read only)."""
+    session_marker.mark_session_profile(SID, session_marker.RECORDER_DAEMON)
+    assert session_marker.enter_inline(SID) is None
+    res = _ask("what lr did we use?")
+    assert daemon_cli.ASK_NO_DAEMON not in res.output
+    assert res.exit_code == 0
+
+
 def test_ask_refuses_before_writing_anything(monkeypatch):
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     monkeypatch.delenv("CODEX_THREAD_ID", raising=False)

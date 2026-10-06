@@ -153,8 +153,13 @@ async def _conversation_metadata(managers: Any, conversation_id: str) -> dict[st
     return dict(metadata) if isinstance(metadata, dict) else {}
 
 
-def _queue_metadata(conversation_id: str, metadata: dict[str, Any]) -> bool:
-    from matrx_ai.persistence.queue_helpers import get_coordinator, queue_conversation_update
+def _queue_metadata(
+    conversation_id: str, patch: dict[str, Any], db_metadata: dict[str, Any]
+) -> bool:
+    from matrx_ai.persistence.queue_helpers import (
+        get_coordinator,
+        queue_conversation_metadata_patch,
+    )
 
     if get_coordinator() is None:
         vcprint(
@@ -163,7 +168,7 @@ def _queue_metadata(conversation_id: str, metadata: dict[str, Any]) -> bool:
             color="red",
         )
         return False
-    queue_conversation_update(conversation_id, metadata=metadata)
+    queue_conversation_metadata_patch(conversation_id, patch, db_metadata=db_metadata)
     return True
 
 
@@ -182,8 +187,9 @@ async def drain_reply_failures(conversation_id: str | None) -> list[dict[str, An
     failures = metadata.get(REPLY_FAILURES_KEY)
     if not failures:
         return []
-    metadata.pop(REPLY_FAILURES_KEY, None)
-    _queue_metadata(conversation_id, metadata)
+    # An emptied list is the cleared state (the reader treats it as none); a
+    # patch cannot delete a key, and must not rewrite the whole object to do so.
+    _queue_metadata(conversation_id, {REPLY_FAILURES_KEY: []}, metadata)
     return [f for f in failures if isinstance(f, dict)]
 
 
@@ -199,8 +205,7 @@ async def record_reply_failures(conversation_id: str | None, failures: Sequence[
     metadata = await _conversation_metadata(managers, conversation_id)
     prior = metadata.get(REPLY_FAILURES_KEY)
     merged = [*(prior if isinstance(prior, list) else []), *(dict(f) for f in failures)]
-    metadata[REPLY_FAILURES_KEY] = merged[-20:]
-    _queue_metadata(conversation_id, metadata)
+    _queue_metadata(conversation_id, {REPLY_FAILURES_KEY: merged[-20:]}, metadata)
 
 
 __all__ = [

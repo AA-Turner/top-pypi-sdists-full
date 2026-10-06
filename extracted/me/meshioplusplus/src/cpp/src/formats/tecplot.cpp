@@ -24,6 +24,7 @@
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <optional>
 #include <map>
 #include <memory>
 #include <set>
@@ -34,6 +35,7 @@
 #include <vector>
 
 // Project includes
+#include "../detail/library_lock.hpp"
 #include "meshioplusplus/formats/tecplot.hpp"
 #include "meshioplusplus/formats/szplt.hpp"
 #include "meshioplusplus/detail/binary_stream.hpp"
@@ -53,6 +55,7 @@
 #include "../detail/row_writer.hpp"
 #include "../detail/open_source.hpp"
 #include "../detail/text_cursor.hpp"
+#include "../detail/typed_view.hpp"
 
 #ifdef MESHIOPLUSPLUS_HAS_TECIO
 // External includes
@@ -75,17 +78,7 @@ std::string tecplot_strip(const std::string& rS) {
     std::size_t e = rS.find_last_not_of(" \t\r\n");
     return rS.substr(b, e - b + 1);
 }
-/// Data tokens: Tecplot separates values by blanks or commas.
-std::vector<std::string> tecplot_tokens(std::string S) {
-    std::replace(S.begin(), S.end(), ',', ' ');
-    std::vector<std::string> out;
-    auto iss = detail::make_classic_istringstream(S);
-    std::string t;
-    while (iss >> t)
-        out.push_back(t);
-    return out;
-}
-/// tecplot_tokens as views into @p Line (appended to @p rOut, cleared first):
+/// Data tokens as views into @p Line (appended to @p rOut, cleared first):
 /// blanks and commas separate values, as replacing the commas with blanks
 /// and splitting on whitespace did.
 void tecplot_tokens_view(std::string_view Line, std::vector<std::string_view>& rOut) {
@@ -105,7 +98,7 @@ void tecplot_tokens_view(std::string_view Line, std::vector<std::string_view>& r
     }
 }
 
-/// How many tokens tecplot_tokens gives for @p Line, without building them.
+/// How many tokens tecplot_tokens_view gives for @p Line, without building them.
 std::size_t tecplot_count_tokens(std::string_view Line) {
     std::size_t count = 0;
     bool in_token = false;
@@ -1467,9 +1460,12 @@ std::vector<std::vector<std::size_t>> tecplot_timeline(const std::vector<Tecplot
 /// polyhedral reader uses), each listing which of the zone's cells it holds.
 struct TecplotPiece {
     std::string mType;
-    NDArray mConn;                                              // rectangular pieces
-    std::vector<std::vector<std::int64_t>> mRows;               // polygon
-    std::vector<std::vector<std::vector<std::int64_t>>> mPoly;  // polyhedra
+    NDArray mConn;  // rectangular pieces
+    // Ragged pieces as the CSR triple the mesh backends store; mFaceOffsets is
+    // empty for a polygon piece.
+    std::vector<std::int64_t> mFlat;
+    std::vector<std::int64_t> mRowOffsets{0};
+    std::vector<std::int64_t> mFaceOffsets;
     std::vector<std::size_t> mCells;  // the zone's cells, in order; empty = all of them
 
     std::size_t NumCells(std::size_t ZoneCells) const {
@@ -1538,42 +1534,82 @@ std::vector<TecplotPiece> tecplot_face_pieces(const TecplotZone& rZ, std::size_t
         }
         TecplotPiece piece;
         piece.mType = "polygon";
-        piece.mRows.reserve(ncells);
+        piece.mRowOffsets.reserve(ncells + 1);
         for (std::size_t c = 0; c < ncells; ++c) {
             std::vector<std::int64_t> ring = tecplot_polygon_ring(edges[c]);
             if (ring.empty())
                 throw ReadError(where + ": element " + std::to_string(c + 1) +
                                 " is not one closed polygon");
-            piece.mRows.push_back(std::move(ring));
+            piece.mFlat.insert(piece.mFlat.end(), ring.begin(), ring.end());
+            piece.mRowOffsets.push_back(static_cast<std::int64_t>(piece.mFlat.size()));
         }
         pieces.push_back(std::move(piece));
         return pieces;
     }
-    std::vector<std::vector<std::vector<std::int64_t>>> faces(ncells);
-    for (std::size_t f = 0; f + 1 < rFm.mStart.size(); ++f) {
-        const auto b = rFm.mNodes.begin() + static_cast<std::ptrdiff_t>(rFm.mStart[f]);
-        const auto e = rFm.mNodes.begin() + static_cast<std::ptrdiff_t>(rFm.mStart[f + 1]);
+    // Each cell's faces in face order (left-element entries kept as-is, right-
+    // element ones reversed), staged as CSR over (face, reversed) references:
+    // count, prefix-sum, then scatter.
+    const std::size_t nfaces_total = rFm.mStart.empty() ? 0 : rFm.mStart.size() - 1;
+    std::vector<std::size_t> cell_start(ncells + 1, 0);
+    for (std::size_t f = 0; f < nfaces_total; ++f) {
         if (rFm.mLeft[f] >= 0)
-            faces[static_cast<std::size_t>(rFm.mLeft[f])].emplace_back(b, e);
+            ++cell_start[static_cast<std::size_t>(rFm.mLeft[f]) + 1];
         if (rFm.mRight[f] >= 0)
-            faces[static_cast<std::size_t>(rFm.mRight[f])].emplace_back(
-                std::make_reverse_iterator(e), std::make_reverse_iterator(b));
+            ++cell_start[static_cast<std::size_t>(rFm.mRight[f]) + 1];
+    }
+    for (std::size_t c = 0; c < ncells; ++c)
+        cell_start[c + 1] += cell_start[c];
+    struct FaceRef {
+        std::size_t mFace;
+        bool mReversed;
+    };
+    std::vector<FaceRef> refs(cell_start[ncells]);
+    {
+        std::vector<std::size_t> fill(cell_start.begin(), cell_start.end() - 1);
+        for (std::size_t f = 0; f < nfaces_total; ++f) {
+            if (rFm.mLeft[f] >= 0)
+                refs[fill[static_cast<std::size_t>(rFm.mLeft[f])]++] = {f, false};
+            if (rFm.mRight[f] >= 0)
+                refs[fill[static_cast<std::size_t>(rFm.mRight[f])]++] = {f, true};
+        }
     }
     std::map<std::size_t, std::size_t> piece_of;  // node count -> piece
+    std::vector<std::int64_t> distinct;
     for (std::size_t c = 0; c < ncells; ++c) {
-        if (faces[c].size() < 4)
+        const std::size_t nf = cell_start[c + 1] - cell_start[c];
+        if (nf < 4)
             throw ReadError(where + ": element " + std::to_string(c + 1) + " has " +
-                            std::to_string(faces[c].size()) + " faces");
-        std::set<std::int64_t> distinct;
-        for (const auto& fc : faces[c])
-            distinct.insert(fc.begin(), fc.end());
-        const auto [it, fresh] = piece_of.emplace(distinct.size(), pieces.size());
+                            std::to_string(nf) + " faces");
+        distinct.clear();
+        for (std::size_t i = cell_start[c]; i < cell_start[c + 1]; ++i) {
+            const std::size_t f = refs[i].mFace;
+            distinct.insert(distinct.end(),
+                            rFm.mNodes.begin() + static_cast<std::ptrdiff_t>(rFm.mStart[f]),
+                            rFm.mNodes.begin() + static_cast<std::ptrdiff_t>(rFm.mStart[f + 1]));
+        }
+        std::sort(distinct.begin(), distinct.end());
+        const std::size_t ndistinct = static_cast<std::size_t>(
+            std::unique(distinct.begin(), distinct.end()) - distinct.begin());
+        const auto [it, fresh] = piece_of.emplace(ndistinct, pieces.size());
         if (fresh) {
             pieces.emplace_back();
-            pieces.back().mType = "polyhedron" + std::to_string(distinct.size());
+            pieces.back().mType = "polyhedron" + std::to_string(ndistinct);
+            pieces.back().mFaceOffsets.assign(1, 0);
         }
-        pieces[it->second].mPoly.push_back(std::move(faces[c]));
-        pieces[it->second].mCells.push_back(c);
+        TecplotPiece& piece = pieces[it->second];
+        for (std::size_t i = cell_start[c]; i < cell_start[c + 1]; ++i) {
+            const std::size_t f = refs[i].mFace;
+            const auto b = rFm.mNodes.begin() + static_cast<std::ptrdiff_t>(rFm.mStart[f]);
+            const auto e = rFm.mNodes.begin() + static_cast<std::ptrdiff_t>(rFm.mStart[f + 1]);
+            if (refs[i].mReversed)
+                piece.mFlat.insert(piece.mFlat.end(), std::make_reverse_iterator(e),
+                                   std::make_reverse_iterator(b));
+            else
+                piece.mFlat.insert(piece.mFlat.end(), b, e);
+            piece.mRowOffsets.push_back(static_cast<std::int64_t>(piece.mFlat.size()));
+        }
+        piece.mFaceOffsets.push_back(static_cast<std::int64_t>(piece.mRowOffsets.size() - 1));
+        piece.mCells.push_back(c);
     }
     if (pieces.size() == 1)
         pieces[0].mCells.clear();  // every cell, in order
@@ -1833,19 +1869,16 @@ Mesh tecplot_build_step_mesh(const std::vector<std::size_t>& rZoneIdxs,
             for (std::size_t j = 0; j < conn.Size(); ++j)
                 cp[j] += off;
             mesh.AddCellBlock(d.mMeshioType, std::move(conn));
-        } else if (!ref.mpPiece->mRows.empty()) {
-            std::vector<std::vector<std::int64_t>> rows = ref.mpPiece->mRows;
-            for (auto& row : rows)
-                for (std::int64_t& v : row)
-                    v += off;
-            mesh.AddPolygonBlock(ref.mpPiece->mType, std::move(rows));
         } else {
-            std::vector<std::vector<std::vector<std::int64_t>>> cells = ref.mpPiece->mPoly;
-            for (auto& cell : cells)
-                for (auto& face : cell)
-                    for (std::int64_t& v : face)
-                        v += off;
-            mesh.AddPolyhedronBlock(ref.mpPiece->mType, std::move(cells));
+            const TecplotPiece& piece = *ref.mpPiece;
+            std::vector<std::int64_t> flat = piece.mFlat;  // copy: offset in place below
+            for (std::int64_t& v : flat)
+                v += off;
+            if (piece.mFaceOffsets.empty())
+                mesh.AddPolygonBlock(piece.mType, std::move(flat), piece.mRowOffsets);
+            else
+                mesh.AddPolyhedronBlock(piece.mType, std::move(flat), piece.mRowOffsets,
+                                        piece.mFaceOffsets);
         }
     }
 
@@ -2276,6 +2309,7 @@ Mesh read_tecplot(const std::string& rPath) {
 
 #ifdef MESHIOPLUSPLUS_HAS_TECIO
 Mesh read_szplt(const std::string& rPath, const ReadOptions& rOptions) {
+    detail::LibraryLock lock;
     TecplotFile file;
     tecplot_szl_open(rPath, file);
     const std::vector<std::vector<std::size_t>> timeline = tecplot_timeline(file.mZones);
@@ -2284,6 +2318,7 @@ Mesh read_szplt(const std::string& rPath, const ReadOptions& rOptions) {
 }
 
 std::vector<double> szplt_time_values(const std::string& rPath) {
+    detail::LibraryLock lock;
     TecplotFile file;
     tecplot_szl_open(rPath, file);
     std::vector<double> out;
@@ -2294,6 +2329,7 @@ std::vector<double> szplt_time_values(const std::string& rPath) {
 }
 
 MeshMetadata read_szplt_metadata(const std::string& rPath, const ReadOptions& rOptions) {
+    detail::LibraryLock lock;
     ReadOptions options = rOptions;
     options.mPointsOnly = true;
     options.mTimeStep = 0;
@@ -2345,13 +2381,15 @@ TecplotWriteFaces tecplot_write_faces(const TCellView& rCb) {
             }
         return out;
     }
-    const NDArray* pConn = rCb.IsRagged() ? nullptr : &rCb.Conn();
+    std::optional<detail::Int64View> conn_values;
+    if (!rCb.IsRagged())
+        conn_values.emplace(rCb.Conn());
     const std::size_t k = rCb.IsRagged() ? 0 : rCb.NodesPerCell();
     for (std::size_t c = 0; c < n; ++c) {
         std::vector<std::int64_t> row;
-        if (pConn) {
+        if (conn_values) {
             for (std::size_t j = 0; j < k; ++j)
-                row.push_back(detail::read_int(*pConn, c * k + j));
+                row.push_back((*conn_values)[c * k + j]);
         } else {
             row.assign(rCb.Row(c), rCb.Row(c) + rCb.RowSize(c));
         }
@@ -2387,6 +2425,7 @@ void write_tecplot(const std::string& rPath, const Mesh& rMesh) {
     const std::size_t dim = rMesh.PointDim();
     const std::size_t num_nodes = rMesh.NumPoints();
     const NDArray& points = rMesh.Points();
+    const detail::DoubleView point_values(points);
 
     // Shared (nodal) variables: X, Y, (Z), then every point-data variable.
     std::vector<std::string> variables = {"X", "Y"};
@@ -2396,7 +2435,7 @@ void write_tecplot(const std::string& rPath, const Mesh& rMesh) {
     auto push_point_col = [&](std::size_t comp) {
         std::vector<double> col(num_nodes);
         for (std::size_t r = 0; r < num_nodes; ++r)
-            col[r] = detail::read_double(points, r * dim + comp);
+            col[r] = point_values[r * dim + comp];
         shared_data.push_back(std::move(col));
     };
     push_point_col(0);
@@ -2409,11 +2448,12 @@ void write_tecplot(const std::string& rPath, const Mesh& rMesh) {
             continue;
         const NDArray& v = rMesh.PointData(k);
         std::size_t ncomp = v.Shape().size() >= 2 ? v.Shape()[1] : 1;
+        const detail::DoubleView v_values(v);
         for (std::size_t c = 0; c < ncomp; ++c) {
             variables.push_back(ncomp == 1 ? k : k + "_" + std::to_string(c));
             std::vector<double> col(num_nodes);
             for (std::size_t r = 0; r < num_nodes; ++r)
-                col[r] = detail::read_double(v, r * ncomp + c);
+                col[r] = v_values[r * ncomp + c];
             shared_data.push_back(std::move(col));
         }
     }
@@ -2537,8 +2577,9 @@ void write_tecplot(const std::string& rPath, const Mesh& rMesh) {
             const CellVarComp& cv = cell_vars[j];
             const NDArray& vv = rMesh.CellData(cv.mKey, block);
             std::vector<double> col(vv.Shape()[0]);
+            const detail::DoubleView vv_values(vv);
             for (std::size_t r = 0; r < vv.Shape()[0]; ++r)
-                col[r] = detail::read_double(vv, r * cv.mNumComp + cv.mComp);
+                col[r] = vv_values[r * cv.mNumComp + cv.mComp];
             write_column(col);
         }
 
@@ -2562,15 +2603,15 @@ void write_tecplot(const std::string& rPath, const Mesh& rMesh) {
             write_ints(faces.mRight);
             continue;
         }
-        const NDArray& conn = cb.Conn();
-        const std::size_t k = conn.Shape().size() >= 2 ? conn.Shape()[1] : 1;
+        const NDArray& conn_array = cb.Conn();
+        const std::size_t k = conn_array.Shape().size() >= 2 ? conn_array.Shape()[1] : 1;
+        const detail::Int64View conn(conn_array);
         for (std::size_t r = 0; r < num_cells; ++r) {
             for (std::size_t j = 0; j < order.size(); ++j) {
                 std::size_t src = static_cast<std::size_t>(order[j]);
                 if (src >= k)
                     src = k - 1;
-                os << (detail::read_int(conn, r * k + src) + 1)
-                   << (j + 1 == order.size() ? '\n' : ' ');
+                os << (conn[r * k + src] + 1) << (j + 1 == order.size() ? '\n' : ' ');
             }
         }
     }

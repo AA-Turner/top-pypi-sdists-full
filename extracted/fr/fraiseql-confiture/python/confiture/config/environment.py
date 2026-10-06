@@ -54,7 +54,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from confiture.config._env_vars import expand_env_vars
 from confiture.core.schema_identity import identifier_identity
@@ -291,7 +298,7 @@ class MigrationConfig(BaseModel):
         migration_generators: Named external generator commands
         snapshot_history: Write schema snapshot alongside each generated migration (default: True)
         snapshots_dir: Directory for schema history snapshots (default: db/schema_history)
-        live_snapshot: Use live-snapshot mode (temp DB + pg_dump) by default (default: False)
+        live_snapshot: Snapshot the build read back from a temporary database by default (default: False)
         tracking_table: Name of the confiture tracking table, optionally schema-qualified
             (e.g. ``public.tb_confiture``). Defaults to ``tb_confiture``.
     """
@@ -441,7 +448,7 @@ class DatabaseConfig(BaseModel):
     password: str = ""
 
     @classmethod
-    def from_url(cls, url: str) -> "DatabaseConfig":
+    def from_url(cls, url: str) -> DatabaseConfig:
         """Parse database configuration from PostgreSQL URL.
 
         Args:
@@ -789,20 +796,24 @@ class OwnershipExpectation(BaseModel):
 
 
 class DriftConfig(BaseModel):
-    """``drift:`` — how ``confiture drift`` and ``migrate validate --check-live-drift`` judge column order (#226).
+    """``drift:`` — how ``confiture drift`` and ``migrate validate --check-live-drift`` judge column order (#226) and stray objects.
 
     ``ignore_column_order`` turns the ``column_order_mismatch`` item off;
     ``column_order_severity`` is ``warning`` (default, never fails a run on its
     own) or ``critical`` (fails like a missing column). ``--ignore-column-order``
-    on either command wins over the file.
+    on either command wins over the file. ``extra_objects`` decides which stray
+    schemas, extensions, domains, policies, … an ``extra_object`` reports;
+    ``--extra-objects`` wins over the file.
 
     Attributes:
         ignore_column_order: Never report ``column_order_mismatch`` (default: false).
         column_order_severity: Severity of a ``column_order_mismatch`` item: ``warning`` (default) or ``critical`` (fails the run).
+        extra_objects: ``declared`` (default): an ``extra_object`` (info) only of a kind the DDL declares, in a schema it declares. ``all``: one of any kind, a policy or rule nobody declared included, graded ``warning`` so a deploy gate can escalate it. The default schema is never reported unless the DDL creates it.
     """
 
     ignore_column_order: bool = False
     column_order_severity: Literal["warning", "critical"] = "warning"
+    extra_objects: Literal["declared", "all"] = "declared"
 
 
 def _read_config_yaml(config_path: Path, *, allow_empty: bool = False) -> dict[str, Any]:
@@ -885,6 +896,10 @@ def _normalize_acls(data: dict[str, Any]) -> None:
         data["acls"] = acl_block.get("expectations", [])
 
 
+#: The ``db/project.yaml`` blocks an environment file refuses: facts about the schema.
+_PROJECT_FACTS = ("tenancy", "soft_delete")
+
+
 class Environment(BaseModel):
     """Environment configuration
 
@@ -903,6 +918,7 @@ class Environment(BaseModel):
         lint: What the lint rules resolve against — ``lint.ignore_objects`` excuses a name ``build_003`` cannot find in the build.
         name: Environment name (e.g., "local", "production")
         database_url: PostgreSQL connection URL
+        scratch_url: A writable PostgreSQL server ``confiture drift`` and ``migrate diff --from db`` build the tree on to read it back, so its expressions compare as PostgreSQL stores them; ``null`` compares them structurally.
         include_dirs: Directories to include when building schema (supports both string and dict formats)
         superuser_post_dirs: Directories routed to the post-schema superuser phase in build_split()
         exclude_dirs: Directories to exclude from schema build
@@ -925,6 +941,7 @@ class Environment(BaseModel):
     # ``SchemaBuilder`` independently rejects an empty ``include_dirs``.
     name: str = ""
     database_url: str
+    scratch_url: str | None = None
     include_dirs: list[str | DirectoryConfig] = Field(default_factory=list)
     superuser_dirs: list[str | DirectoryConfig] = Field(default_factory=list)
     superuser_post_dirs: list[str | DirectoryConfig] = Field(default_factory=list)
@@ -994,33 +1011,34 @@ class Environment(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _reject_project_facts(cls, data: Any) -> Any:
-        """Refuse ``tenancy:`` here: it describes the schema, not one environment.
+        """Refuse ``tenancy:`` and ``soft_delete:`` here: they describe the schema.
 
-        Pydantic would ignore it as an unknown key, and an environment that
-        carried it would look tenant-scoped while no tenant rule ran. It lives
-        once, in ``db/project.yaml``.
+        Pydantic would ignore either as an unknown key, and an environment that
+        carried one would look tenant-scoped, or soft-deleting, while no rule of
+        the family ran. They live once, in ``db/project.yaml``.
         """
-        if isinstance(data, dict) and "tenancy" in data:
-            raise ConfigurationError(
-                "'tenancy' is a fact about the schema, not about one environment: "
-                "move it to db/project.yaml, where every environment reads it.",
-                error_code="CONFIG_010",
-            )
+        for key in _PROJECT_FACTS:
+            if isinstance(data, dict) and key in data:
+                raise ConfigurationError(
+                    f"'{key}' is a fact about the schema, not about one environment: "
+                    "move it to db/project.yaml, where every environment reads it.",
+                    error_code="CONFIG_010",
+                )
         return data
 
-    @field_validator("database_url")
+    @field_validator("database_url", "scratch_url")
     @classmethod
-    def validate_database_url(cls, v: str) -> str:
+    def validate_database_url(cls, v: str | None, info: ValidationInfo) -> str | None:
         """Validate PostgreSQL connection URL format"""
-        if not v.startswith(("postgresql://", "postgres://")):
+        if v is not None and not v.startswith(("postgresql://", "postgres://")):
             raise ValueError(
-                "Invalid database_url: must start with postgresql:// or postgres://, "
+                f"Invalid {info.field_name}: must start with postgresql:// or postgres://, "
                 f"got: {redact_url(v)}"
             )
         return v
 
     @classmethod
-    def load(cls, env_name: str, project_dir: Path | None = None) -> "Environment":
+    def load(cls, env_name: str, project_dir: Path | None = None) -> Environment:
         """Load environment configuration from YAML file
 
         Args:

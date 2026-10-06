@@ -12,7 +12,9 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import tomllib
 from pathlib import Path
+from typing import ClassVar
 from urllib.parse import urlparse
 
 import yaml
@@ -48,6 +50,18 @@ def _run_scripts(steps: list[dict]) -> str:
     return "\n".join(step.get("run", "") for step in steps)
 
 
+def _supported() -> list[str]:
+    """Every CPython the package declares, from its ``Programming Language`` classifiers."""
+    classifiers = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"][
+        "classifiers"
+    ]
+    prefix = "Programming Language :: Python :: 3."
+    return [f"3.{c.removeprefix(prefix)}" for c in classifiers if c.startswith(prefix)]
+
+
+SUPPORTED = _supported()
+
+
 class TestPythonMatrix:
     def test_venv_is_built_on_the_matrix_interpreter(self) -> None:
         script = _run_scripts(_steps("python-version-matrix.yml", "test-matrix"))
@@ -70,10 +84,86 @@ class TestPythonMatrix:
         env = data["jobs"]["test-matrix"].get("env", {})
         assert env.get("UV_PYTHON") == "${{ matrix.python-version }}", env
 
-    def test_matrix_declares_three_interpreters(self) -> None:
+    def test_the_supported_interpreter_runs_the_suite_on_every_pull_request(self) -> None:
+        gate = _steps("quality-gate.yml", "test")
+        (setup,) = [step for step in gate if step.get("uses") == "./.github/actions/python-uv"]
+        assert [setup["with"]["python-version"]] == SUPPORTED
+
+    def test_the_matrix_runs_the_next_cpython_by_hand(self) -> None:
+        """No final CPython above the floor builds the package yet, so no leg is listed.
+
+        A matrix cannot be empty, so the workflow takes the version to try as an
+        input; a pull request never waits for it.
+        """
         data = yaml.safe_load((WORKFLOWS / "python-version-matrix.yml").read_text())
+        triggers = data[True]  # YAML 1.1 reads the bare key `on` as true
+        assert set(triggers) == {"workflow_dispatch"}
         versions = data["jobs"]["test-matrix"]["strategy"]["matrix"]["python-version"]
-        assert versions == ["3.11", "3.12", "3.13"]
+        assert versions == ["${{ inputs.python-version }}"]
+
+    def test_every_job_runs_the_supported_interpreter(self) -> None:
+        """A job on another interpreter tests a package nobody can install there."""
+        offenders = []
+        for path in sorted(WORKFLOWS.glob("*.yml")):
+            if path.name == "python-version-matrix.yml":
+                continue
+            data = yaml.safe_load(path.read_text())
+            for name, job in data["jobs"].items():
+                for step in job.get("steps", []):
+                    version = (step.get("with") or {}).get("python-version")
+                    if version is not None and str(version).split() != SUPPORTED:
+                        offenders.append(f"{path.name}:{name}: {version}")
+        assert offenders == []
+
+    def test_the_project_interpreter_is_the_supported_one(self) -> None:
+        """``uv venv`` with no ``--python`` reads ``.python-version``."""
+        assert (REPO_ROOT / ".python-version").read_text().split() == SUPPORTED
+
+
+class TestQualityGate:
+    def test_one_pglast_major_needs_no_matrix(self) -> None:
+        """``pglast>=8.1`` is one major; the lock pins it and the suite runs it."""
+        data = yaml.safe_load((WORKFLOWS / "quality-gate.yml").read_text())
+        assert "pglast-matrix" not in data["jobs"]
+
+    def test_the_suite_runs_on_every_core(self) -> None:
+        script = _run_scripts(_steps("quality-gate.yml", "test"))
+        assert "-m pytest tests/" in script and "-n auto" in script, script
+
+    def test_coverage_is_collected_once(self) -> None:
+        """By the quality gate's run, across its workers; no other leg measures."""
+        gate = _run_scripts(_steps("quality-gate.yml", "test"))
+        assert "coverage combine" in gate
+        matrix = _run_scripts(_steps("python-version-matrix.yml", "test-matrix"))
+        assert "--cov" not in matrix and "coverage run" not in matrix
+
+    def test_coverage_is_judged_on_both_servers_combined(self) -> None:
+        """One floor check, over what the 16 and the 18 legs measured together.
+
+        A floor checked per leg would fail a file whose lines only one server reaches;
+        a floor checked on one leg would ignore the other. The legs upload their data,
+        one job combines it, and that job is the one the floors read.
+        """
+        test = _run_scripts(_steps("quality-gate.yml", "test"))
+        assert "coverage_floors.py" not in test and "coverage report" not in test
+        uploads = [
+            step
+            for step in _steps("quality-gate.yml", "test")
+            if step.get("uses", "").startswith("actions/upload-artifact")
+        ]
+        assert len(uploads) == 1, uploads
+        assert "${{ matrix.postgres }}" in uploads[0]["with"]["name"]
+        combined = _run_scripts(_steps("quality-gate.yml", "coverage"))
+        assert "coverage combine" in combined
+        assert "scripts/coverage_floors.py --check" in combined
+        data = yaml.safe_load((WORKFLOWS / "quality-gate.yml").read_text())
+        assert data["jobs"]["coverage"]["needs"] in ("test", ["test"])
+        assert "coverage" in data["jobs"]["quality-gate"]["needs"]
+        assert "needs.coverage.result" in _run_scripts(_steps("quality-gate.yml", "quality-gate"))
+
+    def test_no_job_runs_a_suite_the_test_job_already_runs(self) -> None:
+        data = yaml.safe_load((WORKFLOWS / "quality-gate.yml").read_text())
+        assert "integration-parallel" not in data["jobs"]
 
 
 class TestExamplesJob:
@@ -297,3 +387,124 @@ class TestOneToolchainSetup:
     def test_the_action_is_used(self) -> None:
         users = [job for _, job, uses in self._jobs() if self.ACTION in uses]
         assert len(users) >= 10
+
+
+class TestReleaseWheels:
+    """Every supported CPython gets a wheel on every platform (#586, #587)."""
+
+    def test_the_declared_interpreter_is_the_floor(self) -> None:
+        assert SUPPORTED == ["3.14"]
+
+    def test_linux_builds_a_wheel_for_each(self) -> None:
+        build = next(
+            step["env"]["CIBW_BUILD"]
+            for step in _steps("publish.yml", "build-wheels")
+            if "cibuildwheel" in step.get("uses", "")
+        )
+        built = {tag.split("-")[0] for tag in build.split()}
+        assert built == {f"cp3{v.split('.')[1]}" for v in SUPPORTED}
+
+    def test_macos_and_windows_find_each_interpreter(self) -> None:
+        setup = next(
+            step
+            for step in _steps("publish.yml", "build-wheels")
+            if step.get("uses", "").startswith("actions/setup-python")
+        )
+        assert setup["with"]["python-version"].split() == SUPPORTED
+
+    def test_the_publish_check_loops_over_the_supported_tags(self) -> None:
+        script = _run_scripts(_steps("publish.yml", "validate"))
+        tags = " ".join(f"cp3{v.split('.')[1]}" for v in SUPPORTED)
+        assert f"for py in {tags}; do" in script
+
+    def test_no_build_leans_on_forward_compatibility(self) -> None:
+        """The wheels are version-specific; the flag only hid a missing one."""
+        assert "PYO3_USE_ABI3_FORWARD_COMPATIBILITY" not in (WORKFLOWS / "publish.yml").read_text()
+
+    def test_the_newest_is_installed_from_its_wheel_on_every_pull_request(self) -> None:
+        script = _run_scripts(_steps("quality-gate.yml", "wheel-python-314"))
+        assert "--only-binary fraiseql-confiture" in script and "--no-cache" in script
+        assert SUPPORTED[-1] == "3.14"
+
+
+def _service_jobs() -> list[tuple[str, str, dict]]:
+    """Every job that starts a PostgreSQL service container, with its workflow."""
+    jobs = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        data = yaml.safe_load(path.read_text())
+        for name, job in data["jobs"].items():
+            if "postgres" in (job.get("services") or {}):
+                jobs.append((path.name, name, job))
+    return jobs
+
+
+class TestPostgresServers:
+    """CI tests the floor and the newest server: PostgreSQL 16 and 18 (#608).
+
+    PostgreSQL 18 changed what the catalog says (NOT NULL rows in ``pg_constraint``,
+    ``conenforced``, virtual generated columns). Every service container was
+    ``postgres:16``, so the one server a developer is likeliest to run locally was
+    tested nowhere a pull request waits for.
+    """
+
+    SERVERS: ClassVar[list[str]] = ["16", "18"]
+    BOTH: ClassVar[set[tuple[str, str]]] = {
+        ("quality-gate.yml", "test"),
+        ("quality-gate.yml", "plpgsql-check"),
+        ("examples.yml", "examples"),
+    }
+
+    @staticmethod
+    def _job(workflow: str, job: str) -> dict:
+        return yaml.safe_load((WORKFLOWS / workflow).read_text())["jobs"][job]
+
+    def test_the_gate_and_the_examples_run_on_both_servers(self) -> None:
+        for workflow, name in sorted(self.BOTH):
+            job = self._job(workflow, name)
+            assert job["strategy"]["matrix"]["postgres"] == self.SERVERS, (workflow, name)
+            assert job["strategy"].get("fail-fast") is False, (workflow, name)
+            assert "${{ matrix.postgres }}" in job["name"], (workflow, name)
+
+    def test_a_service_job_on_both_servers_takes_its_image_from_the_matrix(self) -> None:
+        both = [(w, n, j) for w, n, j in _service_jobs() if (w, n) in self.BOTH]
+        assert {(w, n) for w, n, _ in both} == {
+            ("quality-gate.yml", "test"),
+            ("examples.yml", "examples"),
+        }
+        for workflow, name, job in both:
+            image = job["services"]["postgres"]["image"]
+            assert image == "postgres:${{ matrix.postgres }}", (workflow, name, image)
+
+    def test_every_other_database_job_runs_the_floor(self) -> None:
+        """A release and a deployment path are proved on the oldest server confiture supports."""
+        offenders = [
+            f"{workflow}:{name}: {job['services']['postgres']['image']}"
+            for workflow, name, job in _service_jobs()
+            if (workflow, name) not in self.BOTH
+            and job["services"]["postgres"]["image"] != "postgres:16"
+        ]
+        assert offenders == []
+
+    def test_body_analysis_builds_its_server_from_the_matrix(self) -> None:
+        script = _run_scripts(_steps("quality-gate.yml", "plpgsql-check"))
+        assert "postgresql-${{ matrix.postgres }}-plpgsql-check" in script
+        assert "FROM postgres:${{ matrix.postgres }}@${{ matrix.digest }}" in script
+        include = self._job("quality-gate.yml", "plpgsql-check")["strategy"]["matrix"]["include"]
+        digests = {row["postgres"]: row["digest"] for row in include}
+        assert set(digests) == set(self.SERVERS)
+        assert all(re.fullmatch(r"sha256:[0-9a-f]{64}", d) for d in digests.values()), digests
+
+    def test_the_test_leg_dumps_with_a_client_as_new_as_its_server(self) -> None:
+        """pg_dump refuses a server newer than itself; the runner's stock client is 16."""
+        script = _run_scripts(_steps("quality-gate.yml", "test"))
+        assert "postgresql-client-${{ matrix.postgres }}" in script
+        assert "/usr/lib/postgresql/${{ matrix.postgres }}/bin" in script
+
+    def test_no_workflow_names_a_server_below_the_floor(self) -> None:
+        offenders = [
+            f"{path.relative_to(REPO_ROOT)}: {match.group(0)}"
+            for path in [*sorted(WORKFLOWS.glob("*.yml")), *_tracked("ci")]
+            for match in re.finditer(r"postgres(?:ql)?[-:](\d+)", path.read_text())
+            if int(match.group(1)) < 16
+        ]
+        assert offenders == []

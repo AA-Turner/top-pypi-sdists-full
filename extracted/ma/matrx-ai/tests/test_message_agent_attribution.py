@@ -94,8 +94,8 @@ def _send(history: list[UnifiedMessage], answering: str | None, monkeypatch) -> 
 
 def test_single_agent_conversation_keeps_your_wording(monkeypatch) -> None:
     text, loads = _send(_history(ARCHAEOLOGIST, ARCHAEOLOGIST), ARCHAEOLOGIST, monkeypatch)
-    assert "<!-- comment on your reply 2 back -->" in text
-    assert "<!-- comment on your previous reply -->" in text
+    assert "<!-- comment c1 on your reply 2 back -->" in text
+    assert "<!-- comment c2 on your previous reply -->" in text
     assert loads == []  # no name lookup for a one-agent history
 
 
@@ -103,15 +103,15 @@ def test_multi_agent_conversation_names_the_other_agent(monkeypatch) -> None:
     # The Conservator answers now: its own reply stays "your", the
     # Archaeologist's reply is named — with ONE batched name load.
     text, loads = _send(_history(ARCHAEOLOGIST, CONSERVATOR), CONSERVATOR, monkeypatch)
-    assert "<!-- comment on Archaeologist's reply 2 back -->" in text
-    assert "<!-- comment on your previous reply -->" in text
+    assert "<!-- comment c1 on Archaeologist's reply 2 back -->" in text
+    assert "<!-- comment c2 on your previous reply -->" in text
     assert loads == [{ARCHAEOLOGIST}]
 
 
 def test_multi_agent_previous_reply_reads_naturally(monkeypatch) -> None:
     text, _ = _send(_history(ARCHAEOLOGIST, CONSERVATOR), ARCHAEOLOGIST, monkeypatch)
-    assert "<!-- comment on Conservator's previous reply -->" in text
-    assert "<!-- comment on your reply 2 back -->" in text
+    assert "<!-- comment c2 on Conservator's previous reply -->" in text
+    assert "<!-- comment c1 on your reply 2 back -->" in text
 
 
 @pytest.mark.parametrize(
@@ -121,15 +121,15 @@ def test_multi_agent_previous_reply_reads_naturally(monkeypatch) -> None:
 )
 def test_missing_agent_id_falls_back_to_current_wording(dating, treatment, monkeypatch) -> None:
     text, loads = _send(_history(dating, treatment), CONSERVATOR, monkeypatch)
-    assert "<!-- comment on your reply 2 back -->" in text
-    assert "<!-- comment on your previous reply -->" in text
+    assert "<!-- comment c1 on your reply 2 back -->" in text
+    assert "<!-- comment c2 on your previous reply -->" in text
     assert loads == []
 
 
 def test_unknown_agent_name_falls_back_to_current_wording(monkeypatch) -> None:
     deleted = "1f2e3d4c-5b6a-4798-8a7b-6c5d4e3f2a1b"
     text, _ = _send(_history(deleted, CONSERVATOR), CONSERVATOR, monkeypatch)
-    assert "<!-- comment on your reply 2 back -->" in text
+    assert "<!-- comment c1 on your reply 2 back -->" in text
 
 
 def test_from_cx_message_carries_agent_id() -> None:

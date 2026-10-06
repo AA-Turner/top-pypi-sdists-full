@@ -1,13 +1,17 @@
 use super::completion::classify_completion_context;
 use super::directive::directive_metadata_with_flags;
 use super::frontmatter;
+use super::macro_arg_choices::macro_input_type_label;
 use super::token::{
     extract_token_at_position, macro_reference_name,
     slash_skill_reference_name, DocumentSnapshot,
 };
 use super::wire::{
     CompletionContextKind, EditorPosition, HoverPayload, MacroAssistEntry,
+    MacroInputHint,
 };
+use crate::model_validity::{classify_model_value, ModelValiditySnapshot};
+use crate::MobileInputChoiceWire;
 
 pub fn hover_at_position(
     document: &DocumentSnapshot,
@@ -23,6 +27,22 @@ pub fn hover_at_position_with_flags(
     entries: &[MacroAssistEntry],
     enabled_feature_flags: &[String],
 ) -> Option<HoverPayload> {
+    hover_at_position_with_snapshot(
+        document,
+        position,
+        entries,
+        enabled_feature_flags,
+        None,
+    )
+}
+
+pub fn hover_at_position_with_snapshot(
+    document: &DocumentSnapshot,
+    position: EditorPosition,
+    entries: &[MacroAssistEntry],
+    enabled_feature_flags: &[String],
+    snapshot: Option<&ModelValiditySnapshot>,
+) -> Option<HoverPayload> {
     if let Some(context) =
         classify_completion_context(document, position, entries)
     {
@@ -31,16 +51,22 @@ pub fn hover_at_position_with_flags(
             CompletionContextKind::MacroArgumentName
                 | CompletionContextKind::MacroArgumentPath
                 | CompletionContextKind::MacroArgumentValue
+                | CompletionContextKind::MacroArgumentAgent
+                | CompletionContextKind::MacroArgumentModel
                 | CompletionContextKind::MacroArgumentTypeHint
         ) {
-            let entry_name = context.active_xprompt.as_ref()?;
+            let entry_name = context.active_macro.as_ref()?;
             let entry =
                 entries.iter().find(|entry| &entry.name == entry_name)?;
+            let current_value =
+                value_in_range(document, &context.replacement_range);
             return Some(HoverPayload {
                 range: context.replacement_range,
-                markdown: active_input_markdown(
+                markdown: active_input_markdown_with_snapshot(
                     entry,
                     context.active_input.as_deref(),
+                    current_value.as_deref(),
+                    snapshot,
                 ),
             });
         }
@@ -166,10 +192,49 @@ fn bounded_preview(preview: &str) -> String {
     out
 }
 
-fn active_input_markdown(
+fn value_in_range(
+    document: &DocumentSnapshot,
+    range: &crate::editor::wire::EditorRange,
+) -> Option<String> {
+    let start = document.position_to_byte_offset(range.start)?;
+    let end = document.position_to_byte_offset(range.end)?;
+    let text = document.text().get(start..end.min(document.text().len()))?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let stripped = trimmed
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+        .or_else(|| {
+            trimmed
+                .strip_prefix('\'')
+                .and_then(|inner| inner.strip_suffix('\''))
+        })
+        .unwrap_or(trimmed);
+    if stripped.is_empty() {
+        return None;
+    }
+    Some(stripped.to_string())
+}
+
+fn active_input_markdown_with_snapshot(
     entry: &MacroAssistEntry,
     active_input: Option<&str>,
+    current_value: Option<&str>,
+    snapshot: Option<&ModelValiditySnapshot>,
 ) -> String {
+    if let Some(name) = active_input {
+        if let Some(input) =
+            entry.inputs.iter().find(|input| input.name == name)
+        {
+            return argument_hover_markdown_with_snapshot(
+                input,
+                current_value,
+                snapshot,
+            );
+        }
+    }
     let mut lines = vec![format!("**{} inputs**", entry.name)];
     for input in &entry.inputs {
         let marker = if Some(input.name.as_str()) == active_input {
@@ -200,7 +265,8 @@ fn active_input_markdown(
             .unwrap_or_default();
         lines.push(format!(
             "{marker}{}{close}: `{}` ({required}{default})",
-            input.name, input.r#type
+            input.name,
+            macro_input_type_label(input)
         ));
         if !description.is_empty() {
             let last = lines.last_mut().expect("just pushed input hover line");
@@ -208,6 +274,110 @@ fn active_input_markdown(
         }
     }
     lines.join("\n")
+}
+
+fn is_model_hint(input: &MacroInputHint) -> bool {
+    input.value_role.as_deref() == Some("model")
+}
+
+fn argument_hover_markdown_with_snapshot(
+    input: &MacroInputHint,
+    current_value: Option<&str>,
+    snapshot: Option<&ModelValiditySnapshot>,
+) -> String {
+    let mut lines = vec![
+        format!("**{}**", input.name),
+        String::new(),
+        format!("`{}`", macro_input_type_label(input)),
+        format!("Source: {}", input_type_source(input)),
+    ];
+    if let Some(default) = &input.default_display {
+        lines.push(format!("Default: `{default}`"));
+    }
+    if let Some(description) =
+        input.description.as_ref().filter(|value| !value.is_empty())
+    {
+        lines.push(String::new());
+        lines.push(description.clone());
+    }
+    if !input.choices.is_empty() {
+        lines.push(String::new());
+        lines.push(choice_markdown_table(&input.choices));
+    }
+    if is_model_hint(input) {
+        lines.push(String::new());
+        lines.push(
+            "A model `%model` would accept and route without the \
+             default-provider fallback."
+                .to_string(),
+        );
+        if let (Some(value), Some(snapshot)) = (current_value, snapshot) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                if let Ok(result) =
+                    classify_model_value(&input.name, trimmed, snapshot)
+                {
+                    if result.ok {
+                        if let Some(provider) = result.provider {
+                            lines.push(format!("Routes to `{provider}`."));
+                        } else if result.kind.as_deref() == Some("alias") {
+                            lines.push(format!("Alias `{trimmed}`."));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    lines.join("\n")
+}
+
+fn input_type_source(hint: &MacroInputHint) -> String {
+    let Some(named) =
+        hint.named_type.as_deref().filter(|name| !name.is_empty())
+    else {
+        return "builtin".to_string();
+    };
+    match named.split_once('@') {
+        Some((distribution, _))
+            if !distribution.eq_ignore_ascii_case("builtin") =>
+        {
+            format!("plugin {distribution}")
+        }
+        _ => "builtin".to_string(),
+    }
+}
+
+const CHOICE_TABLE_LIMIT: usize = 12;
+
+fn choice_markdown_table(choices: &[MobileInputChoiceWire]) -> String {
+    let mut lines = vec![
+        "| Value | Label | Description |".to_string(),
+        "| --- | --- | --- |".to_string(),
+    ];
+    let shown = choices.len().min(CHOICE_TABLE_LIMIT);
+    for choice in &choices[..shown] {
+        lines.push(format!(
+            "| {} | {} | {} |",
+            escape_table_cell(&format!("`{}`", escape_ticks(&choice.value))),
+            escape_table_cell(choice.label.as_deref().unwrap_or("")),
+            escape_table_cell(choice.description.as_deref().unwrap_or("")),
+        ));
+    }
+    if choices.len() > CHOICE_TABLE_LIMIT {
+        lines.push(String::new());
+        lines.push(format!("… {} more", choices.len() - CHOICE_TABLE_LIMIT));
+    }
+    lines.join("\n")
+}
+
+fn escape_table_cell(text: &str) -> String {
+    text.replace('|', "\\|")
+        .replace('\n', " ")
+        .replace('\r', "")
+}
+
+fn escape_ticks(text: &str) -> String {
+    text.replace('`', "\\`")
 }
 
 #[cfg(test)]
@@ -322,6 +492,9 @@ mod tests {
                 default_display: None,
                 position: 0,
                 repeatable: false,
+                choices: Vec::new(),
+                named_type: None,
+                value_role: None,
             }],
             content_preview: Some("Body preview".to_string()),
             description: Some("Review code".to_string()),
@@ -355,6 +528,261 @@ mod tests {
         .unwrap();
         assert!(arg_hover.markdown.contains("path"));
         assert!(arg_hover.markdown.contains("Path to review"));
+        assert!(arg_hover.markdown.contains("Source: builtin"));
+    }
+
+    fn choice_hint(
+        name: &str,
+        named_type: Option<&str>,
+        default: Option<&str>,
+        choices: &[(&str, Option<&str>, Option<&str>)],
+        value_role: Option<&str>,
+        r#type: &str,
+    ) -> MacroInputHint {
+        MacroInputHint {
+            name: name.to_string(),
+            r#type: r#type.to_string(),
+            description: None,
+            required: true,
+            default_display: default.map(str::to_string),
+            position: 0,
+            repeatable: false,
+            choices: choices
+                .iter()
+                .map(|(value, label, description)| {
+                    crate::MobileInputChoiceWire {
+                        value: (*value).to_string(),
+                        label: label.map(str::to_string),
+                        description: description.map(str::to_string),
+                    }
+                })
+                .collect(),
+            named_type: named_type.map(str::to_string),
+            value_role: value_role.map(str::to_string),
+        }
+    }
+
+    fn entry_with_inputs(
+        name: &str,
+        inputs: Vec<MacroInputHint>,
+    ) -> MacroAssistEntry {
+        MacroAssistEntry {
+            name: name.to_string(),
+            display_label: name.to_string(),
+            insertion: format!("#{name}"),
+            reference_prefix: "#".to_string(),
+            kind: None,
+            source_bucket: "project".to_string(),
+            project: None,
+            tags: Vec::new(),
+            input_signature: None,
+            inputs,
+            content_preview: None,
+            description: None,
+            source_path_display: Some("macros/review.md".to_string()),
+            definition_path: None,
+            definition_range: None,
+            is_skill: false,
+            skill_name: None,
+            memory_type: None,
+        }
+    }
+
+    #[test]
+    fn argument_hover_lists_choices_source_and_truncates() {
+        let entries = vec![entry_with_inputs(
+            "choose",
+            vec![choice_hint(
+                "edition",
+                None,
+                Some("brief"),
+                &[
+                    ("brief", Some("Brief"), Some("Short")),
+                    ("full", Some("Full"), Some("Long")),
+                ],
+                None,
+                "enum",
+            )],
+        )];
+        let hover = hover_at_position(
+            &DocumentSnapshot::new("#choose(edition="),
+            EditorPosition {
+                line: 0,
+                character: 16,
+            },
+            &entries,
+        )
+        .unwrap();
+        assert!(
+            hover.markdown.contains("`brief | full`"),
+            "{}",
+            hover.markdown
+        );
+        assert!(hover.markdown.contains("Source: builtin"));
+        assert!(hover.markdown.contains("Default: `brief`"));
+        assert!(hover.markdown.contains("| Value | Label | Description |"));
+        assert!(hover.markdown.contains("`brief`"));
+        assert!(hover.markdown.contains("Short"));
+        assert!(
+            !hover.markdown.contains("macros/review.md"),
+            "must not use the macro source as the input type source: {}",
+            hover.markdown
+        );
+
+        let mut large_hint = choice_hint(
+            "mode",
+            Some("sase-research-artifacts@audio_edition"),
+            None,
+            &[],
+            None,
+            "enum",
+        );
+        large_hint.choices = (0..15)
+            .map(|i| crate::MobileInputChoiceWire {
+                value: format!("v{i}"),
+                label: None,
+                description: None,
+            })
+            .collect();
+        let large = vec![entry_with_inputs("big", vec![large_hint])];
+        let large_hover = hover_at_position(
+            &DocumentSnapshot::new("#big(mode="),
+            EditorPosition {
+                line: 0,
+                character: 10,
+            },
+            &large,
+        )
+        .unwrap();
+        assert!(
+            large_hover
+                .markdown
+                .contains("Source: plugin sase-research-artifacts"),
+            "{}",
+            large_hover.markdown
+        );
+        assert!(large_hover.markdown.contains("… 3 more"));
+        assert!(
+            large_hover
+                .markdown
+                .contains("`sase-research-artifacts@audio_edition (15)`")
+                || large_hover.markdown.contains("`audio_edition (15)`")
+                || large_hover.markdown.contains("(15)")
+        );
+    }
+
+    #[test]
+    fn agent_argument_hover_is_dispatched() {
+        let entries = vec![entry_with_inputs(
+            "assign",
+            vec![choice_hint(
+                "who",
+                Some("agent"),
+                None,
+                &[],
+                Some("agent"),
+                "agent",
+            )],
+        )];
+        let hover = hover_at_position(
+            &DocumentSnapshot::new("#assign(who="),
+            EditorPosition {
+                line: 0,
+                character: 12,
+            },
+            &entries,
+        )
+        .unwrap();
+        assert!(hover.markdown.contains("**who**"), "{}", hover.markdown);
+        assert!(hover.markdown.contains("`agent`"));
+        assert!(hover.markdown.contains("Source: builtin"));
+    }
+
+    fn model_snapshot() -> ModelValiditySnapshot {
+        ModelValiditySnapshot {
+            schema_version: 1,
+            providers: ["claude", "codex", "fakey"]
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
+            models: [("opus", "claude"), ("fakey-large", "fakey")]
+                .into_iter()
+                .map(|(model, provider)| {
+                    (model.to_string(), provider.to_string())
+                })
+                .collect(),
+            aliases: vec!["large".to_string()],
+            effort_levels: [
+                "none", "minimal", "low", "medium", "high", "xhigh", "max",
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        }
+    }
+
+    #[test]
+    fn model_argument_hover_shows_contract_and_route() {
+        let entries = vec![entry_with_inputs(
+            "launch",
+            vec![choice_hint(
+                "claude_model",
+                Some("model"),
+                None,
+                &[],
+                Some("model"),
+                "word",
+            )],
+        )];
+        let snapshot = model_snapshot();
+        let text = "#launch(claude_model=claude/opus@xhigh)";
+        let hover = hover_at_position_with_snapshot(
+            &DocumentSnapshot::new(text),
+            EditorPosition {
+                line: 0,
+                character: 30,
+            },
+            &entries,
+            &[],
+            Some(&snapshot),
+        )
+        .expect("model hover");
+        assert!(
+            hover.markdown.contains(
+                "A model `%model` would accept and route without the \
+                 default-provider fallback."
+            ),
+            "{}",
+            hover.markdown
+        );
+        assert!(
+            hover.markdown.contains("Routes to `claude`."),
+            "{}",
+            hover.markdown
+        );
+
+        let unclassified = hover_at_position(
+            &DocumentSnapshot::new(text),
+            EditorPosition {
+                line: 0,
+                character: 30,
+            },
+            &entries,
+        )
+        .expect("model hover without snapshot");
+        assert!(
+            unclassified.markdown.contains(
+                "A model `%model` would accept and route without the \
+                 default-provider fallback."
+            ),
+            "{}",
+            unclassified.markdown
+        );
+        assert!(
+            !unclassified.markdown.contains("Routes to"),
+            "{}",
+            unclassified.markdown
+        );
     }
 
     #[test]
@@ -420,7 +848,7 @@ mod tests {
     #[test]
     fn builds_frontmatter_field_hover() {
         let doc = DocumentSnapshot::new(
-            "---\ndescription: Demo\nxprompts:\n  _helper:\n    content: Helper\n---\n#_helper\n",
+            "---\ndescription: Demo\nmacros:\n  _helper:\n    content: Helper\n---\n#_helper\n",
         );
         let hover = hover_at_position(
             &doc,
@@ -432,17 +860,14 @@ mod tests {
         )
         .unwrap();
 
-        let field_start = doc.text().find("xprompts").unwrap();
+        let field_start = doc.text().find("macros").unwrap();
         assert_eq!(
             hover.range,
-            doc.byte_range_to_range(
-                field_start,
-                field_start + "xprompts".len()
-            )
-            .unwrap()
+            doc.byte_range_to_range(field_start, field_start + "macros".len())
+                .unwrap()
         );
-        assert!(hover.markdown.contains("**xprompts**"));
-        assert!(hover.markdown.contains("local xprompts"));
+        assert!(hover.markdown.contains("**macros**"));
+        assert!(hover.markdown.contains("local macros"));
         assert!(hover.markdown.contains("current file"));
     }
 

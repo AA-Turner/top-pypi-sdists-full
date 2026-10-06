@@ -189,7 +189,7 @@ from ..deck import parse as parse_dialect
 # semantics live ONCE and the dialect is where a card's meaning is decided
 # (design doc ``networks-move-into-the-engine.md``); the portal supplies the
 # only thing that module cannot know, which is the antenna's admittance.
-from ..deck._networks import build_reducer, card_branches, live_cards
+from ..deck._networks import build_reducer, card_branches, live_cards, reduced_ports
 
 # Which solver families take a deck's ``LD`` lumped load as their OWN
 # construction kwarg instead of as the port-algebra stamp every other family
@@ -213,6 +213,15 @@ from ..deck._solver import _NATIVE_LOADING, NEC2_BASES, basis_from_program_name
 # asks whether ``Nec2Structure`` should be promoted to ``momwire.deck``'s
 # public surface anyway, which only becomes load-bearing if the portal is
 # ever a third-party consumer again.
+from ..deck._nec2 import REFUSE_NEAR_FIELD_REFL_COEF
+
+# `LD 0`'s series R + jwL + 1/(jwC): the network core's own evaluator, the
+# one the design library and `momwire.networks` already read. The portal kept
+# a copy "COPIED, not imported" from antennaknobs (#846: the portal depends on
+# momwire alone) — but the evaluator is momwire's, and an `LD` card gives R, L
+# and C and nothing else, so it is called with no finite-Q terms and its
+# arithmetic is the copy's to the bit (momwire#1336).
+from ..networks._reduce import _series_rlc_impedance
 from ..deck._nec2_geometry import _SMIN, build_geometry
 
 from ..serve import Seam, run_session
@@ -238,6 +247,16 @@ from .._far_readout import (
     _image_moments as _image_moments,
     _phase_deg as _phase_deg,
     _polarisation as _polarisation,
+    average_gain,
+    pattern_fields,
+)
+from .._ground_spec import ground_touch_tol as _ground_touch_tol
+from .._near_readout import (
+    NEAR_FIELD_SUBDIV,
+    near_field_at,
+    near_ground,
+    near_point_refusal,
+    rectangular_grid,
 )
 
 # --basis choices (mirrors the CLI's MOMWIRE_BASES/VARIANTS subset that makes
@@ -672,12 +691,9 @@ _NEAR_H_TABLE_HEADER = (
 )
 _NEAR_FIELD_TIME = "    Near Field Compute Time 0"
 
-# Elements per momwire mesh segment when evaluating a near field. The far-field
-# sum needs one dipole per segment because only the radiation-zone limit
-# matters; a near field a metre from a half-metre segment does not, so each
-# segment is resampled through ``currents_at_knots(coeffs, s_array=...)`` and
-# summed as a finer chain of Hertzian elements.
-_NEAR_FIELD_SUBDIV = 8
+# Elements per momwire mesh segment when evaluating a near field: the one
+# constant every seam's near field resamples at (`momwire._near_readout`).
+_NEAR_FIELD_SUBDIV = NEAR_FIELD_SUBDIV
 
 # Reversed by issue #829 on Ward's explicit sanction (his 2026-08-08 reply):
 # refusals used to hide behind this prefix specifically to AVOID tripping
@@ -1165,6 +1181,13 @@ class ExecuteGroup:
     # which was correct and O(groups·deck) and grew a second reader of the
     # ``GN``/``GD`` rules alongside the dialect's.
     environment: Environment = field(default_factory=Environment)
+    # The ``LD`` cards in force when this group fired, for the LOADING table
+    # this group's preamble prints (momwire#1069): ``LD`` arms and ``LD -1``
+    # clears, so a deck that runs bare and then loaded prints THIS STRUCTURE
+    # IS NOT LOADED for its first group and the table for its second. Which
+    # loads the solve STAMPS is the model's ``ExecuteGroup.loads``, read off
+    # the dialect rather than re-derived from these cards.
+    loads: tuple[Card, ...] = ()
 
     @property
     def ground(self) -> Ground:
@@ -1321,6 +1344,7 @@ def parse_deck(body: str, dialect: str = "nec2") -> PortalDeck:
                     ek=armed.extended_kernel,
                     refilled_partial=armed.refilled_partial,
                     environment=armed.environment,
+                    loads=tuple(loads),
                 )
             )
             sources_stale = True
@@ -1548,25 +1572,6 @@ def _union_ports(deck: PortalDeck) -> list[tuple[int, int]]:
             if (tag, seg) not in ports:
                 ports.append((tag, seg))
     return ports
-
-
-def _series_rlc_impedance(r, l, c, omega):
-    """Series R + jwL + 1/(jwC). Any of r/l/c may be None (omitted term).
-
-    COPIED, not imported, from ``antennaknobs.network._series_rlc_impedance``
-    (#846: the portal depends on momwire alone). Twenty-six lines with zero
-    module dependencies, minus the finite-Q terms, which no NEC ``LD`` card can
-    ask for: the card gives R, L and C and nothing else. The original stays
-    where it is and serves the design library; this one serves ``LD 0``.
-    """
-    z = 0.0 + 0.0j
-    if r is not None:
-        z += r
-    if l is not None:
-        z += 1j * omega * l
-    if c is not None:
-        z += 1.0 / (1j * omega * c)
-    return z
 
 
 @dataclass
@@ -1894,6 +1899,22 @@ class DeckSolver:
         self.load_ports: list[tuple[int, object]] = [
             (port, spec) for port, spec in plan.loaded_ports()
         ]
+        # Per MODEL load, its solver port and spec, and per model group the
+        # loads in force there (momwire#1069): a group stamps its own, so a
+        # deck that runs bare and then loaded answers each run as NEC does.
+        self._model_loads: list[tuple[int | None, object]] = [
+            (port, spec)
+            for port, (_w, _a, spec) in zip(plan.load_ports, self.model.loads)
+        ]
+        self._group_loads: dict[int, tuple[int, ...]] = {
+            index: (
+                tuple(range(len(self.model.loads)))
+                if group.loads is None
+                else group.loads
+            )
+            for index, group in enumerate(self.model.groups)
+            if group is not None
+        }
         # Global NEC segment number → solver port index, for every segment
         # that carries a gap. Lets a readout prefer the Galerkin port current
         # (what Y is built from) over the interpolated midpoint current.
@@ -2024,9 +2045,13 @@ class DeckSolver:
         self._cache[key] = entry
         return entry
 
-    def _load_impedances(self, omega: float) -> np.ndarray:
+    def _load_impedances(
+        self, omega: float, group_index: int | None = None
+    ) -> np.ndarray:
         """The per-port load impedance the PORT ALGEBRA still has to stamp, at
-        one angular frequency.
+        one angular frequency, for the loads in force at execute group
+        ``group_index`` (momwire#1069; ``None`` stamps every load, the
+        deck-level reading this had before loads were scoped).
 
         The plan says which solver port each ``LD`` card landed on and hands
         over its :class:`~momwire.deck.model.LoadSpec`; stamping it is the
@@ -2051,7 +2076,12 @@ class DeckSolver:
         z = np.zeros(self.n_ports, dtype=np.complex128)
         if self._native_loading:
             return z
-        for idx, ld in self.load_ports:
+        live = (
+            range(len(self._model_loads))
+            if group_index is None
+            else self._group_loads.get(group_index, ())
+        )
+        for idx, ld in (self._model_loads[k] for k in live):
             if ld.kind == "fixed":
                 z[idx] += complex(ld.r, ld.x)
             elif ld.kind == "parallel":
@@ -2092,30 +2122,12 @@ class DeckSolver:
             ).T
         else:
             y_eff = y
-        system = reducer.apply_branches(y_eff, wavelength)
-        v, j = system.solve()
-        v_applied = np.asarray(v[:n], dtype=np.complex128).copy()
-        # A pinned port's voltage is a BOUNDARY CONDITION, not a result: the
-        # termination row the reducer stamped for it says v_k = E, and reading
-        # E back out of the solution vector only adds the solve's round-off to
-        # a number that was exact going in. Restoring it is not a floor and
-        # loses no information — but it does decide the SIGN OF ZERO, and that
-        # is a byte the printout shows: an EX of 1+0j came back with an
-        # imaginary part of ±1e-17 and printed `0.0000E+00` or `-0.0000E+00`
-        # depending on the BLAS thread count, which reddened the served ==
-        # stock oracle in one run out of six (measured, momwire#456 phase C;
-        # the same defect class as momwire#403's pattern dust and #464's near
-        # field, and the same rule — never print the angle of zero).
-        for port, volts in zip(reducer.driven_port_idx, reducer.driven_voltages):
-            v_applied[port] = volts
-        i_port = y_eff @ v_applied
-        # Everywhere but a driven port the two are the same current; at a
-        # driven one the termination branch carries antenna PLUS network,
-        # which is what the source actually delivered.
-        i_source = i_port.copy()
-        for port, _segment, _volts in driven:
-            i_source[port] = j[system.terminations[port][0]]
-        return v_applied, i_port, i_source
+        # The read-back - pinned ports restored from their boundary
+        # condition, the source current off the termination branch - is the
+        # NEC-5 seam's too (`deck._networks.reduced_ports`, momwire#1336).
+        return reduced_ports(
+            reducer, y_eff, wavelength, n, [port for port, _seg, _v in driven]
+        )
 
     def _phased_drive(self, group_index, y, z_load, wavelength, driven):
         """``(reducer, (V_gap, V_applied, I_port, I_source), driven)`` for a
@@ -2321,7 +2333,7 @@ class DeckSolver:
             driven = [(port, segment, 1.0 + 0.0j)]
         for port, _segment, volts in driven:
             v_source[port] = volts
-        z_load = self._load_impedances(omega)
+        z_load = self._load_impedances(omega, group_index)
         # Several sources with a current source among them (momwire#1295): a
         # PHASED drive, where no single scale serves and the port voltages
         # have to be solved for.  Its own path, so the single-source and
@@ -2518,7 +2530,11 @@ class DeckSolver:
         segment back on NEC's convention.
         """
         nearest, dirs = self._element_match(solver)
-        vals = self._element_values(solver, solver.currents_at_knots(coeffs))
+        # Walked over `solver.wires_polylines`, so read in the SOLVED wire
+        # numbering (a wire listed twice is solved once, momwire#1042).
+        vals = self._element_values(
+            solver, solver.currents_at_knots(coeffs, _solved=True)
+        )
         out = np.empty(len(self.segments), dtype=np.complex128)
         for i, seg in enumerate(self.segments):
             j = nearest[i]
@@ -2556,7 +2572,9 @@ class DeckSolver:
         for w_idx in range(len(solver.wires_polylines)):
             arc = _wire_arc_at_knot(solver, w_idx)
             centres.append(0.5 * (arc[:-1] + arc[1:]))
-        slopes = solver.current_slopes(coeffs, centres)
+        slopes = solver.current_slopes(
+            coeffs, centres, _solved=True
+        )  # solved wires, as walked (momwire#1042)
         flat = np.concatenate([np.asarray(s) for s in slopes], axis=0)
         charges = -flat / (1j * omega)
         table = np.asarray([charges[nearest[i]] for i in range(len(self.segments))])
@@ -2702,6 +2720,51 @@ def _write_cache_stats() -> None:
         pass
 
 
+# `--save-decks DIR` (momwire#1080): where every deck this engine receives is
+# written as a standalone `.nec`, or None (the default) for nowhere.  Per
+# invocation like the cache flags, reset by `configure_engine`.
+_save_decks_dir: str | None = None
+_decks_saved = 0
+
+
+def _save_deck(body: str) -> None:
+    """Write one received deck to :data:`_save_decks_dir`, if one was asked for.
+
+    The reason it exists: a SimNEC circuit whose antenna is written in
+    SimNEC's portal language (``NECWire(...)``, ``dcl`` variables) carries no
+    cards in its ``.ssn`` — SimNEC evaluates the script and sends the deck to
+    the engine — so the deck this engine receives is the only place that
+    model exists as cards.  Saved, it loads anywhere a ``.nec`` does.
+
+    The body is written as received, every card and comment in order (the
+    ``CM`` version card included), with ``EN`` in place of the frame's
+    terminator: SimNEC frames decks with ``NX``, which in a FILE means "a
+    second structure follows", and a saved deck is one structure.  The line
+    ending follows the body's own.
+
+    Named ``<local time>-<sequence>.nec``: the sequence is per process and
+    keeps two decks sent within one second apart, and nothing in the deck
+    names its circuit reliably enough to name the file by.
+
+    Failures are swallowed, for the reason :func:`_write_cache_stats` gives:
+    this engine may write nothing to stdout or stderr, so a full disk can cost
+    the saved copy and never the session.  The directory itself was checked
+    when the flag was read.
+    """
+    global _decks_saved
+    if _save_decks_dir is None:
+        return
+    _decks_saved += 1
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    path = os.path.join(_save_decks_dir, f"{stamp}-{_decks_saved:04d}.nec")
+    newline = "\r\n" if body.endswith("\r") else "\n"
+    try:
+        with open(path, "x", encoding="utf-8", newline="") as handle:
+            handle.write(body.rstrip("\r\n") + newline + "EN" + newline)
+    except OSError:
+        pass
+
+
 def _operator_key(deck: PortalDeck) -> tuple:
     """The identity of the linear operator this deck describes.
 
@@ -2773,6 +2836,10 @@ def _operator_key(deck: PortalDeck) -> tuple:
         # key deliberately excludes (see the ``GD`` paragraph above).
         tuple(g.environment.ground for g in deck.groups if g is not None),
         model.loads,
+        # Which of them each group stamps (momwire#1069): a hit answers out of
+        # the CACHED model, so two decks alike but for where an `LD` sits
+        # relative to an execute card must not share an entry.
+        tuple(g.loads for g in model.groups if g is not None),
         tuple((wire, arclength) for wire, arclength, _volts in model.feeds),
         # The network cards, WHOLE — endpoints, payload and `first_group`.
         # Their endpoints cut gaps, so they move the port set and therefore
@@ -3032,9 +3099,11 @@ def _segmentation_rows(deck: PortalDeck, solver: DeckSolver) -> list[str]:
     return rows
 
 
-def _loading_rows(deck: PortalDeck) -> list[str]:
+def _loading_rows(cards: tuple[Card, ...]) -> list[str]:
+    """The LOADING table's rows for the ``LD`` cards in force at one execute
+    card (:attr:`ExecuteGroup.loads`, momwire#1069)."""
     rows = []
-    for card in deck.loads:
+    for card in cards:
         kind = card.i(0)
         tag, first, last = card.i(1), card.i(2), card.i(3)
         cells = [None] * 6
@@ -3127,28 +3196,22 @@ def _pattern_lines(
     k = 2.0 * math.pi / wavelength
     second = result.second_medium
     mid, moment, _nodes, _delta = solver.current_elements(result)
-    m_theta, m_phi = _far_moments(
+    # E = -j·ηk/(4π)·e^(-jkr)/r·M_perp, through the one pattern path both
+    # seams print (`_far_readout.pattern_fields`, momwire#1336).
+    prop = np.exp(-1j * k * rng) / rng if at_range else complex(1.0)
+    e_theta, e_phi, g_v, g_h = pattern_fields(
         mid,
         moment,
         k,
-        np.radians(thetas),
-        np.radians(phis),
+        thetas,
+        phis,
         result.ground,
         result.ground_z,
         freq_mhz * 1e6,
+        result.p_in,
         cliff=(mode, second) if mode in _CLIFF_KIND and second is not None else None,
+        prop=prop,
     )
-    # E = -j·ηk/(4π)·e^(-jkr)/r·M_perp. The gain that follows is
-    # 4π·U/P_in = ηk²/(8π·P_in)·|M|², the same normaliser the web solve and
-    # MomwireEngine.far_field use — so a pattern read out of this printout and
-    # one read off the workbench are the same number.
-    prop = np.exp(-1j * k * rng) / rng if at_range else complex(1.0)
-    e_theta = -1j * ETA0 * k / (4.0 * math.pi) * prop * m_theta
-    e_phi = -1j * ETA0 * k / (4.0 * math.pi) * prop * m_phi
-    p_in = result.p_in
-    norm = ETA0 * k * k / (8.0 * math.pi * p_in) if p_in > 0 else 0.0
-    g_v = norm * np.abs(m_theta) ** 2
-    g_h = norm * np.abs(m_phi) ** 2
     # The printed field over the amplitude FFLD returns, which is the basis
     # NEC's blank-SENSE threshold is written in.
     floor_scale = 1.0 / (wavelength * abs(prop))
@@ -3166,7 +3229,11 @@ def _pattern_lines(
         ]
     out += ["", *_PATTERN_TABLE_HEADER]
     raw2 = floor_scale * floor_scale
-    for j in range(n_phi):
+    # XNDA's A digit (momwire#1079, measured on the oracle: 0, 1, 2, 5, 11,
+    # 101, 1002...): 0 prints no average, any other digit prints the AVERAGE
+    # POWER GAIN line, and 2 prints that line INSTEAD of the rows.
+    rows_printed = card.i(3) % 10 != 2
+    for j in range(n_phi if rows_printed else 0):
         for i in range(n_theta):
             et, ep = complex(e_theta[i, j]), complex(e_phi[i, j])
             # A component under NEC's own field floor is the fill's rounding
@@ -3196,7 +3263,7 @@ def _pattern_lines(
                 )
             )
     out += ["", ""]
-    if card.i(3) % 10:  # XNDA's A digit: 1 asks for the average power gain
+    if card.i(3) % 10:  # XNDA's A digit: any nonzero value asks for the average
         out.append(_average_gain_line(g_v + g_h, thetas, d_theta, d_phi, n_phi))
     out.append(_PATTERN_TIME)
     return out
@@ -3232,22 +3299,12 @@ def _far_field_ground_lines(mode: int, second: SecondMedium | None) -> list[str]
 def _average_gain_line(gain, thetas, d_theta, d_phi, n_phi) -> str:
     """``AVERAGE POWER GAIN`` over the sampled solid angle.
 
-    The quadrature is nec2c's, recovered from two fixtures: each theta sample
-    owns the solid-angle band between its half-step neighbours, CLIPPED to the
-    requested theta range, so the bands telescope to exactly
-    ``(cosθ_start - cosθ_end)·Δφ`` and the printed solid angle comes out at a
-    round ``(+4.0000)*PI`` for a full sphere and ``(+2.0000)*PI`` for a
-    hemisphere. Phi contributes ``n_phi - 1`` columns — the last sample of a
-    0..360 sweep is the first one again and must not be counted twice.
+    The quadrature is :func:`~momwire._far_readout.average_gain`'s, which
+    recovered it from two nec2c fixtures and which the NEC-5 seam shares; a
+    full sphere prints a round ``(+4.0000)*PI`` and a hemisphere
+    ``(+2.0000)*PI``.
     """
-    lo = np.radians(np.maximum(thetas - 0.5 * d_theta, thetas[0]))
-    hi = np.radians(np.minimum(thetas + 0.5 * d_theta, thetas[-1]))
-    band = np.cos(lo) - np.cos(hi)
-    columns = max(n_phi - 1, 1)
-    step = math.radians(d_phi) if d_phi else 2.0 * math.pi
-    total = float(np.sum(gain[:, :columns] * band[:, None])) * step
-    solid = float(np.sum(band)) * columns * step
-    average = total / solid if solid else 0.0
+    average, solid = average_gain(gain, thetas, d_theta, d_phi, n_phi)
     return (
         f"  AVERAGE POWER GAIN:{average:12.4E} - SOLID ANGLE USED IN AVERAGING: "
         f"({solid / math.pi:+7.4f})*PI STERADIANS"
@@ -3255,48 +3312,42 @@ def _average_gain_line(gain, thetas, d_theta, d_phi, n_phi) -> str:
 
 
 def _near_field_lines(card: Card, solver: DeckSolver, result: GroupResult) -> list[str]:
-    """The NEAR ELECTRIC / MAGNETIC FIELDS table for one ``NE``/``NH`` grid."""
+    """The NEAR ELECTRIC / MAGNETIC FIELDS table for one ``NE``/``NH`` grid.
+
+    The arithmetic is every seam's (:mod:`momwire._near_readout`,
+    momwire#1336): the element sum, plus the PEC image over a perfect ground,
+    plus ``C₂·image + remainder`` over the Sommerfeld one (``GN 2``,
+    momwire#550) — the same composition the NEC-5 seam answers its finite
+    grounds with, read off the same solve.  ``GN 0``'s reflection-coefficient
+    solve has no near-field spelling with a measurement behind it and
+    refuses by name, as do the two cells over a finite ground that no
+    composition answers (a point in the soil, a point on a wire's ground
+    contact) and a deck with a buried wire, whose sources sit in the regime
+    the point evaluator does not serve yet (momwire#524 phase 3).
+    """
     magnetic = card.mnemonic == "NH"
-    n_x, n_y, n_z = (max(card.i(k), 1) for k in (1, 2, 3))
-    start = np.array([card.f(4), card.f(5), card.f(6)])
-    step = np.array([card.f(7), card.f(8), card.f(9)])
     # NEC varies X fastest, then Y, then Z (dipole_ne_nearfield.out).
-    points = np.array(
-        [
-            start + np.array([ix, iy, iz]) * step
-            for iz in range(n_z)
-            for iy in range(n_y)
-            for ix in range(n_x)
-        ]
+    points = rectangular_grid(
+        tuple(max(card.i(k), 1) for k in (1, 2, 3)),
+        (card.f(4), card.f(5), card.f(6)),
+        (card.f(7), card.f(8), card.f(9)),
     )
-    ground = result.ground
-    if ground.kind in ("refl", "sommerfeld"):
-        raise PortalError(
-            f"{card.mnemonic} over a finite ground is not supported by this "
-            f"engine (the near field of a Sommerfeld half-space is not an image)"
-        )
+    ground = near_ground(result.solver)
+    if ground.kind == "refl-coef":
+        raise PortalError(REFUSE_NEAR_FIELD_REFL_COEF.format(card=card.mnemonic))
+    if ground.kind == "compose":
+        _refuse_finite_ground_near_field(card, solver, points, ground.ground_z)
     k = 2.0 * math.pi / result.wavelength
-    radius = solver._smallest_radius
-    mid, moment, nodes, delta = solver.current_elements(
-        result, subdiv=_NEAR_FIELD_SUBDIV
+    elements = solver.current_elements(result, subdiv=_NEAR_FIELD_SUBDIV)
+    field = near_field_at(
+        points,
+        elements,
+        k,
+        solver._smallest_radius,
+        magnetic,
+        ground,
+        result.solver.omega,
     )
-    field = _element_fields(points, (mid, moment, nodes, delta), k, radius, magnetic)
-    if ground.kind == "pec":
-        # The PEC image mirrors the current moments (horizontal components
-        # flip) and NEGATES the charge, which is the same statement: reversing
-        # a horizontal current reverses dI/ds, and mirroring a vertical one
-        # reverses the arc direction.
-        ground_z = result.ground_z
-        mid_img, moment_img = _image_moments(mid, moment, ground_z)
-        nodes_img = nodes.copy()
-        nodes_img[:, 2] = 2.0 * ground_z - nodes[:, 2]
-        field = field + _element_fields(
-            points,
-            (mid_img, moment_img, nodes_img, -delta),
-            k,
-            radius,
-            magnetic,
-        )
 
     header = _NEAR_H_HEADER if magnetic else _NEAR_E_HEADER
     table = _NEAR_H_TABLE_HEADER if magnetic else _NEAR_E_TABLE_HEADER
@@ -3328,6 +3379,45 @@ def _near_field_lines(card: Card, solver: DeckSolver, result: GroupResult) -> li
         out.append(fmt_near_field_row(point, fx, fy, fz))
     out.append(_NEAR_FIELD_TIME)
     return out
+
+
+def _refuse_finite_ground_near_field(card: Card, solver: DeckSolver, points, ground_z):
+    """Raise for a near-field grid a Sommerfeld composition cannot answer.
+
+    The cells are the NEC-5 seam's, asked through the same geometry
+    (:func:`~momwire._near_readout.near_point_refusal`); the sentences are
+    this door's own.
+    """
+    polylines = [np.array([w.p1, w.p2], dtype=float) for w in solver.wires]
+    for wire, polyline in zip(solver.wires, polylines):
+        tol = _ground_touch_tol(polyline)
+        if float(polyline[:, 2].min()) < ground_z - tol:
+            raise PortalError(
+                f"{card.mnemonic} asks for a field on a deck with a wire below the "
+                f"ground (tag {wire.tag}), and a buried deck's near field is not "
+                f"supported by this engine: the point evaluator serves sources "
+                f"above the interface only (momwire#524 phase 3). The deck's "
+                f"impedance, currents and radiation pattern are served"
+            )
+    verdict = near_point_refusal(points, polylines, ground_z)
+    if verdict is None:
+        return
+    kind, point, wire = verdict
+    where = f"({point[0]:g}, {point[1]:g}, {point[2]:g}) metres"
+    if kind == "below":
+        raise PortalError(
+            f"{card.mnemonic} asks for the field at {where}, which is below the "
+            f"finite ground; the field inside the soil is the transmitted field "
+            f"and this engine composes the field above the interface only. Every "
+            f"point at or above the ground is served"
+        )
+    raise PortalError(
+        f"{card.mnemonic} asks for the field at {where}, which is where wire "
+        f"{solver.wires[wire].tag} stands on the finite ground, and the field AT "
+        f"a wire's ground contact over a finite ground is singular (the image "
+        f"cancels the contact charge only by 2/(1+epsilon)), so no sampling of "
+        f"it converges. Every point off the contact is served"
+    )
 
 
 def _wire_arc_at_knot(solver, w_idx: int) -> np.ndarray:
@@ -3587,7 +3677,7 @@ def _render_run_block(
         ]
     if group.refilled or group.refilled_partial:
         out += [_LOADING_HEADER]
-        rows = _loading_rows(deck)
+        rows = _loading_rows(group.loads)
         if rows:
             out += [*_LOADING_TABLE_HEADER, *rows]
         else:
@@ -3789,6 +3879,7 @@ def deck_frame(body: str, terminator: str = "NX") -> tuple[list[str], list[str]]
     EN says will never come.
     """
     global _decks_rendered
+    _save_deck(body)
     out, err = render_deck(body)
     echoed = sum(1 for line in out if line.startswith("  DATA CARD No:"))
     out.append(fmt_data_card(echoed + 1, Card(terminator, (), terminator)))
@@ -4082,8 +4173,11 @@ def configure_engine(
     # the printout banner, and an unknown name from ANY of the three sources
     # fails fast and nonzero at the probe, naming its source.
     global _active_basis, _active_basis_name, _cache_serving, _cache_stats_path
+    global _save_decks_dir, _decks_saved
     _active_basis = _BASES["bspline"]  # per-invocation default, never sticky
     _active_basis_name = "bspline"
+    _save_decks_dir = None
+    _decks_saved = 0
     # The cross-deck cache and its two flags are per invocation for the same
     # reason, and the cache also because entries built under one basis must not
     # outlive it (the key carries the basis, so they could not be served anyway
@@ -4150,6 +4244,38 @@ def configure_engine(
             return [], False, 3
         _cache_stats_path = path
 
+    # --save-decks DIR writes every deck received to DIR (momwire#1080), so a
+    # SimNEC circuit scripted in its portal language can be taken out as
+    # cards. Off unless asked for; MOMWIRE_NEC2C_SAVE_DECKS is the fallback
+    # for hosts that pass environment rather than arguments, and the flag
+    # beats it as --basis beats MOMWIRE_NEC2C_BASIS. A directory that does not
+    # exist fails fast and nonzero at the -version probe, for --cache-stats'
+    # reason: a deck-time failure has no channel to say so.
+    save_dir: str | None = None
+    while "--save-decks" in rest or any(a.startswith("--save-decks=") for a in rest):
+        if "--save-decks" in rest:
+            k = rest.index("--save-decks")
+            save_dir = rest[k + 1] if k + 1 < len(rest) else ""
+            del rest[k : k + 2]
+        else:
+            k = next(i for i, a in enumerate(rest) if a.startswith("--save-decks="))
+            save_dir = rest.pop(k).split("=", 1)[1]
+        if not save_dir or save_dir.startswith("-"):
+            stdout.write("--save-decks needs a directory\n")
+            stdout.flush()
+            return [], False, 3
+    if save_dir is None:
+        save_dir = os.environ.get("MOMWIRE_NEC2C_SAVE_DECKS") or None
+    if save_dir is not None:
+        save_dir = os.path.expanduser(save_dir)
+        if not os.path.isdir(save_dir):
+            stdout.write(
+                f"--save-decks: {save_dir!r} is not a directory; create it first\n"
+            )
+            stdout.flush()
+            return [], False, 3
+        _save_decks_dir = save_dir
+
     # --cache is a bare flag on purpose: it has no parameter to get wrong, and
     # the cap is a constant rather than a knob (see `_CACHE_BYTES_CAP`).
     _cache_serving = "--cache" in rest
@@ -4199,8 +4325,16 @@ def engine_scope():
     it anyway and would only occupy the cap.
     """
     global _active_basis, _active_basis_name, _cache_serving, _cache_stats_path
+    global _save_decks_dir, _decks_saved
 
-    saved = (_active_basis, _active_basis_name, _cache_serving, _cache_stats_path)
+    saved = (
+        _active_basis,
+        _active_basis_name,
+        _cache_serving,
+        _cache_stats_path,
+        _save_decks_dir,
+        _decks_saved,
+    )
     try:
         yield
     finally:
@@ -4209,6 +4343,8 @@ def engine_scope():
             _active_basis_name,
             _cache_serving,
             _cache_stats_path,
+            _save_decks_dir,
+            _decks_saved,
         ) = saved
         _reset_solver_cache()
 

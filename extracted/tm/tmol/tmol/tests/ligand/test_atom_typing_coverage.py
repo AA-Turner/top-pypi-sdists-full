@@ -89,8 +89,6 @@ _MOLECULES: dict[str, str] = {
     # Aromatic-ring / non-aromatic-ring junction: exercises the conjugated
     # bond-order ring(N=C)-N-H exception probe across an aryl-to-alkene-ring bond.
     "phenylcyclohexene": "C1=C(CCCC1)c1ccccc1",
-    # Boron isn't in the element->classifier table -> unknown-element fallback.
-    "boronic_acid": "OB(O)O",
 }
 
 
@@ -122,6 +120,18 @@ def test_assign_tmol_atom_types_is_robust(name: str) -> None:
         assert a.element
     # Indices form a complete, unique cover of the molecule's atoms.
     assert {a.index for a in assignments} == set(range(mol.GetNumAtoms()))
+
+
+def test_assign_tmol_atom_types_refuses_an_unsupported_element() -> None:
+    """An element with no atom types of its own is an error, not a guess.
+
+    Typing it as anything else would give every one of its atoms another
+    element's radius, charge and hydrogen bonding for the whole run.
+    """
+    from tmol.ligand import assign_tmol_atom_types
+
+    with pytest.raises(ValueError, match="element B"):
+        assign_tmol_atom_types(_embed_3d("OB(O)O"))
 
 
 def test_assign_tmol_atom_types_spot_checks() -> None:
@@ -172,21 +182,6 @@ def test_assign_missing_hybridization_geometry_and_aromatic() -> None:
     hyb_n = {n_idx: 0}
     _assign_missing_hybridization(aniline, hyb_n, aro_ring)
     assert hyb_n[n_idx] in (HYB_SP2, HYB_SP3)
-
-
-def test_bond_is_planar() -> None:
-    """Planarity check covers the conformer, terminal-neighbor and angle paths."""
-    from tmol.ligand import _bond_is_planar
-
-    # No conformer -> defaults to planar (True).
-    flat = Chem.MolFromSmiles("C=CC=C")
-    assert _bond_is_planar(flat, 1, 2) is True
-
-    mol = _embed_3d("C=CC=C")
-    # Central bond: both atoms carry heavy neighbors -> dihedral evaluation.
-    assert isinstance(_bond_is_planar(mol, 1, 2), bool)
-    # Terminal bond: atom 0 has no other heavy neighbor -> early True.
-    assert _bond_is_planar(mol, 0, 1) is True
 
 
 class TestClassifierHelpers:

@@ -127,3 +127,21 @@ def test_a_continued_thread_reads_as_quoted_lines_under_the_marker() -> None:
     assert items[0]["thread"][1]["author_kind"] == "agent"
     text = next(c for c in turn.content if isinstance(c, RemarksInputContent)).metadata["resolved_text"]
     assert "> Dana Ruiz: Is 2h enough?\n> Front Desk Helper (agent): Most clinics use 24h." in text
+
+
+def test_the_authorship_record_carries_the_stamped_handles_too() -> None:
+    """The client's own user_content parse of the remarks gets the same id and
+    handle the provider payload got — every client that renders user_content
+    shows the handle (Harbor Dental's manager reloads her chat)."""
+    raw = {"type": REMARKS_PART_TYPE, "items": [_comment("a-1", "Add insurance."), _comment("a-1", "Add photo ID.", id="fe-2")]}
+    turn = UnifiedMessage.from_dict(
+        {"role": "user", "content": [dict(raw, items=[dict(i) for i in raw["items"]])],
+         "user_content": [dict(raw, items=[dict(i) for i in raw["items"]])]}
+    )
+    asyncio.run(resolve_structured_inputs(MessageList([_reply("a-1", "Form."), turn])))
+    assert turn.user_content is not None
+    authored = next(c for c in turn.user_content if isinstance(c, RemarksInputContent))
+    sent = next(c for c in turn.content if isinstance(c, RemarksInputContent))
+    assert [i["handle"] for i in authored.items] == ["c1", "c2"]
+    assert [i["id"] for i in authored.items] == [i["id"] for i in sent.items]
+    assert authored.items[1]["id"] == "fe-2"

@@ -69,7 +69,6 @@ from airbyte_ops_webapp.theme.tokens import (
     ERROR_CARD_CLASS,
     HERO_CARD_CLASS,
     MOCK_CARD_CLASS,
-    MORE_TOOLS_ICON_PATH,
     PAGE_CLASS,
     PAGE_SURFACE_CLASS,
     PANEL_CARD_CLASS,
@@ -92,7 +91,6 @@ from airbyte_ops_webapp.theme.tokens import (
     _app_root_class,
     _connector_version_manager_icon_svg,
     _is_light_theme,
-    _more_tools_icon_svg,
     _theme_mode,
 )
 
@@ -127,7 +125,6 @@ __all__ = [
     "ERROR_CARD_CLASS",
     "HERO_CARD_CLASS",
     "MOCK_CARD_CLASS",
-    "MORE_TOOLS_ICON_PATH",
     "PAGE_CLASS",
     "PAGE_SURFACE_CLASS",
     "PANEL_CARD_CLASS",
@@ -176,6 +173,5 @@ __all__ = [
     "_app_root_class",
     "_connector_version_manager_icon_svg",
     "_is_light_theme",
-    "_more_tools_icon_svg",
     "_theme_mode",
 ]

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from functools import singledispatch
+from typing import TypeVar
 
 import numpy as np
 
+import gymnasium as gym
 from gymnasium import Space
 from gymnasium.error import CustomSpaceError
 from gymnasium.spaces import (
@@ -22,9 +24,10 @@ from gymnasium.spaces import (
     Text,
     Tuple,
 )
-from gymnasium.spaces.space import T_cov
 
 __all__ = ["RunningMeanStd", "update_mean_var_count_from_moments", "create_zero_array"]
+
+_T = TypeVar("_T")
 
 
 class RunningMeanStd:
@@ -69,7 +72,7 @@ def update_mean_var_count_from_moments(
 
 
 @singledispatch
-def create_zero_array(space: Space[T_cov]) -> T_cov:
+def create_zero_array(space: Space[_T]) -> _T:
     """Creates a zero-based array of a space, this is similar to ``create_empty_array`` except all arrays are valid samples from the space.
 
     As some ``Box`` cases have ``high`` or ``low`` that don't contain zero then the ``create_empty_array`` would in case
@@ -139,11 +142,12 @@ def _create_text_zero_array(space: Text):
 
 @create_zero_array.register(Graph)
 def _create_graph_zero_array(space: Graph):
-    nodes = np.expand_dims(create_zero_array(space.node_space), axis=0)
+    nodes = create_zero_array(gym.vector.utils.batch_space(space.node_space, 1))
+
     if space.edge_space is None:
         return GraphInstance(nodes=nodes, edges=None, edge_links=None)
     else:
-        edges = np.expand_dims(create_zero_array(space.edge_space), axis=0)
+        edges = create_zero_array(gym.vector.utils.batch_space(space.edge_space, 1))
         edge_links = np.zeros((1, 2), dtype=np.int64)
         return GraphInstance(nodes=nodes, edges=edges, edge_links=edge_links)
 
@@ -171,27 +175,53 @@ def rescale_box(
         A tuple containing the rescaled box space, the forward transformation function (original -> rescaled) and the
         backward transformation function (rescaled -> original).
     """
-    assert isinstance(box, Box)
+    if not isinstance(box, Box):
+        raise TypeError(f"Expected box to be a Box space, got {type(box)}")
 
     if not isinstance(new_min, np.ndarray):
-        assert np.issubdtype(type(new_min), np.integer) or np.issubdtype(
-            type(new_min), np.floating
-        )
+        if not (
+            np.issubdtype(type(new_min), np.integer)
+            or np.issubdtype(type(new_min), np.floating)
+        ):
+            raise TypeError(
+                f"Expected new_min to be an integer, float, or numpy array, got {type(new_min)}"
+            )
         new_min = np.full(box.shape, new_min)
-    assert new_min.shape == box.shape, (
-        f"{new_min.shape}, {box.shape}, {new_min}, {box.low}"
-    )
+    if new_min.shape != box.shape:
+        raise ValueError(
+            f"Expected new_min.shape to be {box.shape}, got {new_min.shape}"
+        )
 
     if not isinstance(new_max, np.ndarray):
-        assert np.issubdtype(type(new_max), np.integer) or np.issubdtype(
-            type(new_max), np.floating
-        )
+        if not (
+            np.issubdtype(type(new_max), np.integer)
+            or np.issubdtype(type(new_max), np.floating)
+        ):
+            raise TypeError(
+                f"Expected new_max to be an integer, float, or numpy array, got {type(new_max)}"
+            )
         new_max = np.full(box.shape, new_max)
-    assert new_max.shape == box.shape
-    assert np.all((new_min == box.low)[np.isinf(new_min) | np.isinf(box.low)])
-    assert np.all((new_max == box.high)[np.isinf(new_max) | np.isinf(box.high)])
-    assert np.all(new_min <= new_max)
-    assert np.all(box.low <= box.high)
+    if new_max.shape != box.shape:
+        raise ValueError(
+            f"Expected new_max.shape to be {box.shape}, got {new_max.shape}"
+        )
+
+    if not np.all((new_min == box.low)[np.isinf(new_min) | np.isinf(box.low)]):
+        raise ValueError(
+            "For unbounded components, the target bounds must match the original infinity bounds."
+        )
+    if not np.all((new_max == box.high)[np.isinf(new_max) | np.isinf(box.high)]):
+        raise ValueError(
+            "For unbounded components, the target bounds must match the original infinity bounds."
+        )
+    if not np.all(new_min <= new_max):
+        raise ValueError(
+            f"Expected new_min to be less than or equal to new_max, got {new_min} and {new_max}"
+        )
+    if not np.all(box.low <= box.high):
+        raise ValueError(
+            f"Expected box.low to be less than or equal to box.high, got {box.low} and {box.high}"
+        )
 
     # Imagine the x-axis between the old Box and the y-axis being the new Box
     # float128 is not available everywhere

@@ -168,7 +168,7 @@ async def _run_labeler(mandate_key: str, variables: dict[str, str]) -> LabelResu
             mandate_key, consumer="conversation.labeler", variables=variables
         )
         model = held.model
-        result = await run_held_call(held, store=False)
+        result = await run_held_call(held)
         return LabelResult(success=True, output=result.final_text or "")
     except asyncio.CancelledError as exc:
         await _capture_labeler_failure(

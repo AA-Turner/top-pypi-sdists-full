@@ -32,6 +32,7 @@ from matrx_seo.contracts import (
 from matrx_seo.providers.dataforseo.backlinks import supports_backlink_endpoint
 from matrx_seo.providers.dataforseo.link_gap import supports_intersection_endpoint
 from matrx_seo.providers.dataforseo.operations import APPROVED_OPERATIONS
+from matrx_seo.reuse import reuse_window_seconds
 
 
 class CollectionCreateRequest(BaseModel):
@@ -167,6 +168,9 @@ class DataForSeoOperationOut(BaseModel):
     pricing_key: str
     raw_only: bool
     canonical_normalizer: bool
+    #: The ``seo.reuse_hours.<family>`` knob that governs reuse of this operation.
+    reuse_family: str | None
+    #: That knob's window for the caller (organization + person), in seconds.
     freshness_ttl_seconds: int
     endpoint_examples: list[DataForSeoEndpointExampleOut]
 
@@ -228,8 +232,15 @@ class RunEvidenceResponse(BaseModel):
     raw_payloads: list[RawPayloadEvidenceOut]
 
 
-def dataforseo_operations_catalog() -> DataForSeoOperationsResponse:
-    """The approved DataForSEO operation catalog, projected for the API."""
+async def dataforseo_operations_catalog(
+    organization_id: str | None = None, user_id: str | None = None
+) -> DataForSeoOperationsResponse:
+    """The approved DataForSEO operation catalog, projected for the API, with
+    each operation's reuse window as this organization and person see it."""
+    windows = {
+        family: await reuse_window_seconds(family, organization_id, user_id)
+        for family in {op.provider_operation.reuse_family for op in APPROVED_OPERATIONS}
+    }
     return DataForSeoOperationsResponse(
         operations=[
             DataForSeoOperationOut(
@@ -251,7 +262,8 @@ def dataforseo_operations_catalog() -> DataForSeoOperationsResponse:
                         )
                     )
                 ),
-                freshness_ttl_seconds=operation.provider_operation.freshness_ttl_seconds,
+                reuse_family=operation.provider_operation.reuse_family,
+                freshness_ttl_seconds=windows[operation.provider_operation.reuse_family],
                 endpoint_examples=[
                     DataForSeoEndpointExampleOut(
                         endpoint=example.endpoint,

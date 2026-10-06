@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import Iterable, Sequence
+from typing import Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
-from gymnasium.spaces.space import MaskNDArray, Space
+from gymnasium.spaces.space import Space
 
 
 class MultiBinary(Space[NDArray[np.int8]]):
@@ -28,11 +28,14 @@ class MultiBinary(Space[NDArray[np.int8]]):
                [1, 1]], dtype=int8)
     """
 
+    dtype: np.dtype[np.int8]
+    n: int | tuple[int, ...]
+
     def __init__(
         self,
         n: NDArray[np.integer[Any]] | Sequence[int] | int,
         seed: int | np.random.Generator | None = None,
-    ):
+    ) -> None:
         """Constructor of :class:`MultiBinary` space.
 
         Args:
@@ -43,10 +46,12 @@ class MultiBinary(Space[NDArray[np.int8]]):
         if isinstance(n, int):
             self.n = n = int(n)
             input_n = (n,)
-            assert (np.asarray(input_n) > 0).all()  # n (counts) have to be positive
+            if not (np.asarray(input_n) > 0).all():
+                raise ValueError(f"n (counts) have to be positive, got {n}")
         elif isinstance(n, (Sequence, np.ndarray)):
             self.n = input_n = tuple(int(i) for i in n)
-            assert (np.asarray(input_n) > 0).all()  # n (counts) have to be positive
+            if not (np.asarray(input_n) > 0).all():
+                raise ValueError(f"n (counts) have to be positive, got {n}")
         else:
             raise ValueError(
                 f"Expected n to be an int or a sequence of ints, actual type: {type(n)}"
@@ -60,12 +65,14 @@ class MultiBinary(Space[NDArray[np.int8]]):
         return self._shape  # type: ignore
 
     @property
-    def is_np_flattenable(self):
+    def is_np_flattenable(self) -> Literal[True]:
         """Checks whether this space can be flattened to a :class:`spaces.Box`."""
         return True
 
     def sample(
-        self, mask: MaskNDArray | None = None, probability: MaskNDArray | None = None
+        self,
+        mask: NDArray[np.int8] | None = None,
+        probability: NDArray[np.int8] | None = None,
     ) -> NDArray[np.int8]:
         """Generates a single random sample from this space.
 
@@ -137,9 +144,9 @@ class MultiBinary(Space[NDArray[np.int8]]):
             and np.all(np.logical_or(x == 0, x == 1))
         )
 
-    def to_jsonable(self, sample_n: Sequence[NDArray[np.int8]]) -> list[Sequence[int]]:
+    def to_jsonable(self, sample_n: Iterable[NDArray[np.int8]]) -> list[Sequence[int]]:
         """Convert a batch of samples from this space to a JSONable data type."""
-        return np.array(sample_n).tolist()
+        return np.array(list(sample_n)).tolist()
 
     def from_jsonable(self, sample_n: list[Sequence[int]]) -> list[NDArray[np.int8]]:
         """Convert a JSONable data type to a batch of samples from this space."""
@@ -149,6 +156,6 @@ class MultiBinary(Space[NDArray[np.int8]]):
         """Gives a string representation of this space."""
         return f"MultiBinary({self.n})"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object, /) -> bool:
         """Check whether `other` is equivalent to this instance."""
         return isinstance(other, MultiBinary) and self.n == other.n

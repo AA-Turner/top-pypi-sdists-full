@@ -1,6 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 import logging
 import os
+import sys
 import threading
 from typing import Callable, Dict, Sequence, TypeVar
 import warnings
@@ -34,6 +36,7 @@ SFXN_FORMAT_VERSION: str = "1.0"
 _CUDA_ROTAMER_LAYOUT_DEDUP_MIN_BYTES = 16 * 1024 * 1024
 _CPU_ROTAMER_SORTED_LAYOUT_MIN_NNZ = 4096
 _MAX_CPU_SCORE_TERM_WORKERS = 4
+_MAX_CPU_FUSED_SCORE_WORKERS = 16
 _CPU_PARALLEL_SCORE_BACKWARD_MIN_COORD_ELEMENTS = 8192
 # Independent CUDA terms overlap profitably for one large pose or a wide batch,
 # but stream setup and coordination cost more than they save for small poses.
@@ -41,9 +44,61 @@ _CUDA_PARALLEL_SCORE_MIN_COORD_ELEMENTS = 20 * 1024
 # Backward has more stream-coordination overhead than inference. Keep eager
 # gradient scoring serial until the batch is large enough to amortize it.
 _CUDA_PARALLEL_GRAD_SCORE_MIN_COORD_ELEMENTS = 100 * 1024
+# Reducing LJ/LK and electrostatics to one weighted lane saves device work for
+# wide CUDA workloads, but the extra native dispatch is slower for small eager
+# calls. These cutoffs retain the established latency path for those calls.
+_CUDA_WEIGHTED_FUSED_MIN_SINGLE_POSE_ATOMS = 15_000
+_CUDA_WEIGHTED_FUSED_MIN_BATCH_ATOMS_PER_POSE = 2_000
+_CUDA_WEIGHTED_FUSED_MIN_GRAD_COORD_ELEMENTS = 64 * 1024
+_PACK_ROTAMER_BLOCK_PAIR_WINDOW = 4 * 1024 * 1024
+_PACK_FUSED_ROTAMER_SCORE_WINDOW = 4 * 1024 * 1024
 _CPU_SCORE_TERM_EXECUTORS: dict[int, ThreadPoolExecutor] = {}
 _CPU_SCORE_TERM_EXECUTOR_LOCK = threading.Lock()
 _ScoreCallResult = TypeVar("_ScoreCallResult")
+
+
+def _use_weighted_fused_score(
+    coords: torch.Tensor,
+    *,
+    force_for_cuda_graph: bool = False,
+    needs_gradient: bool | None = None,
+) -> bool:
+    """Select weighted native reduction without latency or stability regressions."""
+    if force_for_cuda_graph:
+        return True
+    if coords.device.type == "cpu":
+        if needs_gradient is None:
+            needs_gradient = torch.is_grad_enabled() and coords.requires_grad
+        # Apple's CPU backend needs independent gradient lanes to keep
+        # heterogeneous minimization trajectories stable. Linux CPU backends
+        # retain the faster compact weighted reduction.
+        return not needs_gradient or sys.platform != "darwin"
+
+    if needs_gradient is None:
+        needs_gradient = torch.is_grad_enabled() and coords.requires_grad
+
+    if (
+        needs_gradient
+        and coords.numel() >= _CUDA_WEIGHTED_FUSED_MIN_GRAD_COORD_ELEMENTS
+    ):
+        return True
+
+    n_poses = coords.shape[0]
+    atoms_per_pose = coords.shape[-2]
+    if n_poses == 1:
+        return atoms_per_pose >= _CUDA_WEIGHTED_FUSED_MIN_SINGLE_POSE_ATOMS
+    return atoms_per_pose >= _CUDA_WEIGHTED_FUSED_MIN_BATCH_ATOMS_PER_POSE
+
+
+def _rotamer_dispatch_cutoff_compatible(
+    device_type: str,
+    producer_cutoff: float,
+    consumer_cutoff: float,
+) -> bool:
+    """Select exact layouts everywhere and larger-cutoff supersets on CUDA."""
+    return producer_cutoff == consumer_cutoff or (
+        device_type == "cuda" and producer_cutoff > consumer_cutoff
+    )
 
 
 def _cpu_score_term_executor(n_workers: int) -> ThreadPoolExecutor:
@@ -85,6 +140,8 @@ def _score_call_in_thread(
     autocast_enabled: bool,
     autocast_dtype: torch.dtype,
     autocast_cache_enabled: bool,
+    shared_block_neighbors: torch.Tensor | None = None,
+    fused_score_weights: torch.Tensor | None = None,
 ) -> _ScoreCallResult:
     """Evaluate one CPU score term with the caller's thread-local modes."""
     with (
@@ -97,7 +154,13 @@ def _score_call_in_thread(
             cache_enabled=autocast_cache_enabled,
         ),
     ):
-        return score_call(coords)
+        if fused_score_weights is not None:
+            if shared_block_neighbors is None:
+                return score_call(coords, fused_score_weights)
+            return score_call(coords, shared_block_neighbors, fused_score_weights)
+        if shared_block_neighbors is None:
+            return score_call(coords)
+        return score_call(coords, shared_block_neighbors)
 
 
 def _score_grad_in_thread(
@@ -128,6 +191,7 @@ class _ParallelScoreTerms(torch.autograd.Function):
     def forward(
         ctx,
         coords: torch.Tensor,
+        shared_block_neighbors: torch.Tensor | None,
         executor: ThreadPoolExecutor,
         term_modules: Sequence[torch.nn.Module],
         autocast_enabled: bool,
@@ -145,6 +209,11 @@ class _ParallelScoreTerms(torch.autograd.Function):
                 autocast_enabled,
                 autocast_dtype,
                 autocast_cache_enabled,
+                (
+                    shared_block_neighbors
+                    if getattr(term, "block_neighbor_cutoff", None) is not None
+                    else None
+                ),
             )
             for term in term_modules
         ]
@@ -199,7 +268,7 @@ class _ParallelScoreTerms(torch.autograd.Function):
                 grad_coords = (
                     term_grad if grad_coords is None else grad_coords + term_grad
                 )
-        return grad_coords, None, None, None, None, None
+        return grad_coords, None, None, None, None, None, None
 
 
 def _linearize_rotamer_indices(indices: torch.Tensor, n_rots: int) -> torch.Tensor:
@@ -252,6 +321,11 @@ def _try_coalesce_cpu_rotamer_layouts(
     )
 
 
+def _weighted_score_sum(weights: torch.Tensor, scores: torch.Tensor) -> torch.Tensor:
+    """Reduce score lanes without materializing a lane-sized product."""
+    return torch.matmul(weights, scores)
+
+
 class ScoreFunction:
     """Weighted collection of energy terms rendered for a pose topology.
 
@@ -293,6 +367,8 @@ class ScoreFunction:
         self._options_version = 0
         self._prepared_packed_block_types = None
         self._prepared_versions = None
+        self._prepared_block_type_ids = None
+        self._prepared_packed_annotation_names = ()
         self._setup_token = object()
 
         self.term_options = {}
@@ -457,9 +533,14 @@ class ScoreFunction:
         its output buffer; clone an output that must survive the next call.
         """
         self.pre_work_initialization(pose_stack)
-        term_modules = [
-            t.render_whole_pose_scoring_module(pose_stack) for t in self.all_terms()
-        ]
+        term_modules = []
+        for term in self.all_terms():
+            module = term.render_whole_pose_scoring_module(pose_stack)
+            # Retain the score-lane width without evaluating the module.  The
+            # default weighted fused path uses this metadata to map its scalar
+            # contribution back onto the live score-function weight buffer.
+            module.n_score_types = len(term.score_types())
+            term_modules.append(module)
         scoring_module = WholePoseScoringModule(self.weights_tensor(), term_modules)
         if cuda_graph:
             mode = "both" if cuda_graph is True else cuda_graph
@@ -507,17 +588,20 @@ class ScoreFunction:
             results may already be coalesced.
         """
         self.pre_work_initialization(pose_stack)
-        term_modules = [
-            t.render_rotamer_scoring_module(pose_stack, rotamer_set)
-            for t in self.all_terms()
-        ]
+        term_modules = []
+        for term in self.all_terms():
+            module = term.render_rotamer_scoring_module(pose_stack, rotamer_set)
+            module.n_score_types = len(term.score_types())
+            term_modules.append(module)
         return RotamerScoringModule(self.weights_tensor(), term_modules)
 
     def pre_work_initialization(self, pose_stack: PoseStack) -> None:
         """Prepare active energy terms for a pose topology.
 
         Repeated calls reuse topology-dependent setup when neither the terms,
-        their options, nor the packed block types have changed.
+        their options, nor the packed block types have changed. A newly built
+        PackedBlockTypes with the same ordered residue-type objects can reuse
+        the previous packed annotations.
 
         Args:
             pose_stack: Poses whose topology will be scored.
@@ -530,17 +614,46 @@ class ScoreFunction:
 
         packed_block_types = pose_stack.packed_block_types
         versions = (self._terms_version, self._options_version)
-        if not (
+        same_object = (
             packed_block_types is self._prepared_packed_block_types
             and versions == self._prepared_versions
             and getattr(packed_block_types, "_score_setup_token", None)
             is self._setup_token
-        ):
-            for block_type in packed_block_types.active_block_types:
-                for energy_term in terms:
-                    energy_term.setup_block_type(block_type)
+        )
+        if not same_object:
+            block_type_ids = tuple(
+                id(block_type) for block_type in packed_block_types.active_block_types
+            )
+            previous = self._prepared_packed_block_types
+            same_block_types = (
+                previous is not None
+                and versions == self._prepared_versions
+                and block_type_ids == self._prepared_block_type_ids
+                and getattr(previous, "_score_setup_token", None) is self._setup_token
+            )
+            if same_block_types:
+                for name in self._prepared_packed_annotation_names:
+                    setattr(packed_block_types, name, getattr(previous, name))
+            else:
+                for block_type in packed_block_types.active_block_types:
+                    for energy_term in terms:
+                        energy_term.setup_block_type(block_type)
+
+            attributes_before = dict(vars(packed_block_types))
             for energy_term in terms:
                 energy_term.setup_packed_block_types(packed_block_types)
+            annotations = {
+                name
+                for name, value in vars(packed_block_types).items()
+                if name not in attributes_before or attributes_before[name] is not value
+            }
+            annotations.update(
+                name
+                for name in self._prepared_packed_annotation_names
+                if hasattr(packed_block_types, name)
+            )
+            self._prepared_packed_annotation_names = tuple(sorted(annotations))
+            self._prepared_block_type_ids = block_type_ids
             self._prepared_packed_block_types = packed_block_types
             self._prepared_versions = versions
             # Packed-block annotations can be score-function-specific (for
@@ -667,6 +780,137 @@ class ScoreFunction:
         return sorted_term_list, sorted_score_type_list
 
 
+def _ljlk_elec_native_arguments(ljlk, elec, coords):
+    """Collect dtype-adjusted arguments shared by LJ/LK--Elec fusion paths."""
+    ljlk_tail = ljlk._static_tail_for_coords(coords)
+    elec_tail = elec._static_tail_for_coords(coords)
+    n_common = len(ljlk.common_parameters)
+    common = ljlk_tail[:n_common]
+    # Every ordinary term wrapper appends its block-pair-scoring flag.
+    lp = ljlk_tail[n_common:-1]
+    ep = elec_tail[len(elec.common_parameters) : -1]
+    return (
+        coords.flatten(start_dim=0, end_dim=-2),
+        *common,
+        lp[0],
+        lp[1],
+        lp[2],
+        lp[5],
+        lp[6],
+        lp[7],
+        lp[8],
+        lp[9],
+        lp[10],
+        lp[11],
+        ep[3],
+        ep[6],
+        ep[7],
+        ep[9],
+    )
+
+
+class _FusedLJLKAndElecWholePoseModule(torch.nn.Module):
+    """Internal execution group retaining four independent score lanes."""
+
+    def __init__(self, ljlk_module, elec_module):
+        super().__init__()
+        self.ljlk_module = ljlk_module
+        self.elec_module = elec_module
+        self.classname = "LJLK+Elec"
+        self.block_neighbor_cutoff = max(
+            ljlk_module.block_neighbor_cutoff, elec_module.block_neighbor_cutoff
+        )
+        self.n_score_types = ljlk_module.n_score_types + elec_module.n_score_types
+        # Topology is fixed at render time; count once, before graph capture.
+        # Native rotamer arrays include padding on jagged pose stacks.
+        self.n_valid_rots = -1
+        block_types = ljlk_module.common_parameters[3]
+        # Below the native gradient threshold, even all-valid storage cannot
+        # benefit from specialization; avoid a device synchronization there.
+        if block_types.is_cuda and block_types.numel() >= 1024:
+            self.n_valid_rots = int((block_types >= 0).sum().item())
+
+    def build_compact_block_neighbors(self, coords, reach):
+        return self.ljlk_module.build_compact_block_neighbors(coords, reach)
+
+    def _native_arguments(self, coords, shared_block_neighbors):
+        return (
+            *_ljlk_elec_native_arguments(self.ljlk_module, self.elec_module, coords),
+            shared_block_neighbors,
+        )
+
+    def forward(self, coords, shared_block_neighbors=None):
+        if shared_block_neighbors is None:
+            return torch.cat(
+                (self.ljlk_module(coords), self.elec_module(coords)), dim=0
+            )
+        from tmol.score.ljlk.potentials import ljlk_elec_pose_scores
+
+        # Preserve the normal term wrapper's lazy float64 support.  The
+        # composite selects arguments from each child's dtype-adjusted static
+        # tail rather than bypassing it and reading raw float32 parameters.
+        (scores,) = ljlk_elec_pose_scores(
+            *self._native_arguments(coords, shared_block_neighbors), self.n_valid_rots
+        )
+        return scores
+
+    def forward_weighted(self, coords, shared_block_neighbors, score_weights):
+        """Return one weighted lane while retaining the decomposed fallback."""
+        from tmol.score.ljlk.potentials import ljlk_elec_weighted_pose_scores
+
+        if score_weights.dtype != coords.dtype:
+            score_weights = score_weights.to(dtype=coords.dtype)
+        (scores,) = ljlk_elec_weighted_pose_scores(
+            *self._native_arguments(coords, shared_block_neighbors),
+            score_weights,
+            self.n_valid_rots,
+        )
+        return scores
+
+
+def _whole_pose_execution_modules(term_modules, device):
+    """Build conservative built-in execution groups without changing lanes."""
+    grouped = []
+    index = 0
+    while index < len(term_modules):
+        if index + 1 < len(term_modules):
+            first = term_modules[index]
+            second = term_modules[index + 1]
+            is_builtin_pair = False
+            if (
+                getattr(first, "classname", None) == "LJLK"
+                and getattr(second, "classname", None) == "Elec"
+            ):
+                from tmol.score.elec.potentials import elec_pose_scores
+                from tmol.score.ljlk.potentials import ljlk_pose_scores
+
+                is_builtin_pair = (
+                    getattr(first, "term_score_poses", None) is ljlk_pose_scores
+                    and getattr(second, "term_score_poses", None) is elec_pose_scores
+                )
+            if (
+                is_builtin_pair
+                and getattr(first, "block_neighbor_cutoff", None) is not None
+                and getattr(second, "block_neighbor_cutoff", None) is not None
+                and not any(
+                    parameter.requires_grad
+                    for term in (first, second)
+                    for parameter in term.parameters()
+                )
+                and not (
+                    device.type == "cpu"
+                    and torch.get_num_threads() > 1
+                    and getattr(first, "n_poses", None) != 1
+                )
+            ):
+                grouped.append(_FusedLJLKAndElecWholePoseModule(first, second))
+                index += 2
+                continue
+        grouped.append(term_modules[index])
+        index += 1
+    return tuple(grouped)
+
+
 class WholePoseScoringModule:
     """Rendered energy modules that score complete poses."""
 
@@ -677,9 +921,12 @@ class WholePoseScoringModule:
     ):
         self.weights = torch.nn.Parameter(weights.unsqueeze(1), requires_grad=False)
         self.term_modules = tuple(term_modules)
+        self._execution_modules = _whole_pose_execution_modules(
+            self.term_modules, weights.device
+        )
         self._active_term_indices = tuple(
             index
-            for index, term in enumerate(self.term_modules)
+            for index, term in enumerate(self._execution_modules)
             if not isinstance(term, ZeroTermPoseScoringModule)
         )
         self._has_trainable_term_parameters = any(
@@ -688,9 +935,117 @@ class WholePoseScoringModule:
             for parameter in term.parameters()
         )
         self._cpu_term_workers = _cpu_score_term_worker_count(
-            len(self.term_modules), weights.device
+            len(self._execution_modules), weights.device
+        )
+        self._fused_ljlk_elec_module_index = next(
+            (
+                index
+                for index, term in enumerate(self._execution_modules)
+                if isinstance(term, _FusedLJLKAndElecWholePoseModule)
+            ),
+            None,
+        )
+        self._fused_ljlk_elec_weight_range = None
+        if self._fused_ljlk_elec_module_index is not None:
+            fused_index = self._fused_ljlk_elec_module_index
+            if all(
+                hasattr(term, "n_score_types")
+                for term in self._execution_modules[: fused_index + 1]
+            ):
+                weight_begin = sum(
+                    term.n_score_types for term in self._execution_modules[:fused_index]
+                )
+                self._fused_ljlk_elec_weight_range = (
+                    weight_begin,
+                    weight_begin + self._execution_modules[fused_index].n_score_types,
+                )
+        cpu_threads = torch.get_num_threads() if weights.device.type == "cpu" else 1
+        # Use the same compact execution policy for single- and multi-pose
+        # scorers so batching cannot perturb nonlinear minimization trajectories.
+        self._cpu_fused_shards = (
+            min(8, max(2, cpu_threads // 2))
+            if self._fused_ljlk_elec_module_index is not None and cpu_threads >= 2
+            else 0
+        )
+        self._cpu_fused_workers = min(
+            _MAX_CPU_FUSED_SCORE_WORKERS,
+            cpu_threads,
+            self._cpu_fused_shards + max(0, len(self._execution_modules) - 1),
         )
         self._cuda_term_streams: tuple[torch.cuda.Stream, ...] | None = None
+        self._shared_neighbor_term_indices = tuple(
+            index
+            for index, term in enumerate(self.term_modules)
+            if getattr(term, "block_neighbor_cutoff", None) is not None
+        )
+        self._shared_neighbor_cutoff = max(
+            (
+                self.term_modules[index].block_neighbor_cutoff
+                for index in self._shared_neighbor_term_indices
+            ),
+            default=None,
+        )
+
+    def _build_shared_block_neighbors(
+        self, coords: torch.Tensor
+    ) -> torch.Tensor | None:
+        if len(self._shared_neighbor_term_indices) < 2:
+            return None
+        builder = self.term_modules[self._shared_neighbor_term_indices[0]]
+        return builder.build_compact_block_neighbors(
+            coords, self._shared_neighbor_cutoff
+        )
+
+    @staticmethod
+    def _call_term(term, coords, shared_block_neighbors, fused_score_weights=None):
+        if fused_score_weights is not None:
+            return term.forward_weighted(
+                coords, shared_block_neighbors, fused_score_weights
+            )
+        if (
+            shared_block_neighbors is not None
+            and getattr(term, "block_neighbor_cutoff", None) is not None
+        ):
+            return term(coords, shared_block_neighbors)
+        return term(coords)
+
+    def _can_use_weighted_fused_default(self, coords: torch.Tensor) -> bool:
+        """Whether default scoring can consume the fused scalar contribution."""
+        needs_gradient = torch.is_grad_enabled() and coords.requires_grad
+        # Weighted fusion intentionally discards the four independent native
+        # lanes. Preserve the canonical Python weighting path when callers opt
+        # into fitting score-function weights.
+        if torch.is_grad_enabled() and self.weights.requires_grad:
+            return False
+        if self._fused_ljlk_elec_weight_range is None or not _use_weighted_fused_score(
+            coords,
+            force_for_cuda_graph=getattr(
+                self, "_force_weighted_fusion_for_cuda_graph", False
+            ),
+            needs_gradient=needs_gradient,
+        ):
+            return False
+        # The generic CPU parallel autograd wrapper expects canonical term-lane
+        # widths. One-thread CPU, the explicit fused-shard path, and all CUDA
+        # execution paths can consume the compact weighted lane directly.
+        if coords.device.type == "cuda" or self._cpu_term_workers < 2:
+            return True
+        if self._cpu_fused_shards < 2:
+            return False
+        return needs_gradient or self._cpu_fused_shards <= 2
+
+    def _reduce_weighted_fused_lanes(self, score_lanes: torch.Tensor) -> torch.Tensor:
+        """Combine one already-weighted fused lane in one native reduction."""
+        from tmol.score.ljlk.potentials import weighted_fused_score_sum
+
+        weight_begin, weight_end = self._fused_ljlk_elec_weight_range
+        score_weights = self.weights
+        if score_weights.dtype != score_lanes.dtype:
+            score_weights = score_weights.to(dtype=score_lanes.dtype)
+        (scores,) = weighted_fused_score_sum(
+            score_lanes, score_weights, weight_begin, weight_end - weight_begin
+        )
+        return scores
 
     def __call__(
         self,
@@ -710,14 +1065,38 @@ class WholePoseScoringModule:
                 return self._cuda_graphed_forward(coords)
         if not torch.is_grad_enabled() and coords.requires_grad:
             coords = coords.detach()
-        unweighted = self.unweighted_scores(coords)
+        fused_score_weights = None
+        if sum_terms and apply_weights and self._can_use_weighted_fused_default(coords):
+            weight_begin, weight_end = self._fused_ljlk_elec_weight_range
+            fused_score_weights = self.weights[weight_begin:weight_end, 0]
+        unweighted = self.unweighted_scores(
+            coords, fused_score_weights=fused_score_weights
+        )
+        if fused_score_weights is not None:
+            return self._reduce_weighted_fused_lanes(unweighted)
         weighted = unweighted.mul_(self.weights) if apply_weights else unweighted
         summed = torch.sum(weighted, dim=0) if sum_terms else weighted
 
         return summed
 
-    def unweighted_scores(self, coords: torch.Tensor) -> torch.Tensor:
+    def unweighted_scores(
+        self,
+        coords: torch.Tensor,
+        *,
+        fused_score_weights: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         needs_grad = torch.is_grad_enabled() and coords.requires_grad
+        shared_block_neighbors = self._build_shared_block_neighbors(coords)
+        execution_modules = (
+            self._execution_modules
+            if shared_block_neighbors is not None
+            else self.term_modules
+        )
+        active_term_indices = tuple(
+            index
+            for index, term in enumerate(execution_modules)
+            if not isinstance(term, ZeroTermPoseScoringModule)
+        )
         parallel_min_elements = (
             _CUDA_PARALLEL_GRAD_SCORE_MIN_COORD_ELEMENTS
             if needs_grad
@@ -726,18 +1105,58 @@ class WholePoseScoringModule:
         if (
             coords.device.type == "cuda"
             and not (torch.is_grad_enabled() and self._has_trainable_term_parameters)
-            and len(self._active_term_indices) >= 2
+            and len(active_term_indices) >= 2
             and coords.numel() >= parallel_min_elements
         ):
-            cuda_scores = self._parallel_cuda_scores(coords, needs_grad)
+            cuda_scores = self._parallel_cuda_scores(
+                coords,
+                needs_grad,
+                shared_block_neighbors,
+                execution_modules,
+                active_term_indices,
+                fused_score_weights,
+            )
             if cuda_scores is not None:
                 return torch.cat(cuda_scores, dim=0)
 
         cpu_workers = self._cpu_term_workers
+        if execution_modules is not self._execution_modules:
+            cpu_workers = min(
+                cpu_workers,
+                _cpu_score_term_worker_count(len(execution_modules), coords.device),
+            )
         if torch.is_grad_enabled() and self._has_trainable_term_parameters:
             cpu_workers = 0
+        if (
+            self._cpu_fused_shards >= 2
+            and not self._has_trainable_term_parameters
+            and shared_block_neighbors is not None
+        ):
+            fused_scores = self._parallel_cpu_fused_scores(
+                coords,
+                needs_grad,
+                shared_block_neighbors,
+                fused_score_weights,
+            )
+            if fused_scores is not None:
+                return fused_scores
         if cpu_workers < 2:
-            return torch.cat([term(coords) for term in self.term_modules], dim=0)
+            return torch.cat(
+                [
+                    self._call_term(
+                        term,
+                        coords,
+                        shared_block_neighbors,
+                        (
+                            fused_score_weights
+                            if index == self._fused_ljlk_elec_module_index
+                            else None
+                        ),
+                    )
+                    for index, term in enumerate(execution_modules)
+                ],
+                dim=0,
+            )
 
         executor = _cpu_score_term_executor(cpu_workers)
         autocast_context = (
@@ -748,8 +1167,9 @@ class WholePoseScoringModule:
         if needs_grad:
             return _ParallelScoreTerms.apply(
                 coords,
+                shared_block_neighbors,
                 executor,
-                self.term_modules,
+                execution_modules,
                 *autocast_context,
             )
 
@@ -759,16 +1179,117 @@ class WholePoseScoringModule:
             *autocast_context,
         )
         futures = [
-            executor.submit(_score_call_in_thread, term, coords, *context)
-            for term in self.term_modules
+            executor.submit(
+                _score_call_in_thread,
+                term,
+                coords,
+                *context,
+                (
+                    shared_block_neighbors
+                    if getattr(term, "block_neighbor_cutoff", None) is not None
+                    else None
+                ),
+            )
+            for term in execution_modules
         ]
         return torch.cat([future.result() for future in futures], dim=0)
 
+    def _parallel_cpu_fused_scores(
+        self,
+        coords: torch.Tensor,
+        needs_grad: bool,
+        shared_block_neighbors: torch.Tensor,
+        fused_score_weights: torch.Tensor | None = None,
+    ) -> torch.Tensor | None:
+        """Shard a fused pair traversal while other CPU terms run concurrently."""
+        fused_index = self._fused_ljlk_elec_module_index
+        if fused_index is None or self._cpu_fused_workers < 2:
+            return None
+        n_neighbors = int(shared_block_neighbors[0])
+        desired_shards = self._cpu_fused_shards
+        if coords.numel() < 16 * 1024:
+            desired_shards = min(desired_shards, 4)
+        n_shards = min(desired_shards, max(1, n_neighbors))
+        if n_shards < 2 and fused_score_weights is None:
+            return None
+
+        neighbor_shards = []
+        for shard in range(n_shards):
+            begin = n_neighbors * shard // n_shards
+            end = n_neighbors * (shard + 1) // n_shards
+            neighbor_shards.append(
+                torch.cat(
+                    (
+                        shared_block_neighbors.new_tensor([end - begin]),
+                        shared_block_neighbors[1 + begin : 1 + end],
+                    )
+                )
+            )
+
+        executor = _cpu_score_term_executor(self._cpu_fused_workers)
+        autocast_context = (
+            torch.is_autocast_enabled("cpu"),
+            torch.get_autocast_dtype("cpu"),
+            torch.is_autocast_cache_enabled(),
+        )
+        fused_term = self._execution_modules[fused_index]
+        fused_call = (
+            partial(fused_term.forward_weighted, score_weights=fused_score_weights)
+            if fused_score_weights is not None
+            else fused_term
+        )
+        calls = [
+            partial(fused_call, shared_block_neighbors=shard)
+            for shard in neighbor_shards
+        ]
+        calls.extend(
+            partial(
+                self._call_term, term, shared_block_neighbors=shared_block_neighbors
+            )
+            for index, term in enumerate(self._execution_modules)
+            if index != fused_index
+        )
+        if needs_grad:
+            # Forward completion order must not determine gradient accumulation.
+            # Reuse the ordered backward used by ordinary parallel CPU terms.
+            combined = _ParallelScoreTerms.apply(
+                coords, None, executor, calls, *autocast_context
+            )
+        else:
+            futures = [
+                executor.submit(
+                    _score_call_in_thread,
+                    call,
+                    coords,
+                    torch.is_grad_enabled(),
+                    torch.is_inference_mode_enabled(),
+                    *autocast_context,
+                )
+                for call in calls
+            ]
+            combined = torch.cat([future.result() for future in futures], dim=0)
+        width = 1 if fused_score_weights is not None else fused_term.n_score_types
+        fused_end = n_shards * width
+        fused_scores = combined[:fused_end].reshape(n_shards, width, -1).sum(dim=0)
+        offset = sum(
+            term.n_score_types for term in self._execution_modules[:fused_index]
+        )
+        other = combined[fused_end:]
+        return torch.cat((other[:offset], fused_scores, other[offset:]), dim=0)
+
     def _parallel_cuda_scores(
-        self, coords: torch.Tensor, needs_grad: bool
+        self,
+        coords: torch.Tensor,
+        needs_grad: bool,
+        shared_block_neighbors: torch.Tensor | None,
+        execution_modules: Sequence[torch.nn.Module],
+        active_term_indices: Sequence[int],
+        fused_score_weights: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, ...] | None:
         """Run independent large-workload score terms on separate streams."""
-        if self._cuda_term_streams is None:
+        if self._cuda_term_streams is None or len(self._cuda_term_streams) != len(
+            active_term_indices
+        ):
             # Creating side streams during an unrelated user capture is unsafe.
             # Our graph wrapper warms this path first, so its streams already
             # exist when capture begins.
@@ -776,31 +1297,48 @@ class WholePoseScoringModule:
                 if torch.cuda.is_current_stream_capturing():
                     return None
             self._cuda_term_streams = tuple(
-                torch.cuda.Stream(device=coords.device)
-                for _ in self._active_term_indices
+                torch.cuda.Stream(device=coords.device) for _ in active_term_indices
             )
 
         current = torch.cuda.current_stream(coords.device)
-        scores: list[torch.Tensor | None] = [None] * len(self.term_modules)
+        scores: list[torch.Tensor | None] = [None] * len(execution_modules)
         # Distinct zero-copy views give every term a caller-stream autograd
         # node, synchronizing returned gradients before leaf accumulation.
         term_coords = (
-            tuple(coords.view_as(coords) for _ in self._active_term_indices)
+            tuple(coords.view_as(coords) for _ in active_term_indices)
             if needs_grad
-            else (coords,) * len(self._active_term_indices)
+            else (coords,) * len(active_term_indices)
         )
-        for index, term in enumerate(self.term_modules):
+        for index, term in enumerate(execution_modules):
             if isinstance(term, ZeroTermPoseScoringModule):
                 scores[index] = term(coords)
         for stream, index, term_input in zip(
-            self._cuda_term_streams, self._active_term_indices, term_coords
+            self._cuda_term_streams, active_term_indices, term_coords
         ):
             stream.wait_stream(current)
             term_input.record_stream(stream)
+            term = execution_modules[index]
+            term_neighbors = (
+                shared_block_neighbors
+                if shared_block_neighbors is not None
+                and getattr(term, "block_neighbor_cutoff", None) is not None
+                else None
+            )
+            if term_neighbors is not None:
+                term_neighbors.record_stream(stream)
             with torch.cuda.stream(stream):
-                scores[index] = self.term_modules[index](term_input)
+                scores[index] = self._call_term(
+                    term,
+                    term_input,
+                    term_neighbors,
+                    (
+                        fused_score_weights
+                        if index == self._fused_ljlk_elec_module_index
+                        else None
+                    ),
+                )
 
-        for stream, index in zip(self._cuda_term_streams, self._active_term_indices):
+        for stream, index in zip(self._cuda_term_streams, active_term_indices):
             current.wait_stream(stream)
             score = scores[index]
             assert score is not None
@@ -835,13 +1373,24 @@ class WholePoseScoringModule:
         if mode in ("forward", "both") and not hasattr(self, "_cuda_graphed_forward"):
             # Capture this scorer rather than the serial graph module so large
             # inference workloads retain independent term-stream overlap.
-            self._cuda_graphed_forward = _InferenceCUDAGraph(self, example_coords)
+            fused = self._fused_ljlk_elec_module_index is not None
+            self._cuda_forward_graph_uses_fused_execution = fused
+            self._cuda_forward_graph_uses_weighted_fusion = fused
+            self._force_weighted_fusion_for_cuda_graph = True
+            try:
+                self._cuda_graphed_forward = _InferenceCUDAGraph(self, example_coords)
+            finally:
+                del self._force_weighted_fusion_for_cuda_graph
 
         if mode in ("forward_backward", "both") and not hasattr(
             self, "_cuda_graphed_autograd"
         ):
+            from tmol.score.common._cuda_graph import CapturedScoringGraph
+
             graph_module = _DefaultWholePoseScoringModule(
-                self.weights, self.term_modules
+                self.weights,
+                self._execution_modules,
+                force_weighted_fusion_for_cuda_graph=True,
             )
             sample = example_coords.detach().clone().requires_grad_(True)
             with (
@@ -849,30 +1398,104 @@ class WholePoseScoringModule:
                 torch.enable_grad(),
                 warnings.catch_warnings(),
             ):
-                # PyTorch's backward-capture warmup retains the sample leaf's
-                # default-stream AccumulateGrad node. Capture and replay are
-                # valid; suppress only that known internal warning.
+                # Scoring parameters may retain an AccumulateGrad node on
+                # another stream. Suppress only that known warmup warning.
                 warnings.filterwarnings(
                     "ignore",
                     message="The AccumulateGrad node's stream does not match",
                 )
-                self._cuda_graphed_autograd = torch.cuda.make_graphed_callables(
-                    graph_module, (sample,), allow_unused_input=True
-                )
+                self._cuda_graphed_autograd = CapturedScoringGraph(graph_module, sample)
         return self
 
 
 class _DefaultWholePoseScoringModule(torch.nn.Module):
     """Graph-capturable default reduction for a whole-pose scorer."""
 
-    def __init__(self, weights, term_modules):
+    def __init__(
+        self, weights, term_modules, *, force_weighted_fusion_for_cuda_graph=False
+    ):
         super().__init__()
         self.weights = weights
         self.term_modules = torch.nn.ModuleList(term_modules)
+        self._force_weighted_fusion_for_cuda_graph = (
+            force_weighted_fusion_for_cuda_graph
+        )
+        self._shared_neighbor_terms = tuple(
+            term
+            for term in self.term_modules
+            if getattr(term, "block_neighbor_cutoff", None) is not None
+        )
+        self._shared_neighbor_cutoff = max(
+            (term.block_neighbor_cutoff for term in self._shared_neighbor_terms),
+            default=None,
+        )
+        self._fused_module_index = next(
+            (
+                index
+                for index, term in enumerate(self.term_modules)
+                if isinstance(term, _FusedLJLKAndElecWholePoseModule)
+            ),
+            None,
+        )
+        self._fused_weight_range = None
+        if self._fused_module_index is not None:
+            weight_begin = sum(
+                term.n_score_types
+                for term in self.term_modules[: self._fused_module_index]
+            )
+            self._fused_weight_range = (
+                weight_begin,
+                weight_begin
+                + self.term_modules[self._fused_module_index].n_score_types,
+            )
 
     def forward(self, coords):
-        unweighted = torch.cat([term(coords) for term in self.term_modules], dim=0)
-        return torch.sum(self.weights * unweighted, dim=0)
+        shared_block_neighbors = None
+        if len(self._shared_neighbor_terms) >= 2:
+            builder = self._shared_neighbor_terms[0]
+            shared_block_neighbors = builder.build_compact_block_neighbors(
+                coords, self._shared_neighbor_cutoff
+            )
+        use_weighted_fusion = (
+            self._fused_weight_range is not None
+            and shared_block_neighbors is not None
+            and _use_weighted_fused_score(
+                coords,
+                force_for_cuda_graph=self._force_weighted_fusion_for_cuda_graph,
+            )
+        )
+        score_lanes = torch.cat(
+            [
+                WholePoseScoringModule._call_term(
+                    term,
+                    coords,
+                    shared_block_neighbors,
+                    (
+                        self.weights[
+                            self._fused_weight_range[0] : self._fused_weight_range[1],
+                            0,
+                        ]
+                        if use_weighted_fusion and index == self._fused_module_index
+                        else None
+                    ),
+                )
+                for index, term in enumerate(self.term_modules)
+            ],
+            dim=0,
+        )
+        if not use_weighted_fusion:
+            return torch.sum(self.weights * score_lanes, dim=0)
+
+        from tmol.score.ljlk.potentials import weighted_fused_score_sum
+
+        weight_begin, weight_end = self._fused_weight_range
+        score_weights = self.weights
+        if score_weights.dtype != score_lanes.dtype:
+            score_weights = score_weights.to(dtype=score_lanes.dtype)
+        (scores,) = weighted_fused_score_sum(
+            score_lanes, score_weights, weight_begin, weight_end - weight_begin
+        )
+        return scores
 
 
 class _InferenceCUDAGraph:
@@ -1056,6 +1679,196 @@ class BlockPairScoringModule:
         )
 
 
+class _FusedLJLKAndElecRotamerFunction(torch.autograd.Function):
+    """Differentiate the compact fused table by one fused recomputation."""
+
+    @staticmethod
+    def forward(ctx, *args):
+        from tmol.score.ljlk.potentials import ljlk_elec_weighted_rotamer_scores
+
+        tensor_args = args[:-3]
+        max_dis, score_weights, empty_dispatch = args[-3:]
+        empty_gradients = score_weights.new_empty(0)
+        scores, indices, _ = ljlk_elec_weighted_rotamer_scores(
+            *tensor_args,
+            max_dis,
+            score_weights,
+            empty_gradients,
+            empty_dispatch,
+        )
+        saved_tensors = []
+        ctx.scalar_args = {}
+        for index, arg in enumerate(args):
+            if isinstance(arg, torch.Tensor):
+                saved_tensors.append(arg)
+            else:
+                ctx.scalar_args[index] = arg
+        ctx.save_for_backward(*saved_tensors, indices)
+        ctx.n_inputs = len(args)
+        ctx.mark_non_differentiable(indices)
+        return scores, indices
+
+    @staticmethod
+    def backward(ctx, score_gradients, _):
+        from tmol.score.ljlk.potentials import ljlk_elec_weighted_rotamer_scores
+
+        saved_tensors = iter(ctx.saved_tensors[:-1])
+        dispatch_indices = ctx.saved_tensors[-1]
+        args = [
+            ctx.scalar_args[index] if index in ctx.scalar_args else next(saved_tensors)
+            for index in range(ctx.n_inputs)
+        ]
+        _, _, coord_gradients = ljlk_elec_weighted_rotamer_scores(
+            *args[:-1], score_gradients.reshape(-1), dispatch_indices
+        )
+        return (coord_gradients,) + (None,) * (ctx.n_inputs - 1)
+
+
+class _FusedLJLKAndElecRotamerModule(torch.nn.Module):
+    """Internal group that emits one live-weighted sparse lane."""
+
+    def __init__(self, ljlk_module, elec_module):
+        super().__init__()
+        self.ljlk_module = ljlk_module
+        self.elec_module = elec_module
+        self.classname = "LJLK+Elec"
+        self.n_score_types = 4
+        self.n_poses = ljlk_module.n_poses
+        self.n_rots = ljlk_module.n_rots
+        self.block_neighbor_cutoff = max(
+            ljlk_module.block_neighbor_cutoff, elec_module.block_neighbor_cutoff
+        )
+        self.rotamer_dispatch_key = ljlk_module.rotamer_dispatch_key
+
+    def is_compatible(self) -> bool:
+        """Return whether the live modules still satisfy the fast-path contract."""
+        return (
+            self.ljlk_module.block_neighbor_cutoff == 6.0
+            and self.elec_module.block_neighbor_cutoff == 5.5
+            and not any(
+                parameter.requires_grad
+                for term in (self.ljlk_module, self.elec_module)
+                for parameter in term.parameters()
+            )
+        )
+
+    def _native_arguments(self, coords):
+        ljlk = self.ljlk_module
+        elec = self.elec_module
+        return (
+            *_ljlk_elec_native_arguments(ljlk, elec, coords),
+            max(ljlk.block_neighbor_cutoff, elec.block_neighbor_cutoff),
+        )
+
+    def forward(self, coords, score_weights):
+        from tmol.score.ljlk.potentials import ljlk_elec_weighted_rotamer_scores
+
+        if score_weights.dtype != coords.dtype:
+            score_weights = score_weights.to(dtype=coords.dtype)
+        args = (
+            *self._native_arguments(coords),
+            score_weights,
+            self.ljlk_module._empty_dispatch_indices,
+        )
+        if torch.is_grad_enabled() and coords.requires_grad:
+            return _FusedLJLKAndElecRotamerFunction.apply(*args)
+        scores, indices, _ = ljlk_elec_weighted_rotamer_scores(
+            *args[:-1], score_weights.new_empty(0), args[-1]
+        )
+        return scores, indices
+
+    def iter_packing_dispatches(self, coords):
+        """Yield canonical maximum-cutoff dispatches by block-pair window."""
+        from tmol.score.ljlk.potentials import ljlk_elec_rotamer_dispatch
+
+        native_args = self._native_arguments(coords)
+        n_poses, max_n_blocks = native_args[3].shape
+        n_candidates = n_poses * max_n_blocks * (max_n_blocks + 1) // 2
+        for begin in range(0, n_candidates, _PACK_ROTAMER_BLOCK_PAIR_WINDOW):
+            yield ljlk_elec_rotamer_dispatch(
+                native_args[0],
+                native_args[1],
+                native_args[4],
+                native_args[7],
+                native_args[10],
+                native_args[11],
+                native_args[12],
+                native_args[16],
+                native_args[-1],
+                begin,
+                min(_PACK_ROTAMER_BLOCK_PAIR_WINDOW, n_candidates - begin),
+            )
+
+    def iter_packing_entries(self, coords, score_weights, *, topology_only):
+        """Yield bounded canonical dispatch windows for packing."""
+        from tmol.score.ljlk.potentials import ljlk_elec_weighted_rotamer_scores
+
+        if score_weights.dtype != coords.dtype:
+            score_weights = score_weights.to(dtype=coords.dtype)
+        native_args = self._native_arguments(coords)
+        empty_values = score_weights.new_empty(0)
+        for dispatch_indices in self.iter_packing_dispatches(coords):
+            for begin in range(
+                0, dispatch_indices.shape[1], _PACK_FUSED_ROTAMER_SCORE_WINDOW
+            ):
+                indices = dispatch_indices[
+                    :, begin : begin + _PACK_FUSED_ROTAMER_SCORE_WINDOW
+                ]
+                if topology_only:
+                    yield indices, empty_values
+                    continue
+                scores, indices, _ = ljlk_elec_weighted_rotamer_scores(
+                    *native_args,
+                    score_weights,
+                    empty_values,
+                    indices,
+                )
+                yield indices, scores[0]
+
+
+def _fused_ljlk_elec_rotamer_module(term_modules):
+    """Return the canonical default LJ/LK+Elec packing group, if present."""
+    weight_offset = 0
+    for index, first in enumerate(term_modules[:-1]):
+        second = term_modules[index + 1]
+        first_width = getattr(first, "n_score_types", None)
+        second_width = getattr(second, "n_score_types", None)
+        if first_width is None or second_width is None:
+            return None
+        is_builtin_pair = False
+        if (
+            getattr(first, "classname", None) == "LJLK"
+            and getattr(second, "classname", None) == "Elec"
+        ):
+            from tmol.score.elec.potentials import elec_rotamer_scores_shared
+            from tmol.score.ljlk.potentials import ljlk_rotamer_scores
+
+            is_builtin_pair = (
+                getattr(first, "term_score_poses", None) is ljlk_rotamer_scores
+                and getattr(second, "term_score_poses", None)
+                is elec_rotamer_scores_shared
+            )
+        if (
+            is_builtin_pair
+            and first_width == 3
+            and second_width == 1
+            and first.block_neighbor_cutoff == 6.0
+            and second.block_neighbor_cutoff == 5.5
+            and not any(
+                parameter.requires_grad
+                for term in (first, second)
+                for parameter in term.parameters()
+            )
+        ):
+            return (
+                _FusedLJLKAndElecRotamerModule(first, second),
+                index,
+                weight_offset,
+            )
+        weight_offset += first_width
+    return None
+
+
 class RotamerScoringModule:
     """Rendered energy modules that build sparse rotamer-pair energy tables.
 
@@ -1072,13 +1885,276 @@ class RotamerScoringModule:
             weights.view(-1, 1, 1, 1), requires_grad=False
         )
         self.term_modules = tuple(term_modules)
+        fused = _fused_ljlk_elec_rotamer_module(self.term_modules)
+        self._fused_ljlk_elec = fused[0] if fused is not None else None
+        self._fused_ljlk_elec_index = fused[1] if fused is not None else None
+        self._fused_ljlk_elec_weight_offset = fused[2] if fused is not None else None
+        self._has_trainable_term_parameters = any(
+            parameter.requires_grad
+            for term in self.term_modules
+            for parameter in term.parameters()
+        )
         self._cpu_term_workers = _cpu_score_term_worker_count(
             len(self.term_modules), weights.device
         )
 
-    def __call__(self, coords: torch.Tensor) -> torch.Tensor:
+    def _execution_terms(self, use_fused):
+        """Return native calls, weights, and canonical-lane accounting."""
+        execution_terms = []
+        term_index = 0
+        while term_index < len(self.term_modules):
+            term = self.term_modules[term_index]
+            if use_fused and term_index == self._fused_ljlk_elec_index:
+                weight_begin = self._fused_ljlk_elec_weight_offset
+                assert weight_begin is not None
+                score_weights = self.weights[weight_begin : weight_begin + 4, 0, 0, 0]
+                execution_terms.append((self._fused_ljlk_elec, score_weights, True))
+                term_index += 2
+            else:
+                execution_terms.append((term, None, False))
+                term_index += 1
+        return execution_terms
+
+    @staticmethod
+    def _compatible_dispatch(term, dispatch_by_key, device_type):
+        """Return the narrowest previously built compatible term layout.
+
+        CUDA may reuse a larger-cutoff sphere-overlap layout because the
+        consumer's native potential still applies its own distance cutoff.
+        CPU reuse remains exact-cutoff only, as favored by measurements.
+        """
+        cutoff = getattr(term, "block_neighbor_cutoff", None)
+        dispatch_key = getattr(term, "rotamer_dispatch_key", None)
+        if (
+            not getattr(term, "accepts_shared_dispatch", False)
+            or dispatch_key is None
+            or cutoff is None
+        ):
+            return None
+        compatible = [
+            (producer_cutoff, indices)
+            for producer_cutoff, indices in dispatch_by_key.get(dispatch_key, ())
+            if _rotamer_dispatch_cutoff_compatible(device_type, producer_cutoff, cutoff)
+        ]
+        return min(compatible, key=lambda item: item[0])[1] if compatible else None
+
+    def _sequential_term_results(
+        self, coords, execution_terms, retain_shared_dispatch=True
+    ):
+        """Evaluate terms in order, optionally retaining reusable dispatches."""
+        dispatch_by_key = {}
+        for term, score_weights, already_weighted in execution_terms:
+            shared_dispatch = (
+                self._compatible_dispatch(term, dispatch_by_key, coords.device.type)
+                if retain_shared_dispatch
+                else None
+            )
+            if already_weighted:
+                assert score_weights is not None
+                result = term(coords, score_weights)
+            elif shared_dispatch is not None:
+                result = term.forward(coords, shared_dispatch)
+            else:
+                result = term.forward(coords)
+
+            cutoff = getattr(term, "block_neighbor_cutoff", None)
+            dispatch_key = getattr(term, "rotamer_dispatch_key", None)
+            if (
+                retain_shared_dispatch
+                and dispatch_key is not None
+                and cutoff is not None
+            ):
+                dispatch_by_key.setdefault(dispatch_key, []).append((cutoff, result[1]))
+            yield term, result, already_weighted
+            # The consumer has retained the weighted values. Release the raw
+            # lanes before the next native call allocates another score table.
+            del result
+
+    @staticmethod
+    def _matching_layout(indices, all_indices, layouts_by_nnz):
+        """Find an identical prior layout and whether content checks are enabled."""
+        layout_index = next(
+            (
+                index
+                for index, prior_indices in enumerate(all_indices)
+                if indices.is_set_to(prior_indices)
+            ),
+            None,
+        )
+        compare_contents = (
+            indices.device.type == "cpu"
+            or indices.numel() * indices.element_size()
+            >= _CUDA_ROTAMER_LAYOUT_DEDUP_MIN_BYTES
+        )
+        if layout_index is None and compare_contents:
+            layout_index = next(
+                (
+                    index
+                    for index in layouts_by_nnz.get(indices.shape[1], ())
+                    if torch.equal(indices, all_indices[index])
+                ),
+                None,
+            )
+        return layout_index, compare_contents
+
+    @staticmethod
+    def _native_sparse_indices(indices: torch.Tensor) -> torch.Tensor:
+        """Normalize sparse coordinates for the native interaction graph."""
+        if indices.dtype == torch.int32:
+            return indices
+        if indices.dtype != torch.int64:
+            raise TypeError("rotamer score indices must have dtype int32 or int64")
+        if indices.numel() != 0:
+            min_index, max_index = torch.aminmax(indices)
+            if int(min_index) < 0 or int(max_index) > torch.iinfo(torch.int32).max:
+                raise OverflowError(
+                    "rotamer score indices exceed the native int32 range"
+                )
+        return indices.to(torch.int32)
+
+    def _iter_weighted_sparse_entries(
+        self,
+        coords: torch.Tensor,
+        *,
+        retain_shared_dispatch: bool = True,
+        topology_only: bool = False,
+    ):
+        """Yield one weighted sparse score-term layout at a time.
+
+        The packing-only streaming path disables shared-dispatch retention so
+        advancing the iterator releases the preceding term's potentially large
+        index and score tensors. Public differentiable callers retain the
+        established dispatch reuse and consume this iterator into their current
+        aggregate representation.
+        """
         if not torch.is_grad_enabled() and coords.requires_grad:
             coords = coords.detach()
+
+        use_fused = (
+            self._fused_ljlk_elec is not None
+            and self._fused_ljlk_elec.is_compatible()
+            and not self.weights.requires_grad
+        )
+        execution_terms = self._execution_terms(use_fused)
+        if not retain_shared_dispatch:
+            weights_offset = 0
+            for term, score_weights, already_weighted in execution_terms:
+                if already_weighted:
+                    assert score_weights is not None
+                    for indices, weighted_values in term.iter_packing_entries(
+                        coords,
+                        score_weights,
+                        topology_only=topology_only,
+                    ):
+                        yield term, indices, weighted_values
+                    weights_offset += term.n_score_types
+                    continue
+
+                if term.packing_score_iterator is not None:
+                    n_subterms = term.n_score_types
+                    weights = self.weights[
+                        weights_offset : weights_offset + n_subterms, 0, 0, 0
+                    ]
+                    weights_offset += n_subterms
+                    empty_values = weights.new_empty(0)
+                    for scores, indices in term.iter_packing_entries(
+                        coords, topology_only=topology_only
+                    ):
+                        indices = self._native_sparse_indices(indices)
+                        if topology_only:
+                            yield term, indices, empty_values
+                            continue
+                        weighted_values = _weighted_score_sum(weights, scores)
+                        yield term, indices, weighted_values
+                        del scores, indices, weighted_values
+                    continue
+
+                weights = self.weights[
+                    weights_offset : weights_offset + term.n_score_types, 0, 0, 0
+                ]
+                empty_values = weights.new_empty(0)
+                can_share_packing_dispatch = (
+                    use_fused
+                    and coords.device.type == "cuda"
+                    and getattr(term, "accepts_shared_dispatch", False)
+                    and getattr(term, "rotamer_dispatch_key", None)
+                    == self._fused_ljlk_elec.rotamer_dispatch_key
+                    and getattr(term, "block_neighbor_cutoff", None) is not None
+                    and _rotamer_dispatch_cutoff_compatible(
+                        coords.device.type,
+                        self._fused_ljlk_elec.block_neighbor_cutoff,
+                        getattr(term, "block_neighbor_cutoff", None),
+                    )
+                )
+                dispatches = (
+                    self._fused_ljlk_elec.iter_packing_dispatches(coords)
+                    if can_share_packing_dispatch
+                    else (None,)
+                )
+                for dispatch in dispatches:
+                    dispatch_windows = (
+                        (
+                            dispatch[
+                                :, begin : begin + _PACK_FUSED_ROTAMER_SCORE_WINDOW
+                            ]
+                            for begin in range(
+                                0,
+                                dispatch.shape[1],
+                                _PACK_FUSED_ROTAMER_SCORE_WINDOW,
+                            )
+                        )
+                        if dispatch is not None
+                        else (None,)
+                    )
+                    for dispatch_window in dispatch_windows:
+                        scores, indices = (
+                            term.forward(coords, dispatch_window)
+                            if dispatch_window is not None
+                            else term.forward(coords)
+                        )
+                        indices = self._native_sparse_indices(indices)
+                        if topology_only:
+                            # The topology passes consume indices only; do not
+                            # retain a score table for the whole rotamer set.
+                            del scores
+                            yield term, indices, empty_values
+                            del indices
+                            continue
+                        weighted_values = _weighted_score_sum(weights, scores)
+                        yield term, indices, weighted_values
+                        del scores, indices, weighted_values
+                weights_offset += term.n_score_types
+            return
+
+        term_results = self._sequential_term_results(
+            coords,
+            execution_terms,
+            retain_shared_dispatch=retain_shared_dispatch,
+        )
+        weights_offset = 0
+        for term, (scores, indices), already_weighted in term_results:
+            n_subterms = term.n_score_types if already_weighted else scores.shape[0]
+            indices = self._native_sparse_indices(indices)
+            if already_weighted:
+                weighted_values = scores[0]
+            else:
+                weights = self.weights[
+                    weights_offset : weights_offset + n_subterms, 0, 0, 0
+                ]
+                weighted_values = _weighted_score_sum(weights, scores)
+            weights_offset += n_subterms
+            yield term, indices, weighted_values
+            del scores, indices, weighted_values
+
+    def _weighted_entries_by_layout(
+        self, coords: torch.Tensor
+    ) -> tuple[list[torch.Tensor], list[torch.Tensor], int | None, int | None]:
+        """Evaluate terms and combine entries that have identical layouts.
+
+        Keeping this representation outside a PyTorch sparse COO tensor is
+        important to the packer: COO construction promotes coordinates to
+        int64, and coalescing then needs another potentially very large sort.
+        """
         # Accumulate weighted values and their indices across all terms at the
         # dense [nnz] level.  This avoids torch.stack on sparse tensors, which
         # previously created a [n_subterms, n_poses, n_rots, n_rots] 4D sparse
@@ -1088,11 +2164,18 @@ class RotamerScoringModule:
         layouts_by_nnz: dict[int, list[int]] = {}
         n_poses: int | None = None
         n_rots: int | None = None
-        weights_offset = 0
-
-        parallel = self._cpu_term_workers >= 2 and not (
-            torch.is_grad_enabled() and coords.requires_grad
+        differentiable = torch.is_grad_enabled() and (
+            coords.requires_grad
+            or self.weights.requires_grad
+            or self._has_trainable_term_parameters
         )
+        use_fused = (
+            self._fused_ljlk_elec is not None
+            and self._fused_ljlk_elec.is_compatible()
+            and not self.weights.requires_grad
+        )
+        execution_terms = self._execution_terms(use_fused)
+        parallel = self._cpu_term_workers >= 2 and not differentiable
         if parallel:
             executor = _cpu_score_term_executor(self._cpu_term_workers)
             context = (
@@ -1108,49 +2191,92 @@ class RotamerScoringModule:
                     term.forward,
                     coords,
                     *context,
+                    None,
+                    score_weights,
                 )
-                for term in self.term_modules
+                for term, score_weights, _ in execution_terms
             ]
-            term_results = [future.result() for future in futures]
-        else:
-            term_results = [term.forward(coords) for term in self.term_modules]
-
-        for term, (scores, indices) in zip(self.term_modules, term_results):
-            # [n_subterms, nnz], [3, nnz]
-            n_subterms = scores.shape[0]
-
-            # Apply per-subterm weights and sum to [nnz] — no sparse tensor yet.
-            w = self.weights[weights_offset : weights_offset + n_subterms, 0, 0, 0]
-            weighted_values = (w[:, None] * scores).sum(dim=0)
-
-            # Several terms share the same block-pair dispatch. Combine their
-            # values now so the sparse coalesce does not sort another copy of
-            # the same, potentially multi-gigabyte, index layout.
-            deduplicate_layout = (
-                indices.device.type == "cpu"
-                or indices.numel() * indices.element_size()
-                >= _CUDA_ROTAMER_LAYOUT_DEDUP_MIN_BYTES
+            term_results = (
+                (term, future.result(), already_weighted)
+                for (term, _, already_weighted), future in zip(execution_terms, futures)
             )
-            candidate_layouts = (
-                layouts_by_nnz.get(indices.shape[1], ()) if deduplicate_layout else ()
-            )
-            for layout_index in candidate_layouts:
-                if torch.equal(indices, all_indices[layout_index]):
-                    all_values[layout_index] = (
-                        all_values[layout_index] + weighted_values
+
+            def parallel_weighted_entries():
+                weights_offset = 0
+                for term, (scores, indices), already_weighted in term_results:
+                    n_subterms = (
+                        term.n_score_types if already_weighted else scores.shape[0]
                     )
-                    break
-            else:
+                    if already_weighted:
+                        weighted_values = scores[0]
+                    else:
+                        weights = self.weights[
+                            weights_offset : weights_offset + n_subterms, 0, 0, 0
+                        ]
+                        weighted_values = _weighted_score_sum(weights, scores)
+                    weights_offset += n_subterms
+                    yield (
+                        term,
+                        self._native_sparse_indices(indices),
+                        weighted_values,
+                    )
+
+            weighted_entries = parallel_weighted_entries()
+        else:
+            # Do not retain every term's complete score/index tensors. CUDA
+            # packing layouts can be many GiB apiece, so consume each result
+            # before evaluating the next term.
+            weighted_entries = self._iter_weighted_sparse_entries(coords)
+
+        for term, indices, weighted_values in weighted_entries:
+            # Several terms share the same block-pair dispatch. Pointer
+            # identity is free to check at every size; reserve the device-wide
+            # equality comparison for layouts large enough to recover its
+            # synchronization cost.
+            layout_index, compare_layout_contents = self._matching_layout(
+                indices, all_indices, layouts_by_nnz
+            )
+            if layout_index is None:
                 layout_index = len(all_indices)
                 all_values.append(weighted_values)
                 all_indices.append(indices)
-                if deduplicate_layout:
+                if compare_layout_contents:
                     layouts_by_nnz.setdefault(indices.shape[1], []).append(layout_index)
-            weights_offset += n_subterms
-
+            else:
+                all_values[layout_index] = all_values[layout_index] + weighted_values
             if n_poses is None:
                 n_poses = term.n_poses
                 n_rots = term.n_rots
+            # Loop locals otherwise keep the previous raw table (and, after
+            # merging layouts, its temporary weighted values) alive during
+            # the next call to the result generator. Autograd retains any
+            # tensors it still needs for differentiable scoring.
+            del weighted_values
+
+        return all_indices, all_values, n_poses, n_rots
+
+    def forward_sparse_entries(
+        self, coords: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return weighted, uncoalesced ``(indices, values)`` for packing.
+
+        Duplicate coordinates may remain when two score terms use different
+        layouts. Consumers must accumulate rather than assign their values.
+        Indices remain int32 so the packer avoids an unnecessary int64 COO
+        round-trip.
+        """
+        all_indices, all_values, _, _ = self._weighted_entries_by_layout(coords)
+        if not all_indices:
+            return (
+                torch.zeros((3, 0), dtype=torch.int32, device=coords.device),
+                torch.zeros(0, dtype=torch.float32, device=coords.device),
+            )
+        return torch.cat(all_indices, dim=1), torch.cat(all_values)
+
+    def __call__(self, coords: torch.Tensor) -> torch.Tensor:
+        all_indices, all_values, n_poses, n_rots = self._weighted_entries_by_layout(
+            coords
+        )
 
         if n_poses is None:
             # No terms at all

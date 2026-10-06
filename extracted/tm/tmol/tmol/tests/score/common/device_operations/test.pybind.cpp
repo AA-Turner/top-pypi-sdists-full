@@ -1,5 +1,8 @@
 #include <tmol/utility/tensor/pybind.h>
+#include <tmol/score/common/counting.hh>
+#include <tmol/score/common/upper_triangle_indices.hh>
 #include <tmol/tests/score/common/device_operations/test.hh>
+#include <moderngpu/meta.hxx>
 
 namespace tmol {
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -7,6 +10,47 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
   using namespace tmol::tests::score::common::device_operations;
 
   using CPU = DevOpsTests<Device::CPU>;
+
+  m.def(
+      "test_checked_dispatch_size",
+      [](int64_t count) {
+        return tmol::score::common::checked_dispatch_size(
+            count, "test dispatch");
+      },
+      "count"_a);
+  m.def(
+      "test_checked_dispatch_product",
+      [](int64_t lhs, int64_t rhs) {
+        return tmol::score::common::checked_dispatch_product(
+            lhs, rhs, "test dispatch product");
+      },
+      "lhs"_a,
+      "rhs"_a);
+  m.def(
+      "test_checked_triangular_size",
+      [](int64_t count, bool include_diagonal) {
+        return tmol::score::common::checked_triangular_size(
+            count, include_diagonal, "test triangular dispatch");
+      },
+      "count"_a,
+      "include_diagonal"_a);
+  m.def(
+      "test_upper_triangle_indices",
+      [](int linear_index, int dimension) {
+        auto result =
+            tmol::score::common::upper_triangle_inds_from_linear_index(
+                linear_index, dimension);
+        return std::make_pair(
+            tmol::score::common::get<0>(result),
+            tmol::score::common::get<1>(result));
+      },
+      "linear_index"_a,
+      "dimension"_a);
+  m.def(
+      "test_safe_div_up",
+      [](int value, int divisor) { return mgpu::div_up(value, divisor); },
+      "value"_a,
+      "divisor"_a);
 
   m.def("test_forall", &CPU::test_forall, "src"_a);
   m.def("test_forall_independent", &CPU::test_forall_independent, "src"_a);
@@ -50,6 +94,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       &CPU::test_segmented_scan_exclusive,
       "src"_a,
       "seg_starts"_a);
+  m.def(
+      "test_rot_neighbor_indices_from_block_spheres",
+      &CPU::test_rot_neighbor_indices_from_block_spheres,
+      "pose_stack_block_type"_a,
+      "block_spheres"_a,
+      "n_rots_for_block"_a,
+      "rot_offset_for_block"_a,
+      "rot_spheres"_a,
+      "lockstep_group_for_block"_a,
+      "reach"_a);
 
 #ifdef WITH_CUDA
   using CUDA = DevOpsTests<Device::CUDA>;
@@ -98,6 +152,16 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
       &CUDA::test_segmented_scan_exclusive,
       "src"_a,
       "seg_starts"_a);
+  m.def(
+      "test_rot_neighbor_indices_from_block_spheres",
+      &CUDA::test_rot_neighbor_indices_from_block_spheres,
+      "pose_stack_block_type"_a,
+      "block_spheres"_a,
+      "n_rots_for_block"_a,
+      "rot_offset_for_block"_a,
+      "rot_spheres"_a,
+      "lockstep_group_for_block"_a,
+      "reach"_a);
 #endif
 }
 }  // namespace tmol

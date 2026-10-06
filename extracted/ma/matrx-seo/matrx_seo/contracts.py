@@ -54,6 +54,11 @@ class CollectionRequest(BaseModel):
     execution_id: UUID | None = None
     resume_existing: bool = False
     force_refresh: bool = False
+    #: Narrow the reuse window for THIS request: a stored result older than this
+    #: many seconds is not reused, even inside the family's knob window. It can
+    #: only narrow, never widen. Out of band like ``force_refresh`` (never hashed).
+    #: A ranking claim that decides a recommendation passes its claim age here.
+    require_fresh_within_seconds: int | None = Field(default=None, ge=0)
     #: The ``billing.spend_approval`` this collection spends under (OPENSEO-TOOLS-SPEC
     #: §6.1.7). It travels OUT OF BAND: never inside ``settings`` (which is hashed
     #: for reuse and, for DataForSEO, ``extra="forbid"``), and excluded from every
@@ -720,6 +725,106 @@ class UpsertReceipt(BaseModel):
     observation_ids: list[str] = Field(default_factory=list)
 
 
+def _hours_text(seconds: float) -> str:
+    hours = seconds / 3600
+    if hours >= 1:
+        rounded = round(hours, 1)
+        value = int(rounded) if rounded == int(rounded) else rounded
+        return f"{value} hour" if value == 1 else f"{value} hours"
+    minutes = max(int(round(seconds / 60)), 1)
+    return f"{minutes} minute" if minutes == 1 else f"{minutes} minutes"
+
+
+class ReuseVerdict(BaseModel):
+    """Whether a collection reused stored research or bought fresh, and why.
+
+    Stamped on every receipt the collection service returns, so an agent can say
+    "reusing your research from Tuesday" or "bought fresh: nothing within 24
+    hours" without inferring it from cache fields. ``reason`` is the sentence."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decision: Literal["reused", "bought_fresh", "resumed"]
+    reason: str
+    reused_run_id: str | None = None
+    reused_completed_at: datetime | None = None
+    #: The window that applied (family knob, narrowed by the caller); None when
+    #: the operation keeps no reuse window or the person forced fresh.
+    window_hours: float | None = None
+
+    @classmethod
+    def reused(
+        cls, run_id: str, completed_at: datetime, window_seconds: int, *, now: datetime
+    ) -> ReuseVerdict:
+        age = max((now - completed_at).total_seconds(), 0)
+        return cls(
+            decision="reused",
+            reused_run_id=run_id,
+            reused_completed_at=completed_at,
+            window_hours=window_seconds / 3600,
+            reason=(
+                f"Reused run {run_id} from {completed_at:%A %b %d %H:%M} UTC "
+                f"({_hours_text(age)} old), inside the {_hours_text(window_seconds)} reuse window."
+            ),
+        )
+
+    @classmethod
+    def same_request(cls, run_id: str, observation_period: str) -> ReuseVerdict:
+        return cls(
+            decision="reused",
+            reused_run_id=run_id,
+            reason=(
+                f"Reused run {run_id}: the identical request for {observation_period} "
+                "had already completed."
+            ),
+        )
+
+    @classmethod
+    def nothing_within(cls, window_seconds: int) -> ReuseVerdict:
+        if window_seconds <= 0:
+            return cls(
+                decision="bought_fresh",
+                window_hours=0,
+                reason="Bought fresh: a fresh check was required.",
+            )
+        return cls(
+            decision="bought_fresh",
+            window_hours=window_seconds / 3600,
+            reason=f"Bought fresh: nothing within {_hours_text(window_seconds)}.",
+        )
+
+    @classmethod
+    def reclaimed(cls, run_id: str, attempt_count: int) -> ReuseVerdict:
+        return cls(
+            decision="resumed",
+            reused_run_id=run_id,
+            reason=(
+                f"Resumed run {run_id} after an earlier attempt stopped (attempt "
+                f"{attempt_count}); provider work it had already saved was reused, "
+                "not bought again."
+            ),
+        )
+
+    @classmethod
+    def forced(cls) -> ReuseVerdict:
+        return cls(decision="bought_fresh", reason="Bought fresh: the person asked for fresh.")
+
+    @classmethod
+    def no_window(cls) -> ReuseVerdict:
+        return cls(
+            decision="bought_fresh",
+            reason="Bought fresh: this operation keeps no reuse window.",
+        )
+
+    @classmethod
+    def resumed(cls, run_id: str) -> ReuseVerdict:
+        return cls(
+            decision="resumed",
+            reused_run_id=run_id,
+            reason=f"Resumed run {run_id}, already bought; nothing new was paid for twice.",
+        )
+
+
 class CollectionReceipt(BaseModel):
     run_id: str
     raw_payload_id: str | None = None
@@ -729,6 +834,8 @@ class CollectionReceipt(BaseModel):
     from_cache: bool = False
     cache_age_seconds: int | None = None
     freshness_ttl_seconds: int | None = None
+    #: Reused or bought fresh, and why (see :class:`ReuseVerdict`).
+    reuse: ReuseVerdict | None = None
 
 
 class SpendQuery(BaseModel):

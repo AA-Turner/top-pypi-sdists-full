@@ -15,12 +15,14 @@ from istari_digital_client.sdk._admin.infosec import Infosec
 from istari_digital_client.sdk._admin.scs import Scs
 from istari_digital_client.sdk._admin.keys import Keys
 from istari_digital_client.sdk._admin.tenants import Tenants
+from istari_digital_client.sdk._admin.identity import Identity
 
 # Rich types
 from istari_digital_client.sdk._admin.admin_types import PersonalAccessToken, User
 
 
 __all__ = [
+    "Identity",
     "Infosec",
     "Keys",
     "PersonalAccessToken",

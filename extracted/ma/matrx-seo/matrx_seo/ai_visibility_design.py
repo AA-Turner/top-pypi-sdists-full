@@ -636,6 +636,10 @@ class TermProvenance(_Strict):
 class ContaminationRegister(Envelope):
     target_terms: TargetTerms
     competitor_terms: list[str] = Field(default_factory=list)
+    #: Competitor names that are also everyday words ("Render", "Remote"): matched only as a
+    #: proper name — capitalised and in context — never as the ordinary word. Code fills it at
+    #: build time (:func:`common_word_competitors`); a person may edit it at Gate 1.
+    common_word_terms: list[str] = Field(default_factory=list)
     allowed_exceptions: list[AllowedException] = Field(default_factory=list)
     term_provenance: list[TermProvenance] = Field(default_factory=list)
     frozen_hash: str | None = None
@@ -1683,6 +1687,9 @@ class DesignKnobs(_Strict):
     similarity_embedding_threshold: float = Field(
         default=SIMILARITY_EMBEDDING_THRESHOLD, gt=0, le=1
     )
+    #: Output-token ceiling every design agent call sends (platform-locked knob
+    #: ``agent_max_output_tokens``). 0 = the bound model's own full ceiling.
+    agent_max_output_tokens: int = Field(default=0, ge=0)
 
     @field_validator("tiers")
     @classmethod
@@ -1932,17 +1939,23 @@ def seed_register(
         ),
         target_terms=TargetTerms(**{c: buckets[c] for c in TARGET_TERM_CLASSES}),
         competitor_terms=buckets["competitor_terms"],
+        common_word_terms=common_word_competitors(buckets["competitor_terms"]),
         allowed_exceptions=list(allowed_exceptions),
         term_provenance=provenance,
     )
 
 
 def _register_terms_payload(register: Mapping[str, Any]) -> dict[str, Any]:
-    return {
+    payload = {
         "target_terms": register.get("target_terms") or {},
         "competitor_terms": register.get("competitor_terms") or [],
         "allowed_exceptions": register.get("allowed_exceptions") or [],
     }
+    # The flag changes what a term matches, so it is part of what was frozen — added only when
+    # present, so a register frozen before the flag existed keeps its hash.
+    if register.get("common_word_terms"):
+        payload["common_word_terms"] = sorted(str(t) for t in register["common_word_terms"])
+    return payload
 
 
 def freeze_register(
@@ -2038,6 +2051,74 @@ def _register_classes(register: Mapping[str, Any] | ContaminationRegister) -> di
     return classes
 
 
+_COMMON_WORDS: frozenset[str] | None = None
+
+
+def common_english_words() -> frozenset[str]:
+    """Lower-case English words (Webster's 2nd, public domain; ``data/``), loaded once."""
+    global _COMMON_WORDS
+    if _COMMON_WORDS is None:
+        import gzip
+        from importlib import resources
+
+        raw = resources.files("matrx_seo").joinpath("data/common_english_words.txt.gz")
+        with raw.open("rb") as fh:
+            _COMMON_WORDS = frozenset(gzip.decompress(fh.read()).decode("utf-8").split())
+    return _COMMON_WORDS
+
+
+def common_word_competitors(terms: Iterable[Any]) -> list[str]:
+    """The competitor names that are also an everyday word: one alphabetic token whose
+    lower-case form is an English word ("Render", "Remote", "Square")."""
+    words = common_english_words()
+    out: list[str] = []
+    for term in terms:
+        text = str(term).strip()
+        if re.fullmatch(r"[^\W\d_]+", text) and text.casefold() in words and text not in out:
+            out.append(text)
+    return out
+
+
+def _common_word_set(register: Mapping[str, Any] | ContaminationRegister) -> set[str]:
+    data = register.model_dump(mode="json") if isinstance(register, BaseModel) else register
+    flagged = data.get("common_word_terms")
+    if flagged is None:
+        # A register built before the flag existed: derive it the same way the builder does.
+        flagged = common_word_competitors(_as_list(data.get("competitor_terms")))
+    return {str(t).casefold() for t in _as_list(flagged)}
+
+
+#: Words that put a capitalised everyday word in a naming context when it opens a sentence.
+_NAME_CONTEXT = re.compile(
+    r"^\s*(?:/|,|&|\+|\(|\)|'s\b|\.(?:com|io|co|app|dev|net|org)\b|vs\.?\b|versus\b|or\b|and\b"
+    r"|alternatives?\b|pricing\b|review)",
+    re.IGNORECASE,
+)
+_NAME_CONTEXT_BEFORE = re.compile(r"(?:/|,|&|\+|\bvs\.?|\bversus|\bor|\band|\blike)\s*$", re.I)
+
+
+def _proper_name_match(term: str, text: str) -> str | None:
+    """``term`` used as a proper name in ``text``: written capitalised as a whole word, and —
+    when it opens a sentence or line, where every word is capitalised — with a naming cue next to
+    it ("Render vs …", "… or Render", "Render.com", "Render's")."""
+    folded = unicodedata.normalize("NFKC", text)
+    name = unicodedata.normalize("NFKC", term)
+    for m in re.finditer(r"(?<!\w)" + re.escape(name) + r"(?!\w)", folded, flags=re.IGNORECASE):
+        found = m.group(0)
+        if not found[:1].isupper():
+            continue
+        before = folded[: m.start()]
+        opens = not before.strip() or re.search(r"[.!?:;\n\"“(\[-]\s*$", before) is not None
+        if not opens:
+            return found
+        after = folded[m.end() :]
+        if re.search(r"[\"“'\[]\s*$", before) and re.match(r"\s*[\"”'\]]", after):
+            return found  # the whole value of a quoted or listed item: a name, not a word
+        if _NAME_CONTEXT.match(folded[m.end() :]) or _NAME_CONTEXT_BEFORE.search(before):
+            return found
+    return None
+
+
 def scan_text(
     text: str,
     register: Mapping[str, Any] | ContaminationRegister,
@@ -2050,8 +2131,22 @@ def scan_text(
     """
     text_tokens = _tokens(text or "")
     hits: list[TermHit] = []
+    common = _common_word_set(register)
     for term_class, terms in _register_classes(register).items():
         for term in terms:
+            if term_class == "competitor_terms" and term.casefold() in common:
+                # An everyday word ("render", "remote") is the competitor only as a proper name.
+                proper = _proper_name_match(term, text or "")
+                if proper is not None:
+                    hits.append(
+                        TermHit(
+                            term=term,
+                            term_class=term_class,
+                            match_kind="token",
+                            matched_text=proper,
+                        )
+                    )
+                continue
             found = _match_term(term, text_tokens, term_class, fuzzy)
             if found is not None:
                 hits.append(
@@ -4211,3 +4306,165 @@ __all__ = [
     "validate_artifacts",
     "validate_schemas",
 ]
+
+
+# ---------------------------------------------------------------------------
+# Observed buyer wording — every gated slot keeps the buyer's own words
+# ---------------------------------------------------------------------------
+
+#: The partitions where generated (grade D) wording cannot be tracked unless a person keeps it,
+#: and where every slot therefore keeps one candidate in observed buyer wording: the tracked core,
+#: the sentinel tripwires (guard) and the controls. One rule for all three.
+GRADE_D_GATED_PARTITIONS: tuple[str, ...] = ("core", "sentinel", "control")
+#: Grades that count as observed buyer wording.
+OBSERVED_GRADES: tuple[str, ...] = ("A", "B")
+OBSERVED_FALLBACK_MODEL = "code:observed_wording_fallback"
+
+
+class ObservedWording(_Strict):
+    text: str
+    source_id: str
+    evidence_grade: EvidenceGrade
+
+
+def observed_wording_by_cell(
+    cells: Iterable[Mapping[str, Any]],
+    buyer_jobs: Mapping[str, Any],
+    source_manifest: Mapping[str, Any] | None = None,
+) -> dict[str, list[ObservedWording]]:
+    """Each slot's grade-A and grade-B buyer wording, from its job's language samples.
+
+    A sample's grade is its own, else its source's. Grade A comes first, then samples whose
+    source is one of the slot's own reason sources. A sample in another language than the slot
+    is left out.
+    """
+    source_grade = {
+        str(s.get("source_id")): s.get("evidence_grade")
+        for s in _as_list((source_manifest or {}).get("sources"))
+        if isinstance(s, Mapping)
+    }
+    samples_by_job: dict[str, list[ObservedWording]] = {}
+    sample_locale: dict[int, str] = {}
+    for job in _as_list(buyer_jobs.get("jobs")):
+        if not isinstance(job, Mapping):
+            continue
+        for sample in _as_list(job.get("language_samples")):
+            if not isinstance(sample, Mapping) or not str(sample.get("text") or "").strip():
+                continue
+            sid = str(sample.get("source_id") or "")
+            grade = sample.get("evidence_grade") or source_grade.get(sid)
+            if grade not in OBSERVED_GRADES:
+                continue
+            item = ObservedWording(
+                text=str(sample["text"]).strip(), source_id=sid, evidence_grade=grade
+            )
+            samples_by_job.setdefault(str(job.get("job_id")), []).append(item)
+            if sample.get("locale"):
+                sample_locale[id(item)] = str(sample["locale"])
+    out: dict[str, list[ObservedWording]] = {}
+    for cell in cells:
+        reasons = {str(s) for s in _as_list(cell.get("reason_source_ids"))}
+        lang = str(cell.get("language") or cell.get("locale") or "")[:2].casefold()
+        picked = [
+            s
+            for s in samples_by_job.get(str(cell.get("job_id")), [])
+            if not (
+                lang and sample_locale.get(id(s)) and sample_locale[id(s)][:2].casefold() != lang
+            )
+        ]
+        picked.sort(key=lambda s: (s.evidence_grade != "A", s.source_id not in reasons))
+        if picked:
+            out[str(cell.get("cell_spec_id"))] = picked
+    return out
+
+
+def _wording_overlap(candidate: str, sample: str) -> float:
+    a, b = set(normalize_prompt(candidate).split()), set(normalize_prompt(sample).split())
+    if not a or not b:
+        return 0.0
+    jaccard = len(a & b) / len(a | b)
+    # The candidate carries the buyer's words: (nearly) all of the sample's words are in it.
+    covered = len(a & b) / len(b)
+    return max(jaccard, covered)
+
+
+class ObservedWordingResult(_Strict):
+    regraded: list[str] = Field(default_factory=list)
+    fallbacks: list[str] = Field(default_factory=list)
+    slots_without_wording: list[str] = Field(default_factory=list)
+
+
+def keep_observed_wording(
+    canonical_cells: list[dict[str, Any]],
+    observed: Mapping[str, list[ObservedWording]],
+    *,
+    threshold: float = SIMILARITY_JACCARD_THRESHOLD,
+    partitions: Sequence[str] = GRADE_D_GATED_PARTITIONS,
+) -> ObservedWordingResult:
+    """Every gated slot keeps at least one candidate in observed buyer wording (in place).
+
+    A candidate whose words overlap a sample at ``threshold`` or more (the similarity knob) takes
+    that sample's grade and source, as observed language. A gated slot with none gets the best
+    sample itself as a verbatim candidate, labelled as code's fallback. ``slots_without_wording``
+    lists gated slots that had no grade-A/B sample to keep.
+    """
+    result = ObservedWordingResult()
+    # A fallback is a question like any other: never the exact words of another candidate.
+    used = {
+        normalize_prompt(str(c.get("text") or ""))
+        for cell in canonical_cells
+        for c in cell.get("candidates") or []
+        if isinstance(c, dict)
+    }
+    for cell in canonical_cells:
+        if cell.get("partition") not in partitions:
+            continue
+        cell_id = str(cell.get("cell_spec_id"))
+        samples = list(observed.get(cell_id) or [])
+        if not samples:
+            result.slots_without_wording.append(cell_id)
+            continue
+        kept = False
+        candidates = [c for c in cell.get("candidates") or [] if isinstance(c, dict)]
+        for cand in candidates:
+            text = str(cand.get("text") or "")
+            best = max(samples, key=lambda s: _wording_overlap(text, s.text))
+            if _wording_overlap(text, best.text) < threshold:
+                continue
+            exact = normalize_prompt(text) == normalize_prompt(best.text)
+            cand["evidence_grade"] = best.evidence_grade
+            cand["variant_role"] = "observed_language"
+            cand["transformation"] = "verbatim" if exact else "lightly_normalized"
+            cand["source_ids"] = list(
+                dict.fromkeys([*(cand.get("source_ids") or []), best.source_id])
+            )
+            result.regraded.append(str(cand.get("candidate_id")))
+            kept = True
+        if kept:
+            continue
+        unused = [s for s in samples if normalize_prompt(s.text) not in used]
+        if not unused:
+            result.slots_without_wording.append(cell_id)
+            continue
+        best = unused[0]
+        used.add(normalize_prompt(best.text))
+        base = str(cell.get("canonical_cell_id") or cell_id)
+        taken = {str(c.get("candidate_id")) for c in candidates}
+        n = 1
+        while f"{base}-observed-{n:02d}" in taken:
+            n += 1
+        fallback = {
+            "candidate_id": f"{base}-observed-{n:02d}",
+            "variant_role": "observed_language",
+            "text": best.text,
+            "language": cell.get("language"),
+            "locale": cell.get("locale"),
+            "transformation": "verbatim",
+            "source_ids": [best.source_id],
+            "evidence_grade": best.evidence_grade,
+            "locale_review_status": "not_required",
+            "generation_provenance": {"model": OBSERVED_FALLBACK_MODEL},
+        }
+        cell["candidates"] = [*candidates, fallback]
+        result.fallbacks.append(fallback["candidate_id"])
+    return result

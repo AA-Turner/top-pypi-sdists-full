@@ -6,25 +6,23 @@ compiles with `new Function` inside the signed-in page's own origin. Three
 places enforce what it may contain:
 
   * this host, before an agent tool writes (`kind_shared.py`);
-  * the browser Studio, before it saves (matrx-frontend
-    `features/agent-apps/utils/component-source-gate.ts`);
+  * every browser write path and compiler, through `@ai-matrx/code-runtime`'s
+    `gate()` (`apps/shared/code-runtime/src/gate.ts`, this repo);
   * the database, for anything that reaches the table another way
     (`content_ir.kind_component_source_gate`).
 
-The canonical lists live ONCE, as data, in matrx-frontend
-`features/agent-apps/utils/component-source-gate.json`. This test fails the
+The canonical lists live ONCE, as data, in
+`apps/shared/code-runtime/src/gate-lists.json` (shipped as
+`@ai-matrx/code-runtime/gate-lists.json`). This test fails the
 moment this host's copies stop being byte-identical to it — which is the only
 thing that makes "one rule" true rather than aspirational.
 
-Skipped LOUDLY when matrx-frontend is not checked out, and FAILED when the run
-declared itself enforcing with MATRX_PARITY_REQUIRED=1 (same rule as
-`test_kind_surface_bootstrap.py`).
+The file is in this repository, so the test never skips.
 """
 
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -42,35 +40,20 @@ from matrx_ai.tools.implementations.kind_shared import (
 )
 
 AIDREAM_ROOT = Path(__file__).resolve().parents[3]
-FE_GATE_JSON = (
-    Path(os.environ.get("MATRX_FRONTEND_ROOT", AIDREAM_ROOT.parent / "matrx-frontend"))
-    / "features/agent-apps/utils/component-source-gate.json"
-)
+GATE_JSON = AIDREAM_ROOT / "apps/shared/code-runtime/src/gate-lists.json"
 
 
 def _load_canonical_lists() -> dict[str, list[str]]:
-    if not FE_GATE_JSON.exists():
-        message = (
-            f"matrx-frontend gate lists not found at {FE_GATE_JSON} — component "
-            "source-gate parity NOT verified (set MATRX_FRONTEND_ROOT)."
-        )
-        if os.environ.get("MATRX_PARITY_REQUIRED") == "1":
-            pytest.fail(
-                f"PARITY UNVERIFIED: {message}\n\nMATRX_PARITY_REQUIRED=1 — this run "
-                "was declared enforcing. Fix the sibling checkout in the job; never "
-                "relax this flag."
-            )
-        pytest.skip(f"SKIPPED LOUDLY: {message}")
-    return json.loads(FE_GATE_JSON.read_text(encoding="utf-8"))
+    return json.loads(GATE_JSON.read_text(encoding="utf-8"))
 
 
 def test_allowed_imports_are_byte_identical_to_the_canonical_json() -> None:
     canonical = _load_canonical_lists()
     assert sorted(COMPONENT_ALLOWED_IMPORTS) == canonical["allowedImports"], (
-        "The import allowlist drifted between this host and matrx-frontend. The "
+        "The import allowlist drifted between this host and @ai-matrx/code-runtime. The "
         "browser compiler SKIPS an unknown import silently, so a module this host "
         "accepts and the browser does not becomes a component that renders "
-        "nothing with no error. Edit component-source-gate.json and both "
+        "nothing with no error. Edit the package's gate-lists.json (it is the scope registry) and both "
         "runtimes together."
     )
 

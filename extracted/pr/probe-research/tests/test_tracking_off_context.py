@@ -330,7 +330,7 @@ def test_wiring_registers_no_new_events(hook):
     """Change 1 rides the existing SessionStart registration; hooks.json must
     still route session-start.sh there (the guard's wiring is asserted in
     test_tracking_guard.py)."""
-    wiring = json.loads((PLUGIN / "hooks" / "hooks.json").read_text())
+    wiring = json.loads((PLUGIN / "hooks" / "routes.json").read_text())
     session_start = json.dumps(wiring["hooks"]["SessionStart"])
     assert "session-start.sh" in session_start
 

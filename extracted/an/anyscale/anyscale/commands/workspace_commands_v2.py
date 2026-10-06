@@ -25,7 +25,7 @@ from anyscale.client.openapi_client.exceptions import (
     ApiTypeError,
     ApiValueError,
 )
-from anyscale.commands import command_examples
+from anyscale.commands import command_examples, events_commands
 from anyscale.commands.doc_metadata import (
     command_metadata,
     CommandExample,
@@ -600,7 +600,7 @@ def workspace_cli() -> None:
     required=False,
     default=None,
     type=str,
-    help="The Ray version (X.Y.Z) to the image specified by --image-uri. This is only used when --image-uri is provided. If you don't specify a Ray version, Anyscale defaults to the latest Ray version available at the time of the Anyscale CLI/SDK release.",
+    help="Ray version (X.Y.Z) of the image from --image-uri. Only used with --image-uri. If not set, Anyscale doesn't assume a version.",
 )
 @click.option(
     "--compute-config",
@@ -1706,7 +1706,7 @@ def push(  # noqa: PLR0913
     required=False,
     default=None,
     type=str,
-    help="New Ray version (X.Y.Z) to use with the image specified by --image-uri. This is only used when --image-uri is provided. If not provided, the latest Ray version will be used.",
+    help="New Ray version (X.Y.Z) of the image from --image-uri. Only used with --image-uri. If not set, Anyscale doesn't assume a version.",
 )
 @click.option(
     "--compute-config",
@@ -2214,3 +2214,8 @@ def list(  # noqa: A001, PLR0912, PLR0913, PLR0917
         raise click.ClickException(str(e)) from None
     except Exception as e:  # noqa: BLE001
         raise click.ClickException(f"Failed to list workspaces: {e}") from None
+
+
+# `anyscale workspace events` is implemented once for every resource in
+# events_commands.py; only the registration lives here.
+workspace_cli.add_command(events_commands.workspace_events)

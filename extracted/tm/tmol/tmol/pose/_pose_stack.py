@@ -9,6 +9,7 @@ from tmol.pose import (
     PDBInfo,
     PackedBlockTypes,
     ConstraintSet,
+    InterBlockBondsep,
 )
 
 if TYPE_CHECKING:
@@ -31,8 +32,8 @@ class PoseStack:
         block_coord_offset64: 64-bit copy of ``block_coord_offset`` for PyTorch.
         inter_residue_connections: Connected residue and connection indices.
         inter_residue_connections64: 64-bit connection-index copy.
-        inter_block_bondsep: Capped bond separation between residue connections.
-        inter_block_bondsep64: 64-bit bond-separation copy.
+        inter_block_bondsep: Bond separation between residue connections, capped at
+            ``MAX_SIG_BOND_SEPARATION`` and stored only for nearby residue pairs.
         block_type_ind: Packed block-type index for each residue; ``-1`` is padding.
         block_type_ind64: 64-bit block-type-index copy.
         chain_id: Chain index for each residue.
@@ -56,8 +57,7 @@ class PoseStack:
     inter_residue_connections: Tensor[torch.int32][:, :, :, 2]
     inter_residue_connections64: Tensor[torch.int64][:, :, :, 2]
 
-    inter_block_bondsep: Tensor[torch.int32][:, :, :, :, :]
-    inter_block_bondsep64: Tensor[torch.int64][:, :, :, :, :]
+    inter_block_bondsep: InterBlockBondsep
 
     block_type_ind: Tensor[torch.int32][:, :]
     block_type_ind64: Tensor[torch.int64][:, :]
@@ -83,12 +83,10 @@ class PoseStack:
             device=self.block_coord_offset.device,
         ).repeat(n_poses)
 
-        pose_inds = (
-            torch.arange(0, n_poses, dtype=torch.int32, device=self.device)
-            .unsqueeze(1)
-            .expand((n_poses, n_blocks))
+        pose_inds = torch.arange(n_poses, dtype=torch.int32, device=self.device)
+        self.pose_ind_for_rot = (
+            pose_inds.unsqueeze(1).expand(n_poses, n_blocks).flatten()
         )
-        self.pose_ind_for_rot = pose_inds.flatten()
 
         self.block_type_ind_for_rot = self.block_type_ind.flatten()
 
@@ -101,12 +99,8 @@ class PoseStack:
         self.n_rots_for_pose = torch.tensor(
             [n_blocks], dtype=torch.int32, device=self.device
         ).expand(n_poses)
-        self.rot_offset_for_pose = self.n_rots_for_pose * torch.arange(
-            0, n_poses, dtype=torch.int32, device=self.device
-        )
-        coord_offset_for_pose = self.coords.size(1) * torch.arange(
-            0, n_poses, dtype=torch.int32, device=self.device
-        )
+        self.rot_offset_for_pose = self.n_rots_for_pose * pose_inds
+        coord_offset_for_pose = self.coords.size(1) * pose_inds
         self.n_rots_for_block = torch.full_like(self.block_coord_offset, 1)
 
         self.rot_coord_offset = (
@@ -175,13 +169,11 @@ class PoseStack:
     def real_atoms(self) -> Tensor[torch.bool][:, :]:
         """Return the mask of real, non-padding atoms in ``coords``."""
         # get the list of real atoms to read out of pose coords
-        n_ats_per_pose_arange_expanded = (
-            torch.arange(self.max_n_pose_atoms, dtype=torch.int64, device=self.device)
-            .repeat(self.n_poses)
-            .view(self.n_poses, self.max_n_pose_atoms)
+        atom_inds = torch.arange(
+            self.max_n_pose_atoms, dtype=torch.int64, device=self.device
         )
         n_ats_per_pose = torch.sum(self.n_ats_per_block, dim=1).unsqueeze(1)
-        return n_ats_per_pose_arange_expanded < n_ats_per_pose
+        return atom_inds < n_ats_per_pose
 
     def clone(self) -> "PoseStack":
         """Deep-copy clone of this PoseStack"""
@@ -195,8 +187,46 @@ class PoseStack:
             block_coord_offset64=self.block_coord_offset64.detach().clone(),
             inter_residue_connections=self.inter_residue_connections.detach().clone(),
             inter_residue_connections64=self.inter_residue_connections64.detach().clone(),
-            inter_block_bondsep=self.inter_block_bondsep.detach().clone(),
-            inter_block_bondsep64=self.inter_block_bondsep64.detach().clone(),
+            inter_block_bondsep=self.inter_block_bondsep.clone(),
+            block_type_ind=self.block_type_ind.detach().clone(),
+            block_type_ind64=self.block_type_ind64.detach().clone(),
+            chain_id=self.chain_id.detach().clone(),
+            chain_id64=self.chain_id64.detach().clone(),
+            pdb_info=self.pdb_info,
+            constraint_set=new_constraint_set,
+            device=self.device,
+            split_block_mapping=self.split_block_mapping,
+        )
+
+    def clone_sharing_topology(self) -> "PoseStack":
+        """Copy per-pose state but share this stack's immutable bond topology.
+
+        :py:meth:`clone` deep-copies every tensor, including the connection
+        tensors, even though nothing ever mutates them in place: they are
+        built once by :py:class:`~tmol.pose.PoseStackBuilder` and thereafter
+        only read.
+
+        Callers that vary coordinates while holding topology fixed -- the
+        FastRelax accept/restore loop, for example -- should use this instead.
+        Sharing is also what lets a rendered scoring module recognise the
+        result as the same topology and reuse its cached parameters.
+
+        Returns:
+          A PoseStack whose coordinate and block state are independently
+          owned, and whose connection topology aliases this stack's.
+        """
+        new_constraint_set = (
+            self.constraint_set.clone() if self.constraint_set is not None else None
+        )
+        return PoseStack(
+            packed_block_types=self.packed_block_types,
+            coords=self.coords.detach().clone(),
+            block_coord_offset=self.block_coord_offset.detach().clone(),
+            block_coord_offset64=self.block_coord_offset64.detach().clone(),
+            # Shared, never mutated in place.
+            inter_residue_connections=self.inter_residue_connections,
+            inter_residue_connections64=self.inter_residue_connections64,
+            inter_block_bondsep=self.inter_block_bondsep,
             block_type_ind=self.block_type_ind.detach().clone(),
             block_type_ind64=self.block_type_ind64.detach().clone(),
             chain_id=self.chain_id.detach().clone(),
@@ -226,12 +256,9 @@ class PoseStack:
             ]
             .detach()
             .clone(),
-            inter_block_bondsep=self.inter_block_bondsep[index : index + 1]
-            .detach()
-            .clone(),
-            inter_block_bondsep64=self.inter_block_bondsep64[index : index + 1]
-            .detach()
-            .clone(),
+            inter_block_bondsep=self.inter_block_bondsep.select_poses(
+                index, index + 1
+            ).clone(),
             block_type_ind=self.block_type_ind[index : index + 1].detach().clone(),
             block_type_ind64=self.block_type_ind64[index : index + 1].detach().clone(),
             chain_id=self.chain_id[index : index + 1].detach().clone(),
@@ -261,14 +288,10 @@ class PoseStack:
         """
 
         # get the list of real atoms that we will be writing to in the 4D tensor
-        n_ats_per_block_arange_expanded = (
-            torch.arange(self.max_n_block_atoms, dtype=torch.int64, device=self.device)
-            .repeat(self.n_poses * self.max_n_blocks)
-            .view(self.n_poses, self.max_n_blocks, self.max_n_block_atoms)
+        atom_inds = torch.arange(
+            self.max_n_block_atoms, dtype=torch.int64, device=self.device
         )
-        real_expanded_pose_ats = (
-            n_ats_per_block_arange_expanded < self.n_ats_per_block.unsqueeze(2)
-        )
+        real_expanded_pose_ats = atom_inds < self.n_ats_per_block.unsqueeze(2)
 
         # now perform the actual copy
         expanded_coords = torch.zeros(

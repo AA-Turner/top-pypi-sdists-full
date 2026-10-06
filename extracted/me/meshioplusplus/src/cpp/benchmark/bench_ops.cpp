@@ -51,6 +51,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <optional>
@@ -60,13 +61,16 @@
 
 // Project includes
 #include "meshioplusplus/mesh.hpp"
+#include "meshioplusplus/detail/value_io.hpp"
 #include "meshioplusplus/mesh_api.hpp"
+#include "meshioplusplus/registry.hpp"
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/clean.hpp"
 #include "meshioplusplus/operations/convert_cells.hpp"
 #include "meshioplusplus/operations/curvature.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/decimate.hpp"
+#include "meshioplusplus/operations/diff.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
 #include "meshioplusplus/operations/interpolate.hpp"
 #include "meshioplusplus/operations/isosurface.hpp"
@@ -175,6 +179,71 @@ Mesh bench_ops_moved(const Mesh& rMesh, const std::function<void(std::size_t, do
         std::memcpy(conn.Data(), cb.Conn().Data(), conn.Nbytes());
         m.AddCellBlock(cb.Type(), std::move(conn));
     }
+    return m;
+}
+
+/**
+ * @brief `rVolume`'s points with its tetrahedra recast as a polyhedron block
+ * (four triangular faces each) and one triangle per tetrahedron as a polygon
+ * block: the ragged input the `reorder` CSR rows run on.
+ */
+Mesh bench_ops_ragged(const Mesh& rVolume) {
+    const auto cb = rVolume.Cells(0);
+    const std::size_t nc = cb.NumCells();
+    static const int faces[4][3] = {{0, 2, 1}, {0, 1, 3}, {1, 2, 3}, {0, 3, 2}};
+    std::vector<std::int64_t> flat, rows{0}, cells{0}, ring, poly_rows{0};
+    flat.reserve(nc * 12);
+    ring.reserve(nc * 3);
+    for (std::size_t c = 0; c < nc; ++c) {
+        const std::int64_t* v = cb.Conn().As<std::int64_t>() + 4 * c;
+        for (const auto& f : faces) {
+            for (int k = 0; k < 3; ++k)
+                flat.push_back(v[f[k]]);
+            rows.push_back(static_cast<std::int64_t>(flat.size()));
+        }
+        cells.push_back(static_cast<std::int64_t>(rows.size() - 1));
+        for (int k = 0; k < 3; ++k)
+            ring.push_back(v[faces[0][k]]);
+        poly_rows.push_back(static_cast<std::int64_t>(ring.size()));
+    }
+    NDArray pts = NDArray::Uninit(DType::Float64, {rVolume.NumPoints(), 3});
+    std::memcpy(pts.Data(), rVolume.Points().Data(), pts.Nbytes());
+    Mesh m;
+    m.AssignPoints(std::move(pts));
+    m.AddPolyhedronBlock("polyhedron4", std::move(flat), std::move(rows), std::move(cells));
+    m.AddPolygonBlock("polygon", std::move(ring), std::move(poly_rows));
+    return m;
+}
+
+/**
+ * @brief `rMesh` with non-canonical storage: float32 points and point data,
+ * int32 connectivity. The `_narrow` rows run on it, because the dtype-hoisted
+ * loops are zero-copy on float64/int64 and only a narrower input exercises the
+ * one converted copy (roadmap §3.3.2).
+ */
+Mesh bench_ops_narrowed(const Mesh& rMesh) {
+    const auto narrow = [](const NDArray& rA, DType To) {
+        NDArray out = NDArray::Uninit(To, rA.Shape());
+        const std::size_t n = rA.Size();
+        if (To == DType::Float32) {
+            float* d = out.As<float>();
+            for (std::size_t i = 0; i < n; ++i)
+                d[i] = static_cast<float>(meshioplusplus::detail::read_double(rA, i));
+        } else {
+            std::int32_t* d = out.As<std::int32_t>();
+            for (std::size_t i = 0; i < n; ++i)
+                d[i] = static_cast<std::int32_t>(meshioplusplus::detail::read_int(rA, i));
+        }
+        return out;
+    };
+    Mesh m;
+    m.AssignPoints(narrow(rMesh.Points(), DType::Float32));
+    for (std::size_t b = 0; b < rMesh.NumCellBlocks(); ++b) {
+        const auto cb = rMesh.Cells(b);
+        m.AddCellBlock(cb.Type(), narrow(cb.Conn(), DType::Int32));
+    }
+    for (const std::string& name : rMesh.PointDataNames())
+        m.AddPointData(name, narrow(rMesh.PointData(name), DType::Float32));
     return m;
 }
 
@@ -295,6 +364,11 @@ int main(int argc, char** argv) {
             o.mRecordLevels = true;
             return mio::refine(volume, o).mMesh;
         }();
+        // The same meshes with float32 points/data and int32 connectivity.
+        const Mesh volume_narrow = bench_ops_narrowed(volume);
+        const Mesh with_field_narrow = bench_ops_narrowed(with_field);
+        const Mesh jittered_narrow = bench_ops_narrowed(jittered);
+        const Mesh quadratic_narrow = bench_ops_narrowed(quadratic);
         using Hashed = std::function<void(MeshDigest*)>;
         const auto row = [&](const char* pOp, const Hashed& rFn) {
             if (!wanted(pOp))
@@ -413,6 +487,51 @@ int main(int argc, char** argv) {
         };
         reorder_row("reorder", mio::ReorderMethod::RCM);
         reorder_row("reorder_hilbert", mio::ReorderMethod::Hilbert);
+        const Mesh ragged = bench_ops_ragged(volume);
+        row("reorder_ragged", [&](MeshDigest* pD) {
+            auto r = mio::reorder(ragged, mio::ReorderMethod::RCM);
+            of(pD, r.mMesh);
+            if (pD) {
+                pD->Array(r.mNodePermutation);
+                pD->Arrays(r.mCellPermutations);
+            }
+        });
+        // Simplexify of the same ragged mesh: every polyhedron fans into
+        // tetrahedra and every polygon into triangles, which is where the
+        // fan paths' output vectors grow (roadmap §3.2.2).
+        row("simplexify_ragged", [&](MeshDigest* pD) {
+            mio::ConvertCellsOptions o;
+            o.mMode = mio::ConvertCellsMode::Simplexify;
+            auto r = mio::convert_cells(ragged, o);
+            of(pD, r.mMesh);
+            if (pD) {
+                pD->Array(r.mPointMap);
+                pD->Arrays(r.mCellMaps);
+            }
+        });
+        // Reads of the ragged mesh through the registry: the file is written
+        // once, outside the timed region. A format whose writer declines the
+        // mesh is skipped, so the rows never fail the sweep.
+        const auto read_ragged_row = [&](const char* pOp, const char* pFormat, const char* pExt) {
+            if (!wanted(pOp))
+                return;
+            const std::filesystem::path dir =
+                std::filesystem::temp_directory_path() /
+                (std::string("meshioplusplus_bench_ragged_") + pFormat);
+            std::filesystem::create_directories(dir);
+            const std::string path = (dir / (std::string("ragged") + pExt)).string();
+            try {
+                mio::registry_writers().at(pFormat)(path, ragged);
+                row(pOp, [&](MeshDigest* pD) {
+                    of(pD, mio::registry_read(path, pFormat, mio::ReadOptions{}));
+                });
+            } catch (const std::exception& rExc) {
+                std::fprintf(stderr, "skip %s: %s\n", pOp, rExc.what());
+            }
+            std::filesystem::remove_all(dir);
+        };
+        read_ragged_row("read_ragged_ensight", "ensight", ".case");
+        read_ragged_row("read_ragged_tecplot", "tecplot", ".dat");
         row("optimize_volume", [&](MeshDigest* pD) {
             auto r = mio::optimize_volume(jittered);
             of(pD, r.mMesh);
@@ -531,6 +650,76 @@ int main(int argc, char** argv) {
             o.mMethod = mio::GradientMethod::LeastSquares;
             o.mLocation = mio::DataLocation::Point;
             of(pD, mio::gradient(with_field, o).mMesh);
+        });
+        // Green-Gauss reads each cell's corner connectivity and field values
+        // through grad_load_cell, which the least-squares row above does not.
+        row("gradient_gg", [&](MeshDigest* pD) {
+            mio::GradientOptions o;
+            o.mArrayName = "u";
+            o.mMethod = mio::GradientMethod::GreenGauss;
+            o.mLocation = mio::DataLocation::Point;
+            of(pD, mio::gradient(with_field, o).mMesh);
+        });
+        row("gradient_narrow", [&](MeshDigest* pD) {
+            mio::GradientOptions o;
+            o.mArrayName = "u";
+            o.mMethod = mio::GradientMethod::GreenGauss;
+            o.mLocation = mio::DataLocation::Point;
+            of(pD, mio::gradient(with_field_narrow, o).mMesh);
+        });
+        // Green-Gauss on the triangulated surface: the 2-D ring path.
+        row("gradient_surface", [&](MeshDigest* pD) {
+            Mesh m = bench_ops_moved(surface, [](std::size_t, double*) {});
+            NDArray u = NDArray::Uninit(DType::Float64, {m.NumPoints()});
+            const double* p = m.Points().As<double>();
+            for (std::size_t i = 0; i < m.NumPoints(); ++i)
+                u.As<double>()[i] = p[3 * i] * p[3 * i] + p[3 * i + 1] * p[3 * i + 2];
+            m.AddPointData("u", std::move(u));
+            mio::GradientOptions o;
+            o.mArrayName = "u";
+            o.mMethod = mio::GradientMethod::GreenGauss;
+            o.mLocation = mio::DataLocation::Point;
+            of(pD, mio::gradient(m, o).mMesh);
+        });
+        // The ordered diff of the cube against its jittered twin: every cell
+        // block is compared through diff_cell_nodes.
+        const auto diff_digest = [](MeshDigest* pD, const mio::DiffReport& rR) {
+            if (!pD)
+                return;
+            const auto f64 = [&](double v) {
+                std::uint64_t bits;
+                std::memcpy(&bits, &v, sizeof bits);
+                pD->U64(bits);
+            };
+            pD->U64(static_cast<std::uint64_t>(rR.mVerdict));
+            f64(rR.mPoints.mMaxAbsError);
+            pD->U64(static_cast<std::uint64_t>(rR.mPoints.mNumExceeding));
+            for (const mio::BlockDiff& b : rR.mBlocks)
+                pD->U64(static_cast<std::uint64_t>(b.mConnMismatchCount));
+        };
+        row("diff", [&](MeshDigest* pD) { diff_digest(pD, mio::diff(volume, jittered)); });
+        row("diff_narrow",
+            [&](MeshDigest* pD) { diff_digest(pD, mio::diff(volume_narrow, jittered_narrow)); });
+        row("refine_narrow", [&](MeshDigest* pD) {
+            auto r = mio::refine(volume_narrow);
+            of(pD, r.mMesh);
+            if (pD)
+                pD->Array(r.mPointMap);
+        });
+        row("linearize_narrow", [&](MeshDigest* pD) {
+            mio::ConvertCellsOptions o;
+            o.mMode = mio::ConvertCellsMode::Linearize;
+            of(pD, mio::convert_cells(quadratic_narrow, o).mMesh);
+        });
+        row("elevate_narrow", [&](MeshDigest* pD) {
+            mio::ConvertCellsOptions o;
+            o.mMode = mio::ConvertCellsMode::Elevate;
+            auto r = mio::convert_cells(volume_narrow, o);
+            of(pD, r.mMesh);
+            if (pD) {
+                pD->Array(r.mPointMap);
+                pD->Arrays(r.mCellMaps);
+            }
         });
     }
     return 0;

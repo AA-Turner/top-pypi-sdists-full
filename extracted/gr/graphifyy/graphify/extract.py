@@ -2527,10 +2527,12 @@ def _astro_mask_non_script(src: str) -> str:
     chars = [c if c in "\r\n" else " " for c in src]
     for start, end in keep:
         chars[start:end] = src[start:end]
-        # Terminate the region in place of the following `<`, so two scripts on
-        # one line don't run together into a single statement.
+        # End a trailing // comment before terminating the statement, as in
+        # the Svelte masker. U+2028 keeps source line numbers unchanged; its
+        # three UTF-8 bytes replace three ASCII bytes from the closing tag.
+        # Frontmatter ends at a preserved newline and needs no terminator.
         if end < len(chars) and chars[end] == " ":
-            chars[end] = ";"
+            chars[end:end + 4] = ["\u2028", ";", "", ""]
     return "".join(chars)
 
 
@@ -7790,7 +7792,11 @@ def extract(
                 continue  # empty / whitespace-only: nothing to model, no signal
         except OSError:
             _size = 0
-        _symbolless_files.append((os.path.relpath(str(_p), str(root)).replace("\\", "/"), _size))
+        try:
+            _display_path = os.path.relpath(str(_p), str(root)).replace("\\", "/")
+        except ValueError:
+            _display_path = _p.as_posix()
+        _symbolless_files.append((_display_path, _size))
     if _symbolless_files:
         _total_bytes = sum(size for _, size in _symbolless_files)
         _total_mb = _total_bytes / (1024 * 1024)

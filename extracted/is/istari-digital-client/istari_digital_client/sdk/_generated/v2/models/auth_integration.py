@@ -25,6 +25,7 @@ from istari_digital_client.sdk._generated.v2.models.comment import Comment
 from istari_digital_client.sdk._generated.v2.models.control_tag import ControlTag
 from istari_digital_client.sdk._generated.v2.models.file import File
 from istari_digital_client.sdk._generated.v2.models.function_auth_type import FunctionAuthType
+from istari_digital_client.sdk._generated.v2.models.oauth1_provider_data import Oauth1ProviderData
 from istari_digital_client.sdk._generated.v2.models.oidc_provider_data import OidcProviderData
 from istari_digital_client.sdk._generated.v2.models.resource_archive_status import ResourceArchiveStatus
 from typing import Optional, Set
@@ -32,7 +33,7 @@ from typing_extensions import Self
 
 class AuthIntegration(BaseModel):
     """
-    A class representing an Auth Integration.  ``oidc_provider_data`` is the non-secret provider config (issuer, endpoints, scopes, client id), returned so admins can view and edit it. The sealed client secret is never included. ``integration_data`` is the non-secret app/link config for the same external system (e.g. a Teamwork Cloud ``server_name``); it is merged into a linked file's metadata at connect time. ``control_tags`` restrict visibility: a user must hold every tag to see or use the integration.
+    A class representing an Auth Integration.  ``oidc_provider_data`` / ``oauth1_provider_data`` is the non-secret provider config for the integration's auth standard (issuer, endpoints, scopes, client/consumer id), returned so admins can view and edit it; an integration populates the one matching its ``auth_type``. The sealed client secret is never included. ``integration_data`` is the non-secret app/link config for the same external system (e.g. a Teamwork Cloud ``server_name``); it is merged into a linked file's metadata at connect time. ``control_tags`` restrict visibility: a user must hold every tag to see or use the integration.
     """ # noqa: E501
     id: StrictStr
     created: datetime
@@ -44,9 +45,10 @@ class AuthIntegration(BaseModel):
     auth_type: FunctionAuthType
     name: Optional[StrictStr] = None
     oidc_provider_data: Optional[OidcProviderData] = None
+    oauth1_provider_data: Optional[Oauth1ProviderData] = None
     integration_data: Optional[Dict[str, Any]] = None
     control_tags: Optional[List[ControlTag]] = None
-    __properties: ClassVar[List[str]] = ["id", "created", "file", "comments", "archive_status_history", "created_by_id", "auth_integration_type", "auth_type", "name", "oidc_provider_data", "integration_data", "control_tags"]
+    __properties: ClassVar[List[str]] = ["id", "created", "file", "comments", "archive_status_history", "created_by_id", "auth_integration_type", "auth_type", "name", "oidc_provider_data", "oauth1_provider_data", "integration_data", "control_tags"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -107,6 +109,9 @@ class AuthIntegration(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of oidc_provider_data
         if self.oidc_provider_data:
             _dict['oidc_provider_data'] = self.oidc_provider_data.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of oauth1_provider_data
+        if self.oauth1_provider_data:
+            _dict['oauth1_provider_data'] = self.oauth1_provider_data.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in control_tags (list)
         _items = []
         if self.control_tags:
@@ -123,6 +128,11 @@ class AuthIntegration(BaseModel):
         # and model_fields_set contains the field
         if self.oidc_provider_data is None and "oidc_provider_data" in self.model_fields_set:
             _dict['oidc_provider_data'] = None
+
+        # set to None if oauth1_provider_data (nullable) is None
+        # and model_fields_set contains the field
+        if self.oauth1_provider_data is None and "oauth1_provider_data" in self.model_fields_set:
+            _dict['oauth1_provider_data'] = None
 
         # set to None if integration_data (nullable) is None
         # and model_fields_set contains the field
@@ -151,6 +161,7 @@ class AuthIntegration(BaseModel):
             "auth_type": obj.get("auth_type"),
             "name": obj.get("name"),
             "oidc_provider_data": OidcProviderData.from_dict(obj["oidc_provider_data"]) if obj.get("oidc_provider_data") is not None else None,
+            "oauth1_provider_data": Oauth1ProviderData.from_dict(obj["oauth1_provider_data"]) if obj.get("oauth1_provider_data") is not None else None,
             "integration_data": obj.get("integration_data"),
             "control_tags": [ControlTag.from_dict(_item) for _item in obj["control_tags"]] if obj.get("control_tags") is not None else None
         })

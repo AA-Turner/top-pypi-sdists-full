@@ -11,18 +11,21 @@ from .contracts import (
     CollectionReceipt,
     CollectionRequest,
     CollectionRun,
+    CollectionTrigger,
     KeywordMarketObservation,
     ProviderCallRecord,
     ProviderResponse,
     ProviderTaskCheckpoint,
     RawPayloadEnvelope,
     RawPayloadReceipt,
+    ReuseVerdict,
     SeoObservation,
     SpendQuery,
     SpendSummary,
     UpsertReceipt,
 )
 from .identity import collection_identity, stable_hash
+from .reuse import narrowed
 from .market_math import compute_market_stats, merge_monthly
 
 RUN_LEASE_SECONDS = 300
@@ -35,10 +38,28 @@ class SeoRepository(ABC):
         provider: str,
         request: CollectionRequest,
         freshness_ttl_seconds: int,
-    ) -> CollectionReceipt | None: ...
+        *,
+        require_fresh_within_seconds: int | None = None,
+    ) -> CollectionReceipt | None:
+        """The newest completed identical run inside the reuse window, or None.
+
+        ``require_fresh_within_seconds`` NARROWS the window (a ranking claim that
+        decides a recommendation passes its claim age); it never widens it. A
+        SCHEDULED request is a time-series reading for its own
+        ``observation_period`` and never reuses another period's run. A hit
+        carries ``reuse`` = :meth:`ReuseVerdict.reused`."""
 
     @abstractmethod
-    async def start_run(self, provider: str, request: CollectionRequest) -> CollectionRun: ...
+    async def start_run(
+        self,
+        provider: str,
+        request: CollectionRequest,
+        *,
+        identity_salt: str | None = None,
+    ) -> CollectionRun:
+        """Claim (or find) the run for ``request``'s identity. ``identity_salt``
+        derives a fresh-purchase identity (a window bucket or a purchase nonce),
+        so a window that rejected the identity's completed run can buy fresh."""
 
     @abstractmethod
     async def renew_lease(self, run: CollectionRun) -> None: ...
@@ -151,9 +172,16 @@ class InMemorySeoRepository(SeoRepository):
         provider: str,
         request: CollectionRequest,
         freshness_ttl_seconds: int,
+        *,
+        require_fresh_within_seconds: int | None = None,
     ) -> CollectionReceipt | None:
+        window = narrowed(freshness_ttl_seconds, require_fresh_within_seconds)
+        if window <= 0:
+            return None
         settings_hash = stable_hash(request.settings)
-        cutoff = datetime.now(UTC) - timedelta(seconds=freshness_ttl_seconds)
+        now = datetime.now(UTC)
+        cutoff = now - timedelta(seconds=window)
+        scheduled = request.trigger == CollectionTrigger.SCHEDULED
         matches = [
             row
             for row in self.runs.values()
@@ -167,6 +195,7 @@ class InMemorySeoRepository(SeoRepository):
             and row["request"].page_id == request.page_id
             and row["request"].source_crawl_session_id == request.source_crawl_session_id
             and row["settings_hash"] == settings_hash
+            and (not scheduled or row["request"].observation_period == request.observation_period)
             and row.get("completed_at") is not None
             and row["completed_at"] >= cutoff
         ]
@@ -176,17 +205,24 @@ class InMemorySeoRepository(SeoRepository):
         receipt = row.get("receipt")
         if receipt is None:
             return None
-        age = max(int((datetime.now(UTC) - row["completed_at"]).total_seconds()), 0)
+        age = max(int((now - row["completed_at"]).total_seconds()), 0)
         return receipt.model_copy(
             update={
                 "reused_completed_run": True,
                 "from_cache": True,
                 "cache_age_seconds": age,
-                "freshness_ttl_seconds": freshness_ttl_seconds,
+                "freshness_ttl_seconds": window,
+                "reuse": ReuseVerdict.reused(receipt.run_id, row["completed_at"], window, now=now),
             }
         )
 
-    async def start_run(self, provider: str, request: CollectionRequest) -> CollectionRun:
+    async def start_run(
+        self,
+        provider: str,
+        request: CollectionRequest,
+        *,
+        identity_salt: str | None = None,
+    ) -> CollectionRun:
         settings_hash = stable_hash(request.settings)
         key = collection_identity(
             request.organization_id,
@@ -202,6 +238,11 @@ class InMemorySeoRepository(SeoRepository):
         )
         if request.force_refresh:
             key = stable_hash([key, "force_refresh", request.request_id or str(uuid4())])
+        if identity_salt is not None:
+            # A fresh purchase the reuse window demanded (see
+            # SeoCollectionService.collect): a window bucket — so identical
+            # concurrent requests collapse onto one run — or a purchase nonce.
+            key = stable_hash([key, "fresh", identity_salt])
         now = datetime.now(UTC)
         lease_expires_at = now + timedelta(seconds=RUN_LEASE_SECONDS)
         row = self.runs.get(key)

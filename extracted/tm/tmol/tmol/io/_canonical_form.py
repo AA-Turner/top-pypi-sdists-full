@@ -46,29 +46,28 @@ class CanonicalForm:
     disulfides: Optional[Tensor[torch.int64][:, 3]]
     # n_poses x max_n_res x 2
     res_not_connected: Optional[Tensor[torch.bool][:, :, 2]]
+    # n_cyclic_closures x 3
+    cyclic_bonds: Optional[Tensor[torch.int64][:, 3]] = None
+    # n_covalent_bonds x 5: pose, res1, canonical atom1, res2, canonical atom2
+    covalent_bonds: Optional[Tensor[torch.int64][:, 5]] = None
+    # n_metals x 3: pose, metal res, index into GEOMETRY_NAMES
+    metal_sites: Optional[Tensor[torch.int64][:, 3]] = None
+    # n_filled_sites x 5: pose, metal res, site, donor res, donor canonical atom
+    metal_coordination: Optional[Tensor[torch.int64][:, 5]] = None
+    # n_poses x max_n_res: for a metal split out of a component, (res label,
+    # insertion code, res name, atom name) of where it sat; None elsewhere
+    metal_origins: Optional[NDArray[object][:, :]] = None
+    # n_poses x max_n_res structured array of the input's RESIDUE_ANNOTATIONS
+    residue_annotations: Optional[numpy.ndarray] = None
+    # n_poses x max_n_res: the res_type_variant the input's protonation state
+    # selects, -1 where it leaves the variant to tmol
+    protonation_variants: Optional[Tensor[torch.int64][:, :]] = None
 
     def __iter__(self):
-        yield self.chain_id
-        yield self.res_types
-        yield self.coords
-        yield self.res_labels
-        yield self.residue_insertion_codes
-        yield self.chain_labels
-        yield self.atom_occupancy
-        yield self.atom_b_factor
-        yield self.disulfides
-        yield self.res_not_connected
+        return iter(attr.astuple(self, recurse=False))
 
     def as_dict(self):
-        return {
-            "chain_id": self.chain_id,
-            "res_types": self.res_types,
-            "coords": self.coords,
-            "res_labels": self.res_labels,
-            "residue_insertion_codes": self.residue_insertion_codes,
-            "chain_labels": self.chain_labels,
-            "atom_occupancy": self.atom_occupancy,
-            "atom_b_factor": self.atom_b_factor,
-            "disulfides": self.disulfides,
-            "res_not_connected": self.res_not_connected,
-        }
+        """Constructor keyword arguments sharing the original tensors and arrays."""
+        values = attr.asdict(self, recurse=False)
+        values["res_ins_codes"] = values.pop("residue_insertion_codes")
+        return values

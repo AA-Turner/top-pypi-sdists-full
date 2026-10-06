@@ -78,6 +78,19 @@ def env_bool_aliased(
     return getter
 
 
+def env_bool_aliased_optional(env_vars: list[str]) -> Callable[[], bool | None]:
+    """Like :func:`env_bool_aliased`, but return ``None`` when none of ``env_vars`` is set."""
+
+    def getter() -> bool | None:
+        for env_var in env_vars:
+            val = os.environ.get(env_var, None)
+            if val is not None:
+                return _coerce_bool(env_var, val)
+        return None
+
+    return getter
+
+
 def env_cache_root(env_var: str) -> Callable[[], Path]:
     def getter() -> Path:
         env_val = os.environ.get(env_var, None)

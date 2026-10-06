@@ -348,19 +348,8 @@ def _port_row(row: PortRow) -> str:
     """I6, I6, then nine E12.5 cells; a negative cell fills its field and
     runs into its neighbour (``1.89388E-02-1.56495E-02``, 0234).  NEC-4.2's
     row has no end digit after the segment, unlike NEC-5's."""
-    cells = (
-        row.voltage.real,
-        row.voltage.imag,
-        row.current.real,
-        row.current.imag,
-        row.impedance.real,
-        row.impedance.imag,
-        row.admittance.real,
-        row.admittance.imag,
-        row.power,
-    )
     return f"{row.tag:6d}{row.segment:6d}" + "".join(
-        _printout._e(value, 12, 5) for value in cells
+        _printout._e(value, 12, 5) for value in _printout.port_cells(row)
     )
 
 
@@ -534,6 +523,21 @@ def _run(run: Nec4Run) -> list[str]:
     return body
 
 
+# What NEC-4.2 prints under an ``EK`` card's echo, between two blank lines
+# (the licensed binary given ``EK 0`` as a black box, 2026-10-04, momwire#1326).
+# The nec4 dialect ignores the card the same way and solves with the extended
+# kernel, its default: the line is true of this engine too.
+_EK_NOTE = (" THE EK AND KH COMMANDS HAVE NO EFFECT IN NEC-4",)
+
+
+def _echo(index: int, card) -> list[str]:
+    """One card's echo, and for ``EK`` the note NEC-4.2 prints under it."""
+    line = _printout._card_echo(index, card)
+    if card.mnemonic == "EK":
+        return [line, "", *_EK_NOTE, ""]
+    return [line]
+
+
 def render_nec4_printout(
     deck_text: str, data: Nec4Printout, *, basis: str | None = None
 ) -> str:
@@ -563,14 +567,15 @@ def render_nec4_printout(
             body.append("")
         if run.echo_through is not None:
             block = [
-                _printout._card_echo(i, c)
+                line
                 for i, c in numbered[echoed : run.echo_through]
+                for line in _echo(i, c)
             ]
             echoed = run.echo_through
             body += [*block, *gap(_STRUCTURE_GAP if index == 0 else _SECTION_GAP)]
         body += _run(run)
     body.append("")
-    body += [_printout._card_echo(i, c) for i, c in numbered[echoed:]]
+    body += [line for i, c in numbered[echoed:] for line in _echo(i, c)]
     if terminator is not None:
         body.append(_printout._card_echo(len(cards), terminator))
     body += ["", f"{_printout._RUN_TIME_LABEL}{data.run_seconds:10.3f}"]

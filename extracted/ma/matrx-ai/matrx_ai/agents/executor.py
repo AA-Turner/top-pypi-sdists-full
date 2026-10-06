@@ -74,6 +74,14 @@ ParsedT = TypeVar("ParsedT", bound=BaseModel)
 _SPINE_SETTLE_TASKS: set[asyncio.Task[Any]] = set()
 
 
+def _is_uuid_text(value: object) -> bool:
+    try:
+        uuid.UUID(str(value))
+    except (ValueError, TypeError, AttributeError):
+        return False
+    return bool(value)
+
+
 def _discard_spine_settle(task: asyncio.Task[Any]) -> None:
     _SPINE_SETTLE_TASKS.discard(task)
     if task.cancelled():
@@ -101,10 +109,45 @@ async def _settle_spine(
     await asyncio.shield(task)
 
 
-# A cancellation can arrive after Agent.execute() returned but while the
-# terminal runtime-spine write is being awaited. Keep that write alive outside
-# the caller task: otherwise the already-open utility remains RUNNING until its
-# lease expires and the reaper falsely reports it abandoned.
+# What an early-ended run spent rides the exception out of ``run_agent`` so the
+# caller that owns a spine record for it (agent-as-tool's child execution, a
+# time-limited caller's own tally) can settle the real amount. The innermost
+# ``run_agent`` the exception passes through is the caller's own run, so each
+# one overwrites the stamp on the way out.
+_RUN_USAGE_ATTR = "_matrx_agent_run_usage_history"
+
+
+def run_usage_from_exception(exc: BaseException | None) -> list[TokenUsage]:
+    """The usage an early-ended ``run_agent`` accumulated, read off the
+    exception it raised — or off the cause/context chain, so a ``TimeoutError``
+    that ``asyncio.wait_for`` / ``asyncio.timeout`` raised from the run's
+    cancellation still yields it. Empty when nothing was billed."""
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        seen.add(id(exc))
+        found = getattr(exc, _RUN_USAGE_ATTR, None)
+        if found is not None:
+            return list(found)
+        exc = exc.__cause__ or exc.__context__
+    return []
+
+
+def _stamp_run_usage(exc: BaseException, history: list[TokenUsage]) -> None:
+    try:
+        setattr(exc, _RUN_USAGE_ATTR, list(history))
+    except Exception:  # noqa: BLE001 — cost capture must never mask the real error
+        pass
+
+
+def _early_exit_meters(history: list[TokenUsage], *, label: str) -> dict[str, Any] | None:
+    """Settle meters for a run that ended before ``Agent.execute`` returned —
+    the same builder the success path uses, so an unpriced call still records
+    the known subtotal plus ``unpriced_calls``, never a silent 0."""
+    if not history:
+        return None
+    from matrx_ai.config.usage_config import cost_meters_from_totals
+
+    return cost_meters_from_totals(TokenUsage.aggregate_by_model(history).total, label=label) or None
 
 # ---------------------------------------------------------------------------
 # Result type
@@ -357,6 +400,7 @@ async def run_agent(
     emit_lifecycle: bool = True,
     system_run: bool = False,
     stream_system_run: bool = False,
+    store: bool | None = None,
     require_complete_output: bool = False,
     max_iterations: int | None = None,
     metadata: dict[str, Any] | None = None,
@@ -435,23 +479,29 @@ async def run_agent(
                             that must not race on the parent's
                             ``cx_user_request`` id. Defaults to False —
                             the normal sub-agent rooting.
-        system_run: When True, this is an INTERNAL machine call whose
-                            conversation transcript is throwaway (fan-out
-                            derivations, pipelines). The forked context gets
-                            ``system_run=True`` — persistence keeps only the
-                            COST SPINE (minimal cx_conversation gate row +
-                            cx_user_request + cx_request cost rows; a paid
-                            call never loses its cost record) and skips the
-                            per-call chat machinery (cx_message writes,
-                            conversation config backfill, reservations,
-                            labeling, context-state events). Output is muted
-                            by default; set ``stream_system_run=True`` only
-                            when the containing user-facing pipeline promises
-                            the AI output in its real-time stream.
-        stream_system_run: Preserve the parent emitter for a cost-only system
-                            run instead of replacing it with ``SilentEmitter``.
-                            Cost-only persistence and client-delegation
-                            blocking remain unchanged.
+        system_run: When True, this is an INTERNAL machine call (fan-out
+                            derivations, pipelines, mandates). The forked
+                            context gets ``system_run=True``. A stored system
+                            run keeps its FULL history exactly like a chat —
+                            conversation backfill, messages, cost rows, request
+                            snapshot — so it opens and reads like any chat;
+                            nothing turns that off (Arman, 2026-10-05). It
+                            skips only non-history ceremony: the title LLM
+                            call, the cache_state refresh and the context-state
+                            event. Output is muted by default; set
+                            ``stream_system_run=True`` only when the containing
+                            user-facing pipeline promises the AI output in its
+                            real-time stream. Client delegation is blocked and
+                            citations default off.
+        stream_system_run: Preserve the parent emitter for a system run
+                            instead of replacing it with ``SilentEmitter``.
+                            Client-delegation blocking remains unchanged.
+        store:            None = inherit the parent's persistence intent. True
+                            persists this run even inside a non-persisting
+                            parent (a machine context minted ``store=False``
+                            by default); a non-UUID inherited request id is
+                            replaced with a fresh one so the stored rows have
+                            a valid parent. False makes the run ephemeral.
         allow_client_delegation: Whether this child may suspend for a client-
                             executed tool. Silenced/reference/system children
                             force this off because their emitter cannot deliver
@@ -498,7 +548,16 @@ async def run_agent(
     # once below (success path) or in the except branch (crash path).
     _spine_settle = None
     _child_conversation_id: str | None = None
+    _child_request_id: str | None = None
     _contained_incomplete_reason: str | None = None
+    # Whatever this run's loop spends is readable here even if it never returns
+    # (cancel / time limit / crash) — see execution_state.RunUsageSink.
+    from matrx_ai.orchestrator.execution_state import (
+        close_run_usage_sink,
+        open_run_usage_sink,
+    )
+
+    _usage_sink, _usage_sink_token = open_run_usage_sink()
     try:
         async with child_agent_context(
             label, emit_lifecycle=emit_lifecycle, conversation_id=conversation_id
@@ -507,6 +566,7 @@ async def run_agent(
 
             from matrx_ai.db.conversation_gate import (
                 CONVERSATION_STEP_LABEL_KEY,
+                PARENT_REQUEST_ID_KEY,
                 resolve_step_label_for_title,
             )
 
@@ -580,24 +640,71 @@ async def run_agent(
                     dict.fromkeys(list(child_ctx.client_tools or []) + list(extra_client_tools))
                 )
             if independent_request:
+                # Its own request record, LINKED to the request it ran under: the
+                # fresh user_request row carries ``metadata.parent_request_id``, so
+                # per-run joins work and lineage is never lost (Agent Factory review
+                # 4 N4-7: sequential mandate runs shared the first run's id and only
+                # the first got a user_request row).
+                parent_request_id = child_ctx.request_id
                 overrides["request_id"] = str(uuid.uuid4())
+                # R38: its own record, the TREE's cap — spend keys on the root request.
+                from matrx_ai.orchestrator.cost_budget import link_tree_request
+
+                link_tree_request(overrides["request_id"], parent_request_id)
+                from matrx_ai.db.conversation_gate import canonical_request_id, request_has_record
+
+                if parent_request_id and _is_uuid_text(parent_request_id) and not request_has_record(parent_request_id):
+                    # N4-7: a link names a REAL row or nothing — an ambient synthetic
+                    # request (a machine context, an MCP call) has no record to point at.
+                    # The tree cap link above still holds (in memory, not a row).
+                    vcprint(
+                        f"[run_agent] independent run {overrides['request_id']} under request "
+                        f"{parent_request_id}, which has no record here — no lineage link written "
+                        "(the tree cap still applies)",
+                        color="yellow",
+                    )
+                    parent_request_id = None
+                if parent_request_id and _is_uuid_text(parent_request_id):
+                    parent_request_id = canonical_request_id(parent_request_id)
+                    child_metadata[PARENT_REQUEST_ID_KEY] = str(parent_request_id)
+                    # The completion write REPLACES the row's metadata with the
+                    # agent's request metadata (requests.py to_user_request), so
+                    # the link rides there too or it is lost at completion.
+                    if isinstance(getattr(agent, "request_metadata", None), dict):
+                        agent.request_metadata = {
+                            **agent.request_metadata,
+                            PARENT_REQUEST_ID_KEY: str(parent_request_id),
+                        }
+                else:
+                    child_metadata.pop(PARENT_REQUEST_ID_KEY, None)
+            if store is not None and bool(getattr(child_ctx, "store", True)) != store:
+                overrides["store"] = store
+                if store and not _is_uuid_text(overrides.get("request_id", child_ctx.request_id)):
+                    # A stored run needs a UUID request id (the executor refuses
+                    # otherwise); a synthetic machine context may carry none.
+                    overrides["request_id"] = str(uuid.uuid4())
+                    from matrx_ai.orchestrator.cost_budget import link_tree_request
+
+                    link_tree_request(overrides["request_id"], child_ctx.request_id)
             if system_run:
-                # Cost-only persistence: the throwaway transcript machinery
-                # (ConversationGate backfill, 2× cx_message, reservations,
-                # labeling, context-state) is skipped; cx_request cost rows
-                # still land. This is the fix for the 2026-07-07 event-loop
-                # starvation: ~40 concurrent internal derive calls each spun
-                # up the FULL user-chat persistence stack.
+                # A system run keeps its full history like any chat; the flag
+                # only skips non-history ceremony (title LLM call, cache_state
+                # refresh, context-state event) — the 2026-07-07 fan-out
+                # starvation came from that ceremony, not from the history
+                # writes, which ride the one coordinator flush.
                 #
-                # A MANDATE CANDIDATE is the one exception to "throwaway": its
-                # transcript IS the evidence a person reads beside the live run
-                # (PLAN §2.7). Every other system_run behaviour below — muted
-                # stream, no client delegation, no citations — still applies, so
-                # what the model is offered and sees is exactly the live run's.
+                # A MANDATE CANDIDATE is not marked system_run at all: its run
+                # is the evidence a person reads beside the live run (PLAN
+                # §2.7). Every other system_run behaviour below — muted stream,
+                # no client delegation, no citations — still applies, so what
+                # the model is offered and sees is exactly the live run's.
                 from matrx_graph.candidate import candidate_marker
 
                 if candidate_marker(child_metadata) is None:
                     overrides["system_run"] = True
+                    # The child already owns its conversation — name it so the
+                    # system-run transition does not mint another one.
+                    overrides.setdefault("conversation_id", child_ctx.conversation_id)
                 if not stream_system_run:
                     suppress_stream = True
                 # Ratified citations exclusion: a system_run is by definition a
@@ -626,6 +733,7 @@ async def run_agent(
             # runs, which left consumers (agent_call collab provenance) with
             # None. Captured here; setdefault'd onto result.metadata below.
             _child_conversation_id = getattr(child_ctx, "conversation_id", None)
+            _child_request_id = getattr(get_app_context(), "request_id", None) or None
             if independent_request:
                 # Fresh request_id ⇒ fresh cx_user_request. execute_ai_request
                 # also ensures this, but tools can run before that gate; mint
@@ -676,7 +784,7 @@ async def run_agent(
 
                     _contained_incomplete_reason = child_status or "empty_response"
                     mark_child_agent_failed(f"status={_contained_incomplete_reason}")
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as _cancel_exc:
         # A cancelled run (fan-out sibling cancellation via gather(), parent task
         # teardown, shutdown) must still settle its spine execution — the except
         # Exception branch below can't see BaseException, and an unsettled row
@@ -684,9 +792,20 @@ async def run_agent(
         # a full lease later (live incident: internal_agent_run rows reaped at
         # exactly the 30-min utility lease for runs that ended in seconds).
         # The settle itself detaches its DB write, so this await is instant.
+        #
+        # It settles what the run REALLY spent: the model calls made before the
+        # cancel were billed. Settling with no meters recorded $0 (news run
+        # 70601b15: a per-call time limit cut a judge off mid-loop and ~$0.70
+        # vanished from the run total, the cost tree and the monthly ceiling).
+        _spent = _usage_sink.usage_history()
+        _stamp_run_usage(_cancel_exc, _spent)
         if _spine_settle is not None:
             try:
-                await _settle_spine(_spine_settle, "cancelled")
+                await _settle_spine(
+                    _spine_settle,
+                    "cancelled",
+                    meters=_early_exit_meters(_spent, label=label),
+                )
             except Exception:  # noqa: BLE001 — the host's reaper is the backstop
                 pass
         raise
@@ -695,19 +814,38 @@ async def run_agent(
             f"[AgentExecutor:{label}] Agent execution failed: {exc}",
             color="red",
         )
+        # A crash out of the loop (a commit barrier, a host hook) still owes
+        # every call it made before the crash — same rule as the cancel above.
+        _spent = _usage_sink.usage_history()
+        _stamp_run_usage(exc, _spent)
         if _spine_settle is not None:
             try:
                 await _settle_spine(
-                    _spine_settle, "failed", error=str(exc) or type(exc).__name__
+                    _spine_settle,
+                    "failed",
+                    error=str(exc) or type(exc).__name__,
+                    meters=_early_exit_meters(_spent, label=label),
                 )
             except Exception:  # noqa: BLE001 — the host's reaper is the backstop
                 pass
+        _spent_total = TokenUsage.aggregate_by_model(_spent) if _spent else None
+        _spent_dict: dict[str, Any] = {}
+        if _spent_total is not None:
+            try:
+                _spent_dict = _spent_total.to_dict()
+            except Exception:  # noqa: BLE001
+                _spent_dict = {}
         return AgentRunResult(
             success=False,
             error=str(exc),
             error_kind="execution",
             exception=exc,
+            usage=_spent_dict,
+            usage_aggregated=_spent_total,
+            usage_history=_spent,
         )
+    finally:
+        close_run_usage_sink(_usage_sink_token)
 
     usage_dict: dict[str, Any] = {}
     if execute_result.usage is not None:
@@ -777,10 +915,26 @@ async def run_agent(
             meters: dict[str, Any] = cost_meters_from_totals(
                 getattr(execute_result.usage, "total", None), label=label
             )
+            # A run the loop STOPPED (tree budget, deadline, subtree time
+            # budget, a person's cancel between calls) returns normally with
+            # status "cancelled" — it is not "completed", and the spine must
+            # say so. Its real spend still settles with it.
+            _stopped = (execute_result.metadata or {}).get("status") == "cancelled"
+            _settle_status = (
+                "failed" if execution_failed else "cancelled" if _stopped else "completed"
+            )
+            _settle_error = execution_error
+            if _stopped and not execution_failed:
+                _raw_stop = (execute_result.metadata or {}).get("error")
+                if isinstance(_raw_stop, dict):
+                    _raw_stop = (
+                        _raw_stop.get("user_message") or _raw_stop.get("message") or _raw_stop
+                    )
+                _settle_error = str(_raw_stop) if _raw_stop else "run stopped by execution control"
             await _settle_spine(
                 _spine_settle,
-                "failed" if execution_failed else "completed",
-                error=execution_error,
+                _settle_status,
+                error=_settle_error,
                 meters=meters or None,
             )
         except Exception as _settle_exc:  # noqa: BLE001 — the host's reaper is the backstop
@@ -809,6 +963,13 @@ async def run_agent(
     )
     if _child_conversation_id:
         result.metadata.setdefault("conversation_id", _child_conversation_id)
+    # The run's own request id and spine execution, so a caller can link the run
+    # to its stored request (chat.user_request / chat.request) and its spend.
+    if _child_request_id:
+        result.metadata.setdefault("request_id", str(_child_request_id))
+    _spine_execution_id = getattr(_spine_settle, "execution_id", None) if _spine_settle else None
+    if _spine_execution_id:
+        result.metadata.setdefault("runtime_execution_id", str(_spine_execution_id))
 
     # A DECISION TURN'S ANSWER IS A TYPED PART, never recovered from text: the
     # ``decision_answers`` part the assistant message carries IS the parsed

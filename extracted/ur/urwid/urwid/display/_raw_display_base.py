@@ -38,7 +38,14 @@ import typing
 from urwid import signals, str_util, util
 
 from . import escape
-from .common import UNPRINTABLE_TRANS_TABLE, UPDATE_PALETTE_ENTRY, AttrSpec, BaseScreen, RealTerminal
+from .common import (
+    UNPRINTABLE_C1_TRANS_TABLE,
+    UNPRINTABLE_TRANS_TABLE,
+    UPDATE_PALETTE_ENTRY,
+    AttrSpec,
+    BaseScreen,
+    RealTerminal,
+)
 
 if typing.TYPE_CHECKING:
     from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
@@ -356,7 +363,9 @@ class Screen(BaseScreen, RealTerminal):
         self._pal_escape: dict[Hashable, str] = {}
         self._pal_attrspec: dict[Hashable, AttrSpec] = {}
         self._modified_palette_entries: set[int] = set()
-        signals.connect_signal(self, UPDATE_PALETTE_ENTRY, self._on_update_palette_entry)
+        # Connected through a weak reference: a bound method would be a reference cycle back to this screen,
+        # keeping its sockets open until the cyclic garbage collector happened to run.
+        signals.connect_signal(self, UPDATE_PALETTE_ENTRY, type(self)._on_update_palette_entry, weak_args=(self,))
         self.term = os.environ.get("TERM", "")
         properties = detect_terminal_properties(self.term, os.environ)
         self.colors = properties.colors
@@ -387,6 +396,7 @@ class Screen(BaseScreen, RealTerminal):
         # pipe for signalling external event loops about resize events
         self._resize_pipe_rd, self._resize_pipe_wr = socket.socketpair()
         self._resize_pipe_rd.setblocking(False)
+        self._resize_pipe_wr.setblocking(False)
 
     def __del__(self) -> None:
         self._resize_pipe_rd.close()
@@ -396,16 +406,21 @@ class Screen(BaseScreen, RealTerminal):
         return f"<{self.__class__.__name__}(input={self._term_input_file}, output={self._term_output_file})>"
 
     def _sigwinch_handler(self, signum: int = _SIGWINCH, frame: FrameType | None = None) -> None:
-        """:param frame: will always be None when the GLib event loop is being used."""
-        logger = self.logger.getChild("signal_handlers")
+        """Record a terminal resize and wake the input loop.
 
-        logger.debug(f"SIGWINCH handler called with signum={signum!r}, frame={frame!r}")
+        This runs at an arbitrary point of the program (a signal handler, or the console reader thread on Windows),
+        so it only sets a flag and writes to the wake-up socket.
+        :meth:`parse_input` reports the resize and drops the screen buffer in the thread that draws the screen.
 
-        if IS_WINDOWS or not self._resized:
-            self._resize_pipe_wr.send(b"R")
-            logger.debug("Sent fake resize input to the pipe")
+        :param frame: will always be None when the GLib event loop is being used.
+        """
         self._resized = True
-        self.screen_buf = None
+        self._wake_input_loop()
+
+    def _wake_input_loop(self) -> None:
+        """Make the input descriptors readable, without blocking when a wake-up is already pending."""
+        with contextlib.suppress(BlockingIOError):
+            self._resize_pipe_wr.send(b"R")
 
     @property
     def _term_input_io(self) -> SupportsFileno | None:
@@ -846,9 +861,10 @@ class Screen(BaseScreen, RealTerminal):
         logger.debug(f"Decoded codes: {output_codes!r}, raw codes: {raw_codes!r}")
 
         if self._resized:
+            self._resized = False
+            self.screen_buf = None
             output_codes.append("window resize")
             logger.debug('Added "window resize" to the codes')
-            self._resized = False
 
         if callback:
             callback(output_codes, raw_codes)
@@ -879,15 +895,15 @@ class Screen(BaseScreen, RealTerminal):
         return self._read_raw_input(0)
 
     def _setup_G1(self) -> None:
-        """Initialize the G1 character set to graphics mode if required."""
+        """Initialize the G1 character set to graphics mode if required.
+
+        :raises OSError: the terminal could not be written to. The setup is tried again on the next draw.
+        """
         if self._setup_G1_done:
             return
 
-        while True:
-            with contextlib.suppress(OSError):
-                self.write(escape.DESIGNATE_G1_SPECIAL)
-                self.flush()
-                break
+        self.write(escape.DESIGNATE_G1_SPECIAL)
+        self.flush()
         self._setup_G1_done = True
 
     def draw_screen(self, size: tuple[int, int], canvas: Canvas) -> None:
@@ -895,6 +911,7 @@ class Screen(BaseScreen, RealTerminal):
 
         :raises RuntimeError: the screen has not been started.
         :raises ValueError: *canvas* does not have the number of rows given by *size*.
+        :raises OSError: the terminal could not be written to, for a reason other than an interrupted system call.
         """
 
         def set_cursor_position(x: int, y: int) -> str:
@@ -948,6 +965,8 @@ class Screen(BaseScreen, RealTerminal):
                 last_charset_flag = charset
 
             line_text = run.decode(encoding, "replace")
+            if charset != "U" and not line_text.isascii():
+                line_text = line_text.translate(UNPRINTABLE_C1_TRANS_TABLE)
 
             if not last:
                 output.append(line_text)

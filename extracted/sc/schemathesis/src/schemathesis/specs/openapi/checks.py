@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 import schemathesis
 from schemathesis.checks import CheckContext, CheckFunction
 from schemathesis.core import NOT_SET, media_types, string_to_boolean
+from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, Failure
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator
 from schemathesis.core.jsonschema.types import JsonSchema
@@ -396,8 +397,8 @@ def _body_negation_is_only_forbidden_property(case: Case) -> bool:
     return False
 
 
-def _coerce_string_to_numeric(value: str, expected_types: list[str]) -> int | float | None:
-    """Try to coerce `value` to one of the numeric types in `expected_types`.
+def _coerce_wire_string(value: str, expected_types: list[str]) -> int | float | bool | None:
+    """Try to coerce `value` to one of the numeric or boolean types in `expected_types`.
 
     Returns the coerced value, or `None` if the string is not parseable as any expected type.
     Used to bridge wire-level string transmission (query/header/cookie/path) and
@@ -413,6 +414,11 @@ def _coerce_string_to_numeric(value: str, expected_types: list[str]) -> int | fl
             return float(value)
         except (ValueError, TypeError):
             pass
+    if "boolean" in expected_types:
+        # Spellings such as `0`, `yes`, or `True` are read as booleans by most frameworks.
+        coerced = string_to_boolean(value)
+        if isinstance(coerced, bool):
+            return coerced
     return None
 
 
@@ -422,7 +428,7 @@ def _numeric_wire_value_is_valid(coerced: int | float | list[int | float], valid
     return any(isinstance(value, float) and not math.isfinite(value) for value in values) or validator.is_valid(coerced)
 
 
-def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
+def _single_element_array_becomes_valid_after_serialization(response: Response, case: Case) -> bool:
     """Check if an array value for a scalar parameter becomes valid after serialization.
 
     In query/header/cookie parameters, arrays are serialized as repeated keys:
@@ -436,6 +442,8 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
     the last one). If any element in the array is valid for the original scalar schema,
     the server may accept the request, making it an unreliable negative test.
 
+    Query values are also judged by the text actually sent, as nested lists and objects
+    serialize into repeated keys or their string representation.
     """
     from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter
 
@@ -461,6 +469,7 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
 
         # Get the parameter definitions
         container = getattr(case.operation, location.container_name)
+        sent_query = _sent_query_values(response, case) if location == ParameterLocation.QUERY else None
 
         # Check each parameter in the container
         for param_name, param_value in value.items():
@@ -468,16 +477,23 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
                 # This is an additional property, not a schema-defined parameter
                 continue
 
-            if not isinstance(param_value, list) or not param_value:
-                continue
-
             # Get the parameter definition
             param = container.get(param_name)
             if param is None:
                 continue
+            assert isinstance(param, OpenApiParameter)
+
+            # An optional parameter that was not sent at all can't make the request invalid.
+            if sent_query is not None and param_name not in sent_query and not param.is_required:
+                neutralized.add((location, param_name))
+                continue
+
+            elements = param_value if isinstance(param_value, list) else []
+            sent_texts = sent_query.get(param_name, []) if sent_query is not None else []
+            if not elements and not sent_texts:
+                continue
 
             # Get the parameter schema from definition
-            assert isinstance(param, OpenApiParameter)
             schema = param.definition.get("schema", {})
 
             # Get the expected type(s) from the schema
@@ -493,18 +509,21 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
             except Exception:
                 neutralized.add((location, param_name))
                 continue
-            for element in param_value:
+            for element in elements:
                 if validator.is_valid(element):
                     neutralized.add((location, param_name))
                     break
                 # Query/header/cookie values are transmitted as strings, so a string element
                 # like "44" produces the same wire form as int 44. Frameworks that coerce the
-                # raw query value to integer/number will accept it.
+                # raw query value to integer/number/boolean will accept it.
                 if isinstance(element, str):
-                    coerced = _coerce_string_to_numeric(element, expected_types)
+                    coerced = _coerce_wire_string(element, expected_types)
                     if coerced is not None and _numeric_wire_value_is_valid(coerced, validator):
                         neutralized.add((location, param_name))
                         break
+            # Nested lists and objects reach the server as repeated keys or their string representation.
+            if any(_sent_text_is_valid(text, validator, expected_types) for text in sent_texts):
+                neutralized.add((location, param_name))
 
     # Any other mutated parameter or location still makes the request invalid.
     return bool(neutralized) and all(
@@ -512,9 +531,19 @@ def _single_element_array_becomes_valid_after_serialization(case: Case) -> bool:
     )
 
 
+def _sent_text_is_valid(text: str, validator: jsonschema_rs.Validator, expected_types: list[str]) -> bool:
+    if validator.is_valid(text):
+        return True
+    # Python's number parsing also accepts `1_0`, ` 5`, or non-ASCII digits, which servers do not.
+    if not text.isascii() or "_" in text or text != text.strip():
+        return False
+    coerced = _coerce_wire_string(text, expected_types)
+    return coerced is not None and _numeric_wire_value_is_valid(coerced, validator)
+
+
 def _wire_value_matches_parameter(parameter: OpenApiParameter, expected_types: list[str], wire_value: str) -> bool:
     """Check whether the text actually sent for `parameter` satisfies its original schema."""
-    coerced = _coerce_string_to_numeric(wire_value, expected_types)
+    coerced = _coerce_wire_string(wire_value, expected_types)
     try:
         validator = make_validator(parameter.validation_schema, parameter.adapter.jsonschema_validator_cls)
     except Exception:
@@ -634,7 +663,7 @@ def _path_array_becomes_valid_after_serialization(case: Case) -> bool:
             return True
         # Items arrive as text, so `18` is the wire form of `[18]` for an integer array.
         item_types = get_type(schema.get("items", {}))
-        coerced = [_coerce_string_to_numeric(item, item_types) for item in items]
+        coerced = [_coerce_wire_string(item, item_types) for item in items]
         numbers = [value for value in coerced if value is not None]
         if len(numbers) == len(coerced) and _numeric_wire_value_is_valid(numbers, validator):
             return True
@@ -647,15 +676,26 @@ def _declares_type(schema: JsonSchema, name: str) -> bool:
     return declared == name or isinstance(declared, list) and name in declared
 
 
+def _sent_query_values(response: Response, case: Case) -> dict[str, list[str]] | None:
+    """Parse the query actually sent, or `None` if the request was not sent to this case's operation."""
+    request_url = urlparse(response.request.url)
+    try:
+        expected_path = _get_openapi_schema(case).get_full_path(prepare_path(case.path, case.path_parameters))
+    except InvalidSchema:
+        # Path parameters are missing, so the request could not have been sent to this operation.
+        return None
+    if request_url.path != expected_path:
+        return None
+    return parse_qs(request_url.query, keep_blank_values=True)
+
+
 def _query_as_sent(
     response: Response, case: Case, query: Mapping[str, object], properties: dict[str, JsonSchema]
 ) -> dict[str, object] | None:
     """Replace generated query values with the text actually sent wherever the server reads that text as is."""
-    request_url = urlparse(response.request.url)
-    expected_path = _get_openapi_schema(case).get_full_path(prepare_path(case.path, case.path_parameters))
-    if request_url.path != expected_path:
+    sent_values = _sent_query_values(response, case)
+    if sent_values is None:
         return None
-    sent_values = parse_qs(request_url.query, keep_blank_values=True)
     sent: dict[str, object] = {}
     # Iterating the generated query skips keys added outside of generation, e.g. query-based auth.
     for name, value in query.items():
@@ -664,8 +704,11 @@ def _query_as_sent(
             continue
         texts = sent_values[name]
         # Other types keep their generated value, as the server parses the text back into it.
-        if texts == [""] or _declares_type(properties.get(name, {}), "string"):
+        schema = properties.get(name, {})
+        if texts == [""] or _declares_type(schema, "string"):
             sent[name] = texts[0] if len(texts) == 1 else texts
+        elif len(texts) == 1 and _declares_type(schema, "boolean"):
+            sent[name] = string_to_boolean(texts[0])
         else:
             sent[name] = value
     return sent
@@ -740,7 +783,7 @@ def negative_data_rejection(ctx: CheckContext, response: Response, case: Case) -
         and not has_only_additional_properties_in_non_body_parameters(case)
         and not _body_negation_becomes_valid_after_serialization(case)
         and not _body_negation_is_only_forbidden_property(case)
-        and not _single_element_array_becomes_valid_after_serialization(case)
+        and not _single_element_array_becomes_valid_after_serialization(response, case)
         and not _type_mutations_become_valid_after_serialization(case)
         and not _path_array_becomes_valid_after_serialization(case)
         and not _non_body_negative_values_match_schema(response, case)
@@ -1147,9 +1190,9 @@ def _negates_declared_parameter(mutation: Mutation, location: ParameterLocation,
 
 
 def _boolean_from_wire_spelling(value: object, schema: JsonSchema) -> object:
-    """Booleans reach the check spelled as the wire sends them, so read `true` / `false` back."""
-    if value in ("true", "false") and "boolean" in get_type(schema):
-        return value == "true"
+    """Booleans reach the check spelled as the wire sends them, so read spellings like `true`, `0`, or `yes` back."""
+    if isinstance(value, str) and "boolean" in get_type(schema):
+        return string_to_boolean(value)
     return value
 
 

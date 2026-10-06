@@ -126,6 +126,9 @@ DEFAULT_IMAGE_WIDTH = 128
 DEFAULT_IMAGE_HEIGHT = 128
 _MHTML_SYNTHETIC_BASE = "thismessage:/"
 
+# Text-bearing block tags whose text is separated from surrounding inline text
+_TEXT_BLOCK_TAGS: Final = {"p", "li", "th", "td"}
+
 
 # Tags that initiate distinct Docling items
 _BLOCK_TAGS: Final = {
@@ -2052,7 +2055,12 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                     doc.add_table_cell(table_item=docling_table, cell=simple_cell)
         return data
 
-    def _walk(self, element: Tag, doc: DoclingDocument) -> list[RefItem]:  # noqa: C901
+    def _walk(  # noqa: C901
+        self,
+        element: Tag,
+        doc: DoclingDocument,
+        skip_tags: frozenset[str] = frozenset(),
+    ) -> list[RefItem]:
         """Parse an XML tag by recursively walking its content.
 
         While walking, the method buffers inline text across tags like <b> or <span>,
@@ -2061,6 +2069,7 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         Args:
             element: The XML tag to parse.
             doc: The Docling document to be updated with the parsed content.
+            skip_tags: Names of direct children to leave out of the walk.
         """
         added_refs: list[RefItem] = []
         buffer: AnnotatedTextList = AnnotatedTextList()
@@ -2131,6 +2140,9 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         for node in element.contents:
             if isinstance(node, Tag):
                 name = node.name.lower()
+                if name in skip_tags:
+                    _flush_buffer()
+                    continue
                 if form_field := self._consume_form_field_for_tag(node):
                     _flush_buffer()
                     added_refs.extend(
@@ -3104,9 +3116,9 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
             t.unwrap()
         # Find the number of rows and columns (taking into account spans)
         num_rows: int = 0
-        row_col_spans: list[list[int]] = []
+        row_cell_spans: list[list[tuple[int, int]]] = []
         for row in tag("tr", recursive=False):
-            col_spans: list[int] = []
+            cell_spans: list[tuple[int, int]] = []
             is_row_header = True
             if not isinstance(row, Tag):
                 continue
@@ -3115,37 +3127,23 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                     continue
                 cell_tag = cast(Tag, cell)
                 col_span, row_span = HTMLDocumentBackend._get_cell_spans(cell_tag)
-                col_spans.append(col_span)
+                cell_spans.append((col_span, row_span))
                 if cell_tag.name == "td" or row_span == 1:
                     is_row_header = False
-            row_col_spans.append(col_spans)
+            row_cell_spans.append(cell_spans)
             if not is_row_header:
                 num_rows += 1
-        return num_rows, table_width(row_col_spans)
+        return num_rows, table_width(row_cell_spans)
 
     def _handle_block(self, tag: Tag, doc: DoclingDocument) -> list[RefItem]:  # noqa: C901
         added_refs = []
         tag_name = tag.name.lower()
 
         if tag_name == "figure":
-            # 1. Dispatch all direct children except <figcaption>.
-            # This leaves <figcaption> in the tree so _emit_image can find it
-            # and link it to the PictureItem automatically.
-            for child in tag.contents:
-                if isinstance(child, Tag) and child.name != "figcaption":
-                    name = child.name.lower()
-                    if name == "img":
-                        im_ref = self._emit_image(child, doc)
-                        if im_ref is not None:
-                            added_refs.append(im_ref)
-                    elif name == "input":
-                        input_ref = self._emit_input(child, doc)
-                        if input_ref is not None:
-                            added_refs.append(input_ref)
-                    elif name in _BLOCK_TAGS:
-                        added_refs.extend(self._handle_block(child, doc))
-                    else:
-                        added_refs.extend(self._walk(child, doc))
+            # 1. Walk all direct children except <figcaption>, including text
+            # placed directly in the figure. This leaves <figcaption> in the tree
+            # so _emit_image can find it and link it to the PictureItem.
+            added_refs.extend(self._walk(tag, doc, skip_tags=frozenset({"figcaption"})))
 
             # 2. Check if an image was produced. If so, _emit_image handled the caption.
             any_image_produced = any(
@@ -5163,6 +5161,8 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         This method is equivalent to `PageElement.get_text()` but also considers
         certain tags. When called on a <p> or <li> tags, it returns the text with a
         trailing space, otherwise the text is concatenated without separators.
+        Inline text preceding a block tag gets a separating space, unless it
+        already ends with whitespace.
         """
 
         def _extract_text_recursively(item: PageElement) -> list[str]:
@@ -5176,10 +5176,19 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                 tag = cast(Tag, item)
                 parts: list[str] = []
                 for child in tag:
-                    parts.extend(_extract_text_recursively(child))
+                    child_parts = _extract_text_recursively(child)
+                    if (
+                        isinstance(child, Tag)
+                        and child.name in _TEXT_BLOCK_TAGS
+                        and parts
+                        and parts[-1]
+                        and not parts[-1][-1].isspace()
+                    ):
+                        parts.append(" ")
+                    parts.extend(child_parts)
                 result.append(
                     "".join(parts) + " "
-                    if tag.name in {"p", "li", "th", "td"}
+                    if tag.name in _TEXT_BLOCK_TAGS
                     else "".join(parts)
                 )
 

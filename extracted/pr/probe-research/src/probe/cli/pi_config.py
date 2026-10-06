@@ -230,6 +230,10 @@ class MergedPackageEntry:
     scope: str | None
     extensions_filter: list[str] | None
     skills_filter: list[str] | None
+    #: `probeTracking: false` on the winning entry: Probe's tracking (skills +
+    #: MCP) is switched off while the extension keeps capturing. The extension
+    #: enforces it from this same merged read (`src/trackingSetting.ts`).
+    tracking_off: bool = False
 
     @property
     def extension_filtered_out(self) -> bool:
@@ -325,7 +329,9 @@ def merged_package_entry(
         value = winner.get(key)
         return value if isinstance(value, list) else None
 
-    return MergedPackageEntry(True, scope, _filter("extensions"), _filter("skills"))
+    return MergedPackageEntry(
+        True, scope, _filter("extensions"), _filter("skills"), winner.get(TRACKING_KEY) is False
+    )
 
 
 def resolve_package_root(env: Mapping[str, str] | None = None) -> Path:
@@ -627,8 +633,51 @@ def _write_settings(path: Path, data: dict) -> None:
         raise _SettingsRefusal(f"could not write {path}: {exc}") from exc
 
 
+#: The pi extension that, when installed, serves every package's `pi.mcp`
+#: manifest itself, ours included (our extension then stands down, D6).
+MCP_ADAPTER_NAME = "pi-mcp-adapter"
+
+
+def mcp_adapter_installed(env: Mapping[str, str] | None = None, *, cwd: Path | str | None = None) -> bool:
+    """Whether pi-mcp-adapter is in pi's packages, global or project scope.
+
+    The same identity test as the extension's `adapterHandoff.matchesAdapter`
+    (npm name, git basename, a local directory's package.json name), so the
+    status names the provider pi actually uses. Unreadable files read as
+    absent."""
+    active = env if env is not None else os.environ
+    scopes = [(settings_path(active), pi_agent_dir(active))]
+    if cwd is not None:
+        scopes.append((project_settings_path(cwd), Path(cwd) / ".pi"))
+    for path, base in scopes:
+        try:
+            data = _load_settings(path)
+        except _SettingsRefusal:
+            continue
+        for entry in data.get("packages") or []:
+            source = (_entry_source(entry) or "").strip()
+            if not source:
+                continue
+            if source.startswith("npm:"):
+                name = source[4:].strip()
+                name = name.rsplit("@", 1)[0] if name.count("@") > (1 if name.startswith("@") else 0) else name
+                if name == MCP_ADAPTER_NAME:
+                    return True
+            elif source.startswith(("git:", "github:", "http:", "https:", "ssh:")):
+                tail = source.split("#", 1)[0].split("?", 1)[0].rstrip("/")
+                last = tail.replace(":", "/").rsplit("/", 1)[-1]
+                if last.removesuffix(".git") == MCP_ADAPTER_NAME:
+                    return True
+            elif _declared_package_name((Path(source) if Path(source).is_absolute() else base / source)) == MCP_ADAPTER_NAME:
+                return True
+    return False
+
+
 def install_package_entry(
-    package_root: Path | None = None, *, env: Mapping[str, str] | None = None
+    package_root: Path | None = None,
+    *,
+    env: Mapping[str, str] | None = None,
+    tracking: bool = True,
 ) -> claude_cli.Result:
     """Append our package to `settings.json`'s `packages` array. Idempotent.
 
@@ -638,6 +687,11 @@ def install_package_entry(
     (local-path, npm, or mirror form) is a no-op success, never a duplicate;
     otherwise the install source is appended as a plain string, every other
     key and key order preserved.
+
+    `tracking=False` appends the tracking-off form instead (`_entry_for`):
+    capture installed on its own must not bring Probe's skills and MCP along.
+    It shapes a FRESH entry only; an existing entry's tracking is
+    `set_tracking`'s to change.
 
     The appended source is an explicit `package_root` if the caller passed
     one, else whatever `resolve_install_source` picks -- a local checkout for
@@ -675,7 +729,9 @@ def install_package_entry(
                 ok=True, detail=f"probe-research-pi is already installed in {path} (no-op)"
             )
 
-    packages.append(source_to_add)
+    packages.append(
+        source_to_add if tracking else _entry_for(source_to_add, source_to_add, tracking=False, daemon=False)
+    )
     data["packages"] = packages
     try:
         _write_settings(path, data)
@@ -966,19 +1022,69 @@ def _is_daemon_filter(skills: object, source: str) -> bool:
     )
 
 
-def set_profile(daemon: bool, env: Mapping[str, str] | None = None) -> claude_cli.Result:
-    """Narrow (daemon) or restore (agent) our settings entry's skills.
+#: The settings-entry key that switches Probe's tracking (package skills and
+#: the MCP bridge) off while the extension keeps capturing. pi ignores keys it
+#: does not know (verified with `pi list`, as for `AGENT_SKILLS_STASH_KEY`).
+TRACKING_KEY = "probeTracking"
 
-    Daemon: `{"source": ..., "skills": [<daemon skills>]}`, every other key of
-    the entry kept, except an `extensions` filter that would stop pi loading
-    our extension (the extension IS the daemon profile's runtime). A `skills`
-    filter the researcher set themselves is kept under
-    `AGENT_SKILLS_STASH_KEY`. Agent: the daemon filter goes and theirs comes
-    back (none if they had none), and an entry left with nothing but its source
-    goes back to the plain string it most likely was. A filter they changed
-    while on the daemon is theirs and stays. Refuses an unreadable settings
-    file without writing, like every other write here.
-    """
+#: The package version whose extension honours `TRACKING_KEY`. An older one
+#: keeps bridging MCP whatever the entry says, so the wizard never writes the
+#: flag below this version (`setup._settings_tracking_ready`).
+TRACKING_OFF_MIN_PACKAGE_VERSION = (0, 4, 0)
+
+
+def _entry_for(entry: object, source: str, *, tracking: bool, daemon: bool) -> dict | str:
+    """THE one writer of our entry's Probe-owned keys.
+
+    Every profile/tracking change goes through here, so `skills` has one owner:
+
+        tracking  recorder  skills                         probeTracking
+        on        agent     the researcher's filter/none   absent
+        on        daemon    the daemon filter              absent
+        off       either    []                             false
+
+    The researcher's own `skills` filter is kept under `AGENT_SKILLS_STASH_KEY`
+    while one of ours replaces it. Which value is ours is read off the entry:
+    the daemon filter, or `[]` beside `probeTracking: false`. Anything else in
+    `skills` is the researcher's (a filter they changed while in a narrowed
+    state stays theirs, and the stash goes). An `extensions` filter that would
+    stop our extension loading is dropped whenever we narrow: the extension is
+    the capture runtime and the one that enforces the narrowing. An entry left
+    with nothing but its source goes back to the plain string it most likely
+    was."""
+    updated = dict(entry) if isinstance(entry, dict) else {"source": source}
+    current = updated.get("skills")
+    ours_now = _is_daemon_filter(current, source) or (
+        updated.get(TRACKING_KEY) is False and current == []
+    )
+    stashed = updated.pop(AGENT_SKILLS_STASH_KEY, None)
+    researcher = stashed if ours_now else current
+    updated.pop(TRACKING_KEY, None)
+    updated.pop("skills", None)
+    if tracking and not daemon:
+        if researcher is not None:
+            updated["skills"] = researcher
+    else:
+        if researcher is not None:
+            updated[AGENT_SKILLS_STASH_KEY] = researcher
+        if tracking:
+            updated["skills"] = _daemon_filter(source)
+        else:
+            updated["skills"] = []
+            updated[TRACKING_KEY] = False
+        if not _loads_our_extension(updated.get("extensions")):
+            updated.pop("extensions", None)
+    return source if set(updated) == {"source"} else updated
+
+
+def _rewrite_entry(
+    env: Mapping[str, str] | None, *, tracking: bool | None, daemon: bool | None, what: str
+) -> claude_cli.Result:
+    """Apply `_entry_for` to our GLOBAL entry; `None` keeps that axis as it is.
+
+    Refuses an unreadable settings file without writing, like every other
+    write here. Project-scope entries are never edited: `merged_package_entry`
+    reports when one wins, and the wizard names it instead."""
     active = env if env is not None else os.environ
     agent_dir = pi_agent_dir(active)
     path = settings_path(active)
@@ -993,22 +1099,13 @@ def set_profile(daemon: bool, env: Mapping[str, str] | None = None) -> claude_cl
     packages = list(data["packages"])
     entry = packages[index]
     source = _entry_source(entry) or ""
-    updated = dict(entry) if isinstance(entry, dict) else {"source": source}
-    if daemon:
-        current = updated.get("skills")
-        if current is not None and not _is_daemon_filter(current, source):
-            updated.setdefault(AGENT_SKILLS_STASH_KEY, current)
-        updated["skills"] = _daemon_filter(source)
-        if not _loads_our_extension(updated.get("extensions")):
-            updated.pop("extensions", None)
-    else:
-        stashed = updated.pop(AGENT_SKILLS_STASH_KEY, None)
-        if _is_daemon_filter(updated.get("skills"), source):
-            if stashed is not None:
-                updated["skills"] = stashed
-            else:
-                updated.pop("skills", None)
-    packages[index] = source if set(updated) == {"source"} else updated
+    tracking_now, daemon_now = _entry_axes(entry, source)
+    packages[index] = _entry_for(
+        entry,
+        source,
+        tracking=tracking_now if tracking is None else tracking,
+        daemon=daemon_now if daemon is None else daemon,
+    )
     if packages[index] == entry:
         return claude_cli.Result(ok=True, detail="no change")
     data["packages"] = packages
@@ -1016,12 +1113,45 @@ def set_profile(daemon: bool, env: Mapping[str, str] | None = None) -> claude_cl
         _write_settings(path, data)
     except _SettingsRefusal as exc:
         return claude_cli.Result(ok=False, detail=str(exc))
-    return claude_cli.Result(ok=True, detail=f"pi loads the {'daemon' if daemon else 'agent'} profile ({path})")
+    return claude_cli.Result(ok=True, detail=f"pi {what} ({path})")
+
+
+def _entry_axes(entry: object, source: str) -> tuple[bool, bool]:
+    """(tracking, daemon) as the entry records them. A tracking-off entry does
+    not say which profile it was on, so daemon reads False there; callers that
+    know the recorder pass it explicitly."""
+    if not isinstance(entry, dict):
+        return True, False
+    if entry.get(TRACKING_KEY) is False:
+        return False, False
+    return True, _is_daemon_filter(entry.get("skills"), source)
+
+
+def set_profile(daemon: bool, env: Mapping[str, str] | None = None) -> claude_cli.Result:
+    """Narrow (daemon) or restore (agent) our entry's skills, keeping tracking
+    as the entry has it (`_entry_for` owns the shape)."""
+    return _rewrite_entry(env, tracking=None, daemon=daemon,
+                          what=f"loads the {'daemon' if daemon else 'agent'} profile")
+
+
+def set_tracking(on: bool, *, daemon: bool, env: Mapping[str, str] | None = None) -> claude_cli.Result:
+    """Switch Probe's tracking (skills + MCP) on or off, keeping the entry, so
+    capture keeps running. `daemon` is who records for pi (the caller reads
+    `session_marker.recorder`), needed because a tracking-off entry does not
+    record the profile it returns to."""
+    return _rewrite_entry(env, tracking=on, daemon=daemon,
+                          what=f"tracking {'on' if on else 'off'}")
+
+
+#: `entry_profile`'s answer for an entry whose tracking is off: neither
+#: profile's skills load, and the recorder decides what the daemon does.
+PROFILE_TRACKING_OFF = "tracking-off"
 
 
 def entry_profile(env: Mapping[str, str] | None = None) -> str | None:
     """"daemon" when our global entry carries the daemon profile's skills
-    filter, "agent" when it is installed without it, None when not installed."""
+    filter, "tracking-off" when Probe's tracking is switched off on it,
+    "agent" when it is installed with neither, None when not installed."""
     active = env if env is not None else os.environ
     try:
         data = _load_settings(settings_path(active))
@@ -1033,6 +1163,8 @@ def entry_profile(env: Mapping[str, str] | None = None) -> str | None:
     entry = data["packages"][index]
     if not isinstance(entry, dict):
         return "agent"
+    if entry.get(TRACKING_KEY) is False:
+        return PROFILE_TRACKING_OFF
     # Only the daemon profile's exact filter is the daemon: a researcher's own
     # filter is the agent profile, narrowed by them.
     return "daemon" if _is_daemon_filter(entry.get("skills"), _entry_source(entry) or "") else "agent"

@@ -18,6 +18,12 @@ from confiture.exceptions import ConfigurationError
 #: this name rather than importing the driver.
 DatabaseError = psycopg.Error
 
+#: The oldest PostgreSQL major confiture supports. No code branches for a server
+#: below it: what a version-dependent answer distinguishes is a server that was
+#: read (every supported one answers alike) from none at all. Nothing refuses an
+#: older server at connect time; it is simply not a server confiture is written for.
+MINIMUM_SERVER_MAJOR = 16
+
 
 def connect_url(url: str, **kwargs: Any) -> psycopg.Connection:
     """A connection to *url* that the caller owns and closes.
@@ -179,6 +185,34 @@ def dsn_from_config(config: dict[str, Any] | str | Any) -> str:
     )
 
 
+def scratch_url_from_config(
+    config: dict[str, Any] | None, override: str | None = None
+) -> str | None:
+    """The writable server a tree is built on to be read back, or ``None`` when there is none.
+
+    ``--scratch-url`` (*override*) when given, else the environment's
+    ``scratch_url``. Never the environment's own ``database_url``: the database a
+    tree is compared with is not where confiture builds the tree.
+
+    Raises:
+        ConfigurationError: ``CONFIG_003`` for a value that is not a PostgreSQL URL.
+    """
+    configured = config.get("scratch_url") if isinstance(config, dict) else None
+    url = override if override is not None else configured
+    if url is None:
+        return None
+    if not isinstance(url, str) or not url.startswith(("postgresql://", "postgres://")):
+        raise ConfigurationError(
+            "Invalid scratch_url: must start with postgresql:// or postgres://",
+            error_code="CONFIG_003",
+            resolution_hint=(
+                "Name a writable server confiture may create a throwaway database on, "
+                "e.g. scratch_url: postgresql://localhost/postgres"
+            ),
+        )
+    return url
+
+
 def create_connection(config: dict[str, Any] | Any) -> psycopg.Connection:
     """Create database connection from configuration.
 
@@ -208,10 +242,10 @@ ConnectionFactory = Callable[[Any], "psycopg.Connection[Any]"]
 
 @contextmanager
 def open_connection(
-    config: "dict[str, Any] | Any",
+    config: dict[str, Any] | Any,
     *,
     factory: ConnectionFactory = create_connection,
-) -> "Generator[psycopg.Connection[Any], None, None]":
+) -> Generator[psycopg.Connection[Any]]:
     """Open a psycopg connection, transparently handling SSH tunnels.
 
     If *config* has an ``ssh_tunnel`` section (``Environment.ssh_tunnel`` or a

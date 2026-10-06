@@ -345,7 +345,7 @@ async def test_operation_ttl_reuses_fresh_run_and_force_refresh_bypasses_it() ->
             name="serp.rank.live",
             capability=SeoCapability.SERP_RANK,
             credential_keys=(),
-            freshness_ttl_seconds=86_400,
+            reuse_family="serp",
         ),
     )
 

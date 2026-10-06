@@ -1,5 +1,6 @@
-from . import BaseClientParser
 from device_detector.enums import AppType
+
+from . import BaseClientParser
 
 
 class PIM(BaseClientParser):

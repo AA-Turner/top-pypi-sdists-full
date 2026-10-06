@@ -12,7 +12,7 @@ from gymnasium.vector.vector_env import ArrayType, VectorEnv, VectorWrapper
 __all__ = ["DictInfoToList"]
 
 
-class DictInfoToList(VectorWrapper):
+class DictInfoToList(VectorWrapper[ObsType, ActType, ObsType, ActType, ArrayType]):
     """Converts infos of vectorized environments from ``dict`` to ``List[dict]``.
 
     This wrapper converts the info format of a
@@ -66,7 +66,7 @@ class DictInfoToList(VectorWrapper):
      * v1.0.0 - Renamed to ``DictInfoToList``
     """
 
-    def __init__(self, env: VectorEnv):
+    def __init__(self, env: VectorEnv[ObsType, ActType, ArrayType]) -> None:
         """This wrapper will convert the info into the list format.
 
         Args:
@@ -74,9 +74,10 @@ class DictInfoToList(VectorWrapper):
         """
         super().__init__(env)
 
+    # ty reports an error because the last return is a `dict` in super but a `list` here
     def step(
         self, actions: ActType
-    ) -> tuple[ObsType, ArrayType, ArrayType, ArrayType, list[dict[str, Any]]]:
+    ) -> tuple[ObsType, ArrayType, ArrayType, ArrayType, list[dict[str, Any]]]:  # ty:ignore[invalid-method-override]
         """Steps through the environment, convert dict info to list."""
         observation, reward, terminated, truncated, infos = self.env.step(actions)
         assert isinstance(infos, dict)
@@ -84,12 +85,10 @@ class DictInfoToList(VectorWrapper):
 
         return observation, reward, terminated, truncated, list_info
 
+    # ty reports an error because the last return is a `dict` in super but a `list` here
     def reset(
-        self,
-        *,
-        seed: int | list[int] | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> tuple[ObsType, list[dict[str, Any]]]:
+        self, *, seed: int | None = None, options: dict[str, Any] | None = None
+    ) -> tuple[ObsType, list[dict[str, Any]]]:  # ty:ignore[invalid-method-override]
         """Resets the environment using kwargs."""
         obs, infos = self.env.reset(seed=seed, options=options)
         assert isinstance(infos, dict)
@@ -97,7 +96,9 @@ class DictInfoToList(VectorWrapper):
 
         return obs, list_info
 
-    def _convert_info_to_list(self, vector_infos: dict) -> list[dict[str, Any]]:
+    def _convert_info_to_list(
+        self, vector_infos: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Convert the dict info to list.
 
         Convert the dict info of the vectorized environment

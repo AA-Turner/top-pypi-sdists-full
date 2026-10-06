@@ -84,6 +84,7 @@ def test_exclusive_cumsums_preserve_values_and_dtype(torch_device, dtype):
     expected = torch.tensor([[0, 3, 2], [0, 0, 2]], dtype=dtype, device=torch_device)
     expected_totals = torch.tensor([6, 7], dtype=dtype, device=torch_device)
 
+    torch.testing.assert_close(exclusive_cumsum1d(values[0]), expected[0])
     torch.testing.assert_close(exclusive_cumsum2d(values), expected)
     actual, totals = exclusive_cumsum2d_and_totals(values)
     torch.testing.assert_close(actual, expected)
@@ -151,6 +152,22 @@ def test_nplus1d_tensor_from_list():
     for i in range(4):
         ti = ts[i]
         assert tuple(sizes[i, :]) == ti.shape
+
+
+def test_nplus1d_metadata(torch_device):
+    tensors = [
+        torch.zeros((2, 3), device=torch_device),
+        torch.zeros((4, 1), device=torch_device),
+    ]
+    joined, sizes, strides = nplus1d_tensor_from_list(tensors)
+
+    torch.testing.assert_close(
+        sizes, torch.tensor([[2, 3], [4, 1]], device=torch_device)
+    )
+    torch.testing.assert_close(
+        strides,
+        torch.tensor([joined.stride()[1:]] * 2, device=torch_device),
+    )
 
 
 def test_cat_diff_sized_tensors_w_same_sizes():

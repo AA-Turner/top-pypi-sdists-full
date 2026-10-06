@@ -48,9 +48,10 @@ class User(BaseModel):
     machine_description: Optional[StrictStr] = None
     control_tags: Optional[List[ControlTag]] = None
     provider_tenant_id: Optional[StrictStr] = None
+    principal_id: Optional[StrictStr] = None
     tenant_id: Optional[StrictStr] = None
     infosec_level: Optional[InfosecLevel] = None
-    __properties: ClassVar[List[str]] = ["id", "created", "provider_name", "provider_user_id", "user_type", "personal_access_tokens", "provider_user_state", "user_name", "display_name", "first_name", "last_name", "email", "machine_name", "machine_description", "control_tags", "provider_tenant_id", "tenant_id", "infosec_level"]
+    __properties: ClassVar[List[str]] = ["id", "created", "provider_name", "provider_user_id", "user_type", "personal_access_tokens", "provider_user_state", "user_name", "display_name", "first_name", "last_name", "email", "machine_name", "machine_description", "control_tags", "provider_tenant_id", "principal_id", "tenant_id", "infosec_level"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -153,6 +154,11 @@ class User(BaseModel):
         if self.provider_tenant_id is None and "provider_tenant_id" in self.model_fields_set:
             _dict['provider_tenant_id'] = None
 
+        # set to None if principal_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.principal_id is None and "principal_id" in self.model_fields_set:
+            _dict['principal_id'] = None
+
         # set to None if tenant_id (nullable) is None
         # and model_fields_set contains the field
         if self.tenant_id is None and "tenant_id" in self.model_fields_set:
@@ -191,6 +197,7 @@ class User(BaseModel):
             "machine_description": obj.get("machine_description"),
             "control_tags": [ControlTag.from_dict(_item) for _item in obj["control_tags"]] if obj.get("control_tags") is not None else None,
             "provider_tenant_id": obj.get("provider_tenant_id"),
+            "principal_id": obj.get("principal_id"),
             "tenant_id": obj.get("tenant_id"),
             "infosec_level": InfosecLevel.from_dict(obj["infosec_level"]) if obj.get("infosec_level") is not None else None
         })

@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from istari_digital_client.sdk._generated.v3.models.sync_status_type import SyncStatusType
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,7 +30,8 @@ class ResourceSyncStatusDto(BaseModel):
     resource_id: StrictStr = Field(description="The unique identifier of the resource.")
     status: SyncStatusType = Field(description="The sync status for this resource.")
     message: StrictStr = Field(description="A message describing the sync status for this resource.")
-    __properties: ClassVar[List[str]] = ["resource_id", "status", "message"]
+    file_revision_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["resource_id", "status", "message", "file_revision_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,6 +72,11 @@ class ResourceSyncStatusDto(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if file_revision_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.file_revision_id is None and "file_revision_id" in self.model_fields_set:
+            _dict['file_revision_id'] = None
+
         return _dict
 
     @classmethod
@@ -85,6 +91,7 @@ class ResourceSyncStatusDto(BaseModel):
         _obj = cls.model_validate({
             "resource_id": obj.get("resource_id"),
             "status": obj.get("status"),
-            "message": obj.get("message")
+            "message": obj.get("message"),
+            "file_revision_id": obj.get("file_revision_id")
         })
         return _obj

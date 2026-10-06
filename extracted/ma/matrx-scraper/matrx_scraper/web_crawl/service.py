@@ -2380,7 +2380,43 @@ class WebCrawlService:
                         error=f"{type(exc).__name__}: {exc}",
                     )
 
-            await asyncio.gather(screenshots_step(), sitemaps_step(), discovered_step())
+            # ---- Brand search: what Google and Brave show for the site's own
+            # name. Needs no homepage capture. The host owns the search clients
+            # and the storage, so it is a hook; a host without one says so.
+            async def brand_search_step() -> None:
+                if not has_ext("site_brand_search"):
+                    await finish_step(
+                        "brand_search",
+                        "Skipped: this server has no brand search configured.",
+                        status="skipped",
+                    )
+                    return
+                await emit_step(
+                    "brand_search",
+                    "started",
+                    "Searching Google and Brave for the brand name…",
+                )
+                try:
+                    counts = await get_ext("site_brand_search")(prepared.site_id)
+                    summary.brand_search = dict(counts)
+                    await finish_step(
+                        "brand_search",
+                        f"Brand search stored {counts.get('signals', 0)} facts from "
+                        f"{counts.get('runs_ok', 0)} of {counts.get('runs', 0)} searches.",
+                        counts={k: int(v) for k, v in counts.items()},
+                    )
+                except Exception as exc:
+                    self._record_initialization_error(summary, "brand_search", exc)
+                    await finish_step(
+                        "brand_search",
+                        f"Brand search failed: {type(exc).__name__}: {exc}",
+                        status="failed",
+                        error=f"{type(exc).__name__}: {exc}",
+                    )
+
+            await asyncio.gather(
+                screenshots_step(), sitemaps_step(), discovered_step(), brand_search_step()
+            )
 
             await self._emit_initialization_progress(
                 emitter,

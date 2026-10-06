@@ -264,6 +264,177 @@ def _record_root(plugin_id: str) -> Path | None:
     return None
 
 
+#: The Probe MCP server key in our Kimi manifests' `mcpServers`.
+MCP_SERVER_KEY = "probe-research"
+
+
+class ManifestUnreadable(Exception):
+    """Kimi's plugin list or our recorded manifest could not be read."""
+
+
+def installed_mcp_bearer(plugin_id: str = "probe-research") -> str | None:
+    """The bearer token the INSTALLED manifest (the recorded root Kimi loads)
+    sends to Probe's MCP, or None when it sends none (the mirror's `auth:
+    "oauth"` form, or no `mcpServers` at all). Raises `ManifestUnreadable` when
+    the answer cannot be read, so a status never guesses "on"."""
+    root = _record_root(plugin_id)
+    if root is None:
+        raise ManifestUnreadable(f"no {plugin_id} record in Kimi's plugin list")
+    try:
+        manifest = json.loads((root / MANIFEST).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ManifestUnreadable(f"{root / MANIFEST}: {exc}") from exc
+    server = (manifest.get("mcpServers") or {}).get(MCP_SERVER_KEY) if isinstance(manifest, dict) else None
+    headers = server.get("headers") if isinstance(server, dict) else None
+    value = headers.get("Authorization") if isinstance(headers, dict) else None
+    if isinstance(value, str) and value.startswith("Bearer ") and value[len("Bearer "):].strip():
+        return value[len("Bearer "):].strip()
+    return None
+
+
+def _held_mcp_token() -> str | None:
+    """The read token the CONFIG holds (what the wizard minted), never one that
+    only lives in this shell's PROBE_MCP_TOKEN: a manifest is a file on disk,
+    and Codex's copy is synced from the same place (`setup.current_mcp_token`)."""
+    from probe.cli.setup import current_mcp_token
+
+    return current_mcp_token()
+
+
+def _refresh_statusline_renderer(root: Path) -> None:
+    """Kimi's footer runs a COPY of the renderer (`statusline.kimi_install_dir`):
+    an update of the plugin that carries it refreshes the copy, when Kimi's
+    footer has Probe's segment."""
+    if not (root / "hooks" / "statusline.py").is_file():
+        return
+    try:
+        from probe.cli import statusline
+
+        if statusline.kimi_installed():
+            statusline.sync(root, target=statusline.kimi_install_dir())
+    except Exception:  # noqa: BLE001 - a footer refresh never fails an install
+        return
+
+
+def _same_deployment(url: object) -> bool:
+    """The manifest's MCP and this device's API belong to one deployment (the
+    Codex guard, `setup._same_deployment`): a self-hosted device's token must
+    never be sent to the hosted MCP, or the other way round."""
+    from probe.cli.setup import _context_base_url, _same_deployment as same
+
+    return isinstance(url, str) and bool(url) and same(url, _context_base_url())
+
+
+def _server(manifest: object) -> dict | None:
+    servers = manifest.get("mcpServers") if isinstance(manifest, dict) else None
+    server = servers.get(MCP_SERVER_KEY) if isinstance(servers, dict) else None
+    return server if isinstance(server, dict) else None
+
+
+def write_mcp_bearer(root: Path, token: str | None) -> bool:
+    """Point the manifest under `root` at `token`: `mcpServers.probe-research`
+    sends `Authorization: Bearer <token>` instead of asking for an OAuth login,
+    and the file is 0600 (it holds a credential). No token, or an MCP of
+    another deployment, puts back the OAuth form instead (`auth: "oauth"`, no
+    header), so nothing on disk outlives a logout. Manifests without our
+    server (the daemon and capture plugins) are left alone. Returns whether
+    the file changed."""
+    path = root / MANIFEST
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    server = _server(manifest)
+    if server is None:
+        return False
+    updated = {k: v for k, v in server.items() if k not in ("auth", "oauth")}
+    headers = dict(updated.get("headers") or {}) if isinstance(updated.get("headers"), dict) else {}
+    if token and _same_deployment(server.get("url")):
+        headers["Authorization"] = f"Bearer {token}"
+        updated["headers"] = headers
+    else:
+        headers.pop("Authorization", None)
+        if headers:
+            updated["headers"] = headers
+        else:
+            updated.pop("headers", None)
+        updated["auth"] = "oauth"
+        if "oauth" in server:
+            updated["oauth"] = server["oauth"]
+    if updated == server:
+        return False
+    manifest["mcpServers"][MCP_SERVER_KEY] = updated
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(manifest, indent=2) + "\n")
+    os.replace(tmp, path)
+    os.chmod(path, 0o600)
+    return True
+
+
+def _probe_research_roots() -> list[Path]:
+    """Every installed copy of `probe-research`: the recorded root Kimi loads
+    and the older versions kept beside it (`_prune_versions`)."""
+    root_dir = managed_root()
+    roots = sorted(root_dir.glob("probe-research@*")) if root_dir.is_dir() else []
+    recorded = _record_root("probe-research")
+    if recorded is not None and recorded not in roots:
+        roots.append(recorded)
+    return [root for root in roots if (root / MANIFEST).is_file()]
+
+
+def mcp_server_same_deployment() -> bool:
+    """The recorded manifest's MCP belongs to this device's deployment."""
+    root = _record_root("probe-research")
+    if root is None:
+        return True
+    try:
+        server = _server(json.loads((root / MANIFEST).read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return True
+    return server is None or _same_deployment(server.get("url"))
+
+
+def mcp_bearer_drifted() -> bool:
+    """The installed `probe-research` manifest sends a token other than the one
+    this device holds. False when there is nothing to compare: no Kimi record,
+    no token, a manifest without our server, or an MCP of another deployment."""
+    token = _held_mcp_token()
+    root = _record_root("probe-research")
+    if not token or root is None:
+        return False
+    try:
+        manifest = json.loads((root / MANIFEST).read_text(encoding="utf-8"))
+        sent = installed_mcp_bearer()
+    except (OSError, ValueError, ManifestUnreadable):
+        return False
+    server = _server(manifest)
+    return server is not None and _same_deployment(server.get("url")) and sent != token
+
+
+def sync_mcp_bearer() -> list[str]:
+    """Re-point EVERY installed `probe-research` copy at the current read token
+    (or back to OAuth when this device holds none), under the plugin-list lock.
+    A running Kimi Code reads its manifest at start, so the change lands on its
+    next start."""
+    token = _held_mcp_token()
+    recorded = _record_root("probe-research")
+    changed_recorded = False
+    try:
+        with _locked():
+            for root in _probe_research_roots():
+                if write_mcp_bearer(root, token) and root == recorded:
+                    changed_recorded = True
+    except OSError as exc:
+        return [f"! could not update Kimi Code's Probe MCP token: {exc}"]
+    if not changed_recorded:
+        return []
+    if token:
+        return ["Kimi Code's Probe MCP now uses your current read token (restart Kimi Code to load it)."]
+    return ["Kimi Code's Probe MCP no longer holds a read token (restart Kimi Code to load it)."]
+
+
 def plugin_version(plugin_id: str, root: Path | None = None) -> str | None:
     """The version of an installed (or source) Kimi plugin, from its manifest."""
     base = root if root is not None else (_record_root(plugin_id) or managed_dir(plugin_id))
@@ -335,6 +506,11 @@ def install_plugin(plugin_id: str) -> claude_cli.Result:
                 return claude_cli.Result(ok=False, detail=f"{refused}; {_manual_step(plugin_id)}", command=command)
             target = versioned_dir(plugin_id, version)
             _copy_plugin(source, target)
+            # The copy Kimi loads carries this device's read token as a bearer
+            # header, so Probe's MCP works with no `/mcp-config login` (whose
+            # localhost callback no remote box can finish).
+            write_mcp_bearer(target, _held_mcp_token())
+            _refresh_statusline_renderer(target)
             now = _now()
             previous = next(
                 (p for p in doc["plugins"] if isinstance(p, dict) and p.get("id") == plugin_id), None

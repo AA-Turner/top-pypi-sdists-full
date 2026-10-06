@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .assistant import MCPServerDetails
 from .common import User
 
 
@@ -41,6 +42,7 @@ class SkillBase(BaseModel):
     categories: list[str] = Field(default_factory=list)
     created_date: datetime = Field(alias="createdDate")
     enabled_builtin_subagents: list[str] = Field(default_factory=list)
+    mcp_servers: list[MCPServerDetails] = Field(default_factory=list)
 
 
 class SkillListResponse(SkillBase):
@@ -71,6 +73,7 @@ class SkillCreateRequest(BaseModel):
     visibility: SkillVisibility | None = SkillVisibility.PROJECT
     categories: list[str] | None = Field(default_factory=list)
     enabled_builtin_subagents: list[str] | None = None
+    mcp_servers: list[MCPServerDetails] | None = Field(default_factory=list)
 
 
 class SkillUpdateRequest(BaseModel):
@@ -83,6 +86,7 @@ class SkillUpdateRequest(BaseModel):
     visibility: SkillVisibility | None = None
     categories: list[str] | None = None
     enabled_builtin_subagents: list[str] | None = None
+    mcp_servers: list[MCPServerDetails] | None = None
 
 
 class SkillImportRequest(BaseModel):

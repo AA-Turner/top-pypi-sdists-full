@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from typing import Optional, Set
@@ -27,7 +27,7 @@ class NewSnapshotTag(BaseModel):
     """
     NewSnapshotTag
     """ # noqa: E501
-    tag: StrictStr
+    tag: Annotated[str, Field(min_length=1, strict=True, max_length=255)]
     commit_message: Optional[Annotated[str, Field(strict=True, max_length=2000)]] = None
     __properties: ClassVar[List[str]] = ["tag", "commit_message"]
 

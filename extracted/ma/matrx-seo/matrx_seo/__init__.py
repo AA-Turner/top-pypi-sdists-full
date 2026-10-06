@@ -72,7 +72,6 @@ from .contracts import (
 from .fakes import FakeRankProvider, fake_collection_authorizer, fake_credential_resolver
 from .keyword_plane import (
     DEFAULT_LOCATION_CODE,
-    VOLUME_REFRESH_TTL_DAYS,
     ingest_keyword_research,
     keywords_needing_volume_refresh,
     reject_keyword_edge,
@@ -170,7 +169,6 @@ __all__ = [
     "WebAnalyticsObservation",
     "DEFAULT_LOCATION_CODE",
     "MarketStats",
-    "VOLUME_REFRESH_TTL_DAYS",
     "compute_market_stats",
     "configure",
     "ingest_keyword_research",

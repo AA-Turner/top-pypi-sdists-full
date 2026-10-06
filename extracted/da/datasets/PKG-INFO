@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datasets
-Version: 5.0.1
+Version: 5.1.0
 Summary: HuggingFace community-driven open-source library of datasets
 Home-page: https://github.com/huggingface/datasets
 Download-URL: https://github.com/huggingface/datasets/tags
@@ -27,16 +27,14 @@ License-File: LICENSE
 License-File: AUTHORS
 Requires-Dist: filelock
 Requires-Dist: numpy>=1.17
-Requires-Dist: pyarrow>=21.0.0
+Requires-Dist: pyarrow>=24.0.0
 Requires-Dist: dill<0.4.2,>=0.3.0
 Requires-Dist: pandas
-Requires-Dist: requests>=2.32.2
-Requires-Dist: httpx<1.0.0
 Requires-Dist: tqdm>=4.66.3
 Requires-Dist: xxhash
 Requires-Dist: multiprocess<0.70.20
-Requires-Dist: fsspec[http]<=2026.6.0,>=2023.1.0
-Requires-Dist: huggingface-hub<2.0,>=0.25.0
+Requires-Dist: fsspec[http]<=2026.7.0,>=2023.1.0
+Requires-Dist: huggingface-hub<3.0,>=1.31.0
 Requires-Dist: packaging
 Requires-Dist: pyyaml>=5.1
 Provides-Extra: audio
@@ -57,6 +55,7 @@ Requires-Dist: jax>=0.3.14; extra == "jax"
 Requires-Dist: jaxlib>=0.3.14; extra == "jax"
 Provides-Extra: streaming
 Provides-Extra: dev
+Requires-Dist: biopython>=1.80; extra == "dev"
 Requires-Dist: numba>=0.56.4; python_version < "3.14" and extra == "dev"
 Requires-Dist: absl-py; extra == "dev"
 Requires-Dist: decorator; extra == "dev"
@@ -71,6 +70,7 @@ Requires-Dist: faiss-cpu>=1.8.0.post1; extra == "dev"
 Requires-Dist: h5py; extra == "dev"
 Requires-Dist: pylance; extra == "dev"
 Requires-Dist: pyiceberg[pyarrow,sql-sqlite]; extra == "dev"
+Requires-Dist: vortex-data; (python_version >= "3.11" and sys_platform != "win32") and extra == "dev"
 Requires-Dist: jax>=0.3.14; sys_platform != "win32" and extra == "dev"
 Requires-Dist: jaxlib>=0.3.14; sys_platform != "win32" and extra == "dev"
 Requires-Dist: lz4; python_version < "3.14" and extra == "dev"
@@ -79,10 +79,11 @@ Requires-Dist: pyspark>=3.4; extra == "dev"
 Requires-Dist: py7zr; extra == "dev"
 Requires-Dist: rarfile>=4.0; extra == "dev"
 Requires-Dist: sqlalchemy; extra == "dev"
-Requires-Dist: protobuf<4.0.0; extra == "dev"
+Requires-Dist: protobuf<4.0.0; python_version < "3.14" and extra == "dev"
 Requires-Dist: tensorflow>=2.6.0; (python_version < "3.10" and sys_platform != "win32") and extra == "dev"
 Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32" and python_version < "3.14") and extra == "dev"
 Requires-Dist: tiktoken; extra == "dev"
+Requires-Dist: tomli>=1.1.0; python_version < "3.11" and extra == "dev"
 Requires-Dist: torch>=2.8.0; extra == "dev"
 Requires-Dist: torchdata; extra == "dev"
 Requires-Dist: transformers>=4.42.0; extra == "dev"
@@ -98,6 +99,7 @@ Requires-Dist: transformers; extra == "dev"
 Requires-Dist: torch; extra == "dev"
 Requires-Dist: tensorflow>=2.6.0; extra == "dev"
 Provides-Extra: tests
+Requires-Dist: biopython>=1.80; extra == "tests"
 Requires-Dist: numba>=0.56.4; python_version < "3.14" and extra == "tests"
 Requires-Dist: absl-py; extra == "tests"
 Requires-Dist: decorator; extra == "tests"
@@ -112,6 +114,7 @@ Requires-Dist: faiss-cpu>=1.8.0.post1; extra == "tests"
 Requires-Dist: h5py; extra == "tests"
 Requires-Dist: pylance; extra == "tests"
 Requires-Dist: pyiceberg[pyarrow,sql-sqlite]; extra == "tests"
+Requires-Dist: vortex-data; (python_version >= "3.11" and sys_platform != "win32") and extra == "tests"
 Requires-Dist: jax>=0.3.14; sys_platform != "win32" and extra == "tests"
 Requires-Dist: jaxlib>=0.3.14; sys_platform != "win32" and extra == "tests"
 Requires-Dist: lz4; python_version < "3.14" and extra == "tests"
@@ -120,10 +123,11 @@ Requires-Dist: pyspark>=3.4; extra == "tests"
 Requires-Dist: py7zr; extra == "tests"
 Requires-Dist: rarfile>=4.0; extra == "tests"
 Requires-Dist: sqlalchemy; extra == "tests"
-Requires-Dist: protobuf<4.0.0; extra == "tests"
+Requires-Dist: protobuf<4.0.0; python_version < "3.14" and extra == "tests"
 Requires-Dist: tensorflow>=2.6.0; (python_version < "3.10" and sys_platform != "win32") and extra == "tests"
 Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.10" and sys_platform != "win32" and python_version < "3.14") and extra == "tests"
 Requires-Dist: tiktoken; extra == "tests"
+Requires-Dist: tomli>=1.1.0; python_version < "3.11" and extra == "tests"
 Requires-Dist: torch>=2.8.0; extra == "tests"
 Requires-Dist: torchdata; extra == "tests"
 Requires-Dist: transformers>=4.42.0; extra == "tests"
@@ -135,6 +139,7 @@ Requires-Dist: nibabel>=5.3.1; extra == "tests"
 Requires-Dist: trimesh>=4.10.0; extra == "tests"
 Requires-Dist: teich==0.1.5; extra == "tests"
 Provides-Extra: tests-numpy2
+Requires-Dist: biopython>=1.80; extra == "tests-numpy2"
 Requires-Dist: numba>=0.56.4; python_version < "3.14" and extra == "tests-numpy2"
 Requires-Dist: absl-py; extra == "tests-numpy2"
 Requires-Dist: decorator; extra == "tests-numpy2"
@@ -148,6 +153,7 @@ Requires-Dist: elasticsearch<8.0.0,>=7.17.12; extra == "tests-numpy2"
 Requires-Dist: h5py; extra == "tests-numpy2"
 Requires-Dist: pylance; extra == "tests-numpy2"
 Requires-Dist: pyiceberg[pyarrow,sql-sqlite]; extra == "tests-numpy2"
+Requires-Dist: vortex-data; (python_version >= "3.11" and sys_platform != "win32") and extra == "tests-numpy2"
 Requires-Dist: jax>=0.3.14; sys_platform != "win32" and extra == "tests-numpy2"
 Requires-Dist: jaxlib>=0.3.14; sys_platform != "win32" and extra == "tests-numpy2"
 Requires-Dist: lz4; python_version < "3.14" and extra == "tests-numpy2"
@@ -156,8 +162,9 @@ Requires-Dist: pyspark>=3.4; extra == "tests-numpy2"
 Requires-Dist: py7zr; extra == "tests-numpy2"
 Requires-Dist: rarfile>=4.0; extra == "tests-numpy2"
 Requires-Dist: sqlalchemy; extra == "tests-numpy2"
-Requires-Dist: protobuf<4.0.0; extra == "tests-numpy2"
+Requires-Dist: protobuf<4.0.0; python_version < "3.14" and extra == "tests-numpy2"
 Requires-Dist: tiktoken; extra == "tests-numpy2"
+Requires-Dist: tomli>=1.1.0; python_version < "3.11" and extra == "tests-numpy2"
 Requires-Dist: torch>=2.8.0; extra == "tests-numpy2"
 Requires-Dist: torchdata; extra == "tests-numpy2"
 Requires-Dist: transformers>=4.42.0; extra == "tests-numpy2"
@@ -180,6 +187,8 @@ Requires-Dist: torch; extra == "docs"
 Requires-Dist: tensorflow>=2.6.0; extra == "docs"
 Provides-Extra: pdfs
 Requires-Dist: pdfplumber>=0.11.4; extra == "pdfs"
+Provides-Extra: bio
+Requires-Dist: biopython>=1.80; extra == "bio"
 Provides-Extra: nibabel
 Requires-Dist: nibabel>=5.3.2; extra == "nibabel"
 Requires-Dist: ipyniivue==2.4.2; extra == "nibabel"
@@ -407,7 +416,7 @@ For more details on using the library, check the [quick start guide](https://hug
   - [Processing audio data](https://huggingface.co/docs/datasets/audio_process)
   - [Processing image data](https://huggingface.co/docs/datasets/image_process)
   - [Processing text data](https://huggingface.co/docs/datasets/nlp_process)
-  - [Processing PDF data](https://huggingface.co/docs/datasets/pdf_process)
+  - [Processing PDF data](https://huggingface.co/docs/datasets/document_dataset)
   - [Processing video data](https://huggingface.co/docs/datasets/video_process)
 - [Streaming a dataset](https://huggingface.co/docs/datasets/stream)
 

@@ -27,6 +27,7 @@ from confiture.core.schema_change import (
     ColumnDefaultChanged,
     ColumnDropped,
     ColumnNullabilityChanged,
+    ColumnOrderChanged,
     ColumnRenamed,
     ColumnTypeChanged,
     EnumTypeAdded,
@@ -41,6 +42,8 @@ from confiture.core.schema_change import (
     ObjectAdded,
     ObjectDropped,
     ObjectReplaced,
+    PrimaryKeyAdded,
+    PrimaryKeyDropped,
     SchemaChange,
     SequenceAdded,
     SequenceDropped,
@@ -110,6 +113,7 @@ def no_rollback(change: SchemaChange) -> str:
             ForeignKeyAdded
             | CheckConstraintAdded
             | UniqueConstraintAdded
+            | PrimaryKeyAdded
             | ExclusionConstraintAdded,
         )
         and not change.constraint.name
@@ -149,6 +153,7 @@ def data_loss_reason(change: SchemaChange) -> str | None:
             | ColumnTypeChanged()
             | ColumnNullabilityChanged()
             | ColumnDefaultChanged()
+            | ColumnOrderChanged()
         ):
             return None
         case (
@@ -159,7 +164,9 @@ def data_loss_reason(change: SchemaChange) -> str | None:
             | CheckConstraintAdded()
             | CheckConstraintDropped()
             | UniqueConstraintAdded()
+            | PrimaryKeyAdded()
             | UniqueConstraintDropped()
+            | PrimaryKeyDropped()
             | ExclusionConstraintAdded()
             | ExclusionConstraintDropped()
         ):

@@ -8,7 +8,6 @@ import sys
 import shutil
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 
 
@@ -79,45 +78,15 @@ def _read_installed_version_fresh() -> str:
         return ''
 
 
-def _pip_can_install(pip_cmd: list, spec: str) -> bool:
-    """Dry-run check: can pip resolve this version on the configured
-    index right now?  Returns True if `pip index versions` lists it,
-    or if `pip install --dry-run` succeeds.
-
-    PyPI's JSON API publishes new versions a few seconds before the
-    simple index, and corporate mirrors lag even more — so we must
-    confirm before offering the upgrade."""
-    # Try `pip index versions pikobs` (pip ≥21.2)
-    try:
-        r = subprocess.run(
-            pip_cmd + ['index', 'versions', 'pikobs'],
-            capture_output=True, text=True, timeout=15,
-        )
-        if r.returncode == 0:
-            # Output: "Available versions: 3.0.127, 3.0.126, ..."
-            target = spec.split('==', 1)[1] if '==' in spec else ''
-            if target and target in r.stdout:
-                return True
-            if target and target not in r.stdout:
-                return False
-    except Exception:
-        pass
-    # Fallback: dry-run install (slower but works on older pip)
-    try:
-        r = subprocess.run(
-            pip_cmd + ['install', '--dry-run', '--no-deps', spec],
-            capture_output=True, text=True, timeout=30,
-        )
-        return r.returncode == 0
-    except Exception:
-        return False
-
-
 def _check_version(project_dir: str) -> None:
-    """Print version banner.  If a newer PyPI version exists, is reachable
-    by the local pip index, and stdin is a TTY, prompt to upgrade."""
+    """Print the installed version, and say so when a newer one is published.
+
+    The published versions are GitLab tags (release.sh: nothing goes to PyPI
+    any more, where 3.0.476 stays): the same notice as load_pikobs, from the
+    answer it keeps in <project>/.update_notice. No question to the network
+    here, and never pip -- pikobs-update installs a version; pip from PyPI
+    would put back an old one."""
     try:
-        import pikobs                                # noqa
         try:
             from importlib.metadata import version as _v
             local = _v('pikobs')
@@ -126,121 +95,16 @@ def _check_version(project_dir: str) -> None:
     except ImportError:
         print("ERROR: cannot import pikobs.", file=sys.stderr)
         sys.exit(1)
-
-    latest = ''
+    print(f'Pikobs : {local}')
+    base = os.environ.get('PIKOBS_PROJECT_DIR') or project_dir or ''
     try:
-        import urllib.request, json
-        with urllib.request.urlopen(
-                'https://pypi.org/pypi/pikobs/json', timeout=10) as r:
-            latest = json.loads(r.read())['info']['version']
+        latest = (Path(base) / '.update_notice').read_text().split()[0]
+        from packaging.version import Version
+        if Version(latest) > Version(local):
+            print(f'  Pikobs {latest} is published: run pikobs-update')
     except Exception:
         pass
 
-    suffix = f'  (latest on PyPI: {latest})' if latest and latest != local else ''
-    print(f'Pikobs : {local}{suffix}')
-
-    if not (latest and latest != local):
-        return
-
-    try:
-        from packaging.version import Version
-        if Version(local) >= Version(latest):
-            print(f'  ℹ️  Dev build ({local} > PyPI {latest})')
-            return
-    except Exception:
-        return
-
-    # Build pip command early — we need it to verify availability
-    _prefix = (os.environ.get('CONDA_PREFIX')
-               or os.environ.get('VIRTUAL_ENV')
-               or project_dir)
-    pip_path = None
-    if _prefix:
-        cand = Path(_prefix) / 'bin' / 'pip'
-        if cand.exists():
-            pip_path = str(cand)
-    pip_cmd = [pip_path] if pip_path else [sys.executable, '-m', 'pip']
-
-    # GUARD: PyPI's JSON may have published the new version a few seconds
-    # before it appears on the simple index (used by pip).  Corporate
-    # mirrors can lag minutes.  If pip can't see it yet, don't offer
-    # the upgrade — just tell the user.
-    spec = f'pikobs=={latest}'
-    if not _pip_can_install(pip_cmd, spec):
-        print(f'  ⏳ {latest} is on PyPI metadata but not yet on your pip '
-              f'index. Try again in a minute, or run:')
-        print(f'        {" ".join(pip_cmd)} install --upgrade --no-deps {spec}')
-        return
-
-    if not sys.stdin.isatty():
-        print(f'  ⚠️  PyPI has {latest} — run: pip install --upgrade pikobs')
-        return
-
-    ans = input(
-        f'\n  ⚠️  A newer version is available: {latest}\n'
-        f'  Installed: {local}\n'
-        f'  Update now? [y/N] '
-    ).strip().lower()
-    if ans != 'y':
-        return
-
-    cur_loc = _pikobs_install_location()
-    print(f'  → currently imported pikobs lives at: {cur_loc}')
-
-    cmd = pip_cmd + [
-        'install',
-        '--upgrade', '--upgrade-strategy', 'only-if-needed',
-        '--no-deps',
-        spec,
-    ]
-    print(f"  ⏳ {' '.join(cmd)}")
-    t0 = time.time()
-    rc = subprocess.run(cmd).returncode
-    print(f'  ⏱  pip finished in {time.time()-t0:.1f}s (rc={rc})')
-
-    if rc != 0:
-        print(f'  ❌ Upgrade failed. Continuing with {local}.')
-        return
-
-    installed = _read_installed_version_fresh()
-    if installed != latest:
-        print(f'  ❌ Upgrade reported success but on-disk version is '
-              f'{installed or "unknown"} (expected {latest}).')
-        print(f'     Manual fix:')
-        print(f'       {" ".join(pip_cmd)} install --upgrade --no-deps '
-              f'pikobs=={latest}')
-        print(f'     Continuing with {local}.\n')
-        return
-
-    print(f'  ✅ Updated to {installed} — restarting with new version...\n')
-
-    python_exe = sys.executable
-    if not Path(python_exe).is_file():
-        cand = Path(_prefix) / 'bin' / 'python' if _prefix else None
-        if cand and cand.is_file():
-            python_exe = str(cand)
-        else:
-            print(f'  ⚠️  Cannot re-exec (no Python binary). '
-                  f'Please re-run your command manually.')
-            sys.exit(0)
-
-    # FIX: Retrieve the exact command (including the -c code) for the restart
-    try:
-        with open('/proc/self/cmdline', 'r') as f:
-            full_cmd = f.read().split('\0')[:-1]
-        real_args = full_cmd[1:] # Ignore the 'python' executable
-    except Exception:
-        real_args = sys.argv
-
-    new_argv = [python_exe] + real_args
-    
-    # Import shlex just to print the command legibly in the log
-    import shlex
-    print(f'  → exec: {" ".join(shlex.quote(a) for a in new_argv)}')
-    sys.stdout.flush()
-    
-    # Restart the process with the real arguments
-    os.execv(python_exe, new_argv)
 
 # ==============================================================================
 # PBS AUTO-SUBMIT (COMPUTE NODE CHECK)

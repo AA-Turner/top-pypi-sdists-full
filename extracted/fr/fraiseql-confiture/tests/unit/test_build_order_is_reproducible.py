@@ -186,8 +186,8 @@ def test_one_definition_of_a_numeric_prefix(tmp_path):
     case — so a tree confiture generated itself was not hex to the builder that
     orders it.
     """
-    from confiture.core.linting.libraries.generate import prefix_value
     from confiture.core.tree_allocator import PrefixScheme, TreeAllocator
+    from confiture.core.tree_prefix import prefix_value
 
     project = _hex_tree(tmp_path)
     schema = project / "db" / "schema"
@@ -195,7 +195,7 @@ def test_one_definition_of_a_numeric_prefix(tmp_path):
 
     assert builder._is_hex_prefix("000a_middle"), "builder does not see a lower-case hex prefix"
     assert prefix_value("000a_middle.sql") == 10
-    detected = TreeAllocator(schema_dir=schema)._detect_config(schema)
+    detected = TreeAllocator(schema_dir=schema).detect_config(schema)
     assert detected.scheme is PrefixScheme.HEX
 
     order = [f.stem for f in builder.find_sql_files()]
@@ -209,7 +209,7 @@ def test_a_word_is_not_a_numeric_prefix(tmp_path):
     decimal digit, which is what ``TreeAllocator`` always writes and what keeps
     an English word out of the numbering.
     """
-    from confiture.core.linting.libraries.generate import prefix_value
+    from confiture.core.tree_prefix import prefix_value
 
     project = _hex_tree(tmp_path)
     builder = SchemaBuilder(env="test", project_dir=project)

@@ -141,6 +141,7 @@ class NodeInfo:
 class NodeLogEntry:
     node_name: str
     node_info: NodeInfo
+    execution_id: t.Optional[str] = None  # only populated if the decision resulted in an execution
     execution_decision_id: t.Optional[str] = None
     entry_type: t.Literal["node"] = "node"
 
@@ -204,6 +205,11 @@ class BaseDecisionLogger(ABC):
     @abstractmethod
     def log_execution_decision_id(self, node_name: str, execution_decision_id: str) -> None:
         """Log ID of the server-side decision response."""
+        ...
+
+    @abstractmethod
+    def log_confirm_execution(self, node_name: str, execution_id: str) -> None:
+        """Log ID of the server-side execution record when a model execution is confirmed"""
         ...
 
     @abstractmethod
@@ -314,6 +320,10 @@ class DecisionLogger(BaseDecisionLogger):
         if inflight := self._inflight.get(node_name):
             inflight.execution_decision_id = execution_decision_id
 
+    def log_confirm_execution(self, node_name: str, execution_id: str) -> None:
+        if inflight := self._inflight.get(node_name):
+            inflight.execution_id = execution_id
+
     def log_node_end(self, node_name: str) -> None:
         if inflight := self._inflight.pop(node_name, None):
             self._write_record(inflight)
@@ -357,6 +367,10 @@ class NoOpLogger(BaseDecisionLogger):
         pass
 
     def log_execution_decision_id(self, node_name: str, execution_decision_id: str) -> None:
+        """No-op: NoOpLogger does not write logs."""
+        pass
+
+    def log_confirm_execution(self, node_name: str, execution_id: str) -> None:
         """No-op: NoOpLogger does not write logs."""
         pass
 

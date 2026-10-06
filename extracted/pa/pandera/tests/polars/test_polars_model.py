@@ -314,11 +314,6 @@ def test_model_with_custom_column_checks(
         invalid_df.pipe(ldf_model_with_custom_column_checks.validate).collect()
 
 
-@pytest.mark.xfail(
-    condition=CONFIG.use_narwhals_backend,
-    reason="Polars-style custom check functions incompatible with Narwhals backend",
-    strict=True,
-)
 def test_model_with_custom_dataframe_checks(
     ldf_model_with_custom_dataframe_checks,
     ldf_basic,
@@ -646,3 +641,22 @@ def test_category_coercion_failure_no_deprecation_warning(
     message = str(exc_info.value)
     assert "DeprecationWarning" not in message
     assert "Invalid categories" in message
+
+
+def test_polars_model_parsers_raise():
+    """Parsers declared on a polars model must fail loudly (#2472)."""
+    import pandera as pa
+    import pandera.polars as pa_pl
+    from pandera.errors import SchemaInitError
+    from pandera.typing.polars import Series
+
+    class ModelWithParser(pa_pl.DataFrameModel):
+        a: Series[pl.Utf8]
+
+        @pa.parser("a")
+        @classmethod
+        def _upper(cls, data):
+            return data
+
+    with pytest.raises(SchemaInitError, match="not supported"):
+        ModelWithParser.to_schema()

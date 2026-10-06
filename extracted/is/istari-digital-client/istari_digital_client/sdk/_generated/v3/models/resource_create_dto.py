@@ -19,7 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
-from istari_digital_client.sdk._generated.v3.models.resource_type_dto import ResourceTypeDto
+from istari_digital_client.sdk._generated.v3.models.resource_create_type_dto import ResourceCreateTypeDto
 from istari_digital_client.sdk._generated.v3.models.token_create_dto import TokenCreateDto
 from istari_digital_client.sdk._generated.v3.models.upstream_info_create_dto import UpstreamInfoCreateDto
 from typing import Optional, Set
@@ -29,7 +29,7 @@ class ResourceCreateDto(BaseModel):
     """
     Request body for creating a new Resource.  Creating a resource atomically creates the underlying `File`, an initial `FileRevision`, and registers the resource in the permission system.  The resource is immediately visible to the creating user.
     """ # noqa: E501
-    resource_type: ResourceTypeDto = Field(description="Category of the resource.  One of `model`, `artifact`, or `file`.")
+    resource_type: ResourceCreateTypeDto = Field(description="Category of the resource.  One of `model`, `artifact`, or `file`.  Connected resources and containers are not created here: their content lives at a connected source, which the registry observes, so they are created by connecting instead.")
     content_token: TokenCreateDto = Field(description="Token authenticating the content blob (the actual file data).")
     properties_token: TokenCreateDto = Field(description="Token authenticating the properties blob (structured metadata JSON).  The schema of the properties object is defined by the resource type and the tool that produced it.")
     name: StrictStr = Field(description="File name including extension, e.g. `wing-stress-v1.stl`.")

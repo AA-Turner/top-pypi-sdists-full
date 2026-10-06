@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from contextlib import suppress
 from datetime import date
 from decimal import Decimal
@@ -13,9 +14,9 @@ from matrx_utils import capture_error
 
 from .adapters import ProviderExecutionContext, SeoProgressCallback, SeoProviderAdapter
 from .budget import (
+    ApprovalHold,
     BudgetExceededError,
     SpendApprovalExceededError,
-    charge_spend_approval,
     check_spend_approval,
     enforce_collection_budget,
 )
@@ -32,14 +33,17 @@ from .contracts import (
     CollectionInProgressError,
     CollectionReceipt,
     CollectionRequest,
+    CollectionTrigger,
     NormalizationContext,
     ProviderResponse,
     ProviderResponseError,
     RawPayloadEnvelope,
+    ReuseVerdict,
 )
 from .identity import stable_hash
 from .knobs import int_knob
 from .repository import SeoRepository
+from .reuse import narrowed, reuse_window_seconds
 
 RUN_LEASE_HEARTBEAT_SECONDS = 60
 logger = logging.getLogger(__name__)
@@ -155,10 +159,11 @@ class SeoCollectionService:
 
     def _validated_request(
         self, adapter: SeoProviderAdapter, request: CollectionRequest
-    ) -> tuple[CollectionRequest, int]:
+    ) -> tuple[CollectionRequest, str | None]:
         """Adapter capability/operation validation + adapter-owned credential
-        keys. Shared verbatim by ``collect`` and ``resume`` — one gate."""
-        freshness_ttl_seconds = 0
+        keys. Shared verbatim by ``collect`` and ``resume`` — one gate. Returns
+        the request and the operation's reuse family (``matrx_seo.reuse``)."""
+        reuse_family: str | None = None
         if request.capability not in adapter.capabilities:
             raise ValueError(
                 f"{adapter.provider} does not declare capability {request.capability.value}"
@@ -180,11 +185,21 @@ class SeoCollectionService:
             if request.credential_keys and request.credential_keys != operation.credential_keys:
                 raise ValueError("provider credential keys are adapter-owned")
             request = request.model_copy(update={"credential_keys": operation.credential_keys})
-            freshness_ttl_seconds = operation.freshness_ttl_seconds
+            reuse_family = operation.reuse_family
         unsupported = adapter.unsupported_request_reason(request)
         if unsupported is not None:
             raise ValueError(f"{adapter.provider} cannot complete this collection: {unsupported}")
-        return request, freshness_ttl_seconds
+        return request, reuse_family
+
+    @staticmethod
+    async def reuse_window_for(request: CollectionRequest, reuse_family: str | None) -> int:
+        """Seconds a completed identical run is reused for THIS request: the
+        family's ``seo.reuse_hours.<family>`` knob for this organization and
+        person, narrowed (never widened) by ``require_fresh_within_seconds``."""
+        window = await reuse_window_seconds(
+            reuse_family, request.organization_id, request.created_by
+        )
+        return narrowed(window, request.require_fresh_within_seconds)
 
     async def preflight_credentials(
         self,
@@ -223,13 +238,19 @@ class SeoCollectionService:
         never asks a person to approve spend (OPENSEO-TOOLS-SPEC §6.1 step 1). It
         is the same validation, authorization and ``find_fresh_completed`` lookup
         ``collect`` performs, in the same order, so the two can never disagree."""
-        request, freshness_ttl_seconds = self._validated_request(adapter, request)
+        request, reuse_family = self._validated_request(adapter, request)
         authorize = self.collection_authorizer or get_collection_authorizer()
         request = await authorize(request)
-        if not freshness_ttl_seconds or request.force_refresh:
+        if request.force_refresh:
+            return None
+        window = await self.reuse_window_for(request, reuse_family)
+        if not window:
             return None
         return await self.repository.find_fresh_completed(
-            adapter.provider, request, freshness_ttl_seconds
+            adapter.provider,
+            request,
+            window,
+            require_fresh_within_seconds=request.require_fresh_within_seconds,
         )
 
     @staticmethod
@@ -261,9 +282,16 @@ class SeoCollectionService:
         progress: SeoProgressCallback | None = None,
         credential_resolver_override: CredentialResolver | None = None,
     ) -> CollectionReceipt:
-        request, freshness_ttl_seconds = self._validated_request(adapter, request)
+        request, reuse_family = self._validated_request(adapter, request)
         authorize = self.collection_authorizer or get_collection_authorizer()
         request = await authorize(request)
+        window = 0 if request.force_refresh else await self.reuse_window_for(request, reuse_family)
+        if request.force_refresh:
+            verdict = ReuseVerdict.forced()
+        elif reuse_family is None:
+            verdict = ReuseVerdict.no_window()
+        else:
+            verdict = ReuseVerdict.nothing_within(window)
         await _emit_progress(
             progress,
             "authorized",
@@ -273,11 +301,12 @@ class SeoCollectionService:
             site_id=request.site_id,
             page_id=request.page_id,
         )
-        if freshness_ttl_seconds and not request.force_refresh:
+        if window:
             cached = await self.repository.find_fresh_completed(
                 adapter.provider,
                 request,
-                freshness_ttl_seconds,
+                window,
+                require_fresh_within_seconds=request.require_fresh_within_seconds,
             )
             if cached is not None:
                 await _emit_progress(
@@ -294,6 +323,22 @@ class SeoCollectionService:
         if request.force_refresh and not request.request_id:
             request = request.model_copy(update={"request_id": str(uuid4())})
         run = await self.repository.start_run(adapter.provider, request)
+        windowed = (
+            reuse_family is not None
+            and not request.force_refresh
+            and not request.resume_existing
+            and request.trigger != CollectionTrigger.SCHEDULED
+        )
+        if windowed and not run.claimed and run.status == "completed":
+            # The identity holds a completed run the lookup did NOT return: it is
+            # older than this request's window (or the window is 0) — unless a
+            # racing request completed it after our lookup.
+            run, fresher = await self._fresh_purchase_run(adapter, request, window)
+            if fresher is not None:
+                await _emit_progress(
+                    progress, "cache_hit", receipt=fresher.model_dump(mode="json")
+                )
+                return fresher
         await _emit_progress(
             progress,
             "run_claimed" if run.claimed else "run_reused",
@@ -301,6 +346,9 @@ class SeoCollectionService:
         )
         if not run.claimed and run.status == "completed":
             receipt = await self.repository.receipt_for_run(run)
+            receipt = receipt.model_copy(
+                update={"reuse": ReuseVerdict.same_request(run.id, request.observation_period)}
+            )
             await _emit_progress(
                 progress,
                 "completed",
@@ -309,13 +357,56 @@ class SeoCollectionService:
             return receipt
         if not run.claimed:
             raise CollectionInProgressError(run.id)
-        return await self._execute_claimed(
+        if not run.created:
+            # A failed or lease-expired run reclaimed: provider checkpoints it
+            # saved are resumed, not re-bought — say so, never "bought fresh".
+            verdict = ReuseVerdict.reclaimed(run.id, run.attempt_count)
+        receipt = await self._execute_claimed(
             adapter,
             request,
             run,
             progress,
             credential_resolver_override=credential_resolver_override,
         )
+        return receipt.model_copy(update={"reuse": verdict})
+
+    async def _fresh_purchase_run(
+        self, adapter: SeoProviderAdapter, request: CollectionRequest, window: int
+    ) -> tuple[Any, CollectionReceipt | None]:
+        """The run a fresh purchase claims, or a fresh receipt that makes it moot.
+
+        No chain to walk: (1) a run a racing request completed inside the window
+        is reused; (2) otherwise the purchase takes the identity of the current
+        window bucket — a run completed in this bucket is necessarily younger than
+        the window, so identical concurrent requests collapse onto one purchase;
+        (3) a window of 0, or a bucket run that is somehow stale, buys under a
+        one-time purchase nonce. Holds for any number of re-buys and never hands
+        back a stale run labelled reused."""
+        async def fresh() -> CollectionReceipt | None:
+            return await self.repository.find_fresh_completed(
+                adapter.provider,
+                request,
+                window,
+                require_fresh_within_seconds=request.require_fresh_within_seconds,
+            )
+
+        if window > 0:
+            hit = await fresh()
+            if hit is not None:
+                return None, hit
+            bucket = int(time.time() // window)
+            run = await self.repository.start_run(
+                adapter.provider, request, identity_salt=f"window:{window}:{bucket}"
+            )
+            if run.claimed or run.status != "completed":
+                return run, None
+            hit = await fresh()
+            if hit is not None:
+                return None, hit
+        run = await self.repository.start_run(
+            adapter.provider, request, identity_salt=f"purchase:{uuid4()}"
+        )
+        return run, None
 
     async def resume(
         self,
@@ -338,6 +429,9 @@ class SeoCollectionService:
         run.request = request
         if run.status == "completed" and not run.claimed:
             receipt = await self.repository.receipt_for_run(run)
+            receipt = receipt.model_copy(
+                update={"reuse": ReuseVerdict.same_request(run.id, request.observation_period)}
+            )
             await _emit_progress(
                 progress,
                 "completed",
@@ -349,7 +443,8 @@ class SeoCollectionService:
             "run_reclaimed",
             run=run.model_dump(mode="json"),
         )
-        return await self._execute_claimed(adapter, request, run, progress)
+        receipt = await self._execute_claimed(adapter, request, run, progress)
+        return receipt.model_copy(update={"reuse": ReuseVerdict.resumed(run.id)})
 
     async def _charge_approval(
         self,
@@ -357,6 +452,7 @@ class SeoCollectionService:
         request: CollectionRequest,
         response: ProviderResponse,
         run,
+        hold: ApprovalHold,
     ) -> None:
         """Draw what this run cost from its approval — the provider's reported
         cost, else its estimate, else the price book. The money is already spent
@@ -368,7 +464,7 @@ class SeoCollectionService:
         if amount is None:
             amount = adapter.estimate_cost_usd(request) or Decimal(0)
         try:
-            await charge_spend_approval(request, amount, run_id=str(run.id))
+            await hold.settle(amount, run_id=str(run.id))
         except Exception as exc:  # noqa: BLE001 — see docstring
             logger.exception(
                 "SEO spend approval %s: could not record $%s for run %s",
@@ -473,6 +569,49 @@ class SeoCollectionService:
         *,
         credential_resolver_override: CredentialResolver | None = None,
     ) -> CollectionReceipt:
+        """Run one claimed collection under its approval hold. The hold is
+        reserved inside the body (after the budget gate) and settled there with
+        the actual cost; every other exit — failure, cancellation, a refusal —
+        releases it here, so a run never leaves an approval reserved."""
+        hold = ApprovalHold(request)
+        try:
+            return await self._execute_claimed_body(
+                adapter,
+                request,
+                run,
+                progress,
+                hold,
+                credential_resolver_override=credential_resolver_override,
+            )
+        finally:
+            try:
+                await hold.release(run_id=str(run.id))
+            except Exception as exc:  # noqa: BLE001 — never mask the run's own outcome
+                logger.exception(
+                    "SEO spend approval %s: could not release the hold of run %s",
+                    request.spend_approval_id,
+                    run.id,
+                )
+                await capture_error(
+                    exc,
+                    kind="seo_spend_approval_release_failed",
+                    context={
+                        "run_id": str(run.id),
+                        "spend_approval_id": str(request.spend_approval_id),
+                        "reserved_usd": str(hold.reserved_usd),
+                    },
+                )
+
+    async def _execute_claimed_body(
+        self,
+        adapter: SeoProviderAdapter,
+        request: CollectionRequest,
+        run,
+        progress: SeoProgressCallback | None,
+        hold: ApprovalHold,
+        *,
+        credential_resolver_override: CredentialResolver | None = None,
+    ) -> CollectionReceipt:
         # WS-7 spend/quota gate — the ONE choke point every provider adapter
         # (host + standalone, on-demand + scheduled) funnels through, checked
         # BEFORE credential resolution or any paid provider I/O. See
@@ -508,10 +647,11 @@ class SeoCollectionService:
             exc.run_id = run.id  # type: ignore[attr-defined]
             raise
         if request.spend_approval_id is not None:
-            # Headroom RE-CHECK only (§6.1.7b): a concurrent run under the same
-            # approval may have drawn it down since the pre-flight.
+            # THE HOLD (§6.1.7b): validate the approval again and atomically
+            # reserve this run's estimate. Concurrent runs under one approval
+            # each hold their own estimate, so together they cannot pass it.
             try:
-                await check_spend_approval(request, self._approval_estimate(adapter, request))
+                await hold.reserve(self._approval_estimate(adapter, request))
             except SpendApprovalExceededError as exc:
                 error = exc.as_error_payload()
                 await self.repository.fail_run(run, error)
@@ -587,7 +727,7 @@ class SeoCollectionService:
             )
             response = await adapter.collect_response(request, execution)
             if request.spend_approval_id is not None:
-                await self._charge_approval(adapter, request, response, run)
+                await self._charge_approval(adapter, request, response, run, hold)
             await self.repository.renew_lease(run)
             response_payload, encoded, checksum = await asyncio.to_thread(
                 _prepare_provider_response,

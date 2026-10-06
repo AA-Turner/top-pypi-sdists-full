@@ -482,11 +482,11 @@ pub(super) fn repair_abandoned_agent_artifact_index_rows(
             else {
                 continue;
             };
-            if !record
+            if record
                 .done
                 .as_ref()
                 .and_then(|done| done.outcome.as_deref())
-                .is_some_and(|outcome| outcome == ABANDONED_DONE_OUTCOME)
+                .is_none_or(|outcome| outcome != ABANDONED_DONE_OUTCOME)
             {
                 continue;
             }
@@ -557,7 +557,7 @@ pub(super) fn upsert_record(
             step_index, step_name, retry_of_timestamp, retried_as_timestamp,
             retry_chain_root_timestamp, retry_attempt, agent_meta_sig, done_sig,
             running_sig, waiting_sig, pending_question_sig,
-            workflow_state_sig, plan_path_sig, prompt_steps_sig, xprompts_sig,
+            workflow_state_sig, plan_path_sig, prompt_steps_sig, macros_sig,
             agent_clan_generation, clan_tribe, clan_summary, record_json,
             model_alias_origin, done_outcome, source_machine,
             imported_owner_machine, {GATE_TURN_INDEX_COLUMN}, indexed_at
@@ -607,7 +607,7 @@ pub(super) fn upsert_record(
             workflow_state_sig = excluded.workflow_state_sig,
             plan_path_sig = excluded.plan_path_sig,
             prompt_steps_sig = excluded.prompt_steps_sig,
-            xprompts_sig = excluded.xprompts_sig,
+            macros_sig = excluded.macros_sig,
             agent_clan_generation = excluded.agent_clan_generation,
             clan_tribe = excluded.clan_tribe,
             clan_summary = excluded.clan_summary,
@@ -660,7 +660,7 @@ pub(super) fn upsert_record(
             signatures.workflow_state,
             signatures.plan_path,
             signatures.prompt_steps,
-            signatures.xprompts,
+            signatures.macros,
             summary.agent_clan_generation,
             summary.clan_tribe,
             summary.clan_summary,

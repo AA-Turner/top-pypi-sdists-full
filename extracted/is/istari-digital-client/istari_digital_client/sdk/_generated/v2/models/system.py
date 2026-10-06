@@ -38,7 +38,8 @@ class System(BaseModel):
     configurations: Optional[List[SystemConfiguration]] = None
     baseline_tagged_snapshot_id: Optional[StrictStr] = None
     infosec_level: Optional[InfosecLevel] = None
-    __properties: ClassVar[List[str]] = ["id", "created", "created_by_id", "name", "description", "archive_status", "configurations", "baseline_tagged_snapshot_id", "infosec_level"]
+    last_viewed_at: Optional[datetime] = None
+    __properties: ClassVar[List[str]] = ["id", "created", "created_by_id", "name", "description", "archive_status", "configurations", "baseline_tagged_snapshot_id", "infosec_level", "last_viewed_at"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -99,6 +100,11 @@ class System(BaseModel):
         if self.infosec_level is None and "infosec_level" in self.model_fields_set:
             _dict['infosec_level'] = None
 
+        # set to None if last_viewed_at (nullable) is None
+        # and model_fields_set contains the field
+        if self.last_viewed_at is None and "last_viewed_at" in self.model_fields_set:
+            _dict['last_viewed_at'] = None
+
         return _dict
 
     @classmethod
@@ -119,6 +125,7 @@ class System(BaseModel):
             "archive_status": obj.get("archive_status"),
             "configurations": [SystemConfiguration.from_dict(_item) for _item in obj["configurations"]] if obj.get("configurations") is not None else None,
             "baseline_tagged_snapshot_id": obj.get("baseline_tagged_snapshot_id"),
-            "infosec_level": InfosecLevel.from_dict(obj["infosec_level"]) if obj.get("infosec_level") is not None else None
+            "infosec_level": InfosecLevel.from_dict(obj["infosec_level"]) if obj.get("infosec_level") is not None else None,
+            "last_viewed_at": obj.get("last_viewed_at")
         })
         return _obj

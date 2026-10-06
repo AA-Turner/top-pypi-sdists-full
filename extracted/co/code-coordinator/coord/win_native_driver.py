@@ -64,6 +64,37 @@ UNC ``cwd`` rather than ever handing cmd.exe one directly; see
 :class:`Win32Calls`'s :meth:`~Win32Calls.launch`/
 :meth:`~Win32Calls.launch_in_terminal`.
 
+**Local-filesystem staging (#3617).** ``pushd``-into-a-UNC-path (above)
+only stops cmd.exe's own startup refusal — it does nothing about the cost
+of actually *running* from one. Once launched, Windows reads the exe and
+every file it touches (a route's fixture/working files) over ``\\wsl$``'s
+9P protocol, which the dell64 operator found "horrible" (2026-10-05) next
+to real local NTFS. Whenever ``cwd`` is a UNC path AND the launch command
+is a shape this driver can parse with confidence (:func:`_plan_staging`'s
+own docstring names exactly which two shapes qualify — a bare leading exe
+token, optionally preceded by one ``cd <fixture-dir> && ``, the fleet's
+own convention for entering a route's working directory first), both
+:meth:`Win32Calls.launch` and :meth:`~Win32Calls.launch_in_terminal` copy
+the resolved exe (plus that fixture dir, and/or a conventional ``.smoke``
+one, when present) onto the real local Windows filesystem — a fresh
+``%LOCALAPPDATA%\\Temp\\coord-app-drive\\<session>\\`` directory — and
+launch from there instead, with ``cwd`` rewritten to match. Anything more
+complex (a second shell operator, an absolute/off-``cwd`` exe) is left
+alone, falling back to the ``pushd`` wrap above unchanged — this driver
+only ever rewrites the ONE leading executable token of a command it can
+parse with confidence, never an opaque shell pipeline.
+
+:meth:`Win32Calls.kill` deletes the staged session directory it created,
+once it has signalled that launch's own pid — the normal (``close``/
+``NativeRunner`` teardown) path. There is no Windows analogue of #3583's
+``PR_SET_PDEATHSIG`` for "also delete a directory" on an abnormal (e.g.
+SIGKILLed) exit, so :meth:`~Win32Calls.launch`/
+:meth:`~Win32Calls.launch_in_terminal` additionally sweep (and delete) any
+session directory older than a day on every call — the same "idle
+self-expiry is the backstop, the explicit teardown is the normal path"
+shape :data:`coord.app_drive.DEFAULT_IDLE_TIMEOUT` already uses, just
+applied to a directory instead of a process.
+
 **Spec steps** (:func:`parse_native_spec`, YAML — the ``win-native``
 sibling of ``tui-pty``'s smoke spec):
 
@@ -72,7 +103,13 @@ sibling of ``tui-pty``'s smoke spec):
   it deterministically via ``MoveWindow``.
 - ``key: <name>`` / ``click: {x, y, button}`` — real input at *screen*
   pixel coordinates relative to the window's client origin, via
-  :meth:`WinCalls.send_key`/:meth:`WinCalls.send_click`.
+  :meth:`WinCalls.send_key`/:meth:`WinCalls.send_click`. ``key:`` is parsed
+  under the grammar shared by all four drivers (:mod:`coord.key_spec`,
+  #3639): any combination of ``ctrl``/``alt``/``shift``/``cmd``(``win``)
+  modifiers, a named key or any single printable character (including
+  punctuation, sent via ``KEYEVENTF_UNICODE`` — #3635), and a
+  space-separated chord sequence (``ctrl+k ctrl+w``) — see
+  :func:`_win_key_encodings`.
 - ``wait: {ms}`` — a plain deterministic pause.
 - ``capture`` — an explicit ``PrintWindow`` evidence snapshot, attached to
   this step's own result (pass or fail) as ``capture_b64``.
@@ -140,13 +177,54 @@ blocking-but-unavailable rather than failed.
 from __future__ import annotations
 
 import base64
+import logging
+import ntpath
 import os
+import re
+import shutil
 import subprocess
 import time
+import uuid
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+import ctypes
+import ctypes.wintypes as _wintypes
+
 import yaml
+
+from coord.key_spec import KeyChord, KeySpecError, UnsupportedKey, parse_key_spec
+
+#: `SendInput`'s `INPUT`/`KEYBDINPUT` structs, module-level (#3639 review
+#: nit — these used to be rebuilt on every `send_key` call). Defining them
+#: needs only `ctypes`/`ctypes.wintypes`, both pure-Python and importable
+#: on any platform; only actually CALLING a Win32 API (`ctypes.windll.*`)
+#: requires Windows, and that still happens lazily inside
+#: :class:`Win32Calls.__init__`.
+_ULONG_PTR = ctypes.c_size_t
+
+
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = [
+        ("wVk", _wintypes.WORD), ("wScan", _wintypes.WORD),
+        ("dwFlags", _wintypes.DWORD), ("time", _wintypes.DWORD),
+        ("dwExtraInfo", _ULONG_PTR),
+    ]
+
+
+class _INPUT(ctypes.Structure):
+    _fields_ = [
+        ("type", _wintypes.DWORD), ("ki", _KEYBDINPUT),
+        ("padding", ctypes.c_ubyte * 8),
+    ]
+
+
+_INPUT_KEYBOARD = 1
+_KEYEVENTF_KEYUP = 0x0002
+_KEYEVENTF_UNICODE = 0x0004
+_VK_SHIFT, _VK_CONTROL, _VK_MENU, _VK_LWIN = 0x10, 0x11, 0x12, 0x5B
+
+_log = logging.getLogger(__name__)
 
 
 class WinNativeSpecError(Exception):
@@ -543,7 +621,7 @@ class NativeRunner:
             extra = handlers[step.kind](step)
             if extra:
                 entry.update(extra)
-        except (WinNativeSpecError, WinNativeRuntimeError, AssertionError) as e:
+        except (WinNativeSpecError, WinNativeRuntimeError, UnsupportedKey, AssertionError) as e:
             entry["status"] = "fail"
             entry["message"] = str(e)
             self._attach_capture_if_possible(entry)
@@ -753,26 +831,131 @@ class NativeRunner:
 # ── real Win32 implementation (Windows-only) ────────────────────────────────
 
 _NAMED_VKEYS: dict[str, int] = {
-    "enter": 0x0D, "return": 0x0D, "esc": 0x1B, "escape": 0x1B, "tab": 0x09,
+    "enter": 0x0D, "esc": 0x1B, "tab": 0x09,
     "backspace": 0x08, "space": 0x20, "up": 0x26, "down": 0x28, "left": 0x25,
     "right": 0x27, "home": 0x24, "end": 0x23, "pageup": 0x21, "pagedown": 0x22,
     "delete": 0x2E, "insert": 0x2D,
-    **{f"f{n}": 0x6F + n for n in range(1, 13)},
+    # VK_F1 == 0x70, and VK_F2..VK_F24 continue contiguously from there —
+    # the one native table of the four where a formula (rather than an
+    # explicit per-key literal) is actually correct.
+    **{f"f{n}": 0x6F + n for n in range(1, 25)},
+}
+
+#: ``VK_OEM_*`` codes for US-layout punctuation keys. Each physical key
+#: produces two characters (unshifted/shifted); both map to the SAME vk —
+#: the bool says whether Shift must be held for the posted event to
+#: actually produce *that* character. Review finding (#3639): without this
+#: table, ``ctrl+/`` (and any other modifier+punctuation chord) went
+#: through ``KEYEVENTF_UNICODE`` with ``wVk=0`` while Ctrl/Alt/Win was
+#: held — Windows does not raise a WM_*KEYDOWN-driven accelerator from
+#: that combination, so the chord silently did nothing while still being
+#: reported as a pass.
+_VKEY_OEM_PUNCT: dict[str, tuple[int, bool]] = {
+    ";": (0xBA, False), ":": (0xBA, True),
+    "=": (0xBB, False), "+": (0xBB, True),
+    ",": (0xBC, False), "<": (0xBC, True),
+    "-": (0xBD, False), "_": (0xBD, True),
+    ".": (0xBE, False), ">": (0xBE, True),
+    "/": (0xBF, False), "?": (0xBF, True),
+    "`": (0xC0, False), "~": (0xC0, True),
+    "[": (0xDB, False), "{": (0xDB, True),
+    "\\": (0xDC, False), "|": (0xDC, True),
+    "]": (0xDD, False), "}": (0xDD, True),
+    "'": (0xDE, False), '"': (0xDE, True),
+}
+
+#: The digit-row symbols produced with Shift on a US layout — each maps to
+#: the SAME vk as the underlying digit (ASCII ``'0'``-``'9'``), always with
+#: Shift held.
+_SHIFTED_DIGIT_SYMBOLS: dict[str, str] = {
+    "!": "1", "@": "2", "#": "3", "$": "4", "%": "5",
+    "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
 }
 
 
-def _vkey_for(key: str) -> tuple[int, bool]:
-    """``(virtual_key_code, needs_shift)`` for one spec ``key:`` name.
-    Raises :class:`WinNativeSpecError` for anything unrecognized."""
-    lowered = key.lower()
-    if lowered in _NAMED_VKEYS:
-        return _NAMED_VKEYS[lowered], False
-    if lowered.startswith("ctrl+") and len(lowered) == 6:
-        return ord(lowered[5].upper()), False
-    if len(key) == 1:
-        needs_shift = key.isalpha() and key.isupper()
-        return ord(key.upper()), needs_shift
-    raise WinNativeSpecError(f"unrecognized key {key!r}")
+@dataclass(frozen=True)
+class WinKeyEncoding:
+    """One physical key-down/key-up pair for :meth:`Win32Calls.send_key` to
+    post via ``SendInput``. Exactly one of ``vk``/``unicode_char`` is not
+    ``None`` — punctuation and any other character outside the ASCII
+    letter/digit range goes through ``unicode_char``
+    (``KEYEVENTF_UNICODE``), never a vk guess and never a silent no-op
+    (closes #3635). ``win`` is the Cmd/Super/Meta modifier — Windows calls
+    its own version of that key ``VK_LWIN``."""
+
+    vk: int | None
+    unicode_char: str | None
+    shift: bool
+    ctrl: bool
+    alt: bool
+    win: bool
+
+
+def _encode_win_chord(chord: KeyChord) -> WinKeyEncoding:
+    """The :class:`WinKeyEncoding` for one already-parsed :class:`KeyChord`.
+    Raises :class:`UnsupportedKey` (naming ``"win-native"``) for a named key
+    with no ``VK_*`` code at all — never a silent no-op (#3639)."""
+    shift = "shift" in chord.modifiers
+    ctrl = "ctrl" in chord.modifiers
+    alt = "alt" in chord.modifiers
+    win = "cmd" in chord.modifiers
+
+    if not chord.is_char:
+        vk = _NAMED_VKEYS.get(chord.base)
+        if vk is None:
+            raise UnsupportedKey("win-native", chord.base, "no VK_* code for this named key")
+        return WinKeyEncoding(vk=vk, unicode_char=None, shift=shift, ctrl=ctrl, alt=alt, win=win)
+
+    ch = chord.base
+    if len(ch) == 1 and ch.isascii() and ch.isalnum():
+        # Windows VK codes for '0'-'9'/'A'-'Z' equal their own ASCII code
+        # points — a bare uppercase letter with no explicit `shift` implies
+        # Shift was physically held (pre-#3639 convention preserved).
+        if ch.isalpha() and ch.isupper():
+            shift = True
+        return WinKeyEncoding(vk=ord(ch.upper()), unicode_char=None, shift=shift, ctrl=ctrl, alt=alt, win=win)
+
+    punct = _VKEY_OEM_PUNCT.get(ch)
+    if punct is not None:
+        vk, shift_implied = punct
+        if shift_implied:
+            shift = True
+        return WinKeyEncoding(vk=vk, unicode_char=None, shift=shift, ctrl=ctrl, alt=alt, win=win)
+
+    digit = _SHIFTED_DIGIT_SYMBOLS.get(ch)
+    if digit is not None:
+        return WinKeyEncoding(
+            vk=ord(digit), unicode_char=None, shift=True, ctrl=ctrl, alt=alt, win=win
+        )
+
+    # No VK_* code for this character. `KEYEVENTF_UNICODE` with a held
+    # Ctrl/Alt/Win does not generate a Windows accelerator — the chord
+    # would be posted but do nothing while still reporting a pass (#3639,
+    # the win-native shape of the same bug the punctuation table above
+    # fixes for the mapped characters). A bare character with no
+    # ctrl/alt/win can still go through `KEYEVENTF_UNICODE` for literal
+    # insertion.
+    if ctrl or alt or win:
+        raise UnsupportedKey(
+            "win-native", chord.base,
+            "no VK_* code for this character — KEYEVENTF_UNICODE does not "
+            "produce an accelerator combined with ctrl/alt/win",
+        )
+    return WinKeyEncoding(vk=None, unicode_char=ch, shift=shift, ctrl=ctrl, alt=alt, win=win)
+
+
+def _win_key_encodings(key: str) -> list[WinKeyEncoding]:
+    """Parse *key* — one chord, or a space-separated chord sequence
+    (``ctrl+k ctrl+w``) — under the shared grammar
+    (:mod:`coord.key_spec`) and encode each chord in order. Raises
+    :class:`WinNativeSpecError` for a spec that doesn't parse under the
+    grammar at all, :class:`UnsupportedKey` for a chord Windows genuinely
+    cannot deliver."""
+    try:
+        event = parse_key_spec(key)
+    except KeySpecError as e:
+        raise WinNativeSpecError(f"unrecognized key {key!r}: {e}") from e
+    return [_encode_win_chord(chord) for chord in event.chords]
 
 
 def _is_unc_path(path: str) -> bool:
@@ -808,6 +991,334 @@ def _popen_command_and_cwd(command: str, cwd: str) -> tuple[str, str | None]:
     if cwd and _is_unc_path(cwd):
         return f'pushd "{cwd}" && {command}', None
     return command, (cwd or None)
+
+
+# ── local-filesystem launch staging (#3617) ────────────────────────────────
+#
+# See the module docstring's own "#3617" section for the why. Split into a
+# pure planning step (`_plan_staging`, Windows-path string math only, via
+# `ntpath` — never touches a real filesystem, so it's testable with
+# fabricated paths on any host OS) and a filesystem-executing step
+# (`_execute_staging`, every real I/O call injectable and defaulting to the
+# real `os`/`shutil` one) — the same "injectable OS-call seam" shape
+# `WinCalls`/`Win32Calls` already use one level up, just for this one
+# narrower concern.
+
+#: Where staged sessions live, relative to `%LOCALAPPDATA%\Temp\` — real
+#: local NTFS on every Windows host, never a UNC path.
+_STAGING_ROOT_DIRNAME = "coord-app-drive"
+
+#: The fleet's own convention (coordinator.yml's win-native `routes:`) for
+#: a route's sample/settings working files — copied opportunistically
+#: whenever present under `cwd`, regardless of whether the launch command
+#: itself names it via a `cd` prefix.
+_STAGING_FIXTURE_DIRNAME = ".smoke"
+
+#: `%LOCALAPPDATA%` is only ever read for this one purpose.
+_LOCALAPPDATA_ENV = "LOCALAPPDATA"
+
+
+def _local_app_data_via_known_folder() -> str | None:
+    """Ask Windows itself for the current user's local-appdata root via
+    ``SHGetKnownFolderPath(FOLDERID_LocalAppData)`` — the fallback for
+    when this process's own *environment* doesn't carry
+    ``%LOCALAPPDATA%`` (#3617 review).
+
+    On the dell64 bridge path, the Windows-side Python this driver
+    actually runs in (:class:`Win32Calls`) is started through WSL interop
+    with no ``env=`` at all (:mod:`coord.app_drive`'s
+    ``subprocess.Popen(argv, ...)``, :mod:`coord.win_native_bridge`'s
+    ``run(exec_argv, ...)``), so it inherits the *Linux* agent's
+    environment, translated by interop — ``LOCALAPPDATA`` is a Windows
+    per-user variable, not a WSL one, and nothing threads it through
+    ``WSLENV``. This mirrors the same problem (and the same "don't trust
+    an inherited env var, ask the OS directly" fix) this module's sibling
+    :mod:`coord.win_native_bridge` already applies for Python discovery —
+    see its own ``_STANDARD_WINDOWS_PYTHON_GLOBS`` docstring.
+    ``SHGetKnownFolderPath`` queries the OS's own per-user profile
+    registration instead of any inherited variable, so it resolves
+    correctly no matter how this process was spawned.
+
+    Returns ``None`` (never raises) on any non-Windows platform or any
+    failure — :meth:`Win32Calls._staging_root` folds that into the same
+    "best-effort, fall back to the slow UNC path" contract it already
+    documents for a missing env var.
+    """
+    if os.name != "nt":
+        return None
+    try:
+        import ctypes  # noqa: PLC0415
+        from ctypes import wintypes  # noqa: PLC0415
+
+        class _GUID(ctypes.Structure):
+            _fields_ = [
+                ("Data1", wintypes.DWORD), ("Data2", wintypes.WORD),
+                ("Data3", wintypes.WORD), ("Data4", ctypes.c_ubyte * 8),
+            ]
+
+        # FOLDERID_LocalAppData — {F1B32785-6FBA-4FCF-9D55-7B8E7F157091}
+        folder_id = _GUID(
+            0xF1B32785, 0x6FBA, 0x4FCF,
+            (ctypes.c_ubyte * 8)(0x9D, 0x55, 0x7B, 0x8E, 0x7F, 0x15, 0x70, 0x91),
+        )
+        path_ptr = ctypes.c_wchar_p()
+        hresult = ctypes.windll.shell32.SHGetKnownFolderPath(
+            ctypes.byref(folder_id), 0, None, ctypes.byref(path_ptr)
+        )
+        if hresult != 0 or not path_ptr.value:
+            return None
+        resolved = path_ptr.value
+        ctypes.windll.ole32.CoTaskMemFree(path_ptr)
+        return resolved
+    except Exception:  # noqa: BLE001 — best-effort only, never worth crashing a launch over
+        return None
+
+
+#: A command containing any of these (beyond the one recognized `cd <dir>
+#: && ` prefix `_strip_cd_prefix` already peels off) is an opaque shell
+#: pipeline this driver will not guess at rewriting — `_plan_staging`
+#: leaves it, and its UNC `cwd`, completely alone (falling back to
+#: `_popen_command_and_cwd`'s own `pushd` wrap).
+_SHELL_METACHARACTERS = ("&&", "&", "|", ">", "<", ";")
+
+#: #3617 review nit: excludes every :data:`_SHELL_METACHARACTERS` member,
+#: not just `&` — `cd a>b && x.exe` previously matched with
+#: ``cd_dir = "a>b"`` even though the metacharacter guard elsewhere in
+#: this module reads as if it covered the whole command. Harmless in
+#: practice (`cd_dir` only ever becomes a path component, never shell
+#: text, so this is defense in depth rather than a fix for an observed
+#: failure), but worth being consistent about.
+_CD_PREFIX_RE = re.compile(r'^cd\s+"?([^"&|><;]+?)"?\s*&&\s*', re.IGNORECASE)
+
+
+def _strip_cd_prefix(command: str) -> tuple[str, str]:
+    """``("", command)`` unless *command* starts with a plain ``cd <dir>
+    && `` prefix (case-insensitive, optionally quoted) — the fleet's own
+    convention for entering a route's fixture/working directory before
+    launching (e.g. ``cd .smoke && ../target/release/vimcode.exe
+    sample.txt``) — in which case returns ``(dir, remainder)``."""
+    m = _CD_PREFIX_RE.match(command)
+    if not m:
+        return "", command
+    return m.group(1), command[m.end():]
+
+
+def _looks_shell_composed(command: str) -> bool:
+    return any(token in command for token in _SHELL_METACHARACTERS)
+
+
+def _leading_token(command: str) -> tuple[str, str]:
+    """*command*'s leading whitespace-delimited token (optionally
+    double-quoted, to allow an embedded space) and the unparsed remainder
+    — e.g. ``'"My App.exe" sample.txt'`` -> ``('My App.exe',
+    'sample.txt')``. ``("", "")`` for an empty/all-whitespace *command*."""
+    stripped = command.strip()
+    if not stripped:
+        return "", ""
+    if stripped[0] == '"':
+        end = stripped.find('"', 1)
+        if end != -1:
+            return stripped[1:end], stripped[end + 1:].strip()
+    parts = stripped.split(None, 1)
+    return parts[0], (parts[1] if len(parts) > 1 else "")
+
+
+@dataclass(frozen=True)
+class _StagingPlan:
+    """What :func:`_plan_staging` decided — ``staged=False`` means "leave
+    *command*/*cwd* exactly as given", the caller's cue to fall back to
+    :func:`_popen_command_and_cwd`'s own UNC ``pushd`` wrap unchanged."""
+
+    staged: bool
+    cwd: str = ""
+    source_exe: str = ""
+    dest_exe: str = ""
+    #: ``(source_dir, dest_dir)`` pairs to copy wholesale when the source
+    #: exists — never an error when one doesn't (an optional fixture dir
+    #: nobody provided this time).
+    #:
+    #: #3617 review (non-blocking): only ``dest_exe`` and these fixture
+    #: dirs are copied — a sibling DLL/resource the exe needs that lives
+    #: elsewhere under ``target/<triple>/release/`` is NOT staged, which
+    #: would surface as a subtly broken staged copy (missing dependency)
+    #: rather than a loud "exe not found". None of the fleet's current
+    #: routes need one; worth revisiting if one ever does.
+    #:
+    #: Also (non-blocking): writes the staged app makes into a fixture dir
+    #: (e.g. ``sample.txt``/``.vimcode/settings.json``) land in the staged
+    #: COPY, not the original WSL-tree fixture — a real behaviour change
+    #: from pre-#3617, where the app edited the tree directly. No current
+    #: spec asserts on post-run fixture content, but a future one that
+    #: does must read it from the staged dir, not the WSL tree.
+    fixture_copies: tuple[tuple[str, str], ...] = ()
+
+
+def _plan_staging(command: str, cwd: str, *, session_root: str) -> _StagingPlan:
+    """Decide whether/how to stage *command*'s exe (plus its fixture
+    dir(s)) from *cwd* into *session_root* instead of launching straight
+    off *cwd* (#3617).
+
+    Only engages when *cwd* is a UNC path (:func:`_is_unc_path`) — a
+    same-host (non-WSL) ``win-native`` agent's ``cwd`` is already local,
+    nothing to stage. Recognizes exactly two *command* shapes: a bare
+    leading executable token (optionally quoted) with trailing arguments,
+    and that same shape preceded by one ``cd <fixture-dir> && ``. Declines
+    (``staged=False``) for anything else containing a shell metacharacter
+    (:data:`_SHELL_METACHARACTERS` — a second ``&&``, a pipe, a
+    redirection, ...) this driver cannot safely rewrite with confidence,
+    an already-absolute exe token (nothing of *cwd*'s own tree to stage
+    for it), or an exe whose path relative to ``cwd``/``cd_dir`` climbs
+    ABOVE ``cwd`` itself without a ``cd_dir`` to cancel it back out
+    (staged at the same offset from ``session_root``, it would escape
+    this session's own directory into the shared parent every other
+    session's own root also lives under).
+
+    *command* itself is returned unchanged in the resulting plan — ``cwd``
+    moves to ``session_root`` ALWAYS, even when a ``cd <fixture-dir> &&
+    ...`` prefix was recognized — because *command* still carries that
+    same ``cd <fixture-dir>`` prefix unchanged, and it is *command* (run
+    from the new ``cwd``) that does the navigating into the fixture dir,
+    exactly as it did from the old (UNC) ``cwd``. (#3617 review: an
+    earlier revision set ``cwd`` to ``session_root/<fixture-dir>``
+    *itself* — i.e. pre-navigated — while leaving command's own ``cd
+    <fixture-dir> &&`` in place too, so cmd.exe ran the ``cd`` a SECOND
+    time from a directory that already had no further ``<fixture-dir>``
+    child staged under it, failed with a nonzero errorlevel, and `&&`
+    short-circuited the whole launch before the exe ever ran.) The exe
+    itself is copied to the SAME path, relative to *session_root*, that
+    it already held relative to *cwd* (:func:`ntpath.normpath` applied to
+    ``cd_dir`` + the exe token), so every relative reference in *command*
+    — the ``cd`` itself, a ``../`` the exe token carries, a trailing
+    argument resolved against the post-``cd`` directory — keeps resolving
+    correctly against the new, local root exactly as it did against the
+    old, UNC one.
+    """
+    if not _is_unc_path(cwd):
+        return _StagingPlan(staged=False)
+    cd_dir, remainder = _strip_cd_prefix(command)
+    if cd_dir and ntpath.isabs(cd_dir):
+        # An absolute `cd_dir` (`cd C:\foo && ...`) would collapse
+        # `ntpath.join(session_root, cd_dir)` down to `cd_dir` alone,
+        # discarding `session_root` entirely and landing `source_exe`/
+        # `dest_exe` on the SAME absolute path (a `shutil.copy2`
+        # `SameFileError`) — the `..`-escape guard below only ever
+        # assumed a relative `cd_dir`, same as `exe_token`'s own
+        # `ntpath.isabs` check just below.
+        return _StagingPlan(staged=False)
+    if _looks_shell_composed(remainder):
+        return _StagingPlan(staged=False)
+    exe_token, _rest = _leading_token(remainder)
+    if not exe_token or ntpath.isabs(exe_token):
+        return _StagingPlan(staged=False)
+
+    exe_rel = ntpath.normpath(ntpath.join(cd_dir, exe_token)) if cd_dir else ntpath.normpath(exe_token)
+    if exe_rel == ".." or exe_rel.startswith(f"..{ntpath.sep}"):
+        # The exe's path, relative to *cwd* (after any `cd_dir`), climbs
+        # ABOVE `cwd` itself (e.g. a bare `../target/release/vimcode.exe`
+        # with no `cd` to cancel it out) — staged at the same relative
+        # offset from `session_root`, it would land OUTSIDE this
+        # session's own directory, in the shared parent every concurrent
+        # session's staging root lives under: a leak `kill`'s own
+        # (session-scoped) delete would never reach, and a collision with
+        # another session's identically-named escape. Left alone rather
+        # than risked — the `cd .smoke && ../target/...` shape above
+        # cancels its own `..` back inside `cwd` and is unaffected by
+        # this guard.
+        return _StagingPlan(staged=False)
+    # #3617 review: always `session_root` — NEVER `session_root/cd_dir`.
+    # `command` still carries its own (unmodified) `cd <cd_dir> && `
+    # prefix, which does the navigating into the staged fixture dir once
+    # launched from here; pre-navigating `cwd` itself on top of that is
+    # the double-`cd` bug this comment's sibling above explains.
+    new_cwd = session_root
+
+    fixture_dirnames: list[str] = []
+    for name in (cd_dir, _STAGING_FIXTURE_DIRNAME):
+        if name and name not in fixture_dirnames:
+            fixture_dirnames.append(name)
+    fixture_copies = tuple(
+        (ntpath.join(cwd, name), ntpath.join(session_root, name))
+        for name in fixture_dirnames
+    )
+
+    return _StagingPlan(
+        staged=True,
+        cwd=new_cwd,
+        source_exe=ntpath.join(cwd, exe_rel),
+        dest_exe=ntpath.join(session_root, exe_rel),
+        fixture_copies=fixture_copies,
+    )
+
+
+def _execute_staging(
+    plan: _StagingPlan,
+    *,
+    isfile=os.path.isfile,
+    isdir=os.path.isdir,
+    makedirs=os.makedirs,
+    dirname=os.path.dirname,
+    copy_file=shutil.copy2,
+    copy_tree=shutil.copytree,
+) -> None:
+    """The filesystem side of a staging *plan* (#3617) — split from
+    :func:`_plan_staging` so the decision logic there stays testable with
+    fabricated Windows-style path strings alone; every kwarg here
+    defaults to the real ``os``/``shutil`` call (what :class:`Win32Calls`
+    actually runs) and is injectable for a test using plain local paths.
+    A no-op for a ``staged=False`` plan.
+
+    Raises :class:`WinNativeRuntimeError` when the resolved exe doesn't
+    exist — a copy step that silently skipped it would hand back a
+    session dir with no exe in it, surfacing as a confusing failure much
+    later at ``launch`` itself rather than here, where the real cause is
+    actually known (#2096: a gate must be able to fail with an answer
+    that actually says why). :meth:`Win32Calls._stage_if_needed` is the
+    one caller, and treats this raise as "staging isn't viable for THIS
+    launch" — falling back to the pre-#3617 ``pushd``/UNC launch rather
+    than letting it fail the whole launch (:func:`_plan_staging`'s own
+    leading-token guess is not infallible — e.g. a ``HOME=$PWD/home
+    ...exe`` prefix some routes use — and a wrong guess must degrade
+    gracefully, not turn a previously-working launch into a hard error).
+
+    *plan*'s paths are built by :func:`_plan_staging` with ``ntpath``
+    (correct on a real Windows host, where ``os.path`` already IS
+    ``ntpath``) — this function then hands them to plain ``os``/
+    ``shutil`` calls, which is only correct for that same reason; a test
+    exercising this function with fabricated Windows-style strings on a
+    non-Windows host must pass genuinely local (``tmp_path``-rooted)
+    paths instead, as every test in this module already does.
+    """
+    if not plan.staged:
+        return
+    if not isfile(plan.source_exe):
+        raise WinNativeRuntimeError(
+            f"win-native launch staging (#3617): exe not found at "
+            f"{plan.source_exe!r} — nothing to copy onto the local "
+            "Windows filesystem"
+        )
+    makedirs(dirname(plan.dest_exe), exist_ok=True)
+    copy_file(plan.source_exe, plan.dest_exe)
+    for source_dir, dest_dir in plan.fixture_copies:
+        if isdir(source_dir):
+            copy_tree(source_dir, dest_dir, dirs_exist_ok=True)
+
+
+def _remove_staged_dir(path: str) -> None:
+    """Best-effort recursive delete — never raises, mirroring every other
+    teardown step in this module (#2096: cleanup must not mask whatever
+    real result it's running alongside)."""
+    shutil.rmtree(path, ignore_errors=True)
+
+
+#: #3617: a session whose owning `Win32Calls` got killed/crashed before its
+#: own `kill()` ever ran has no Windows analogue of #3583's
+#: `PR_SET_PDEATHSIG` to delete its staged directory for it — swept once per
+#: `launch`/`launch_in_terminal` call instead (the same "idle self-expiry is
+#: the backstop, not the primary path" shape `coord.app_drive
+#: .DEFAULT_IDLE_TIMEOUT` already uses), generous enough that a normal
+#: `kill()`-driven delete (the primary path) is always what actually cleans
+#: up a session that closed normally.
+_STALE_SESSION_MAX_AGE_S = 24.0 * 3600.0
 
 
 #: #3544: every kwarg :meth:`Win32Calls.launch`/:meth:`~Win32Calls.launch_in_terminal`
@@ -906,17 +1417,65 @@ class Win32Calls:
         self._ctypes = ctypes
         self._user32 = ctypes.windll.user32
         self._kernel32 = ctypes.windll.kernel32
+        #: #3617: pid -> the local session directory `launch`/
+        #: `launch_in_terminal` staged for it, so `kill` can delete it once
+        #: that pid has actually been signalled.
+        #:
+        #: Non-blocking review nit: keyed by pid alone, so a `kill` that's
+        #: never called for a given session (daemon crash before its own
+        #: `close()` ran) leaks that entry if Windows later reuses the
+        #: same pid for an unrelated, staged launch — bounded by
+        #: `_sweep_stale_sessions`'s 24h backstop either way, but the dict
+        #: itself grows unboundedly in a long-lived process that never
+        #: calls `kill`.
+        self._staged_session_dirs: dict[int, str] = {}
+        #: #3617 review: non-``None`` after `_stage_if_needed` skipped
+        #: staging for a UNC `cwd` (as opposed to the common, unremarkable
+        #: case of a same-host, already-local `cwd` where staging never
+        #: even applies) — so a silent fallback to the slow UNC launch is
+        #: observable rather than surfacing only much later as a
+        #: `find_top_window` timeout. See `WinNativeSession.staging_warning`.
+        #:
+        #: Reset (to ``None``) at the top of every `_stage_if_needed` —
+        #: which is only reached for a UNC `cwd`, so an instance reused for
+        #: a LATER non-UNC launch keeps the earlier warning. There is
+        #: exactly one `Win32Calls` per daemon/session
+        #: (`coord.app_drive_daemon` builds it once, `coord.app_drive
+        #: .SessionHandle` reads the warning once) and a given session's
+        #: `cwd` never changes UNC-ness mid-flight, so that cannot happen
+        #: today; clearing it in `launch` itself is deliberately NOT done
+        #: because the non-UNC path must stay `self`-independent (see
+        #: `launch`'s own comment). `tests/test_win_native_driver.py`'s
+        #: `_make_win32_calls` initialises this too, so a test fake and a
+        #: real instance agree on the starting value.
+        self.staging_warning: str | None = None
 
     # -- process lifecycle --
 
     def launch(self, command: str, cwd: str) -> int:
+        # #3617: the UNC check is done BEFORE ever touching `self` — the
+        # overwhelming common (non-UNC) case must stay exactly as cheap
+        # (and as `self`-independent — see
+        # `TestLaunchPipeInheritanceRealSubprocess`'s own unbound
+        # `Win32Calls.launch(None, ...)` call) as it was pre-#3617. This is
+        # the AUTHORITATIVE guard — `_plan_staging` re-checks the same
+        # thing internally (so it stays correct when called directly, as
+        # the tests do), not a sign of split logic between the two.
+        staged_dir = None
+        if _is_unc_path(cwd):
+            command, cwd, staged_dir = self._stage_if_needed(command, cwd)
         full_command, popen_cwd = _popen_command_and_cwd(command, cwd)
         proc = subprocess.Popen(
             full_command, shell=True, cwd=popen_cwd, **_NO_HANDLE_INHERITANCE,
         )
+        if staged_dir is not None:
+            self._staged_session_dirs[proc.pid] = staged_dir
         return proc.pid
 
     def launch_in_terminal(self, command: str, cwd: str, terminal_app: str) -> int:
+        staged_dir = None
+        if _is_unc_path(cwd):
+            command, cwd, staged_dir = self._stage_if_needed(command, cwd)
         create_new_console = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
         if terminal_app == "windows-terminal":
             full_command = f"wt.exe {command}"
@@ -927,18 +1486,155 @@ class Win32Calls:
             full_command, shell=True, cwd=popen_cwd, creationflags=create_new_console,
             **_NO_HANDLE_INHERITANCE,
         )
+        if staged_dir is not None:
+            self._staged_session_dirs[proc.pid] = staged_dir
         return proc.pid
 
     def kill(self, pid: int) -> None:
-        # By PID only — see the module docstring's safety note. No
-        # image-name-based lookup exists anywhere in this class.
+        # By PID (plus its own descendants) only — see the module
+        # docstring's safety note. No image-name-based lookup exists
+        # anywhere in this class.
         PROCESS_TERMINATE = 0x0001
-        handle = self._kernel32.OpenProcess(PROCESS_TERMINATE, False, pid)
-        if handle:
+        staged_dir = self._staged_session_dirs.pop(pid, None)
+        # #3617 review: a staged session's exe is a GRANDCHILD of *pid*
+        # (`subprocess.Popen(..., shell=True)` returns cmd.exe's own pid —
+        # see `_descendant_pids`'s docstring, #3542), which a bare
+        # `TerminateProcess(pid)` never touches. Windows locks a running
+        # image's file, so deleting the staged dir while that grandchild
+        # is still alive would silently leave the exe (and therefore the
+        # directory) behind — only `_sweep_stale_sessions`'s 24h backstop
+        # would ever clean it up. Terminating the whole descendant tree
+        # FIRST — only when there's a staged dir to clean up, to keep the
+        # overwhelmingly common (non-staged) `kill` exactly as cheap as it
+        # always was — makes the delete that follows actually able to
+        # succeed.
+        targets = self._descendant_pids(pid) if staged_dir is not None else {pid}
+        for target in targets:
+            handle = self._kernel32.OpenProcess(PROCESS_TERMINATE, False, target)
+            if handle:
+                try:
+                    self._kernel32.TerminateProcess(handle, 0)
+                finally:
+                    self._kernel32.CloseHandle(handle)
+        # #3617: the normal (non-abnormal-exit) cleanup path for a staged
+        # session directory — see `_sweep_stale_sessions` for the backstop.
+        # Still best-effort (`_remove_staged_dir` never raises): even a
+        # freshly-terminated process can hold a file handle open for a
+        # brief window after `TerminateProcess` returns, in which case the
+        # delete silently fails here and the 24h sweep is what actually
+        # reclaims it.
+        if staged_dir is not None:
+            _remove_staged_dir(staged_dir)
+
+    # -- local-filesystem launch staging (#3617) --
+
+    def _staging_root(
+        self, *, known_folder_resolver=_local_app_data_via_known_folder,
+    ) -> str:
+        """``%LOCALAPPDATA%\\Temp\\coord-app-drive`` — real local NTFS on
+        every Windows host, never a UNC path. Tries this process's own
+        environment first (the common, cheap case), then
+        *known_folder_resolver* (:func:`_local_app_data_via_known_folder`
+        by default — injectable for a test, since the real resolver's
+        ``ctypes.windll`` call only exists on Windows) when that's unset —
+        the dell64 bridge path starts this very process through WSL
+        interop with no ``env=`` at all, so it never carries
+        ``%LOCALAPPDATA%`` to read in the first place (never
+        hardcoded/guessed either way — the issue's own requirement).
+        Raises :class:`WinNativeRuntimeError` when BOTH fail;
+        :meth:`_stage_if_needed` treats that as "best-effort staging
+        unavailable" and falls back to the pre-#3617 ``pushd`` wrap rather
+        than failing the whole launch over it — but records why via
+        :attr:`staging_warning`, so that fallback is never silent."""
+        local_app_data = os.environ.get(_LOCALAPPDATA_ENV) or known_folder_resolver()
+        if not local_app_data:
+            raise WinNativeRuntimeError(
+                f"win-native launch staging (#3617) needs %{_LOCALAPPDATA_ENV}% "
+                "to pick a per-session directory on the local Windows "
+                "filesystem, but it is not set in this process's "
+                "environment and SHGetKnownFolderPath could not resolve it "
+                "either"
+            )
+        return os.path.join(local_app_data, "Temp", _STAGING_ROOT_DIRNAME)
+
+    def _sweep_stale_sessions(self) -> None:
+        """Best-effort GC backstop for an abandoned staged session (#3617,
+        see the module docstring) — deletes any direct child of
+        :meth:`_staging_root` whose mtime is older than
+        :data:`_STALE_SESSION_MAX_AGE_S`. Never raises: a missing/unreadable
+        root, or an entry that disappears mid-sweep (another process
+        already cleaned it up), is not an error here.
+
+        Non-blocking review nit: keys off the session DIRECTORY's own
+        mtime, which does NOT update when the running app writes into
+        ``<session>/.smoke`` underneath it — a session alive longer than
+        :data:`_STALE_SESSION_MAX_AGE_S` could in principle have its
+        working directory swept out from under it. Unlikely at the
+        current (24h) timeout; stamping the dir itself (or checking the
+        newest descendant mtime) would close the gap if it's ever
+        tightened."""
+        try:
+            root = self._staging_root()
+            entries = os.listdir(root)
+        except (OSError, WinNativeRuntimeError):
+            return
+        now = time.time()
+        for name in entries:
+            path = os.path.join(root, name)
             try:
-                self._kernel32.TerminateProcess(handle, 0)
-            finally:
-                self._kernel32.CloseHandle(handle)
+                age = now - os.path.getmtime(path)
+            except OSError:
+                continue
+            if age > _STALE_SESSION_MAX_AGE_S:
+                _remove_staged_dir(path)
+
+    def _stage_if_needed(self, command: str, cwd: str) -> tuple[str, str, str | None]:
+        """Returns ``(command, cwd, staged_dir)`` — *command*/*cwd*
+        rewritten per :func:`_plan_staging` (with the staging actually
+        performed) when it decided to, or *command*/*cwd* UNCHANGED (and
+        ``staged_dir=None``) in every skip case: a non-UNC ``cwd``, an
+        unparseable/opaque *command*, ``%LOCALAPPDATA%`` itself being
+        unavailable right now, or the resolved exe not actually existing
+        where :func:`_plan_staging` guessed (:func:`_execute_staging`'s
+        own raise — a route whose ``run:`` doesn't match either shape
+        ``_plan_staging`` recognizes, e.g. a leading ``HOME=$PWD/home``
+        env-var assignment some routes use ahead of the real exe token).
+        Staging is a performance optimization, not a correctness
+        requirement — a caller that can't stage still gets a working (if
+        UNC-slow) launch via :func:`_popen_command_and_cwd`'s own
+        ``pushd`` wrap, rather than this call failing outright.
+
+        Every skip case EXCEPT the non-UNC one (the only one this is ever
+        called for — see the ``_is_unc_path`` gate at both call sites)
+        records why on :attr:`staging_warning` and logs it — #3617 review:
+        a silent fallback here would otherwise surface only much later, as
+        a confusing ``find_top_window`` timeout with no indication staging
+        was ever involved."""
+        self.staging_warning = None
+        try:
+            root = self._staging_root()
+        except WinNativeRuntimeError as exc:
+            self.staging_warning = str(exc)
+            _log.warning("%s", exc)
+            return command, cwd, None
+        session_root = os.path.join(root, uuid.uuid4().hex[:12])
+        plan = _plan_staging(command, cwd, session_root=session_root)
+        if not plan.staged:
+            self.staging_warning = (
+                "win-native launch staging (#3617) could not parse this "
+                f"launch command/cwd shape for staging — launching from "
+                f"the UNC path {cwd!r} unstaged (slow \\\\wsl$ I/O)"
+            )
+            _log.warning("%s", self.staging_warning)
+            return command, cwd, None
+        self._sweep_stale_sessions()
+        try:
+            _execute_staging(plan)
+        except WinNativeRuntimeError as exc:
+            self.staging_warning = str(exc)
+            _log.warning("%s", exc)
+            return command, cwd, None
+        return command, plan.cwd, session_root
 
     # -- session precheck (#3510) --
 
@@ -1152,20 +1848,81 @@ class Win32Calls:
         self._user32.mouse_event(down, 0, 0, 0, 0)
         self._user32.mouse_event(up, 0, 0, 0, 0)
 
+    def _declare_send_input_signature(self) -> None:
+        """Declares ``SendInput``'s ``argtypes``/``restype`` once per
+        instance (#3639 review nit: previously left undeclared, so the call
+        rode on ctypes' default conversions). Idempotent and cheap to call
+        from every :meth:`send_key` — guards against a fake ``user32`` in
+        tests that has no ``argtypes``/``restype`` attributes at all."""
+        send_input = self._user32.SendInput
+        if getattr(send_input, "argtypes", None) is not None:
+            return
+        try:
+            send_input.argtypes = [
+                ctypes.c_uint, ctypes.POINTER(_INPUT), ctypes.c_int,
+            ]
+            send_input.restype = ctypes.c_uint
+        except AttributeError:
+            # A fake `user32` in a test may not allow attribute assignment
+            # on its `SendInput` — fine, the real Windows DLL function
+            # always does.
+            pass
+
     def send_key(self, hwnd: int, key: str) -> None:
+        """#3639: *key* is parsed under the shared grammar
+        (:func:`_win_key_encodings`) and may be a space-separated chord
+        sequence (``ctrl+k ctrl+w``) — each chord is sent as its own
+        modifier-down, key(s)-down/up, modifier-up sequence, in order, via
+        ``SendInput`` (never the legacy ``keybd_event`` the pre-#3639 code
+        used — ``SendInput`` is what ``KEYEVENTF_UNICODE`` requires, closing
+        #3635's silent no-op for punctuation)."""
         self._user32.SetForegroundWindow(hwnd)
-        vk, needs_shift = _vkey_for(key)
-        KEYEVENTF_KEYUP = 0x0002
-        if key.lower().startswith("ctrl+"):
-            self._user32.keybd_event(0x11, 0, 0, 0)  # VK_CONTROL down
-        if needs_shift:
-            self._user32.keybd_event(0x10, 0, 0, 0)  # VK_SHIFT down
-        self._user32.keybd_event(vk, 0, 0, 0)
-        self._user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
-        if needs_shift:
-            self._user32.keybd_event(0x10, 0, KEYEVENTF_KEYUP, 0)
-        if key.lower().startswith("ctrl+"):
-            self._user32.keybd_event(0x11, 0, KEYEVENTF_KEYUP, 0)
+        self._declare_send_input_signature()
+
+        def _one(vk: int, scan: int, flags: int) -> _INPUT:
+            return _INPUT(type=_INPUT_KEYBOARD, ki=_KEYBDINPUT(vk, scan, flags, 0, 0))
+
+        def _send(*inputs: _INPUT) -> None:
+            if not inputs:
+                return
+            arr = (_INPUT * len(inputs))(*inputs)
+            sent = self._user32.SendInput(len(inputs), arr, ctypes.sizeof(_INPUT))
+            if sent != len(inputs):
+                # #3639: SendInput returns the number of events it actually
+                # inserted and returns 0 (or a short count) when the input
+                # was blocked — e.g. UIPI, or the target window not owning
+                # the foreground/input desktop (see
+                # `_logonui_running_in_session`/`OpenInputDesktop` below). An
+                # unchecked call here would reproduce #3635's "{"ok": true}"
+                # with no effect, just one layer deeper: the process issues
+                # the call but the keystroke never lands, and nothing before
+                # this point can tell the difference.
+                raise WinNativeRuntimeError(
+                    f"SendInput delivered only {sent} of {len(inputs)} "
+                    f"input event(s) — blocked by UIPI or the input desktop "
+                    f"belongs to another session/thread"
+                )
+
+        for enc in _win_key_encodings(key):
+            mod_downs: list[_INPUT] = []
+            mod_ups: list[_INPUT] = []
+            for active, vk in (
+                (enc.win, _VK_LWIN), (enc.ctrl, _VK_CONTROL),
+                (enc.alt, _VK_MENU), (enc.shift, _VK_SHIFT),
+            ):
+                if active:
+                    mod_downs.append(_one(vk, 0, 0))
+                    mod_ups.insert(0, _one(vk, 0, _KEYEVENTF_KEYUP))
+
+            if enc.unicode_char is not None:
+                code = ord(enc.unicode_char)
+                key_down = _one(0, code, _KEYEVENTF_UNICODE)
+                key_up = _one(0, code, _KEYEVENTF_UNICODE | _KEYEVENTF_KEYUP)
+            else:
+                key_down = _one(enc.vk, 0, 0)
+                key_up = _one(enc.vk, 0, _KEYEVENTF_KEYUP)
+
+            _send(*mod_downs, key_down, key_up, *mod_ups)
 
     # -- UI Automation --
 
@@ -1316,6 +2073,21 @@ class WinNativeSession:
         grandchild running; tracked separately from #3590, same class as
         the mac-native/gtk-native shell-vs-app gap."""
         return self._pid
+
+    @property
+    def staging_warning(self) -> str | None:
+        """#3617 review: non-``None`` when launch staging onto the local
+        Windows filesystem was skipped for THIS session (and why) — read
+        by :mod:`coord.app_drive_daemon` for its ready-file, and from
+        there :class:`coord.app_drive.SessionHandle`, so a silent
+        fallback to the slow ``\\\\wsl$`` launch is observable
+        end-to-end rather than only visible as a `find_top_window`
+        timeout much later. ``None`` on a same-host, non-UNC ``cwd``
+        (staging never applies) and also ``None`` on a UNC ``cwd`` when
+        staging DID engage successfully. ``getattr``-based — only
+        :class:`Win32Calls` actually sets ``staging_warning`` on itself; a
+        scripted test fake simply has none."""
+        return getattr(self._calls, "staging_warning", None)
 
     def send_key(self, key: str) -> None:
         self._calls.send_key(self._hwnd, key)

@@ -6978,6 +6978,19 @@ class PlatformAgentType(sgqlc.types.Enum):
     __choices__ = ("DATABRICKS_GENIE", "DATABRICKS_MLFLOW_KA", "DATABRICKS_MLFLOW_SDK", "SNOWFLAKE")
 
 
+class PlatformServiceAgentHealthStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `DISCONNECTED`None
+    * `HEALTHY`None
+    * `STALLED`None
+    * `UNKNOWN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("DISCONNECTED", "HEALTHY", "STALLED", "UNKNOWN")
+
+
 class PlatformServiceSupportCode(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -32391,6 +32404,21 @@ class CostTimeSeriesPointOutput(sgqlc.types.Type):
     """Currency code of this bucket's amounts, e.g. "USD"."""
 
 
+class CoveringJobMonitor(sgqlc.types.Type):
+    """A job monitor that covers a job, as the Jobs page lists it."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name", "description", "priority")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """Identifies the monitor in the account."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+
+
 class CreateAccessToken(sgqlc.types.Type):
     """Generate an API Access Token and associate to user"""
 
@@ -48613,6 +48641,7 @@ class MonitoringPlan(sgqlc.types.Type):
         "containers",
         "run_status",
         "run_completed_time",
+        "built_from_draft",
         "revises_plan_uuid",
         "correction_count",
     )
@@ -48669,6 +48698,11 @@ class MonitoringPlan(sgqlc.types.Type):
     """When the producing run reached a terminal status. Null while it is
     still running and when no run is recorded.
     """
+
+    built_from_draft = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="builtFromDraft"
+    )
+    """Whether this plan was built from a reviewed draft selection."""
 
     revises_plan_uuid = sgqlc.types.Field(UUID, graphql_name="revisesPlanUuid")
     """planUuid of the plan this run was asked to revise, or null when it
@@ -78703,6 +78737,7 @@ class PlatformServiceAgent(sgqlc.types.Type):
         "version",
         "wrapper_version",
         "enabled",
+        "health",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """UUID of the agent"""
@@ -78733,6 +78768,89 @@ class PlatformServiceAgent(sgqlc.types.Type):
 
     enabled = sgqlc.types.Field(Boolean, graphql_name="enabled")
     """Agent enabled"""
+
+    health = sgqlc.types.Field("PlatformServiceAgentHealth", graphql_name="health")
+    """Agent health. Null for data-store agents, which show no health."""
+
+
+class PlatformServiceAgentHealth(sgqlc.types.Type):
+    """Latest health of a remote agent. Egress agents (Generic,
+    Snowflake) are checked every 5 minutes from the operations they
+    poll for. All other remote agents are checked hourly by pinging
+    them.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "status",
+        "checked_on",
+        "last_reachable_on",
+        "last_reachability_checked_on",
+        "last_reachability_error",
+        "last_poll_on",
+        "last_heartbeat_on",
+        "last_result_on",
+        "last_timeout_on",
+        "pending_operations",
+        "running_operations",
+        "oldest_pending_age_seconds",
+        "completed_last_hour",
+        "timed_out_last_hour",
+        "instance_count",
+    )
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(PlatformServiceAgentHealthStatus), graphql_name="status"
+    )
+    """HEALTHY: reachable and processing. STALLED: connected but not
+    completing operations. DISCONNECTED: not polling, or the last
+    reachability check failed. UNKNOWN: no recent data.
+    """
+
+    checked_on = sgqlc.types.Field(DateTime, graphql_name="checkedOn")
+    """When the operation facts were last refreshed"""
+
+    last_reachable_on = sgqlc.types.Field(DateTime, graphql_name="lastReachableOn")
+    """Last successful reachability check"""
+
+    last_reachability_checked_on = sgqlc.types.Field(
+        DateTime, graphql_name="lastReachabilityCheckedOn"
+    )
+    """Last reachability check"""
+
+    last_reachability_error = sgqlc.types.Field(String, graphql_name="lastReachabilityError")
+    """Error from the last failed reachability check. Requires edit
+    access.
+    """
+
+    last_poll_on = sgqlc.types.Field(DateTime, graphql_name="lastPollOn")
+    """Last time the agent polled for operations"""
+
+    last_heartbeat_on = sgqlc.types.Field(DateTime, graphql_name="lastHeartbeatOn")
+    """Last heartbeat from the agent"""
+
+    last_result_on = sgqlc.types.Field(DateTime, graphql_name="lastResultOn")
+    """Last operation result from the agent"""
+
+    last_timeout_on = sgqlc.types.Field(DateTime, graphql_name="lastTimeoutOn")
+    """Last operation that timed out"""
+
+    pending_operations = sgqlc.types.Field(Int, graphql_name="pendingOperations")
+    """Operations waiting for the agent"""
+
+    running_operations = sgqlc.types.Field(Int, graphql_name="runningOperations")
+    """Operations the agent is running"""
+
+    oldest_pending_age_seconds = sgqlc.types.Field(Int, graphql_name="oldestPendingAgeSeconds")
+    """Age in seconds of the oldest operation waiting for the agent"""
+
+    completed_last_hour = sgqlc.types.Field(Int, graphql_name="completedLastHour")
+    """Operations completed in the last hour"""
+
+    timed_out_last_hour = sgqlc.types.Field(Int, graphql_name="timedOutLastHour")
+    """Operations timed out in the last hour"""
+
+    instance_count = sgqlc.types.Field(Int, graphql_name="instanceCount")
+    """Running agent instances"""
 
 
 class PlatformServiceConnection(sgqlc.types.relay.Connection):
@@ -106494,7 +106612,8 @@ class ReinforcementLoopSelector(sgqlc.types.Type):
         graphql_name="selectedClusterKeys",
     )
     """Cluster keys whose conversations the loop diagnoses; empty selects
-    nothing.
+    nothing. Until a selection is saved, every current cluster of the
+    space.
     """
 
     is_enabled = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isEnabled")
@@ -106592,6 +106711,7 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "description",
         "recommendation",
         "priority",
+        "grouping_metadata",
         "first_detected_at",
         "last_seen_at",
         "conversation_count",
@@ -106640,6 +106760,13 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
     """Current impact bucket: the newest report's. Not subject to
     redaction.
+    """
+
+    grouping_metadata = sgqlc.types.Field(GenericScalar, graphql_name="groupingMetadata")
+    """For the reinforcement-loop agent only; the UI never shows it. The
+    free-form object the grouping agent saved with the newest report,
+    read back so later runs reuse its grouping decisions. Null when
+    the newest report carried none and when content is restricted.
     """
 
     first_detected_at = sgqlc.types.Field(
@@ -125385,6 +125512,7 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
         "object_type",
         "alerts_count",
         "generates_alerts",
+        "covering_monitors",
         "terminology",
     )
     object_path = sgqlc.types.Field(String, graphql_name="objectPath")
@@ -125414,6 +125542,19 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     disabled (the job runs but is not monitored). null: the
     integration type does not support this setting — null must not be
     read as 'not monitored'.
+    """
+
+    covering_monitors = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(CoveringJobMonitor)),
+        graphql_name="coveringMonitors",
+    )
+    """The job monitors covering this job, on an account migrated to job
+    monitors. Lists only the monitors the caller can access, so an
+    empty list does not mean the job is uncovered. Empty for an
+    account not migrated to job monitors, and for a caller without job
+    monitor access. A dbt monitor with table filters is listed: it
+    alerts only on failures of matching tables. Paused and draft
+    monitors are not listed.
     """
 
     terminology = sgqlc.types.Field(Terminology, graphql_name="terminology")

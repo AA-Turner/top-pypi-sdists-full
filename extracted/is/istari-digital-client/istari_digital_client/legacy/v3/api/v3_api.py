@@ -28,6 +28,8 @@ from istari_digital_client.legacy.v3.models.ai_message_dto import AiMessageDto
 from istari_digital_client.legacy.v3.models.append_message_request import AppendMessageRequest
 from istari_digital_client.legacy.v3.models.archive_status import ArchiveStatus
 from istari_digital_client.legacy.v3.models.available_hosts_response import AvailableHostsResponse
+from istari_digital_client.legacy.v3.models.batch_resolve_users_request import BatchResolveUsersRequest
+from istari_digital_client.legacy.v3.models.batch_resolve_users_response import BatchResolveUsersResponse
 from istari_digital_client.legacy.v3.models.browse_entry_dto import BrowseEntryDto
 from istari_digital_client.legacy.v3.models.bulk_inbox_action_dto import BulkInboxActionDto
 from istari_digital_client.legacy.v3.models.bulk_inbox_action_result_dto import BulkInboxActionResultDto
@@ -4239,6 +4241,223 @@ class V3Api:
         return self.api_client.param_serialize(
             method='DELETE',
             resource_path='/api/v3/systems/{system_id}/workflow_log/entries/{entry_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    @log_method
+    def batch_resolve_users(
+        self,
+        batch_resolve_users_request: BatchResolveUsersRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> BatchResolveUsersResponse:
+
+        """
+        Resolve users by principal id
+
+        :param batch_resolve_users_request: (required)
+        :type batch_resolve_users_request: BatchResolveUsersRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._batch_resolve_users_serialize(
+            batch_resolve_users_request=batch_resolve_users_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BatchResolveUsersResponse",
+            '422': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def batch_resolve_users_with_http_info(
+        self,
+        batch_resolve_users_request: BatchResolveUsersRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> ApiResponse[BatchResolveUsersResponse]:
+
+        """
+        Resolve users by principal id
+
+        :param batch_resolve_users_request: (required)
+        :type batch_resolve_users_request: BatchResolveUsersRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._batch_resolve_users_serialize(
+            batch_resolve_users_request=batch_resolve_users_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BatchResolveUsersResponse",
+            '422': None,
+        }
+
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def batch_resolve_users_without_preload_content(
+        self,
+        batch_resolve_users_request: BatchResolveUsersRequest,
+        http_request_timeout_secs: Annotated[StrictInt | None, Field(ge=0)] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0
+    ) -> RESTResponseType:
+
+        """
+        Resolve users by principal id
+
+        :param batch_resolve_users_request: (required)
+        :type batch_resolve_users_request: BatchResolveUsersRequest
+        :param http_request_timeout_secs: timeout setting for this request
+        :type http_request_timeout_secs: int, optional
+
+        """ # noqa: E501
+
+        _param = self._batch_resolve_users_serialize(
+            batch_resolve_users_request=batch_resolve_users_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BatchResolveUsersResponse",
+            '422': None,
+        }
+
+        request_timeout = http_request_timeout_secs or self.config.http_request_timeout_secs
+
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=request_timeout
+        )
+        return response_data.response
+
+
+    def _batch_resolve_users_serialize(
+        self,
+        batch_resolve_users_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if batch_resolve_users_request is not None:
+            _body_params = batch_resolve_users_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'RequestAuthenticator'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v3/users/batch-resolve',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,
@@ -14338,6 +14557,7 @@ class V3Api:
         self,
         connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
         snapshot_id: Annotated[StrictStr, Field(description="The snapshot to inspect; must belong to that container.")],
+        claimed_by_me: Annotated[Optional[StrictBool], Field(description="Return only the children the caller had selected when this snapshot was taken.")] = None,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
@@ -14355,6 +14575,8 @@ class V3Api:
         :type connected_resource_id: str
         :param snapshot_id: The snapshot to inspect; must belong to that container. (required)
         :type snapshot_id: str
+        :param claimed_by_me: Return only the children the caller had selected when this snapshot was taken.
+        :type claimed_by_me: bool
         :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
@@ -14369,6 +14591,7 @@ class V3Api:
         _param = self._list_container_snapshot_children_serialize(
             connected_resource_id=connected_resource_id,
             snapshot_id=snapshot_id,
+            claimed_by_me=claimed_by_me,
             cursor=cursor,
             size=size,
             include_total=include_total,
@@ -14405,6 +14628,7 @@ class V3Api:
         self,
         connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
         snapshot_id: Annotated[StrictStr, Field(description="The snapshot to inspect; must belong to that container.")],
+        claimed_by_me: Annotated[Optional[StrictBool], Field(description="Return only the children the caller had selected when this snapshot was taken.")] = None,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
@@ -14422,6 +14646,8 @@ class V3Api:
         :type connected_resource_id: str
         :param snapshot_id: The snapshot to inspect; must belong to that container. (required)
         :type snapshot_id: str
+        :param claimed_by_me: Return only the children the caller had selected when this snapshot was taken.
+        :type claimed_by_me: bool
         :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
@@ -14436,6 +14662,7 @@ class V3Api:
         _param = self._list_container_snapshot_children_serialize(
             connected_resource_id=connected_resource_id,
             snapshot_id=snapshot_id,
+            claimed_by_me=claimed_by_me,
             cursor=cursor,
             size=size,
             include_total=include_total,
@@ -14472,6 +14699,7 @@ class V3Api:
         self,
         connected_resource_id: Annotated[StrictStr, Field(description="The ID of the container connection.")],
         snapshot_id: Annotated[StrictStr, Field(description="The snapshot to inspect; must belong to that container.")],
+        claimed_by_me: Annotated[Optional[StrictBool], Field(description="Return only the children the caller had selected when this snapshot was taken.")] = None,
         cursor: Annotated[Optional[StrictStr], Field(description="Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.")] = None,
         size: Annotated[Optional[Annotated[int, Field(le=100, strict=True, ge=0)]], Field(description="Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.")] = None,
         include_total: Annotated[Optional[StrictBool], Field(description="Whether to include the total item count in the response.  Set to `false` to skip the count query and improve performance on large datasets.")] = None,
@@ -14489,6 +14717,8 @@ class V3Api:
         :type connected_resource_id: str
         :param snapshot_id: The snapshot to inspect; must belong to that container. (required)
         :type snapshot_id: str
+        :param claimed_by_me: Return only the children the caller had selected when this snapshot was taken.
+        :type claimed_by_me: bool
         :param cursor: Opaque pagination cursor returned in the previous response's `next_page` field.  Pass this value unchanged to continue the selected pagination strategy.  Omit (or pass `null`) to start from the first page.
         :type cursor: str
         :param size: Maximum number of items to return per page. On bounded permission listings, a short page can still have a continuation cursor. Must be between 0 and 100. Defaults to 10.
@@ -14503,6 +14733,7 @@ class V3Api:
         _param = self._list_container_snapshot_children_serialize(
             connected_resource_id=connected_resource_id,
             snapshot_id=snapshot_id,
+            claimed_by_me=claimed_by_me,
             cursor=cursor,
             size=size,
             include_total=include_total,
@@ -14533,6 +14764,7 @@ class V3Api:
         self,
         connected_resource_id,
         snapshot_id,
+        claimed_by_me,
         cursor,
         size,
         include_total,
@@ -14562,6 +14794,10 @@ class V3Api:
         if snapshot_id is not None:
             _path_params['snapshot_id'] = snapshot_id
         # process the query parameters
+        if claimed_by_me is not None:
+
+            _query_params.append(('claimed_by_me', claimed_by_me))
+
         if cursor is not None:
 
             _query_params.append(('cursor', cursor))

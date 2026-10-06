@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 import snowflake.snowpark
 import snowflake.snowpark.context as context
 import snowflake.snowpark._internal.proto.generated.ast_pb2 as proto
-from snowflake.connector.options import installed_pandas, pandas, pyarrow
+from snowflake.snowpark._internal.options import installed_pandas, pandas, pyarrow
 
 from snowflake.snowpark._internal.analyzer.binary_plan_node import (
     AsOf,
@@ -1728,7 +1728,25 @@ class DataFrame:
 
     @publicapi
     def col(self, col_name: str, _emit_ast: bool = True) -> Column:
-        """Returns a reference to a column in the DataFrame."""
+        """Returns a reference to a column in the DataFrame.
+
+        Use the returned :class:`Column` expression in operations such as
+        :meth:`select` and :meth:`filter`. This method doesn't retrieve the
+        column's values; call an action such as :meth:`collect` on the resulting
+        DataFrame to retrieve rows.
+
+        Args:
+            col_name: The name of a column in this DataFrame, or ``"*"`` to
+                reference all columns.
+
+        Examples::
+
+            >>> df = session.create_dataframe([(1, 10), (2, 20)], schema=["id", "amount"])
+            >>> df.select(df.col("id"), (df.col("amount") + 5).alias("adjusted")).sort("id").collect()
+            [Row(ID=1, ADJUSTED=15), Row(ID=2, ADJUSTED=25)]
+            >>> df.filter(df.col("amount") > 10).select(df.col("id")).collect()
+            [Row(ID=2)]
+        """
         expr = None
         if _emit_ast:
             expr = proto.Expr()
@@ -2681,8 +2699,16 @@ class DataFrame:
         This method returns a :class:`RelationalGroupedDataFrame` that you can use to
         perform aggregations on each group of data.
 
+        With no columns (``df.group_by()`` or ``df.group_by([])``), the entire
+        DataFrame forms one group for aggregation. With one or more columns,
+        rows that have the same values for those columns form a group. Calling
+        this method defines the groups; call an aggregation method such as
+        :meth:`RelationalGroupedDataFrame.agg` to produce a result DataFrame.
+
         Args:
-            *cols: The columns to group by.
+            *cols: Column names or expressions that define the groups. Omit
+                this argument or pass an empty list to aggregate all rows
+                together.
 
         Valid inputs are:
 
@@ -2841,6 +2867,18 @@ class DataFrame:
         from the current DataFrame.
 
         This is equivalent to performing a SELECT DISTINCT in SQL.
+
+        Duplicate rows are compared across all columns. To return distinct values
+        for selected columns, call :meth:`select` before calling this method.
+        The result has no guaranteed row order; use :meth:`sort` when order matters.
+
+        Examples::
+
+            >>> df = session.create_dataframe([(1, "a"), (1, "a"), (1, "b"), (2, "a")], schema=["id", "value"])
+            >>> df.distinct().sort("id", "value").collect()
+            [Row(ID=1, VALUE='a'), Row(ID=1, VALUE='b'), Row(ID=2, VALUE='a')]
+            >>> df.select("id").distinct().sort("id").collect()
+            [Row(ID=1), Row(ID=2)]
         """
 
         # AST.

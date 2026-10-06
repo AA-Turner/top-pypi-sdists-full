@@ -7,19 +7,19 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from rich.console import Console
 
 from confiture.cli.error_json import cli_boundary, fail
 from confiture.cli.formatters.build_formatter import (
     format_build_result,
     format_selection_report,
 )
+from confiture.cli.formatters.build_order_formatter import format_order_comparison
 from confiture.cli.helpers import (
     console,
     error_console,
     is_json,
 )
-from confiture.cli.markup import verbatim
+from confiture.cli.markup import Printer
 from confiture.cli.options import (
     ProjectDirOpt,
     database_url_option,
@@ -27,6 +27,7 @@ from confiture.cli.options import (
     format_option,
     output_option,
 )
+from confiture.core.build_order import compare_to_ref
 from confiture.core.builder import SchemaBuilder
 from confiture.core.linting.duplicates import duplicate_violations, find_duplicates, inventory_files
 from confiture.core.progress import ProgressManager
@@ -144,6 +145,22 @@ ListFilesOpt = Annotated[
         "its order and the pattern that matched each — and build nothing",
     ),
 ]
+CompareToOpt = Annotated[
+    str | None,
+    typer.Option(
+        "--compare-to",
+        help="With --list-files: compare the build order with the one at this git ref, "
+        "renames paired, and report each file whose relative order moved (exit 1)",
+    ),
+]
+AllowMoveOpt = Annotated[
+    list[str] | None,
+    typer.Option(
+        "--allow",
+        help="With --compare-to: a reviewed move, named by its path relative to the "
+        "repository root (exact, repeatable); it is reported and does not fail",
+    ),
+]
 SeedProfileOpt = Annotated[
     str | None,
     typer.Option(
@@ -184,6 +201,8 @@ def build(
     dump_format: DumpFormatOpt = "custom",
     seed_profile: SeedProfileOpt = None,
     list_files: ListFilesOpt = False,
+    compare_to: CompareToOpt = None,
+    allow: AllowMoveOpt = None,
 ) -> None:
     """Build complete schema from DDL files in one fast operation.
 
@@ -212,6 +231,10 @@ def build(
       confiture build --list-files
         ↳ Print what the build would read — file, entry, order, pattern — and build nothing
 
+      confiture build --list-files --compare-to HEAD
+        ↳ After a renumbering, prove the build order is unchanged: renames are
+          paired, and each file whose relative order moved is named (exit 1)
+
     RELATED:
       confiture migrate up      - Apply incremental migrations instead
       confiture seed validate   - Validate seed data separately
@@ -224,8 +247,8 @@ def build(
       ADVANCED: --show-hash, --schema-only, --two-pass, --separator-style, --separator-template
         Optional parameters for customizing output format
 
-      DIAGNOSTIC: --list-files
-        Print the selection instead of building it
+      DIAGNOSTIC: --list-files, --compare-to, --allow
+        Print the selection instead of building it, or how its order moved since a ref
 
       STRUCTURED OUTPUT: --format, --report
         Export results in JSON/CSV format for automation and integration
@@ -238,10 +261,10 @@ def build(
     out = error_console if is_json(format_type) else console
     json_mode = is_json(format_type)
     try:
-        builder = SchemaBuilder(env=env, project_dir=project_dir)
-        if list_files:
-            format_selection_report(builder.selection_report(), format_type, project_dir, console)
+        if list_files or compare_to is not None or allow:
+            _list_files(env, project_dir, format_type, list_files, compare_to, allow or [])
             return
+        builder = SchemaBuilder(env=env, project_dir=project_dir)
         _apply_build_overrides(
             builder,
             out,
@@ -334,7 +357,7 @@ def build(
         format_build_result(build_result, format_type, report_output, console)
         if format_type == "text":
             out.print("\n💡 Next steps:")
-            out.print(f"  • Apply schema: psql -f {verbatim(output)}")
+            out.print(t"  • Apply schema: psql -f {output}")
             out.print("  • Or use: confiture migrate up")
     except typer.Exit:
         raise  # an inner fail() already emitted its envelope
@@ -354,6 +377,42 @@ def build(
         )
 
 
+def _list_files(
+    env: str,
+    project_dir: Path,
+    format_type: str,
+    list_files: bool,
+    compare_to: str | None,
+    allow: list[str],
+) -> None:
+    """``--list-files``: the selection, or with ``--compare-to`` how its order moved since a ref.
+
+    A modifier without the flag it modifies is refused, so it never changes what
+    ``build`` does. A comparison exits ``FINDINGS`` when a file moved that no
+    ``--allow`` names.
+    """
+    if allow and compare_to is None:
+        raise ConfigurationError(
+            "--allow requires --compare-to",
+            resolution_hint="Run: confiture build --list-files --compare-to <ref> --allow <path>",
+        )
+    if not list_files:
+        raise ConfigurationError(
+            "--compare-to requires --list-files",
+            resolution_hint="Run: confiture build --list-files --compare-to <ref>",
+        )
+    if compare_to is None:
+        builder = SchemaBuilder(env=env, project_dir=project_dir)
+        format_selection_report(builder.selection_report(), format_type, project_dir, console)
+        return
+    comparison = compare_to_ref(project_dir, env, compare_to, allow)
+    format_order_comparison(
+        comparison, env=env, ref=compare_to, format_type=format_type, console=console
+    )
+    if comparison.refused:
+        raise typer.Exit(FINDINGS)  # success-signal: the order changed
+
+
 def _duplicate_gate(
     sql_files: list[Path],
     *,
@@ -361,7 +420,7 @@ def _duplicate_gate(
     output: Path,
     warn: bool,
     fail: bool,
-    out: Console,
+    out: Printer,
     json_mode: bool,
     report_output: Path | None,
 ) -> tuple[list[dict[str, Any]], list[BuildWarning]]:
@@ -385,7 +444,7 @@ def _duplicate_gate(
     if not json_mode:
         out.print("[yellow]Duplicate definitions:[/yellow]")
         for violation in duplicate_violations(duplicates):
-            out.print(f"  ⚠️ {verbatim(violation.rule_id)}: {verbatim(violation.message)}")
+            out.print(t"  ⚠️ {violation.rule_id}: {violation.message}")
     payload = [duplicate.to_dict() for duplicate in duplicates]
     if fail:
         result = BuildResult(
@@ -455,7 +514,7 @@ def _run_build(
         ``(schema_file_count, duplicates, warnings)``; the seed files are left
         to the sequential applier when ``apply_sequential``.
     """
-    out.print(f"[cyan]🔨 Building schema for environment: {verbatim(env)}[/cyan]")
+    out.print(t"[cyan]🔨 Building schema for environment: {env}[/cyan]")
 
     with ProgressManager() as progress:
         sql_files = builder.find_sql_files()
@@ -466,7 +525,7 @@ def _run_build(
         else:
             builder.build(output_path=output, progress=progress)
             schema_file_count = len(sql_files)
-    out.print(f"[cyan]📄 Found {len(sql_files)} SQL files[/cyan]")
+    out.print(t"[cyan]📄 Found {len(sql_files)} SQL files[/cyan]")
     return schema_file_count, duplicates, warnings
 
 
@@ -539,7 +598,7 @@ def _apply_build_overrides(
     if applied:
         out.print("[cyan]📝 Configuration overrides applied:[/cyan]")
         for label, value in applied:
-            out.print(f"  • {verbatim(label)}: {verbatim(value)}")
+            out.print(t"  • {label}: {value}")
 
 
 def _apply_seeds_sequentially(
@@ -582,7 +641,7 @@ def _apply_seeds_sequentially(
         )
     except ConfiturError as e:
         fail(e, json_mode=json_mode, output_file=report_output)
-    out.print(f"[green]✅ Applied {verbatim(result.succeeded)} seed files[/green]")
+    out.print(t"[green]✅ Applied {result.succeeded} seed files[/green]")
     if result.failed == 0:
         return result.succeeded, []
     return result.succeeded, [BuildWarning.of("SEED_002", count=result.failed)]
@@ -654,7 +713,7 @@ def _write_dump_artifact(
     path_str = str(artifact_result.artifact_path)
     if not json_mode:
         if artifact_result.skipped:
-            out.print(f"[cyan]📦 Artifact up-to-date (cache hit): {verbatim(path_str)}[/cyan]")
+            out.print(t"[cyan]📦 Artifact up-to-date (cache hit): {path_str}[/cyan]")
         else:
-            out.print(f"[green]📦 Artifact written: {verbatim(path_str)}[/green]")
+            out.print(t"[green]📦 Artifact written: {path_str}[/green]")
     return path_str, artifact_result.artifact_hash

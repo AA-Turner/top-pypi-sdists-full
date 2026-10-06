@@ -75,6 +75,7 @@ from matrx_scraper.seo_audit import (
     CheckOutcome,
     PageEvidence,
     business_entities_in,
+    legacy_business_types_in,
     clamp_score,
     hreflang_entries,
     lab_performance_from_lighthouse,
@@ -169,6 +170,33 @@ NOFOLLOW_INTERNAL_BANDS: tuple[tuple[int, str, int], ...] = (
     (9, "warn", 70),
 )
 NOFOLLOW_INTERNAL_EXCESSIVE = ("fail", 45)
+
+#: Internal links that SHOULD be nofollow: they point at utility endpoints, not
+#: content a search engine ought to rank, so nofollow on them is the correct
+#: setting rather than "an accident of a plugin" (437 findings; 85% of them were
+#: share-button and comment-form links). Matched on the normalised anchor text or
+#: on a path/query token of the target.
+NOFOLLOW_UTILITY_ANCHORS = frozenset(
+    {
+        "facebook", "twitter", "x", "pinterest", "linkedin", "email", "whatsapp",
+        "reddit", "tumblr", "telegram", "share", "print", "cancel reply", "reply",
+        "log in", "login", "sign in", "register", "my account", "cart", "checkout",
+    }
+)  # fmt: skip
+NOFOLLOW_UTILITY_TARGET_RE = re.compile(
+    r"(?:^|[/?&=_-])(?:wp-login|login|signin|sign-in|register|signup|cart|checkout|"
+    r"my-account|add-to-cart|replytocom|ical|outlook-ical|print)(?:$|[/?&=_.-])",
+    re.IGNORECASE,
+)
+
+
+def is_utility_link(target_url: str, anchor_text: object) -> bool:
+    """True for share/login/cart/comment-form/calendar-export links."""
+    anchor = re.sub(r"[^a-z0-9 ]+", " ", str(anchor_text or "").lower()).strip()
+    anchor = re.sub(r"\s+", " ", anchor)
+    if anchor in NOFOLLOW_UTILITY_ANCHORS:
+        return True
+    return bool(NOFOLLOW_UTILITY_TARGET_RE.search(target_url))
 
 # `anchor_text_descriptiveness` — the share of internal anchors that carry a
 # relevance signal. Generic phrases are matched on the FULL normalized anchor
@@ -318,6 +346,90 @@ GSC_HEALTHY_SCORE = 100
 
 # ---------------------------------------------------------------------------
 # Evidence structs
+
+
+def _is_homepage(url: str | None) -> bool:
+    """The site's root page — where a failure costs the most."""
+    from urllib.parse import urlsplit
+
+    if not url:
+        return False
+    parts = urlsplit(url)
+    return parts.path in ("", "/") and not parts.query
+
+
+#: A stored crawl status is evidence about the moment of the crawl. Pages it
+#: says were failing are asked again before analysis calls them broken (fact
+#: before opinion, 2026-10-05: four "500" pages on a sample site answered 200).
+LIVE_RECHECK_LIMIT = 200
+LIVE_RECHECK_TIMEOUT_SECONDS = 180
+LIVE_RECHECKED_CHECKS = frozenset({"server_error_5xx", "broken_page_4xx"})
+
+
+async def recheck_failing_statuses(
+    facts_list: list[PageFacts],
+    *,
+    verifier: Any | None = None,
+    limit: int = LIVE_RECHECK_LIMIT,
+) -> dict[str, dict[str, Any]]:
+    """Ask every page the crawl recorded as failing (0, 4xx, 5xx) again, now.
+
+    A page that answers below 400 now gets its CURRENT status as evidence (the
+    checks then pass it); one that still fails keeps failing with today's
+    confirmation; one we could not reach keeps the crawl's status — no answer
+    is never a recovery. Returns ``page_id -> {crawl_status, live_status,
+    checked_at, error}`` for the result metadata.
+    """
+    from matrx_scraper.utils.url import public_http_client
+    from matrx_scraper.web_crawl.url_verify import (
+        REQUEST_TIMEOUT_SECONDS,
+        USER_AGENT,
+        PoliteVerifier,
+    )
+
+    failing = [
+        f
+        for f in facts_list
+        if f.url and f.http_status is not None and (f.http_status == 0 or f.http_status >= 400)
+    ]
+    # The homepage first, then the shallowest pages: when a site has more
+    # failing pages than the cap, the ones that matter most are asked again.
+    failing.sort(key=lambda f: (not _is_homepage(f.url), len(str(f.url))))
+    targets = failing[:limit]
+    if not targets:
+        return {}
+    client = None
+    if verifier is None:
+        client = public_http_client(
+            timeout=REQUEST_TIMEOUT_SECONDS,
+            follow_redirects=True,
+            headers={"User-Agent": USER_AGENT},
+        )
+        verifier = PoliteVerifier(client)
+    checked_at = datetime.now(UTC).isoformat()
+    rechecks: dict[str, dict[str, Any]] = {}
+
+    async def one(facts: PageFacts) -> None:
+        outcome = await verifier.verify(str(facts.url))
+        crawl_status = facts.http_status
+        live = outcome.http_status
+        rechecks[str(facts.page_id)] = {
+            "crawl_status": crawl_status,
+            "live_status": live,
+            "checked_at": checked_at,
+            "error": outcome.error,
+        }
+        # Any real answer is the current fact (500 then 404 is a 404 now);
+        # no answer keeps the crawl's record.
+        if live and live > 0:
+            facts.http_status = live
+
+    try:
+        await asyncio.gather(*(one(f) for f in targets))
+    finally:
+        if client is not None:
+            await client.aclose()
+    return rechecks
 
 
 @dataclass
@@ -535,6 +647,10 @@ class SiteBusinessEvidence:
     pages_captured: int = 0
     #: One normalized entity per declaration: types + the NAP/enhanced values.
     entities: list[dict[str, Any]] = field(default_factory=list)
+    #: Pages whose capture predates property-level structured data: it names a
+    #: business type (`Organization`) but not what that entity states. Such a page
+    #: proves markup EXISTS and leaves its contents UNKNOWN — never "absent".
+    legacy_typed_pages: int = 0
 
 
 class AnalysisRunResult:
@@ -978,6 +1094,26 @@ def _check_internal_link_equity(facts: PageFacts, site: SiteAggregates) -> Check
     if priority_penalty:
         score = min(score, LINK_EQUITY_PRIORITY_SCORE_CAP)
 
+    if not prioritized:
+        # A percentile is a RANK: whatever the site, a third of its pages sit below
+        # the 33rd percentile, so scoring the rank warned/failed ~half of every
+        # site (1,483 of 1,488 open findings were unprioritized pages, none of
+        # them wrong in any way a person could act on). The catalogue contract
+        # itself only singles out PRIORITIZED pages. Pages with no inbound links at
+        # all are `orphan_pages` / `internal_inlink_coverage`'s to report.
+        return CheckOutcome(
+            "pass",
+            100,
+            f"This page is in the {percentile}th percentile of the site's internal "
+            "PageRank. It is not a prioritized page, so its rank is context, not a problem.",
+            evidence={
+                "link_score": facts.link_score,
+                "pagerank_percentile": percentile,
+                "pages_scored": len(site.link_equity_percentile_by_page),
+                "prioritized": False,
+                "priority_penalty_applied": False,
+            },
+        )
     if score >= LINK_EQUITY_PASS_SCORE:
         status = "pass"
     elif score >= LINK_EQUITY_WARN_SCORE:
@@ -1403,6 +1539,8 @@ def index_page_facts(facts_list: list[PageFacts], aggregates: SiteAggregates) ->
         if facts.structured_data:
             aggregates.business.pages_captured += 1
             aggregates.business.entities.extend(business_entities_in(facts.structured_data))
+            if legacy_business_types_in(facts.structured_data):
+                aggregates.business.legacy_typed_pages += 1
         entries = hreflang_entries(facts)
         # A crawled page with NO hreflang still has to be KNOWN, or a target that
         # merely forgot its return tag would read as "we never crawled it".
@@ -1424,12 +1562,25 @@ def index_page_facts(facts_list: list[PageFacts], aggregates: SiteAggregates) ->
             )
 
 
+#: Catalogue items whose verdict belongs to the SITE even though the check lives
+#: in the per-page family because it needs the cross-page aggregate. They are
+#: evaluated ONCE per run and written as a single `subject_type='site'` row; the
+#: old behaviour (the same verdict on every page — 809 identical findings) is
+#: retired, and `reconcile_findings` resolves the leftover page-subject rows.
+SITE_SCOPED_CROSS_PAGE_CHECKS: frozenset[str] = frozenset({"local_business_markup"})
+
+
 def _check_local_business_markup(facts: PageFacts, site: SiteAggregates) -> CheckOutcome:
+    """Per-page-signature wrapper kept for callers/tests; the verdict is the site's."""
+    return local_business_outcome(site)
+
+
+def local_business_outcome(site: SiteAggregates) -> CheckOutcome:
     """Does this SITE declare a complete, self-consistent business entity?
 
     The catalogue row is site-level by construction — "anywhere on site" and
     "across own pages" are questions one page cannot answer — so the verdict is
-    computed from the site aggregate and recorded on every page subject.
+    computed from the site aggregate and recorded ONCE, on the site subject.
     """
     business = site.business
     if business.pages_captured == 0:
@@ -1437,6 +1588,15 @@ def _check_local_business_markup(facts: PageFacts, site: SiteAggregates) -> Chec
             "n_a",
             None,
             "We haven't captured structured data for any page on this site yet.",
+            remediation=RECRAWL_SITE,
+        )
+    if not business.entities and business.legacy_typed_pages:
+        return CheckOutcome(
+            "n_a",
+            None,
+            f"{business.legacy_typed_pages} page(s) on this site declare an Organization or "
+            "business type, but they were captured before we stored what that markup says, "
+            "so we cannot tell whether the name, address and phone are present.",
             remediation=RECRAWL_SITE,
         )
     if not business.entities:
@@ -2147,6 +2307,12 @@ PAGE_CHECKS: dict[str, Callable[[PageFacts, SiteAggregates], CheckOutcome]] = {
     **CROSS_PAGE_CHECKS,
 }
 
+#: What the per-page loop runs on every page. Site-scoped cross-page checks are
+#: excluded: they are evaluated once per site (see `SITE_SCOPED_CROSS_PAGE_CHECKS`).
+PER_PAGE_RUN_CHECKS: dict[str, Callable[[PageFacts, SiteAggregates], CheckOutcome]] = {
+    key: check for key, check in PAGE_CHECKS.items() if key not in SITE_SCOPED_CROSS_PAGE_CHECKS
+}
+
 
 def _uncatalogued_page_checks() -> list[str]:
     """Canonical per-page checks this sweep cannot record yet.
@@ -2710,7 +2876,9 @@ def _accumulate_edge(
         elif 300 <= status < 400:
             stats.redirecting.append(target_url)
 
-    if _rel_tokens(row["rel"]) & NOFOLLOW_REL_TOKENS:
+    if _rel_tokens(row["rel"]) & NOFOLLOW_REL_TOKENS and not is_utility_link(
+        target_url, row["anchor_text"]
+    ):
         stats.nofollow_internal_count += 1
         if len(stats.nofollow_internal_samples) < CHECK_EVIDENCE_SAMPLE_LIMIT:
             stats.nofollow_internal_samples.append(target_url)
@@ -3171,6 +3339,17 @@ async def analyze_site_pages(
     await report("Loading page evidence…")
     async with _timed("page_evidence"):
         facts_list, aggregates = await _load_page_facts(site_id, summary, str(site.root_url))
+    async with _timed("live_status_recheck"):
+        try:
+            status_rechecks = await asyncio.wait_for(
+                recheck_failing_statuses(facts_list), timeout=LIVE_RECHECK_TIMEOUT_SECONDS
+            )
+        except Exception as exc:  # the stored evidence still stands; say so
+            logger.exception("live status recheck failed for site %s", site_id)
+            summary.errors.append(
+                f"Pages the crawl saw failing could not be checked again: {type(exc).__name__}: {exc}"
+            )
+            status_rechecks = {}
     # Google's own numbers. A site with no Search Console property is the
     # ordinary case, not an error: the checks answer `n_a` naming that, and the
     # rest of the sweep is untouched.
@@ -3218,7 +3397,7 @@ async def analyze_site_pages(
     async with _timed("page_checks"):
         for facts in facts_list:
             summary.pages_analyzed += 1
-            for item_key, check in PAGE_CHECKS.items():
+            for item_key, check in PER_PAGE_RUN_CHECKS.items():
                 item = items_by_key[item_key]
                 try:
                     outcome = check(facts, aggregates)
@@ -3237,8 +3416,12 @@ async def analyze_site_pages(
                     outcome = CheckOutcome(
                         "error", None, f"Check crashed: {type(exc).__name__}: {exc}"
                     )
-                severity = severity_for(item, outcome.score)
+                severity = severity_for(
+                    item, outcome.score, on_homepage=_is_homepage(facts.url)
+                )
                 metadata = _result_metadata(outcome, item.key)
+                if item_key in LIVE_RECHECKED_CHECKS and facts.page_id in status_rechecks:
+                    metadata["live_recheck"] = status_rechecks[facts.page_id]
                 rows.append(
                     {
                         "organization_id": organization_id,
@@ -3352,6 +3535,48 @@ async def analyze_site_pages(
         summary.site_checks_run += 1
         _tally(summary, outcome.status)
 
+    # Site-scoped cross-page checks: ONE row each, from the site aggregate.
+    for item_key in sorted(SITE_SCOPED_CROSS_PAGE_CHECKS & set(PAGE_CHECKS)):
+        item = items_by_key[item_key]
+        try:
+            outcome = local_business_outcome(aggregates)
+        except Exception as exc:  # a broken rule must not kill the run
+            logger.exception("site-scoped check %s crashed on site %s", item_key, site_id)
+            await capture_error(
+                exc,
+                kind="site_analysis_check_failed",
+                context={"site_id": site_id, "item_key": item_key},
+            )
+            summary.errors.append(
+                f"{item_key} crashed on site {site_id}: {type(exc).__name__}: {exc}"
+            )
+            outcome = CheckOutcome("error", None, f"Check crashed: {type(exc).__name__}: {exc}")
+        rows.append(
+            {
+                "organization_id": organization_id,
+                "site_id": site_id,
+                "subject_type": "site",
+                "subject_id": site_id,
+                "page_id": None,
+                "item_id": str(item.id),
+                "item_key": item.key,
+                "category": item.category,
+                "subcategory": item.subcategory,
+                "provider_id": str(provider.id),
+                "provider_version": ANALYZER_VERSION,
+                "run_id": run_id,
+                "computed_at": computed_at,
+                "status": outcome.status,
+                "score": outcome.score,
+                "severity": severity_for(item, outcome.score),
+                "issue_count": outcome.issue_count,
+                "confidence": 1,
+                "metadata": _result_metadata(outcome, item.key),
+            }
+        )
+        summary.site_checks_run += 1
+        _tally(summary, outcome.status)
+
     await report(f"Writing the final {len(rows)} analysis results…")
     async with _timed("result_writes"):
         await flush_rows()
@@ -3364,6 +3589,11 @@ async def analyze_site_pages(
             computed_at=computed_at,
             results=written,
             summary=summary,
+            site_scoped_item_ids={
+                str(items_by_key[key].id)
+                for key in SITE_SCOPED_CROSS_PAGE_CHECKS
+                if key in items_by_key
+            },
         )
     return AnalysisRunResult(
         summary,
@@ -3376,6 +3606,7 @@ __all__ = [
     "CATALOGUED_PAGE_CHECKS",
     "CROSS_PAGE_CHECKS",
     "PAGE_CHECKS",
+    "PER_PAGE_RUN_CHECKS",
     "AnalysisRunResult",
     "GscPeriod",
     "OrphanCensus",
@@ -3385,6 +3616,7 @@ __all__ = [
     "ProgressCallback",
     "RULES_PROVIDER_KEY",
     "SITE_CHECKS",
+    "SITE_SCOPED_CROSS_PAGE_CHECKS",
     "SiteAggregates",
     "SiteBusinessEvidence",
     "SiteGscEvidence",

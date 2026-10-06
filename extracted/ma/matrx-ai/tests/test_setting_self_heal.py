@@ -779,6 +779,17 @@ async def test_an_unknown_400_after_streaming_is_typed_but_not_retried(captured)
             lambda: _stainless(__import__("openai"), "AuthenticationError", 401, {"error": {"message": "Incorrect API key provided", "type": "invalid_request_error"}}),
             id="auth",
         ),
+        # Live 2026-10-04: a paused self-hosted endpoint answers 400 with no
+        # field — an availability failure that leaving settings out cannot fix.
+        pytest.param(
+            lambda: _stainless(
+                __import__("openai"),
+                "BadRequestError",
+                400,
+                {"error": "Bad Request: The endpoint is paused, ask a maintainer to restart it", "code": "BAD_REQUEST"},
+            ),
+            id="endpoint_paused",
+        ),
     ],
 )
 async def test_the_net_never_retries_non_settings_errors(exc_factory, captured) -> None:

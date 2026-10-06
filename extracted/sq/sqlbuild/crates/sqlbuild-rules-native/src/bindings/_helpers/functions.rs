@@ -38,18 +38,24 @@ fn normalize_dialect_sql(py: Python<'_>, sql: &str, dialect: &str) -> PyResult<S
     .map_err(value_error)
 }
 
+/// Normalize a batch in one detached call; a failed member is returned as its exception.
 #[pyfunction]
 fn normalize_analysis_sqls(
     py: Python<'_>,
     dialect: &str,
-    requests: Vec<(String, std::collections::HashMap<String, String>)>,
-) -> PyResult<Vec<String>> {
-    py.compiler_detach(|| {
-        crate::semantic_validation::main::normalize_batch::normalize_analysis_sqls(
-            dialect, requests,
+    requests: Vec<crate::semantic_validation::types::NormalizationRequest>,
+) -> PyResult<Vec<Py<PyAny>>> {
+    let results = py.compiler_detach(|| {
+        Ok(
+            crate::semantic_validation::main::normalize_batch::normalize_analysis_sqls(
+                dialect, requests, None,
+            ),
         )
-    })
-    .map_err(value_error)
+    });
+    crate::bindings::main::normalization_results::normalization_results(
+        py,
+        results.map_err(value_error)?,
+    )
 }
 
 #[pyfunction]
@@ -515,6 +521,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
             .get_type::<crate::bindings::_helpers::panics::NativeCompilerError>(),
     )?;
     module.add_class::<crate::semantic_validation::models::ProjectCatalog>()?;
+    module.add_class::<crate::semantic_validation::models::CompactAnalysisJob>()?;
     module.add_class::<crate::semantic_validation::models::BindingPositions>()?;
     module.add_function(wrap_pyfunction!(normalize_analysis_sql, module)?)?;
     module.add_function(wrap_pyfunction!(normalize_analysis_sqls, module)?)?;

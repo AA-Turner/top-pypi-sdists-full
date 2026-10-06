@@ -13,7 +13,7 @@ from .proximal import soft_thresholding
 def svd_flip(U, V, u_based_decision=True):
     """Sign correction to ensure deterministic output from SVD.
     Adjusts the columns of u and the rows of v such that the loadings in the
-    columns in u that are largest in absolute value are always positive.
+    columns in u that are largest in absolute value are always positive and real-valued.
     This function is borrowed from scikit-learn/utils/extmath.py
     Parameters
     ----------
@@ -38,7 +38,8 @@ def svd_flip(U, V, u_based_decision=True):
                 **tl.context(U),
             )
         )
-        U = U * signs
+        # Multiply by conjugate of signs to make max-amplitude values real and positive
+        U = U * tl.conj(signs)
         if tl.shape(V)[0] > tl.shape(U)[1]:
             signs = tl.concatenate(
                 (signs, tl.ones(tl.shape(V)[0] - tl.shape(U)[1], **tl.context(V)))
@@ -53,7 +54,8 @@ def svd_flip(U, V, u_based_decision=True):
                 **tl.context(V),
             )
         )
-        V = V * signs[:, None]
+        # Multiply by conjugate of signs to make max-amplitude values real and positive
+        V = V * tl.conj(signs[:, None])
         if tl.shape(U)[1] > tl.shape(V)[0]:
             signs = tl.concatenate(
                 (signs, tl.ones(tl.shape(U)[1] - tl.shape(V)[0], **tl.context(V)))
@@ -180,7 +182,7 @@ def svd_checks(matrix, n_eigenvecs=None):
     Returns
     -------
     n_eigenvecs : int
-        the number of eigenvectors to solve for
+        the number of eigenvectors to solve for, at most ``min_dim``
     min_dim : int
         the minimum dimension of matrix
     max_dim : int
@@ -194,14 +196,14 @@ def svd_checks(matrix, n_eigenvecs=None):
     min_dim, max_dim = min(dim_1, dim_2), max(dim_1, dim_2)
 
     if n_eigenvecs is None:
-        n_eigenvecs = max_dim
+        n_eigenvecs = min_dim
 
-    if n_eigenvecs > max_dim:
+    if n_eigenvecs > min_dim:
         warnings.warn(
             f"Trying to compute SVD with n_eigenvecs={n_eigenvecs}, which is larger "
-            f"than max(matrix.shape)={max_dim}. Setting n_eigenvecs to {max_dim}."
+            f"than min(matrix.shape)={min_dim}. Setting n_eigenvecs to {min_dim}."
         )
-        n_eigenvecs = max_dim
+        n_eigenvecs = min_dim
 
     return n_eigenvecs, min_dim, max_dim
 
@@ -227,9 +229,8 @@ def truncated_svd(matrix, n_eigenvecs=None, **kwargs):
         of shape (n_eigenvecs, matrix.shape[1])
         contains the left singular vectors
     """
-    n_eigenvecs, min_dim, _ = svd_checks(matrix, n_eigenvecs=n_eigenvecs)
-    full_matrices = True if n_eigenvecs > min_dim else False
-    U, S, V = tl.svd(matrix, full_matrices=full_matrices)
+    n_eigenvecs, _, _ = svd_checks(matrix, n_eigenvecs=n_eigenvecs)
+    U, S, V = tl.svd(matrix, full_matrices=False)
     return U[:, :n_eigenvecs], S[:n_eigenvecs], V[:n_eigenvecs, :]
 
 
@@ -276,11 +277,7 @@ def symeig_svd(matrix, n_eigenvecs=None, **kwargs):
         tl.flip(S),
         tl.flip(tl.transpose(V), axis=0),
     )
-    return (
-        U[:, : min(dim_1, n_eigenvecs)],
-        S[: min(dim_1, dim_2, n_eigenvecs)],
-        V[: min(dim_2, n_eigenvecs), :],
-    )
+    return U[:, :n_eigenvecs], S[:n_eigenvecs], V[:n_eigenvecs, :]
 
 
 def randomized_svd(
@@ -382,7 +379,9 @@ def svd_interface(
     method : str, default is 'truncated_svd'
         Function to use to compute the SVD, acceptable values in tensorly.SVD_FUNS or a callable.
     n_eigenvecs : int, optional, default is None
-        If specified, number of eigen[vectors-values] to return.
+        If specified, number of eigen[vectors-values] to return. At most
+        ``min(matrix.shape)`` are returned; a larger value triggers a warning and
+        is reduced to ``min(matrix.shape)``.
     flip_sign : bool, optional, default is True
         Whether to resolve the sign indeterminacy of SVD.
     u_based_flip_sign : bool, optional, default is True

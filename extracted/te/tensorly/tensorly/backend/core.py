@@ -10,7 +10,6 @@ import math
 import numpy as np
 import scipy.special
 
-
 backend_types = [
     "int32",
     "int64",
@@ -406,7 +405,7 @@ class Backend:
         raise NotImplementedError
 
     @staticmethod
-    def diag(diagnoal):
+    def diag(diagonal):
         """Return a 2-D tensor with the elements of `diagonal` on the diagonal and zeros elsewhere.
 
         Parameters
@@ -1131,7 +1130,7 @@ class Backend:
     @staticmethod
     def log(x):
         """Calculate the natural logarithm of all elements in the input array."""
-        raise
+        raise NotImplementedError
 
     @staticmethod
     def logsumexp(x, axis=None):

@@ -621,3 +621,27 @@ def test_document_passing_mention_is_not_flagged_but_run_steps_are(tmp_path):
 def test_without_a_declared_scope_documents_are_scanned_whole(tmp_path):
     skills = _scoped_pack(tmp_path, "")
     assert skills["doc-narrative"].extra_config["tooling_not_runnable"] == ["the pack CLI"]
+
+
+def test_a_skill_by_a_different_author_is_credited_to_that_author(pack):
+    """A pack can carry one skill someone else wrote (OpenSEO's `deslop` is Stephen D.
+    Turner's, MIT, inside Ben Senescu's repo). Its banner and provenance name ITS author,
+    never the pack's; every other skill keeps the pack's authors."""
+    text = pack.manifest.read_text() + 'skill_authors:\n  brandx-triage: ["Cy Writer"]\n'
+    pack.manifest.write_text(text)
+    walk = walk_pack(load_manifest(pack.manifest), pack.src)
+    assert walk.errors == []
+    skills = _by_id(walk)
+    triage = skills["story-triage"]
+    assert "Written by Cy Writer; carried in *Test PR skills*" in triage.body.split("\n", 1)[0]
+    assert "Ada Author" not in triage.body.split("\n", 1)[0]
+    assert triage.extra_config["source_authors"] == ["Cy Writer"]
+    det = skills["story-detector"]
+    assert det.extra_config["source_authors"] == ["Ada Author", "Bo Author"]
+
+
+def test_skill_authors_for_an_unknown_skill_is_an_error(pack):
+    text = pack.manifest.read_text() + 'skill_authors:\n  no-such-skill: ["Cy Writer"]\n'
+    pack.manifest.write_text(text)
+    walk = walk_pack(load_manifest(pack.manifest), pack.src)
+    assert any("skill_authors" in e and "no-such-skill" in e for e in walk.errors)

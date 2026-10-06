@@ -1,5 +1,5 @@
 
-from sqlglot.lineage import maybe_parse, SqlglotError, exp
+from sqlglot.lineage import SqlglotError, exp
 from sqlglot.schema import ensure_schema
 from sqlglot.tokens import TokenType, Tokenizer
 import logging
@@ -53,6 +53,7 @@ class DbtColumnLineageExtractor:
         self.manifest = json_utils.read_json(manifest_path)
         self.catalog = json_utils.read_json(catalog_path)
         self.schema_dict = self._generate_schema_dict_from_catalog()
+        self.adapter_type = self.manifest.get("metadata", {}).get("adapter_type")
         self.dialect = self._detect_adapter_type()
         # self.node_mapping = self._get_dict_mapping_full_table_name_to_dbt_node()
         self._quoted_columns_lookup = self._build_quoted_columns_lookup()
@@ -144,8 +145,8 @@ class DbtColumnLineageExtractor:
         except PackageNotFoundError:
             return "unknown"
         
-    # Dialects where ``quote: true`` means the identifier is case-sensitive.
-    _CASE_SENSITIVE_QUOTE_DIALECTS = frozenset({
+    # Adapters where ``quote: true`` means the identifier is case-sensitive.
+    _CASE_SENSITIVE_QUOTE_ADAPTERS = frozenset({
         "snowflake", "postgres", "oracle", "clickhouse", "starrocks",
     })
 
@@ -161,7 +162,7 @@ class DbtColumnLineageExtractor:
         dialects (BigQuery, DuckDB, etc.) quoting is used to escape reserved
         words but does not affect casing, so the lookup stays empty.
         """
-        if self.dialect not in self._CASE_SENSITIVE_QUOTE_DIALECTS:
+        if self.adapter_type not in self._CASE_SENSITIVE_QUOTE_ADAPTERS:
             return {}
         lookup = {}
         for node_id, node_data in {**self.manifest.get("nodes", {}), **self.manifest.get("sources", {})}.items():
@@ -173,7 +174,7 @@ class DbtColumnLineageExtractor:
                 if col_info.get("quote") is True:
                     quoted[col_name.lower()] = col_name
             if quoted:
-                lookup[node_id] = quoted
+                lookup[node_id.lower()] = quoted
         return lookup
 
     def _get_quoted_columns(self, node_id):
@@ -181,7 +182,8 @@ class DbtColumnLineageExtractor:
         lookup = getattr(self, "_quoted_columns_lookup", None)
         if lookup is None:
             return {}
-        return lookup.get(node_id, {})
+        # Keyed by lowercased id: catalog nodes arrive with a lowercased unique_id.
+        return lookup.get(node_id.lower(), {})
 
     def _resolve_column_name(self, column_name, node_id):
         """Return the properly-cased column name.
@@ -209,10 +211,10 @@ class DbtColumnLineageExtractor:
         Raises:
             ValueError: If adapter_type is not found or not supported
         """
-        SUPPORTED_ADAPTERS = {'snowflake', 'bigquery', 'redshift', 'duckdb', 'postgres', 'databricks', 'athena', 'trino', 'sqlserver', 'clickhouse', 'oracle', 'fabric', 'starrocks'}
+        SUPPORTED_ADAPTERS = {'snowflake', 'bigquery', 'redshift', 'duckdb', 'postgres', 'databricks', 'athena', 'trino', 'sqlserver', 'clickhouse', 'oracle', 'fabric', 'starrocks', 'vertica'}
         
         # Get adapter_type from manifest metadata
-        adapter_type = self.manifest.get("metadata", {}).get("adapter_type")
+        adapter_type = self.adapter_type
         
         if not adapter_type:
             raise ValueError(
@@ -230,7 +232,14 @@ class DbtColumnLineageExtractor:
         if adapter_type == "sqlserver":
             # Adapter type != Dialect Name for all adapters.
             return "tsql"
-        
+        if adapter_type == "vertica":
+            self.logger.warning(
+                "Vertica is not fully supported because SQLGlot has no Vertica "
+                "dialect. Falling back to the PostgreSQL parser; generated "
+                "lineage may be incomplete or incorrect."
+            )
+            return "postgres"
+
         return adapter_type
 
     def build_nodes_with_columns(self):
@@ -249,7 +258,9 @@ class DbtColumnLineageExtractor:
             if node['config'].get('materialized') == 'ephemeral':
                 relation_name = node['database'] + '.' + node['schema'] + '.' + node.get('alias', node.get('name'))
             else:
-                relation_name = parsing_utils.normalize_table_relation_name(node["relation_name"])
+                relation_name = parsing_utils.normalize_table_relation_name(
+                    node["relation_name"], dialect=self.dialect
+                )
 
             # Start with manifest node info
             merged[relation_name] = {
@@ -287,7 +298,9 @@ class DbtColumnLineageExtractor:
                         (node.get("alias") or node.get("name"))
                     )
                 else:
-                    relation_name = parsing_utils.normalize_table_relation_name(node["relation_name"])
+                    relation_name = parsing_utils.normalize_table_relation_name(
+                        node["relation_name"], dialect=self.dialect
+                    )
                 if relation_name:
                     mapping[str(relation_name).lower()] = node_id
             except Exception as e:
@@ -313,18 +326,16 @@ class DbtColumnLineageExtractor:
 
             col_types = dbt_node.get_column_types()
 
-            # For columns with quote=True in the manifest, wrap the key in
-            # double-quotes so SQLGlot's qualifier can match quoted identifiers.
+            # Quote columns marked quote=True so SQLGlot matches them
+            # case-sensitively. Use the catalog spelling, not the YAML one: it is
+            # what the warehouse stores (Snowflake/Oracle ``IS_GIFT`` for YAML
+            # ``is_gift``) and what compiled SQL resolves against.
             quoted_cols = self._get_quoted_columns(dbt_node.unique_id)
             if quoted_cols:
-                wrapped = {}
-                for col_name, col_type in col_types.items():
-                    if col_name.lower() in quoted_cols:
-                        original = quoted_cols[col_name.lower()]
-                        wrapped[f'"{original}"'] = col_type
-                    else:
-                        wrapped[col_name] = col_type
-                col_types = wrapped
+                col_types = {
+                    (f'"{col_name}"' if col_name.lower() in quoted_cols else col_name): col_type
+                    for col_name, col_type in col_types.items()
+                }
 
             schema_dict[db_name][schema_name][table_name].update(col_types)
 
@@ -486,7 +497,7 @@ class DbtColumnLineageExtractor:
                 schema=schema,
                 model_node=node_id,
             )
-            parsed = maybe_parse(sql, dialect=self.dialect)
+            parsed = parsing_utils.parse_sql(sql, dialect=self.dialect)
             if self.dialect == "postgres" and not self._schema_has_quoted_keys(schema):
                 parsed = parsing_utils.remove_quotes(parsed)
             if self.dialect == "bigquery":
@@ -609,7 +620,7 @@ class DbtColumnLineageExtractor:
         stub so that sqlglot lineage stops at the ephemeral boundary instead of
         tracing through the inlined SQL into transitive ancestors.
         """
-        parsed = maybe_parse(sql, dialect=self.dialect)
+        parsed = parsing_utils.parse_sql(sql, dialect=self.dialect)
         changed = False
         for cte in parsed.find_all(exp.CTE):
             alias = cte.alias
@@ -790,7 +801,7 @@ class DbtColumnLineageExtractor:
             selected_columns=selected_columns,
             model_node=model_node,
         )
-        parsed_model_sql = maybe_parse(model_sql_for_parse, dialect=self.dialect)
+        parsed_model_sql = parsing_utils.parse_sql(model_sql_for_parse, dialect=self.dialect)
         # sqlglot does not unfold * to schema when the schema has quotes, or upper (for BigQuery)
         # Skip remove_quotes when the schema contains quoted column keys, as
         # stripping AST quotes prevents SQLGlot from matching case-sensitive columns.
@@ -1210,7 +1221,7 @@ class DbtColumnLineageExtractor:
                     selected_columns=columns,
                     model_node=model_node,
                 )
-                parsed_model_sql = maybe_parse(model_sql_for_parse, dialect=self.dialect)
+                parsed_model_sql = parsing_utils.parse_sql(model_sql_for_parse, dialect=self.dialect)
                 if self.dialect == "postgres" and not self._schema_has_quoted_keys(schema):
                     parsed_model_sql = parsing_utils.remove_quotes(parsed_model_sql)
                 if self.dialect == "bigquery":

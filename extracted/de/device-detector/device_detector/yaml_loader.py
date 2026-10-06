@@ -1,14 +1,16 @@
-from collections import defaultdict
 import functools
-from typing import Any, TypedDict
-import ahocorasick_rs
+from collections import defaultdict
 from pathlib import Path
+from typing import Any, TypedDict
+
+import ahocorasick_rs
 import yaml_rs
 
 import device_detector
+
+from .enums import AppType
 from .lazy_regex import RegexLazyIgnore
 from .settings import BOUNDED_REGEX, ROOT
-from .enums import AppType
 
 
 class RegexLoader:
@@ -139,13 +141,13 @@ def load_ahocorasick_patterns(
     all_corasick_words: set[str] = set(manual.get('Words', set())) or set()  # type: ignore[union-attr]
 
     for fixture in fixture_files:
-        if words := set(_load_from_yaml(f'regexes/ahocorasick/{fixture}')):  # noqa
+        if words := set(_load_from_yaml(f'regexes/ahocorasick/{fixture}')):
             all_corasick_words.update(words)  # type: ignore[arg-type]
 
     return ahocorasick_rs.AhoCorasick(all_corasick_words) if all_corasick_words else None
 
 
-def _load_from_yaml(yml_file: str) -> dict[str, Any] | list[dict[str, Any]] | list[dict[str, Any]]:
+def _load_from_yaml(yml_file: str) -> dict[str, Any] | list[dict[str, Any]]:
     """
     Load YAML from regexes directory, or extract from the egg
     """

@@ -1,14 +1,15 @@
 use std::path::PathBuf;
 
-use bytes::Bytes;
-use pyo3::{
-    prelude::*,
-    pybacked::{PyBackedBytes, PyBackedStr},
-    types::PyTuple,
-};
+use pyo3::{prelude::*, types::PyTuple};
 use wreq::{Body, multipart};
 
-use crate::{client::body::PyStream, error::Error, header::HeaderMap};
+use crate::{
+    client::body::PyStream,
+    error::Error,
+    extractor::{Binary, Text},
+    header::HeaderMap,
+    runtime,
+};
 
 /// A multipart form for a request.
 #[pyclass(subclass)]
@@ -20,8 +21,8 @@ pub struct Multipart {
 /// The data for a part value of a multipart form.
 #[derive(FromPyObject)]
 pub enum Value {
-    Text(PyBackedStr),
-    Bytes(PyBackedBytes),
+    Text(Text),
+    Bytes(Binary),
     File(PathBuf),
     Stream(PyStream),
 }
@@ -44,12 +45,12 @@ impl Multipart {
     /// Creates a new multipart.
     #[new]
     #[pyo3(signature = (*parts))]
-    pub fn new(py: Python, parts: &Bound<PyTuple>) -> PyResult<Multipart> {
+    pub fn new(parts: &Bound<PyTuple>) -> PyResult<Multipart> {
         let mut new_parts = Vec::with_capacity(parts.len());
         for part in parts {
             let part = part.cast::<Part>()?;
             let mut part = part.borrow_mut();
-            new_parts.push(part.try_clone(py)?);
+            new_parts.push(part.try_clone()?);
         }
 
         Ok(Self {
@@ -88,14 +89,15 @@ impl FromPyObject<'_, '_> for Multipart {
 // ===== impl Value =====
 
 impl Value {
-    fn try_clone(&self, py: Python) -> Option<Self> {
+    /// Copy a reusable value; `None` for a stream, which can be sent only once.
+    fn try_clone(&self) -> Option<Self> {
         match self {
             Value::Text(text) => {
-                let text = text.clone_ref(py);
+                let text = text.clone();
                 Some(Value::Text(text))
             }
             Value::Bytes(bytes) => {
-                let bytes = bytes.clone_ref(py);
+                let bytes = bytes.clone();
                 Some(Value::Bytes(bytes))
             }
             Value::File(path) => {
@@ -125,47 +127,51 @@ impl Part {
         let value = self
             .value
             .as_ref()
-            .and_then(|value| value.try_clone(py))
+            .and_then(Value::try_clone)
             .or_else(|| self.value.take())
             .ok_or_else(|| Error::Memory)?;
 
-        py.detach(move || {
-            let mut inner = match value {
-                Value::Text(text) => multipart::Part::stream(Bytes::from_owner(text)),
-                Value::Bytes(bytes) => multipart::Part::stream(Bytes::from_owner(bytes)),
-                Value::File(path) => pyo3_async_runtimes::tokio::get_runtime()
-                    .block_on(multipart::Part::file(path))
-                    .map_err(Error::from)?,
-                Value::Stream(stream) => {
-                    let stream = Body::wrap_stream(stream);
-                    match self.length {
-                        Some(length) => multipart::Part::stream_with_length(stream, length),
-                        None => multipart::Part::stream(stream),
-                    }
+        let mut inner = match value {
+            Value::Text(text) => multipart::Part::stream(text.0),
+            Value::Bytes(bytes) => multipart::Part::stream(bytes.0),
+            // Opening the file blocks, so only that waits detached.
+            Value::File(path) => py
+                .detach(|| {
+                    runtime::get()
+                        .handle()
+                        .block_on(multipart::Part::file(path))
+                })
+                .map_err(Error::from)?,
+            Value::Stream(stream) => {
+                let stream = Body::wrap_stream(stream);
+                match self.length {
+                    Some(length) => multipart::Part::stream_with_length(stream, length),
+                    None => multipart::Part::stream(stream),
                 }
-            };
-
-            if let Some(filename) = self.filename.clone() {
-                inner = inner.file_name(filename);
             }
+        };
 
-            if let Some(ref mime) = self.mime {
-                inner = inner.mime_str(mime).map_err(Error::Library)?;
-            }
+        if let Some(filename) = self.filename.clone() {
+            inner = inner.file_name(filename);
+        }
 
-            if let Some(headers) = self.headers.clone() {
-                inner = inner.headers(headers.0);
-            }
+        if let Some(ref mime) = self.mime {
+            inner = inner.mime_str(mime).map_err(Error::Library)?;
+        }
 
-            Ok((self.name.clone(), inner))
-        })
+        if let Some(headers) = self.headers.clone() {
+            inner = inner.headers(headers.0);
+        }
+
+        Ok((self.name.clone(), inner))
     }
 
-    fn try_clone(&mut self, py: Python) -> PyResult<Part> {
+    /// Copy the part, moving a stream value out since it can be sent only once.
+    fn try_clone(&mut self) -> PyResult<Part> {
         if let Some(part) = self
             .value
             .as_ref()
-            .and_then(|value| value.try_clone(py))
+            .and_then(Value::try_clone)
             .map(|value| self.with_value(value))
         {
             return Ok(part);

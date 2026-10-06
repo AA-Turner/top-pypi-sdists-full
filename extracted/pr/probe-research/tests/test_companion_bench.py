@@ -209,6 +209,28 @@ def test_notes_follow_the_servers_version_rules():
     assert state["entities"][SVM]["notes"] == "v1 text" and state["entities"][CHOSEN]["notes"] == "caveat"
 
 
+def test_an_experiments_children_are_served_on_the_experiment_api():
+    """What the tap's companion worker reads and writes for an experiment
+    (X21b): its place, its detail and notes, its sub-notes, its files and an
+    upload -- never through `/v1/projects/{E}`."""
+    fake = _fake(T0 + 3600)
+    base = f"/v1/projects/{PROJECT}/experiments/{SVM}"
+    scope = _call(fake, "GET", f"/v1/scopes/{SVM}").body
+    assert (scope["kind"], scope["project_id"]) == ("experiment", PROJECT)
+    assert _call(fake, "PATCH", base, {"notes": "v1", "base_version": 0}).body["notes_version"] == 1
+    assert _call(fake, "PATCH", base, {"notes": "v2", "base_version": 0, "op_key": "k"}).status == 422  # closed
+    assert _call(fake, "POST", f"{base}/sub-notes", {"title": "companion: verdict", "body": "b"}).status == 201
+    listed = _call(fake, "GET", f"{base}/sub-notes").body
+    assert [s["title"] for s in listed["sub_notes"]] == ["companion: verdict"]
+    upload = _call(fake, "POST", f"{base}/artifacts/uploads", {"name": "table.md", "content_hash": "a" * 64,
+                                                               "size_bytes": 3, "content_type": "text/markdown"})
+    assert upload.status == 201
+    assert upload.body["artifact_id"] in {a["id"] for a in _call(fake, "GET", f"{base}/artifacts").body}
+    # Addressed under another project: not found, as the server answers.
+    assert _call(fake, "GET", f"/v1/projects/{SVM}/experiments/{SVM}/sub-notes").status == 404
+    assert not fake.unmapped
+
+
 def test_unmapped_routes_answer_501_and_are_listed_never_404():
     fake = _fake(T0 + 3600)
     answer = _call(fake, "GET", f"/v1/runs/{CHOSEN}/lineage")

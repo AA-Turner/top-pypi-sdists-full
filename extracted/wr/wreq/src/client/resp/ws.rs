@@ -1,32 +1,33 @@
 mod cmd;
 pub mod msg;
 
-use std::{fmt::Display, time::Duration};
-
-use msg::Message;
-use pyo3::{coroutine::CancelHandle, prelude::*, pybacked::PyBackedStr};
-use tokio::sync::mpsc;
-use wreq::{
-    header::HeaderValue,
-    ws::{self, WebSocketResponse, message::Utf8Bytes},
+use std::{
+    fmt::{self, Display},
+    time::Duration,
 };
 
+use msg::Message;
+use pyo3::prelude::*;
+use wreq::{header::HeaderValue, ws::WebSocketResponse};
+
 use crate::{
-    client::{SocketAddr, nogil::NoGIL},
+    client::{SocketAddr, nogil},
     cookie::Cookie,
-    error::Error,
+    coroutine::{self, Coroutine},
+    extractor::Text,
     header::HeaderMap,
     http::{StatusCode, Version},
+    runtime::Runtime,
 };
 
 /// A WebSocket response.
 #[pyclass(subclass, frozen, str)]
 pub struct WebSocket {
-    /// Returns the status code of the response.
+    /// Returns the HTTP version of the response.
     #[pyo3(get)]
     version: Version,
 
-    /// Returns the HTTP version of the response.
+    /// Returns the status code of the response.
     #[pyo3(get)]
     status: StatusCode,
 
@@ -42,7 +43,8 @@ pub struct WebSocket {
     #[pyo3(get)]
     headers: HeaderMap,
     protocol: Option<HeaderValue>,
-    cmd: mpsc::UnboundedSender<cmd::Command>,
+    cmd: cmd::Handle,
+    runtime: Runtime,
 }
 
 /// A blocking WebSocket response.
@@ -53,7 +55,7 @@ pub struct BlockingWebSocket(WebSocket);
 
 impl WebSocket {
     /// Creates a new [`WebSocket`] instance.
-    pub async fn new(response: WebSocketResponse) -> wreq::Result<WebSocket> {
+    pub async fn new(response: WebSocketResponse, runtime: Runtime) -> wreq::Result<WebSocket> {
         let (version, status, remote_addr, local_addr, headers) = (
             Version::from_ffi(response.version()),
             StatusCode(response.status()),
@@ -63,10 +65,10 @@ impl WebSocket {
         );
         let websocket = response.into_websocket().await?;
         let protocol = websocket.protocol().cloned();
-        let (cmd, rx) = mpsc::unbounded_channel();
-        tokio::spawn(cmd::task(websocket, rx));
+        let cmd = cmd::spawn(websocket);
 
         Ok(WebSocket {
+            runtime,
             version,
             status,
             remote_addr,
@@ -82,8 +84,8 @@ impl WebSocket {
 impl WebSocket {
     /// Returns the cookies of the response.
     #[getter]
-    pub fn cookies(&self, py: Python) -> Vec<Cookie> {
-        py.detach(|| Cookie::extract_headers_cookies(&self.headers.0))
+    pub fn cookies(&self) -> Vec<Cookie> {
+        Cookie::extract_headers_cookies(&self.headers.0)
     }
 
     /// Returns the WebSocket protocol.
@@ -99,71 +101,87 @@ impl WebSocket {
 
     /// Receive a message from the WebSocket.
     #[pyo3(signature = (timeout=None))]
-    pub async fn recv(
+    pub fn recv<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         timeout: Option<Duration>,
-    ) -> PyResult<Option<Message>> {
-        let tx = self.cmd.clone();
-        NoGIL::new(cmd::recv(tx, timeout), cancel).await
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        coroutine::spawn(
+            py,
+            "WebSocket.recv",
+            &self.runtime,
+            cmd::recv(self.cmd.clone(), timeout),
+        )
     }
 
     /// Send a message to the WebSocket.
     #[pyo3(signature = (message))]
-    pub async fn send(
-        &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
-        message: Message,
-    ) -> PyResult<()> {
-        let tx = self.cmd.clone();
-        NoGIL::new(cmd::send(tx, message), cancel).await
+    pub fn send<'py>(&self, py: Python<'py>, message: Message) -> PyResult<Bound<'py, Coroutine>> {
+        coroutine::spawn(
+            py,
+            "WebSocket.send",
+            &self.runtime,
+            cmd::send(self.cmd.clone(), message),
+        )
     }
 
     /// Send multiple messages to the WebSocket.
     #[pyo3(signature = (messages))]
-    pub async fn send_all(
+    pub fn send_all<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         messages: Vec<Message>,
-    ) -> PyResult<()> {
-        let tx = self.cmd.clone();
-        NoGIL::new(cmd::send_all(tx, messages), cancel).await
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        coroutine::spawn(
+            py,
+            "WebSocket.send_all",
+            &self.runtime,
+            cmd::send_all(self.cmd.clone(), messages),
+        )
     }
 
     /// Close the WebSocket connection.
     #[pyo3(signature = (code=None, reason=None))]
-    pub async fn close(
+    pub fn close<'py>(
         &self,
-        #[pyo3(cancel_handle)] cancel: CancelHandle,
+        py: Python<'py>,
         code: Option<u16>,
-        reason: Option<PyBackedStr>,
-    ) -> PyResult<()> {
-        let tx = self.cmd.clone();
-        NoGIL::new(cmd::close(tx, code, reason), cancel).await
+        reason: Option<Text>,
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        coroutine::spawn(
+            py,
+            "WebSocket.close",
+            &self.runtime,
+            cmd::close(self.cmd.clone(), code, reason),
+        )
     }
 }
 
 #[pymethods]
 impl WebSocket {
-    #[inline]
-    async fn __aenter__(slf: Py<Self>) -> PyResult<Py<Self>> {
-        Ok(slf)
+    fn __aenter__(slf: Bound<'_, Self>) -> PyResult<Bound<'_, Coroutine>> {
+        coroutine::ready("WebSocket.__aenter__", slf)
     }
 
-    #[inline]
-    async fn __aexit__(
+    /// Close the WebSocket connection without a close code or reason, unless already closed.
+    fn __aexit__<'py>(
         &self,
+        py: Python<'py>,
         _exc_type: Py<PyAny>,
         _exc_val: Py<PyAny>,
         _traceback: Py<PyAny>,
-    ) -> PyResult<()> {
-        let tx = self.cmd.clone();
-        NoGIL::new(cmd::close(tx, None, None), CancelHandle::new()).await
+    ) -> PyResult<Bound<'py, Coroutine>> {
+        coroutine::spawn(
+            py,
+            "WebSocket.__aexit__",
+            &self.runtime,
+            cmd::close_on_exit(self.cmd.clone()),
+        )
     }
 }
 
 impl Display for WebSocket {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "<{} [{}] >", stringify!(WebSocket), self.status.0)
     }
 }
@@ -192,8 +210,8 @@ impl BlockingWebSocket {
 
     /// Returns the cookies of the response.
     #[getter]
-    pub fn cookies(&self, py: Python) -> Vec<Cookie> {
-        self.0.cookies(py)
+    pub fn cookies(&self) -> Vec<Cookie> {
+        self.0.cookies()
     }
 
     /// Returns the remote address of the response.
@@ -217,56 +235,43 @@ impl BlockingWebSocket {
     /// Receive a message from the WebSocket.
     #[pyo3(signature = (timeout=None))]
     pub fn recv(&self, py: Python, timeout: Option<Duration>) -> PyResult<Option<Message>> {
-        py.detach(|| {
-            pyo3_async_runtimes::tokio::get_runtime()
-                .block_on(cmd::recv(self.0.cmd.clone(), timeout))
-        })
+        nogil::run(py, &self.0.runtime, cmd::recv(self.0.cmd.clone(), timeout))
     }
 
     /// Send a message to the WebSocket.
     #[pyo3(signature = (message))]
     pub fn send(&self, py: Python, message: Message) -> PyResult<()> {
-        py.detach(|| {
-            pyo3_async_runtimes::tokio::get_runtime()
-                .block_on(cmd::send(self.0.cmd.clone(), message))
-        })
+        nogil::run(py, &self.0.runtime, cmd::send(self.0.cmd.clone(), message))
     }
 
     /// Send multiple messages to the WebSocket.
     #[pyo3(signature = (messages))]
     pub fn send_all(&self, py: Python, messages: Vec<Message>) -> PyResult<()> {
-        py.detach(|| {
-            pyo3_async_runtimes::tokio::get_runtime()
-                .block_on(cmd::send_all(self.0.cmd.clone(), messages))
-        })
+        nogil::run(
+            py,
+            &self.0.runtime,
+            cmd::send_all(self.0.cmd.clone(), messages),
+        )
     }
 
     /// Close the WebSocket connection.
     #[pyo3(signature = (code=None, reason=None))]
-    pub fn close(
-        &self,
-        py: Python,
-        code: Option<u16>,
-        reason: Option<PyBackedStr>,
-    ) -> PyResult<()> {
-        py.detach(|| {
-            pyo3_async_runtimes::tokio::get_runtime().block_on(cmd::close(
-                self.0.cmd.clone(),
-                code,
-                reason,
-            ))
-        })
+    pub fn close(&self, py: Python, code: Option<u16>, reason: Option<Text>) -> PyResult<()> {
+        nogil::run(
+            py,
+            &self.0.runtime,
+            cmd::close(self.0.cmd.clone(), code, reason),
+        )
     }
 }
 
 #[pymethods]
 impl BlockingWebSocket {
-    #[inline]
     fn __enter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
 
-    #[inline]
+    /// Close the WebSocket connection without a close code or reason, unless already closed.
     fn __exit__<'py>(
         &self,
         py: Python<'py>,
@@ -274,7 +279,7 @@ impl BlockingWebSocket {
         _exc_value: &Bound<'py, PyAny>,
         _traceback: &Bound<'py, PyAny>,
     ) -> PyResult<()> {
-        self.close(py, None, None)
+        nogil::run(py, &self.0.runtime, cmd::close_on_exit(self.0.cmd.clone()))
     }
 }
 
@@ -287,7 +292,7 @@ impl From<WebSocket> for BlockingWebSocket {
 
 impl Display for BlockingWebSocket {
     #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }

@@ -6,6 +6,8 @@ mod coalesce;
 // extra native tooling on macOS, so they're Linux-only — keeping the gRPC
 // server/client portable to every platform.
 #[cfg(target_os = "linux")]
+mod fnq_client;
+#[cfg(target_os = "linux")]
 mod metrics;
 mod python_bridge;
 #[cfg(target_os = "linux")]

@@ -21,6 +21,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from istari_digital_client.sdk._generated.v3.models.received_access_level import ReceivedAccessLevel
+from istari_digital_client.sdk._generated.v3.models.receiving_connection_infosec_level_mapping_dto import ReceivingConnectionInfosecLevelMappingDto
 from istari_digital_client.sdk._generated.v3.models.remote_transformation_dto import RemoteTransformationDto
 from typing import Optional, Set
 from typing_extensions import Self
@@ -38,9 +39,14 @@ class ReceivingConnectionDto(BaseModel):
     transformations: List[RemoteTransformationDto] = Field(description="Control tag transformations for this connection.")
     incoming_infosec_level_id: Optional[StrictStr] = None
     incoming_max_infosec_level_id: Optional[StrictStr] = None
+    incoming_infosec_schema_id: Optional[StrictStr] = None
+    incoming_infosec_schema_name: Optional[StrictStr] = None
+    infosec_level_mappings: Optional[List[ReceivingConnectionInfosecLevelMappingDto]] = Field(default=None, description="Mappings from incoming (sender-schema) infosec levels to local infosec levels, applied to resources imported over this connection.")
     received_access_level: ReceivedAccessLevel = Field(description="The sender-declared access-level ceiling for this connection (Editor or Viewer). Read-only; surfaced for display.")
+    allow_reshare: StrictBool = Field(description="Whether the sender permits files received over this connection to be shared onward over this instance's sending connections (daisy chaining). Read-only; learned from the sender on sync.")
+    is_starred: Optional[StrictBool] = Field(default=False, description="Whether the requesting user has starred this connection. Stars are per-user: one admin's star is invisible to every other admin. False on a freshly created connection; star or unstar with `/api/v3/user/favorites/connections/{connection_id}`.")
     created: datetime = Field(description="Creation timestamp.")
-    __properties: ClassVar[List[str]] = ["id", "label", "is_archived", "description", "shared_id", "object_store_id", "transformations", "incoming_infosec_level_id", "incoming_max_infosec_level_id", "received_access_level", "created"]
+    __properties: ClassVar[List[str]] = ["id", "label", "is_archived", "description", "shared_id", "object_store_id", "transformations", "incoming_infosec_level_id", "incoming_max_infosec_level_id", "incoming_infosec_schema_id", "incoming_infosec_schema_name", "infosec_level_mappings", "received_access_level", "allow_reshare", "is_starred", "created"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,6 +94,13 @@ class ReceivingConnectionDto(BaseModel):
                 if _item_transformations:
                     _items.append(_item_transformations.to_dict())
             _dict['transformations'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in infosec_level_mappings (list)
+        _items = []
+        if self.infosec_level_mappings:
+            for _item_infosec_level_mappings in self.infosec_level_mappings:
+                if _item_infosec_level_mappings:
+                    _items.append(_item_infosec_level_mappings.to_dict())
+            _dict['infosec_level_mappings'] = _items
         # set to None if incoming_infosec_level_id (nullable) is None
         # and model_fields_set contains the field
         if self.incoming_infosec_level_id is None and "incoming_infosec_level_id" in self.model_fields_set:
@@ -97,6 +110,16 @@ class ReceivingConnectionDto(BaseModel):
         # and model_fields_set contains the field
         if self.incoming_max_infosec_level_id is None and "incoming_max_infosec_level_id" in self.model_fields_set:
             _dict['incoming_max_infosec_level_id'] = None
+
+        # set to None if incoming_infosec_schema_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.incoming_infosec_schema_id is None and "incoming_infosec_schema_id" in self.model_fields_set:
+            _dict['incoming_infosec_schema_id'] = None
+
+        # set to None if incoming_infosec_schema_name (nullable) is None
+        # and model_fields_set contains the field
+        if self.incoming_infosec_schema_name is None and "incoming_infosec_schema_name" in self.model_fields_set:
+            _dict['incoming_infosec_schema_name'] = None
 
         return _dict
 
@@ -119,7 +142,12 @@ class ReceivingConnectionDto(BaseModel):
             "transformations": [RemoteTransformationDto.from_dict(_item) for _item in obj["transformations"]] if obj.get("transformations") is not None else None,
             "incoming_infosec_level_id": obj.get("incoming_infosec_level_id"),
             "incoming_max_infosec_level_id": obj.get("incoming_max_infosec_level_id"),
+            "incoming_infosec_schema_id": obj.get("incoming_infosec_schema_id"),
+            "incoming_infosec_schema_name": obj.get("incoming_infosec_schema_name"),
+            "infosec_level_mappings": [ReceivingConnectionInfosecLevelMappingDto.from_dict(_item) for _item in obj["infosec_level_mappings"]] if obj.get("infosec_level_mappings") is not None else None,
             "received_access_level": obj.get("received_access_level"),
+            "allow_reshare": obj.get("allow_reshare"),
+            "is_starred": obj.get("is_starred") if obj.get("is_starred") is not None else False,
             "created": obj.get("created")
         })
         return _obj

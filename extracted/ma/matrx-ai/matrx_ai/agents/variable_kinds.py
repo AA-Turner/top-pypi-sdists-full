@@ -814,6 +814,27 @@ def kind_fields_signature(fields: dict[str, dict[str, Any]]) -> str:
 #: forgets that rejects every real payload it sees.
 USER_INPUT_VARIABLE_KEY = "__agent_user_input__"
 
+
+def typed_user_text(user_input: Any) -> str:
+    """The human's typed text from a request's ``user_input`` — the value
+    recorded under ``USER_INPUT_VARIABLE_KEY``. Always a string, ``""`` when
+    nothing was typed: an absent or non-string value sent readers back to the
+    first stored message, which is the rendered template, not what was typed.
+    ``user_input`` is a string or a list of message parts (dicts); only the
+    text parts are typed text — attachments live in the message itself.
+    """
+    if isinstance(user_input, str):
+        return user_input
+    if isinstance(user_input, list):
+        return "\n".join(
+            part["text"]
+            for part in user_input
+            if isinstance(part, dict)
+            and part.get("type") == "text"
+            and isinstance(part.get("text"), str)
+        )
+    return ""
+
 _TRUE_WORDS = frozenset({"true", "yes", "on", "1"})
 _FALSE_WORDS = frozenset({"false", "no", "off", "0"})
 

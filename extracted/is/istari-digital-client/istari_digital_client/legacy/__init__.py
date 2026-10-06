@@ -327,25 +327,25 @@ from istari_digital_client.legacy.v2.models.subsystem_link import SubsystemLink
 from . import v2
 from . import storage
 from . import v3
-from . import auth
-from istari_digital_client.legacy.auth import GeneratedClientCredentials
-from istari_digital_client.legacy.auth import generate_client_keypair
-from istari_digital_client.legacy.auth import IdentityServiceClient
-from istari_digital_client.legacy.auth import IdentityServiceError
-from istari_digital_client.legacy.auth import ExchangePatError
-from istari_digital_client.legacy.auth import ExchangePatResult
-from istari_digital_client.legacy.auth import PrincipalKind
-from istari_digital_client.legacy.auth import exchange_pat
-from istari_digital_client.legacy.auth import generate_keypair_and_exchange
-from istari_digital_client.legacy.auth import KeyMetadata
-from istari_digital_client.legacy.auth import KeyRegistrationError
-from istari_digital_client.legacy.auth import PrincipalKeys
-from istari_digital_client.legacy.auth import RegisterKeyResult
-from istari_digital_client.legacy.auth import generate_keypair_and_register
-from istari_digital_client.legacy.auth import get_key
-from istari_digital_client.legacy.auth import list_keys
-from istari_digital_client.legacy.auth import register_key
-from istari_digital_client.legacy.auth import revoke_key
+from istari_digital_client.identity.auth import GeneratedClientCredentials
+from istari_digital_client.identity.auth import generate_client_keypair
+from istari_digital_client.identity.auth import IdentityServiceClient
+from istari_digital_client.identity.auth import IdentityServiceError
+from istari_digital_client.identity.auth import IdentityApiVersion
+from istari_digital_client.identity.v1 import ExchangePatError
+from istari_digital_client.identity.v1 import ExchangePatResult
+from istari_digital_client.identity.v1 import PrincipalKind
+from istari_digital_client.identity.v1 import exchange_pat
+from istari_digital_client.identity.v1 import generate_keypair_and_exchange
+from istari_digital_client.identity.v1 import KeyMetadata
+from istari_digital_client.identity.v1 import KeyRegistrationError
+from istari_digital_client.identity.v1 import PrincipalKeys
+from istari_digital_client.identity.v1 import RegisterKeyResult
+from istari_digital_client.identity.v1 import generate_keypair_and_register
+from istari_digital_client.identity.v1 import get_key
+from istari_digital_client.identity.v1 import list_keys
+from istari_digital_client.identity.v1 import register_key
+from istari_digital_client.identity.v1 import revoke_key
 from . import key_management
 from istari_digital_client.legacy.key_management import KeyManagement
 
@@ -360,6 +360,7 @@ __all__ = [
     "generate_client_keypair",
     "IdentityServiceClient",
     "IdentityServiceError",
+    "IdentityApiVersion",
     "ExchangePatError",
     "ExchangePatResult",
     "PrincipalKind",
@@ -379,6 +380,19 @@ __all__ = [
     "v2",
     "storage",
     "v3",
-    "auth",
     "key_management",
+    "auth",
 ]
+
+
+# Deprecated import paths, resolved lazily (PEP 562) so importing this package does
+# not raise their DeprecationWarning; touching the attribute does.
+_LAZY_DEPRECATED_SUBMODULES = ("auth",)
+
+
+def __getattr__(name: str):
+    if name in _LAZY_DEPRECATED_SUBMODULES:
+        import importlib
+
+        return importlib.import_module(f"{__name__}.{name}")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aa-memberaudit
-Version: 5.2.0
+Version: 5.3.0
 Summary: An Alliance Auth app that provides full access to Eve characters
 Keywords: allianceauth,eveonline,memberaudit
 Author-email: Erik Kalkoken <erik.kalkoken@gmail.com>, Peter Pfeufer <develop@ppfeufer.de>, Rebecca Murphy <rebecca@rcmurphy.me>
@@ -22,10 +22,10 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 License-File: LICENSE
 Requires-Dist: allianceauth-app-utils>=1.33.2
 Requires-Dist: allianceauth>=4,<6
-Requires-Dist: django-esi>=8,<10
+Requires-Dist: django-esi>=8,<11
 Requires-Dist: bleach
 Requires-Dist: dj-datatables-view
-Requires-Dist: django-eveuniverse>=2
+Requires-Dist: django-eveuniverse>=2.2
 Requires-Dist: humanize>=4.7.0
 Requires-Dist: unidecode
 Requires-Dist: tqdm>=4.66
@@ -33,7 +33,7 @@ Requires-Dist: typing_extensions
 Requires-Dist: coverage ; extra == "test"
 Requires-Dist: factory_boy ; extra == "test"
 Requires-Dist: django-webtest ; extra == "test"
-Requires-Dist: pook ; extra == "test"
+Requires-Dist: pookx ; extra == "test"
 Project-URL: Documentation, https://aa-memberaudit.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/AllianceAuth-Apps/aa-memberaudit
 Provides-Extra: test

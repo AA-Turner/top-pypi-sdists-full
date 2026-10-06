@@ -314,7 +314,7 @@ class SMatrix_SELL(SMatrix):
                 rows_in_slice = np.arange(s * C, s * C + C, dtype=np.int32)
                 self.sell_rowinds[base:base + length * C] = np.tile(rows_in_slice, length)
 
-    def save_sparse_matrix(self, filepath):
+    def _save_sparse_matrix(self, filePath):
         """ 
         Saves the complete SELL matrix to an uncompressed .npz file.
         To be executed on the local machine (e.g., BIOST052) after generation.
@@ -351,7 +351,7 @@ class SMatrix_SELL(SMatrix):
 
         # Optimized save without compression (ultra-fast read access)
         np.savez(
-            filepath,
+            filePath,
             values=values,
             colinds=colinds,
             slice_ptr=slice_ptr,
@@ -361,18 +361,65 @@ class SMatrix_SELL(SMatrix):
             norm_factor_inv=getattr(self, 'norm_factor_inv', np.array([])),
             metadata=metadata
         )
-        print(f"[AOT-biomaps] SELL SMatrix successfully saved ({self.total_storage} elements) to: {filepath}")
+        print(f"[AOT-biomaps] SELL SMatrix successfully saved ({self.total_storage} elements) to: {filePath}")
         if self.sell_values is None and CUPY_AVAILABLE:
             self._release_pool()
+    
+    def _load_sparse_matrix_cpu(self, filePath):
+        """Loads the SELL matrix from the .npz file into CPU RAM."""
+        print(f"[AOT-biomaps] Loading SELL SMatrix from {filePath} into CPU RAM...")
+        data = np.load(filePath)
 
-    def load_sparse_matrix_gpu(self, filepath):
+        # 1. Metadata (same layout as _save_sparse_matrix)
+        meta = data['metadata']
+        self.N, self.T, self.Z, self.X, self.slice_height, self.total_storage, self.total_nnz = map(int, meta[:7])
+        self.isComplexSMatrix = bool(meta[7])
+
+        self._phys_box = None
+        if len(meta) >= 15 and int(meta[8]) == 1:
+            self._phys_box = {'z': (int(meta[9]), int(meta[10])),
+                            'x': (int(meta[11]), int(meta[12])),
+                            'Zf': int(meta[13]), 'Xf': int(meta[14])}
+        elif len(meta) >= 15 and int(meta[8]) == 2:
+            self._phys_box = {'dec': {"Z": int(meta[9]), "X": int(meta[10])},
+                            'Zf': int(meta[13]), 'Xf': int(meta[14])}
+
+        # 2. CPU arrays
+        self.sell_values = data['values']
+        self.sell_colinds = data['colinds']
+        self.slice_ptr = data['slice_ptr']
+        self.slice_len = data['slice_len']
+        self.row_perm = data['row_perm']
+        self.inv_row_perm = data['inv_row_perm']
+
+        if data['norm_factor_inv'].size > 0:
+            self.norm_factor_inv = data['norm_factor_inv']
+
+        # 3. Rebuild sell_rowinds (required by CPU projections)
+        C = int(self.slice_height)
+        num_rows = int(self.N * self.T)
+        num_slices = (num_rows + C - 1) // C
+
+        self.sell_rowinds = np.zeros(self.total_storage, dtype=np.int32)
+        for s in range(num_slices):
+            base = int(self.slice_ptr[s])
+            length = int(self.slice_len[s])
+            if length > 0:
+                rows_in_slice = np.arange(s * C, min(num_rows, s * C + C), dtype=np.int32)
+                self.sell_rowinds[base:base + length * C] = np.tile(rows_in_slice, length)
+
+        data.close()
+        self.device = 'cpu'
+        print(f"[AOT-biomaps] SELL SMatrix loaded into CPU RAM ({self.total_storage} elements).")
+
+    def _load_sparse_matrix_gpu(self, filePath):
         """ 
         Loads the arrays directly from the .npz file into the GPU VRAM.
         To be executed on the compute node (e.g., H100) before run().
         """       
-        print(f"[AOT-biomaps] Direct-to-GPU loading of SMatrix from {filepath}...")
+        print(f"[AOT-biomaps] Direct-to-GPU loading of SMatrix from {filePath}...")
         self.load_module()
-        data = np.load(filepath)
+        data = np.load(filePath)
         
         # 1. Restore metadata
         meta = data['metadata']

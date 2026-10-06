@@ -110,7 +110,7 @@ NOTE_BLOCK_VERSION = 2
 
 #: Bumped when POINTER_BODY changes, so an older installed block is recognised
 #: as stale and rewritten instead of being left in place or duplicated.
-POINTER_VERSION = 37
+POINTER_VERSION = 38
 
 POINTER_BODY = """## Probe Research
 
@@ -190,6 +190,8 @@ DAEMON_POINTER_BODY = """## Probe Research
 Probe is a system of record for a team's ML work - projects, runs, experiments, files (artifacts), agent sessions, etc.
 
 The Probe daemon runs beside this session and does all Probe reads and writes - you only instrument your runs (`instrument-code` skill); the daemon records everything else. Say your caveats and decision rules, with their numbers, in your end-of-turn message - the daemon records what you state.
+
+To read or write Probe yourself, run `probe session inline`: the daemon stops recording and you read and write Probe directly until `probe session daemon` hands control back.
 
 ### ASK THE DAEMON:
 

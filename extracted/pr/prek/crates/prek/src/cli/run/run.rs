@@ -22,7 +22,7 @@ use crate::cli::reporter::{HookInitReporter, HookInstallReporter};
 use crate::cli::run::diff::DiffTracker;
 use crate::cli::run::filter::{RunInputMode, stage_uses_message_file_input};
 use crate::cli::run::install::{InstallCache, install_hooks};
-use crate::cli::run::keeper::WorkTreeKeeper;
+use crate::cli::run::stash::{RestoreOutcome, WorktreeStash};
 use crate::cli::run::{
     CollectOptions, FileSelection, FileTagCache, GroupFilters, HookFileFilter, HookRunReporter,
     ProjectFiles, RunFileIndex, RunInput, Selectors, collect_run_input, project_status_marker,
@@ -118,17 +118,30 @@ pub(crate) async fn run(
         return Ok(ExitStatus::Success);
     }
 
-    git::root()?;
-    let filesystem = FilesystemOptions::user()?;
-
-    let should_stash = selection.requires_clean_worktree();
-
-    // Check if we have unresolved merge conflict files and fail fast.
-    if should_stash && git::has_unmerged_paths().await? {
-        anyhow::bail!(
-            "Found unresolved merge conflicts. Resolve the conflicts, stage the files with `git add`, and try again"
+    let requires_clean_worktree = selection.requires_clean_worktree();
+    let worktree = if requires_clean_worktree {
+        // Status paths are repository-relative, so the worktree query can start
+        // before repository discovery finishes. Preserve discovery errors first.
+        let (root, status) = tokio::join!(
+            tokio::task::spawn_blocking(git::root),
+            git::worktree_status(&CWD),
         );
-    }
+        let root = root??;
+        let mut status = status?;
+        if status.unmerged {
+            anyhow::bail!(
+                "Found unresolved merge conflicts. Resolve the conflicts, stage the files with `git add`, and try again"
+            );
+        }
+        for path in status.unstaged.iter_mut().chain(&mut status.intent_to_add) {
+            *path = root.join(&*path);
+        }
+        Some(status)
+    } else {
+        git::root()?;
+        None
+    };
+    let filesystem = FilesystemOptions::user()?;
 
     let workspace_root = Workspace::find_root(config.as_deref(), &CWD)?;
     let selectors = Selectors::load(&includes, &skips, &workspace_root)?;
@@ -136,8 +149,8 @@ pub(crate) async fn run(
     let has_group_filters = group_filters.has_filters();
     let workspace = Workspace::discover(store, workspace_root, config, Some(&selectors), refresh)?;
 
-    if should_stash {
-        workspace.check_configs_staged().await?;
+    if let Some(status) = &worktree {
+        workspace.check_configs_staged(&status.unstaged)?;
     }
 
     let reporter = HookInitReporter::new(printer);
@@ -216,68 +229,106 @@ pub(crate) async fn run(
     );
 
     // Clear any unstaged changes from the git working directory.
-    let mut _guard = None;
-    if should_stash {
-        _guard = Some(
-            WorkTreeKeeper::clean(store, workspace.root())
-                .await
+    let stash = if let Some(status) = worktree
+        && status
+            .unstaged
+            .iter()
+            .any(|path| path.starts_with(workspace.root()))
+    {
+        Some(
+            WorktreeStash::save(store, workspace.root(), status.intent_to_add)
                 .context("Failed to clean work tree")?,
-        );
-    }
+        )
+    } else {
+        None
+    };
 
     let (from_ref, to_ref) = selection.refs();
     set_env_vars(from_ref, to_ref, &extra_args);
 
-    let input = collect_run_input(
-        workspace.root(),
-        CollectOptions {
-            input_mode,
+    // These hooks run even without matching files and never receive filenames,
+    // so discovery and tagging cannot affect execution. Keep explicit paths and
+    // diff refs on their normal collection path to preserve validation.
+    let input_mode = if input_mode == RunInputMode::Files
+        && matches!(
             selection,
-            commit_msg_filename: extra_args.commit_msg_filename,
-            include_deleted: selected_hooks
-                .iter()
-                .filter_map(HookPlan::as_run)
-                .any(|hook| hook.include_deleted),
-        },
-    )
-    .await
-    .context("Failed to collect files")?;
-
-    // Change to the workspace root directory.
-    std::env::set_current_dir(workspace.root()).with_context(|| {
-        format!(
-            "Failed to change directory to `{}`",
-            workspace.root().display()
+            FileSelection::Default | FileSelection::All { .. }
         )
-    })?;
+        && selected_hooks
+            .iter()
+            .filter_map(HookPlan::as_run)
+            .all(|hook| hook.always_run && hook.pass_filenames == PassFilenames::None)
+    {
+        RunInputMode::NoFiles
+    } else {
+        input_mode
+    };
 
-    let file_index = RunFileIndex::new(&input, workspace.all_projects());
-    let installed_hooks = ensure_hooks_installed(
-        store,
-        printer,
-        &workspace,
-        &input,
-        &file_index,
-        selected_hooks,
-    )
-    .await?;
+    let result = async {
+        let input = collect_run_input(
+            workspace.root(),
+            CollectOptions {
+                input_mode,
+                selection,
+                commit_msg_filename: extra_args.commit_msg_filename,
+                include_deleted: selected_hooks
+                    .iter()
+                    .filter_map(HookPlan::as_run)
+                    .any(|hook| hook.include_deleted),
+            },
+        )
+        .await
+        .context("Failed to collect files")?;
 
-    run_hooks(
-        &workspace,
-        &input,
-        &file_index,
-        &installed_hooks,
-        store,
-        show_diff_on_failure,
-        fail_fast,
-        dry_run,
-        hide_status,
-        filesystem.as_ref(),
-        should_stash,
-        verbose,
-        printer,
-    )
-    .await
+        // Change to the workspace root directory.
+        std::env::set_current_dir(workspace.root()).with_context(|| {
+            format!(
+                "Failed to change directory to `{}`",
+                workspace.root().display()
+            )
+        })?;
+
+        let file_index = RunFileIndex::new(&input, workspace.all_projects());
+        let installed_hooks = ensure_hooks_installed(
+            store,
+            printer,
+            &workspace,
+            &input,
+            &file_index,
+            selected_hooks,
+        )
+        .await?;
+
+        run_hooks(
+            &workspace,
+            &input,
+            &file_index,
+            &installed_hooks,
+            store,
+            show_diff_on_failure,
+            fail_fast,
+            dry_run,
+            hide_status,
+            filesystem.as_ref(),
+            requires_clean_worktree,
+            verbose,
+            printer,
+        )
+        .await
+    }
+    .await;
+
+    let Some(stash) = stash else {
+        return result;
+    };
+    match (result, stash.restore()) {
+        (result, Ok(RestoreOutcome::Restored)) => result,
+        (result, Ok(RestoreOutcome::HookChangesReverted)) => result.map(|_| ExitStatus::Failure),
+        (Ok(_), Err(err)) => Err(err),
+        (Err(err), Err(restore_err)) => Err(anyhow::anyhow!(
+            "{err:#}\n\nWorktree restoration also failed:\n{restore_err:#}"
+        )),
+    }
 }
 
 fn infer_stage_and_input_mode(
@@ -380,14 +431,11 @@ async fn ensure_hooks_installed<'paths>(
     if !runnable_env_hooks.is_empty() {
         let _lock = store.lock_async().await?;
         let mut install_cache = InstallCache::new();
-        let mut missing_env_hooks = Vec::new();
-
-        for hook in runnable_env_hooks {
-            if let Some(installed_hook) = install_cache.installed_hook(store, hook.clone()).await {
-                installed_by_hook.insert(hook.key(), installed_hook);
-            } else {
-                missing_env_hooks.push(hook.clone());
-            }
+        let (installed_hooks, missing_env_hooks) = install_cache
+            .partition_installed_hooks(store, runnable_env_hooks)
+            .await;
+        for installed_hook in installed_hooks {
+            installed_by_hook.insert(installed_hook.key(), installed_hook);
         }
 
         if !missing_env_hooks.is_empty() {

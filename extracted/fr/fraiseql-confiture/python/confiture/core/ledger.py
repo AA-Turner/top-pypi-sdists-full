@@ -41,7 +41,44 @@ from typing import Any
 import psycopg
 from psycopg import sql as pgsql
 
+from confiture.core.locking import LOCK_HOLDER_TABLE
+from confiture.core.sql_lexer import name_parts
 from confiture.exceptions import SQLError
+
+#: The ledger's name when ``tracking_table`` names none.
+DEFAULT_TRACKING_TABLE = "tb_confiture"
+
+#: What the checkpoint table beside a ledger is named after it.
+STEPS_SUFFIX = "_steps"
+
+
+def steps_table(tracking_table: str) -> str:
+    """The checkpoint table beside ``tracking_table`` (``tb_confiture`` → ``tb_confiture_steps``)."""
+    return f"{tracking_table}{STEPS_SUFFIX}"
+
+
+def bookkeeping_tables(tracking_table: str | None = None) -> frozenset[str]:
+    """The bare names of confiture's own tables: never part of a project's schema.
+
+    The ledger and its checkpoint table — *tracking_table*'s, and the default's
+    either way — the lock holder, and the tables of earlier releases. A table of
+    these names in any schema is confiture's, as ``pg_dump --exclude-table``
+    matches a bare name in every schema.
+    """
+    ledgers = {DEFAULT_TRACKING_TABLE}
+    if tracking_table is not None:
+        parts = name_parts(tracking_table)
+        ledgers.add(parts[-1] if parts else tracking_table)
+    return frozenset(
+        {
+            *ledgers,
+            *(steps_table(ledger) for ledger in ledgers),
+            LOCK_HOLDER_TABLE,
+            "confiture_version",
+            "confiture_audit_log",
+        }
+    )
+
 
 _QUALIFIED_SQL = """
     SELECT EXISTS (
@@ -408,7 +445,7 @@ def split_qualified_table(name: str) -> tuple[str | None, str]:
 
 
 def table_identifier(name: str) -> pgsql.Identifier:
-    """The tracking table as a quoted identifier for ``sql.SQL(...).format``.
+    """The tracking table as one quoted identifier, interpolated ``{table:i}``.
 
     A bare name becomes a single-part identifier and resolves through
     ``search_path`` at execution time — the same resolution :func:`probe_ledger`
@@ -422,9 +459,8 @@ def table_identifier(name: str) -> pgsql.Identifier:
         ``Identifier(table)`` or ``Identifier(schema, table)``.
     """
     schema, base = split_qualified_table(name)
-    if schema is None:
-        return pgsql.Identifier(base)
-    return pgsql.Identifier(schema, base)
+    parts = (base,) if schema is None else (schema, base)
+    return pgsql.Identifier(*parts)
 
 
 @dataclass(frozen=True)
@@ -445,7 +481,7 @@ class LedgerRow:
     reason: str | None = None
 
 
-def record_migration(connection: Any, table: pgsql.Composable, row: LedgerRow) -> None:
+def record_migration(connection: Any, table: pgsql.Identifier, row: LedgerRow) -> None:
     """The one INSERT into the ledger *table*, on *connection*.
 
     ``slug`` is ``<name>_<version>_<timestamp>[_<reason>]`` — unique per row
@@ -459,22 +495,15 @@ def record_migration(connection: Any, table: pgsql.Composable, row: LedgerRow) -
         found = connection.execute("SELECT current_user").fetchone()
         applied_by = found[0] if found else None
     with connection.cursor() as cursor:
-        cursor.execute(
-            pgsql.SQL("""
-            INSERT INTO {}
+        cursor.execute(t"""
+            INSERT INTO {table:i}
                 (id, slug, version, name, applied_at, execution_time_ms, checksum, applied_by)
-            VALUES (gen_random_uuid(), %s, %s, %s, COALESCE(%s, NOW()), %s, %s, %s)
-            """).format(table),
-            (
-                slug,
-                row.version,
-                row.name,
-                row.applied_at,
-                row.execution_time_ms,
-                row.checksum,
-                applied_by,
-            ),
-        )
+            VALUES (
+                gen_random_uuid(), {slug}, {row.version}, {row.name},
+                COALESCE({row.applied_at}, NOW()), {row.execution_time_ms}, {row.checksum},
+                {applied_by}
+            )
+            """)
 
 
 #: The rows that are not history. A row ``migrate squash`` archived into a baseline
@@ -482,7 +511,7 @@ def record_migration(connection: Any, table: pgsql.Composable, row: LedgerRow) -
 #: against a file and never rolled back. It is read through ``to_jsonb`` so that a
 #: ledger created before the column existed, which no read-only command upgrades,
 #: filters the same. The query names the ledger ``ledger``.
-LIVE_ROWS = pgsql.SQL("(to_jsonb(ledger) ->> 'archived_into') IS NULL")
+LIVE_ROWS = t"(to_jsonb(ledger) ->> 'archived_into') IS NULL"
 
 
 def write_backup(rows: Any, table: str, directory: Path | None = None) -> Path:
@@ -502,12 +531,12 @@ def write_backup(rows: Any, table: str, directory: Path | None = None) -> Path:
 def recorded_versions(connection: Any, table: str) -> set[str]:
     """Every version the ledger *table* records. Raises the driver's error if it cannot read it."""
     with connection.cursor() as cursor:
-        cursor.execute(pgsql.SQL("SELECT version FROM {}").format(table_identifier(table)))
+        cursor.execute(t"SELECT version FROM {table_identifier(table):i}")
         return {row[0] for row in cursor.fetchall()}
 
 
 def ledger_is_empty(connection: Any, table: str) -> bool:
     """Whether the ledger *table* holds no row. Raises the driver's error if it cannot read it."""
     with connection.cursor() as cursor:
-        cursor.execute(pgsql.SQL("SELECT 1 FROM {} LIMIT 1").format(table_identifier(table)))
+        cursor.execute(t"SELECT 1 FROM {table_identifier(table):i} LIMIT 1")
         return cursor.fetchone() is None

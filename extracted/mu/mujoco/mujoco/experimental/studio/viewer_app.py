@@ -112,7 +112,6 @@ class ViewerApp:
     self.theme = ux.load_theme()
     self.config = config if config is not None else ViewerAppConfig()
     self.status = 'Ready'
-    self.sim_history = sim.SimHistory()
     self._reset_app_state()
 
   @messages.handler(priority=messages.Priority.CRITICAL)
@@ -120,28 +119,12 @@ class ViewerApp:
     self.viewer = event.viewer
     self.theme = ux.load_settings(def_theme=self.theme)
     ux.setup_theme(self.theme)
-    self._setup_history()
     self.viewer.dispatch(ViewerAppInitEvent(viewer_app=self))
 
   def _reset_app_state(self) -> None:
     """Resets ViewerApp-specific state (step control, ux)."""
     self.step_control_state = sim.StepControl()
     self.ux_state = ux.UxState()
-    self._setup_history()
-
-  def _setup_history(self) -> None:
-    """(Re)initialize simulation history recording for the current model."""
-    if (
-        self._viewer is not None
-        and self.model is not None
-        and self.data is not None
-    ):
-      ux.reset_history(
-          self.sim_history,
-          self.ux_state,
-          self.model,
-          self.data,
-      )
 
   def align_camera(self) -> None:
     """Recenter the camera on the model's home camera, else the free camera."""
@@ -170,8 +153,7 @@ class ViewerApp:
         print(f'Error reloading model from {self.model_path!r}: {ex}')
 
   def close(self) -> None:
-    ux.save_settings(self.theme)
-    self.viewer.close()
+    self.viewer.dispatch(messages.ExitEvent())
 
   def handle_keyboard_events(self) -> None:
     """Handles keyboard events."""
@@ -245,7 +227,10 @@ class ViewerApp:
       else:
         mujoco.mj_resetData(self.model, self.data)
       mujoco.mj_forward(self.model, self.data)
-      self._setup_history()
+      self.ux_state.sim_head_time = self.data.time
+      # The viewer's mirror of the sim history is stale until the sim reports
+      # its post-reset history. Setting the size to 0 also clamps the index.
+      self.ux_state.history_size = 0
       self.viewer.send_to_sim(messages.ResetEvent(key=key_idx))
       # Discard any pre-reset snapshots so we don't overwrite the reset state.
       self.viewer.get_sim_snapshots()
@@ -304,6 +289,10 @@ class ViewerApp:
     # Apply perturbation forces from the viewer.
     self.apply_perturb()
 
+    # Forward single-step requests as events (reliable, never dropped).
+    if self.step_control_state.consume_single_step_request():
+      self.viewer.send_to_sim(messages.SingleStepEvent())
+
     # Send viewer-to-sim snapshots (step control, model options) each frame.
     noise_scale, noise_rate = self.step_control_state.get_noise_parameters()
     self.viewer.send_to_sim(
@@ -320,6 +309,10 @@ class ViewerApp:
 
   def build_gui(self) -> None:
     """Emit full Studio UI."""
+    # TODO(matijak): Consider adding a PreBuildGuiEvent and moving the theme and
+    # dockspace setup below into a handler for it. That would guarantee the
+    # dockspace exists before any plugin's BuildGuiEvent handler submits
+    # windows, instead of relying on ViewerApp's Priority.CRITICAL.
     ux.setup_theme(self.theme)
     ux.configure_docking_layout(
         show_toolbar=self.config.show_toolbar,
@@ -418,7 +411,6 @@ class ViewerApp:
           self.model,
           self.data,
           self.step_control_state,
-          self.sim_history,
           self.ux_state,
           self.reset_physics,
           self.reload_model,
@@ -520,16 +512,14 @@ class ViewerApp:
       imgui.End()
       imgui.PopStyleVar(3)
 
-  @messages.handler(priority=messages.Priority.CRITICAL)
-  def _on_model(self, event: messages.ModelEvent) -> bool:
+  @messages.handler(priority=messages.Priority.INTERNAL)
+  def _on_post_model(self, event: messages.PostModelEvent) -> None:
     del event  # Model/data are owned by the Viewer.
     self._reset_app_state()
-    return False  # Do not consume to allow other handlers to receive the event.
 
   @messages.handler(priority=messages.Priority.INTERNAL)
-  def _on_exit(self, _: messages.ExitEvent) -> bool:
-    self.close()
-    return True
+  def _on_exit(self, _: messages.ExitEvent) -> None:
+    ux.save_settings(self.theme)
 
   @messages.handler(priority=messages.Priority.INTERNAL)
   def _on_update(self, _: messages.UpdateEvent) -> None:

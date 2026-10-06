@@ -159,6 +159,40 @@ def test_the_overlay_serves_its_own_writes_back():
     assert api.missing_reads == ["/v1/runs/77777777-7777-4777-8777-777777777777"]
 
 
+def test_the_overlay_answers_the_experiment_api_from_leaf_shaped_fixtures():
+    """The tap places an id (`/v1/scopes/{id}`) and addresses an experiment on the
+    experiment API (X21b); recorded fixtures are leaf-shaped. The overlay answers
+    both from them, and a write is scored on the experiment it was meant for."""
+    import types
+
+    errors = types.SimpleNamespace(Rejected=type("Rejected", (Exception,), {
+        "__init__": lambda self, status, detail=None: Exception.__init__(self, status)}),
+        Retryable=RuntimeError)
+    api = replay.RecordingApi({
+        f"/v1/projects/{PROJECT}": {"id": PROJECT, "kind": "training", "description": None},
+        f"/v1/projects/{SVM}": {"id": SVM, "kind": "experiment", "parent_project_id": PROJECT,
+                                "description": "Does an SVM win?", "notes": None, "notes_version": 0},
+        f"/v1/projects/{SVM}/sub-notes": {"sub_notes": [], "limit_count": 20},
+        f"/v1/runs/{CHOSEN}": {"id": CHOSEN, "project_id": PROJECT, "experiment_id": SVM},
+    }, errors=errors, gateway=None)
+    assert api.get(f"/v1/scopes/{SVM}")["kind"] == "experiment"
+    assert api.get(f"/v1/scopes/{SVM}")["project_id"] == PROJECT
+    assert api.get(f"/v1/scopes/{PROJECT}")["kind"] == "project"
+    assert api.get(f"/v1/scopes/{CHOSEN}")["kind"] == "run"
+    base = f"/v1/projects/{PROJECT}/experiments/{SVM}"
+    detail = api.get(base)
+    assert (detail["question"], detail["project_id"]) == ("Does an SVM win?", PROJECT)
+    api.request("POST", f"{base}/sub-notes", {"title": "companion: verdict", "body": "SVM 0.9889"})
+    assert api.get(f"{base}/sub-notes")["sub_notes"][0]["title"] == "companion: verdict"
+    api.request("PATCH", base, {"notes": "## Result", "base_version": 0})
+    assert api.get(base)["notes"] == "## Result"
+    assert {(n["target"], n["kind"]) for n in api.notes()} == {(("project", SVM), "sub-note"),
+                                                                (("project", SVM), "main")}
+    assert api.writes[0]["sent"] == f"{base}/sub-notes" and api.writes[0]["path"] == f"/v1/projects/{SVM}/sub-notes"
+    with pytest.raises(Exception):
+        api.get("/v1/scopes/77777777-7777-4777-8777-777777777777")
+
+
 def _result(notes=(), patches=None, edges=(), file_notes=None, writes=(), label="x", fixture="fx"):
     return {"label": label, "fixture": fixture, "notes": list(notes), "entity_patches": patches or {},
             "edges": list(edges), "file_notes": file_notes or {}, "writes": list(writes), "proposals": [],

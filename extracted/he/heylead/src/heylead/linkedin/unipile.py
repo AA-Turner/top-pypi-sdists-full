@@ -29,11 +29,13 @@ from ..author_identity import (
     slug_from_profile_url,
 )
 from ..constants import UNIPILE_POLL_INTERVAL_SECONDS, UNIPILE_POLL_TIMEOUT_SECONDS
-from ..guardrails import check_message, prepare_outbound_text
+from ..guardrails import check_message, prepare_outbound_text, text_landed
+from ..services.nameless import is_nameless_profile
 from .message_sender import sender_flag
 from .api_metrics import api_metrics
 from .relations import RelationsPage
 from .search_traffic import SearchTraffic
+from .headline_split import company_from_headline, split_headline
 from .voyager_health import voyager_health
 
 logger = logging.getLogger(__name__)
@@ -940,12 +942,7 @@ class UnipileClient:
             profile_url = f"https://www.linkedin.com/in/{public_id}"
 
         # Parse title + company from headline ("Title at Company")
-        title = headline
-        company = ""
-        if " at " in headline:
-            parts = headline.rsplit(" at ", 1)
-            title = parts[0]
-            company = parts[1]
+        title, company = split_headline(headline)
 
         from .experience import apply_current_role, experience_from_payload
         experience = experience_from_payload(data)
@@ -1292,7 +1289,9 @@ class UnipileClient:
                 name_parts.append(item.get("last_name") or item.get("lastName") or "")
             name = " ".join(name_parts).strip() or item.get("name") or ""
 
-            if not name:
+            # A private or out-of-network result comes back as "LinkedIn
+            # Member" with its headline intact (D4umak/heylead-api#2164).
+            if is_nameless_profile({"name": name}):
                 continue
 
             headline = item.get("headline") or ""
@@ -1300,12 +1299,7 @@ class UnipileClient:
             prov_id = item.get("provider_id") or item.get("id") or item.get("member_urn") or ""
 
             # Parse title + company from headline
-            parsed_title = headline
-            parsed_company = ""
-            if " at " in headline:
-                parts = headline.rsplit(" at ", 1)
-                parsed_title = parts[0]
-                parsed_company = parts[1]
+            parsed_title, parsed_company = split_headline(headline)
 
             loc = item.get("location") or ""
             if isinstance(loc, dict):
@@ -2320,12 +2314,17 @@ class UnipileClient:
 
         Checks the most recent messages in the chat for a match against
         the expected text (first 50 chars). Returns True if found.
+
+        The match is guardrails.text_landed, folded on both sides:
+        send_new_message rewrote the body on the wire (a blank line after
+        each sentence), a raw-prefix comparison never found it, and the
+        engine read False as "not sent" and sent again (5 Oct 2026, one
+        person, three copies; D4umak/heylead-api#2142).
         """
         try:
             messages = await self.get_chat_messages(account_id, chat_id, limit=3)
-            snippet = expected_text[:50]
             for msg in messages:
-                if snippet in (msg.get("text") or ""):
+                if text_landed(expected_text, msg.get("text") or "", prefix=50):
                     return True
             return False
         except Exception as e:
@@ -2687,8 +2686,8 @@ class UnipileClient:
 
                     # Extract company/location/profile_url for local search
                     company = item.get("company") or item.get("company_name") or ""
-                    if not company and headline and " at " in headline:
-                        company = headline.rsplit(" at ", 1)[1].strip()
+                    if not company:
+                        company = company_from_headline(headline)
                     location = item.get("location") or ""
                     if isinstance(location, dict):
                         location = location.get("name") or location.get("default") or ""

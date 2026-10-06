@@ -33,24 +33,29 @@ class JobConfigResponseMetadata(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'secrets_masked': 'bool'
+        'secrets_masked': 'bool',
+        'secrets_restorable': 'bool'
     }
 
     attribute_map = {
-        'secrets_masked': 'secrets_masked'
+        'secrets_masked': 'secrets_masked',
+        'secrets_restorable': 'secrets_restorable'
     }
 
-    def __init__(self, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, secrets_masked=False, secrets_restorable=False, local_vars_configuration=None):  # noqa: E501
         """JobConfigResponseMetadata - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._secrets_masked = None
+        self._secrets_restorable = None
         self.discriminator = None
 
         if secrets_masked is not None:
             self.secrets_masked = secrets_masked
+        if secrets_restorable is not None:
+            self.secrets_restorable = secrets_restorable
 
     @property
     def secrets_masked(self):
@@ -74,6 +79,29 @@ class JobConfigResponseMetadata(object):
         """
 
         self._secrets_masked = secrets_masked
+
+    @property
+    def secrets_restorable(self):
+        """Gets the secrets_restorable of this JobConfigResponseMetadata.  # noqa: E501
+
+        True when a duplicate of this job may leave a masked value in place and have it resolve to the stored value, False when the caller has to enter a value of their own.  # noqa: E501
+
+        :return: The secrets_restorable of this JobConfigResponseMetadata.  # noqa: E501
+        :rtype: bool
+        """
+        return self._secrets_restorable
+
+    @secrets_restorable.setter
+    def secrets_restorable(self, secrets_restorable):
+        """Sets the secrets_restorable of this JobConfigResponseMetadata.
+
+        True when a duplicate of this job may leave a masked value in place and have it resolve to the stored value, False when the caller has to enter a value of their own.  # noqa: E501
+
+        :param secrets_restorable: The secrets_restorable of this JobConfigResponseMetadata.  # noqa: E501
+        :type: bool
+        """
+
+        self._secrets_restorable = secrets_restorable
 
     def to_dict(self):
         """Returns the model properties as a dict"""

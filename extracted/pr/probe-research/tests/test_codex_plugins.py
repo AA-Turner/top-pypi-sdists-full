@@ -29,7 +29,7 @@ def test_tracking_plugin_uses_native_oauth_mcp() -> None:
         "required": False,
     }
     assert manifest["skills"] == "./skills/"
-    hooks = _json(ROOT / "plugins/probe-research/hooks/hooks.json")["hooks"]
+    hooks = _json(ROOT / "plugins/probe-research/hooks/routes.json")["hooks"]
     command = hooks["SessionStart"][0]["hooks"][0]["command"]
     assert "PROBE_AGENT=codex" in command
     assert "PLUGIN_ROOT" in command

@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from istari_digital_client.sdk._generated.v3.models.token_create_dto import TokenCreateDto
 from istari_digital_client.sdk._generated.v3.models.upstream_revision_info_create_dto import UpstreamRevisionInfoCreateDto
 from typing import Optional, Set
@@ -34,10 +35,10 @@ class ResourceRevisionCreateDto(BaseModel):
     extension: Optional[StrictStr] = None
     size: Optional[StrictInt] = None
     mime: Optional[StrictStr] = None
-    description: Optional[StrictStr] = None
-    version_name: Optional[StrictStr] = None
-    external_identifier: Optional[StrictStr] = None
-    display_name: Optional[StrictStr] = None
+    description: Optional[Annotated[str, Field(strict=True, max_length=255)]] = None
+    version_name: Optional[Annotated[str, Field(strict=True, max_length=255)]] = None
+    external_identifier: Optional[Annotated[str, Field(strict=True, max_length=255)]] = None
+    display_name: Optional[Annotated[str, Field(strict=True, max_length=255)]] = None
     upstream_revision_info: Optional[UpstreamRevisionInfoCreateDto] = None
     __properties: ClassVar[List[str]] = ["content_token", "properties_token", "name", "extension", "size", "mime", "description", "version_name", "external_identifier", "display_name", "upstream_revision_info"]
 

@@ -1,10 +1,12 @@
 import functools
-from .base import BaseDeviceParser
+from typing import Any
+
 from device_detector.enums import DeviceType
 from device_detector.yaml_loader import _load_from_yaml
-from typing import Any
+
 from ...lazy_regex import RegexLazyIgnore
 from ...settings import BOUNDED_REGEX
+from .base import BaseDeviceParser
 
 HBBTV_FRAGMENT = RegexLazyIgnore(r'(?:HbbTV|SmartTvA)/([1-9]{1}(?:\.[0-9]{1}){1,2})')
 SHELL_TV_FRAGMENT = RegexLazyIgnore(r'[ _]Shell[ _]\w{6}|tclwebkit(\d+[.\d]*)')

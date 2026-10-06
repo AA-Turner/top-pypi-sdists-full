@@ -15,8 +15,9 @@ import tarfile
 import time
 import zipfile
 import zlib
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from contextlib import suppress
+from types import SimpleNamespace
 from typing import Any, NoReturn
 from unittest import mock
 
@@ -53,6 +54,7 @@ from aiohttp.client_exceptions import (
 )
 from aiohttp.client_reqrep import ClientRequest
 from aiohttp.connector import Connection
+from aiohttp.cookiejar import _MAX_COOKIES_PER_REQUEST
 from aiohttp.helpers import DEFAULT_CHUNK_SIZE
 from aiohttp.http_writer import StreamWriter
 from aiohttp.payload import (
@@ -302,7 +304,8 @@ async def test_keepalive_timeout_async_sleep(unused_port_socket: socket.socket) 
     app = web.Application()
     app.router.add_route("GET", "/", handler)
 
-    runner = web.AppRunner(app, tcp_keepalive=True, keepalive_timeout=0.001)
+    # Timeout must be enough to outlive first request on slow platforms.
+    runner = web.AppRunner(app, tcp_keepalive=True, keepalive_timeout=0.2)
     await runner.setup()
 
     site = web.SockSite(runner, unused_port_socket)
@@ -315,7 +318,7 @@ async def test_keepalive_timeout_async_sleep(unused_port_socket: socket.socket) 
             resp1 = await sess.get(f"http://{host}:{port}/")
             await resp1.read()
             # wait for server keepalive_timeout
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.5)
             resp2 = await sess.get(f"http://{host}:{port}/")
             await resp2.read()
     finally:
@@ -335,7 +338,7 @@ async def test_keepalive_timeout_sync_sleep(unused_port_socket: socket.socket) -
     app = web.Application()
     app.router.add_route("GET", "/", handler)
 
-    runner = web.AppRunner(app, tcp_keepalive=True, keepalive_timeout=0.001)
+    runner = web.AppRunner(app, tcp_keepalive=True, keepalive_timeout=0.2)
     await runner.setup()
 
     site = web.SockSite(runner, unused_port_socket)
@@ -349,7 +352,7 @@ async def test_keepalive_timeout_sync_sleep(unused_port_socket: socket.socket) -
             await resp1.read()
             # wait for server keepalive_timeout
             # time.sleep is a more challenging scenario than asyncio.sleep
-            time.sleep(0.01)
+            time.sleep(0.5)
             resp2 = await sess.get(f"http://{host}:{port}/")
             await resp2.read()
     finally:
@@ -1004,8 +1007,40 @@ async def test_drop_fragment(aiohttp_client) -> None:
         assert resp.url.path == "/ok"
 
 
-async def test_history(aiohttp_client) -> None:
-    async def handler_redirect(request):
+@pytest.mark.parametrize(
+    ("location", "path", "query"),
+    (
+        ("http:/ok", "/ok", {}),
+        ("http:ok", "/ok", {}),
+        ("http:/ok?a=b", "/ok", {"a": "b"}),
+        ("http:/", "/", {}),
+    ),
+)
+async def test_redirect_same_scheme_without_authority(
+    aiohttp_client: AiohttpClient, location: str, path: str, query: dict[str, str]
+) -> None:
+    async def handler_redirect(request: web.Request) -> web.Response:
+        return web.Response(status=301, headers={"Location": location})
+
+    async def handler_ok(request: web.Request) -> web.Response:
+        assert dict(request.query) == query
+        return web.Response(status=200)
+
+    app = web.Application()
+    app.router.add_route("GET", path, handler_ok)
+    app.router.add_route("GET", "/redirect", handler_redirect)
+    client = await aiohttp_client(app)
+
+    async with client.get("/redirect") as resp:
+        assert resp.status == 200
+        assert resp.url.host == "127.0.0.1"
+        assert resp.url.path == path
+        assert dict(resp.url.query) == query
+        assert len(resp.history) == 1
+
+
+async def test_history(aiohttp_client: AiohttpClient) -> None:
+    async def handler_redirect(request: web.Request) -> web.Response:
         return web.Response(status=301, headers={"Location": "/ok"})
 
     async def handler_ok(request):
@@ -1649,6 +1684,62 @@ async def test_HTTP_302_max_redirects(aiohttp_client) -> None:
     assert ctx.value.request_info.method == "GET"
 
 
+async def test_redirect_cookie_storage_is_bounded(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """Large Set-Cookie fields across redirects keep jar and cache state bounded."""
+    redirect_count = 10
+    fields_per_response = 20
+    ignored_attribute = "x" * 7400
+    received_cookie_headers: list[str] = []
+
+    async def handler(request: web.Request) -> web.Response:
+        received_cookie_headers.append(request.headers.get(hdrs.COOKIE, ""))
+        count = int(request.match_info["count"])
+        if count:
+            response = web.Response(
+                status=302, headers={hdrs.LOCATION: f"/redirect/{count - 1}"}
+            )
+        else:
+            response = web.Response()
+        for index in range(fields_per_response):
+            response.headers.add(
+                hdrs.SET_COOKIE,
+                f"cookie{count}_{index}=value; junk={ignored_attribute}",
+            )
+        return response
+
+    app = web.Application()
+    app.router.add_get(r"/redirect/{count:\d+}", handler)
+    jar = aiohttp.CookieJar(unsafe=True)
+    client = await aiohttp_client(app, cookie_jar=jar)
+
+    async with client.get(
+        f"/redirect/{redirect_count}", max_redirects=redirect_count + 1
+    ) as response:
+        assert response.status == 200
+        assert len(response.history) == redirect_count
+        assert len(response.cookies) == fields_per_response
+        assert len(response.headers.getall(hdrs.SET_COOKIE)) == fields_per_response
+
+    response_bytes = (
+        (redirect_count + 1)
+        * fields_per_response
+        * len(f"Set-Cookie: cookie10_15=value; junk={ignored_attribute}".encode())
+    )
+    assert response_bytes > 1024 * 1024
+    max_cookies = aiohttp.cookiejar._MAX_COOKIES_PER_DOMAIN
+    assert redirect_count * fields_per_response > max_cookies
+    assert aiohttp.cookiejar._COOKIE_QUOTA_PER_DOMAIN < len(jar) <= max_cookies
+    assert sum(map(len, jar._morsel_cache.values())) <= max_cookies
+    assert all(
+        aiohttp.cookiejar._COOKIE_HEADER_PREFIX_LENGTH + len(value.encode())
+        <= aiohttp.cookiejar._MAX_COOKIE_HEADER_LENGTH
+        for value in received_cookie_headers
+        if value
+    )
+
+
 async def test_HTTP_200_GET_WITH_PARAMS(aiohttp_client) -> None:
     async def handler(request):
         return web.Response(
@@ -1907,7 +1998,33 @@ async def test_POST_DATA_DEFLATE(aiohttp_client: AiohttpClient) -> None:
     resp.close()
 
 
-async def test_POST_FILES(aiohttp_client, fname) -> None:
+async def test_upload_tracker_compressed_body(aiohttp_client: AiohttpClient) -> None:
+    """bytes_written reports pre-compression payload bytes, not wire bytes."""
+    encodings: list[str | None] = []
+
+    async def handler(request: web.Request) -> web.Response:
+        encodings.append(request.headers.get(hdrs.CONTENT_ENCODING))
+        # The server transparently inflates the body back to the original.
+        assert await request.read() == body
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    body = b"x" * 8192
+    async with client.post(
+        "/", data=body, compress="deflate", upload_tracker=tracker
+    ) as resp:
+        assert resp.status == 200
+
+    assert encodings == ["deflate"]
+    assert tracker.bytes_written == len(body)
+    assert tracker.upload_complete.result() is None
+
+
+async def test_POST_FILES(aiohttp_client: AiohttpClient, fname: pathlib.Path) -> None:
     content1 = fname.read_bytes()
 
     async def handler(request):
@@ -2851,6 +2968,76 @@ async def test_cookies_per_request(aiohttp_client) -> None:
         assert 200 == resp.status
 
 
+async def test_per_request_cookies_are_not_jar_limited(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    cookies = {f"cookie{i}": "value" for i in range(_MAX_COOKIES_PER_REQUEST + 1)}
+
+    async def handler(request: web.Request) -> web.Response:
+        assert request.cookies.keys() == cookies.keys()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app)
+
+    async with client.get("/", cookies=cookies) as response:
+        assert response.status == 200
+
+
+async def test_explicit_cookie_header_is_not_jar_limited(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    count = _MAX_COOKIES_PER_REQUEST + 1
+    cookie_header = "; ".join(f"cookie{i}=value" for i in range(count))
+
+    async def handler(request: web.Request) -> web.Response:
+        assert request.headers[hdrs.COOKIE] == cookie_header
+        assert len(request.cookies) == count
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app)
+
+    async with client.get("/", headers={hdrs.COOKIE: cookie_header}) as response:
+        assert response.status == 200
+
+
+@pytest.mark.parametrize(
+    ("set_cookie", "name", "value"),
+    (("path=unquoted", "path", "unquoted"), ('secure="quoted"', "secure", "quoted")),
+)
+async def test_reserved_cookie_name_round_trip(
+    aiohttp_client: AiohttpClient,
+    set_cookie: str,
+    name: str,
+    value: str,
+) -> None:
+    """Reserved attribute words are valid cookie names in first position."""
+    received_cookies: dict[str, str] = {}
+
+    async def set_handler(request: web.Request) -> web.Response:
+        response = web.Response(status=302, headers={hdrs.LOCATION: "/receive"})
+        response.headers.add(hdrs.SET_COOKIE, set_cookie)
+        return response
+
+    async def receive_handler(request: web.Request) -> web.Response:
+        received_cookies.update(request.cookies)
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/set", set_handler)
+    app.router.add_get("/receive", receive_handler)
+    client = await aiohttp_client(app, cookie_jar=aiohttp.CookieJar(unsafe=True))
+
+    async with client.get("/set") as response:
+        assert response.status == 200
+        assert response.history[0].cookies[name].value == value
+
+    assert received_cookies == {name: value}
+
+
 async def test_cookies_redirect(aiohttp_client) -> None:
     async def redirect1(request):
         ret = web.Response(status=301, headers={"Location": "/redirect2"})
@@ -2909,15 +3096,69 @@ async def test_morsel_with_attributes(aiohttp_client) -> None:
     c = http.cookies.Morsel()
     c.set("test3", "456", "456")
     c["httponly"] = True
-    c["secure"] = True
     c["max-age"] = 1000
+
+    # A Secure shared cookie must be withheld entirely: the test server
+    # is plain http, so it must not reach the handler at all.
+    c2: http.cookies.Morsel[str] = http.cookies.Morsel()
+    c2.set("test4", "789", "789")
+    c2["secure"] = True
 
     app = web.Application()
     app.router.add_get("/", handler)
-    client = await aiohttp_client(app, cookies={"test2": c})
+    client = await aiohttp_client(app, cookies={"test2": c, "test4": c2})
 
     async with client.get("/") as resp:
         assert 200 == resp.status
+
+
+async def test_request_secure_cookie_treat_as_secure_origin(
+    aiohttp_server: AiohttpServer, aiohttp_client: AiohttpClient
+) -> None:
+    """Per-request Secure cookies must honor the session jar's trusted origins."""
+
+    async def handler(request: web.Request) -> web.Response:
+        assert request.cookies.get("auth") == "token"
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    server = await aiohttp_server(app)
+
+    jar = aiohttp.CookieJar(unsafe=True, treat_as_secure_origin=[server.make_url("/")])
+    client = await aiohttp_client(server, cookie_jar=jar)  # type: ignore[var-annotated]
+
+    c: http.cookies.Morsel[str] = http.cookies.Morsel()
+    c.set("auth", "token", "token")
+    c["secure"] = True
+
+    async with client.get("/", cookies={"auth": c}) as resp:
+        assert resp.status == 200
+
+
+async def test_request_secure_cookie_not_sent_over_http(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A per-request Secure cookie is only sent to the jar's trusted origins."""
+
+    async def handler(request: web.Request) -> web.Response:
+        assert request.cookies.keys() == {"plain"}
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    # The trusted origin never matches the test server, so the Secure
+    # cookie must still be withheld from this plain-http request.
+    jar = aiohttp.CookieJar(treat_as_secure_origin=[URL("http://example.com")])
+    client = await aiohttp_client(app, cookie_jar=jar)
+
+    c: http.cookies.Morsel[str] = http.cookies.Morsel()
+    c.set("auth", "token", "token")
+    c["secure"] = True
+
+    cookies: dict[str, str | http.cookies.Morsel[str]] = {"auth": c, "plain": "ok"}
+    async with client.get("/", cookies=cookies) as resp:
+        assert resp.status == 200
 
 
 async def test_set_cookies(
@@ -3045,6 +3286,50 @@ async def test_set_cookies_max_age_overflow(aiohttp_client) -> None:
                 assert int(cookie["max-age"]) == int(overflow)
 
 
+async def test_connection_released_when_cookie_processing_fails(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    class EvilJar(aiohttp.CookieJar):
+        def update_cookies_from_headers(
+            self, headers: Sequence[str], response_url: URL
+        ) -> None:
+            raise RuntimeError("boom")
+
+    hold = asyncio.Event()
+
+    async def hostile(request: web.Request) -> web.StreamResponse:
+        ret = web.StreamResponse()
+        ret.content_length = 2
+        ret.set_cookie("sid", "x")
+        await ret.prepare(request)
+        await ret.write(b"x")
+        await hold.wait()
+        assert False
+
+    async def clean(request: web.Request) -> web.Response:
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_get("/hostile", hostile)
+    app.router.add_get("/clean", clean)
+    connector = aiohttp.TCPConnector(limit=1)
+    client = await aiohttp_client(app, connector=connector, cookie_jar=EvilJar())
+
+    try:
+        for _ in range(2):
+            with pytest.raises(RuntimeError, match="boom") as excinfo:
+                await client.get("/hostile")
+            assert not connector._acquired
+            del excinfo
+
+        # The single connector slot is free again: an unaffected request
+        # succeeds instead of waiting forever for a connection.
+        async with client.get("/clean") as resp:
+            assert resp.status == 200
+    finally:
+        hold.set()
+
+
 async def test_request_conn_error() -> None:
     client = aiohttp.ClientSession()
     with pytest.raises(aiohttp.ClientConnectionError):
@@ -3148,12 +3433,10 @@ INVALID_URL_WITH_ERROR_MESSAGE_YARL_NEW = (
     ("http://example.org:non_int_port/", "http://example.org:non_int_port/"),
 )
 
-INVALID_URL_WITH_ERROR_MESSAGE_YARL_ORIGIN = (
-    # # yarl.URL.origin raises ValueError
-    ("http:/", "http:///"),
-    ("http:/example.com", "http:///example.com"),
-    ("http:///example.com", "http:///example.com"),
-)
+# yarl.URL.origin raises ValueError. A redirect to "http:/" resolves against
+# the current URL instead, see test_redirect_same_scheme_without_authority().
+# Older yarl versions write the URL as "http:///", which the pattern matches.
+INVALID_URL_WITH_ERROR_MESSAGE_YARL_ORIGIN = (("http:/", "http:/"),)
 
 NON_HTTP_URL_WITH_ERROR_MESSAGE = (
     ("call:+380123456789", r"call:\+380123456789"),
@@ -3197,8 +3480,7 @@ async def test_invalid_and_non_http_url(
     (
         *(
             (url, message, InvalidUrlRedirectClientError)
-            for (url, message) in INVALID_URL_WITH_ERROR_MESSAGE_YARL_ORIGIN
-            + INVALID_URL_WITH_ERROR_MESSAGE_YARL_NEW
+            for (url, message) in INVALID_URL_WITH_ERROR_MESSAGE_YARL_NEW
         ),
         *(
             (url, message, NonHttpUrlRedirectClientError)
@@ -3232,8 +3514,7 @@ async def test_invalid_redirect_url(
     (
         *(
             (url, message, InvalidUrlRedirectClientError)
-            for (url, message) in INVALID_URL_WITH_ERROR_MESSAGE_YARL_ORIGIN
-            + INVALID_URL_WITH_ERROR_MESSAGE_YARL_NEW
+            for (url, message) in INVALID_URL_WITH_ERROR_MESSAGE_YARL_NEW
         ),
         *(
             (url, message, NonHttpUrlRedirectClientError)
@@ -5558,8 +5839,9 @@ async def test_invalid_redirect_origin_closes_payload(
     async def redirect_handler(request: web.Request) -> web.Response:
         # Read the payload to simulate server processing
         await request.read()
-        # Return a URL that will fail origin() check - using a relative URL without host
-        return web.Response(status=307, headers={hdrs.LOCATION: "http:///path"})
+        # Return a URL that will fail origin() check - using a URL without host
+        # in another scheme, so that it is not resolved against the current URL
+        return web.Response(status=307, headers={hdrs.LOCATION: "https:"})
 
     app = web.Application()
     app.router.add_post("/redirect", redirect_handler)
@@ -5632,7 +5914,7 @@ async def test_request_body_closed_on_cancellation() -> None:
 async def test_request_error_before_body_created_does_not_mask() -> None:
     async with aiohttp.ClientSession() as session:
         with pytest.raises(InvalidUrlClientError):
-            await session.get("http:///path")
+            await session.get("http://")
 
 
 async def test_amazon_like_cookie_scenario(aiohttp_client: AiohttpClient) -> None:
@@ -6005,6 +6287,74 @@ async def test_file_upload_307_302_redirect_chain(
         await asyncio.to_thread(f.close)
 
 
+async def test_file_upload_retry_persistent_connection(
+    aiohttp_client: AiohttpClient, tmp_path: pathlib.Path
+) -> None:
+    """A retried request must resend the whole file, not the unread remainder."""
+    received_bodies: list[bytes] = []
+    num_requests = 0
+
+    async def handler(request: web.Request) -> web.Response:
+        nonlocal num_requests
+        num_requests += 1
+        if num_requests == 1:
+            assert request.transport is not None
+            request.transport.close()
+            return web.Response()
+
+        received_bodies.append(await request.read())
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_put("/upload", handler)
+
+    client = await aiohttp_client(app)
+    client.session._retry_connection = True
+
+    test_file = tmp_path / "test_retry_upload.txt"
+    content = b"This is test file content for a retried upload."
+    await asyncio.to_thread(test_file.write_bytes, content)
+
+    f = await asyncio.to_thread(open, test_file, "rb")
+    try:
+        async with client.put("/upload", data=f) as resp:
+            assert resp.status == 200
+    finally:
+        await asyncio.to_thread(f.close)
+
+    assert num_requests == 2
+    assert received_bodies == [content]
+
+
+async def test_upload_retry_persistent_connection_unseekable_body(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """An unreplayable body must not be silently resent truncated on retry."""
+    num_requests = 0
+
+    async def handler(request: web.Request) -> web.Response:
+        nonlocal num_requests
+        num_requests += 1
+        assert request.transport is not None
+        request.transport.close()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_put("/upload", handler)
+
+    client = await aiohttp_client(app)
+    client.session._retry_connection = True
+
+    async def gen() -> AsyncIterator[bytes]:
+        yield b"chunk1"
+        yield b"chunk2"
+
+    with pytest.raises((aiohttp.ServerDisconnectedError, aiohttp.ClientOSError)):
+        await client.put("/upload", data=gen())
+
+    assert num_requests == 1
+
+
 async def test_stream_reader_total_raw_bytes(aiohttp_client: AiohttpClient) -> None:
     """Test whether StreamReader.total_raw_bytes returns the number of bytes downloaded"""
     source_data = b"@dKal^pH>1h|YW1:c2J$" * 4096
@@ -6048,7 +6398,7 @@ async def test_stream_reader_total_raw_bytes(aiohttp_client: AiohttpClient) -> N
         assert resp.content.total_raw_bytes == int(resp.headers["Content-Length"])
 
 
-async def test_output_size_bytes(aiohttp_client: AiohttpClient) -> None:
+async def test_upload_tracker_bytes(aiohttp_client: AiohttpClient) -> None:
     async def handler(request: web.Request) -> web.Response:
         await request.read()
         return web.Response()
@@ -6057,12 +6407,17 @@ async def test_output_size_bytes(aiohttp_client: AiohttpClient) -> None:
     app.router.add_post("/", handler)
     client = await aiohttp_client(app)
 
+    tracker = aiohttp.UploadTracker()
     body = b"x" * 1024
-    async with client.post("/", data=body) as resp:
-        assert resp.output_size >= len(body)
+    async with client.post("/", data=body, upload_tracker=tracker) as resp:
+        assert resp.status == 200
+
+    assert tracker.attempts == 1
+    assert tracker.bytes_written == len(body)
+    assert tracker.upload_complete.result() is None
 
 
-async def test_output_size_multipart(aiohttp_client: AiohttpClient) -> None:
+async def test_upload_tracker_multipart(aiohttp_client: AiohttpClient) -> None:
     async def handler(request: web.Request) -> web.Response:
         await request.read()
         return web.Response()
@@ -6077,40 +6432,16 @@ async def test_output_size_multipart(aiohttp_client: AiohttpClient) -> None:
     expected_body_size = mpwriter.size
     assert expected_body_size is not None
 
-    async with client.post("/", data=mpwriter) as resp:
-        assert resp.output_size >= expected_body_size
+    tracker = aiohttp.UploadTracker()
+    async with client.post("/", data=mpwriter, upload_tracker=tracker) as resp:
+        assert resp.status == 200
+
+    assert tracker.bytes_written == expected_body_size
+    assert tracker.upload_complete.result() is None
 
 
-async def test_output_size_keepalive_isolated(
-    aiohttp_client: AiohttpClient,
-) -> None:
-    """Each request on a keep-alive connection has its own counter."""
-    transports: set[object] = set()
-
-    async def handler(request: web.Request) -> web.Response:
-        transports.add(request.transport)
-        await request.read()
-        return web.Response()
-
-    app = web.Application()
-    app.router.add_post("/", handler)
-    connector = aiohttp.TCPConnector(limit=1, force_close=False)
-    client = await aiohttp_client(app, connector=connector)
-    body = b"x" * 65536
-
-    async with client.post("/", data=body) as resp1:
-        size1 = resp1.output_size
-
-    async with client.post("/", data=body) as resp2:
-        size2 = resp2.output_size
-
-    assert len(transports) == 1  # Check keep-alive worked.
-    assert size1 >= len(body)
-    assert size1 == size2
-
-
-async def test_output_size_progress(aiohttp_client: AiohttpClient) -> None:
-    """output_size advances by exactly one chunk per yield."""
+async def test_upload_tracker_progress(aiohttp_client: AiohttpClient) -> None:
+    """bytes_written advances by exactly one chunk per yield."""
 
     async def handler(request: web.Request) -> web.StreamResponse:
         response = web.StreamResponse()
@@ -6138,26 +6469,24 @@ async def test_output_size_progress(aiohttp_client: AiohttpClient) -> None:
             next_chunk.set()
             await sample_taken.wait()
 
-    async with client.post("/", data=gated_body()) as resp:
+    tracker = aiohttp.UploadTracker()
+    async with client.post("/", data=gated_body(), upload_tracker=tracker) as resp:
         samples: list[int] = []
         for _ in range(num_chunks):
             await next_chunk.wait()
             next_chunk.clear()
-            samples.append(resp.output_size)
-            assert not resp.upload_complete.done()
+            samples.append(tracker.bytes_written)
+            assert not tracker.upload_complete.done()
             sample_taken.set()
-        await resp.upload_complete
-        assert resp.upload_complete.done()
+        await tracker.upload_complete
         await resp.read()
 
-    # Each sample after the first reflects exactly one more chunk on the wire.
-    chunked_framing = len(f"{chunk_size:x}".encode()) + 4
-    deltas = [samples[i] - samples[i - 1] for i in range(1, len(samples))]
-    assert deltas == [chunk_size + chunked_framing] * (num_chunks - 1)
+    # Each sample reflects exactly one more payload chunk, without framing.
+    assert samples == [chunk_size * (i + 1) for i in range(num_chunks)]
 
 
-async def test_output_size_get_request(aiohttp_client: AiohttpClient) -> None:
-    """GET request with no body still reports the request header byte count."""
+async def test_upload_tracker_no_body(aiohttp_client: AiohttpClient) -> None:
+    """A bodyless request settles the tracker with a zero-byte attempt."""
 
     async def handler(request: web.Request) -> web.Response:
         return web.Response()
@@ -6166,13 +6495,16 @@ async def test_output_size_get_request(aiohttp_client: AiohttpClient) -> None:
     app.router.add_get("/", handler)
     client = await aiohttp_client(app)
 
-    async with client.get("/") as resp:
-        assert resp.output_size >= 0
+    tracker = aiohttp.UploadTracker()
+    async with client.get("/", upload_tracker=tracker) as resp:
+        assert resp.status == 200
+
+    assert tracker.attempts == 1
+    assert tracker.bytes_written == 0
+    assert tracker.upload_complete.result() is None
 
 
-async def test_output_size_writer_released(aiohttp_client: AiohttpClient) -> None:
-    """Writer is dropped once body upload completes; output_size survives."""
-
+async def test_upload_tracker_expect100(aiohttp_client: AiohttpClient) -> None:
     async def handler(request: web.Request) -> web.Response:
         await request.read()
         return web.Response()
@@ -6181,14 +6513,314 @@ async def test_output_size_writer_released(aiohttp_client: AiohttpClient) -> Non
     app.router.add_post("/", handler)
     client = await aiohttp_client(app)
 
-    body = b"x" * 1024
-    async with client.post("/", data=body) as resp:
+    tracker = aiohttp.UploadTracker()
+    body = b"e" * 256
+    async with client.post(
+        "/", data=body, expect100=True, upload_tracker=tracker
+    ) as resp:
+        assert resp.status == 200
+
+    assert tracker.attempts == 1
+    assert tracker.bytes_written == len(body)
+    assert tracker.upload_complete.result() is None
+
+
+async def test_upload_tracker_redirect_resends_body(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A 307 redirect resends the body as a new attempt of the same tracker."""
+
+    async def redirect(request: web.Request) -> NoReturn:
+        await request.read()
+        raise web.HTTPTemporaryRedirect("/final")
+
+    async def final(request: web.Request) -> web.Response:
+        await request.read()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", redirect)
+    app.router.add_post("/final", final)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    body = b"r" * 2048
+    async with client.post("/", data=body, upload_tracker=tracker) as resp:
+        assert resp.status == 200
+
+    assert tracker.attempts == 2
+    assert tracker.bytes_written == len(body)
+    assert tracker.upload_complete.result() is None
+
+
+async def test_upload_tracker_redirect_drops_body(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A 303 redirect turns POST into a bodyless GET; the final attempt sent 0 bytes."""
+
+    async def redirect(request: web.Request) -> NoReturn:
+        await request.read()
+        raise web.HTTPSeeOther("/final")
+
+    async def final(request: web.Request) -> web.Response:
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_post("/", redirect)
+    app.router.add_get("/final", final)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    async with client.post("/", data=b"d" * 512, upload_tracker=tracker) as resp:
+        assert resp.status == 200
+
+    assert tracker.attempts == 2
+    assert tracker.bytes_written == 0
+    assert tracker.upload_complete.result() is None
+
+
+async def test_upload_tracker_redirect_to_unreachable_host(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A resend failing before its body write must not report success."""
+
+    async def redirect(request: web.Request) -> NoReturn:
+        await request.read()
+        raise web.HTTPTemporaryRedirect("http://127.0.0.1:1/")
+
+    app = web.Application()
+    app.router.add_post("/", redirect)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises(aiohttp.ClientConnectorError):
+        await client.post("/", data=b"r" * 2048, upload_tracker=tracker)
+
+    # The first hop's completed upload is history; the dispatched resend
+    # is the outcome.
+    assert tracker.attempts == 2
+    assert tracker.bytes_written == 0
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_upload_tracker_settles_after_early_response(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A server can respond before the body is sent; the future settles later."""
+    body_unblocked = asyncio.Event()
+
+    async def handler(request: web.Request) -> web.StreamResponse:
+        response = web.StreamResponse()
+        await response.prepare(request)
+        await response.write(b"x")
+        await request.read()
+        return response
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    chunk = b"z" * 4096
+
+    async def gated_body() -> AsyncIterator[bytes]:
+        yield chunk
+        await body_unblocked.wait()
+        yield chunk
+
+    tracker = aiohttp.UploadTracker()
+    async with client.post("/", data=gated_body(), upload_tracker=tracker) as resp:
+        # Response headers arrived while the body is still being written.
+        assert not tracker.upload_complete.done()
+        body_unblocked.set()
+        await tracker.upload_complete
+        assert tracker.bytes_written == 2 * len(chunk)
         await resp.read()
-        assert resp._stream_writer is None
-    assert resp.output_size >= len(body)
 
 
-async def test_upload_complete_no_body(aiohttp_client: AiohttpClient) -> None:
+async def test_upload_tracker_error_after_response(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """Upload failure after the request succeeded stays on the future."""
+    body_unblocked = asyncio.Event()
+
+    async def handler(request: web.Request) -> web.StreamResponse:
+        response = web.StreamResponse()
+        await response.prepare(request)
+        # Flush headers so the request succeeds while the body is still
+        # being written; keep the connection open by reading the body.
+        await response.write(b"x")
+        with suppress(Exception):
+            await request.read()
+        assert False
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    async def failing_body() -> AsyncIterator[bytes]:
+        yield b"a" * 100
+        await body_unblocked.wait()
+        raise ValueError("boom")
+
+    tracker = aiohttp.UploadTracker()
+    async with client.post("/", data=failing_body(), upload_tracker=tracker) as resp:
+        assert resp.status == 200
+        assert not tracker.upload_complete.done()
+        body_unblocked.set()
+        with pytest.raises(aiohttp.ClientConnectionError):
+            await tracker.upload_complete
+
+    assert tracker.attempts == 1
+
+
+async def test_upload_tracker_upload_error_propagated_to_caller(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """The upload failure the request raises is the one on the future."""
+
+    async def handler(request: web.Request) -> web.Response:
+        with suppress(Exception):
+            await request.read()
+        assert False
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    async def failing_body() -> AsyncIterator[bytes]:
+        yield b"a" * 100
+        raise ValueError("boom")
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises(aiohttp.ClientConnectionError) as exc_info:
+        await client.post("/", data=failing_body(), upload_tracker=tracker)
+
+    assert tracker.attempts == 1
+    assert tracker.upload_complete.exception() is exc_info.value
+
+
+async def test_upload_tracker_connect_error(aiohttp_client: AiohttpClient) -> None:
+    """A request failing before the body write leaves the future cancelled."""
+
+    async def handler(request: web.Request) -> web.Response:
+        assert False
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises(aiohttp.ClientConnectorError):
+        await client.session.post(
+            "http://127.0.0.1:1/", data=b"x", upload_tracker=tracker
+        )
+
+    assert tracker.attempts == 1
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_upload_tracker_request_cancelled(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    async def handler(request: web.Request) -> web.Response:
+        await request.read()
+        assert False
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    first_chunk_sent = asyncio.Event()
+
+    async def gated_body() -> AsyncIterator[bytes]:
+        yield b"a" * 100
+        first_chunk_sent.set()
+        await asyncio.Event().wait()  # Block until cancelled.
+
+    tracker = aiohttp.UploadTracker()
+    task = asyncio.create_task(
+        client.post("/", data=gated_body(), upload_tracker=tracker)
+    )
+    await first_chunk_sent.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    with pytest.raises(aiohttp.UploadAbortedError):
+        await tracker.upload_complete
+    assert tracker.attempts == 1
+
+
+async def test_upload_tracker_middleware_short_circuit(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A middleware answering without sending the request aborts the upload."""
+
+    async def handler(request: web.Request) -> web.Response:
+        await request.read()
+        return web.Response()
+
+    app = web.Application()
+    app.router.add_route("*", "/", handler)
+    client = await aiohttp_client(app)
+
+    cached = await client.get("/")
+    await cached.read()
+    cached.release()
+
+    async def cache_mw(
+        req: aiohttp.ClientRequest, handler_: aiohttp.ClientHandlerType
+    ) -> aiohttp.ClientResponse:
+        return cached
+
+    tracker = aiohttp.UploadTracker()
+    async with client.post(
+        "/", data=b"x" * 128, middlewares=(cache_mw,), upload_tracker=tracker
+    ) as resp:
+        assert resp is cached
+
+    assert tracker.attempts == 0
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_upload_tracker_middleware_resend(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A middleware resending the request counts a new attempt."""
+    server_hits = 0
+
+    async def handler(request: web.Request) -> web.Response:
+        nonlocal server_hits
+        await request.read()
+        server_hits += 1
+        return web.Response(status=401 if server_hits == 1 else 200)
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    async def retry_mw(
+        req: aiohttp.ClientRequest, handler_: aiohttp.ClientHandlerType
+    ) -> aiohttp.ClientResponse:
+        resp = await handler_(req)
+        assert resp.status == 401
+        resp.release()
+        resp = await handler_(req)
+        return resp
+
+    tracker = aiohttp.UploadTracker()
+    body = b"b" * 512
+    async with client.post(
+        "/", data=body, middlewares=(retry_mw,), upload_tracker=tracker
+    ) as resp:
+        assert resp.status == 200
+
+    assert tracker.attempts == 2
+    assert tracker.bytes_written == len(body)
+    assert tracker.upload_complete.result() is None
+
+
+async def test_upload_tracker_rebind_raises(aiohttp_client: AiohttpClient) -> None:
     async def handler(request: web.Request) -> web.Response:
         return web.Response()
 
@@ -6196,12 +6828,186 @@ async def test_upload_complete_no_body(aiohttp_client: AiohttpClient) -> None:
     app.router.add_get("/", handler)
     client = await aiohttp_client(app)
 
-    async with client.get("/") as resp:
-        assert resp.upload_complete.done()
+    tracker = aiohttp.UploadTracker()
+    async with client.get("/", upload_tracker=tracker):
+        pass
+
+    with pytest.raises(RuntimeError, match="already bound"):
+        await client.get("/", upload_tracker=tracker)
 
 
-async def test_upload_complete_late_access(aiohttp_client: AiohttpClient) -> None:
-    """Accessing upload_complete after the upload finished returns a done future."""
+async def test_upload_tracker_non_http_scheme(aiohttp_client: AiohttpClient) -> None:
+    """A request rejected before being built settles the tracker."""
+
+    async def handler(request: web.Request) -> web.Response:
+        assert False
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises(aiohttp.NonHttpUrlClientError):
+        await client.session.get("ftp://example.com/", upload_tracker=tracker)
+
+    assert tracker.attempts == 0
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_upload_tracker_trace_start_failure(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """A failing on_request_start trace disarms the timeout and settles the tracker."""
+
+    async def on_request_start(
+        session: aiohttp.ClientSession,
+        ctx: SimpleNamespace,
+        params: aiohttp.TraceRequestStartParams,
+    ) -> None:
+        raise RuntimeError("trace boom")
+
+    trace_config = aiohttp.TraceConfig()
+    trace_config.on_request_start.append(on_request_start)
+
+    async def handler(request: web.Request) -> web.Response:
+        assert False
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app, trace_configs=[trace_config])
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises(RuntimeError, match="trace boom"):
+        await client.get("/", upload_tracker=tracker)
+
+    assert tracker.attempts == 0
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_trace_start_failure_notifies_started_traces(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """Traces whose on_request_start already ran get the terminal event."""
+    seen_exceptions: list[BaseException] = []
+
+    async def good_start(
+        session: aiohttp.ClientSession,
+        ctx: SimpleNamespace,
+        params: aiohttp.TraceRequestStartParams,
+    ) -> None:
+        """Complete normally so this config expects a terminal event."""
+
+    async def good_exception(
+        session: aiohttp.ClientSession,
+        ctx: SimpleNamespace,
+        params: aiohttp.TraceRequestExceptionParams,
+    ) -> None:
+        seen_exceptions.append(params.exception)
+
+    good = aiohttp.TraceConfig()
+    good.on_request_start.append(good_start)
+    good.on_request_exception.append(good_exception)
+
+    bad_exception_calls: list[BaseException] = []
+
+    async def bad_start(
+        session: aiohttp.ClientSession,
+        ctx: SimpleNamespace,
+        params: aiohttp.TraceRequestStartParams,
+    ) -> None:
+        raise RuntimeError("trace boom")
+
+    async def bad_exception(
+        session: aiohttp.ClientSession,
+        ctx: SimpleNamespace,
+        params: aiohttp.TraceRequestExceptionParams,
+    ) -> None:
+        bad_exception_calls.append(params.exception)  # pragma: no cover
+
+    bad = aiohttp.TraceConfig()
+    bad.on_request_start.append(bad_start)
+    bad.on_request_exception.append(bad_exception)
+
+    async def handler(request: web.Request) -> web.Response:
+        assert False
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app, trace_configs=[good, bad])
+
+    with pytest.raises(RuntimeError, match="trace boom"):
+        await client.get("/")
+
+    assert len(seen_exceptions) == 1
+    assert isinstance(seen_exceptions[0], RuntimeError)
+    # The config whose start never completed gets no terminal event.
+    assert not bad_exception_calls
+
+
+@pytest.mark.parametrize(
+    "bad_kwargs",
+    (
+        {"data": b"x", "json": {"a": 1}},
+        {"json": {"a": object()}},
+        {"ssl": object()},
+    ),
+    ids=("data-and-json", "unserializable-json", "bad-ssl-type"),
+)
+async def test_upload_tracker_validation_failure(
+    aiohttp_client: AiohttpClient, bad_kwargs: dict[str, object]
+) -> None:
+    """Argument validation failures settle the tracker instead of hanging it."""
+
+    async def handler(request: web.Request) -> web.Response:
+        assert False
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises((TypeError, ValueError)):
+        await client.post("/", upload_tracker=tracker, **bad_kwargs)  # type: ignore[arg-type]
+
+    assert tracker.attempts == 0
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_upload_tracker_closed_session() -> None:
+    """A request on a closed session settles the tracker."""
+    session = aiohttp.ClientSession()
+    await session.close()
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises(RuntimeError, match="Session is closed"):
+        await session.get("http://example.com/", upload_tracker=tracker)
+
+    assert tracker.attempts == 0
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_upload_tracker_invalid_proxy(aiohttp_client: AiohttpClient) -> None:
+    """An invalid proxy URL settles the tracker before the request is built."""
+
+    async def handler(request: web.Request) -> web.Response:
+        assert False
+
+    app = web.Application()
+    app.router.add_get("/", handler)
+    client = await aiohttp_client(app)
+
+    tracker = aiohttp.UploadTracker()
+    with pytest.raises(InvalidURL):
+        await client.get("/", proxy="http://[invalid", upload_tracker=tracker)
+
+    assert tracker.attempts == 0
+    assert isinstance(tracker.upload_complete.exception(), aiohttp.UploadAbortedError)
+
+
+async def test_upload_complete_deprecated_late_access(
+    aiohttp_client: AiohttpClient,
+) -> None:
+    """First access after the upload finished returns an already-done future."""
 
     async def handler(request: web.Request) -> web.Response:
         await request.read()
@@ -6213,6 +7019,46 @@ async def test_upload_complete_late_access(aiohttp_client: AiohttpClient) -> Non
 
     async with client.post("/", data=b"x" * 1024) as resp:
         await resp.read()
-        # Writer task is done; future is created lazily on this first access.
-        assert resp._upload_complete is None
-        assert resp.upload_complete.done()
+        with pytest.warns(DeprecationWarning, match="upload_complete is deprecated"):
+            fut = resp.upload_complete
+        assert fut.done()
+
+
+async def test_deprecated_upload_attributes(aiohttp_client: AiohttpClient) -> None:
+    """The deprecated ClientResponse attributes still work in both writer states."""
+    body_unblocked = asyncio.Event()
+
+    async def handler(request: web.Request) -> web.StreamResponse:
+        response = web.StreamResponse()
+        await response.prepare(request)
+        # Flush headers so the client sees the response mid-upload.
+        await response.write(b"x")
+        await request.read()
+        return response
+
+    app = web.Application()
+    app.router.add_post("/", handler)
+    client = await aiohttp_client(app)
+
+    async def gated_body() -> AsyncIterator[bytes]:
+        yield b"x" * 512
+        await body_unblocked.wait()
+        yield b"y" * 512
+
+    async with client.post("/", data=gated_body()) as resp:
+        # The writer is still active on first access.
+        with pytest.warns(DeprecationWarning, match="output_size is deprecated"):
+            assert resp.output_size >= 0
+        with pytest.warns(DeprecationWarning, match="upload_complete is deprecated"):
+            fut = resp.upload_complete
+        assert not fut.done()
+
+        body_unblocked.set()
+        await fut
+
+        # The writer has been released; the same future is returned.
+        with pytest.warns(DeprecationWarning, match="upload_complete is deprecated"):
+            assert resp.upload_complete is fut
+        with pytest.warns(DeprecationWarning, match="output_size is deprecated"):
+            assert resp.output_size >= 1024
+        await resp.read()

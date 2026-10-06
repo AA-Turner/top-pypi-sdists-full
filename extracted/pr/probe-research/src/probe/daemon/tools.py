@@ -89,16 +89,16 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: The commands whose every write goes through a route on the server's
 #: Idempotency-Key allowlist (research-os `app/core/idempotency.py` ALLOWLIST on
 #: main), checked against the routes this client sends them to: POST /v1/projects
-#: (project create), POST /v1/projects/{id}/groups, PATCH
+#: (project create), POST and PATCH /v1/projects/{P}/experiments[/{E}]
+#: (experiment create, set, move -- the server names them since light
+#: experiments X21), POST /v1/projects/{P}/experiments/{E}/groups, PATCH
 #: /v1/projects|runs|groups|artifacts|papers|views/{id}, POST
 #: /v1/artifacts/{id}/move, POST /v1/projects/{id}/papers|references, POST
-#: /v1/edges, POST /v1/runs/{id}/views, sub-notes. NOT here, on purpose:
+#: /v1/edges, POST /v1/runs/{id}/views, sub-notes (an experiment's under
+#: /v1/projects/{P}/experiments/{E}/sub-notes). NOT here, on purpose:
 #: `artifact add` (presign / PUT / confirm), `notes push` and `notes sync` (their
 #: merge answers are not replayed), every delete, `artifact version-add`,
-#: `experiment freeze`, `version create`, `project code *`, `experiment create`,
-#: `experiment set` and `experiment move` (since light experiments R4 they write
-#: through `/v1/projects/{P}/experiments[/{E}]`, which the server's allowlist does
-#: not name yet: a replayed create would answer 409 for a write that landed),
+#: `experiment freeze`, `version create`, `project code *`,
 #: `run end` (it may send
 #: more than the one allowlisted PATCH), and `notes append` / `notes edit`: their
 #: entity routes are allowlisted, but each READS the note and sends a document
@@ -111,6 +111,7 @@ _TRANSPORT_FAILURE = re.compile(r"^error: (GET|HEAD|POST|PATCH|PUT|DELETE) /\S*:
 #: never retried: the CLI cannot say that nothing was written.
 IDEMPOTENT_COMMANDS = frozenset({
     "project create", "group create",
+    "experiment create", "experiment set", "experiment move",
     "project set", "project tag", "project move",
     "run set", "run tag", "run move", "group set",
     "artifact set", "artifact move", "paper add", "paper update", "paper tag",
@@ -671,11 +672,12 @@ async def _run_steps(deps: Deps, steps: list, why: str) -> str:
 def _renew_after_step(deps: Deps) -> None:
     """A finished part of a compound is progress: extend the lease, as a finished
     tool call does (`agent._renew_after`), so several slow probe commands in one
-    call cannot outlive it -- but only a live lease this process holds, for a
-    switch still at `daemon`, so a lapsed, released or taken one stays lost."""
+    call cannot outlive it -- but only a live lease this process holds while the
+    writer still records the session (`lease.records`), so a lapsed, released or
+    taken one stays lost."""
     from probe.daemon import lease
 
-    if deps.replay is None and lease.held(deps.session_id) and lease.session_state(deps.session_id) == "daemon":
+    if deps.replay is None and lease.held(deps.session_id) and lease.records(deps.session_id):
         lease.renew(deps.session_id)
 
 

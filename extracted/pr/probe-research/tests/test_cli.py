@@ -1204,8 +1204,11 @@ def test_experiment_edges_takes_the_slug_like_every_other_experiment_verb(wired,
     assert cli.main(["experiment", "edges", "e"]) == 0
     capsys.readouterr()
     experiment_id = wired.runs[rid]["experiment_id"]
-    # 0231: the client reads an experiment at its PROJECT address.
-    assert f"/v1/projects/{experiment_id}/edges" in _paths_for(wired, "/edges")
+    project_id = wired.experiments[experiment_id]["project_id"]
+    # X21: the experiment API's edges route, under the project it is filed in.
+    assert f"/v1/projects/{project_id}/experiments/{experiment_id}/edges" in _paths_for(
+        wired, "/edges"
+    )
 
 
 def test_experiment_edges_still_reaches_an_id_with_the_id_prefix(wired, capsys):

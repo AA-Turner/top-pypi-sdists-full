@@ -29,7 +29,7 @@ def _json(path: Path) -> dict:
 
 
 def _hooks(plugin: Path) -> dict:
-    return _json(plugin / "hooks" / "hooks.json")["hooks"]
+    return _json(plugin / "hooks" / "routes.json")["hooks"]
 
 
 def _commands(hooks: dict):
@@ -90,7 +90,7 @@ def test_the_manifests():
 
 def test_hook_files_are_byte_identical_copies_of_the_full_plugins():
     listed = _makefile_list()
-    shipped = sorted(p.name for p in (LEAN / "hooks").iterdir() if p.is_file() and p.name != "hooks.json")
+    shipped = sorted(p.name for p in (LEAN / "hooks").iterdir() if p.is_file() and p.name != "routes.json")
     assert shipped == sorted(listed), "hooks/ holds exactly the files `make sync-daemon-plugin` copies"
     assert "note_audit.py" not in listed, "the team-note audit reminder needs Probe reads: not wired"
     for name in listed:

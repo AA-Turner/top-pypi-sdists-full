@@ -100,14 +100,14 @@ def hals_nnls(
 
     This problem can also be defined by adding respectively a sparsity coefficient and a ridge coefficients
 
-    .. math:: \lambda_s, \lambda_r
+    .. math:: \\lambda_s, \\lambda_r
 
     enhancing sparsity or smoothness in the solution [2]. In this sparse/ridge version, the update rule becomes
 
     .. math::
 
             \\begin{equation}
-                V[k,:]_{(j+1)} = V[k,:]_{(j)} + (UtM[k,:] - UtU[k,:]\\times V_{(j)} - \lambda_s)/(UtU[k,k]+2\lambda_r)
+                V[k,:]_{(j+1)} = V[k,:]_{(j)} + (UtM[k,:] - UtU[k,:]\\times V_{(j)} - \\lambda_s)/(UtU[k,k]+2\\lambda_r)
             \\end{equation}
 
     Note that the data fitting is halved but not the ridge penalization.
@@ -349,6 +349,9 @@ def active_set_nnls(Utm, UtU, x=None, n_iter_max=100, tol=10e-8):
             passive_solution = tl.solve(
                 UtU[passive_set, :][:, passive_set], Utm[passive_set]
             )
+            if not tl.all(tl.abs(passive_solution) < float("inf")):
+                # some backends (e.g. jax) return nan/inf instead of raising
+                raise ValueError("Singular matrix in active set solve")
             indice_list = []
             for i in range(tl.shape(support_vec)[0]):
                 if passive_set[i]:
@@ -362,7 +365,7 @@ def active_set_nnls(Utm, UtU, x=None, n_iter_max=100, tol=10e-8):
                     support_vec = tl.index_update(support_vec, tl.index[int(i)], 0)
         # Start from zeros if solve is not achieved
         except:
-            x_vec = tl.zeros(tl.shape(UtU)[1])
+            x_vec = tl.zeros(tl.shape(UtU)[1], **tl.context(UtU))
             support_vec = tl.zeros(tl.shape(x_vec), **tl.context(x_vec))
             passive_set = x_vec > 0
             active_set = x_vec <= 0

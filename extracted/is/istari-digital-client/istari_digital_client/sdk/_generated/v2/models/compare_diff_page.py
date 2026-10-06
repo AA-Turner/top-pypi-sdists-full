@@ -25,7 +25,7 @@ from typing_extensions import Self
 
 class CompareDiffPage(BaseModel):
     """
-    Paginated diff between two snapshots, used by the system compare endpoint.  Unlike ``ChangeRequestDiffPage`` there is no head-pair token: the caller passes immutable snapshot IDs directly, so the diff is deterministic across pages and no head-pinning is needed.
+    Paginated diff between two snapshots, used by the system compare endpoint.  Carries no pin token, unlike its siblings ``ChangeRequestDiffPage`` (head-pair token) and ``CompareLiveDiffPage`` (live diff token): both sides here are immutable snapshot IDs supplied by the caller, so the diff is deterministic across pages and the offset cursor alone keeps a walk consistent.
     """ # noqa: E501
     items: List[ChangeRequestDiffPageItemsInner]
     next_cursor: Optional[StrictStr] = None

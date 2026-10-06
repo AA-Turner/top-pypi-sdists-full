@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: port-for
-Version: 1.1.0
+Version: 1.1.1
 Summary: Utility that helps with local TCP ports management. It can find an unused TCP localhost port and remember the association.
 Keywords: port,posix
 Author: Mikhail Korobov
@@ -27,7 +27,7 @@ Maintainer-email: Grzegorz Śliwiński <fizyk+pypi@fizyk.dev>
 Requires-Python: >=3.10
 Project-URL: Source, https://github.com/fizyk/port-for/
 Project-URL: Bug Tracker, https://github.com/fizyk/port-for/issues
-Project-URL: Changelog, https://github.com/fizyk/port-for/blob/v1.1.0/CHANGES.rst
+Project-URL: Changelog, https://github.com/fizyk/port-for/blob/v1.1.1/CHANGES.rst
 Description-Content-Type: text/x-rst
 
 ========

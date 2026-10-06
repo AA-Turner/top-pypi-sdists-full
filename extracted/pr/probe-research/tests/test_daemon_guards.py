@@ -235,6 +235,61 @@ def test_the_preview_is_one_segment_and_recursive_only_when_asked(monkeypatch):
     assert len([r for r in seen if r.url.path == "/v1/server/features"]) == 1  # cached per process
 
 
+_P = "aaaaaaaa-0000-4000-8000-000000000001"
+_E = "aaaaaaaa-0000-4000-8000-0000000000e1"
+
+
+def _scoped_server(monkeypatch, scope: dict) -> list[httpx.Request]:
+    """A trash-declaring server that places refs with `scope` (`/v1/scopes`)."""
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.url.path == "/v1/server/features":
+            return httpx.Response(200, json={"features": ["trash"]})
+        if request.url.path == "/v1/me":
+            return httpx.Response(200, json={"user_id": "me"})
+        if request.url.path.startswith("/v1/scopes"):
+            return httpx.Response(200, json=scope)
+        return httpx.Response(200, json={"id": _E, "name": "e1", "created_by": {}})
+
+    async def client(env):
+        return httpx.AsyncClient(base_url="http://probe.test", transport=httpx.MockTransport(handler))
+
+    monkeypatch.setattr(probe_api, "_client", client)
+    return seen
+
+
+@pytest.mark.parametrize(
+    ("ref", "placed_by"),
+    [("e1", ("/v1/scopes", {"slug": "e1"})), (f"id:{_E}", (f"/v1/scopes/{_E}", {}))],
+)
+def test_an_experiment_preview_is_the_experiment_api_s_trash_preview(monkeypatch, ref, placed_by):
+    """Light experiments X21: an experiment's dry-run delete goes to its own
+    route under its project, placed by `/v1/scopes`, never to its project
+    address (removed at R6); it has no subtree, so `recursive` never rides."""
+    seen = _scoped_server(
+        monkeypatch,
+        {"id": _E, "kind": "experiment", "project_id": _P, "experiment_id": _E, "run_id": None},
+    )
+    out = _run(probe_api.deletion_preview({}, "experiment", ref, recursive=True))
+    gets = [r for r in seen if r.url.path.startswith("/v1/scopes")]
+    assert [(r.url.path, dict(r.url.params)) for r in gets] == [placed_by]
+    deletes = [r for r in seen if r.method == "DELETE"]
+    assert [r.url.path for r in deletes] == [f"/v1/projects/{_P}/experiments/{_E}"]
+    assert dict(deletes[0].url.params) == {"dry_run": "true"}
+    assert out["id"] == _E and out["what"] == "experiment"
+
+
+def test_an_experiment_ref_naming_a_project_sends_no_delete(monkeypatch):
+    seen = _scoped_server(
+        monkeypatch, {"id": _P, "kind": "project", "project_id": _P, "experiment_id": None, "run_id": None}
+    )
+    out = _run(probe_api.deletion_preview({}, "experiment", "p1"))
+    assert [r for r in seen if r.method == "DELETE"] == []
+    assert out["others"] == {"unknown owner|items": 1}, "an unreadable target is someone else's"
+
+
 @pytest.mark.parametrize("ref", ["../runs/x", "a/b", "a?b=1", "a#b", "a%2fb", "a b", "", "a..b"])
 def test_a_ref_that_is_not_a_slug_or_an_id_never_reaches_a_request(monkeypatch, ref):
     seen = _mock_server(monkeypatch, features=["trash"])

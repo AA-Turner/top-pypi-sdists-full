@@ -378,14 +378,18 @@ def test_create_experiment_writes_its_document_and_checks_it_landed():
     client, rec = _client(
         {
             ("POST", f"/v1/projects/{P}/experiments"): (201, _experiment()),
-            # The one write still at the project address: the experiment API has
-            # no field for the Overview page's authored block yet.
-            ("PATCH", f"/v1/projects/{E}"): {"id": E, "document": doc},
+            # The create takes no document: a PATCH on the experiment API writes
+            # it right after (server X21), and its answer echoes what it wrote.
+            ("PATCH", f"/v1/projects/{P}/experiments/{E}"): {**_experiment(), "document": doc},
         }
     )
     row = client.create_experiment("lr-sweep", question="q", project_id=P, document=doc)
-    assert rec.calls[-1] == f"PATCH /v1/projects/{E}"
-    assert rec.body(1)["document"] == doc
+    # The create's answer names the project: no scope lookup in between.
+    assert rec.calls == [
+        f"POST /v1/projects/{P}/experiments",
+        f"PATCH /v1/projects/{P}/experiments/{E}",
+    ]
+    assert rec.body(1) == {"document": doc}
     assert row["document"] == doc
 
 
@@ -585,12 +589,14 @@ def test_the_mcp_lists_a_project_s_experiments_through_the_experiment_api():
     assert rec.calls == [f"GET /v1/projects/{P}/experiments"]
 
 
-def test_the_mcp_reads_an_experiment_document_only_in_its_summary_view():
+def test_the_mcp_reads_an_experiment_document_from_the_experiment_detail():
     from probe.mcp.source import ResearchOSSource
 
-    client, rec = _client({("GET", f"/v1/projects/{E}"): {"id": E, "document": "# Plan"}})
-    assert ResearchOSSource(client).experiment_document(E) == "# Plan"
-    assert rec.calls == [f"GET /v1/projects/{E}"]
+    client, rec = _client(
+        {("GET", f"/v1/projects/{P}/experiments/{E}"): _detail(document="# Plan")}
+    )
+    assert ResearchOSSource(client).experiment_document(E, project_id=P) == "# Plan"
+    assert rec.calls == [f"GET /v1/projects/{P}/experiments/{E}"]
 
 
 # -- one walk per top-level call -------------------------------------------------
@@ -626,7 +632,10 @@ def test_a_create_whose_document_fails_names_the_experiment_and_the_fix():
     client, _ = _client(
         {
             ("POST", f"/v1/projects/{P}/experiments"): (201, _experiment()),
-            ("PATCH", f"/v1/projects/{E}"): (503, {"detail": "object storage is unavailable"}),
+            ("PATCH", f"/v1/projects/{P}/experiments/{E}"): (
+                503,
+                {"detail": "object storage is unavailable"},
+            ),
         }
     )
     with pytest.raises(errors.DocumentNotWritten) as raised:
@@ -637,20 +646,40 @@ def test_a_create_whose_document_fails_names_the_experiment_and_the_fix():
     assert isinstance(raised.value.__cause__, errors.ServerError)
 
 
-def test_an_edit_whose_document_fails_after_the_name_landed_says_so():
-    client, _ = _client(
+def test_an_edit_with_a_document_is_one_patch_that_lands_whole():
+    """The name, the question and the document travel in ONE PATCH (server
+    X21), so the edit lands whole or not at all: there is no half-landed edit
+    to explain any more."""
+    client, rec = _client(
         {
-            ("PATCH", f"/v1/projects/{P}/experiments/{E}"): {**_experiment(name="New"), "notes_version": 1},
-            ("PATCH", f"/v1/projects/{E}"): (503, {"detail": "down"}),
+            ("PATCH", f"/v1/projects/{P}/experiments/{E}"): {
+                **_experiment(name="New"),
+                "notes_version": 1,
+                "document": "# Doc",
+            },
         }
     )
-    with pytest.raises(errors.DocumentNotWritten, match="name changed"):
+    row = client.update_experiment(E, project_id=P, name="New", document="# Doc")
+    assert rec.calls == [f"PATCH /v1/projects/{P}/experiments/{E}"]
+    assert rec.body(0) == {"name": "New", "document": "# Doc"}
+    assert row["name"] == "New" and row["document"] == "# Doc"
+
+
+def test_an_edit_that_fails_is_the_plain_error():
+    client, _ = _client(
+        {("PATCH", f"/v1/projects/{P}/experiments/{E}"): (503, {"detail": "down"})}
+    )
+    with pytest.raises(errors.ServerError):
         client.update_experiment(E, project_id=P, name="New", document="# Doc")
 
 
-def test_a_document_only_edit_that_fails_is_the_plain_error():
-    client, _ = _client({("PATCH", f"/v1/projects/{E}"): (503, {"detail": "down"})})
-    with pytest.raises(errors.ServerError):
+def test_a_document_the_server_did_not_echo_is_refused():
+    """The write's own answer must carry the document it wrote: a 2xx that
+    dropped it is a backend that cannot hold it, said out loud."""
+    client, _ = _client(
+        {("PATCH", f"/v1/projects/{P}/experiments/{E}"): {**_experiment(), "document": None}}
+    )
+    with pytest.raises(errors.RosError, match="did not store it"):
         client.update_experiment(E, project_id=P, document="# Doc")
 
 
@@ -705,3 +734,499 @@ def test_backfill_counts_every_experiment_page():
     finally:
         backfill._project_id = original
     assert stub.pages == 2 and total == 0
+
+
+# -- an experiment's children (server X21) -----------------------------------------
+#
+# Runs, groups, edges, lineage, manifests, reproduce, code, files and uploads,
+# sub-notes and notes writes go to `/v1/projects/{P}/experiments/{E}/<child>`.
+# None of them reaches the leaf door (`/v1/projects/{E}/...`), which R6 removes.
+
+_BASE = f"/v1/projects/{P}/experiments/{E}"
+
+
+def _placed(routes: dict) -> dict:
+    """`routes`, plus the one `GET /v1/scopes/{E}` that places E."""
+    return {("GET", f"/v1/scopes/{E}"): _scope(), **routes}
+
+
+@pytest.mark.parametrize(
+    ("call", "method", "suffix", "params"),
+    [
+        (lambda c: c.list_groups(E), "GET", "/groups", {}),
+        (lambda c: c.experiment_edges(E, limit=5), "GET", "/edges", {"limit": "5"}),
+        (lambda c: c.experiment_lineage(E, limit=7), "GET", "/lineage", {"limit": "7"}),
+        (lambda c: c.list_experiment_versions(E), "GET", "/versions", {}),
+        (lambda c: c.get_experiment_version(E, 2), "GET", "/versions/2", {}),
+        (lambda c: c.experiment_reproduce(E, version=1), "GET", "/reproduce", {"version": "1"}),
+        (lambda c: c.get_experiment_code(E), "GET", "/code", {}),
+        (lambda c: c.list_experiment_artifacts(E), "GET", "/artifacts", {}),
+        (lambda c: c.list_sub_notes("experiment", E), "GET", "/sub-notes", {}),
+    ],
+    ids=["groups", "edges", "lineage", "versions", "version", "reproduce", "code", "artifacts", "sub-notes"],
+)
+def test_every_child_read_is_the_experiment_api_s(call, method, suffix, params):
+    client, rec = _client(_placed({(method, f"{_BASE}{suffix}"): []}))
+    call(client)
+    assert rec.calls == [f"GET /v1/scopes/{E}", f"{method} {_BASE}{suffix}"]
+    assert rec.params(1) == params
+
+
+def test_a_known_project_saves_the_scope_lookup():
+    client, rec = _client(
+        {
+            ("GET", f"{_BASE}/groups"): [],
+            ("GET", f"{_BASE}/edges"): [],
+            ("GET", f"{_BASE}/lineage"): {"edges": [], "nodes": []},
+        }
+    )
+    client.list_groups(E, project_id=P)
+    client.experiment_edges(E, project_id=P)
+    client.experiment_lineage(E, project_id=P)
+    assert rec.calls == [f"GET {_BASE}/groups", f"GET {_BASE}/edges", f"GET {_BASE}/lineage"]
+
+
+def test_an_experiment_is_placed_once_per_client():
+    client, rec = _client(
+        _placed({("GET", f"{_BASE}/groups"): [], ("GET", f"{_BASE}/versions"): []})
+    )
+    client.list_groups(E)
+    client.list_experiment_versions(E)
+    assert rec.calls == [
+        f"GET /v1/scopes/{E}",
+        f"GET {_BASE}/groups",
+        f"GET {_BASE}/versions",
+    ]
+
+
+def test_a_moved_experiment_is_placed_again_after_its_404():
+    """The remembered home went stale (the experiment moved to P2): the child
+    route's 404 asks `/v1/scopes` once more and the call is made again."""
+    scopes = iter([_scope(), _scope(project=P2)])
+    client, rec = _client(
+        {
+            ("GET", f"/v1/scopes/{E}"): lambda _r: httpx.Response(200, json=next(scopes)),
+            ("GET", f"{_BASE}/groups"): [],
+            ("GET", f"{_BASE}/versions"): (404, {"detail": "experiment not found in this project"}),
+            ("GET", f"/v1/projects/{P2}/experiments/{E}/versions"): [{"version": 1}],
+        }
+    )
+    client.list_groups(E)
+    assert client.list_experiment_versions(E) == [{"version": 1}]
+    assert rec.calls == [
+        f"GET /v1/scopes/{E}",
+        f"GET {_BASE}/groups",
+        f"GET {_BASE}/versions",
+        f"GET /v1/scopes/{E}",
+        f"GET /v1/projects/{P2}/experiments/{E}/versions",
+    ]
+
+
+def test_a_404_on_a_fresh_placement_is_not_retried():
+    client, rec = _client(
+        _placed({("GET", f"{_BASE}/groups"): (404, {"detail": "experiment not found in this project"})})
+    )
+    with pytest.raises(errors.NotFoundError):
+        client.list_groups(E)
+    assert rec.calls == [f"GET /v1/scopes/{E}", f"GET {_BASE}/groups"]
+
+
+def test_child_writes_are_the_experiment_api_s():
+    from probe.sdk.client import Anchor
+
+    group = {"id": "g1", "experiment_id": E, "project_id": P, "name": "g", "kind": "sweep",
+             "notes": None}
+    client, rec = _client(
+        _placed(
+            {
+                ("POST", f"{_BASE}/groups"): (201, group),
+                ("POST", f"{_BASE}/versions"): (201, {"version": 1}),
+                ("POST", f"{_BASE}/artifacts"): (201, {"id": "a1"}),
+                ("POST", f"{_BASE}/artifacts/uploads"): (201, {"artifact_id": "a2", "have": True}),
+                ("POST", f"{_BASE}/sub-notes"): (201, {"id": "s1", "title": "t"}),
+                ("PATCH", f"{_BASE}/sub-notes"): {"id": "s1", "title": "t", "notes_version": 2},
+                ("PATCH", _BASE): {**_experiment(), "notes_version": 4},
+            }
+        )
+    )
+    client.create_group(E, "g", kind="sweep")
+    client.experiment_version(E, label="v1", strict=True)
+    client.create_anchored_reference(Anchor.EXPERIMENT, E, {"name": "x", "uri": "s3://b/x"})
+    client._presign_anchored(Anchor.EXPERIMENT, E, {"name": "y", "content_hash": "a" * 64})
+    client._create_sub_note("experiment", E, "t", "b")
+    client._replace_sub_note_by_title("experiment", E, "t", "b2", base_version=1, op_key="k1")
+    client._replace_notes("experiment", E, "new notes", base_version=3, op_key="k2")
+    client._replace_notes("experiment", E, "forced", base_version=None, op_key="k3")
+    assert rec.calls == [
+        f"GET /v1/scopes/{E}",
+        f"POST {_BASE}/groups",
+        f"POST {_BASE}/versions",
+        f"POST {_BASE}/artifacts",
+        f"POST {_BASE}/artifacts/uploads",
+        f"POST {_BASE}/sub-notes",
+        f"PATCH {_BASE}/sub-notes",
+        f"PATCH {_BASE}",
+        f"PATCH {_BASE}",
+    ]
+    assert rec.body(1) == {"name": "g", "kind": "sweep", "spec": {}}
+    assert rec.body(6) == {"note_title": "t", "body": "b2", "op_key": "k1", "base_version": 1}
+    # The experiment API's PATCH is a CLOSED body with no `op_key`.
+    assert rec.body(7) == {"notes": "new notes", "base_version": 3}
+    assert rec.body(8) == {"notes": "forced", "force": True}
+
+
+def test_a_run_starts_under_the_experiment_s_project(app):
+    """`probe.init` / `run()` start a run at `/v1/projects/{P}/experiments/{E}/runs`,
+    with the project the experiment row already names: no scope lookup, and no
+    leaf-door address at all."""
+    client = make_client(app)
+    exp = app.seed_experiment("lr-sweep")
+    run = client.run(experiment="lr-sweep", project=None, name="r1", heartbeat=False)
+    run.finish()
+    starts = [r for r in app.experiment_api_requests if r.endswith("/runs")]
+    assert starts == [f"POST /v1/projects/{exp['project_id']}/experiments/{exp['id']}/runs"]
+    leaf = f"/v1/projects/{exp['id']}/"
+    assert not [r for r in app.requests if r.url.path.startswith(leaf)]
+    assert not any(r.url.path == f"/v1/scopes/{exp['id']}" for r in app.requests)
+
+
+def test_the_detail_carries_the_document_and_the_notes_headroom():
+    client, rec = _client(
+        _placed(
+            {
+                ("GET", _BASE): _detail(
+                    document="# Plan", notes_limit_chars=100000, notes_remaining_chars=99999
+                )
+            }
+        )
+    )
+    assert client.get_experiment_document(E) == "# Plan"
+    leaf = client.get_experiment_leaf(E, project_id=P)
+    assert (leaf["notes_limit_chars"], leaf["notes_remaining_chars"]) == (100000, 99999)
+    # Never the leaf door (`GET /v1/projects/{E}`), which 0.209.0 read these from.
+    assert rec.calls == [f"GET /v1/scopes/{E}", f"GET {_BASE}", f"GET {_BASE}"]
+
+
+# -- the service-token Reader (server X21) ------------------------------------------
+
+
+def _reader(routes):
+    from probe.sdk.reader import Reader
+
+    client, rec = _client(routes)
+    return Reader(client.transport), rec
+
+
+def test_the_reader_reads_experiments_through_the_experiment_api():
+    page = {"items": [_experiment()], "total": 1, "limit": 500, "offset": 0, "next_offset": None}
+    reader, rec = _reader(
+        {
+            ("GET", f"/v1/projects/{P}/experiments"): page,
+            ("GET", "/v1/scopes"): _scope(),
+            ("GET", f"/v1/scopes/{E}"): _scope(),
+            ("GET", _BASE): _detail(),
+            ("GET", f"{_BASE}/groups"): [{"id": "g1", "experiment_id": E, "project_id": P}],
+        }
+    )
+    rows = reader.experiments(project_id=P)
+    assert [(r["id"], r["project_id"], r["parent_project_id"]) for r in rows] == [(E, P, P)]
+    assert [r["id"] for r in reader.experiments(slug="lr-sweep")] == [E]
+    assert reader.experiment(E)["question"] == "Is lr 3e-4 best?"
+    assert reader.groups(E) == [{"id": "g1", "experiment_id": E, "project_id": P}]
+    assert rec.calls == [
+        f"GET /v1/projects/{P}/experiments",
+        "GET /v1/scopes",
+        f"GET {_BASE}",
+        f"GET /v1/scopes/{E}",
+        f"GET {_BASE}",
+        f"GET /v1/scopes/{E}",
+        f"GET {_BASE}/groups",
+    ]
+    assert not [r for r in rec.requests if r.url.path.startswith(f"/v1/projects/{E}")]
+    with pytest.raises(ValueError, match="no tags"):
+        reader.experiments(tags=["a"])
+
+
+def test_the_reader_walks_every_project_without_one():
+    page = {"items": [_experiment()], "total": 1, "limit": 500, "offset": 0, "next_offset": None}
+    reader, rec = _reader(
+        {
+            ("GET", "/v1/projects"): [{"id": P}],
+            ("GET", f"/v1/projects/{P}/experiments"): page,
+        }
+    )
+    assert [r["id"] for r in reader.experiments()] == [E]
+    assert rec.calls == ["GET /v1/projects", f"GET /v1/projects/{P}/experiments"]
+
+
+# -- the CLI's run move, and offline replay -------------------------------------------
+
+
+def test_offline_replay_starts_its_run_under_the_experiment_s_project(app):
+    from probe.sdk import offline
+
+    client = make_client(app)
+    exp = app.seed_experiment("offline-exp")
+    path = offline._home_path(client, {"experiment": "offline-exp", "question": None}, "k1")
+    assert path == f"/v1/projects/{exp['project_id']}/experiments/{exp['id']}/runs"
+
+
+def test_the_daemon_retries_experiment_writes_again():
+    """The server's Idempotency-Key allowlist names the experiment API's
+    writes since X21, so these commands are retried with their key again."""
+    from probe.daemon.tools import IDEMPOTENT_COMMANDS
+
+    assert {"experiment create", "experiment set", "experiment move"} <= IDEMPOTENT_COMMANDS
+
+
+def test_the_mcp_reads_a_saved_experiment_note_version_on_the_experiment_api():
+    """A resumed MCP read of an experiment's notes pins the version it started
+    on and reads it back from the experiment API's note history (server X21),
+    under the project the experiment row names -- not the leaf door."""
+    import hashlib
+
+    from probe.mcp.delivery_context import delivery_context
+    from probe.mcp.source import ResearchOSSource
+
+    body = "the notes as they were"
+    client, rec = _client(
+        {("GET", f"{_BASE}/notes/versions/2"): {"version": 2, "body": body}}
+    )
+    snapshot = {
+        "source": f"notes:experiment:{E}",
+        "end": len(body),
+        "sha256": hashlib.sha256(body.encode()).hexdigest(),
+        "version": 2,
+    }
+    entity = {"id": E, "project_id": P, "notes": body + " and later", "notes_version": 3}
+    with delivery_context(snapshot):
+        text, version = ResearchOSSource(client).notes_document("experiment", entity)
+    assert rec.calls == [f"GET {_BASE}/notes/versions/2"]
+    assert text.startswith(body) and version == 2
+
+
+# -- a supplied project is checked too; an old server says so (review of #2286) -----
+
+
+def test_a_stale_supplied_project_is_placed_again_on_its_404():
+    """`Run.child` and `run()` hand over the project a row named. If the
+    experiment moved since, its 404 asks `/v1/scopes` once and goes there."""
+    client, rec = _client(
+        {
+            ("GET", f"/v1/projects/{P2}/experiments/{E}/groups"): (
+                404,
+                {"detail": "experiment not found in this project"},
+            ),
+            ("GET", f"/v1/scopes/{E}"): _scope(),
+            ("GET", f"{_BASE}/groups"): [{"id": "g1"}],
+        }
+    )
+    assert client.list_groups(E, project_id=P2) == [{"id": "g1"}]
+    assert rec.calls == [
+        f"GET /v1/projects/{P2}/experiments/{E}/groups",
+        f"GET /v1/scopes/{E}",
+        f"GET {_BASE}/groups",
+    ]
+
+
+def test_a_supplied_project_in_the_trash_is_placed_again():
+    client, rec = _client(
+        {
+            ("GET", f"/v1/projects/{P2}/experiments/{E}/code"): (
+                410,
+                {"detail": "in_trash", "message": "this project is in the trash"},
+            ),
+            ("GET", f"/v1/scopes/{E}"): _scope(),
+            ("GET", f"{_BASE}/code"): {"sources": []},
+        }
+    )
+    assert client.get_experiment_code(E, project_id=P2) == {"sources": []}
+    assert rec.calls[-2:] == [f"GET /v1/scopes/{E}", f"GET {_BASE}/code"]
+
+
+def test_a_404_where_the_experiment_really_is_is_not_sent_twice():
+    """A real 404 (an unknown version) at the right project: one scope check,
+    which names the same project, and the original error -- no second send."""
+    client, rec = _client(
+        {
+            ("GET", f"{_BASE}/versions/9"): (404, {"detail": "experiment version not found"}),
+            ("GET", f"/v1/scopes/{E}"): _scope(),
+        }
+    )
+    with pytest.raises(errors.NotFoundError, match="version not found"):
+        client.get_experiment_version(E, 9, project_id=P)
+    assert rec.calls == [f"GET {_BASE}/versions/9", f"GET /v1/scopes/{E}"]
+
+
+def test_a_run_child_with_a_stale_project_lands_where_the_experiment_is(app):
+    client = make_client(app)
+    exp = app.seed_experiment("child-exp")
+    other = client.create_project("elsewhere", kind="general")["id"]
+    run = client.create_run(exp["id"], "r1", project_id=other, heartbeat=False)
+    assert run.experiment_id == exp["id"]
+    starts = [r for r in app.experiment_api_requests if r.endswith("/runs")]
+    assert starts == [
+        f"POST /v1/projects/{other}/experiments/{exp['id']}/runs",
+        f"POST /v1/projects/{exp['project_id']}/experiments/{exp['id']}/runs",
+    ]
+    run.finish()
+
+
+def test_a_route_absent_child_route_says_the_server_predates_x21():
+    client, rec = _client(_placed({("GET", f"{_BASE}/groups"): (404, {"detail": "Not Found"})}))
+    with pytest.raises(errors.CapabilityUnavailable, match=r"predates .*#2282"):
+        client.list_groups(E)
+    # Not taken for a move: no second placement.
+    assert rec.calls == [f"GET /v1/scopes/{E}", f"GET {_BASE}/groups"]
+
+
+# -- queued writes name the experiment alone (review of #2286) ------------------------
+
+
+def _async_client(routes):
+    recorder = Recorder(routes)
+    client = make_client(recorder, async_writes=True)
+    assert client.async_writes
+    return client, recorder
+
+
+def test_a_queued_experiment_write_needs_no_network_and_is_placed_at_drain():
+    """Under async writes a manifest mint, a notes write and a sub-note write
+    are QUEUED: by the experiment alone (`/v1/projects/~/experiments/{E}/...`),
+    with no request -- not even the scope lookup -- and a drain places them."""
+    from probe.sdk.journal import drain
+
+    client, rec = _async_client({})
+    client.experiment_version(E, label="v1")
+    client._write_notes("experiment", E, {"notes": "n", "base_version": 1})
+    client._write_sub_note_by_title("experiment", E, {"note_title": "t", "body": "b"})
+    assert rec.requests == []
+    paths = sorted(op["path"] for _, op in client.journal.pending())
+    assert paths == sorted(
+        [
+            f"/v1/projects/~/experiments/{E}/versions",
+            f"/v1/projects/~/experiments/{E}",
+            f"/v1/projects/~/experiments/{E}/sub-notes",
+        ]
+    )
+    drainer, sent = _client(
+        _placed(
+            {
+                ("POST", f"{_BASE}/versions"): (201, {"version": 1}),
+                ("PATCH", _BASE): {**_experiment(), "notes_version": 2},
+                ("PATCH", f"{_BASE}/sub-notes"): {"id": "s1", "title": "t", "notes_version": 1},
+            }
+        )
+    )
+    assert drain(client.journal, client_factory=lambda _ctx: drainer).clean
+    assert sent.calls.count(f"GET /v1/scopes/{E}") == 1
+    assert sorted(c for c in sent.calls if not c.startswith("GET /v1/scopes")) == sorted(
+        [f"POST {_BASE}/versions", f"PATCH {_BASE}", f"PATCH {_BASE}/sub-notes"]
+    )
+
+
+def test_a_write_queued_with_its_project_is_journaled_by_the_experiment():
+    """A sync write that fell back to the queue (fail-open) was sent with its
+    project; the journal still files it by the experiment alone."""
+    from probe.sdk.journal import unplaced_experiment_path
+
+    assert unplaced_experiment_path(f"{_BASE}/versions") == f"/v1/projects/~/experiments/{E}/versions"
+    assert unplaced_experiment_path(_BASE) == f"/v1/projects/~/experiments/{E}"
+    # Not an experiment child route: unchanged.
+    for path in (f"/v1/projects/{P}/experiments", f"/v1/projects/{P}/artifacts", f"/v1/runs/{R}"):
+        assert unplaced_experiment_path(path) == path
+
+
+def test_an_experiment_reference_is_queued_with_no_request(tmp_path):
+    client, rec = _async_client({})
+    client.enqueue_artifact_reference(
+        correlation="ref:1", anchor="experiment", anchor_id=E, name="x.pt", uri="s3://b/x.pt"
+    )
+    assert rec.requests == []
+
+
+# -- the experiment's project is remembered from any placement (review of #2286) --
+
+
+def test_a_placement_by_the_detail_read_serves_the_child_routes():
+    client, rec = _client(
+        {
+            ("GET", f"/v1/scopes/{E}"): _scope(),
+            ("GET", _BASE): _detail(),
+            ("GET", f"{_BASE}/groups"): [],
+        }
+    )
+    client.get_experiment(E)
+    client.list_groups(E)
+    assert rec.calls == [f"GET /v1/scopes/{E}", f"GET {_BASE}", f"GET {_BASE}/groups"]
+
+
+def test_list_anchored_takes_the_experiment_s_project():
+    from probe.sdk.client import Anchor
+
+    client, rec = _client({("GET", f"{_BASE}/artifacts"): []})
+    client.list_anchored(Anchor.EXPERIMENT, E, project_id=P, limit=5)
+    assert rec.calls == [f"GET {_BASE}/artifacts"] and rec.params(0) == {"limit": "5"}
+
+
+def test_the_reader_skips_a_project_gone_mid_walk_but_not_a_named_one():
+    page = {"items": [_experiment()], "total": 1, "limit": 500, "offset": 0, "next_offset": None}
+    reader, _ = _reader(
+        {
+            ("GET", "/v1/projects"): [{"id": P2}, {"id": P}],
+            ("GET", f"/v1/projects/{P2}/experiments"): (404, {"detail": "project not found"}),
+            ("GET", f"/v1/projects/{P}/experiments"): page,
+        }
+    )
+    assert [r["id"] for r in reader.experiments()] == [E]
+    with pytest.raises(errors.NotFoundError):
+        reader.experiments(project_id=P2)
+
+
+# -- the last children (server X21b): W&B sources, and moving a run in -----------------
+#
+# An experiment's W&B sources are `/v1/projects/{P}/experiments/{E}/wandb-sources[...]`
+# and a run moves into it by `experiment_id`; neither reaches the leaf door.
+
+
+def test_an_experiment_s_wandb_sources_are_the_experiment_api_s():
+    source = {"id": "s1", "project_id": P, "experiment_id": E, "state": "active"}
+    client, rec = _client(
+        _placed(
+            {
+                ("GET", f"{_BASE}/wandb-sources"): [source],
+                ("POST", f"{_BASE}/wandb-sources"): (201, source),
+                ("PATCH", f"{_BASE}/wandb-sources/s1"): source,
+                ("DELETE", f"{_BASE}/wandb-sources/s1"): (204, None),
+            }
+        )
+    )
+    assert client.list_experiment_wandb_sources(E) == [source]
+    assert client.attach_experiment_wandb_source(E, connection_id="c1", external_id="lab/x") == source
+    client.patch_experiment_wandb_source(E, "s1", sync_enabled=True, expected_revision=0)
+    client.detach_experiment_wandb_source(E, "s1")
+    assert rec.calls == [
+        f"GET /v1/scopes/{E}",
+        f"GET {_BASE}/wandb-sources",
+        f"POST {_BASE}/wandb-sources",
+        f"PATCH {_BASE}/wandb-sources/s1",
+        f"DELETE {_BASE}/wandb-sources/s1",
+    ]
+    assert rec.body(2) == {"connection_id": "c1", "external_id": "lab/x"}
+    assert rec.body(3) == {"sync_enabled": True, "expected_revision": 0}
+
+
+def test_an_experiment_wandb_attach_with_its_project_is_one_request():
+    """The CLI's reviewed mapping names the project: no scope lookup."""
+    source = {"id": "s1", "project_id": P, "experiment_id": E}
+    client, rec = _client({("POST", f"{_BASE}/wandb-sources"): (201, source)})
+    client.attach_experiment_wandb_source(E, connection_id="c1", external_id="lab/x", project_id=P)
+    assert rec.calls == [f"POST {_BASE}/wandb-sources"]
+
+
+def test_a_run_moves_into_an_experiment_as_an_experiment():
+    moved = {"id": R, "project_id": P, "experiment_id": E, "group_id": None}
+    client, rec = _client({("PATCH", f"/v1/runs/{R}"): moved})
+    assert client.move_run(R, experiment_id=E) == moved
+    assert rec.calls == [f"PATCH /v1/runs/{R}"]
+    assert rec.body(0) == {"experiment_id": E}

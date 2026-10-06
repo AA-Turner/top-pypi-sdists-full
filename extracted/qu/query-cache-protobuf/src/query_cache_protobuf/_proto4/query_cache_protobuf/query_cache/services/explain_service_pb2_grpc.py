@@ -19,12 +19,23 @@ class ExplainStub(object):
                 request_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetExplainMessagesRequest.SerializeToString,
                 response_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetExplainMessagesResponse.FromString,
                 )
+        self.GetUpstreamDependencyChanges = channel.unary_unary(
+                '/com.fivetran.query_cache.Explain/GetUpstreamDependencyChanges',
+                request_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetUpstreamDependencyChangesRequest.SerializeToString,
+                response_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetUpstreamDependencyChangesResponse.FromString,
+                )
 
 
 class ExplainServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def GetExplainMessages(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetUpstreamDependencyChanges(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -37,6 +48,11 @@ def add_ExplainServicer_to_server(servicer, server):
                     servicer.GetExplainMessages,
                     request_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetExplainMessagesRequest.FromString,
                     response_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetExplainMessagesResponse.SerializeToString,
+            ),
+            'GetUpstreamDependencyChanges': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetUpstreamDependencyChanges,
+                    request_deserializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetUpstreamDependencyChangesRequest.FromString,
+                    response_serializer=query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetUpstreamDependencyChangesResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -62,5 +78,22 @@ class Explain(object):
         return grpc.experimental.unary_unary(request, target, '/com.fivetran.query_cache.Explain/GetExplainMessages',
             query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetExplainMessagesRequest.SerializeToString,
             query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetExplainMessagesResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def GetUpstreamDependencyChanges(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/com.fivetran.query_cache.Explain/GetUpstreamDependencyChanges',
+            query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetUpstreamDependencyChangesRequest.SerializeToString,
+            query__cache__protobuf_dot_query__cache_dot_services_dot_explain__service__pb2.GetUpstreamDependencyChangesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

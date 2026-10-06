@@ -53,7 +53,6 @@ from ._printout import (
     LineRow,
     LoadRow,
     NearFieldBlock,
-    NearFieldRow,
     NetworkRow,
     PortRow,
     PowerBudget,
@@ -78,7 +77,7 @@ _EPS0_PRINTED = 8.854e-12
 # The cards a captured or probed NEC-4.2 printout shows, after GE.  Everything else the
 # nec4 dialect reads (it inherits nec2's vocabulary) has no measured layout.
 _SERVED_CARDS = frozenset(
-    {"GN", "GD", "FR", "EX", "LD", "TL", "NT", "PQ", "RP", "NE", "NH", "XQ", "EN"}
+    {"GN", "GD", "FR", "EX", "LD", "TL", "NT", "PQ", "RP", "NE", "NH", "XQ", "EN", "EK"}
 )
 _SERVED_GEOMETRY = frozenset({"GW", "GE"})
 
@@ -186,15 +185,12 @@ def _served_shape(deck) -> list[tuple[int, object]]:
         if report is None:
             continue
         if report.mnemonic in ("NE", "NH"):
-            if report.i(0) != 0:
-                raise Nec4Refusal(_unmeasured(f"{report.mnemonic} {report.i(0)}"))
-            if group.ground.kind not in ("free", "pec"):
-                # The near field over a finite ground is a Sommerfeld
-                # evaluation the portal's readout does not make.
-                raise Nec4Refusal(
-                    f"{report.mnemonic} over a finite ground is not served by this "
-                    f"engine's NEC-4.2 slot"
-                )
+            # Rectangular and spherical grids, free space, a perfect ground
+            # and the Sommerfeld one (GN 2 and GN 3 alike): probes p4 and
+            # p11-p15 print each, in one layout (momwire#1352).  The dialect
+            # refuses every other coordinate system before this is asked;
+            # the cells a finite ground cannot answer refuse in
+            # :func:`_near_field`, which owns the grid.
             continue
         if report.i(0) != 0:
             raise Nec4Refusal(_unmeasured(f"RP mode {report.i(0)}"))
@@ -356,7 +352,9 @@ def _run(
                 environment=_environment_label(deck, group.ground),
                 ground=medium,
                 ground_file=_ground_file(deck) if medium is not None else None,
-                loads=tuple(_load_row(card) for card in deck.loads),
+                # The cards in force at THIS execute card (momwire#1069), not
+                # the deck's last: an `LD -1` after it does not unload it.
+                loads=tuple(_load_row(card) for card in group.loads),
                 fill_seconds=result.fill_ms / 1000.0,
                 factor_seconds=0.0,
             )
@@ -703,7 +701,11 @@ def _charges(solver, result, connections, freq_mhz: float):
                 positions[w_idx].append(s)
                 break
         first = last + 1
-    slopes = momwire.current_slopes(result.coeffs, positions) if slots else []
+    slopes = (
+        momwire.current_slopes(result.coeffs, positions, _solved=True)  # #1042
+        if slots
+        else []
+    )
     end_charges = {
         key: complex(-slopes[w_idx][k] / (1j * omega))
         for key, (w_idx, k) in slots.items()
@@ -815,57 +817,53 @@ def _pattern(card, result, freq_mhz: float, gd):
 
 
 def _near_field(card, result, deck_solver) -> NearFieldBlock:
-    """One ``NE``/``NH`` table over free space or a perfect ground.
+    """One ``NE``/``NH`` table over free space, a perfect ground or the
+    Sommerfeld one.
 
-    The table is NEC-5's layout to the byte (p4), and the readout is the
-    portal's: the element sum in mixed-potential form, plus the PEC image
-    with its horizontal moments flipped and its charge negated.  The grid
-    is the rectangular one, X fastest, then Y, then Z (p4 steps Z alone).
+    The table is NEC-5's layout to the byte (p4), and the readout is every
+    seam's (:mod:`momwire._near_readout`): the element sum in mixed-potential
+    form, plus the PEC image with its horizontal moments flipped and its
+    charge negated, plus ``C₂·image + remainder`` over a finite ground.  The
+    grid is :func:`~momwire._near_readout.grid_points`': X fastest, then Y,
+    then Z (p4 steps Z alone), or for ``NE 1`` R fastest, then θ, then φ,
+    each point printed at its Cartesian place under the same headings
+    (p11-p15, momwire#1352).
+
+    Over a finite ground the cells no composition answers — a point in the
+    soil, a point on a wire's ground contact, any point of a deck with a
+    buried wire — refuse with the nec2 portal's sentences
+    (``_refuse_finite_ground_near_field``), the same geometry asked the same
+    way.
     """
-    from .._far_readout import _FIELD_FLOOR2, _element_fields, _image_moments
-    from ..portal._portal import _NEAR_FIELD_SUBDIV
+    from .._near_readout import (
+        NEAR_FIELD_SUBDIV,
+        grid_points,
+        near_field_at,
+        near_ground,
+    )
+    from ..portal._portal import _refuse_finite_ground_near_field
+    from ._serve import near_field_block
 
     magnetic = card.mnemonic == "NH"
-    n_x, n_y, n_z = (max(card.i(k), 1) for k in (1, 2, 3))
-    start = np.array([card.f(4), card.f(5), card.f(6)])
-    step = np.array([card.f(7), card.f(8), card.f(9)])
-    points = np.array(
-        [
-            start + np.array([ix, iy, iz]) * step
-            for iz in range(n_z)
-            for iy in range(n_y)
-            for ix in range(n_x)
-        ]
+    points = grid_points(
+        card.i(0),
+        tuple(max(card.i(k), 1) for k in (1, 2, 3)),
+        (card.f(4), card.f(5), card.f(6)),
+        (card.f(7), card.f(8), card.f(9)),
     )
     solver = result.solver
+    ground = near_ground(solver)
+    if ground.kind == "compose":
+        _refuse_finite_ground_near_field(card, deck_solver, points, ground.ground_z)
     k = 2.0 * math.pi / result.wavelength
-    mid, moment, nodes, delta = solver.element_currents(
-        result.coeffs, subdiv=_NEAR_FIELD_SUBDIV
+    elements = solver.element_currents(result.coeffs, subdiv=NEAR_FIELD_SUBDIV)
+    field = near_field_at(
+        points,
+        elements,
+        k,
+        deck_solver._smallest_radius,
+        magnetic,
+        ground,
+        solver.omega,
     )
-    radius = deck_solver._smallest_radius
-    field = _element_fields(points, (mid, moment, nodes, delta), k, radius, magnetic)
-    if result.ground.kind == "pec":
-        ground_z = result.ground_z or 0.0
-        mid_img, moment_img = _image_moments(mid, moment, ground_z)
-        nodes_img = nodes.copy()
-        nodes_img[:, 2] = 2.0 * ground_z - nodes[:, 2]
-        field = field + _element_fields(
-            points, (mid_img, moment_img, nodes_img, -delta), k, radius, magnetic
-        )
-    rows = []
-    for point, value in zip(points, field, strict=True):
-        cells = [complex(c) for c in value]
-        cells = [
-            0j if c.real * c.real + c.imag * c.imag <= _FIELD_FLOOR2 else c
-            for c in cells
-        ]
-        rows.append(
-            NearFieldRow(
-                point=(float(point[0]), float(point[1]), float(point[2])),
-                magnitudes=tuple(abs(c) for c in cells),
-                phases_deg=tuple(
-                    math.degrees(math.atan2(c.imag, c.real)) for c in cells
-                ),
-            )
-        )
-    return NearFieldBlock(rows=tuple(rows), magnetic=magnetic)
+    return near_field_block(points, field, magnetic)

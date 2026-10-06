@@ -112,7 +112,57 @@ A box that crosses the date line is written the way it reads:
 The EMET domains
 ================
 
-No polygon is in ``configobs/regions_data`` yet; see the section above to bring some in.
+.. list-table::
+   :widths: 34 33 33
+
+   * - ``Appalachia_CLIM``
+     - ``Arctic_All_CLIM``
+     - ``Arctic_Land_CLIM``
+   * - ``Arctic_plus_CLIM``
+     - ``Boreal_CLIM``
+     - ``Central_CLIM``
+   * - ``Central_Plains_CLIM``
+     - ``Central_Tundra_CLIM``
+     - ``Cold_North_East_Pacific_CLIM``
+   * - ``Cold_North_West_Atlantic_CLIM``
+     - ``Deep_South_CLIM``
+     - ``Desert_CLIM``
+   * - ``East_Boreal_CLIM``
+     - ``East_CLIM``
+     - ``East_Coast_CLIM``
+   * - ``East_Taiga_CLIM``
+     - ``East_Tundra_CLIM``
+     - ``Great_Basin_CLIM``
+   * - ``Great_Lakes_CLIM``
+     - ``Great_Plains_CLIM``
+     - ``Greenland_CLIM``
+   * - ``Hudson_CLIM``
+     - ``Labrador_Sea_CLIM``
+     - ``Mezquital_CLIM``
+   * - ``MidAtlantic_CLIM``
+     - ``Mt_West_CLIM``
+     - ``North_Atlantic_CLIM``
+   * - ``North_Plains_CLIM``
+     - ``North_Rockies_CLIM``
+     - ``Pacific_North_West_CLIM``
+   * - ``Pacific_South_West_CLIM``
+     - ``Prairie_CLIM``
+     - ``Rockies_CLIM``
+   * - ``South_CLIM``
+     - ``South_East_CLIM``
+     - ``South_Plains_CLIM``
+   * - ``South_Rockies_CLIM``
+     - ``South_West_CLIM``
+     - ``Taigas_CLIM``
+   * - ``Tundras_CLIM``
+     - ``Warm_North_East_Pacific_CLIM``
+     - ``Warm_North_West_Atlantic_CLIM``
+   * - ``West_Boreal_CLIM``
+     - ``West_Taiga_CLIM``
+     - ``West_Tundra_CLIM``
+   * - ``Wet_South_CLIM``
+     - ``hrdps``
+     - ``hreps``
 
 They live in ``configobs/regions_data`` as ``.npz`` files, a few tens of
 kB each. Bring a collection in once from its shapefiles:

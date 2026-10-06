@@ -15,6 +15,9 @@ What these prove, each against the real ``SeoCollectionService.collect``:
 
 from __future__ import annotations
 
+import asyncio
+import dataclasses
+
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -55,7 +58,7 @@ class PricedProvider(FakeRankProvider):
                 name="serp.rank.live",
                 capability=SeoCapability.SERP_RANK,
                 credential_keys=(),
-                freshness_ttl_seconds=86_400,
+                reuse_family="serp",
             ),
         )
         self._calls = calls
@@ -91,13 +94,13 @@ class RecordingRepository(InMemorySeoRepository):
         super().__init__()
         self._calls = calls
 
-    async def find_fresh_completed(self, provider, request, freshness_ttl_seconds):
+    async def find_fresh_completed(self, provider, request, freshness_ttl_seconds, **kwargs):
         self._calls.append("find_fresh_completed")
-        return await super().find_fresh_completed(provider, request, freshness_ttl_seconds)
+        return await super().find_fresh_completed(provider, request, freshness_ttl_seconds, **kwargs)
 
-    async def start_run(self, provider, request):
+    async def start_run(self, provider, request, **kwargs):
         self._calls.append("start_run")
-        return await super().start_run(provider, request)
+        return await super().start_run(provider, request, **kwargs)
 
 
 def _state(approval_id: str, *, ceiling: str, spent: str = "0", status: str = "open"):
@@ -424,3 +427,77 @@ async def test_a_short_approval_keeps_its_recovery_handle() -> None:
         await service.collect(PricedProvider(repository, calls=calls), _request(approval))
     assert refused.value.usable_approval is True
     assert refused.value.recovery["handle"] == approval
+
+
+class HoldingResolver(RecordingResolver):
+    """Mirrors billing.spend_approval_reserve / _settle: a hold is refused when
+    spent + every hold in flight + this one would pass the ceiling; settle
+    releases the hold and draws the actual. Every step yields, so concurrent
+    runs interleave exactly where the database would let them."""
+
+    def __init__(self, approval_id: str, ceiling: Decimal, calls: list[str]) -> None:
+        super().__init__({approval_id: [_state(approval_id, ceiling=str(ceiling))]}, calls)
+        self.ceiling = ceiling
+        self.spent = Decimal(0)
+        self.reserved = Decimal(0)
+
+    async def read(self, approval_id, request):
+        await asyncio.sleep(0)
+        state = await super().read(approval_id, request)
+        return dataclasses.replace(state, spent_usd=self.spent) if state else None
+
+    async def reserve(self, approval_id, amount_usd):
+        await asyncio.sleep(0)
+        if self.spent + self.reserved + amount_usd > self.ceiling:
+            return False
+        self.reserved += amount_usd
+        return True
+
+    async def settle(self, approval_id, reserved_usd, actual_usd, *, run_id):
+        await asyncio.sleep(0)
+        self.reserved = max(self.reserved - reserved_usd, Decimal(0))
+        self.spent += actual_usd
+        self.charges.append((approval_id, actual_usd, run_id))
+
+
+@pytest.mark.asyncio
+async def test_two_runs_at_once_cannot_both_spend_an_approval_that_covers_one() -> None:
+    calls: list[str] = []
+    approval = str(uuid4())
+    resolver = HoldingResolver(approval, PRICE + PRICE / 2, calls)
+    set_spend_approval_resolver(resolver)
+    repository = RecordingRepository(calls)
+    service = SeoCollectionService(repository, credential_resolver=fake_credential_resolver)
+    first = _request(approval)
+    second = first.model_copy(update={"target_ref": "target-2"})
+
+    outcomes = await asyncio.gather(
+        service.collect(PricedProvider(repository, calls=calls), first),
+        service.collect(PricedProvider(repository, calls=calls), second),
+        return_exceptions=True,
+    )
+
+    refused = [o for o in outcomes if isinstance(o, SpendApprovalExceededError)]
+    assert len(refused) == 1, outcomes
+    assert calls.count("provider_call") == 1
+    assert resolver.spent <= resolver.ceiling
+    assert resolver.reserved == 0  # the refused and the finished run both let go
+
+
+@pytest.mark.asyncio
+async def test_a_run_that_fails_after_its_hold_releases_it() -> None:
+    calls: list[str] = []
+    approval = str(uuid4())
+    resolver = HoldingResolver(approval, PRICE * 2, calls)
+    set_spend_approval_resolver(resolver)
+    repository = RecordingRepository(calls)
+
+    async def broken_credentials(request, provider):
+        raise RuntimeError("vault down")
+
+    service = SeoCollectionService(repository, credential_resolver=broken_credentials)
+    with pytest.raises(RuntimeError):
+        await service.collect(PricedProvider(repository, calls=calls), _request(approval))
+
+    assert resolver.reserved == 0
+    assert resolver.spent == 0

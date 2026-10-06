@@ -108,9 +108,12 @@ def layer_case(expr: str, layers: Sequence[tuple]) -> str:
     """SQL giving the layer label of a level; NULL outside every layer.
 
     A level in no layer is not folded into a neighbour: it gives NULL,
-    and the query decides whether to drop it or keep it apart.
+    and the query decides whether to drop it or keep it apart. A level on
+    a bound goes to the layer with the larger number, as in scatter,
+    timeserie and mapobs (lo < level <= hi): 40 km in 30-40, 500 hPa in
+    500-250 -- the same observations in a layer whatever the module.
     """
-    whens = " ".join(f"WHEN {expr} >= {lo!r} AND {expr} < {hi!r} "
+    whens = " ".join(f"WHEN {expr} > {min(lo, hi)!r} AND {expr} <= {max(lo, hi)!r} "
                      f"THEN '{label}'" for lo, hi, label in layers)
     return f"(CASE {whens} END)"
 
@@ -122,7 +125,8 @@ def layer_of(value, layers: Sequence[tuple]) -> Optional[str]:
     except (TypeError, ValueError):
         return None
     for lo, hi, label in layers:
-        if lo <= v < hi:
+        # on a bound: the layer with the larger number, as layer_case
+        if min(lo, hi) < v <= max(lo, hi):
             return label
     return None
 
@@ -130,3 +134,50 @@ def layer_of(value, layers: Sequence[tuple]) -> Optional[str]:
 def layer_label(label: str) -> str:
     """The label without its rank, for a title: '850-500 hPa'."""
     return str(label).split(' | ', 1)[-1]
+
+
+# ---- The layers of a family, and how they read --------------------------
+# (they were in scatter; mapobs and timeserie went there for them)
+
+def vcotyp(family: str) -> str:
+    """What the vertical coordinate of a family is ('' if unknown)."""
+    try:
+        return _family(family)[5]
+    except Exception:
+        return ""
+
+
+def layer_unit(vcotyp: str) -> str:
+    """The unit of a layer's edges: km for heights, hPa for pressures."""
+    return "km" if layer_unit_scale(vcotyp) == 1000.0 else "hPa"
+
+
+def layer_display(interval, vcotyp: str = "") -> str:
+    """'2 | 850-500 hPa': the rank first, so a viewer sorts by height and
+    not alphabetically, where 1000 would come before 500."""
+    a, b = interval[0], interval[1]
+    if a is None and b is None:
+        return "layer_all"
+    rank = interval[2] if len(interval) > 2 else 0
+    return f"{rank} | {a:g}-{b:g} {layer_unit(vcotyp)}"
+
+
+def family_layers(family: str, pressure: Sequence[float] = (),
+                  height: Sequence[float] = ()) -> List[tuple]:
+    """The layers of one family: the whole column, then each layer.
+
+    A family whose vertical coordinate is a channel, a surface or a band
+    of latitude has no layer to speak of, and an empty list of edges
+    means the whole column: in both cases the run keeps the single
+    ``layer_all`` series it always had.
+    """
+    vc = vcotyp(family)
+    if not needs_layers(vc):
+        return [(None, None)]
+    edges = list(pressure if layer_unit(vc) == "hPa" else height)
+    if not edges:
+        return [(None, None)]  # the whole column, in one series
+    out = [(None, None)]
+    for i, (a, b) in enumerate(zip(edges[:-1], edges[1:]), start=1):
+        out.append((float(a), float(b), i))
+    return out

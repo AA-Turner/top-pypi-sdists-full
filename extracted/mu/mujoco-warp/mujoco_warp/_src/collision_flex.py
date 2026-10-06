@@ -30,8 +30,10 @@ from mujoco_warp._src.types import MJ_MAXCONPAIR
 from mujoco_warp._src.types import MJ_MAXVAL
 from mujoco_warp._src.types import MJ_MINMU
 from mujoco_warp._src.types import MJ_MINVAL
+from mujoco_warp._src.types import ContactType
 from mujoco_warp._src.types import Data
 from mujoco_warp._src.types import GeomType
+from mujoco_warp._src.types import IntegratorType
 from mujoco_warp._src.types import Model
 from mujoco_warp._src.types import OverflowType
 from mujoco_warp._src.types import mat63
@@ -43,6 +45,7 @@ wp.set_module_options({"enable_backward": False, "default_grid_stride": False})
 
 _FPS_BLOCK_SIZE: int = 64
 ENABLE_SAT_PREFILTER: bool = True
+_FLEX_CONTACT_DEDUP_TOLERANCE: float = 1e-3
 
 
 @wp.func
@@ -454,13 +457,45 @@ def _collide_geom_triangle_detect(
 ):
   if gtype == int(GeomType.SPHERE):
     sphere_radius = size_val[0]
-    dist, contact_pos, nrm = collision_primitive_core.sphere_triangle(pos, sphere_radius, t1, t2, t3, tri_radius)
-    if dist < margin:
+    dist, contact_pos, nrm = collision_primitive_core.sphere_triangle(pos, sphere_radius, t1, t2, t3, tri_radius, margin)
+    _write_candidate(
+      max_candidates,
+      dist,
+      contact_pos,
+      nrm,
+      geomid,
+      -1,
+      flexid,
+      elemid,
+      vertex_id,
+      worldid,
+      warn_overflow,
+      overflow_out,
+      cand_dist_out,
+      cand_pos_out,
+      cand_nrm_out,
+      cand_geom_out,
+      cand_flex_out,
+      cand_elem_out,
+      cand_vert_out,
+      cand_worldid_out,
+      ncand_out,
+    )
+    return
+
+  if gtype == int(GeomType.CAPSULE):
+    cap_radius = size_val[0]
+    cap_half_len = size_val[1]
+    cap_axis = wp.vec3(rot[0, 2], rot[1, 2], rot[2, 2])
+    cap_dists, cap_poss, cap_nrms = collision_primitive_core.capsule_triangle(
+      pos, cap_axis, cap_radius, cap_half_len, t1, t2, t3, tri_radius, margin
+    )
+    for i in range(5):
       _write_candidate(
         max_candidates,
-        dist,
-        contact_pos,
-        nrm,
+        cap_dists[i],
+        cap_poss[i],
+        cap_nrms[i],
         geomid,
         -1,
         flexid,
@@ -481,81 +516,66 @@ def _collide_geom_triangle_detect(
       )
     return
 
-  # Capsule, box, cylinder all return up to 2 contacts - compute then share writing code
-  dists = wp.vec2(collision_primitive_core.MJ_MAXVAL, collision_primitive_core.MJ_MAXVAL)
-  poss = collision_primitive_core.mat23f(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-  nrms = collision_primitive_core.mat23f(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+  if gtype == int(GeomType.BOX):
+    box_dists, box_poss, box_nrms = collision_primitive_core.box_triangle(pos, rot, size_val, t1, t2, t3, tri_radius, margin)
+    for i in range(11):
+      _write_candidate(
+        max_candidates,
+        box_dists[i],
+        box_poss[i],
+        box_nrms[i],
+        geomid,
+        -1,
+        flexid,
+        elemid,
+        vertex_id,
+        worldid,
+        warn_overflow,
+        overflow_out,
+        cand_dist_out,
+        cand_pos_out,
+        cand_nrm_out,
+        cand_geom_out,
+        cand_flex_out,
+        cand_elem_out,
+        cand_vert_out,
+        cand_worldid_out,
+        ncand_out,
+      )
+    return
 
-  if gtype == int(GeomType.CAPSULE):
-    cap_radius = size_val[0]
-    cap_half_len = size_val[1]
-    cap_axis = wp.vec3(rot[0, 2], rot[1, 2], rot[2, 2])
-    dists, poss, nrms = collision_primitive_core.capsule_triangle(
-      pos, cap_axis, cap_radius, cap_half_len, t1, t2, t3, tri_radius
-    )
-  elif gtype == int(GeomType.BOX):
-    dists, poss, nrms = collision_primitive_core.box_triangle(pos, rot, size_val, t1, t2, t3, tri_radius)
-  elif gtype == int(GeomType.CYLINDER):
+  if gtype == int(GeomType.CYLINDER):
     cyl_radius = size_val[0]
     cyl_half_height = size_val[1]
     cyl_axis = wp.vec3(rot[0, 2], rot[1, 2], rot[2, 2])
-    dists, poss, nrms = collision_primitive_core.cylinder_triangle(
+    cyl_dists, cyl_poss, cyl_nrms = collision_primitive_core.cylinder_triangle(
       pos, cyl_axis, cyl_radius, cyl_half_height, t1, t2, t3, tri_radius
     )
-
-  # Write up to 2 contacts (shared code for capsule/box/cylinder)
-  if dists[0] < margin:
-    p1 = wp.vec3(poss[0, 0], poss[0, 1], poss[0, 2])
-    n1 = wp.vec3(nrms[0, 0], nrms[0, 1], nrms[0, 2])
-    _write_candidate(
-      max_candidates,
-      dists[0],
-      p1,
-      n1,
-      geomid,
-      -1,
-      flexid,
-      elemid,
-      vertex_id,
-      worldid,
-      warn_overflow,
-      overflow_out,
-      cand_dist_out,
-      cand_pos_out,
-      cand_nrm_out,
-      cand_geom_out,
-      cand_flex_out,
-      cand_elem_out,
-      cand_vert_out,
-      cand_worldid_out,
-      ncand_out,
-    )
-  if dists[1] < margin:
-    p2 = wp.vec3(poss[1, 0], poss[1, 1], poss[1, 2])
-    n2 = wp.vec3(nrms[1, 0], nrms[1, 1], nrms[1, 2])
-    _write_candidate(
-      max_candidates,
-      dists[1],
-      p2,
-      n2,
-      geomid,
-      -1,
-      flexid,
-      elemid,
-      vertex_id,
-      worldid,
-      warn_overflow,
-      overflow_out,
-      cand_dist_out,
-      cand_pos_out,
-      cand_nrm_out,
-      cand_geom_out,
-      cand_flex_out,
-      cand_elem_out,
-      cand_vert_out,
-      cand_worldid_out,
-      ncand_out,
-    )
+    for i in range(2):
+      if cyl_dists[i] < margin:
+        _write_candidate(
+          max_candidates,
+          cyl_dists[i],
+          cyl_poss[i],
+          cyl_nrms[i],
+          geomid,
+          -1,
+          flexid,
+          elemid,
+          vertex_id,
+          worldid,
+          warn_overflow,
+          overflow_out,
+          cand_dist_out,
+          cand_pos_out,
+          cand_nrm_out,
+          cand_geom_out,
+          cand_flex_out,
+          cand_elem_out,
+          cand_vert_out,
+          cand_worldid_out,
+          ncand_out,
+        )
 
 
 @wp.func
@@ -2263,22 +2283,102 @@ def _compute_filter_key(
   val_out[i] = i
 
 
-# Note: Matches MuJoCo C contact filtering semantics. Cross-pair proximity
-# deduplication is omitted; all candidate contacts from narrowphase are passed
-# directly to farthest-point sampling.
+@wp.func
+def _compare_candidate(
+  # In:
+  dist_i: float,
+  dist_j: float,
+  cand_idx_i: int,
+  cand_idx_j: int,
+) -> bool:
+  """Returns True if candidate i is dominated by (and should yield to) candidate j."""
+  if dist_j < dist_i:
+    return True
+  if dist_j == dist_i and cand_idx_j < cand_idx_i:
+    return True
+  return False
+
+
+# Note: MuJoCo Warp uses proximity deduplication (1 mm threshold) instead of
+# Farthest Point Sampling (FPS) limited to mjMAXCONPAIR for flex-geom collisions.
+# Flex self-collision and flex-flex collision apply proximity deduplication before FPS.
+# TODO(thowell): Figure out an FPS version that utilizes a configurable mj_maxconpair.
 @wp.kernel
-def _init_cand_active(
+def _filter_flex_candidates_sorted(
   # In:
   ncand: wp.array[int],
+  epsilon: float,
+  sort_key: wp.array[wp.int64],
+  sort_val: wp.array[int],
+  cand_dist: wp.array[float],
+  cand_pos: wp.array[wp.vec3],
   # Out:
   cand_active_out: wp.array[int],
 ):
-  i = wp.tid()
+  """Filter duplicate candidates using sorted order.
+
+  After sorting by group key, candidates in the same group are contiguous.
+  Each candidate only compares with neighbors sharing the same key, reducing
+  complexity from O(n^2) to O(n * k) where k is the average group size.
+  """
+  si = wp.tid()
   ncand_limit = wp.min(ncand[0], cand_active_out.shape[0])
-  if i < ncand_limit:
-    cand_active_out[i] = 1
-  else:
-    cand_active_out[i] = 0
+  if si >= ncand_limit:
+    if si < cand_active_out.shape[0]:
+      cand_active_out[sort_val[si]] = 0
+    return
+
+  i = sort_val[si]
+  my_key = sort_key[si]
+  my_group = my_key >> wp.int64(32)
+  my_spatial = my_key & wp.int64(0x7FFFFFFF)
+  eps_key = wp.int64(wp.ceil(epsilon * 1000000.0)) + wp.int64(1)
+  pos_i = cand_pos[i]
+  dist_i = cand_dist[i]
+  eps2 = epsilon * epsilon
+
+  keep = int(1)
+
+  # Compare with same-key neighbors (backward)
+  j = si - 1
+  while j >= 0:
+    key_j = sort_key[j]
+    if (key_j >> wp.int64(32)) != my_group:
+      break
+    spatial_j = key_j & wp.int64(0x7FFFFFFF)
+    if my_spatial - spatial_j >= eps_key:
+      break
+
+    oj = sort_val[j]
+    pos_j = cand_pos[oj]
+    diff = pos_i - pos_j
+    if wp.dot(diff, diff) < eps2:
+      if _compare_candidate(dist_i, cand_dist[oj], i, oj):
+        keep = 0
+        break
+    j -= 1
+
+  # Compare with same-key neighbors (forward)
+  if keep == 1:
+    j = si + 1
+    while j < ncand_limit:
+      key_j = sort_key[j]
+      if (key_j >> wp.int64(32)) != my_group:
+        break
+      spatial_j = key_j & wp.int64(0x7FFFFFFF)
+      if spatial_j - my_spatial >= eps_key:
+        break
+
+      oj = sort_val[j]
+      pos_j = cand_pos[oj]
+      diff = pos_i - pos_j
+      if wp.dot(diff, diff) < eps2:
+        if _compare_candidate(dist_i, cand_dist[oj], i, oj):
+          keep = 0
+          break
+      j += 1
+
+  cand_active_out[i] = keep
 
 
 @cache_kernel
@@ -2286,8 +2386,11 @@ def _write_filtered_contacts(warn_overflow: int):
   @wp.kernel(module="unique", enable_backward=False)
   def kernel(
     # Model:
+    opt_integrator: int,
+    body_weldid: wp.array[int],
     geom_type: wp.array[int],
     geom_condim: wp.array[int],
+    geom_bodyid: wp.array[int],
     geom_priority: wp.array[int],
     geom_solmix: wp.array2d[float],
     geom_solref: wp.array2d[wp.vec2],
@@ -2303,7 +2406,9 @@ def _write_filtered_contacts(warn_overflow: int):
     flex_friction: wp.array[wp.vec3],
     flex_margin: wp.array[float],
     flex_gap: wp.array[float],
+    flex_passive: wp.array[int],
     flex_dim: wp.array[int],
+    flex_interp: wp.array[int],
     # Data in:
     naconmax_in: int,
     # In:
@@ -2442,7 +2547,19 @@ def _write_filtered_contacts(warn_overflow: int):
     contact_elem_out[id_] = cand_elem[i]
     contact_vert_out[id_] = cand_vert[i]
     contact_worldid_out[id_] = cand_worldid[i]
-    contact_type_out[id_] = 1
+    f0 = cand_flex[i][0]
+    f1 = cand_flex[i][1]
+    g0 = cand_geom[i][0]
+    g1 = cand_geom[i][1]
+    wants = (
+      (f0 >= 0 and flex_passive[f0] != 0 and flex_interp[f0] == 0 and flex_dim[f0] >= 2)
+      or (f1 >= 0 and flex_passive[f1] != 0 and flex_interp[f1] == 0 and flex_dim[f1] >= 2)
+    ) and opt_integrator == int(IntegratorType.DISCRETE)
+    ok = (f0 >= 0 or (g0 >= 0 and body_weldid[geom_bodyid[g0]] == 0)) and (
+      f1 >= 0 or (g1 >= 0 and body_weldid[geom_bodyid[g1]] == 0)
+    )
+    is_passive = wants and ok
+    contact_type_out[id_] = int(ContactType.PASSIVE) if is_passive else int(ContactType.CONSTRAINT)
     contact_geomcollisionid_out[id_] = 0
 
   return kernel
@@ -3149,35 +3266,42 @@ def _filter_and_write_contacts(
   ws: FlexWorkspace,
   enable_fps: bool = False,
 ):
-  """Optionally applies FPS filtering and writes contacts to d.contact."""
+  """Deduplicates candidates, optionally applies FPS filtering, and writes contacts to d.contact."""
   wp.launch(
-    _init_cand_active,
+    _compute_filter_key,
     dim=d.naconmax,
-    inputs=[ws.ncand],
+    inputs=[
+      m.ngeom,
+      m.nflex,
+      ws.ncand,
+      ws.geom,
+      ws.flex,
+      ws.pos,
+      ws.worldid,
+    ],
+    outputs=[
+      ws.filter_key,
+      ws.filter_val,
+    ],
+  )
+
+  wp.utils.radix_sort_pairs(ws.filter_key, ws.filter_val, d.naconmax)
+
+  wp.launch(
+    _filter_flex_candidates_sorted,
+    dim=d.naconmax,
+    inputs=[
+      ws.ncand,
+      _FLEX_CONTACT_DEDUP_TOLERANCE,
+      ws.filter_key,
+      ws.filter_val,
+      ws.dist,
+      ws.pos,
+    ],
     outputs=[ws.cand_active],
   )
 
   if enable_fps:
-    wp.launch(
-      _compute_filter_key,
-      dim=d.naconmax,
-      inputs=[
-        m.ngeom,
-        m.nflex,
-        ws.ncand,
-        ws.geom,
-        ws.flex,
-        ws.pos,
-        ws.worldid,
-      ],
-      outputs=[
-        ws.filter_key,
-        ws.filter_val,
-      ],
-    )
-
-    wp.utils.radix_sort_pairs(ws.filter_key, ws.filter_val, d.naconmax)
-
     wp.launch(
       _populate_active_sorted,
       dim=d.naconmax,
@@ -3223,8 +3347,11 @@ def _filter_and_write_contacts(
     _write_filtered_contacts(int(m.opt.warn_overflow)),
     dim=d.naconmax,
     inputs=[
+      m.opt.integrator,
+      m.body_weldid,
       m.geom_type,
       m.geom_condim,
+      m.geom_bodyid,
       m.geom_priority,
       m.geom_solmix,
       m.geom_solref,
@@ -3240,7 +3367,9 @@ def _filter_and_write_contacts(
       m.flex_friction,
       m.flex_margin,
       m.flex_gap,
+      m.flex_passive,
       m.flex_dim,
+      m.flex_interp,
       d.naconmax,
       ws.ncand,
       ws.dist,

@@ -1,9 +1,7 @@
 """Regression tests for ligand atom typing and bond-order correction helpers."""
 
 import math
-from types import SimpleNamespace
 
-import numpy as np
 from rdkit import Chem
 
 from tmol.ligand import (
@@ -19,10 +17,10 @@ from tmol.ligand import (
     _classify_S,
     _correct_conjugated_single_bond_orders,
     _correct_ring_nitrogen,
+    assign_tmol_atom_types,
     _modify_polar_c,
     _get_hyb,
     sanitize_tolerant,
-    ligand_atom_array_to_rdkit_mol,
     build_residue_type,
 )
 
@@ -272,15 +270,20 @@ def test_long_ring_aromatic_planarity_gate() -> None:
     assert len(non_planar.atms_aro) == 0
 
 
-def test_classify_n_pl3_ring_hetero_tertiary_maps_to_nim() -> None:
-    """A tertiary pl3 ring N with a hetero neighbor maps to Nim."""
-    mol = Chem.MolFromSmiles("CN1N=CC=CC1")
-    atom = next(
-        a for a in mol.GetAtoms() if a.GetAtomicNum() == 7 and a.GetDegree() == 3
-    )
-    atom.SetProp("_tmol_source_subtype", "pl3")
-    state = _build_rosetta_typing_state(mol)
-    assert _classify_N(atom, mol, state) == "Nim"
+def test_classify_n_ring_hetero_tertiary_maps_to_nad3() -> None:
+    """A tertiary ring N with an N neighbor and no H is Nad3, not the acceptor Nim.
+
+    Guards _classify_N_hetero in ligand/_atom_typing.py, whose two reference
+    parity rules typed these Nim for mol2 subtypes pl3/am and 2/ar.
+    """
+    for sub in ("pl3", "2", "ar"):
+        mol = Chem.MolFromSmiles("CN1N=CC=CC1")
+        atom = next(
+            a for a in mol.GetAtoms() if a.GetAtomicNum() == 7 and a.GetDegree() == 3
+        )
+        atom.SetProp("_tmol_source_subtype", sub)
+        state = _build_rosetta_typing_state(mol)
+        assert _classify_N(atom, mol, state) == "Nad3"
 
 
 def test_conjugated_single_bond_promotion_for_conjugating_classes() -> None:
@@ -532,36 +535,6 @@ def test_classify_n2_protonated_formal_charge_maps_to_nam2() -> None:
     assert _classify_N(n_atom, mol, state) == "Nam2"
 
 
-def test_ligand_atom_array_allows_passthrough_unknown_bond_type(monkeypatch) -> None:
-    """Unknown bond-type codes pass through atom-array to RDKit conversion."""
-
-    class _FakeBondTable:
-        def __init__(self, rows):
-            self._rows = np.array(rows, dtype=int)
-
-        def get_bond_count(self):
-            return len(self._rows)
-
-        def as_array(self):
-            return self._rows
-
-    class _FakeAtomArray:
-        def __init__(self):
-            self.bonds = _FakeBondTable([[0, 1, 99], [1, 2, 2]])
-            self.element = np.array(["C", "C", "C"], dtype=object)
-
-        def __len__(self):
-            return len(self.element)
-
-    monkeypatch.setattr(
-        "tmol.ligand._rdkit_mol.to_mol",
-        lambda _aa: Chem.MolFromSmiles("CCC"),
-    )
-    ligand_info = SimpleNamespace(res_name="LG1", atom_array=_FakeAtomArray())
-    mol = ligand_atom_array_to_rdkit_mol(ligand_info)
-    assert mol.GetNumAtoms() == 3
-
-
 def test_conjugated_single_bond_skips_biaryl_like_ring_pivot() -> None:
     """Conjugation promotion skips the biaryl pivot bond between aromatic rings."""
     mol = Chem.MolFromSmiles("c1ccccc1-c2ccccc2")
@@ -592,7 +565,9 @@ def test_large_ring_bonds_keep_ring_flag_in_residue_type() -> None:
         AtomTypeAssignment(atom_name=f"C{i + 1}", atom_type="CS3", element="C", index=i)
         for i in range(mol.GetNumAtoms())
     ]
-    restype = build_residue_type(mol, "LG1", atom_types)
+    restype = build_residue_type(
+        mol, "LG1", atom_types, typing_state=_build_rosetta_typing_state(mol)
+    )
     assert all(not b[3] for b in restype.bonds)
 
 
@@ -609,3 +584,43 @@ def test_sanitize_tolerant_preserves_existing_double_bond_without_aromatic_rewri
     assert bond.GetBondType() == Chem.BondType.DOUBLE
     sanitize_tolerant(mol)
     assert bond.GetBondType() == Chem.BondType.DOUBLE
+
+
+def _typed_benzamide():
+    """Benzamide typed and built as a residue: (mol, residue type, atom types by name)."""
+    mol = Chem.AddHs(Chem.MolFromSmiles("NC(=O)c1ccccc1"))
+    atom_types, state = assign_tmol_atom_types(mol, return_state=True)
+    restype = build_residue_type(mol, "LG1", atom_types, typing_state=state)
+    return mol, restype, {a.atom_name: a for a in atom_types}
+
+
+def test_aryl_amide_pivot_stays_single() -> None:
+    """The ring-to-carbonyl bond of an aryl amide is a biaryl pivot, not conjugated.
+
+    Guards _correct_conjugated_single_bond_orders in ligand/_atom_typing.py,
+    which skipped only ring-to-ring junctions and promoted ring-to-group pivots
+    (Rosetta search_special_biaryl_ring) to double.
+    """
+    mol, restype, by_name = _typed_benzamide()
+    cdp = next(n for n, a in by_name.items() if a.atom_type == "CDp")
+    bonds = {frozenset(b[:2]): b[2] for b in restype.bonds}
+    ring = [
+        n
+        for n, a in by_name.items()
+        if a.atom_type == "CR" and frozenset((n, cdp)) in bonds
+    ]
+    assert len(ring) == 1
+    assert bonds[frozenset((ring[0], cdp))] == "SINGLE"
+
+
+def test_amide_bond_written_as_aromatic() -> None:
+    """A corrected amide C-N bond is written as aromatic, Rosetta's amide order 4.
+
+    Guards build_residue_type in ligand/_residue_builder.py, which wrote the bond
+    _correct_amide_bond_orders had set to double as DOUBLE.
+    """
+    mol, restype, by_name = _typed_benzamide()
+    cdp = next(n for n, a in by_name.items() if a.atom_type == "CDp")
+    nad = next(n for n, a in by_name.items() if a.atom_type in ("Nad", "Nad3"))
+    bonds = {frozenset(b[:2]): b[2] for b in restype.bonds}
+    assert bonds[frozenset((cdp, nad))] == "AROMATIC"

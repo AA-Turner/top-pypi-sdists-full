@@ -52,7 +52,7 @@ def is_check_types(server: Optional[Server]) -> bool:
     """Type checks only make sense where the data source carries real types."""
     if server is None:
         return True
-    return server.format not in ("json", "csv", "avro")
+    return server.format not in ("json", "csv", "avro", "xml")
 
 
 def to_schema_name(schema_object: SchemaObject, server_type: Optional[str]) -> str:
@@ -138,6 +138,13 @@ def _iter_property_paths(
             # `[]` marks the array hop; the executor turns it into a predicate
             # over the elements instead of a column lookup.
             yield from _iter_property_paths(prop.items.properties, f"{field_path}[]")
+        elif prop_type == "array" and prop.items and _constrains_values(prop.items):
+            # The items of an array of plain values, such as a pattern on every tag
+            yield f"{field_path}[]", prop.items, True
+
+
+def _constrains_values(prop: SchemaProperty) -> bool:
+    return bool(prop.logicalTypeOptions or prop.enum or prop.required or prop.unique or prop.quality)
 
 
 def nested_not_run_reason(server_type: Optional[str]) -> str:
@@ -261,7 +268,7 @@ def _to_schema_checks(
     properties = schema_object.properties or []
     check_types = is_check_types(server)
     uses_raw_view = (
-        server is not None and server_type in _FILE_SERVER_TYPES and server.format in ("csv", "parquet", "json")
+        server is not None and server_type in _FILE_SERVER_TYPES and server.format in ("csv", "parquet", "json", "xml")
     )
 
     # A primary key is both not-null and unique. A composite key is unique as a
@@ -273,22 +280,43 @@ def _to_schema_checks(
     )
     primary_key_is_composite = len(primary_key_props) > 1
 
+    # In a JSON, YAML or XML document, a property that is not required may be absent from every record,
+    # unlike a column of a table. For XML, the types DuckDB infers for the raw view also drop the attributes
+    # of nested elements with children. The required top-level properties are still checked for presence.
+    xml = server is not None and server.format == "xml"
+    documents = server is not None and server.format in ("json", "xml")
+    if xml:
+        # A record element that matches nothing would pass every other check
+        checks.append(
+            CheckSpec(
+                key=f"{model}__records_found",
+                category="schema",
+                type="records_found",
+                name=f"Check that the documents have {model} elements",
+                model=model,
+                field=None,
+                metric=MetricType.ROW_COUNT,
+                threshold=Threshold(Op.GT, 0),
+            )
+        )
+
     for field, prop, nested in _iter_property_paths(properties):
         first_check = len(checks)
         # ODCS physicalName is the real column; mirror to_schema_name at field level.
 
-        checks.append(
-            CheckSpec(
-                key=f"{model}__{field}__field_is_present",
-                category="schema",
-                type="field_is_present",
-                name=f"Check that field '{field}' is present",
-                model=model,
-                field=field,
-                metric=MetricType.FIELD_PRESENT,
-                uses_raw_view=uses_raw_view,
+        if not documents or (prop.required and not nested):
+            checks.append(
+                CheckSpec(
+                    key=f"{model}__{field}__field_is_present",
+                    category="schema",
+                    type="field_is_present",
+                    name=f"Check that field '{field}' is present",
+                    model=model,
+                    field=field,
+                    metric=MetricType.FIELD_PRESENT,
+                    uses_raw_view=uses_raw_view,
+                )
             )
-        )
 
         # The raw view cannot provide nested type checks
         declared_base = normalize_type_name(prop.logicalType or prop.physicalType)
